@@ -104,14 +104,24 @@ class TypeValidationRule(ValidationRule):
                 ))
     
     def _get_container_def(self, definition_ref: str, module_def: EcucModuleDef) -> Optional[EcucContainerDef]:
-        """Get container definition from reference path"""
+        """Get container definition from reference path
+        
+        Handles both absolute (/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit)
+        and relative (AdcConfigSet/AdcHwUnit) paths
+        """
         parts = definition_ref.split('/')
-        if len(parts) < 4:
-            return None
-        relative_path = '/'.join(parts[4:])
-        if not relative_path:
-            return None
-        return module_def.get_container_def(relative_path)
+        
+        # Handle absolute AUTOSAR paths
+        if len(parts) >= 4 and parts[0] == '' and parts[1] == 'AUTOSAR':
+            relative_path = '/'.join(parts[4:])
+            if relative_path:
+                return module_def.get_container_def(relative_path)
+        
+        # Handle relative paths
+        if definition_ref and not definition_ref.startswith('/'):
+            return module_def.get_container_def(definition_ref)
+        
+        return None
 
 
 class RangeValidationRule(ValidationRule):
@@ -171,12 +181,13 @@ class RangeValidationRule(ValidationRule):
     def _get_container_def(self, definition_ref: str, module_def: EcucModuleDef) -> Optional[EcucContainerDef]:
         """Get container definition from reference path"""
         parts = definition_ref.split('/')
-        if len(parts) < 4:
-            return None
-        relative_path = '/'.join(parts[4:])
-        if not relative_path:
-            return None
-        return module_def.get_container_def(relative_path)
+        if len(parts) >= 4 and parts[0] == '' and parts[1] == 'AUTOSAR':
+            relative_path = '/'.join(parts[4:])
+            if relative_path:
+                return module_def.get_container_def(relative_path)
+        if definition_ref and not definition_ref.startswith('/'):
+            return module_def.get_container_def(definition_ref)
+        return None
 
 
 class EnumerationValidationRule(ValidationRule):
@@ -226,12 +237,13 @@ class EnumerationValidationRule(ValidationRule):
     def _get_container_def(self, definition_ref: str, module_def: EcucModuleDef) -> Optional[EcucContainerDef]:
         """Get container definition from reference path"""
         parts = definition_ref.split('/')
-        if len(parts) < 4:
-            return None
-        relative_path = '/'.join(parts[4:])
-        if not relative_path:
-            return None
-        return module_def.get_container_def(relative_path)
+        if len(parts) >= 4 and parts[0] == '' and parts[1] == 'AUTOSAR':
+            relative_path = '/'.join(parts[4:])
+            if relative_path:
+                return module_def.get_container_def(relative_path)
+        if definition_ref and not definition_ref.startswith('/'):
+            return module_def.get_container_def(definition_ref)
+        return None
 
 
 class RequiredParameterRule(ValidationRule):
@@ -275,9 +287,10 @@ class RequiredParameterRule(ValidationRule):
     def _get_container_def(self, definition_ref: str, module_def: EcucModuleDef) -> Optional[EcucContainerDef]:
         """Get container definition from reference path"""
         parts = definition_ref.split('/')
-        if len(parts) < 4:
-            return None
-        relative_path = '/'.join(parts[4:])
-        if not relative_path:
-            return None
-        return module_def.get_container_def(relative_path)
+        if len(parts) >= 4 and parts[0] == '' and parts[1] == 'AUTOSAR':
+            relative_path = '/'.join(parts[4:])
+            if relative_path:
+                return module_def.get_container_def(relative_path)
+        if definition_ref and not definition_ref.startswith('/'):
+            return module_def.get_container_def(definition_ref)
+        return None

@@ -17,6 +17,15 @@ class EcucParameterType(Enum):
     FUNCTION = "ECUC-FUNCTION-NAME-DEF"
 
 
+class VariantType(Enum):
+    """AUTOSAR variant types for parameters"""
+    PRECOMPILE = "VARIANT-PRE-COMPILE"
+    LINKTIME = "VARIANT-LINK-TIME"
+    POSTBUILD = "VARIANT-POST-BUILD"
+    POSTBUILD_LOADABLE = "VARIANT-POST-BUILD-LOADABLE"
+    POSTBUILD_SELECTABLE = "VARIANT-POST-BUILD-SELECTABLE"
+
+
 @dataclass
 class EcucParameterDef:
     """ECUC Parameter Definition (ECUC-*-PARAM-DEF)
@@ -50,6 +59,9 @@ class EcucParameterDef:
     
     # Full path for reference
     definition_ref: str = ""  # Will be set during parsing
+    
+    # Variant support
+    variant_type: Optional[VariantType] = None  # Default to None (all variants)
     
     @property
     def is_required(self) -> bool:
@@ -167,6 +179,9 @@ class EcucModuleDef:
     
     # Full path
     definition_ref: str = ""
+    
+    # Default variant for this module
+    default_variant: VariantType = VariantType.POSTBUILD
     
     def add_container(self, container_def: EcucContainerDef):
         """Add a top-level container definition"""

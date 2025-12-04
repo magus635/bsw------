@@ -151,6 +151,12 @@ class DaVinciMainWindow(QMainWindow):
         self.generate_action.setShortcut(QKeySequence("Ctrl+G"))
         self.generate_action.setEnabled(False)
         self.generate_action.triggered.connect(self.generate_code)
+        
+        # Wizard actions
+        self.quick_config_action = QAction("Quick Configuration...", self)
+        self.quick_config_action.setShortcut(QKeySequence("Ctrl+Q"))
+        self.quick_config_action.setEnabled(False)
+        self.quick_config_action.triggered.connect(self.launch_quick_config_wizard)
     
     def _create_menus(self):
         """Create menus"""
@@ -181,6 +187,10 @@ class DaVinciMainWindow(QMainWindow):
         # Generate menu
         gen_menu = menubar.addMenu("Generate")
         gen_menu.addAction(self.generate_action)
+        
+        # Wizards menu
+        wizards_menu = menubar.addMenu("Wizards")
+        wizards_menu.addAction(self.quick_config_action)
     
     def _create_toolbars(self):
         """Create toolbars"""
@@ -362,6 +372,7 @@ class DaVinciMainWindow(QMainWindow):
         self.validate_action.setEnabled(True)
         self.load_rules_action.setEnabled(True)
         self.generate_action.setEnabled(True)
+        self.quick_config_action.setEnabled(True)
         
         self.value_file_label.setText("New configuration (unsaved)")
         self.current_value_file = None
@@ -400,6 +411,7 @@ class DaVinciMainWindow(QMainWindow):
             self.validate_action.setEnabled(True)
             self.load_rules_action.setEnabled(True)
             self.generate_action.setEnabled(True)
+            self.quick_config_action.setEnabled(True)
             
             self.statusbar.showMessage("Configuration loaded successfully", 3000)
             
@@ -541,6 +553,29 @@ class DaVinciMainWindow(QMainWindow):
                 f"Failed to generate code:\n{str(e)}"
             )
             self.statusbar.showMessage("Code generation failed", 3000)
+    
+    def launch_quick_config_wizard(self):
+        """Launch the quick configuration wizard"""
+        if not self.config_manager or not self.module_def:
+            return
+            
+        from .wizards.quick_config_wizard import QuickConfigWizard
+        
+        wizard = QuickConfigWizard(self.module_def, self.config_manager, self)
+        wizard.wizard_completed.connect(self._on_wizard_completed)
+        wizard.exec()
+    
+    def _on_wizard_completed(self, data: dict):
+        """Handle wizard completion"""
+        # Refresh tree view to show new instance
+        self.tree_view.refresh()
+        
+        # Select the newly created instance
+        instance = data.get("instance")
+        if instance:
+            self.tree_view._select_instance(instance)
+        
+        self.statusbar.showMessage("Configuration created successfully", 3000)
     
     def _on_instance_selected(self, instance: EcucContainerValue, container_def: EcucContainerDef):
         """Handle instance selection in tree"""
