@@ -42,6 +42,9 @@ class ConfigurationManager:
         
         # Instance counters for auto-naming
         self._instance_counters: Dict[str, int] = {}
+        
+        # Custom rules
+        self.custom_rule_files: List[Path] = []
     
     def create_container_instance(self,
                                   container_def: EcucContainerDef,
@@ -299,12 +302,25 @@ class ConfigurationManager:
         # Simple counter is fine for sorting index, or we could use len()
         return self._instance_counters.get(container_name, 0)
     
+    def add_custom_rule_file(self, file_path: Path):
+        """Add a custom rule file"""
+        if file_path not in self.custom_rule_files:
+            self.custom_rule_files.append(file_path)
+
     def validate_configuration(self) -> 'ValidationResult':
         """Validate current configuration"""
         from .validation_engine import ValidationEngine
         
         engine = ValidationEngine(self.module_def, self.configuration)
         engine.register_default_rules()
+        
+        # Load custom rules
+        for rule_file in self.custom_rule_files:
+            try:
+                engine.load_custom_rules(rule_file)
+            except Exception as e:
+                print(f"Warning: Failed to load rules from {rule_file}: {e}")
+                
         return engine.validate()
 
     def save_configuration(self, file_path: Path):

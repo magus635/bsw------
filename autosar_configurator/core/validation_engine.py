@@ -217,6 +217,22 @@ class ValidationEngine:
             RequiredParameterRule(),
             MultiplicityValidationRule(),
         ])
+        
+    def load_custom_rules(self, file_path: str):
+        """Load custom rules from a JSON file
+        
+        Args:
+            file_path: Path to the JSON rule file
+        """
+        from .rules.custom_rules import RuleLoader
+        from pathlib import Path
+        
+        try:
+            new_rules = RuleLoader.load_from_file(Path(file_path))
+            self.register_rules(new_rules)
+            return len(new_rules)
+        except Exception as e:
+            raise ValueError(f"Failed to load custom rules: {str(e)}")
     
     def validate(self) -> ValidationResult:
         """Execute all registered rules and aggregate results
