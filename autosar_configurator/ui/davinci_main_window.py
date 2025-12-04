@@ -119,6 +119,10 @@ class DaVinciMainWindow(QMainWindow):
         self.validate_action.setEnabled(False)
         self.validate_action.triggered.connect(self.validate_configuration)
         
+        self.load_rules_action = QAction("Load Custom Rules...", self)
+        self.load_rules_action.setEnabled(False)
+        self.load_rules_action.triggered.connect(self.load_custom_rules)
+        
         # Generate actions
         self.generate_action = QAction("Generate Code", self)
         self.generate_action.setShortcut(QKeySequence("Ctrl+G"))
@@ -143,6 +147,8 @@ class DaVinciMainWindow(QMainWindow):
         # Edit menu
         edit_menu = menubar.addMenu("Edit")
         edit_menu.addAction(self.validate_action)
+        edit_menu.addSeparator()
+        edit_menu.addAction(self.load_rules_action)
         
         # Generate menu
         gen_menu = menubar.addMenu("Generate")
@@ -239,6 +245,7 @@ class DaVinciMainWindow(QMainWindow):
         self.save_value_action.setEnabled(True)
         self.save_value_as_action.setEnabled(True)
         self.validate_action.setEnabled(True)
+        self.load_rules_action.setEnabled(True)
         self.generate_action.setEnabled(True)
         
         self.value_file_label.setText("New configuration (unsaved)")
@@ -276,6 +283,7 @@ class DaVinciMainWindow(QMainWindow):
             self.save_value_action.setEnabled(True)
             self.save_value_action.setEnabled(True)
             self.validate_action.setEnabled(True)
+            self.load_rules_action.setEnabled(True)
             self.generate_action.setEnabled(True)
             
             self.statusbar.showMessage("Configuration loaded successfully", 3000)
@@ -352,9 +360,36 @@ class DaVinciMainWindow(QMainWindow):
             )
             self.validation_label.setText("✓ Valid")
             self.validation_label.setStyleSheet("color: green;")
-            self.validation_label.setText("✓ Valid")
-            self.validation_label.setStyleSheet("color: green;")
             
+    def load_custom_rules(self):
+        """Load custom validation rules from file"""
+        if not self.config_manager:
+            return
+            
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load Custom Rules",
+            str(Path.home()),
+            "JSON Files (*.json);;All Files (*)"
+        )
+        
+        if not file_path:
+            return
+            
+        try:
+            self.config_manager.add_custom_rule_file(Path(file_path))
+            self.statusbar.showMessage(f"Loaded custom rules from {Path(file_path).name}", 3000)
+            
+            # Trigger validation to see effect
+            self.validate_configuration()
+            
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Error Loading Rules",
+                f"Failed to load rules:\n{str(e)}"
+            )
+
     def generate_code(self):
         """Generate C/C++ code"""
         if not self.config_manager:

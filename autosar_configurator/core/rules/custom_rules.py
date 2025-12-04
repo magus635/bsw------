@@ -93,6 +93,9 @@ class RuleEvaluator:
                     result = self.OPERATORS[op_type](result, val)
                 return result
                 
+        elif isinstance(node, ast.List):  # List literals
+            return [self._eval_node(elt) for elt in node.elts]
+                
         raise ValueError(f"Unsupported expression node: {type(node).__name__}")
 
     def _get_full_name(self, node: ast.AST) -> str:
