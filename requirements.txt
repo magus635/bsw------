@@ -1,0 +1,28 @@
+# Core dependencies
+PySide6>=6.5.0
+lxml>=4.9.0
+Jinja2>=3.1.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-qt>=4.2.0
+
+# Version control
+GitPython>=3.1.0
+
+# Documentation
+Sphinx>=7.0.0
+
+# Data handling
+dataclasses-json>=0.6.0
+jsonschema>=4.19.0
+
+# Security
+cryptography>=41.0.0
+
+# Performance monitoring
+psutil>=5.9.0
+
+# Configuration
+PyYAML>=6.0
