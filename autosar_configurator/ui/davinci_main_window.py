@@ -19,6 +19,8 @@ from ..core.model.definition_model import EcucModuleDef, EcucContainerDef
 from ..core.model.configuration_model import EcucModuleConfiguration, EcucContainerValue
 from .widgets.davinci_tree_view import DaVinciTreeView
 from .widgets.davinci_config_panel import DaVinciConfigPanel
+from .widgets.smart_search import SmartSearchWidget
+from .widgets.dependency_graph import DependencyGraphWidget
 from ..generator.generator import CodeGenerator
 
 
@@ -67,6 +69,13 @@ class DaVinciMainWindow(QMainWindow):
         layout = QVBoxLayout(central_widget)
         layout.setContentsMargins(0, 0, 0, 0)
         
+        # Add search widget at top
+        self.search_widget = SmartSearchWidget()
+        self.search_widget.result_selected.connect(self._on_search_result_selected)
+        self.search_widget.setMaximumHeight(200)
+        self.search_widget.hide()  # Hidden by default
+        layout.addWidget(self.search_widget)
+        
         # Splitter for tree view and config panel
         splitter = QSplitter(Qt.Horizontal)
         
@@ -86,6 +95,10 @@ class DaVinciMainWindow(QMainWindow):
         splitter.setStretchFactor(1, 2)
         
         layout.addWidget(splitter)
+        
+        # Dependency graph widget (in separate window)
+        self.dep_graph_widget = None
+        self.dep_graph_dialog = None
     
     def _create_actions(self):
         """Create actions"""
@@ -157,6 +170,17 @@ class DaVinciMainWindow(QMainWindow):
         self.quick_config_action.setShortcut(QKeySequence("Ctrl+Q"))
         self.quick_config_action.setEnabled(False)
         self.quick_config_action.triggered.connect(self.launch_quick_config_wizard)
+        
+        # View actions
+        self.toggle_search_action = QAction("Toggle Search", self)
+        self.toggle_search_action.setShortcut(QKeySequence("Ctrl+F"))
+        self.toggle_search_action.setCheckable(True)
+        self.toggle_search_action.triggered.connect(self.toggle_search)
+        
+        self.show_dep_graph_action = QAction("Dependency Graph", self)
+        self.show_dep_graph_action.setShortcut(QKeySequence("Ctrl+D"))
+        self.show_dep_graph_action.setEnabled(False)
+        self.show_dep_graph_action.triggered.connect(self.show_dependency_graph)
     
     def _create_menus(self):
         """Create menus"""
@@ -181,8 +205,12 @@ class DaVinciMainWindow(QMainWindow):
         # Edit menu
         edit_menu = menubar.addMenu("Edit")
         edit_menu.addAction(self.validate_action)
-        edit_menu.addSeparator()
         edit_menu.addAction(self.load_rules_action)
+        
+        # View menu
+        view_menu = menubar.addMenu("View")
+        view_menu.addAction(self.toggle_search_action)
+        view_menu.addAction(self.show_dep_graph_action)
         
         # Generate menu
         gen_menu = menubar.addMenu("Generate")
@@ -373,6 +401,7 @@ class DaVinciMainWindow(QMainWindow):
         self.load_rules_action.setEnabled(True)
         self.generate_action.setEnabled(True)
         self.quick_config_action.setEnabled(True)
+        self.show_dep_graph_action.setEnabled(True)
         
         self.value_file_label.setText("New configuration (unsaved)")
         self.current_value_file = None
@@ -402,8 +431,8 @@ class DaVinciMainWindow(QMainWindow):
             # Update UI
             self.current_value_file = Path(file_path)
             self.value_file_label.setText(f"Config: {self.current_value_file.name}")
-            self.tree_view.refresh_tree()
-            self.config_panel.clear_panel()
+            self.tree_view.refresh()
+            self.config_panel.clear()
             
             # Enable actions
             self.save_value_action.setEnabled(True)
@@ -412,6 +441,7 @@ class DaVinciMainWindow(QMainWindow):
             self.load_rules_action.setEnabled(True)
             self.generate_action.setEnabled(True)
             self.quick_config_action.setEnabled(True)
+            self.show_dep_graph_action.setEnabled(True)
             
             self.statusbar.showMessage("Configuration loaded successfully", 3000)
             
@@ -576,6 +606,162 @@ class DaVinciMainWindow(QMainWindow):
             self.tree_view._select_instance(instance)
         
         self.statusbar.showMessage("Configuration created successfully", 3000)
+    
+    def toggle_search(self, checked: bool):
+        """Toggle search widget visibility"""
+        if checked:
+            self.search_widget.show()
+            self.search_widget.focus_search()
+            
+            # Build search index if module_def is loaded
+            if self.module_def:
+                config = self.config_manager.configuration if self.config_manager else None
+                self.search_widget.build_search_index(self.module_def, config)
+        else:
+            self.search_widget.hide()
+    
+    def _on_search_result_selected(self, result_type: str, path: str):
+        """Handle search result selection"""
+        self.statusbar.showMessage(f"Navigating to: {path}", 3000)
+        
+        # Different handling based on result type
+        if result_type in ['container_def', 'parameter_def']:
+            # For definitions, show info dialog
+            self._show_definition_info(result_type, path)
+        elif result_type == 'container':
+            # For container instances, select in tree
+            self._navigate_to_container(path)
+        elif result_type == 'parameter':
+            # For parameter values, select container
+            container_path = '/'.join(path.split('/')[:-1])
+            self._navigate_to_container(container_path)
+        elif result_type == 'reference':
+            # For references, select container
+            container_path = '/'.join(path.split('/')[:-1])
+            self._navigate_to_container(container_path)
+    
+    def _show_definition_info(self, result_type: str, path: str):
+        """Show definition information in a dialog"""
+        from PySide6.QtWidgets import QMessageBox
+        
+        parts = path.split('/')
+        if result_type == 'container_def':
+            container_name = parts[0]
+            if self.module_def and container_name in self.module_def.containers:
+                container_def = self.module_def.containers[container_name]
+                info = f"Container: {container_name}\n"
+                info += f"Description: {container_def.description or 'N/A'}\n"
+                info += f"Multiplicity: {container_def.lower_multiplicity}..{container_def.upper_multiplicity}\n"
+                info += f"Parameters: {len(container_def.parameters)}\n"
+                info += f"Sub-containers: {len(container_def.sub_containers)}"
+                QMessageBox.information(self, "Container Definition", info)
+        elif result_type == 'parameter_def':
+            container_name = parts[0]
+            param_name = parts[-1]
+            if self.module_def and container_name in self.module_def.containers:
+                container_def = self.module_def.containers[container_name]
+                if param_name in container_def.parameters:
+                    param_def = container_def.parameters[param_name]
+                    info = f"Parameter: {param_name}\n"
+                    info += f"Type: {param_def.param_type}\n"
+                    info += f"Description: {param_def.description or 'N/A'}\n"
+                    if param_def.min_value is not None:
+                        info += f"Min: {param_def.min_value}\n"
+                    if param_def.max_value is not None:
+                        info += f"Max: {param_def.max_value}\n"
+                    if param_def.default_value is not None:
+                        info += f"Default: {param_def.default_value}"
+                    QMessageBox.information(self, "Parameter Definition", info)
+    
+    def _navigate_to_container(self, path: str):
+        """Navigate to a container instance in tree view"""
+        if not self.config_manager:
+            self.statusbar.showMessage("No configuration loaded", 3000)
+            return
+        
+        # Find the container by path
+        parts = path.split('/')
+        container = self._find_container_by_path(parts)
+        
+        if container:
+            # Get container definition
+            container_def = self.module_def.get_container_def(
+                container.definition_ref.split('/')[-1] if '/' in container.definition_ref 
+                else container.definition_ref
+            )
+            
+            if container_def:
+                # Select in tree view (this will trigger the selection signal)
+                self.tree_view._select_instance(container)
+                
+                # Also show in config panel
+                self.config_panel.show_instance(container, container_def, self.config_manager)
+                
+                self.statusbar.showMessage(f"✓ Navigated to: {path}", 3000)
+        else:
+            self.statusbar.showMessage(f"✗ Container not found: {path}", 3000)
+    
+    def _find_container_by_path(self, path_parts):
+        """Find container instance by path"""
+        if not self.config_manager:
+            return None
+        
+        containers = self.config_manager.configuration.containers
+        current = None
+        
+        for part in path_parts:
+            found = None
+            for container in containers:
+                if container.short_name == part:
+                    found = container
+                    current = container
+                    containers = container.sub_containers
+                    break
+            if not found:
+                return None
+        
+        return current
+    
+    def show_dependency_graph(self):
+        """Show dependency graph in a new window"""
+        if not self.config_manager or not self.module_def:
+            QMessageBox.warning(
+                self,
+                "No Configuration",
+                "Please load a configuration first."
+            )
+            return
+        
+        # Create graph dialog if not exists or was closed
+        if not hasattr(self, 'dep_graph_dialog') or not self.dep_graph_dialog:
+            from PySide6.QtWidgets import QDialog, QVBoxLayout
+            
+            self.dep_graph_dialog = QDialog(self)
+            self.dep_graph_dialog.setWindowTitle("Dependency Graph")
+            self.dep_graph_dialog.resize(800, 600)
+            
+            layout = QVBoxLayout(self.dep_graph_dialog)
+            
+            self.dep_graph_widget = DependencyGraphWidget()
+            layout.addWidget(self.dep_graph_widget)
+            
+            # Build graph
+            self.dep_graph_widget.build_graph(
+                self.module_def,
+                self.config_manager.configuration
+            )
+            
+            # Show dialog
+            self.dep_graph_dialog.show()
+        else:
+            # Refresh existing graph and show
+            self.dep_graph_widget.build_graph(
+                self.module_def,
+                self.config_manager.configuration
+            )
+            self.dep_graph_dialog.show()
+            self.dep_graph_dialog.raise_()
+            self.dep_graph_dialog.activateWindow()
     
     def _on_instance_selected(self, instance: EcucContainerValue, container_def: EcucContainerDef):
         """Handle instance selection in tree"""
