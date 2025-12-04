@@ -14,6 +14,7 @@ from typing import Optional
 
 from ..core.parser.ecuc_def_parser import EcucDefParser
 from ..core.config_manager import ConfigurationManager
+from ..core.workspace_manager import WorkspaceManager, WorkspaceProject
 from ..core.model.definition_model import EcucModuleDef, EcucContainerDef
 from ..core.model.configuration_model import EcucModuleConfiguration, EcucContainerValue
 from .widgets.davinci_tree_view import DaVinciTreeView
@@ -32,6 +33,11 @@ class DaVinciMainWindow(QMainWindow):
         self.config_manager: Optional[ConfigurationManager] = None
         self.current_def_file: Optional[Path] = None
         self.current_value_file: Optional[Path] = None
+        
+        # Workspace state
+        self.workspace_manager = WorkspaceManager()
+        self.current_project: Optional[WorkspaceProject] = None
+        self.current_project_file: Optional[Path] = None
         
         # Parsers
         self.def_parser = EcucDefParser()
@@ -83,6 +89,24 @@ class DaVinciMainWindow(QMainWindow):
     
     def _create_actions(self):
         """Create actions"""
+        # Project actions
+        self.new_project_action = QAction("New Project...", self)
+        self.new_project_action.setShortcut(QKeySequence("Ctrl+Shift+N"))
+        self.new_project_action.triggered.connect(self.new_project)
+        
+        self.open_project_action = QAction("Open Project...", self)
+        self.open_project_action.setShortcut(QKeySequence("Ctrl+Shift+O"))
+        self.open_project_action.triggered.connect(self.open_project)
+        
+        self.save_project_action = QAction("Save Project", self)
+        self.save_project_action.setShortcut(QKeySequence("Ctrl+Shift+S"))
+        self.save_project_action.setEnabled(False)
+        self.save_project_action.triggered.connect(self.save_project)
+        
+        self.add_module_action = QAction("Add Module to Project...", self)
+        self.add_module_action.setEnabled(False)
+        self.add_module_action.triggered.connect(self.add_module_to_project)
+        
         # File actions
         self.open_def_action = QAction("Open DEF File...", self)
         self.open_def_action.setShortcut(QKeySequence.Open)
@@ -104,7 +128,6 @@ class DaVinciMainWindow(QMainWindow):
         self.save_value_action.triggered.connect(self.save_value_file)
         
         self.save_value_as_action = QAction("Save Configuration As...", self)
-        self.save_value_as_action.setShortcut(QKeySequence("Ctrl+Shift+S"))
         self.save_value_as_action.setEnabled(False)
         self.save_value_as_action.triggered.connect(self.save_value_file_as)
         
@@ -135,6 +158,11 @@ class DaVinciMainWindow(QMainWindow):
         
         # File menu
         file_menu = menubar.addMenu("File")
+        file_menu.addAction(self.new_project_action)
+        file_menu.addAction(self.open_project_action)
+        file_menu.addAction(self.save_project_action)
+        file_menu.addAction(self.add_module_action)
+        file_menu.addSeparator()
         file_menu.addAction(self.open_def_action)
         file_menu.addSeparator()
         file_menu.addAction(self.new_config_action)
@@ -179,6 +207,93 @@ class DaVinciMainWindow(QMainWindow):
         self.statusbar.addWidget(QLabel("|"))
         self.statusbar.addWidget(self.value_file_label)
         self.statusbar.addPermanentWidget(self.validation_label)
+    
+    # Project operations
+    
+    def new_project(self):
+        """Create a new project"""
+        from PySide6.QtWidgets import QInputDialog
+        
+        name, ok = QInputDialog.getText(self, "New Project", "Project name:")
+        if not ok or not name:
+            return
+            
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Project As",
+            str(Path.home() / f"{name}.dpa"),
+            "DaVinci Project (*.dpa);;All Files (*)"
+        )
+        
+        if not file_path:
+            return
+            
+        self.current_project = self.workspace_manager.create_project(name, Path(file_path))
+        self.current_project_file = Path(file_path)
+        self.tree_view.set_project(self.current_project)
+        
+        self.save_project_action.setEnabled(True)
+        self.add_module_action.setEnabled(True)
+        self.statusbar.showMessage(f"Created project: {name}", 3000)
+        
+    def open_project(self):
+        """Open an existing project"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Open Project",
+            str(Path.home()),
+            "DaVinci Project (*.dpa);;All Files (*)"
+        )
+        
+        if not file_path:
+            return
+            
+        try:
+            self.statusbar.showMessage("Loading project...")
+            self.current_project = self.workspace_manager.load_project(Path(file_path))
+            self.current_project_file = Path(file_path)
+            self.tree_view.set_project(self.current_project)
+            
+            self.save_project_action.setEnabled(True)
+            self.add_module_action.setEnabled(True)
+            self.statusbar.showMessage(f"Loaded project: {self.current_project.name}", 3000)
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to load project:\n{str(e)}")
+            
+    def save_project(self):
+        """Save current project"""
+        if not self.current_project:
+            return
+            
+        try:
+            self.workspace_manager.save_project()
+            self.statusbar.showMessage("Project saved", 3000)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save project:\n{str(e)}")
+            
+    def add_module_to_project(self):
+        """Add a module to the current project"""
+        if not self.current_project:
+            return
+            
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Module DEF File",
+            str(Path.home()),
+            "ARXML Files (*.arxml);;All Files (*)"
+        )
+        
+        if not file_path:
+            return
+            
+        try:
+            module_def = self.def_parser.parse_module_def_file(Path(file_path))
+            self.current_project.add_module(module_def, Path(file_path))
+            self.tree_view.set_project(self.current_project)
+            self.statusbar.showMessage(f"Added module: {module_def.short_name}", 3000)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to add module:\n{str(e)}")
     
     # File operations
     

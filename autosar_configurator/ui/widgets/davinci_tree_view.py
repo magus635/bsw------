@@ -10,6 +10,7 @@ from typing import Optional, Dict
 from ...core.model.definition_model import EcucModuleDef, EcucContainerDef
 from ...core.model.configuration_model import EcucContainerValue
 from ...core.config_manager import ConfigurationManager, ValidationError
+from ...core.workspace_manager import WorkspaceProject
 
 
 class DaVinciTreeView(QTreeWidget):
@@ -24,6 +25,7 @@ class DaVinciTreeView(QTreeWidget):
         
         self.module_def: Optional[EcucModuleDef] = None
         self.config_manager: Optional[ConfigurationManager] = None
+        self.project: Optional[WorkspaceProject] = None
         
         # Mappings
         self.def_to_item: Dict[str, QTreeWidgetItem] = {}
@@ -47,6 +49,15 @@ class DaVinciTreeView(QTreeWidget):
         """Set module definition and configuration manager"""
         self.module_def = module_def
         self.config_manager = config_manager
+        self.project = None
+        
+        self.refresh()
+
+    def set_project(self, project: WorkspaceProject):
+        """Set workspace project (multi-module mode)"""
+        self.project = project
+        self.module_def = None
+        self.config_manager = None
         
         self.refresh()
     
@@ -57,21 +68,36 @@ class DaVinciTreeView(QTreeWidget):
         self.item_to_def.clear()
         self.item_to_instance.clear()
         
-        if not self.module_def or not self.config_manager:
-            return
-        
+        if self.project:
+            self.setHeaderLabel(f"Project: {self.project.name}")
+            # Render all modules in project
+            for module_name, manager in self.project.module_managers.items():
+                self._create_module_node(manager.module_def, manager)
+        elif self.module_def and self.config_manager:
+            self.setHeaderLabel("Module Configuration")
+            # Render single module
+            self._create_module_node(self.module_def, self.config_manager)
+            
+    def _create_module_node(self, module_def: EcucModuleDef, config_manager: ConfigurationManager):
+        """Create a top-level module node"""
         # Create module root
-        root_item = QTreeWidgetItem([f"📦 {self.module_def.short_name}"])
+        root_item = QTreeWidgetItem([f"📦 {module_def.short_name}"])
         root_item.setFont(0, self._get_bold_font())
+        # Store config manager in root item for retrieval
+        root_item.setData(0, Qt.UserRole, {
+            "type": "MODULE", 
+            "def": module_def,
+            "manager": config_manager
+        })
         self.addTopLevelItem(root_item)
         root_item.setExpanded(True)
         
         # Add top-level container definitions
-        for container_def in self.module_def.containers.values():
-            def_item = self._create_def_node(container_def)
+        for container_def in module_def.containers.values():
+            def_item = self._create_def_node(container_def, config_manager)
             root_item.addChild(def_item)
     
-    def _create_def_node(self, container_def: EcucContainerDef) -> QTreeWidgetItem:
+    def _create_def_node(self, container_def: EcucContainerDef, config_manager: ConfigurationManager) -> QTreeWidgetItem:
         """Create a DEF node (template node, gray italic)"""
         # Display with multiplicity
         display_name = f"📋 {container_def.short_name} [{container_def.multiplicity_str}]"
@@ -88,31 +114,31 @@ class DaVinciTreeView(QTreeWidget):
         self.def_to_item[container_def.definition_ref] = item
         
         # Store data
-        item.setData(0, Qt.UserRole, {"type": "DEF", "def": container_def})
+        item.setData(0, Qt.UserRole, {"type": "DEF", "def": container_def, "manager": config_manager})
         
         # Add existing instances under this DEF node
-        self._populate_instances(item, container_def)
+        self._populate_instances(item, container_def, config_manager)
         
         # Add "Add Instance..." node if multiple instances allowed or no instances yet
-        instances = self._get_instances_for_def(container_def)
+        instances = self._get_instances_for_def(container_def, config_manager)
         if container_def.is_multiple or len(instances) == 0:
             add_node = QTreeWidgetItem(["➕ Add Instance..."])
             add_node.setForeground(0, QBrush(QColor("#0066CC")))
-            add_node.setData(0, Qt.UserRole, {"type": "ADD_PROMPT", "def": container_def, "parent_item": item})
+            add_node.setData(0, Qt.UserRole, {"type": "ADD_PROMPT", "def": container_def, "parent_item": item, "manager": config_manager})
             item.addChild(add_node)
         
         return item
     
-    def _populate_instances(self, def_item: QTreeWidgetItem, container_def: EcucContainerDef):
+    def _populate_instances(self, def_item: QTreeWidgetItem, container_def: EcucContainerDef, config_manager: ConfigurationManager):
         """Populate existing container instances under a DEF node"""
-        instances = self._get_instances_for_def(container_def)
+        instances = self._get_instances_for_def(container_def, config_manager)
         
         for instance in instances:
-            instance_item = self._create_instance_node(instance, container_def)
+            instance_item = self._create_instance_node(instance, container_def, config_manager)
             def_item.addChild(instance_item)
             def_item.setExpanded(True)  # Auto-expand if has instances
     
-    def _create_instance_node(self, instance: EcucContainerValue, container_def: EcucContainerDef) -> QTreeWidgetItem:
+    def _create_instance_node(self, instance: EcucContainerValue, container_def: EcucContainerDef, config_manager: ConfigurationManager) -> QTreeWidgetItem:
         """Create a VALUE instance node (bold green)"""
         display_name = f"✅ {instance.short_name}"
         
@@ -127,16 +153,16 @@ class DaVinciTreeView(QTreeWidget):
         self.item_to_def[item] = container_def  # Also store definition for easy access
         
         # Store data
-        item.setData(0, Qt.UserRole, {"type": "VALUE", "instance": instance, "def": container_def})
+        item.setData(0, Qt.UserRole, {"type": "VALUE", "instance": instance, "def": container_def, "manager": config_manager})
         
         # Add sub-containers (if any)
         for sub_def in container_def.sub_containers.values():
-            sub_def_item = self._create_def_node_under_instance(sub_def, instance)
+            sub_def_item = self._create_def_node_under_instance(sub_def, instance, config_manager)
             item.addChild(sub_def_item)
         
         return item
     
-    def _create_def_node_under_instance(self, container_def: EcucContainerDef, parent_instance: EcucContainerValue) -> QTreeWidgetItem:
+    def _create_def_node_under_instance(self, container_def: EcucContainerDef, parent_instance: EcucContainerValue, config_manager: ConfigurationManager) -> QTreeWidgetItem:
         """Create a DEF node under an instance (for sub-containers)"""
         display_name = f"📋 {container_def.short_name} [{container_def.multiplicity_str}]"
         
@@ -150,13 +176,14 @@ class DaVinciTreeView(QTreeWidget):
         item.setData(0, Qt.UserRole, {
             "type": "DEF",
             "def": container_def,
-            "parent_instance": parent_instance
+            "parent_instance": parent_instance,
+            "manager": config_manager
         })
         
         # Add existing sub-instances
         sub_instances = [sc for sc in parent_instance.sub_containers if sc.definition_ref == container_def.definition_ref]
         for sub_instance in sub_instances:
-            sub_instance_item = self._create_instance_node(sub_instance, container_def)
+            sub_instance_item = self._create_instance_node(sub_instance, container_def, config_manager)
             item.addChild(sub_instance_item)
         
         # Add "Add Instance..." prompt
@@ -167,19 +194,20 @@ class DaVinciTreeView(QTreeWidget):
                 "type": "ADD_PROMPT",
                 "def": container_def,
                 "parent_item": item,
-                "parent_instance": parent_instance
+                "parent_instance": parent_instance,
+                "manager": config_manager
             })
             item.addChild(add_node)
         
         return item
     
-    def _get_instances_for_def(self, container_def: EcucContainerDef) -> list:
+    def _get_instances_for_def(self, container_def: EcucContainerDef, config_manager: ConfigurationManager) -> list:
         """Get all instances of a container definition at top level"""
-        if not self.config_manager:
+        if not config_manager:
             return []
         
         return [
-            c for c in self.config_manager.configuration.containers
+            c for c in config_manager.configuration.containers
             if c.definition_ref == container_def.definition_ref
         ]
     
@@ -225,14 +253,14 @@ class DaVinciTreeView(QTreeWidget):
             # Right-click on DEF node - offer "Add Instance"
             container_def = data["def"]
             add_action = menu.addAction("Add Instance")
-            add_action.triggered.connect(lambda: self._add_instance(container_def, data.get("parent_instance")))
+            add_action.triggered.connect(lambda: self._add_instance(container_def, data.get("parent_instance"), data.get("manager")))
         
         elif item_type == "VALUE":
             # Right-click on instance - offer "Delete Instance"
             instance = data["instance"]
             container_def = data["def"]
             delete_action = menu.addAction("Delete Instance")
-            delete_action.triggered.connect(lambda: self._delete_instance(instance, container_def, data.get("parent_instance")))
+            delete_action.triggered.connect(lambda: self._delete_instance(instance, container_def, data.get("parent_instance"), data.get("manager")))
         
         menu.exec(self.viewport().mapToGlobal(position))
     
@@ -242,12 +270,16 @@ class DaVinciTreeView(QTreeWidget):
         container_def = data["def"]
         parent_instance = data.get("parent_instance")
         
-        self._add_instance(container_def, parent_instance)
+        self._add_instance(container_def, parent_instance, data.get("manager"))
     
-    def _add_instance(self, container_def: EcucContainerDef, parent_instance: Optional[EcucContainerValue] = None):
+    def _add_instance(self, container_def: EcucContainerDef, parent_instance: Optional[EcucContainerValue] = None, config_manager: Optional[ConfigurationManager] = None):
         """Add a new container instance"""
+        manager = config_manager or self.config_manager
+        if not manager:
+            return
+
         # Ask for instance name
-        default_name = self.config_manager._generate_instance_name(container_def, parent_instance)
+        default_name = manager._generate_instance_name(container_def, parent_instance)
         
         while True:
             name, ok = QInputDialog.getText(
@@ -262,7 +294,7 @@ class DaVinciTreeView(QTreeWidget):
             
             try:
                 # Create instance
-                instance = self.config_manager.create_container_instance(
+                instance = manager.create_container_instance(
                     container_def,
                     parent=parent_instance,
                     instance_name=name
@@ -357,7 +389,7 @@ class DaVinciTreeView(QTreeWidget):
             if traverse(self.topLevelItem(i)):
                 break
     
-    def _delete_instance(self, instance: EcucContainerValue, container_def: EcucContainerDef, parent_instance: Optional[EcucContainerValue] = None):
+    def _delete_instance(self, instance: EcucContainerValue, container_def: EcucContainerDef, parent_instance: Optional[EcucContainerValue] = None, config_manager: Optional[ConfigurationManager] = None):
         """Delete a container instance"""
         reply = QMessageBox.question(
             self,
@@ -370,7 +402,9 @@ class DaVinciTreeView(QTreeWidget):
             return
         
         try:
-            self.config_manager.delete_container_instance(instance, parent=parent_instance)
+            manager = config_manager or self.config_manager
+            if manager:
+                manager.delete_container_instance(instance, parent=parent_instance)
             self.refresh()
         except ValidationError as e:
             QMessageBox.warning(self, "Cannot Delete Instance", str(e))
