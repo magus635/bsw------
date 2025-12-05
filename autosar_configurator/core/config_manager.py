@@ -83,12 +83,36 @@ class ConfigurationManager:
             index=self._get_next_index(container_def.short_name)
         )
         
-        # Initialize with default parameter values
+        # Initialize with default parameter values (smart defaults)
         for param_name, param_def in container_def.parameters.items():
+            value = None
+            
+            # Determine default value
             if param_def.default_value is not None:
+                # Use explicit default from DEF
+                value = param_def.default_value
+            elif param_def.param_type == EcucParameterType.ENUMERATION:
+                # Use first enumeration literal
+                if param_def.literals and len(param_def.literals) > 0:
+                    value = param_def.literals[0]
+            elif param_def.param_type == EcucParameterType.INTEGER:
+                # Use min value or 0
+                value = param_def.min_value if param_def.min_value is not None else 0
+            elif param_def.param_type == EcucParameterType.FLOAT:
+                # Use min value or 0.0
+                value = param_def.min_value if param_def.min_value is not None else 0.0
+            elif param_def.param_type == EcucParameterType.BOOLEAN:
+                # Default to False
+                value = False
+            elif param_def.param_type == EcucParameterType.STRING:
+                # Default to empty string
+                value = ""
+            
+            # Set the value if determined
+            if value is not None:
                 instance.set_parameter_value(
                     param_name,
-                    param_def.default_value,
+                    value,
                     param_def.definition_ref
                 )
         
@@ -146,25 +170,65 @@ class ConfigurationManager:
                            container: EcucContainerValue,
                            param_name: str,
                            value: any):
-        """Set parameter value with validation
+        """Set parameter value with validation and type conversion
         
         Args:
             container: Container instance
             param_name: Parameter name
-            value: New value
+            value: New value (will be converted to appropriate type)
             
         Raises:
-            ValidationError if value is invalid
+            ValidationError if parameter not found or value invalid
         """
+        # Get container definition
+        container_def = self.get_container_def(container.definition_ref)
+        if not container_def:
+            raise ValidationError(f"Container definition not found: {container.definition_ref}")
+        
         # Get parameter definition
-        param_def = self._get_parameter_def(container, param_name)
+        param_def = container_def.parameters.get(param_name)
         if not param_def:
-            raise ValidationError(f"Parameter {param_name} not found in container definition")
+            raise ValidationError(
+                f"Parameter '{param_name}' not found in {container_def.short_name}"
+            )
         
-        # Validate value
-        self._validate_parameter_value(param_def, value)
+        # Type conversion and validation
+        try:
+            if param_def.param_type == EcucParameterType.INTEGER:
+                value = int(value)
+                if param_def.min_value is not None and value < param_def.min_value:
+                    raise ValidationError(f"{param_name}: value {value} < minimum {param_def.min_value}")
+                if param_def.max_value is not None and value > param_def.max_value:
+                    raise ValidationError(f"{param_name}: value {value} > maximum {param_def.max_value}")
+                    
+            elif param_def.param_type == EcucParameterType.FLOAT:
+                value = float(value)
+                if param_def.min_value is not None and value < param_def.min_value:
+                    raise ValidationError(f"{param_name}: value {value} < minimum {param_def.min_value}")
+                if param_def.max_value is not None and value > param_def.max_value:
+                    raise ValidationError(f"{param_name}: value {value} > maximum {param_def.max_value}")
+                    
+            elif param_def.param_type == EcucParameterType.BOOLEAN:
+                # Convert to bool (handle various inputs)
+                if isinstance(value, str):
+                    value = value.lower() in ('true', '1', 'yes')
+                else:
+                    value = bool(value)
+                    
+            elif param_def.param_type == EcucParameterType.ENUMERATION:
+                value = str(value)
+                if param_def.literals and value not in param_def.literals:
+                    raise ValidationError(
+                        f"{param_name}: '{value}' not in allowed values: {param_def.literals}"
+                    )
+                    
+            elif param_def.param_type == EcucParameterType.STRING:
+                value = str(value)
+                
+        except (ValueError, TypeError) as e:
+            raise ValidationError(f"{param_name}: Invalid value type - {e}")
         
-        # Set value
+        # Set value in container
         container.set_parameter_value(param_name, value, param_def.definition_ref)
     
     def get_container_def(self, definition_ref: str) -> Optional[EcucContainerDef]:

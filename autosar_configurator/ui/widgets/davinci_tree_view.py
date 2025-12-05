@@ -17,8 +17,8 @@ class DaVinciTreeView(QTreeWidget):
     """Tree view displaying DEF nodes and VALUE instances in dual mode"""
     
     # Signals
-    instance_selected = Signal(EcucContainerValue, EcucContainerDef)  # instance, definition
-    def_selected = Signal(EcucContainerDef)  # definition only
+    instance_selected = Signal(EcucContainerValue, EcucContainerDef, object)  # instance, definition, manager
+    def_selected = Signal(EcucContainerDef, object)  # definition, manager
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -98,16 +98,39 @@ class DaVinciTreeView(QTreeWidget):
             root_item.addChild(def_item)
     
     def _create_def_node(self, container_def: EcucContainerDef, config_manager: ConfigurationManager) -> QTreeWidgetItem:
-        """Create a DEF node (template node, gray italic)"""
-        # Display with multiplicity
-        display_name = f"📋 {container_def.short_name} [{container_def.multiplicity_str}]"
+        """Create a DEF node (template node, gray italic) with instance count"""
+        # Get instances for this definition
+        instances = self._get_instances_for_def(container_def, config_manager)
+        instance_count = len(instances)
+        
+        # Build display name with multiplicity and count
+        mult_str = container_def.multiplicity_str
+        count_str = f" ({instance_count})" if instance_count > 0 else ""
+        
+        # Check if required but missing
+        is_required_missing = (container_def.lower_multiplicity >= 1 and instance_count == 0)
+        
+        if is_required_missing:
+            # Required but no instances - show warning
+            display_name = f"⚠️ {container_def.short_name} [{mult_str}]{count_str} - Missing!"
+            icon_color = QColor("#FF6B6B")  # Red for error
+        else:
+            display_name = f"📋 {container_def.short_name} [{mult_str}]{count_str}"
+            icon_color = QColor("#888888")  # Gray for normal
         
         item = QTreeWidgetItem([display_name])
         
-        # Style: gray + italic
-        item.setForeground(0, QBrush(QColor("#888888")))
+        # Style: gray + italic (or red if missing)
+        item.setForeground(0, QBrush(icon_color))
         item.setFont(0, self._get_italic_font())
-        item.setToolTip(0, container_def.description or "Container definition")
+        
+        # Tooltip with more info
+        tooltip = container_def.description or "Container definition"
+        if is_required_missing:
+            tooltip += f"\n⚠️ Required: at least {container_def.lower_multiplicity} instance(s) needed"
+        elif instance_count > 0:
+            tooltip += f"\n✅ {instance_count} instance(s) created"
+        item.setToolTip(0, tooltip)
         
         # Store mapping
         self.item_to_def[item] = container_def
@@ -120,7 +143,6 @@ class DaVinciTreeView(QTreeWidget):
         self._populate_instances(item, container_def, config_manager)
         
         # Add "Add Instance..." node if multiple instances allowed or no instances yet
-        instances = self._get_instances_for_def(container_def, config_manager)
         if container_def.is_multiple or len(instances) == 0:
             add_node = QTreeWidgetItem(["➕ Add Instance..."])
             add_node.setForeground(0, QBrush(QColor("#0066CC")))
@@ -220,17 +242,18 @@ class DaVinciTreeView(QTreeWidget):
             return
         
         item_type = data.get("type")
+        manager = data.get("manager")
         
         if item_type == "VALUE":
             # Instance selected - show editable parameters
             instance = data["instance"]
             container_def = data["def"]
-            self.instance_selected.emit(instance, container_def)
+            self.instance_selected.emit(instance, container_def, manager)
         
         elif item_type == "DEF":
             # DEF node selected - show definition info
             container_def = data["def"]
-            self.def_selected.emit(container_def)
+            self.def_selected.emit(container_def, manager)
         
         elif item_type == "ADD_PROMPT":
             # Clicked "Add Instance..." - trigger add

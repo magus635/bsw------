@@ -1,139 +1,132 @@
-<?xml version="1.0" encoding="utf-8"?>
-<AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<?xml version='1.0' encoding='UTF-8'?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_4-4-0.xsd">
   <AR-PACKAGES>
     <AR-PACKAGE>
-      <SHORT-NAME>Config</SHORT-NAME>
+      <SHORT-NAME>Adc_Config</SHORT-NAME>
       <ELEMENTS>
         <ECUC-MODULE-CONFIGURATION-VALUES>
           <SHORT-NAME>Adc</SHORT-NAME>
           <DEFINITION-REF DEST="ECUC-MODULE-DEF">/AUTOSAR/EcucDefs/Adc</DEFINITION-REF>
+          <IMPLEMENTATION-CONFIG-VARIANT>VARIANT-PRE-COMPILE</IMPLEMENTATION-CONFIG-VARIANT>
           <CONTAINERS>
-            <!-- ADC General Configuration -->
             <ECUC-CONTAINER-VALUE>
               <SHORT-NAME>AdcGeneral</SHORT-NAME>
               <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR/EcucDefs/Adc/AdcGeneral</DEFINITION-REF>
               <PARAMETER-VALUES>
                 <ECUC-NUMERICAL-PARAM-VALUE>
-                  <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/AUTOSAR/EcucDefs/Adc/AdcGeneral/AdcDevErrorDetect</DEFINITION-REF>
-                  <VALUE>1</VALUE>
+                  <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/AUTOSAR/EcucDefs/Adc/AdcGeneral/AdcDevErrorDetect</DEFINITION-REF>
+                  <VALUE>true</VALUE>
                 </ECUC-NUMERICAL-PARAM-VALUE>
                 <ECUC-NUMERICAL-PARAM-VALUE>
-                  <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/AUTOSAR/EcucDefs/Adc/AdcGeneral/AdcDeInitApi</DEFINITION-REF>
-                  <VALUE>1</VALUE>
+                  <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/AUTOSAR/EcucDefs/Adc/AdcGeneral/AdcDeInitApi</DEFINITION-REF>
+                  <VALUE>true</VALUE>
                 </ECUC-NUMERICAL-PARAM-VALUE>
                 <ECUC-NUMERICAL-PARAM-VALUE>
-                  <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/AUTOSAR/EcucDefs/Adc/AdcGeneral/AdcEnableStartStopGroupApi</DEFINITION-REF>
-                  <VALUE>1</VALUE>
+                  <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/AUTOSAR/EcucDefs/Adc/AdcGeneral/AdcEnableStartStopGroupApi</DEFINITION-REF>
+                  <VALUE>true</VALUE>
                 </ECUC-NUMERICAL-PARAM-VALUE>
               </PARAMETER-VALUES>
             </ECUC-CONTAINER-VALUE>
-            
-            <!-- ADC Configuration Set -->
             <ECUC-CONTAINER-VALUE>
               <SHORT-NAME>AdcConfigSet</SHORT-NAME>
               <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet</DEFINITION-REF>
               <PARAMETER-VALUES>
                 <ECUC-NUMERICAL-PARAM-VALUE>
-                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcPrescale</DEFINITION-REF>
+                  <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcPrescale</DEFINITION-REF>
                   <VALUE>14</VALUE>
                 </ECUC-NUMERICAL-PARAM-VALUE>
                 <ECUC-TEXTUAL-PARAM-VALUE>
-                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcResolution</DEFINITION-REF>
+                  <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcResolution</DEFINITION-REF>
                   <VALUE>BITS_12</VALUE>
                 </ECUC-TEXTUAL-PARAM-VALUE>
               </PARAMETER-VALUES>
+              <REFERENCE-VALUES>
+                <ECUC-REFERENCE-VALUE>
+                  <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcClockRef</DEFINITION-REF>
+                  <VALUE-REF DEST="ECUC-CONTAINER-VALUE">/Config/Mcu/McuModuleConfiguration/McuClockSettingConfig/McuClockReferencePoint_ADC</VALUE-REF>
+                </ECUC-REFERENCE-VALUE>
+              </REFERENCE-VALUES>
               <SUB-CONTAINERS>
-                <!-- ADC Hardware Unit 0 -->
                 <ECUC-CONTAINER-VALUE>
                   <SHORT-NAME>AdcHwUnit_0</SHORT-NAME>
                   <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit</DEFINITION-REF>
                   <PARAMETER-VALUES>
-                    <ECUC-TEXTUAL-PARAM-VALUE>
-                      <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcHwUnitId</DEFINITION-REF>
-                      <VALUE>SARADC0</VALUE>
-                    </ECUC-TEXTUAL-PARAM-VALUE>
                     <ECUC-NUMERICAL-PARAM-VALUE>
-                      <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcPrescale</DEFINITION-REF>
+                      <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcPrescale</DEFINITION-REF>
                       <VALUE>14</VALUE>
                     </ECUC-NUMERICAL-PARAM-VALUE>
+                    <ECUC-TEXTUAL-PARAM-VALUE>
+                      <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcHwUnitId</DEFINITION-REF>
+                      <VALUE>SARADC0</VALUE>
+                    </ECUC-TEXTUAL-PARAM-VALUE>
                   </PARAMETER-VALUES>
                   <REFERENCE-VALUES>
-                    <!-- Reference to Clock Configuration (simulated) -->
                     <ECUC-REFERENCE-VALUE>
                       <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcClockRef</DEFINITION-REF>
                       <VALUE-REF DEST="ECUC-CONTAINER-VALUE">/Config/Mcu/McuModuleConfiguration/McuClockSettingConfig/McuClockReferencePoint_ADC</VALUE-REF>
                     </ECUC-REFERENCE-VALUE>
                   </REFERENCE-VALUES>
                   <SUB-CONTAINERS>
-                    <!-- ADC Channel 0 -->
                     <ECUC-CONTAINER-VALUE>
                       <SHORT-NAME>AdcChannel_0</SHORT-NAME>
                       <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcChannel</DEFINITION-REF>
                       <PARAMETER-VALUES>
                         <ECUC-NUMERICAL-PARAM-VALUE>
-                          <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcChannel/AdcChannelId</DEFINITION-REF>
-                          <VALUE>0</VALUE>
+                          <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcChannel/AdcChannelId</DEFINITION-REF>
+                          <VALUE>false</VALUE>
                         </ECUC-NUMERICAL-PARAM-VALUE>
                         <ECUC-TEXTUAL-PARAM-VALUE>
-                          <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcChannel/AdcChannelResolution</DEFINITION-REF>
+                          <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcChannel/AdcChannelResolution</DEFINITION-REF>
                           <VALUE>BITS_12</VALUE>
                         </ECUC-TEXTUAL-PARAM-VALUE>
                       </PARAMETER-VALUES>
                     </ECUC-CONTAINER-VALUE>
-                    
-                    <!-- ADC Channel 1 -->
                     <ECUC-CONTAINER-VALUE>
                       <SHORT-NAME>AdcChannel_1</SHORT-NAME>
                       <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcChannel</DEFINITION-REF>
                       <PARAMETER-VALUES>
                         <ECUC-NUMERICAL-PARAM-VALUE>
-                          <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcChannel/AdcChannelId</DEFINITION-REF>
-                          <VALUE>1</VALUE>
+                          <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcChannel/AdcChannelId</DEFINITION-REF>
+                          <VALUE>true</VALUE>
                         </ECUC-NUMERICAL-PARAM-VALUE>
                         <ECUC-TEXTUAL-PARAM-VALUE>
-                          <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcChannel/AdcChannelResolution</DEFINITION-REF>
+                          <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcChannel/AdcChannelResolution</DEFINITION-REF>
                           <VALUE>BITS_10</VALUE>
                         </ECUC-TEXTUAL-PARAM-VALUE>
                       </PARAMETER-VALUES>
                     </ECUC-CONTAINER-VALUE>
                   </SUB-CONTAINERS>
                 </ECUC-CONTAINER-VALUE>
-                
-                <!-- ADC Hardware Unit 1 -->
                 <ECUC-CONTAINER-VALUE>
                   <SHORT-NAME>AdcHwUnit_1</SHORT-NAME>
                   <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit</DEFINITION-REF>
                   <PARAMETER-VALUES>
-                    <ECUC-TEXTUAL-PARAM-VALUE>
-                      <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcHwUnitId</DEFINITION-REF>
-                      <VALUE>SARADC1</VALUE>
-                    </ECUC-TEXTUAL-PARAM-VALUE>
                     <ECUC-NUMERICAL-PARAM-VALUE>
-                      <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcPrescale</DEFINITION-REF>
+                      <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcPrescale</DEFINITION-REF>
                       <VALUE>20</VALUE>
                     </ECUC-NUMERICAL-PARAM-VALUE>
+                    <ECUC-TEXTUAL-PARAM-VALUE>
+                      <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcHwUnitId</DEFINITION-REF>
+                      <VALUE>SARADC1</VALUE>
+                    </ECUC-TEXTUAL-PARAM-VALUE>
                   </PARAMETER-VALUES>
                   <REFERENCE-VALUES>
-                    <!-- Reference to Clock Configuration (simulated) -->
                     <ECUC-REFERENCE-VALUE>
                       <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit/AdcClockRef</DEFINITION-REF>
                       <VALUE-REF DEST="ECUC-CONTAINER-VALUE">/Config/Mcu/McuModuleConfiguration/McuClockSettingConfig/McuClockReferencePoint_ADC</VALUE-REF>
                     </ECUC-REFERENCE-VALUE>
                   </REFERENCE-VALUES>
                 </ECUC-CONTAINER-VALUE>
-                
-                <!-- ADC Group Configuration -->
                 <ECUC-CONTAINER-VALUE>
                   <SHORT-NAME>AdcGroup_0</SHORT-NAME>
                   <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcGroup</DEFINITION-REF>
                   <PARAMETER-VALUES>
                     <ECUC-NUMERICAL-PARAM-VALUE>
-                      <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcGroup/AdcGroupId</DEFINITION-REF>
-                      <VALUE>0</VALUE>
+                      <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcGroup/AdcGroupId</DEFINITION-REF>
+                      <VALUE>false</VALUE>
                     </ECUC-NUMERICAL-PARAM-VALUE>
                   </PARAMETER-VALUES>
                   <REFERENCE-VALUES>
-                    <!-- Reference to ADC Channel -->
                     <ECUC-REFERENCE-VALUE>
                       <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcGroup/AdcGroupDefinition</DEFINITION-REF>
                       <VALUE-REF DEST="ECUC-CONTAINER-VALUE">/Config/Adc/AdcConfigSet/AdcHwUnit_0/AdcChannel_0</VALUE-REF>

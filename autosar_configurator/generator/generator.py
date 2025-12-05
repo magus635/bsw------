@@ -118,14 +118,24 @@ class CodeGenerator:
         result = {
             'name': container.short_name,
             'parameters': [],
+            'references': [],
             'sub_containers': []
         }
         
-        # Add parameters
+        # Add parameters with type formatting
         for param_name, param_value in container.parameter_values.items():
             result['parameters'].append({
                 'name': param_name,
-                'value': param_value.value
+                'value': self._format_value(param_value.value),
+                'raw_value': param_value.value
+            })
+        
+        # Add references
+        for ref_name, ref_value in container.reference_values.items():
+            result['references'].append({
+                'name': ref_name,
+                'target': self._resolve_reference(ref_value.value_ref),
+                'raw_target': ref_value.value_ref
             })
             
         # Add sub-containers recursively
@@ -133,6 +143,62 @@ class CodeGenerator:
             result['sub_containers'].append(self._serialize_container(sub))
             
         return result
+    
+    def _format_value(self, value: Any) -> str:
+        """Format value for C code generation
+        
+        Args:
+            value: Raw value
+            
+        Returns:
+            Formatted C value
+        """
+        if isinstance(value, bool):
+            return "TRUE" if value else "FALSE"
+        elif isinstance(value, str):
+            # Check if it looks like an enumeration (all caps, no spaces)
+            if value.isupper() and ' ' not in value:
+                return value  # Enumeration literal
+            else:
+                return f'"{value}"'  # String literal
+        elif isinstance(value, (int, float)):
+            return str(value)
+        elif value is None:
+            return "NULL"
+        else:
+            return str(value)
+    
+    def _resolve_reference(self, ref_path: str) -> str:
+        """Resolve reference path to C symbol name
+        
+        Args:
+            ref_path: Reference path (e.g., /Config/Mcu/McuClockSettingConfig)
+            
+        Returns:
+            C symbol name (e.g., &Mcu_McuClockSettingConfig_Config)
+        """
+        if not ref_path:
+            return "NULL"
+        
+        # Parse the path: /Config/{ModuleName}/{ContainerPath}
+        parts = ref_path.split('/')
+        parts = [p for p in parts if p]  # Remove empty parts
+        
+        if len(parts) < 2:
+            return "NULL"
+        
+        # Skip 'Config' if present
+        if parts[0] == 'Config':
+            parts = parts[1:]
+        
+        if len(parts) < 2:
+            return "NULL"
+        
+        module_name = parts[0]
+        container_path = '_'.join(parts[1:])
+        
+        # Generate C symbol: &ModuleName_ContainerPath_Config
+        return f"&{module_name}_{container_path}_Config"
     
     def _get_default_cfg_header_template(self) -> str:
         """Get default configuration header template"""

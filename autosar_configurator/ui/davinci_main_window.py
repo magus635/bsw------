@@ -47,6 +47,9 @@ class DaVinciMainWindow(QMainWindow):
         # Settings
         self.settings = QSettings("AUTOSAR", "DaVinciConfigurator")
         
+        # Unsaved changes tracking
+        self._has_unsaved_changes = False
+        
         self._setup_ui()
         self._create_actions()
         self._create_menus()
@@ -105,16 +108,22 @@ class DaVinciMainWindow(QMainWindow):
         # Project actions
         self.new_project_action = QAction("New Project...", self)
         self.new_project_action.setShortcut(QKeySequence("Ctrl+Shift+N"))
+        self.new_project_action.setStatusTip("Create a new AUTOSAR project")
         self.new_project_action.triggered.connect(self.new_project)
         
         self.open_project_action = QAction("Open Project...", self)
         self.open_project_action.setShortcut(QKeySequence("Ctrl+Shift+O"))
+        self.open_project_action.setStatusTip("Open an existing project (.dpa file)")
         self.open_project_action.triggered.connect(self.open_project)
         
         self.save_project_action = QAction("Save Project", self)
         self.save_project_action.setShortcut(QKeySequence("Ctrl+Shift+S"))
         self.save_project_action.setEnabled(False)
         self.save_project_action.triggered.connect(self.save_project)
+        
+        self.project_properties_action = QAction("Project Properties...", self)
+        self.project_properties_action.setEnabled(False)
+        self.project_properties_action.triggered.connect(self.show_project_properties)
         
         self.add_module_action = QAction("Add Module to Project...", self)
         self.add_module_action.setEnabled(False)
@@ -123,7 +132,7 @@ class DaVinciMainWindow(QMainWindow):
         # File actions
         self.open_def_action = QAction("Open DEF File...", self)
         self.open_def_action.setShortcut(QKeySequence.Open)
-        self.open_def_action.setStatusTip("Open ECUC-DEF ARXML file")
+        self.open_def_action.setStatusTip("Open a module definition file (ARXML)")
         self.open_def_action.triggered.connect(self.open_def_file)
         
         self.new_config_action = QAction("New Configuration", self)
@@ -137,6 +146,7 @@ class DaVinciMainWindow(QMainWindow):
         
         self.save_value_action = QAction("Save Configuration", self)
         self.save_value_action.setShortcut(QKeySequence.Save)
+        self.save_value_action.setStatusTip("Save current configuration to file")
         self.save_value_action.setEnabled(False)
         self.save_value_action.triggered.connect(self.save_value_file)
         
@@ -146,7 +156,12 @@ class DaVinciMainWindow(QMainWindow):
         
         self.exit_action = QAction("Exit", self)
         self.exit_action.setShortcut(QKeySequence.Quit)
+        self.exit_action.setStatusTip("Exit the application")
         self.exit_action.triggered.connect(self.close)
+        
+        # Recent files will be added dynamically
+        self.recent_file_actions = []
+        self.max_recent_files = 10
         
         # Edit actions  
         self.validate_action = QAction("Validate Configuration", self)
@@ -172,8 +187,9 @@ class DaVinciMainWindow(QMainWindow):
         self.quick_config_action.triggered.connect(self.launch_quick_config_wizard)
         
         # View actions
-        self.toggle_search_action = QAction("Toggle Search", self)
-        self.toggle_search_action.setShortcut(QKeySequence("Ctrl+F"))
+        self.toggle_search_action = QAction("Search...", self)
+        self.toggle_search_action.setShortcut(QKeySequence.Find)  # Ctrl+F
+        self.toggle_search_action.setStatusTip("Show/hide search panel (Ctrl+F)")
         self.toggle_search_action.setCheckable(True)
         self.toggle_search_action.triggered.connect(self.toggle_search)
         
@@ -191,9 +207,15 @@ class DaVinciMainWindow(QMainWindow):
         file_menu.addAction(self.new_project_action)
         file_menu.addAction(self.open_project_action)
         file_menu.addAction(self.save_project_action)
+        file_menu.addAction(self.project_properties_action)
+        file_menu.addSeparator()
         file_menu.addAction(self.add_module_action)
         file_menu.addSeparator()
         file_menu.addAction(self.open_def_action)
+        file_menu.addSeparator()
+        # Recent Files submenu
+        self.recent_files_menu = file_menu.addMenu("Recent Files")
+        self._update_recent_files_menu()
         file_menu.addSeparator()
         file_menu.addAction(self.new_config_action)
         file_menu.addAction(self.open_value_action)
@@ -223,6 +245,7 @@ class DaVinciMainWindow(QMainWindow):
     def _create_toolbars(self):
         """Create toolbars"""
         toolbar = self.addToolBar("Main Toolbar")
+        toolbar.setObjectName("MainToolbar")  # Fix QMainWindow::saveState() warning
         toolbar.addAction(self.open_def_action)
         toolbar.addAction(self.new_config_action)
         toolbar.addAction(self.save_value_action)
@@ -232,11 +255,21 @@ class DaVinciMainWindow(QMainWindow):
         toolbar.addAction(self.generate_action)
     
     def _create_statusbar(self):
-        """Create status bar"""
+        """Create status bar with permanent indicators"""
         self.statusbar = QStatusBar()
         self.setStatusBar(self.statusbar)
         
-        # Status labels
+        # Mode indicator (left side - permanent)
+        self.mode_label = QLabel("Mode: Single Module")
+        self.mode_label.setStyleSheet("QLabel { padding: 2px 10px; }")
+        self.statusbar.addPermanentWidget(self.mode_label)
+        
+        # Validation status (right side - permanent)
+        self.validation_status_label = QLabel("Not validated")
+        self.validation_status_label.setStyleSheet("QLabel { padding: 2px 10px; }")
+        self.statusbar.addPermanentWidget(self.validation_status_label)
+        
+        # Temporary message area (left side)
         self.def_file_label = QLabel("No DEF file loaded")
         self.value_file_label = QLabel("No configuration")
         self.validation_label = QLabel("")
@@ -288,13 +321,29 @@ class DaVinciMainWindow(QMainWindow):
             
         try:
             self.statusbar.showMessage("Loading project...")
-            self.current_project = self.workspace_manager.load_project(Path(file_path))
+            self.current_project, failed_modules = self.workspace_manager.load_project(Path(file_path))
             self.current_project_file = Path(file_path)
             self.tree_view.set_project(self.current_project)
             
+            # Enable project actions
             self.save_project_action.setEnabled(True)
+            self.project_properties_action.setEnabled(True)
             self.add_module_action.setEnabled(True)
-            self.statusbar.showMessage(f"Loaded project: {self.current_project.name}", 3000)
+            
+            status_msg = f"Loaded project: {self.current_project.name}"
+            
+            # Show warning if some modules failed to load
+            if failed_modules:
+                error_details = "\n".join([f"• {name}: {error}" for name, error in failed_modules])
+                QMessageBox.warning(
+                    self,
+                    "Project Loaded with Errors",
+                    f"Project loaded, but {len(failed_modules)} module(s) failed:\n\n{error_details}\n\n"
+                    f"Successfully loaded: {len(self.current_project.module_managers)} module(s)"
+                )
+                status_msg += f" ({len(failed_modules)} errors)"
+            
+            self.statusbar.showMessage(status_msg, 5000)
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load project:\n{str(e)}")
@@ -304,12 +353,30 @@ class DaVinciMainWindow(QMainWindow):
         if not self.current_project:
             return
             
-        try:
-            self.workspace_manager.save_project()
-            self.statusbar.showMessage("Project saved", 3000)
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save project:\n{str(e)}")
+        self.workspace_manager.save_project()
+        self.statusbar.showMessage(f"Project saved: {self.current_project.path}", 3000)
+    
+    def show_project_properties(self):
+        """Show project properties dialog"""
+        if not self.current_project:
+            return
+        
+        from .dialogs.project_properties_dialog import ProjectPropertiesDialog
+        
+        dialog = ProjectPropertiesDialog(self.current_project, self)
+        if dialog.exec():
+            # Update project with new data
+            data = dialog.get_data()
+            self.current_project.name = data['name']
+            self.current_project.version = data['version']
+            self.current_project.author = data['author']
+            self.current_project.description = data['description']
             
+            # Update tree header
+            self.tree_view.setHeaderLabel(f"Project: {self.current_project.name}")
+            
+            self.statusbar.showMessage("Project properties updated", 3000)
+    
     def add_module_to_project(self):
         """Add a module to the current project"""
         if not self.current_project:
@@ -337,9 +404,39 @@ class DaVinciMainWindow(QMainWindow):
     
     def open_def_file(self):
         """Open ECUC-DEF ARXML file"""
+        # Check if project is active
+        if self.current_project:
+            reply = QMessageBox.question(
+                self,
+                "Close Project?",
+                "Opening a DEF file will close the current project.\n\n"
+                "Do you want to:\n"
+                "• Close project and open DEF file (single-module mode)\n"
+                "• Cancel and use 'Add Module to Project' instead",
+                QMessageBox.Ok | QMessageBox.Cancel,
+                QMessageBox.Cancel
+            )
+            
+            if reply == QMessageBox.Cancel:
+                # Suggest using Add Module instead
+                QMessageBox.information(
+                    self,
+                    "Tip",
+                    "To add modules to your project, use:\n"
+                    "File → Add Module to Project"
+                )
+                return
+            
+            # User chose to close project
+            self.current_project = None
+            self.current_project_file = None
+            self.tree_view.clear()
+            self.save_project_action.setEnabled(False)
+            self.add_module_action.setEnabled(False)
+        
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            "Open ECUC-DEF File",
+            "Open DEF File",
             str(Path.home()),
             "ARXML Files (*.arxml);;All Files (*)"
         )
@@ -348,6 +445,10 @@ class DaVinciMainWindow(QMainWindow):
             return
         
         try:
+            # Show loading cursor
+            from PySide6.QtWidgets import QApplication
+            from PySide6.QtCore import Qt as QtCore_Qt
+            QApplication.setOverrideCursor(QtCore_Qt.WaitCursor)
             self.statusbar.showMessage("Loading DEF file...")
             
             # Parse DEF file
@@ -365,18 +466,17 @@ class DaVinciMainWindow(QMainWindow):
             self.new_config_action.setEnabled(True)
             self.open_value_action.setEnabled(True)
             
-            self.statusbar.showMessage(f"Loaded DEF: {self.module_def.short_name}", 3000)
+            self.statusbar.showMessage(f"Loaded DEF: {self.module_def.short_name}", 5000)
             
             # Save to settings
             self.settings.setValue("last_def_file", str(file_path))
             
         except Exception as e:
-            QMessageBox.critical(
-                self,
-                "Error Loading DEF File",
-                f"Failed to load DEF file:\n{str(e)}"
-            )
-            self.statusbar.showMessage("Error loading DEF file")
+            QMessageBox.critical(self, "Error", f"Failed to load DEF file:\n{e}")
+            self.statusbar.showMessage("Failed to load DEF file", 5000)
+        finally:
+            # Restore cursor
+            QApplication.restoreOverrideCursor()
     
     def new_configuration(self):
         """Create new configuration based on loaded DEF"""
@@ -480,12 +580,17 @@ class DaVinciMainWindow(QMainWindow):
             self.statusbar.showMessage("Saving configuration...")
             self.config_manager.save_configuration(file_path)
             
-            self.current_value_file = file_path
-            self.value_file_label.setText(f"Config: {file_path.name}")
-            self.statusbar.showMessage("Configuration saved successfully", 3000)
+            self.current_value_file = Path(file_path)
+            self.value_file_label.setText(f"Config: {Path(file_path).name}")
+            self.statusbar.showMessage(f"Saved to {file_path}", 3000)
             
+            # Clear unsaved changes flag
+            self._has_unsaved_changes = False
+            
+            # Save to recent files
+            self.settings.setValue("last_value_file", str(file_path))
         except Exception as e:
-            QMessageBox.critical(self, "Save Error", f"Failed to save configuration:\n{str(e)}")
+            QMessageBox.critical(self, "Error", f"Failed to save configuration:\n{str(e)}")
             self.statusbar.showMessage("Save failed", 3000)
     
     def validate_configuration(self):
@@ -543,12 +648,20 @@ class DaVinciMainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(
                 self,
-                "Error Loading Rules",
-                f"Failed to load rules:\n{str(e)}"
             )
 
     def generate_code(self):
-        """Generate C/C++ code"""
+        """Generate C/C++ code for current module or entire project"""
+        # Check if in Project mode
+        if self.current_project:
+            self._generate_project_code()
+        elif self.config_manager:
+            self._generate_single_module_code()
+        else:
+            QMessageBox.warning(self, "No Configuration", "Please load a configuration first.")
+    
+    def _generate_single_module_code(self):
+        """Generate code for single module"""
         if not self.config_manager:
             return
             
@@ -561,28 +674,127 @@ class DaVinciMainWindow(QMainWindow):
         
         if not output_dir:
             return
-            
+        
         try:
+            from ..generator.generator import CodeGenerator
+            
             self.statusbar.showMessage("Generating code...")
             
-            # Create generator and run
-            generator = CodeGenerator(self.module_def, self.config_manager.configuration)
+            generator = CodeGenerator(
+                self.module_def,
+                self.config_manager.configuration
+            )
+            
             generator.generate_all(Path(output_dir))
             
             QMessageBox.information(
                 self,
-                "Generation Success",
+                "Code Generated",
                 f"Code generated successfully in:\n{output_dir}"
             )
-            self.statusbar.showMessage("Code generation successful", 3000)
+            self.statusbar.showMessage("Code generation completed", 3000)
             
         except Exception as e:
             QMessageBox.critical(
                 self,
-                "Generation Error",
+                "Code Generation Error",
                 f"Failed to generate code:\n{str(e)}"
             )
             self.statusbar.showMessage("Code generation failed", 3000)
+    
+    def _generate_project_code(self):
+        """Generate code for all modules in project"""
+        if not self.current_project:
+            return
+        
+        # Select output directory
+        output_dir = QFileDialog.getExistingDirectory(
+            self,
+            "Select Project Output Directory",
+            str(Path.home())
+        )
+        
+        if not output_dir:
+            return
+        
+        try:
+            from ..generator.generator import CodeGenerator
+            from PySide6.QtWidgets import QProgressDialog
+            from PySide6.QtCore import Qt as QtCore_Qt
+            
+            output_path = Path(output_dir)
+            modules = list(self.current_project.module_managers.items())
+            
+            # Create progress dialog
+            progress = QProgressDialog(
+                "Generating code for project modules...",
+                "Cancel",
+                0,
+                len(modules),
+                self
+            )
+            progress.setWindowModality(QtCore_Qt.WindowModal)
+            progress.setMinimumDuration(0)
+            
+            generated_modules = []
+            failed_modules = []
+            
+            for i, (module_name, manager) in enumerate(modules):
+                if progress.wasCanceled():
+                    break
+                
+                progress.setValue(i)
+                progress.setLabelText(f"Generating {module_name}...")
+                
+                try:
+                    # Create module-specific output directory
+                    module_output = output_path / module_name
+                    module_output.mkdir(exist_ok=True)
+                    
+                    # Generate code
+                    generator = CodeGenerator(
+                        manager.module_def,
+                        manager.configuration
+                    )
+                    generator.generate_all(module_output)
+                    
+                    generated_modules.append(module_name)
+                    
+                except Exception as e:
+                    failed_modules.append((module_name, str(e)))
+            
+            progress.setValue(len(modules))
+            
+            # Show summary
+            summary = f"Code generation completed!\n\n"
+            summary += f"✅ Generated: {len(generated_modules)} module(s)\n"
+            if generated_modules:
+                summary += "  - " + "\n  - ".join(generated_modules) + "\n\n"
+            
+            if failed_modules:
+                summary += f"❌ Failed: {len(failed_modules)} module(s)\n"
+                for mod, err in failed_modules:
+                    summary += f"  - {mod}: {err}\n"
+            
+            summary += f"\nOutput: {output_dir}"
+            
+            if failed_modules:
+                QMessageBox.warning(self, "Code Generation Completed with Errors", summary)
+            else:
+                QMessageBox.information(self, "Code Generation Successful", summary)
+            
+            self.statusbar.showMessage(
+                f"Project code generated: {len(generated_modules)}/{len(modules)} modules",
+                5000
+            )
+            
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Project Code Generation Error",
+                f"Failed to generate project code:\n{str(e)}"
+            )
+            self.statusbar.showMessage("Project code generation failed", 3000)
     
     def launch_quick_config_wizard(self):
         """Launch the quick configuration wizard"""
@@ -613,10 +825,14 @@ class DaVinciMainWindow(QMainWindow):
             self.search_widget.show()
             self.search_widget.focus_search()
             
-            # Build search index if module_def is loaded
-            if self.module_def:
-                config = self.config_manager.configuration if self.config_manager else None
-                self.search_widget.build_search_index(self.module_def, config)
+            # Set search engine context
+            if self.config_manager:
+                from ..core.search_engine import SearchEngine
+                search_engine = SearchEngine(
+                    self.module_def,
+                    self.config_manager.configuration
+                )
+                self.search_widget.set_engine(search_engine)
         else:
             self.search_widget.hide()
     
@@ -763,22 +979,56 @@ class DaVinciMainWindow(QMainWindow):
             self.dep_graph_dialog.raise_()
             self.dep_graph_dialog.activateWindow()
     
-    def _on_instance_selected(self, instance: EcucContainerValue, container_def: EcucContainerDef):
+    def _on_instance_selected(self, instance: EcucContainerValue, container_def: EcucContainerDef, manager=None):
         """Handle instance selection in tree"""
+        # Update active context if manager provided (Project Mode)
+        if manager:
+            self._update_active_context(manager)
+            
         self.config_panel.show_instance(instance, container_def, self.config_manager)
     
-    def _on_def_selected(self, container_def: EcucContainerDef):
+    def _on_def_selected(self, container_def: EcucContainerDef, manager=None):
         """Handle definition node selection in tree"""
+        # Update active context if manager provided (Project Mode)
+        if manager:
+            self._update_active_context(manager)
+            
         self.config_panel.show_definition(container_def)
+        
+    def _update_active_context(self, manager):
+        """Update active configuration context (for Project Mode)"""
+        if self.config_manager != manager:
+            self.config_manager = manager
+            self.module_def = manager.module_def
+            
+            # Update status bar
+            self.def_file_label.setText(f"DEF: {self.module_def.short_name}")
+            self.value_file_label.setText(f"Config: {self.config_manager.configuration.short_name}")
+            
+            # Enable actions
+            self.save_value_action.setEnabled(True)
+            self.validate_action.setEnabled(True)
+            self.load_rules_action.setEnabled(True)
+            self.generate_action.setEnabled(True)
+            self.quick_config_action.setEnabled(True)
+            self.show_dep_graph_action.setEnabled(True)
     
     def _on_parameter_changed(self, instance: EcucContainerValue, param_name: str, value: any):
         """Handle parameter value change"""
         try:
-            self.config_manager.set_parameter_value(instance, param_name, value)
-            self.statusbar.showMessage(f"Set {param_name} = {value}", 2000)
-            
-            # Mark as modified
-            self.value_file_label.setText(f"{self.value_file_label.text()} *")
+            # Check if this is a reference parameter (indicated by 'ref:' prefix)
+            if param_name.startswith('ref:'):
+                # This is handled by the reference selector in config panel
+                # Just mark as modified
+                self._has_unsaved_changes = True
+                self.statusbar.showMessage(f"Reference updated", 2000)
+            else:
+                # Regular parameter
+                self.config_manager.set_parameter_value(instance, param_name, value)
+                self.statusbar.showMessage(f"Set {param_name} = {value}", 2000)
+                
+                # Mark as modified
+                self._has_unsaved_changes = True
         except Exception as e:
             QMessageBox.warning(self, "Invalid Value", str(e))
     
@@ -788,3 +1038,63 @@ class DaVinciMainWindow(QMainWindow):
         if last_def and Path(last_def).exists():
             # Auto-load on startup?
             pass  # For now, let user manually open
+    
+    def _update_recent_files_menu(self):
+        """Update recent files menu with current list"""
+        # TODO: Implement fully
+        self.recent_files_menu.clear()
+        no_files_action = QAction("(No recent files)", self)
+        no_files_action.setEnabled(False)
+        self.recent_files_menu.addAction(no_files_action)
+    
+    def closeEvent(self, event):
+        """Handle window close event - check for unsaved changes"""
+        unsaved_items = []
+        
+        # Check for unsaved changes
+        if self.current_project:
+            # Project mode: check all modules
+            for module_name, manager in self.current_project.module_managers.items():
+                if manager.configuration.is_modified:
+                    unsaved_items.append(f"Module: {module_name}")
+        elif self._has_unsaved_changes:
+            # Single module mode
+            unsaved_items.append("Current configuration")
+        
+        if unsaved_items:
+            items_text = "\n  • ".join(unsaved_items)
+            reply = QMessageBox.question(
+                self,
+                "Unsaved Changes",
+                f"You have unsaved changes in:\n  • {items_text}\n\n"
+                "Do you want to save before closing?",
+                QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
+                QMessageBox.Save
+            )
+            
+            if reply == QMessageBox.Save:
+                # Try to save
+                if self.current_project:
+                    self.save_project()
+                    # Check if all succeeded
+                    still_unsaved = [
+                        name for name, mgr in self.current_project.module_managers.items()
+                        if mgr.configuration.is_modified
+                    ]
+                    if still_unsaved:
+                        event.ignore()
+                        return
+                else:
+                    self.save_value_file()
+                    if self._has_unsaved_changes:
+                        event.ignore()
+                        return
+            elif reply == QMessageBox.Cancel:
+                event.ignore()
+                return
+            # If Discard, continue with close
+        
+        # Save window geometry
+        self.settings.setValue("geometry", self.saveGeometry())
+        self.settings.setValue("windowState", self.saveState())
+        event.accept()

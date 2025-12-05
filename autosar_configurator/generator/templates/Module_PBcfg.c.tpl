@@ -20,6 +20,10 @@ const {{ module_name }}_{{ container.name }}_ConfigType {{ module_name }}_{{ con
 {% for param in container.parameters %}
     .{{ param.name }} = {{ param.value }},
 {% endfor %}
+{% for ref in container.references %}
+    .{{ ref.name }} = {{ ref.target }},
+{% endfor %}
 };
 
 {% endfor %}
+

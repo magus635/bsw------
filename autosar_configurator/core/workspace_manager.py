@@ -21,6 +21,13 @@ class WorkspaceProject:
         # Map module name to its definition file path (for reloading)
         self.module_defs: Dict[str, Path] = {}
         
+        # Metadata
+        from datetime import datetime
+        self.created_date: str = datetime.now().isoformat()
+        self.author: str = ""
+        self.description: str = ""
+        self.version: str = "1.0.0"
+        
     def add_module(self, module_def: EcucModuleDef, def_path: Path) -> ConfigurationManager:
         """Add a new module to the project"""
         if module_def.short_name in self.module_managers:
@@ -64,9 +71,18 @@ class WorkspaceManager:
         """Save current project to file"""
         if not self.current_project or not self.current_project.path:
             return
-            
+        
+        from datetime import datetime
+        
         data = {
+            "format_version": 1,
+            "tool_version": "1.0.0",
             "name": self.current_project.name,
+            "created": self.current_project.created_date,
+            "last_modified": datetime.now().isoformat(),
+            "author": getattr(self.current_project, 'author', ''),
+            "description": getattr(self.current_project, 'description', ''),
+            "version": getattr(self.current_project, 'version', '1.0.0'),
             "modules": []
         }
         
@@ -96,14 +112,36 @@ class WorkspaceManager:
         with open(self.current_project.path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2)
             
-    def load_project(self, project_path: Path) -> WorkspaceProject:
-        """Load project from file"""
+    def load_project(self, project_path: Path) -> tuple[WorkspaceProject, list]:
+        """Load project from file
+        
+        Returns:
+            tuple: (project, failed_modules list)
+            failed_modules: List of tuples (module_name, error_message)
+        """
         with open(project_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            
+        
+        # Check format version
+        format_version = data.get("format_version", 0)
+        if format_version > 1:
+            raise ValueError(
+                f"Unsupported project format version {format_version}. "
+                f"Please upgrade the tool."
+            )
+        
         project_name = data.get("name", "Untitled")
         project = WorkspaceProject(project_name, project_path)
+        
+        # Store metadata
+        from datetime import datetime
+        project.created_date = data.get("created", datetime.now().isoformat())
+        project.author = data.get("author", "")
+        project.description = data.get("description", "")
+        project.version = data.get("version", "1.0.0")
+        
         project_dir = project_path.parent
+        failed_modules = []
         
         for module_data in data.get("modules", []):
             name = module_data["name"]
@@ -130,9 +168,13 @@ class WorkspaceManager:
                         manager.load_configuration(config_path)
                         
                 except Exception as e:
+                    error_msg = f"Failed to load: {str(e)}"
+                    failed_modules.append((name, error_msg))
                     print(f"Failed to load module {name}: {e}")
             else:
+                error_msg = f"DEF file not found: {def_path}"
+                failed_modules.append((name, error_msg))
                 print(f"Definition file not found for {name}: {def_path}")
                 
         self.current_project = project
-        return project
+        return project, failed_modules

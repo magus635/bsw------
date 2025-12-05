@@ -135,6 +135,10 @@ class DependencyGraphWidget(QWidget):
         self.nodes = {}  # name -> DependencyNode
         self.edges = []  # List of DependencyEdge
         
+        # Data storage
+        self.module_def = None
+        self.configuration = None
+        
         self._setup_ui()
     
     def _setup_ui(self):
@@ -189,9 +193,16 @@ class DependencyGraphWidget(QWidget):
     
     def build_graph(self, module_def, configuration):
         """Build dependency graph from configuration"""
+        # Store data for refresh/layout change
+        self.module_def = module_def
+        self.configuration = configuration
+        
         self.scene.clear()
         self.nodes.clear()
         self.edges.clear()
+        
+        if not module_def or not configuration:
+            return
         
         # Analyze dependencies
         dependencies = self._analyze_dependencies(configuration, module_def.short_name)
@@ -205,8 +216,20 @@ class DependencyGraphWidget(QWidget):
         module_name = module_def.short_name
         node_names.add(module_name)
         
+        # Add external reference targets as nodes
+        for source, targets in dependencies.items():
+            for target, ref_name in targets:
+                node_names.add(target)
+        
         # Layout nodes
         self._layout_nodes(list(node_names), self.layout_combo.currentText())
+        
+        # Assign node types based on whether they contain '/' to distinguish external nodes
+        for name, node in self.nodes.items():
+            # Mark external nodes (cross-module references) differently
+            if '/' in name and not any(name.startswith(c.short_name + '/') for c in configuration.containers):
+                # This is likely an external reference
+                node.setBrush(QBrush(QColor(150, 150, 150)))  # Gray for external
         
         # Create edges for dependencies
         for source, targets in dependencies.items():
@@ -259,7 +282,9 @@ class DependencyGraphWidget(QWidget):
                 print(f"🔗 Found reference: {full_name} --[{ref_name}]--> {target}")
                 
                 # Extract target container name
-                # Expected format: /Config/{ModuleName}/{ContainerPath}
+                # Expected formats:
+                # - Same module: /Config/Adc/AdcConfigSet/AdcHwUnit_0/AdcChannel_0
+                # - Cross-module: /Config/Mcu/McuModuleConfiguration/McuClockSettingConfig/McuClockReferencePoint_ADC
                 target_parts = target.split('/')
                 
                 # Remove empty parts
@@ -267,13 +292,22 @@ class DependencyGraphWidget(QWidget):
                 
                 target_name = None
                 
-                # Check if it starts with Config/ModuleName
-                if len(parts) > 2 and parts[0] == 'Config' and parts[1] == module_name:
-                    # Strip Config and ModuleName
-                    target_name = '/'.join(parts[2:])
+                # Skip 'Config' prefix if present
+                if len(parts) > 0 and parts[0] == 'Config':
+                    parts = parts[1:]  # Remove 'Config'
+                
+                # Now parts should be: [ModuleName, ContainerPath...]
+                if len(parts) >= 2:
+                    # For same module references, strip module name
+                    if parts[0] == module_name:
+                        target_name = '/'.join(parts[1:])
+                    else:
+                        # For cross-module references, keep module name as prefix
+                        # This will create external nodes like "Mcu/McuModuleConfiguration/..."
+                        target_name = '/'.join(parts)
+                        print(f"   → Cross-module reference to {parts[0]}")
                 elif len(parts) > 0:
-                    # Fallback: try to match by suffix or just use as is
-                    # If it's a relative path or different format
+                    # Fallback: use the path as-is
                     target_name = '/'.join(parts)
                 
                 if target_name:
@@ -357,25 +391,14 @@ class DependencyGraphWidget(QWidget):
     
     def _on_layout_changed(self, layout_type: str):
         """Handle layout change"""
-        # Re-layout existing nodes
-        if self.nodes:
-            names = list(self.nodes.keys())
-            
-            # Remove old nodes
-            for node in self.nodes.values():
-                self.scene.removeItem(node)
-            self.nodes.clear()
-            
-            # Re-layout
-            self._layout_nodes(names, layout_type)
-            
-            # Update edges
-            self._update_all_edges()
+        # Rebuild graph with new layout
+        if self.module_def and self.configuration:
+            self.build_graph(self.module_def, self.configuration)
     
     def refresh_graph(self):
         """Refresh the graph"""
-        # Trigger rebuild from parent
-        pass
+        if self.module_def and self.configuration:
+            self.build_graph(self.module_def, self.configuration)
     
     def export_graph(self):
         """Export graph as image"""
