@@ -769,6 +769,7 @@ class ArxmlParser:
             for sub_elem in sub_containers_elem.findall('ar:ECUC-CONTAINER-VALUE', self.NAMESPACES):
                 sub_container = self._parse_ecuc_container_value(sub_elem)
                 if sub_container:
+                    sub_container.parent = container
                     container.add_sub_container(sub_container)
                     
         return container

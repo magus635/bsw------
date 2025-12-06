@@ -2,7 +2,9 @@
 DaVinci-style Tree View with dual-mode display
 Shows both DEF nodes (templates) and VALUE instances
 """
-from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem, QMenu, QInputDialog, QMessageBox
+from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem, QMenu, QInputDialog, QMessageBox, QAbstractItemView
+from PySide6.QtCore import Qt, Signal, QMimeData
+from PySide6.QtGui import QColor, QFont, QBrush, QDrag, QPixmap
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont, QBrush
 from typing import Optional, Dict
@@ -19,6 +21,11 @@ class DaVinciTreeView(QTreeWidget):
     # Signals
     instance_selected = Signal(EcucContainerValue, EcucContainerDef, object)  # instance, definition, manager
     def_selected = Signal(EcucContainerDef, object)  # definition, manager
+    
+    # Command signals
+    create_instance_requested = Signal(EcucContainerDef, object, str)  # def, parent_instance, name
+    delete_instance_requested = Signal(EcucContainerValue, object)  # instance, parent_instance
+    move_instance_requested = Signal(EcucContainerValue, object, int)  # instance, new_parent, new_index
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -44,6 +51,12 @@ class DaVinciTreeView(QTreeWidget):
         # Styling
         self.setAlternatingRowColors(True)
         self.setAnimated(True)
+        
+        # Drag & Drop
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True)
+        self.setDropIndicatorShown(True)
+        self.setDragDropMode(QAbstractItemView.InternalMove)
     
     def set_module_def(self, module_def: EcucModuleDef, config_manager: ConfigurationManager):
         """Set module definition and configuration manager"""
@@ -316,32 +329,15 @@ class DaVinciTreeView(QTreeWidget):
                 return
             
             try:
-                # Create instance
-                instance = manager.create_container_instance(
-                    container_def,
-                    parent=parent_instance,
-                    instance_name=name
-                )
+                # Request creation via signal
+                self.create_instance_requested.emit(container_def, parent_instance, name)
                 
-                # Save current expansion state
-                expanded_items = self._save_expansion_state()
-                
-                # Refresh tree
-                self.refresh()
-                
-                # Restore expansion state
-                self._restore_expansion_state(expanded_items)
-                
-                # Find and select the new instance
-                self._select_instance(instance)
-                
-                # Success - break loop
+                # Note: We can't select the new instance immediately here because creation is async (via signal/command)
+                # The main window should trigger a refresh and selection after processing the command
                 break
                 
-            except ValidationError as e:
-                QMessageBox.warning(self, "Cannot Add Instance", str(e))
-                # Update default name to what user typed so they can edit it
-                default_name = name
+            except Exception as e:
+                QMessageBox.warning(self, "Error", str(e))
     
     def _save_expansion_state(self) -> set:
         """Save which items are currently expanded"""
@@ -390,6 +386,113 @@ class DaVinciTreeView(QTreeWidget):
         for i in range(self.topLevelItemCount()):
             traverse(self.topLevelItem(i))
     
+    def select_item_by_path(self, path: str) -> Optional[str]:
+        """
+        Select tree item by ARXML path.
+        Returns the parameter name if the path points to a parameter, else None.
+        """
+        if not path:
+            return None
+            
+        # Normalize path
+        path = path.strip('/')
+        parts = path.split('/')
+        
+        # We need to find the deepest container that matches the path
+        # The path might be /Config/Module/Container/SubContainer/Parameter
+        
+        # Helper to get full path of an instance item
+        def get_instance_path(item):
+            data = item.data(0, Qt.UserRole)
+            if data and data.get("type") == "VALUE":
+                return data["instance"].get_path()
+            return None
+
+        # Traverse tree to find best match
+        best_match_item = None
+        best_match_length = 0
+        
+        # Breadth-first search or recursive traversal
+        # Since we need to expand as we go, let's try to match level by level if possible,
+        # or just search all instances. Searching all might be slow for huge trees,
+        # but robust. Let's try a smart traversal.
+        
+        # Actually, since we have the full path, we can check if any instance path
+        # is a prefix of the target path.
+        
+        target_path = "/" + path
+        
+        # We'll use a stack for traversal
+        stack = []
+        for i in range(self.topLevelItemCount()):
+            stack.append(self.topLevelItem(i))
+            
+        while stack:
+            item = stack.pop(0) # BFS
+            
+            data = item.data(0, Qt.UserRole)
+            if not data:
+                continue
+                
+            item_type = data.get("type")
+            
+            # If it's a VALUE (instance), check its path
+            if item_type == "VALUE":
+                instance = data["instance"]
+                instance_path = instance.get_path()
+                
+                # Check for exact match
+                if instance_path == target_path:
+                    best_match_item = item
+                    best_match_length = len(instance_path)
+                    break # Found exact container match
+                
+                # Check if it's a parent of target (prefix match)
+                # e.g. Instance: /Config/Module/Container
+                # Target: /Config/Module/Container/Parameter
+                if target_path.startswith(instance_path + "/"):
+                    if len(instance_path) > best_match_length:
+                        best_match_item = item
+                        best_match_length = len(instance_path)
+            
+            # Add children to stack
+            for i in range(item.childCount()):
+                stack.append(item.child(i))
+        
+        if best_match_item:
+            # Expand path to this item
+            parent = best_match_item.parent()
+            while parent:
+                parent.setExpanded(True)
+                parent = parent.parent()
+                
+            # Select and scroll
+            self.setCurrentItem(best_match_item)
+            self.scrollToItem(best_match_item)
+            best_match_item.setExpanded(True)
+            
+            # Determine if there is a parameter part remaining
+            # instance_path: /Config/Module/Container
+            # target_path: /Config/Module/Container/Parameter
+            match_path = get_instance_path(best_match_item)
+            if len(target_path) > len(match_path):
+                # Return the remainder as parameter name
+                remainder = target_path[len(match_path):].strip('/')
+                return remainder
+                
+        return None
+
+    def get_selected_instance(self) -> Optional[EcucContainerValue]:
+        """Get the currently selected container instance"""
+        item = self.currentItem()
+        if not item:
+            return None
+            
+        data = item.data(0, Qt.UserRole)
+        if data and data.get("type") == "VALUE":
+            return data.get("instance")
+        return None
+
     def _select_instance(self, instance: EcucContainerValue):
         """Find and select a specific instance in the tree"""
         def traverse(item):
@@ -424,13 +527,8 @@ class DaVinciTreeView(QTreeWidget):
         if reply == QMessageBox.No:
             return
         
-        try:
-            manager = config_manager or self.config_manager
-            if manager:
-                manager.delete_container_instance(instance, parent=parent_instance)
-            self.refresh()
-        except ValidationError as e:
-            QMessageBox.warning(self, "Cannot Delete Instance", str(e))
+        # Request deletion via signal
+        self.delete_instance_requested.emit(instance, parent_instance)
     
     # Styling helpers
     
@@ -440,6 +538,164 @@ class DaVinciTreeView(QTreeWidget):
         font.setBold(True)
         return font
     
+    # Drag & Drop Handlers
+    
+    def dragEnterEvent(self, event):
+        """Handle drag enter"""
+        item = self.currentItem()
+        if item:
+            data = item.data(0, Qt.UserRole)
+            if data and data.get("type") == "VALUE":
+                # Only allow dragging instances
+                event.accept()
+                return
+        event.ignore()
+
+    def dragMoveEvent(self, event):
+        """Handle drag move - check drop validity"""
+        # Get source item (implicitly trusted as InternalMove)
+        source_items = self.selectedItems()
+        if not source_items:
+            event.ignore()
+            return
+            
+        source_item = source_items[0]
+        source_data = source_item.data(0, Qt.UserRole)
+        instance = source_data.get("instance")
+        
+        # Get target info
+        target_item = self.itemAt(event.position().toPoint())
+        
+        if not target_item or not instance:
+            event.ignore()
+            return
+            
+        target_data = target_item.data(0, Qt.UserRole)
+        if not target_data:
+            event.ignore()
+            return
+            
+        target_type = target_data.get("type")
+        
+        # Determine potential new parent
+        new_parent = None
+        
+        if target_type == "VALUE":
+            # Target is an instance. 
+            # If dropping ON it, we might be adding as child
+            # If dropping BETWEEN, we might be reordering in same parent
+            pass
+        elif target_type == "DEF":
+            # Dropping on a definition node (unlikely target for simple move unless reparenting to root/sub)
+            pass
+            
+        # Simplified validation for now:
+        # Just accept if it looks like a valid internal move, main window/model will catch invalid reparenting
+        # But for UX, we should try to be stricter.
+        
+        # NOTE: Proper validation requires checking EcucContainerDef.sub_containers
+        # For this prototype, we'll allow the drop event to proceed and validate in dropEvent
+        super().dragMoveEvent(event)
+        
+    def dropEvent(self, event):
+        """Handle drop"""
+        if event.source() != self:
+            return
+            
+        # Identify source
+        source_items = self.selectedItems()
+        if not source_items:
+            return
+        source_item = source_items[0]
+        source_data = source_item.data(0, Qt.UserRole)
+        instance = source_data.get("instance")
+        
+        if not instance:
+            return
+            
+        # Identify drop target
+        # QTreeWidget.dropEvent logic is complex for InternalMove.
+        # We want to intercept it to use our Command.
+        
+        # Helper to calculate position details
+        pos = event.position().toPoint()
+        target_item = self.itemAt(pos)
+        drop_indicator = self.dropIndicatorPosition()
+        
+        new_parent = None
+        new_index = 0
+        
+        if target_item:
+            target_data = target_item.data(0, Qt.UserRole)
+            target_type = target_data.get("type")
+            target_parent = target_item.parent()
+            
+            # Logic to determine new parent and index based on drop position
+            # This is non-trivial in TreeWidget because of hierarchy.
+            
+            # Case 1: Dropped ON an item (OnItem)
+            if drop_indicator == QAbstractItemView.OnItem:
+                if target_type == "DEF":
+                    # Dropped on a definition -> Add as child (if definition matches)
+                    # Logic needs to check if this definition matches the instance
+                    if target_data["def"].definition_ref == instance.definition_ref:
+                        # Should go to parent of this DEF node? No, DEF node usually groups instances.
+                        pass
+                elif target_type == "VALUE":
+                    # Dropped on an instance -> Make child?
+                    new_parent = target_data["instance"]
+                    new_index = len(new_parent.sub_containers)
+            
+            # Case 2: Dropped Above/Below (AboveItem, BelowItem)
+            else:
+                # We are inserting relative to target_item
+                # New parent is target_item's parent (or None if top level)
+                # But wait, our tree structure has DEF nodes as grouping nodes.
+                # Structure: Module -> DEF -> Instance
+                # So Instance's immediate parent in UI is a DEF node.
+                # Instance's logical parent is Module or Another Instance.
+                
+                # If we drop relative to an Instance, we stay in same DEF group (usually).
+                # New parent is logically the same as target_item's logical parent.
+                
+                if target_type == "VALUE":
+                    target_instance = target_data["instance"]
+                    new_parent = target_instance.parent
+                    
+                    # Calculate index
+                    # We need to find where target_item is in the logical list
+                    if new_parent:
+                        siblings = new_parent.sub_containers
+                    else:
+                        siblings = self.config_manager.configuration.containers
+                        
+                    try:
+                        target_index = siblings.index(target_instance)
+                        if drop_indicator == QAbstractItemView.BelowItem:
+                            new_index = target_index + 1
+                        else:
+                            new_index = target_index
+                    except ValueError:
+                        new_index = 0
+                        
+        # Emit signal to handle move
+        # Note: This is an approximation. 
+        # For simplicity in this iteration, we'll implement reordering within same parent mainly.
+        # Reparenting requires checking definition compatibility.
+        
+        if instance.parent == new_parent:
+            # Reordering
+             self.move_instance_requested.emit(instance, new_parent, new_index)
+             event.setDropAction(Qt.MoveAction)
+             event.accept()
+        else:
+            # Reparenting - TODO check validity
+            # For now, allow if parents match (e.g. moving between identical containers?)
+            # Or just emit and let Command fail/succeed?
+            self.move_instance_requested.emit(instance, new_parent, new_index)
+            event.setDropAction(Qt.MoveAction)
+            event.accept()
+
     def _get_italic_font(self) -> QFont:
         """Get italic font"""
         font = self.font()

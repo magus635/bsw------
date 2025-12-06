@@ -5,11 +5,12 @@ Shows editable parameters for selected container instance
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QLineEdit,
     QComboBox, QSpinBox, QDoubleSpinBox,QCheckBox, QTextEdit,
+    QComboBox, QSpinBox, QDoubleSpinBox,QCheckBox, QTextEdit,
     QGroupBox, QTableWidget, QTableWidgetItem, QScrollArea,
-    QHeaderView
+    QHeaderView, QPushButton, QListWidget, QListWidgetItem
 )
-from PySide6.QtCore import Qt, Signal
-from typing import Optional
+from PySide6.QtCore import Qt, Signal, Slot
+from typing import Optional, List, Any
 
 from ...core.model.definition_model import EcucContainerDef, EcucParameterDef, EcucParameterType
 from ...core.model.configuration_model import EcucContainerValue
@@ -227,6 +228,8 @@ class DaVinciConfigPanel(QWidget):
             elif param_def.default_value is not None:
                 current_value = param_def.default_value
             
+            # Clear any existing item in the value cell to prevent "shadow" text
+            self.params_table.setItem(row, 1, QTableWidgetItem(""))
             
             editor = self._create_parameter_editor(param_name, param_def, current_value, instance)
             self.params_table.setCellWidget(row, 1, editor)
@@ -247,19 +250,56 @@ class DaVinciConfigPanel(QWidget):
             self.params_table.setItem(row, 4, req_item)
         
         self.params_table.resizeColumnsToContents()
-        # Set column resize modes
-        header = self.params_table.horizontalHeader()
-        header.setSectionResizeMode(0, header.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, header.ResizeMode.Stretch)  # Value column stretches
+        # Allow user to resize columns (Interactive is default, so we just don't lock them)
+        # We can set a stretch for the value column but keep it interactive if needed,
+        # but for now let's just resize to contents and let user adjust.
     
+    def _is_list_parameter(self, param_def: EcucParameterDef) -> bool:
+        """Check if parameter supports multiple values"""
+        return param_def.upper_multiplicity == -1 or param_def.upper_multiplicity > 1
+
     def _create_parameter_editor(self, param_name: str, param_def: EcucParameterDef, current_value: any, instance: EcucContainerValue) -> QWidget:
-        """Create appropriate editor widget based on parameter type
+        """Create appropriate editor widget based on parameter type"""
         
-        Args:
-            param_name: Parameter name (key in container_def.parameters dict)
-            param_def: Parameter definition
-            current_value: Current value or default
-            instance: Container instance (for initializing value if needed)
+        # Check for list/array type
+        if self._is_list_parameter(param_def):
+            initial_list = current_value if isinstance(current_value, list) else []
+            if current_value is not None and not isinstance(current_value, list):
+                initial_list = [current_value]
+                
+            list_editor = ListEditorWidget(param_name, param_def, initial_list, self)
+            list_editor.valueChanged.connect(
+                lambda val, pname=param_name: self._on_value_changed(pname, val)
+            )
+            return list_editor
+
+        # Single value editor
+        widget, value_getter, signal = self._create_single_value_editor(param_def, current_value)
+        
+        # Initial setting if needed
+        # Note: We rely on the caller/instance to have the value, 
+        # but if we generated a default, we might want to save it?
+        # For now, let's just assume the UI shows what we have.
+        
+        # Initialize value in instance if missing and we have a default/valid value
+        if param_name not in instance.parameter_values and current_value is None:
+             # Get initial value from widget
+             initial_val = value_getter()
+             # Only set if it's not None/Empty (handling defaults)
+             if initial_val is not None:
+                 instance.set_parameter_value(param_name, initial_val, param_def.definition_ref)
+
+        # Connect signal
+        # Map signal to value
+        signal.connect(lambda *args: self._on_value_changed(param_name, value_getter()))
+        
+        return widget
+
+    def _create_single_value_editor(self, param_def: EcucParameterDef, current_value: any):
+        """Create a single value editor widget
+        
+        Returns:
+            (widget, value_getter_func, changed_signal)
         """
         
         if param_def.param_type == EcucParameterType.ENUMERATION:
@@ -268,20 +308,16 @@ class DaVinciConfigPanel(QWidget):
             combo.addItems(param_def.literals or [])
             
             # Determine initial value
+            val_to_set = None
             if current_value in (param_def.literals or []):
-                combo.setCurrentText(current_value)
+                val_to_set = current_value
             elif param_def.literals:
-                # No value set, use first option as default
-                current_value = param_def.literals[0]
-                combo.setCurrentText(current_value)
-                # IMPORTANT: Initialize the value in the instance
-                if param_name not in instance.parameter_values:
-                    instance.set_parameter_value(param_name, current_value, param_def.definition_ref)
+                val_to_set = param_def.literals[0]
             
-            combo.currentTextChanged.connect(
-                lambda value, pname=param_name: self._on_value_changed(pname, value)
-            )
-            return combo
+            if val_to_set:
+                combo.setCurrentText(val_to_set)
+
+            return combo, combo.currentText, combo.currentTextChanged
         
         elif param_def.param_type == EcucParameterType.INTEGER:
             # SpinBox for integers
@@ -294,17 +330,10 @@ class DaVinciConfigPanel(QWidget):
             max_val = min(max_val, 2147483647)
             spinbox.setRange(int(min_val), int(max_val))
             
-            # Set value and initialize if needed
             value = int(current_value) if current_value is not None else 0
             spinbox.setValue(value)
-            # Initialize value in instance if not set
-            if param_name not in instance.parameter_values:
-                instance.set_parameter_value(param_name, value, param_def.definition_ref)
             
-            spinbox.valueChanged.connect(
-                lambda value, pname=param_name: self._on_value_changed(pname, value)
-            )
-            return spinbox
+            return spinbox, spinbox.value, spinbox.valueChanged
         
         elif param_def.param_type == EcucParameterType.FLOAT:
             # DoubleSpinBox for floats
@@ -314,48 +343,35 @@ class DaVinciConfigPanel(QWidget):
                 param_def.max_value if param_def.max_value is not None else 1e308
             )
             
-            # Set value and initialize if needed
             value = float(current_value) if current_value is not None else 0.0
             spinbox.setValue(value)
-            # Initialize value in instance if not set
-            if param_name not in instance.parameter_values:
-                instance.set_parameter_value(param_name, value, param_def.definition_ref)
             
-            spinbox.valueChanged.connect(
-                lambda value, pname=param_name: self._on_value_changed(pname, value)
-            )
-            return spinbox
+            return spinbox, spinbox.value, spinbox.valueChanged
         
         elif param_def.param_type == EcucParameterType.BOOLEAN:
-            # CheckBox for booleans - centered in container widget
+            # CheckBox for booleans
+            # Need a container for centering, but also need to expose the inner checkbox signal
             container = QWidget()
             layout = QHBoxLayout(container)
             layout.setContentsMargins(0, 0, 0, 0)
             layout.setAlignment(Qt.AlignCenter)
             
-            # Set value and initialize if needed
             value = bool(current_value) if current_value is not None else False
             checkbox = QCheckBox()
             checkbox.setChecked(value)
-            # Initialize value in instance if not set
-            if param_name not in instance.parameter_values:
-                instance.set_parameter_value(param_name, value, param_def.definition_ref)
-            
-            checkbox.stateChanged.connect(
-                lambda state, pname=param_name: self._on_value_changed(pname, state == Qt.Checked)
-            )
-            
             layout.addWidget(checkbox)
-            return container
+            
+            def get_bool():
+                return checkbox.isChecked()
+                
+            return container, get_bool, checkbox.stateChanged
         
         else:
             # Default: LineEdit for strings
             lineedit = QLineEdit()
             lineedit.setText(str(current_value) if current_value is not None else "")
-            lineedit.textChanged.connect(
-                lambda text, pname=param_name: self._on_value_changed(pname, text)
-            )
-            return lineedit
+            
+            return lineedit, lineedit.text, lineedit.textChanged
     
     def _is_boolean_parameter(self, param_def: EcucParameterDef) -> bool:
         """Check if parameter is boolean type"""
@@ -462,6 +478,9 @@ class DaVinciConfigPanel(QWidget):
             if ref_name in instance.reference_values:
                 current_value = instance.reference_values[ref_name].value_ref
             
+            # Clear any existing item in the target cell
+            self.refs_table.setItem(row, 1, QTableWidgetItem(""))
+            
             selector = self._create_reference_selector(ref_name, ref_def, current_value)
             self.refs_table.setCellWidget(row, 1, selector)
             
@@ -479,9 +498,6 @@ class DaVinciConfigPanel(QWidget):
         
         # Adjust column widths
         self.refs_table.resizeColumnsToContents()
-        header = self.refs_table.horizontalHeader()
-        header.setSectionResizeMode(0, header.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(1, header.ResizeMode.Stretch)
     
     def _create_reference_selector(self, ref_name: str, ref_def, current_value: str) -> QComboBox:
         """Create ComboBox for reference selection"""
@@ -524,23 +540,127 @@ class DaVinciConfigPanel(QWidget):
             return
         
         try:
-            if target_path:
-                # Get reference definition
-                ref_def = self.current_def.references.get(ref_name)
-                if ref_def:
-                    self.current_instance.set_reference_value(
-                        ref_name,
-                        target_path,
-                        ref_def.definition_ref
-                    )
-            else:
-                # Clear reference
-                if ref_name in self.current_instance.reference_values:
-                    del self.current_instance.reference_values[ref_name]
-            
             # Emit parameter changed signal (reuse for references)
+            # Main window will handle the actual update via Command
             self.parameter_changed.emit(self.current_instance, f"ref:{ref_name}", target_path)
             
         except Exception as e:
             from PySide6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "Reference Error", f"Failed to set reference: {e}")
+
+class ListEditorWidget(QWidget):
+    """Widget for editing a list of values"""
+    
+    valueChanged = Signal(list)
+    
+    def __init__(self, param_name: str, param_def: EcucParameterDef, initial_value: List[Any], parent_panel: 'DaVinciConfigPanel'):
+        super().__init__()
+        self.param_name = param_name
+        self.param_def = param_def
+        self.values = initial_value[:]
+        self.parent_panel = parent_panel
+        
+        self._setup_ui()
+        
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # List of values
+        self.list_widget = QListWidget()
+        self.list_widget.setFixedHeight(120)  # Restricted height
+        layout.addWidget(self.list_widget)
+        
+        # Populate list
+        self._refresh_list()
+        
+        # Buttons
+        btn_layout = QHBoxLayout()
+        self.add_btn = QPushButton("Add")
+        self.remove_btn = QPushButton("Remove")
+        self.remove_btn.setEnabled(False)
+        
+        btn_layout.addWidget(self.add_btn)
+        btn_layout.addWidget(self.remove_btn)
+        btn_layout.addStretch()
+        
+        layout.addLayout(btn_layout)
+        
+        # Connections
+        self.add_btn.clicked.connect(self._add_item)
+        self.remove_btn.clicked.connect(self._remove_item)
+        self.list_widget.itemSelectionChanged.connect(self._update_buttons)
+        self.list_widget.itemDoubleClicked.connect(self._edit_item)
+        
+    def _refresh_list(self):
+        self.list_widget.clear()
+        for idx, val in enumerate(self.values):
+            item = QListWidgetItem(str(val))
+            item.setData(Qt.UserRole, idx)
+            self.list_widget.addItem(item)
+            
+    def _update_buttons(self):
+        self.remove_btn.setEnabled(len(self.list_widget.selectedItems()) > 0)
+        
+    def _add_item(self):
+        # We need a dialog or usage of the single value editor to get the new value
+        # For simplicity, let's use a default value appropriate for the type
+        # Or launch a small input dialog using the existing editor logic?
+        
+        # Simplified: Add default value then let user edit
+        default_val = self.param_def.default_value
+        if default_val is None:
+            if self.param_def.param_type == EcucParameterType.INTEGER: default_val = 0
+            elif self.param_def.param_type == EcucParameterType.FLOAT: default_val = 0.0
+            elif self.param_def.param_type == EcucParameterType.BOOLEAN: default_val = False
+            elif self.param_def.param_type == EcucParameterType.ENUMERATION: 
+                default_val = self.param_def.literals[0] if self.param_def.literals else ""
+            else: default_val = ""
+            
+        self.values.append(default_val)
+        self._refresh_list()
+        self.valueChanged.emit(self.values)
+        
+        # Auto start edit of new item
+        self.list_widget.setCurrentRow(len(self.values)-1)
+        self._edit_item(self.list_widget.currentItem())
+
+    def _remove_item(self):
+        row = self.list_widget.currentRow()
+        if row >= 0:
+            self.values.pop(row)
+            self._refresh_list()
+            self.valueChanged.emit(self.values)
+
+    def _edit_item(self, item):
+        if not item: return
+        index = item.data(Qt.UserRole)
+        current_val = self.values[index]
+        
+        # Use QInputDialog for simple edits, or custom dialog with the actual editor widget
+        # Since we have logic to create specific editors, let's reuse it differently.
+        # Actually standard input dialogs are easiest for now.
+        
+        # TODO: Use proper editor widget in a dialog for better UX (especially Enums)
+        # For now, simplistic approach:
+        
+        from PySide6.QtWidgets import QDialog, QVBoxLayout, QDialogButtonBox
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Edit {self.param_def.short_name}")
+        dlg_layout = QVBoxLayout(dialog)
+        
+        # Reuse creation logic
+        editor, getter, signal = self.parent_panel._create_single_value_editor(self.param_def, current_val)
+        dlg_layout.addWidget(editor)
+        
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        dlg_layout.addWidget(buttons)
+        
+        if dialog.exec():
+            new_val = getter()
+            self.values[index] = new_val
+            self._refresh_list()
+            self.valueChanged.emit(self.values)

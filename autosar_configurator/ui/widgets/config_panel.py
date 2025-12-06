@@ -357,6 +357,27 @@ class ConfigPanel(QWidget):
 
         self.parameter_group.show()
 
+    def highlight_parameter(self, param_name: str):
+        """Highlight a specific parameter in the table"""
+        if not param_name:
+            return
+            
+        # Ensure parameters table is visible
+        self.params_table_group.show()
+        
+        # Find row with parameter name
+        for row in range(self.params_table.rowCount()):
+            item = self.params_table.item(row, 0) # Name column
+            if item and item.text() == param_name:
+                # Select row
+                self.params_table.selectRow(row)
+                
+                # Scroll to row
+                self.params_table.scrollToItem(item)
+                
+                # Flash effect (optional, for now just selection is enough)
+                return
+
     def clear(self):
         """Clear the panel"""
         self.current_container = None

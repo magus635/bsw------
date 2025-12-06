@@ -59,6 +59,9 @@ class EcucContainerValue:
     # Sub-container instances
     sub_containers: List['EcucContainerValue'] = field(default_factory=list)
     
+    # Parent container (for path generation)
+    parent: Optional['EcucContainerValue'] = field(default=None, repr=False)
+    
     # Metadata
     index: int = 0  # Instance index (for sorting)
     is_modified: bool = False
@@ -69,7 +72,8 @@ class EcucContainerValue:
     
     def get_path(self) -> str:
         """Get full path of this container instance"""
-        # This will be set by ConfigurationManager based on hierarchy
+        if self.parent:
+            return f"{self.parent.get_path()}/{self.short_name}"
         return f"/Config/{self.short_name}"
     
     def set_parameter_value(self, param_name: str, value: Any, definition_ref: str):
@@ -98,6 +102,7 @@ class EcucContainerValue:
     
     def add_sub_container(self, sub_container: 'EcucContainerValue'):
         """Add a sub-container instance"""
+        sub_container.parent = self
         self.sub_containers.append(sub_container)
         self.mark_modified()
     
@@ -114,6 +119,39 @@ class EcucContainerValue:
     def has_validation_errors(self) -> bool:
         """Check if this container has validation errors"""
         return len(self.validation_errors) > 0
+
+    def clone(self) -> 'EcucContainerValue':
+        """Deep copy of the container instance"""
+        new_instance = EcucContainerValue(
+            short_name=self.short_name,
+            definition_ref=self.definition_ref,
+            is_modified=True,
+            last_modified=datetime.now()
+        )
+        
+        # Clone parameters
+        for name, param in self.parameter_values.items():
+            new_instance.parameter_values[name] = EcucParameterValue(
+                definition_ref=param.definition_ref,
+                value=param.value[:] if isinstance(param.value, list) else param.value, # Handle list cloning
+                is_modified=True,
+                last_modified=datetime.now()
+            )
+            
+        # Clone references
+        for name, ref in self.reference_values.items():
+            new_instance.reference_values[name] = EcucReferenceValue(
+                definition_ref=ref.definition_ref,
+                value_ref=ref.value_ref,
+                is_modified=True
+            )
+            
+        # Clone sub-containers
+        for sub in self.sub_containers:
+            new_sub = sub.clone()
+            new_instance.add_sub_container(new_sub)
+            
+        return new_instance
 
 
 @dataclass

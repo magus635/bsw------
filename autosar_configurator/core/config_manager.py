@@ -163,8 +163,27 @@ class ConfigurationManager:
         # Remove instance
         if parent:
             parent.remove_sub_container(instance)
+            # Unregister from configuration registry
+            self.configuration._unregister_instance(instance)
         else:
             self.configuration.remove_container(instance)
+            
+    def add_container_instance(self, instance: EcucContainerValue, parent: Optional[EcucContainerValue] = None):
+        """Add an existing container instance (e.g. from paste/undo)
+        
+        Args:
+            instance: Instance to add
+            parent: Parent container (None for top-level)
+        """
+        # Validate multiplicity if needed (optional here as undo implies valid state, but paste needs check)
+        # For robustness, we could check. But paste logic handles duplication/naming.
+        
+        if parent:
+            parent.add_sub_container(instance)
+            # Register in configuration registry
+            self.configuration._register_instance(instance)
+        else:
+            self.configuration.add_container(instance)
     
     def set_parameter_value(self,
                            container: EcucContainerValue,

@@ -9,7 +9,7 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from autosar_configurator.core.config_manager import ConfigurationManager
+from autosar_configurator.core.config_manager import ConfigurationManager, ValidationError
 from autosar_configurator.core.model.definition_model import (
     EcucModuleDef, EcucContainerDef, EcucParameterDef, EcucParameterType
 )
@@ -18,6 +18,7 @@ from autosar_configurator.core.model.definition_model import (
 def create_test_module_def():
     """创建测试用的模块定义"""
     module_def = EcucModuleDef("TestModule")
+    module_def.definition_ref = "/AUTOSAR/EcucDefs/TestModule"  # Set module definition ref
     
     container_def = EcucContainerDef(
         short_name="TestContainer",
@@ -25,40 +26,47 @@ def create_test_module_def():
         upper_multiplicity=1
     )
     
+    # Set definition_ref BEFORE adding parameters
+    container_def.definition_ref = "/AUTOSAR/EcucDefs/TestModule/TestContainer"
+    
     container_def.parameters = {
         "IntParam": EcucParameterDef(
             short_name="IntParam",
             param_type=EcucParameterType.INTEGER,
             min_value=0,
             max_value=100,
-            lower_multiplicity=1
+            lower_multiplicity=1,
+            definition_ref="/AUTOSAR/EcucDefs/TestModule/TestContainer/IntParam"
         ),
-        "EnumParam":EcucParameterDef(
+        "EnumParam": EcucParameterDef(
             short_name="EnumParam",
             param_type=EcucParameterType.ENUMERATION,
             literals=["option1", "option2", "option3"],
-            lower_multiplicity=1
+            lower_multiplicity=1,
+            definition_ref="/AUTOSAR/EcucDefs/TestModule/TestContainer/EnumParam"
         ),
         "BoolParam": EcucParameterDef(
             short_name="BoolParam",
             param_type=EcucParameterType.BOOLEAN,
-            lower_multiplicity=0
+            lower_multiplicity=0,
+            definition_ref="/AUTOSAR/EcucDefs/TestModule/TestContainer/BoolParam"
         ),
         "FloatParam": EcucParameterDef(
             short_name="FloatParam",
             param_type=EcucParameterType.FLOAT,
             min_value=0.0,
             max_value=1.0,
-            lower_multiplicity=0
+            lower_multiplicity=0,
+            definition_ref="/AUTOSAR/EcucDefs/TestModule/TestContainer/FloatParam"
         ),
         "StringParam": EcucParameterDef(
             short_name="StringParam",
             param_type=EcucParameterType.STRING,
-            lower_multiplicity=0
+            lower_multiplicity=0,
+            definition_ref="/AUTOSAR/EcucDefs/TestModule/TestContainer/StringParam"
         )
     }
     
-    container_def.definition_ref = "/TestModule/TestContainer"
     module_def.containers = {"TestContainer": container_def}
     
     return module_def
@@ -73,9 +81,12 @@ def test_parameter_default_values():
     module_def = create_test_module_def()
     manager = ConfigurationManager(module_def)
     
+    # Create container instance at root level
+    container_def = module_def.containers["TestContainer"]
     instance = manager.create_container_instance(
-        "/TestModule/TestContainer",
-        "TestInstance"
+        container_def,  # Pass the container_def object, not string
+        None,  # parent
+        "TestInstance"  # instance_name
     )
     
     # 验证默认值
@@ -111,7 +122,12 @@ def test_type_conversion_and_validation():
     
     module_def = create_test_module_def()
     manager = ConfigurationManager(module_def)
-    instance = manager.create_container_instance("/TestModule/TestContainer", "TestInstance")
+    container_def = module_def.containers["TestContainer"]
+    instance = manager.create_container_instance(
+        container_def,
+        None,
+        "TestInstance"
+    )
     
     passed = 0
     failed = 0
@@ -134,7 +150,7 @@ def test_type_conversion_and_validation():
         manager.set_parameter_value(instance, "IntParam", "200")
         print("  ❌ Should reject out of range value")
         failed += 1
-    except ValueError:
+    except (ValueError, ValidationError):
         print("  ✅ Correctly rejected out of range value (200 > 100)")
         passed += 1
     
@@ -181,7 +197,7 @@ def test_type_conversion_and_validation():
         manager.set_parameter_value(instance, "EnumParam", "invalid")
         print("  ❌ Should reject invalid enum value")
         failed += 1
-    except ValueError:
+    except (ValueError, ValidationError):
         print("  ✅ Correctly rejected invalid enum value")
         passed += 1
     

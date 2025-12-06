@@ -8,9 +8,16 @@ from PySide6.QtWidgets import (
     QFileDialog, QMessageBox, QStyle, QLabel
 )
 from PySide6.QtCore import Qt, Signal, QSettings
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtGui import QAction, QKeySequence, QUndoStack
+from PySide6.QtWidgets import QDockWidget
 from pathlib import Path
 from typing import Optional
+
+from .commands import (
+    SetParameterCommand, SetReferenceCommand,
+    CreateContainerCommand, DeleteContainerCommand,
+    MoveContainerCommand, PasteContainerCommand
+)
 
 from ..core.parser.ecuc_def_parser import EcucDefParser
 from ..core.config_manager import ConfigurationManager
@@ -21,6 +28,8 @@ from .widgets.davinci_tree_view import DaVinciTreeView
 from .widgets.davinci_config_panel import DaVinciConfigPanel
 from .widgets.smart_search import SmartSearchWidget
 from .widgets.dependency_graph import DependencyGraphWidget
+from .widgets.ai_assistant import AIAssistantWidget
+from ..core.ai.nlp_processor import NaturalLanguageProcessor
 from ..generator.generator import CodeGenerator
 
 
@@ -49,6 +58,13 @@ class DaVinciMainWindow(QMainWindow):
         
         # Unsaved changes tracking
         self._has_unsaved_changes = False
+        
+        # Undo Stack
+        self.undo_stack = QUndoStack(self)
+        self.undo_stack.cleanChanged.connect(self._on_undo_clean_changed)
+
+        # Internal Clipboard
+        self.clipboard_instance: Optional[EcucContainerValue] = None
         
         self._setup_ui()
         self._create_actions()
@@ -86,6 +102,9 @@ class DaVinciMainWindow(QMainWindow):
         self.tree_view = DaVinciTreeView()
         self.tree_view.instance_selected.connect(self._on_instance_selected)
         self.tree_view.def_selected.connect(self._on_def_selected)
+        self.tree_view.create_instance_requested.connect(self.handle_create_container)
+        self.tree_view.delete_instance_requested.connect(self.handle_delete_container)
+        self.tree_view.move_instance_requested.connect(self.handle_move_container)
         splitter.addWidget(self.tree_view)
         
         # Right: Config panel
@@ -102,7 +121,59 @@ class DaVinciMainWindow(QMainWindow):
         # Dependency graph widget (in separate window)
         self.dep_graph_widget = None
         self.dep_graph_dialog = None
+        
+        # AI Assistant (Dock Widget)
+        self.ai_assistant_widget = None
+        self.ai_assistant_dock = None
+        
+        # Initialize AI Assistant
+        self._setup_ai_assistant()
     
+    def _setup_ai_assistant(self):
+        """Setup AI Assistant dock widget"""
+        self.ai_assistant_dock = QDockWidget("AI Assistant", self)
+        self.ai_assistant_dock.setAllowedAreas(Qt.RightDockWidgetArea | Qt.LeftDockWidgetArea)
+        
+        self.ai_assistant_widget = AIAssistantWidget()
+        self.ai_assistant_dock.setWidget(self.ai_assistant_widget)
+        
+        self.addDockWidget(Qt.RightDockWidgetArea, self.ai_assistant_dock)
+        
+        # Connect signals
+        self.ai_assistant_widget.message_sent.connect(self._handle_ai_message)
+        
+        # Hide by default
+        self.ai_assistant_dock.hide()
+        
+        # Initialize Backend (Lazy load or init here if fast)
+        self.ai_processor = None  # Will init when config_manager is available
+
+    def _handle_ai_message(self, text: str):
+        """Handle message from AI Assistant Widget"""
+        if not self.config_manager:
+            self.ai_assistant_widget.append_message("System", "Please load a DEF file or Project first.")
+            self.ai_assistant_widget.set_status("Ready")
+            return
+            
+        # Init processor if needed
+        if not self.ai_processor:
+            self.ai_processor = NaturalLanguageProcessor(self.config_manager, self.undo_stack)
+        else:
+            # Update config manager reference if it changed
+            self.ai_processor.config_manager = self.config_manager
+            
+        try:
+            # Process via backend
+            response = self.ai_processor.process_message(text)
+            
+            # Show response
+            self.ai_assistant_widget.append_message("AI", response)
+            self.ai_assistant_widget.set_status("Ready")
+            
+        except Exception as e:
+            self.ai_assistant_widget.append_message("System", f"Error: {str(e)}")
+            self.ai_assistant_widget.set_status("Error")
+
     def _create_actions(self):
         """Create actions"""
         # Project actions
@@ -174,6 +245,26 @@ class DaVinciMainWindow(QMainWindow):
         self.load_rules_action.setEnabled(False)
         self.load_rules_action.triggered.connect(self.load_custom_rules)
         
+        self.load_rules_action.triggered.connect(self.load_custom_rules)
+
+        # Copy/Paste Actions
+        self.copy_action = QAction("Copy", self)
+        self.copy_action.setShortcut(QKeySequence.Copy)
+        self.copy_action.setStatusTip("Copy selected container")
+        self.copy_action.triggered.connect(self.copy_container)
+        
+        self.paste_action = QAction("Paste", self)
+        self.paste_action.setShortcut(QKeySequence.Paste)
+        self.paste_action.setStatusTip("Paste container from clipboard")
+        self.paste_action.triggered.connect(self.paste_container)
+        
+        # Undo/Redo actions
+        self.undo_action = self.undo_stack.createUndoAction(self, "Undo")
+        self.undo_action.setShortcut(QKeySequence.Undo)
+        
+        self.redo_action = self.undo_stack.createRedoAction(self, "Redo")
+        self.redo_action.setShortcut(QKeySequence.Redo)
+        
         # Generate actions
         self.generate_action = QAction("Generate Code", self)
         self.generate_action.setShortcut(QKeySequence("Ctrl+G"))
@@ -196,7 +287,13 @@ class DaVinciMainWindow(QMainWindow):
         self.show_dep_graph_action = QAction("Dependency Graph", self)
         self.show_dep_graph_action.setShortcut(QKeySequence("Ctrl+D"))
         self.show_dep_graph_action.setEnabled(False)
+        self.show_dep_graph_action.setEnabled(False)
         self.show_dep_graph_action.triggered.connect(self.show_dependency_graph)
+
+        self.toggle_ai_action = self.ai_assistant_dock.toggleViewAction()
+        self.toggle_ai_action.setText("AI Assistant")
+        self.toggle_ai_action.setShortcut(QKeySequence("Ctrl+Shift+A"))
+        self.toggle_ai_action.setStatusTip("Show/Hide AI Assistant")
     
     def _create_menus(self):
         """Create menus"""
@@ -226,6 +323,12 @@ class DaVinciMainWindow(QMainWindow):
         
         # Edit menu
         edit_menu = menubar.addMenu("Edit")
+        edit_menu.addAction(self.undo_action)
+        edit_menu.addAction(self.redo_action)
+        edit_menu.addSeparator()
+        edit_menu.addAction(self.copy_action)
+        edit_menu.addAction(self.paste_action)
+        edit_menu.addSeparator()
         edit_menu.addAction(self.validate_action)
         edit_menu.addAction(self.load_rules_action)
         
@@ -233,6 +336,8 @@ class DaVinciMainWindow(QMainWindow):
         view_menu = menubar.addMenu("View")
         view_menu.addAction(self.toggle_search_action)
         view_menu.addAction(self.show_dep_graph_action)
+        view_menu.addSeparator()
+        view_menu.addAction(self.toggle_ai_action)
         
         # Generate menu
         gen_menu = menubar.addMenu("Generate")
@@ -249,6 +354,12 @@ class DaVinciMainWindow(QMainWindow):
         toolbar.addAction(self.open_def_action)
         toolbar.addAction(self.new_config_action)
         toolbar.addAction(self.save_value_action)
+        toolbar.addSeparator()
+        toolbar.addAction(self.undo_action)
+        toolbar.addAction(self.redo_action)
+        toolbar.addSeparator()
+        toolbar.addAction(self.copy_action)
+        toolbar.addAction(self.paste_action)
         toolbar.addSeparator()
         toolbar.addAction(self.validate_action)
         toolbar.addSeparator()
@@ -349,12 +460,48 @@ class DaVinciMainWindow(QMainWindow):
             QMessageBox.critical(self, "Error", f"Failed to load project:\n{str(e)}")
             
     def save_project(self):
-        """Save current project"""
+        """Save current project and all modified modules"""
         if not self.current_project:
             return
+        
+        try:
+            saved_count = 0
+            failed_modules = []
             
-        self.workspace_manager.save_project()
-        self.statusbar.showMessage(f"Project saved: {self.current_project.path}", 3000)
+            # Save each modified module configuration
+            for module_name, manager in self.current_project.module_managers.items():
+                if manager.configuration.is_modified:
+                    try:
+                        # Use same naming convention as WorkspaceManager.save_project()
+                        config_file = self.current_project.path.parent / f"{module_name}_Config.arxml"
+                        
+                        # Save the module configuration file
+                        manager.save_configuration(config_file)
+                        # Clear the modified flag so closeEvent knows it's saved
+                        manager.configuration.is_modified = False
+                        saved_count += 1
+                    except Exception as e:
+                        failed_modules.append((module_name, str(e)))
+            
+            # Save project metadata file (.dpa)
+            self.workspace_manager.save_project()
+            
+            # Show result
+            if failed_modules:
+                error_details = "\n".join([f"  • {name}: {err}" for name, err in failed_modules])
+                QMessageBox.warning(
+                    self,
+                    "Project Saved with Errors",
+                    f"Saved {saved_count} module(s), but {len(failed_modules)} failed:\n\n{error_details}"
+                )
+            else:
+                if saved_count > 0:
+                    self.statusbar.showMessage(f"Project saved: {saved_count} module(s) updated", 3000)
+                else:
+                    self.statusbar.showMessage(f"Project saved (no changes)", 3000)
+                    
+        except Exception as e:
+            QMessageBox.critical(self, "Save Error", f"Failed to save project:\n{str(e)}")
     
     def show_project_properties(self):
         """Show project properties dialog"""
@@ -589,39 +736,215 @@ class DaVinciMainWindow(QMainWindow):
             
             # Save to recent files
             self.settings.setValue("last_value_file", str(file_path))
+            
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save configuration:\n{str(e)}")
             self.statusbar.showMessage("Save failed", 3000)
+            
+    def _on_undo_clean_changed(self, clean):
+        """Handle undo stack clean state change"""
+        # If stack is clean, it means we are back to saved state (if we set clean on save)
+        # But we handle is_modified manually for now, so maybe just update UI?
+        pass
+
+    def handle_parameter_change(self, instance: EcucContainerValue, param_name: str, value: any):
+        """Handle parameter change request via command"""
+        if not self.config_manager:
+            return
+            
+        if param_name.startswith('ref:'):
+            # Reference change
+            ref_name = param_name[4:]
+            command = SetReferenceCommand(self.config_manager, instance, ref_name, value)
+        else:
+            # Parameter change
+            command = SetParameterCommand(self.config_manager, instance, param_name, value)
+            
+        self.undo_stack.push(command)
+        self._has_unsaved_changes = True
+        self.statusbar.showMessage(f"Set {param_name}", 2000)
+        
+        # Refresh UI if needed (e.g. if reference changed, might need to update other views)
+        # For now, config panel updates itself, but tree view might need refresh if name changed (not supported yet)
+        
+    def handle_create_container(self, container_def: EcucContainerDef, parent_instance: Optional[EcucContainerValue], name: str):
+        """Handle container creation request via command"""
+        if not self.config_manager:
+            return
+            
+        command = CreateContainerCommand(self.config_manager, container_def, parent_instance, name)
+        self.undo_stack.push(command)
+        
+        self._has_unsaved_changes = True
+        self.statusbar.showMessage(f"Created {name}", 2000)
+        
+        # Refresh tree view
+        self.tree_view.refresh()
+        
+        # Select the new instance
+        if command.created_instance:
+            self.tree_view._select_instance(command.created_instance)
+            
+    def handle_delete_container(self, instance: EcucContainerValue, parent_instance: Optional[EcucContainerValue]):
+        """Handle container deletion request via command"""
+        if not self.config_manager:
+            return
+            
+        command = DeleteContainerCommand(self.config_manager, instance, parent_instance)
+        self.undo_stack.push(command)
+        
+        self._has_unsaved_changes = True
+        self.statusbar.showMessage(f"Deleted {instance.short_name}", 2000)
+        
+        # Refresh tree view
+        self.tree_view.refresh()
+        # Clear config panel if deleted instance was selected
+        if self.config_panel.current_instance == instance:
+            self.config_panel.clear()
+
+    def handle_move_container(self, instance: EcucContainerValue, new_parent, new_index):
+        """Handle container move request via command"""
+        if not self.config_manager:
+            return
+            
+        command = MoveContainerCommand(self.config_manager, instance, new_parent, new_index)
+        self.undo_stack.push(command)
+        
+        self._has_unsaved_changes = True
+        self.statusbar.showMessage(f"Moved {instance.short_name}", 2000)
+        
+        # Refresh tree view
+        self.tree_view.refresh()
+        
+        # Reselect
+        self.tree_view._select_instance(instance)
+        
+    def copy_container(self):
+        """Copy selected container to internal clipboard"""
+        current_instance = self.tree_view.get_selected_instance()
+        if not current_instance:
+            self.statusbar.showMessage("Select a container to copy", 2000)
+            return
+            
+        self.clipboard_instance = current_instance
+        self.statusbar.showMessage(f"Copied {current_instance.short_name} to clipboard", 2000)
+        
+    def paste_container(self):
+        """Paste container from internal clipboard"""
+        if not self.clipboard_instance:
+            self.statusbar.showMessage("Clipboard is empty", 2000)
+            return
+            
+        if not self.config_manager:
+            return
+            
+        # Determine target parent
+        target_parent = None
+        selected_instance = self.tree_view.get_selected_instance()
+        
+        # Try to prepare paste
+        # Logic: 
+        # 1. If selected allows child of clipboard type -> Target = Selected
+        # 2. Else -> Target = Selected.parent (sibling paste)
+        
+        clip_def_ref = self.clipboard_instance.definition_ref
+        clip_def = self.config_manager.get_container_def(clip_def_ref)
+        if not clip_def:
+             self.statusbar.showMessage("Error: Definition of copied item not found", 3000)
+             return
+
+        if selected_instance:
+             # Check if selected can hold this type
+             selected_def = self.config_manager.get_container_def(selected_instance.definition_ref)
+             if selected_def and clip_def.short_name in selected_def.sub_containers:
+                 target_parent = selected_instance
+             else:
+                 target_parent = selected_instance.parent
+        else:
+             # If top level selected or nothing selected (paste to root if allowed)
+             # Basic logic: Paste to root if clipboard item is allowed at root
+             # Check if clipboard item is a root container
+             is_root_allowed = clip_def.short_name in self.config_manager.module_def.containers
+             
+             if is_root_allowed:
+                 target_parent = None
+             else:
+                 self.statusbar.showMessage("Cannot paste here: Select a valid parent container", 3000)
+                 return
+                 
+        # Clone and Rename
+        try:
+            new_instance = self.clipboard_instance.clone()
+            
+            # Auto-rename to avoid collision
+            base_name = new_instance.short_name
+            # If it looks like "Name_Copy", strip suffix to avoid "Name_Copy_Copy" duplication if desired?
+            # Or just append. Windows style: Copy -> Copy (2).
+            # Let's keep it simple: Ensure unique name.
+            if "_Copy" not in base_name:
+                base_name += "_Copy"
+            
+            # Generate unique name
+            counter = 0
+            candidate_name = base_name
+            while self.config_manager._instance_exists(candidate_name, clip_def, target_parent):
+                counter += 1
+                candidate_name = f"{base_name}{counter}"
+            
+            new_instance.short_name = candidate_name
+             
+            # Command
+            command = PasteContainerCommand(self.config_manager, target_parent, new_instance)
+            self.undo_stack.push(command)
+            
+            self._has_unsaved_changes = True
+            self.statusbar.showMessage(f"Pasted {new_instance.short_name}", 2000)
+            
+            # Refresh and select
+            self.tree_view.refresh()
+            self.tree_view._select_instance(new_instance)
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Paste Error", f"Failed to paste:\n{str(e)}")
     
     def validate_configuration(self):
-        """Validate current configuration"""
+        """Validate current configuration with rich GUI dialog"""
         if not self.config_manager:
             return
         
         result = self.config_manager.validate_configuration()
         
+        # Always show dialog if there are errors, or just success message if valid
         if not result.is_valid:
-            # Format error messages
-            error_text = "\n".join(f"• {msg}" for msg in result.errors)
+            from .dialogs.validation_results_dialog import ValidationResultsDialog
             
-            # Show dialog
-            QMessageBox.warning(
-                self,
-                "Validation Errors",
-                f"Found {result.error_count} validation error(s):\n\n{error_text}"
-            )
+            dialog = ValidationResultsDialog(result.errors, self)
+            dialog.navigate_requested.connect(self._navigate_to_path)
+            dialog.exec()
             
             # Update status
-            self.validation_label.setText(f"❌ {result.error_count} errors")
-            self.validation_label.setStyleSheet("color: red;")
+            self.validation_status_label.setText(f"❌ {result.error_count} Error(s)")
+            self.validation_status_label.setStyleSheet("QLabel { color: red; padding: 2px 10px; }")
         else:
             QMessageBox.information(
                 self,
                 "Validation Success",
-                "✓ Configuration is valid!"
+                "✅ Configuration is valid!"
             )
-            self.validation_label.setText("✓ Valid")
-            self.validation_label.setStyleSheet("color: green;")
+            self.validation_status_label.setText("✅ Valid")
+            self.validation_status_label.setStyleSheet("QLabel { color: green; padding: 2px 10px; }")
+
+    def _navigate_to_path(self, path: str):
+        """Navigate to a specific path in the configuration tree"""
+        self.statusbar.showMessage(f"Navigating to: {path}", 3000)
+        
+        # Use robust path selection in tree view
+        # This returns the parameter name if the path points to a parameter
+        param_name = self.tree_view.select_item_by_path(path)
+        
+        # If a parameter was returned, highlight it in the config panel
+        if param_name and self.config_panel:
+            self.config_panel.highlight_parameter(param_name)
             
     def load_custom_rules(self):
         """Load custom validation rules from file"""
@@ -825,14 +1148,12 @@ class DaVinciMainWindow(QMainWindow):
             self.search_widget.show()
             self.search_widget.focus_search()
             
-            # Set search engine context
+            # Build search index with current module and configuration
             if self.config_manager:
-                from ..core.search_engine import SearchEngine
-                search_engine = SearchEngine(
+                self.search_widget.build_search_index(
                     self.module_def,
                     self.config_manager.configuration
                 )
-                self.search_widget.set_engine(search_engine)
         else:
             self.search_widget.hide()
     
@@ -1015,22 +1336,8 @@ class DaVinciMainWindow(QMainWindow):
     
     def _on_parameter_changed(self, instance: EcucContainerValue, param_name: str, value: any):
         """Handle parameter value change"""
-        try:
-            # Check if this is a reference parameter (indicated by 'ref:' prefix)
-            if param_name.startswith('ref:'):
-                # This is handled by the reference selector in config panel
-                # Just mark as modified
-                self._has_unsaved_changes = True
-                self.statusbar.showMessage(f"Reference updated", 2000)
-            else:
-                # Regular parameter
-                self.config_manager.set_parameter_value(instance, param_name, value)
-                self.statusbar.showMessage(f"Set {param_name} = {value}", 2000)
-                
-                # Mark as modified
-                self._has_unsaved_changes = True
-        except Exception as e:
-            QMessageBox.warning(self, "Invalid Value", str(e))
+        # Delegate to command handler
+        self.handle_parameter_change(instance, param_name, value)
     
     def _load_last_session(self):
         """Load last opened DEF file"""
