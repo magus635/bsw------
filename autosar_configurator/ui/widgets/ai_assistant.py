@@ -9,6 +9,12 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QColor, QTextCharFormat, QFont, QTextCursor
 
+try:
+    import markdown
+    HAS_MARKDOWN = True
+except ImportError:
+    HAS_MARKDOWN = False
+
 class AIAssistantWidget(QWidget):
     """
     Widget providing the chat interface for AI assistance.
@@ -17,6 +23,7 @@ class AIAssistantWidget(QWidget):
     # Signal emitted when user sends a message
     # args: message_text
     message_sent = Signal(str)
+    settings_clicked = Signal()
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -31,9 +38,20 @@ class AIAssistantWidget(QWidget):
         layout.setSpacing(10)
         
         # Header / Status
+        header_layout = QHBoxLayout()
         self.status_label = QLabel("🤖 AI Assistant Ready")
         self.status_label.setStyleSheet("color: #666; font-weight: bold;")
-        layout.addWidget(self.status_label)
+        header_layout.addWidget(self.status_label)
+        
+        header_layout.addStretch()
+        
+        self.settings_btn = QPushButton("⚙️ Settings")
+        self.settings_btn.setFlat(True)
+        self.settings_btn.setCursor(Qt.PointingHandCursor)
+        self.settings_btn.clicked.connect(self.settings_clicked)
+        header_layout.addWidget(self.settings_btn)
+        
+        layout.addLayout(header_layout)
         
         # Chat History (Read-only)
         self.chat_history = QTextEdit()
@@ -116,16 +134,29 @@ class AIAssistantWidget(QWidget):
         html = f"""
         <div style="margin-bottom: 10px;">
             <div style="color: {color}; font-weight: bold; text-align: {align};">
-                {sender}
+                {sender}:
             </div>
-            <div style="background-color: {'#e1f0fa' if is_user else '#e8f5e9'}; 
-                        padding: 8px; 
-                        border-radius: 8px; 
-                        display: inline-block;">
-                {text}
+            <div style="
+                background-color: {'#E3F2FD' if is_user else '#FFFFFF'}; 
+                padding: 10px; 
+                border-radius: 8px; 
+                border: 1px solid #E0E0E0;
+                text-align: left;
+            ">
+        """
+        
+        if HAS_MARKDOWN:
+            # Convert Markdown to HTML
+            # extensions=['fenced_code', 'tables'] could be useful
+            md_html = markdown.markdown(text, extensions=['fenced_code', 'tables']) if hasattr(markdown, 'markdown') else text
+            html += md_html
+        else:
+            # Fallback
+            html += text.replace('\n', '<br>')
+            
+        html += """
             </div>
         </div>
-        <hr style="border: 0; border-top: 1px solid #eee; margin: 5px 0;">
         """
         
         # Append to text edit

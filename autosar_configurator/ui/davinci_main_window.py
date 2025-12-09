@@ -5,7 +5,7 @@ Dual-mode: loads DEF files and allows creating VALUE instances
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QSplitter, QMenuBar, QMenu, QToolBar, QStatusBar,
-    QFileDialog, QMessageBox, QStyle, QLabel
+    QFileDialog, QMessageBox, QStyle, QLabel, QInputDialog, QLineEdit
 )
 from PySide6.QtCore import Qt, Signal, QSettings
 from PySide6.QtGui import QAction, QKeySequence, QUndoStack
@@ -102,6 +102,7 @@ class DaVinciMainWindow(QMainWindow):
         self.tree_view = DaVinciTreeView()
         self.tree_view.instance_selected.connect(self._on_instance_selected)
         self.tree_view.def_selected.connect(self._on_def_selected)
+        self.tree_view.module_selected.connect(self._on_module_selected)
         self.tree_view.create_instance_requested.connect(self.handle_create_container)
         self.tree_view.delete_instance_requested.connect(self.handle_delete_container)
         self.tree_view.move_instance_requested.connect(self.handle_move_container)
@@ -132,6 +133,7 @@ class DaVinciMainWindow(QMainWindow):
     def _setup_ai_assistant(self):
         """Setup AI Assistant dock widget"""
         self.ai_assistant_dock = QDockWidget("AI Assistant", self)
+        self.ai_assistant_dock.setObjectName("AIAssistantDock")  # Required for saveState()
         self.ai_assistant_dock.setAllowedAreas(Qt.RightDockWidgetArea | Qt.LeftDockWidgetArea)
         
         self.ai_assistant_widget = AIAssistantWidget()
@@ -141,6 +143,7 @@ class DaVinciMainWindow(QMainWindow):
         
         # Connect signals
         self.ai_assistant_widget.message_sent.connect(self._handle_ai_message)
+        self.ai_assistant_widget.settings_clicked.connect(self._configure_ai_settings)
         
         # Hide by default
         self.ai_assistant_dock.hide()
@@ -148,31 +151,97 @@ class DaVinciMainWindow(QMainWindow):
         # Initialize Backend (Lazy load or init here if fast)
         self.ai_processor = None  # Will init when config_manager is available
 
+    def _configure_ai_settings(self):
+        """Show dialog to configure AI settings (API Key)"""
+        current_key = self.settings.value("gemini_api_key", "")
+        
+        key, ok = QInputDialog.getText(
+            self, 
+            "Configure AI", 
+            "Enter Google Gemini API Key:\n(Get one at aistudio.google.com)",
+            QLineEdit.Password,
+            current_key
+        )
+        
+        if ok:
+            # Save even if empty (to clear)
+            self.settings.setValue("gemini_api_key", key)
+            if key:
+                self.ai_assistant_widget.append_message("System", "✅ API Key saved. Cloud AI enabled.")
+            else:
+                 self.ai_assistant_widget.append_message("System", "ℹ️ API Key cleared. Using local mode.")
+            
+            # Re-init or update processor
+            if self.ai_processor:
+                self.ai_processor.gemini_client.configure(key)
+
     def _handle_ai_message(self, text: str):
         """Handle message from AI Assistant Widget"""
-        if not self.config_manager:
-            self.ai_assistant_widget.append_message("System", "Please load a DEF file or Project first.")
-            self.ai_assistant_widget.set_status("Ready")
-            return
+        # Init processor if needed (Always init to allow general chat)
+        if not self.ai_processor:
+             # Can be initialized with None config_manager
+             pass
             
+        # Check/Get API Key (Optional now)
+        api_key = self.settings.value("gemini_api_key")
+        # if not api_key: ... (Removed blocking check)
+
+        # Init processor if needed
         # Init processor if needed
         if not self.ai_processor:
-            self.ai_processor = NaturalLanguageProcessor(self.config_manager, self.undo_stack)
+            self.ai_processor = NaturalLanguageProcessor(
+                self.config_manager, 
+                self.undo_stack, 
+                api_key,
+                action_handler=self._handle_ai_action
+            )
         else:
             # Update config manager reference if it changed
             self.ai_processor.config_manager = self.config_manager
-            
+            # Update key if it changed
+            if self.ai_processor.gemini_client.api_key != api_key:
+                 self.ai_processor.gemini_client.configure(api_key)
+            # Update handler
+            self.ai_processor.action_handler = self._handle_ai_action
+
+        # Process Message
         try:
-            # Process via backend
-            response = self.ai_processor.process_message(text)
+            print(f"DEBUG: Processing AI message: '{text}'")
+            self.ai_assistant_widget.set_status("Thinking...", busy=True)
+            
+            # Get context from selection (Safely)
+            context_instance = None
+            try:
+                if hasattr(self.tree_view, 'get_selected_instance'):
+                    context_instance = self.tree_view.get_selected_instance()
+                else:
+                    print("DEBUG: tree_view missing get_selected_instance")
+            except Exception as e:
+                print(f"DEBUG: Context error: {e}")
+            
+            response = self.ai_processor.process_message(text, context_instance)
+            print(f"DEBUG: AI Response: '{response}'")
             
             # Show response
             self.ai_assistant_widget.append_message("AI", response)
             self.ai_assistant_widget.set_status("Ready")
             
         except Exception as e:
+            print(f"DEBUG: AI Error: {e}")
             self.ai_assistant_widget.append_message("System", f"Error: {str(e)}")
             self.ai_assistant_widget.set_status("Error")
+
+    def _handle_ai_action(self, action_name: str):
+        """Execute action requested by AI"""
+        if action_name == "validate":
+            self.validate_configuration()
+        elif action_name == "save":
+            if self.current_project:
+                self.save_project()
+            else:
+                self.save_value_file()
+        elif action_name == "generate":
+            self.generate_code()
 
     def _create_actions(self):
         """Create actions"""
@@ -455,6 +524,9 @@ class DaVinciMainWindow(QMainWindow):
                 status_msg += f" ({len(failed_modules)} errors)"
             
             self.statusbar.showMessage(status_msg, 5000)
+            
+            # Auto-select first module
+            self.tree_view.select_first_module()
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load project:\n{str(e)}")
@@ -1315,6 +1387,18 @@ class DaVinciMainWindow(QMainWindow):
             self._update_active_context(manager)
             
         self.config_panel.show_definition(container_def)
+        
+    def _on_module_selected(self, module_def: EcucModuleDef, manager=None):
+        """Handle module node selection in tree"""
+        if manager:
+            self._update_active_context(manager)
+        
+        # Show module info in panel? Or just clear?
+        # For now, let's clear or show basic module info
+        # self.config_panel.clear() 
+        # Or better:
+        # self.config_panel.show_module_info(module_def) (If implemented)
+        self.config_panel.clear()
         
     def _update_active_context(self, manager):
         """Update active configuration context (for Project Mode)"""

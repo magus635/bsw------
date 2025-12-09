@@ -21,6 +21,7 @@ class DaVinciTreeView(QTreeWidget):
     # Signals
     instance_selected = Signal(EcucContainerValue, EcucContainerDef, object)  # instance, definition, manager
     def_selected = Signal(EcucContainerDef, object)  # definition, manager
+    module_selected = Signal(EcucModuleDef, object)  # definition, manager
     
     # Command signals
     create_instance_requested = Signal(EcucContainerDef, object, str)  # def, parent_instance, name
@@ -257,7 +258,12 @@ class DaVinciTreeView(QTreeWidget):
         item_type = data.get("type")
         manager = data.get("manager")
         
-        if item_type == "VALUE":
+        if item_type == "MODULE":
+             # Module selected - update context
+             module_def = data["def"]
+             self.module_selected.emit(module_def, manager)
+             
+        elif item_type == "VALUE":
             # Instance selected - show editable parameters
             instance = data["instance"]
             container_def = data["def"]
@@ -482,6 +488,8 @@ class DaVinciTreeView(QTreeWidget):
                 
         return None
 
+
+
     def get_selected_instance(self) -> Optional[EcucContainerValue]:
         """Get the currently selected container instance"""
         item = self.currentItem()
@@ -489,10 +497,22 @@ class DaVinciTreeView(QTreeWidget):
             return None
             
         data = item.data(0, Qt.UserRole)
+        # Check if it's a VALUE type
         if data and data.get("type") == "VALUE":
             return data.get("instance")
+        
         return None
 
+    def select_first_module(self):
+        """Select the first module in the tree (for Project mode)"""
+        for i in range(self.topLevelItemCount()):
+            item = self.topLevelItem(i)
+            data = item.data(0, Qt.UserRole)
+            if data and data.get("type") == "MODULE":
+                self.setCurrentItem(item)
+                self._on_item_clicked(item, 0) # Manually trigger click handler
+                return
+    
     def _select_instance(self, instance: EcucContainerValue):
         """Find and select a specific instance in the tree"""
         def traverse(item):

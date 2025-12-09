@@ -11,7 +11,7 @@ from typing import Optional, Dict, Any
 from abc import ABC, abstractmethod
 
 
-class WizardPage(QWizardPage, ABC):
+class WizardPage(QWizardPage):
     """Base class for wizard pages"""
     
     def __init__(self, title: str, subtitle: str = ""):

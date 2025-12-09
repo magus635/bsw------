@@ -2,6 +2,10 @@
 PySide6>=6.5.0
 lxml>=4.9.0
 Jinja2>=3.1.0
+markdown>=3.4.0
+
+# AI features
+google-generativeai>=0.3.0
 
 # Testing
 pytest>=7.4.0
