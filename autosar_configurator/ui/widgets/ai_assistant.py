@@ -24,6 +24,7 @@ class AIAssistantWidget(QWidget):
     # args: message_text
     message_sent = Signal(str)
     settings_clicked = Signal()
+    api_key_changed = Signal(str) # Emitted when API key is updated elsewhere
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -48,7 +49,7 @@ class AIAssistantWidget(QWidget):
         self.settings_btn = QPushButton("⚙️ Settings")
         self.settings_btn.setFlat(True)
         self.settings_btn.setCursor(Qt.PointingHandCursor)
-        self.settings_btn.clicked.connect(self.settings_clicked)
+        self.settings_btn.clicked.connect(self._open_settings)
         header_layout.addWidget(self.settings_btn)
         
         layout.addLayout(header_layout)
@@ -96,6 +97,16 @@ class AIAssistantWidget(QWidget):
         input_layout.addWidget(self.send_btn)
         
         layout.addLayout(input_layout)
+        
+    def _open_settings(self):
+        """Open the Knowledge Base settings dialog"""
+        dialog = KnowledgeBaseDialog(self)
+        if dialog.exec():
+            # Check if API key was changed in the dialog
+            if dialog.api_key_changed:
+                new_key = dialog.api_key_input.text().strip()
+                self.api_key_changed.emit(new_key)
+                self.append_message("System", "✅ API Key updated from Settings.")
         
     def _handle_send(self):
         """Handle send button click or return press"""
@@ -181,3 +192,93 @@ class AIAssistantWidget(QWidget):
             "<i>Note: I am currently in prototype mode.</i>"
         )
         self.append_message("AI", welcome_text, is_user=False)
+
+
+
+from PySide6.QtWidgets import (
+    QDialog, QFileDialog, QListWidget, QPushButton, 
+    QVBoxLayout, QHBoxLayout, QLabel, QGroupBox, 
+    QLineEdit, QFormLayout
+)
+from PySide6.QtCore import QSettings, Signal
+
+class KnowledgeBaseDialog(QDialog):
+    """
+    Dialog to manage Knowledge Base files and API Configuration.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("AI Assistant Settings")
+        self.setMinimumWidth(500)
+        self.setMinimumHeight(400)
+        
+        self.settings = QSettings("AUTOSAR", "DaVinciConfigurator")
+        self.api_key_changed = False # Track if changed
+        
+        layout = QVBoxLayout(self)
+        
+        # --- API Key Section ---
+        config_group = QGroupBox("Configuration")
+        config_layout = QFormLayout()
+        
+        self.api_key_input = QLineEdit()
+        self.api_key_input.setEchoMode(QLineEdit.Password)
+        self.api_key_input.setPlaceholderText("Enter Google Gemini API Key")
+        
+        # Load existing key
+        current_key = self.settings.value("gemini_api_key", "")
+        self.api_key_input.setText(current_key)
+        
+        config_layout.addRow("API Key:", self.api_key_input)
+        config_group.setLayout(config_layout)
+        layout.addWidget(config_group)
+        
+        # --- Knowledge Base Section ---
+        kb_group = QGroupBox("Knowledge Base Documents")
+        kb_layout = QVBoxLayout()
+        
+        self.file_list = QListWidget()
+        # Mock data for prototype
+        self.file_list.addItem("datasheets/sample_chip_manual.txt (Active)")
+        kb_layout.addWidget(self.file_list)
+        
+        btn_layout = QHBoxLayout()
+        self.add_btn = QPushButton("📄 Add Datasheet...")
+        self.add_btn.clicked.connect(self._add_file)
+        btn_layout.addWidget(self.add_btn)
+        
+        kb_layout.addLayout(btn_layout)
+        
+        kb_group.setLayout(kb_layout)
+        layout.addWidget(kb_group)
+        
+        # --- Buttons ---
+        action_layout = QHBoxLayout()
+        action_layout.addStretch()
+        
+        self.save_btn = QPushButton("Save & Close")
+        self.save_btn.clicked.connect(self._save_and_close)
+        self.save_btn.setDefault(True)
+        action_layout.addWidget(self.save_btn)
+        
+        self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.clicked.connect(self.reject)
+        action_layout.addWidget(self.cancel_btn)
+        
+        layout.addLayout(action_layout)
+        
+    def _save_and_close(self):
+        """Save settings and close"""
+        new_key = self.api_key_input.text().strip()
+        old_key = self.settings.value("gemini_api_key", "")
+        
+        if new_key != old_key:
+            self.settings.setValue("gemini_api_key", new_key)
+            self.api_key_changed = True
+            
+        self.accept()
+
+    def _add_file(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Datasheet/Image", "", "Documents (*.txt *.md *.pdf *.png *.jpg *.jpeg);;All Files (*)")
+        if file_path:
+            self.file_list.addItem(f"{file_path} (Queued)")

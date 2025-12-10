@@ -11,22 +11,39 @@ from ..model.definition_model import EcucContainerDef
 from ...ui.commands import CreateContainerCommand, SetParameterCommand
 from .gemini_client import GeminiClient
 from .prompt_manager import PromptManager
+from .knowledge_base import KnowledgeBase
+from .validator import IntelligentValidator
+import os
 
 from ..model.configuration_model import EcucContainerValue
 
 class NaturalLanguageProcessor:
     """
-    Translates natural language into application commands.
-    Currently uses simple regex matching for prototype.
+    Core NLP engine for processing user intents.
     """
     
-    def __init__(self, config_manager: Optional[ConfigurationManager], undo_stack: Optional[QUndoStack], api_key: Optional[str] = None, action_handler: Optional[callable] = None):
-        self.config_manager = config_manager
-        self.undo_stack = undo_stack
+    def __init__(self, api_key: str = None, config_manager=None, undo_stack: Optional[QUndoStack] = None, action_handler: Optional[callable] = None):
         self.gemini_client = GeminiClient(api_key)
-        self.prompt_manager = PromptManager(config_manager)
+        self.knowledge_base = KnowledgeBase(api_key)
+        self.validator = IntelligentValidator(self.knowledge_base, self.gemini_client)
+        self.config_manager = config_manager # Reference to main config data
+        self.project = None # Reference to active project (for multi-module validation)
+        self.prompt_manager = PromptManager(self.config_manager)
+        self.undo_stack = undo_stack # Keep undo_stack as it's used later
+        
+        # Callback for executing actions (e.g. create_container)
         self.action_handler = action_handler
         
+        # Prototype: Auto-load sample data if exists
+        sample_path = "datasheets/sample_chip_manual.txt"
+        if os.path.exists(sample_path) and self.knowledge_base.is_ready:
+            print(f"DEBUG: NLP loading knowledge from {sample_path}")
+            try:
+                # Use load_document to handle ext detection
+                self.knowledge_base.load_document(sample_path)
+            except Exception as e:
+                print(f"DEBUG: Failed to load sample knowledge: {e}")
+                
     def process_message(self, text: str, context_instance: Optional[EcucContainerValue] = None) -> str:
         """
         Process a user message and return a response string.
@@ -80,14 +97,6 @@ class NaturalLanguageProcessor:
             else:
                  return "⚠️ 请先加载项目以获取解释，或配置 API Key 以使用云端知识库。"
 
-
-        # 4. Intent: Validate
-        if re.search(r"^(validate|check|验证|检查)", text, re.IGNORECASE):
-            if self.action_handler:
-                self.action_handler("validate")
-                return "✅ 已触发验证。"
-            return "⚠️无法执行验证：未连接到主窗口。"
-
         # 5. Intent: Save
         if re.search(r"^(save|保存)", text, re.IGNORECASE):
             if self.action_handler:
@@ -101,10 +110,27 @@ class NaturalLanguageProcessor:
                 self.action_handler("generate")
                 return "✅ 已触发代码生成。"
             return "⚠️无法执行代码生成。"
+
+        # 7. Intent: Intelligent Validation
+        # Allow optional '@' prefix so users can say "@验证配置"
+        if re.search(r"^@?\s*(validate|check|audit|verify|检查配置|验证配置)", text, re.IGNORECASE):
+            # Prioritize Project-Wide Validation if project is loaded
+            if self.project:
+                return self.validator.validate_project(self.project)
+            elif self.config_manager:
+                return self.validator.validate(self.config_manager)
+            return "⚠️ 无法验证：未连接 Project 或 ConfigurationManager。"
         
-        # 3. Fallback to Gemini for general questions
+        
+        # 3. Fallback to Gemini for general questions / RAG
+        # Check for explicit RAG trigger '@'
+        use_rag = False
+        if text.strip().startswith("@"):
+            use_rag = True
+            text = text.strip()[1:].strip() # Remove '@'
+            
         if self.gemini_client.is_ready():
-            return self._handle_gemini_general(text)
+            return self._handle_gemini_chat(text, use_rag=use_rag)
             
         # Default response
         return (
@@ -113,12 +139,29 @@ class NaturalLanguageProcessor:
             "您可以尝试使用本地指令，例如：\n"
             "• Create AdcHwUnit\n"
             "• Explain AdcHwUnit\n"
-            "• Set AdcClock to 80000"
+            "• Set AdcClock to 80000\n"
+            "• @查找资料 (使用知识库)"
         )
 
-    def _handle_gemini_general(self, text: str) -> str:
-        """Ask Gemini a general question with some context"""
-        prompt = self.prompt_manager.build_general_prompt(text)
+    def _handle_gemini_chat(self, text: str, use_rag: bool = False) -> str:
+        """Ask Gemini a question, optionally using RAG context"""
+        
+        context_str = ""
+        if use_rag and self.knowledge_base.is_ready:
+            print(f"DEBUG: RAG Search for: '{text}'")
+            results = self.knowledge_base.search(text)
+            if results:
+                context_str = "\n[Retrieved Knowledge from Knowledge Base]:\n"
+                for doc, score in results:
+                    # Truncate doc content for prompt size management
+                    context_str += f"- {doc.strip()[:300]}...\n"
+                context_str += "\n[End of Knowledge Base]\n"
+                context_str += "Note: Please prioritize the specific knowledge provided above if it is relevant to the user's question.\n"
+            else:
+                context_str = "\n[Knowledge Base]: No relevant documents found.\n"
+        
+        full_text = f"{context_str}\nUser Question: {text}"
+        prompt = self.prompt_manager.build_general_prompt(full_text)
         return self.gemini_client.generate_response(prompt)
 
     def _handle_gemini_explain(self, container_name: str) -> str:

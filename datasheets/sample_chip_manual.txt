@@ -1,0 +1,27 @@
+# TLE9263 AFE Chip Configuration Manual
+
+## 1. SPI Configuration
+The TLE9263 requires a specific SPI configuration to ensure stable communication.
+- **Baudrate**: The maximum supported baudrate is 2 MHz (2,000,000 Hz). Setting it higher will cause communication errors.
+- **Clock Polarity (CPOL)**: Must be set to 0 (Idle Low).
+- **Clock Phase (CPHA)**: Must be set to 1 (Sample on trailing edge).
+- **Bit Order**: MSB First.
+- **SpiChannelId：The maximum supported is 4
+
+## 2. Watchdog Settings
+The internal watchdog must be serviced within the open window.
+- **Window Size**: Default is 100ms. Configurable via register `WD_CTRL`.
+- **Trigger Mode**: Requires a valid SPI frame with the correct checksum.
+
+## 3. ADC Measurement
+- **Reference Voltage**: 5.0V internal reference.
+- **Resolution**: 10-bit.
+- **Sampling Time**: Minimum 1.5us per channel.
+- **AdcClock < 10000
+- **AdcPrescale < 100
+
+## 4. Error Handling
+If the `SPI_FAIL` bit is set in the status register:
+1. Reset the SPI module.
+2. Check the checksum calculation.
+3. Verify VCC is stable > 4.5V.

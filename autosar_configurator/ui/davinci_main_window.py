@@ -861,6 +861,43 @@ class DaVinciMainWindow(QMainWindow):
         """Handle container deletion request via command"""
         if not self.config_manager:
             return
+        
+        # PRE-VALIDATE deletion to provide user feedback
+        try:
+            # Check if instance is referenced by others
+            refs = self.config_manager._find_references_to(instance)
+            if refs:
+                ref_list = '\n'.join([f"  • {src.short_name}.{ref_name}" for src, ref_name in refs])
+                QMessageBox.warning(
+                    self,
+                    "Cannot Delete Container",
+                    f"Cannot delete '{instance.short_name}' because it is referenced by:\n\n"
+                    f"{ref_list}\n\n"
+                    f"Please remove these references first."
+                )
+                return
+            
+            # Check multiplicity constraint
+            container_def = self.config_manager.get_container_def(instance.definition_ref)
+            if container_def and parent_instance:
+                current_count = self.config_manager._count_instances_in_parent(container_def, parent_instance)
+                if current_count <= container_def.lower_multiplicity:
+                    QMessageBox.warning(
+                        self,
+                        "Cannot Delete Container",
+                        f"Cannot delete '{instance.short_name}'.\n\n"
+                        f"The parent requires at least {container_def.lower_multiplicity} "
+                        f"instance(s) of '{container_def.short_name}'."
+                    )
+                    return
+        except Exception as e:
+            # If validation check fails, show error and abort
+            QMessageBox.critical(
+                self,
+                "Validation Error",
+                f"Failed to validate deletion:\n{str(e)}\n\nDeletion cancelled."
+            )
+            return
             
         command = DeleteContainerCommand(self.config_manager, instance, parent_instance)
         self.undo_stack.push(command)

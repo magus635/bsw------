@@ -66,7 +66,7 @@ class GeminiClient:
                 if available_models:
                      selected_model_name = available_models[0]
                 else:
-                     selected_model_name = 'gemini-pro' # Hope for best
+                     selected_model_name = 'gemini-1.5-flash' # More robust default than legacy gemini-pro
             
             print(f"DEBUG: Selected model: {selected_model_name}")
             self.model = genai.GenerativeModel(selected_model_name)
@@ -76,7 +76,7 @@ class GeminiClient:
             print(f"DEBUG: Failed to configure Gemini: {e}")
             self._is_configured = False
             
-    def generate_response(self, prompt: str) -> str:
+    def generate_response(self, prompt: str, **kwargs) -> str:
         """
         Generate a response from Gemini.
         """
@@ -86,7 +86,7 @@ class GeminiClient:
             
         try:
             print("DEBUG: Sending request to Gemini...")
-            response = self.model.generate_content(prompt)
+            response = self.model.generate_content(prompt, **kwargs)
             print("DEBUG: Gemini response received.")
             return response.text
         except Exception as e:

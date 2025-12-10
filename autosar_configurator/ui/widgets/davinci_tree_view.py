@@ -174,7 +174,7 @@ class DaVinciTreeView(QTreeWidget):
             def_item.addChild(instance_item)
             def_item.setExpanded(True)  # Auto-expand if has instances
     
-    def _create_instance_node(self, instance: EcucContainerValue, container_def: EcucContainerDef, config_manager: ConfigurationManager) -> QTreeWidgetItem:
+    def _create_instance_node(self, instance: EcucContainerValue, container_def: EcucContainerDef, config_manager: ConfigurationManager, parent_instance: Optional[EcucContainerValue] = None) -> QTreeWidgetItem:
         """Create a VALUE instance node (bold green)"""
         display_name = f"✅ {instance.short_name}"
         
@@ -189,7 +189,7 @@ class DaVinciTreeView(QTreeWidget):
         self.item_to_def[item] = container_def  # Also store definition for easy access
         
         # Store data
-        item.setData(0, Qt.UserRole, {"type": "VALUE", "instance": instance, "def": container_def, "manager": config_manager})
+        item.setData(0, Qt.UserRole, {"type": "VALUE", "instance": instance, "def": container_def, "manager": config_manager, "parent_instance": parent_instance})
         
         # Add sub-containers (if any)
         for sub_def in container_def.sub_containers.values():
@@ -219,7 +219,7 @@ class DaVinciTreeView(QTreeWidget):
         # Add existing sub-instances
         sub_instances = [sc for sc in parent_instance.sub_containers if sc.definition_ref == container_def.definition_ref]
         for sub_instance in sub_instances:
-            sub_instance_item = self._create_instance_node(sub_instance, container_def, config_manager)
+            sub_instance_item = self._create_instance_node(sub_instance, container_def, config_manager, parent_instance)
             item.addChild(sub_instance_item)
         
         # Add "Add Instance..." prompt
