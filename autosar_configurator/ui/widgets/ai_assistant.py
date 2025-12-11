@@ -144,10 +144,9 @@ class AIAssistantWidget(QWidget):
             formatted_text = text.replace('\n', '<br>')
         
        # Create message bubble 
-        # Note: We use explicit <br> and <hr> because QTextEdit has limited CSS support for margins
+        # Use CSS margins for spacing to achieve "one line" interval
         html = f"""
-        <br>
-        <div style="display: block; margin-top: 10px;">
+        <div style="display: block; margin-top: 8px; margin-bottom: 8px;">
             <div style="color: {color}; font-weight: bold;">{sender}</div>
             <div style="background-color: {bg_color}; padding: 8px; border-left: 4px solid {color}; margin-top: 4px;">
                 {formatted_text}
