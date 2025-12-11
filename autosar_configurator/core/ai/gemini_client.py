@@ -111,9 +111,12 @@ class GeminiClient:
                 return False
         return False
             
-    def generate_response(self, prompt: str, **kwargs) -> str:
+    def generate_response(self, prompt: str, timeout: int = 30, **kwargs) -> str:
         """
         Generate a response from Gemini.
+        Args:
+            prompt: The input prompt
+            timeout: Request timeout in seconds (default 30)
         """
         if not self._is_configured or not self.model:
             print("DEBUG: Gemini not configured, skipping generation.")
@@ -121,12 +124,20 @@ class GeminiClient:
             
         try:
             print("DEBUG: Sending request to Gemini...")
-            response = self.model.generate_content(prompt, **kwargs)
+            # Add timeout via generation_config
+            response = self.model.generate_content(
+                prompt,
+                request_options={"timeout": timeout},
+                **kwargs
+            )
             print("DEBUG: Gemini response received.")
             return response.text
         except Exception as e:
-            print(f"DEBUG: Gemini API Error: {e}")
-            return f"❌ Gemini API Error: {str(e)}"
+            error_msg = str(e)
+            print(f"DEBUG: Gemini API Error: {error_msg}")
+            if "timeout" in error_msg.lower() or "deadline" in error_msg.lower():
+                return "⏱️ 请求超时，请稍后重试"
+            return f"❌ Gemini API Error: {error_msg}"
 
     def is_ready(self) -> bool:
         return self._is_configured

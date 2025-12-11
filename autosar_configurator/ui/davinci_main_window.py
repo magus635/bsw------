@@ -140,6 +140,7 @@ class DaVinciMainWindow(QMainWindow):
         # Right: Config panel
         self.config_panel = DaVinciConfigPanel()
         self.config_panel.parameter_changed.connect(self._on_parameter_changed)
+        self.config_panel.ai_help_requested.connect(self._on_ai_help_requested)
         splitter.addWidget(self.config_panel)
         
         # Set splitter proportions
@@ -1499,6 +1500,107 @@ class DaVinciMainWindow(QMainWindow):
             # Auto-load on startup?
             pass  # For now, let user manually open
     
+    def _on_ai_help_requested(self, container_name: str, param_name: str):
+        """Handle AI help request for a parameter - provide contextual guidance"""
+        api_key = self.settings.value("gemini_api_key")
+        if not api_key:
+            self.config_panel.update_ai_help("⚠️ 请先在 AI Assistant 中配置 API Key")
+            return
+        
+        # Initialize AI processor if needed
+        if not self.ai_processor:
+            self.ai_processor = NaturalLanguageProcessor(
+                api_key=api_key,
+                config_manager=self.config_manager,
+                undo_stack=self.undo_stack,
+                action_handler=self._handle_ai_action
+            )
+        
+        # Build prompt for AI - handle both parameters and references
+        if param_name.startswith("REF:"):
+            # Reference request - format: "REF:ref_name:dest_type"
+            parts = param_name.split(":", 2)
+            ref_name = parts[1] if len(parts) > 1 else param_name
+            dest_type = parts[2] if len(parts) > 2 else "unknown"
+            
+            prompt = f"""你是一个AUTOSAR BSW配置专家。请针对以下引用(Reference)提供简洁的配置指导：
+
+容器: {container_name}
+引用名: {ref_name}
+目标类型: {dest_type}
+
+请用2-3句话说明：
+1. 这个引用的作用是什么？它连接什么模块或资源？
+2. 配置时需要注意什么？如何选择正确的目标？
+
+请直接给出指导，不要有多余的开场白。使用中文回答。"""
+        else:
+            # Parameter request
+            prompt = f"""你是一个AUTOSAR BSW配置专家。请针对以下参数提供简洁的配置指导：
+
+容器: {container_name}
+参数: {param_name}
+
+请用2-3句话说明：
+1. 这个参数的作用是什么？它影响什么功能？
+2. 配置时需要注意什么？有什么常见错误要避免？
+
+请直接给出指导，不要有多余的开场白。使用中文回答。"""
+        
+        # Use subprocess via QProcess for truly killable AI requests
+        from PySide6.QtCore import QProcess
+        import json
+        import sys
+        
+        # Create the QProcess
+        process = QProcess(self)
+        self.config_panel.current_ai_process = process  # Store for cancellation
+        
+        # Build Python script to run in subprocess
+        script = f'''
+import sys
+import google.generativeai as genai
+
+api_key = sys.argv[1]
+prompt = sys.argv[2]
+model_name = sys.argv[3] if len(sys.argv) > 3 else "gemini-2.0-flash"
+
+try:
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel(model_name)
+    response = model.generate_content(prompt, request_options={{"timeout": 15}})
+    print(response.text)
+except Exception as e:
+    print(f"ERROR: {{str(e)}}", file=sys.stderr)
+'''
+        
+        def on_finished(exit_code, exit_status):
+            if self.config_panel.ai_request_cancelled:
+                return
+            
+            output = process.readAllStandardOutput().data().decode('utf-8').strip()
+            error = process.readAllStandardError().data().decode('utf-8').strip()
+            
+            if exit_code == 0 and output:
+                self.config_panel.update_ai_help(output)
+                self.config_panel.cache_ai_help(container_name, param_name, output)
+            elif error:
+                self.config_panel.update_ai_help(f"❌ {error}")
+            else:
+                self.config_panel.update_ai_help("❌ 请求失败，请重试")
+            
+            self.config_panel.current_ai_process = None
+        
+        process.finished.connect(on_finished)
+        
+        # Get current model name
+        model_name = "gemini-2.0-flash"
+        if self.ai_processor and self.ai_processor.gemini_client:
+            model_name = self.ai_processor.gemini_client.get_current_model()
+        
+        # Start subprocess
+        process.start(sys.executable, ["-c", script, api_key, prompt, model_name])
+    
     def _update_recent_files_menu(self):
         """Update recent files menu with current list"""
         # TODO: Implement fully
@@ -1553,6 +1655,11 @@ class DaVinciMainWindow(QMainWindow):
                 event.ignore()
                 return
             # If Discard, continue with close
+        
+        # Cleanup thread pool to ensure all workers stop
+        if hasattr(self, 'thread_pool') and self.thread_pool:
+            self.thread_pool.clear()  # Clear pending tasks
+            self.thread_pool.waitForDone(1000)  # Wait max 1 second for running tasks
         
         # Save window geometry
         self.settings.setValue("geometry", self.saveGeometry())

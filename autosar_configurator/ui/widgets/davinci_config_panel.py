@@ -22,6 +22,7 @@ class DaVinciConfigPanel(QWidget):
     
     # Signals
     parameter_changed = Signal(EcucContainerValue, str, object)  # instance, param_name, value
+    ai_help_requested = Signal(str, str)  # container_name, param_name - request AI help for parameter
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -29,6 +30,7 @@ class DaVinciConfigPanel(QWidget):
         self.current_instance: Optional[EcucContainerValue] = None
         self.current_def: Optional[EcucContainerDef] = None
         self.config_manager: Optional[ConfigurationManager] = None
+        self.ai_help_cache: dict = {}  # Cache AI help responses
         
         self._setup_ui()
     
@@ -122,6 +124,46 @@ class DaVinciConfigPanel(QWidget):
         self.params_table.setSortingEnabled(False)  # We handle sorting manually
         
         params_layout.addWidget(self.params_table)
+        
+        # AI Help panel (shows contextual info when parameter is selected)
+        self.ai_help_group = QGroupBox("💡 AI 配置建议")
+        ai_help_layout = QVBoxLayout(self.ai_help_group)
+        self.ai_help_label = QLabel("点击参数名称获取 AI 配置建议...")
+        self.ai_help_label.setWordWrap(True)
+        self.ai_help_label.setStyleSheet("color: #666; padding: 8px; background: #f8f8f8; border-radius: 4px;")
+        ai_help_layout.addWidget(self.ai_help_label)
+        
+        # Button row
+        btn_layout = QHBoxLayout()
+        
+        # Cancel button (only active during request)
+        self.ai_cancel_btn = QPushButton("🛑 取消请求")
+        self.ai_cancel_btn.setMaximumWidth(100)
+        self.ai_cancel_btn.clicked.connect(self._cancel_ai_request)
+        self.ai_cancel_btn.hide()
+        btn_layout.addWidget(self.ai_cancel_btn)
+        
+        # Close button
+        close_btn = QPushButton("❌ 关闭")
+        close_btn.setMaximumWidth(80)
+        close_btn.clicked.connect(self._close_ai_help)
+        btn_layout.addWidget(close_btn)
+        btn_layout.addStretch()
+        
+        ai_help_layout.addLayout(btn_layout)
+        
+        # Enable right-click context menu
+        self.ai_help_group.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.ai_help_group.customContextMenuRequested.connect(self._show_ai_help_menu)
+        
+        params_layout.addWidget(self.ai_help_group)
+        self.ai_help_group.hide()  # Initially hidden
+        self.ai_pending_request = False  # Track if request is pending
+        self.ai_request_cancelled = False  # Track if request was cancelled
+        
+        # Connect cell click to AI help request
+        self.params_table.cellClicked.connect(self._on_param_cell_clicked)
+        
         self.content_layout.addWidget(self.parameters_group)
     
     def _create_references_group(self):
@@ -137,6 +179,9 @@ class DaVinciConfigPanel(QWidget):
         self.refs_table.horizontalHeader().setStretchLastSection(True)
         self.refs_table.setAlternatingRowColors(True)
         self.refs_table.verticalHeader().setVisible(False)
+        
+        # Connect cell click to AI help request
+        self.refs_table.cellClicked.connect(self._on_ref_cell_clicked)
         
         refs_layout.addWidget(self.refs_table)
         self.content_layout.addWidget(self.references_group)
@@ -187,7 +232,7 @@ class DaVinciConfigPanel(QWidget):
         for row, (param_name, param_def) in enumerate(container_def.parameters.items()):
             # Name
             name_item = QTableWidgetItem(param_def.short_name)
-            name_item.setToolTip(param_def.description)
+            name_item.setToolTip(self._get_parameter_tooltip(param_def))
             self.params_table.setItem(row, 0, name_item)
             
             # Value column: show "Not set" for definition view
@@ -218,7 +263,7 @@ class DaVinciConfigPanel(QWidget):
         for row, (param_name, param_def) in enumerate(container_def.parameters.items()):
             # Column 0: Parameter name
             name_item = QTableWidgetItem(param_def.short_name)
-            name_item.setToolTip(param_def.description)
+            name_item.setToolTip(self._get_parameter_tooltip(param_def))
             self.params_table.setItem(row,0, name_item)
             
             # Column 1: Editable value widget
@@ -446,6 +491,39 @@ class DaVinciConfigPanel(QWidget):
         
         return "-"
     
+    def _get_parameter_tooltip(self, param_def: EcucParameterDef) -> str:
+        """Generate rich tooltip content for a parameter"""
+        lines = []
+        
+        # Description (if available)
+        if param_def.description:
+            lines.append(param_def.description)
+            lines.append("")  # Empty line separator
+        
+        # Type
+        lines.append(f"Type: {param_def.param_type.name}")
+        
+        # Default value
+        if param_def.default_value is not None:
+            lines.append(f"Default: {param_def.default_value}")
+        
+        # Constraints based on type
+        if param_def.param_type == EcucParameterType.ENUMERATION:
+            if param_def.literals:
+                lines.append(f"Values: {', '.join(param_def.literals[:5])}")
+                if len(param_def.literals) > 5:
+                    lines.append(f"  ... and {len(param_def.literals) - 5} more")
+        elif param_def.param_type in (EcucParameterType.INTEGER, EcucParameterType.FLOAT):
+            if param_def.min_value is not None or param_def.max_value is not None:
+                min_str = str(param_def.min_value) if param_def.min_value is not None else "-∞"
+                max_str = str(param_def.max_value) if param_def.max_value is not None else "+∞"
+                lines.append(f"Range: [{min_str}, {max_str}]")
+        
+        # Required status
+        lines.append(f"Required: {'Yes' if param_def.is_required else 'No'}")
+        
+        return "\n".join(lines)
+    
     def _on_value_changed(self, param_name: str, value: any):
         """Handle parameter value change"""
         if not self.current_instance or not self.config_manager:
@@ -461,7 +539,146 @@ class DaVinciConfigPanel(QWidget):
         self.general_group.hide()
         self.parameters_group.hide()
         self.references_group.hide()
+        self.ai_help_group.hide()
         self.empty_label.show()
+    
+    def _on_param_cell_clicked(self, row: int, column: int):
+        """Handle parameter cell click - request AI help for first column (name)"""
+        if column != 0 or not self.current_def:
+            return
+        
+        name_item = self.params_table.item(row, 0)
+        if not name_item:
+            return
+        
+        param_name = name_item.text()
+        container_name = self.current_def.short_name
+        cache_key = f"{container_name}.{param_name}"
+        
+        # Check cache first
+        if cache_key in self.ai_help_cache:
+            self.update_ai_help(self.ai_help_cache[cache_key])
+            return
+        
+        # Show loading state with cancel button
+        self.ai_help_group.show()
+        self.ai_cancel_btn.show()
+        self.ai_pending_request = True
+        self.ai_request_cancelled = False
+        self.ai_help_label.setText(f"⏳ 正在获取 **{param_name}** 的配置建议...")
+        self.ai_help_label.setStyleSheet("color: #666; padding: 8px; background: #f0f8ff; border-radius: 4px;")
+        
+        # Emit signal to request AI help
+        self.ai_help_requested.emit(container_name, param_name)
+    
+    def _on_ref_cell_clicked(self, row: int, column: int):
+        """Handle click on references table - trigger AI help for reference name"""
+        # Only trigger on Reference name column (column 0)
+        if column != 0:
+            return
+        
+        name_item = self.refs_table.item(row, 0)
+        if not name_item:
+            return
+        
+        ref_name = name_item.text()
+        container_name = self.current_def.short_name
+        cache_key = f"{container_name}.ref.{ref_name}"
+        
+        # Check cache first
+        if cache_key in self.ai_help_cache:
+            self.update_ai_help(self.ai_help_cache[cache_key])
+            return
+        
+        # Get destination type from column 2
+        dest_type_item = self.refs_table.item(row, 2)
+        dest_type = dest_type_item.text() if dest_type_item else "unknown"
+        
+        # Show loading state with cancel button
+        self.ai_help_group.show()
+        self.ai_cancel_btn.show()
+        self.ai_pending_request = True
+        self.ai_request_cancelled = False
+        self.ai_help_label.setText(f"⏳ 正在获取 Reference **{ref_name}** 的配置建议...")
+        self.ai_help_label.setStyleSheet("color: #666; padding: 8px; background: #f0f8ff; border-radius: 4px;")
+        
+        # Emit signal with special format for reference
+        # Format: container_name, "REF:ref_name:dest_type"
+        self.ai_help_requested.emit(container_name, f"REF:{ref_name}:{dest_type}")
+    
+    def update_ai_help(self, help_text: str):
+        """Update AI help panel with response"""
+        # Ignore if cancelled
+        if self.ai_request_cancelled:
+            return
+        
+        self.ai_help_group.show()
+        self.ai_cancel_btn.hide()
+        self.ai_pending_request = False
+        self.ai_help_label.setText(help_text)
+        self.ai_help_label.setStyleSheet("color: #333; padding: 8px; background: #f0fff0; border-radius: 4px; border-left: 3px solid #4CAF50;")
+    
+    def cache_ai_help(self, container_name: str, param_name: str, help_text: str):
+        """Cache AI help response"""
+        # Don't cache if cancelled
+        if self.ai_request_cancelled:
+            return
+        cache_key = f"{container_name}.{param_name}"
+        self.ai_help_cache[cache_key] = help_text
+        self.ai_pending_request = False
+        self.current_ai_process = None  # Track current QProcess for cancellation
+    
+    def _cancel_ai_request(self):
+        """Cancel the current AI request by killing the subprocess"""
+        self.ai_request_cancelled = True
+        self.ai_pending_request = False
+        
+        # Kill the QProcess if running - this truly terminates the subprocess
+        if hasattr(self, 'current_ai_process') and self.current_ai_process:
+            self.current_ai_process.kill()  # SIGKILL - force termination
+            self.current_ai_process = None
+        
+        # Also handle legacy worker if exists
+        if hasattr(self, 'current_ai_worker') and self.current_ai_worker:
+            self.current_ai_worker.cancelled = True
+        
+        self.ai_cancel_btn.hide()
+        self.ai_help_label.setText("✅ 请求已强制终止")
+        self.ai_help_label.setStyleSheet("color: #28a745; padding: 8px; background: #d4edda; border-radius: 4px;")
+    
+    def _close_ai_help(self):
+        """Close the AI help panel"""
+        # Also cancel any pending request
+        if self.ai_pending_request:
+            self._cancel_ai_request()
+        self.ai_help_group.hide()
+        self.ai_pending_request = False
+    
+    def _show_ai_help_menu(self, position):
+        """Show context menu for AI help panel"""
+        from PySide6.QtWidgets import QMenu
+        
+        menu = QMenu(self)
+        
+        # Cancel option (only if request is pending)
+        if self.ai_pending_request:
+            cancel_action = menu.addAction("🛑 取消请求")
+            cancel_action.triggered.connect(self._cancel_ai_request)
+            menu.addSeparator()
+        
+        close_action = menu.addAction("❌ 关闭提示")
+        close_action.triggered.connect(self._close_ai_help)
+        
+        clear_cache_action = menu.addAction("🗑️ 清除缓存")
+        clear_cache_action.triggered.connect(self._clear_ai_cache)
+        
+        menu.exec(self.ai_help_group.mapToGlobal(position))
+    
+    def _clear_ai_cache(self):
+        """Clear AI help cache"""
+        self.ai_help_cache.clear()
+        self.ai_help_label.setText("✅ 缓存已清除")
+        self.ai_help_label.setStyleSheet("color: #666; padding: 8px; background: #f8f8f8; border-radius: 4px;")
     
     def _populate_references(self, instance: EcucContainerValue, container_def: EcucContainerDef):
         """Populate references table"""

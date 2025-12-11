@@ -182,7 +182,16 @@ class DaVinciTreeView(QTreeWidget):
         
         # Style: bold + green checkmark
         item.setFont(0, self._get_bold_font())
-        item.setToolTip(0, f"Container instance\nDefinition: {container_def.short_name}")
+        
+        # Build rich tooltip for instance
+        tooltip_lines = [f"Container Instance: {instance.short_name}"]
+        if container_def.description:
+            tooltip_lines.append(container_def.description)
+        tooltip_lines.append(f"Definition: {container_def.short_name}")
+        tooltip_lines.append(f"Parameters: {len(instance.parameter_values)}/{len(container_def.parameters)}")
+        if len(container_def.sub_containers) > 0:
+            tooltip_lines.append(f"Sub-containers: {len(container_def.sub_containers)} types")
+        item.setToolTip(0, "\n".join(tooltip_lines))
         
         # Store mapping
         self.item_to_instance[item] = instance
