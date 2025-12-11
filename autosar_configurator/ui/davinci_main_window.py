@@ -187,12 +187,11 @@ class DaVinciMainWindow(QMainWindow):
         # if not api_key: ... (Removed blocking check)
 
         # Init processor if needed
-        # Init processor if needed
         if not self.ai_processor:
             self.ai_processor = NaturalLanguageProcessor(
-                self.config_manager, 
-                self.undo_stack, 
-                api_key,
+                api_key=api_key,
+                config_manager=self.config_manager,
+                undo_stack=self.undo_stack,
                 action_handler=self._handle_ai_action
             )
         else:

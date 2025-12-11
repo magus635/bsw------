@@ -135,39 +135,25 @@ class AIAssistantWidget(QWidget):
         """Append a message to the chat history"""
         # Format styles
         color = "#0078D7" if is_user else "#2E7D32"  # Blue for user, Green for AI
-        align = "right" if is_user else "left"
+        bg_color = "#E3F2FD" if is_user else "#F1F8E9"
         
-        # Create HTML formatted message
-        # We use a simple table or div structure to align
-        
-        timestamp = "" # Optional: Add timestamp
-        
-        html = f"""
-        <div style="margin-bottom: 10px;">
-            <div style="color: {color}; font-weight: bold; text-align: {align};">
-                {sender}:
-            </div>
-            <div style="
-                background-color: {'#E3F2FD' if is_user else '#FFFFFF'}; 
-                padding: 10px; 
-                border-radius: 8px; 
-                border: 1px solid #E0E0E0;
-                text-align: left;
-            ">
-        """
-        
+        # Convert Markdown to HTML if available
         if HAS_MARKDOWN:
-            # Convert Markdown to HTML
-            # extensions=['fenced_code', 'tables'] could be useful
-            md_html = markdown.markdown(text, extensions=['fenced_code', 'tables']) if hasattr(markdown, 'markdown') else text
-            html += md_html
+            formatted_text = markdown.markdown(text, extensions=['fenced_code', 'tables', 'nl2br']) if hasattr(markdown, 'markdown') else text.replace('\n', '<br>')
         else:
-            # Fallback
-            html += text.replace('\n', '<br>')
-            
-        html += """
+            formatted_text = text.replace('\n', '<br>')
+        
+       # Create message bubble 
+        # Note: We use explicit <br> and <hr> because QTextEdit has limited CSS support for margins
+        html = f"""
+        <br>
+        <div style="display: block; margin-top: 10px;">
+            <div style="color: {color}; font-weight: bold;">{sender}</div>
+            <div style="background-color: {bg_color}; padding: 8px; border-left: 4px solid {color}; margin-top: 4px;">
+                {formatted_text}
             </div>
         </div>
+        <br>
         """
         
         # Append to text edit
