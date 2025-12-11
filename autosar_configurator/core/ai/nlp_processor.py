@@ -52,7 +52,11 @@ class NaturalLanguageProcessor:
         text = text.strip()
         print(f"DEBUG: NLP processing: '{text}' with context: {context_instance}")
         
-        # 0. Greeting: Hi/Hello
+        # 0a. Command: /model
+        if text.startswith('/model'):
+            return self._handle_model_command(text)
+        
+        # 0b. Greeting: Hi/Hello
         if re.search(r"^(hi|hello|hey|你好|您好)\b", text, re.IGNORECASE):
             return "您好！我是您的 AI 助手。请问有什么关于 AUTOSAR 配置的问题我可以帮您？"
 
@@ -338,3 +342,34 @@ class NaturalLanguageProcessor:
             return f"❌ Invalid format for {param_def.param_type.name}: {str(e)}"
         except Exception as e:
             return f"❌ Failed to set parameter: {str(e)}"
+    
+    def _handle_model_command(self, text: str) -> str:
+        """Handle /model command for viewing and switching models"""
+        parts = text.split()
+        
+        # /model - show current and available models
+        if len(parts) == 1:
+            current = self.gemini_client.get_current_model()
+            available = self.gemini_client.get_available_models()
+            
+            if not available:
+                return "⚠️ 无法获取模型列表。请检查 API Key 是否正确配置。"
+            
+            # Format model list (show short names)
+            model_list = []
+            for m in available:
+                short_name = m.replace('models/', '')
+                marker = "✅" if m == current else "  "
+                model_list.append(f"{marker} {short_name}")
+            
+            return f"**当前模型**: {current.replace('models/', '')}\n\n**可用模型**:\n" + "\n".join(model_list) + "\n\n使用 `/model <模型名>` 切换模型。"
+        
+        # /model <name> - switch to specified model
+        else:
+            target_name = parts[1]
+            if self.gemini_client.set_model(target_name):
+                new_model = self.gemini_client.get_current_model().replace('models/', '')
+                return f"✅ 已切换到模型: **{new_model}**"
+            else:
+                available = [m.replace('models/', '') for m in self.gemini_client.get_available_models()]
+                return f"❌ 模型 '{target_name}' 不可用。\n可用模型: {', '.join(available[:5])}"

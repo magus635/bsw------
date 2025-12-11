@@ -43,6 +43,7 @@ class KnowledgeBase:
     def __init__(self, api_key: Optional[str] = None):
         self.documents: List[str] = []
         self.embeddings: List[List[float]] = []
+        self.loaded_files: List[str] = []  # Track source file paths
         self.is_ready = False
         
         if api_key and HAS_GEMINI:
@@ -97,6 +98,9 @@ class KnowledgeBase:
                 filename = os.path.basename(file_path)
                 tagged_content = f"Source Document: {filename}\n\n{content}"
                 self.ingest_text(tagged_content)
+                # Track the loaded file
+                if file_path not in self.loaded_files:
+                    self.loaded_files.append(file_path)
                 print(f"Successfully ingested: {filename}")
             else:
                 print("Warning: Document was empty.")
@@ -130,6 +134,9 @@ class KnowledgeBase:
                 filename = os.path.basename(image_path)
                 tagged_content = f"Source Image: {filename}\n\n{text}"
                 self.ingest_text(tagged_content)
+                # Track the loaded image
+                if image_path not in self.loaded_files:
+                    self.loaded_files.append(image_path)
                 print(f"Successfully transcribed and ingested: {filename}")
             else:
                 print("Warning: No text transcribed from image.")

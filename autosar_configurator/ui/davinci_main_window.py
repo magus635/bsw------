@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QSplitter, QMenuBar, QMenu, QToolBar, QStatusBar,
     QFileDialog, QMessageBox, QStyle, QLabel, QInputDialog, QLineEdit
 )
-from PySide6.QtCore import Qt, Signal, QSettings
+from PySide6.QtCore import Qt, Signal, QSettings, QRunnable, QThreadPool, QObject, Slot
 from PySide6.QtGui import QAction, QKeySequence, QUndoStack
 from PySide6.QtWidgets import QDockWidget
 from pathlib import Path
@@ -33,11 +33,40 @@ from ..core.ai.nlp_processor import NaturalLanguageProcessor
 from ..generator.generator import CodeGenerator
 
 
+class AIWorkerSignals(QObject):
+    """Signals for AI worker thread"""
+    result = Signal(str)  # Emits the response text
+    error = Signal(str)   # Emits error message
+
+
+class AIWorker(QRunnable):
+    """Worker thread for non-blocking AI API calls"""
+    
+    def __init__(self, processor, text: str, context_instance):
+        super().__init__()
+        self.signals = AIWorkerSignals()
+        self.processor = processor
+        self.text = text
+        self.context_instance = context_instance
+    
+    @Slot()
+    def run(self):
+        """Execute the AI processing in background thread"""
+        try:
+            response = self.processor.process_message(self.text, self.context_instance)
+            self.signals.result.emit(response)
+        except Exception as e:
+            self.signals.error.emit(str(e))
+
+
 class DaVinciMainWindow(QMainWindow):
     """DaVinci Configurator-style main window"""
     
     def __init__(self):
         super().__init__()
+        
+        # Thread pool for async AI calls
+        self.thread_pool = QThreadPool()
         
         # Core state
         self.module_def: Optional[EcucModuleDef] = None
@@ -152,28 +181,23 @@ class DaVinciMainWindow(QMainWindow):
         self.ai_processor = None  # Will init when config_manager is available
 
     def _configure_ai_settings(self):
-        """Show dialog to configure AI settings (API Key)"""
-        current_key = self.settings.value("gemini_api_key", "")
+        """Ensure AI processor is initialized when Settings button is clicked.
+        This is called BEFORE the KnowledgeBaseDialog opens.
+        """
+        api_key = self.settings.value("gemini_api_key")
         
-        key, ok = QInputDialog.getText(
-            self, 
-            "Configure AI", 
-            "Enter Google Gemini API Key:\n(Get one at aistudio.google.com)",
-            QLineEdit.Password,
-            current_key
-        )
+        # Initialize AI processor if not already done
+        if not self.ai_processor:
+            self.ai_processor = NaturalLanguageProcessor(
+                api_key=api_key,
+                config_manager=self.config_manager,
+                undo_stack=self.undo_stack,
+                action_handler=self._handle_ai_action
+            )
         
-        if ok:
-            # Save even if empty (to clear)
-            self.settings.setValue("gemini_api_key", key)
-            if key:
-                self.ai_assistant_widget.append_message("System", "✅ API Key saved. Cloud AI enabled.")
-            else:
-                 self.ai_assistant_widget.append_message("System", "ℹ️ API Key cleared. Using local mode.")
-            
-            # Re-init or update processor
-            if self.ai_processor:
-                self.ai_processor.gemini_client.configure(key)
+        # Always ensure KB reference is set on the widget
+        if self.ai_processor and hasattr(self.ai_processor, 'knowledge_base'):
+            self.ai_assistant_widget.knowledge_base = self.ai_processor.knowledge_base
 
     def _handle_ai_message(self, text: str):
         """Handle message from AI Assistant Widget"""
@@ -194,6 +218,8 @@ class DaVinciMainWindow(QMainWindow):
                 undo_stack=self.undo_stack,
                 action_handler=self._handle_ai_action
             )
+            # Set knowledge base reference on the widget for Settings dialog
+            self.ai_assistant_widget.knowledge_base = self.ai_processor.knowledge_base
         else:
             # Update config manager reference if it changed
             self.ai_processor.config_manager = self.config_manager
@@ -203,32 +229,39 @@ class DaVinciMainWindow(QMainWindow):
             # Update handler
             self.ai_processor.action_handler = self._handle_ai_action
 
-        # Process Message
+        # Process Message Asynchronously
+        print(f"DEBUG: Processing AI message (async): '{text}'")
+        self.ai_assistant_widget.set_status("Thinking...", busy=True)
+        
+        # Get context from selection (Safely)
+        context_instance = None
         try:
-            print(f"DEBUG: Processing AI message: '{text}'")
-            self.ai_assistant_widget.set_status("Thinking...", busy=True)
-            
-            # Get context from selection (Safely)
-            context_instance = None
-            try:
-                if hasattr(self.tree_view, 'get_selected_instance'):
-                    context_instance = self.tree_view.get_selected_instance()
-                else:
-                    print("DEBUG: tree_view missing get_selected_instance")
-            except Exception as e:
-                print(f"DEBUG: Context error: {e}")
-            
-            response = self.ai_processor.process_message(text, context_instance)
-            print(f"DEBUG: AI Response: '{response}'")
-            
-            # Show response
-            self.ai_assistant_widget.append_message("AI", response)
-            self.ai_assistant_widget.set_status("Ready")
-            
+            if hasattr(self.tree_view, 'get_selected_instance'):
+                context_instance = self.tree_view.get_selected_instance()
+            else:
+                print("DEBUG: tree_view missing get_selected_instance")
         except Exception as e:
-            print(f"DEBUG: AI Error: {e}")
-            self.ai_assistant_widget.append_message("System", f"Error: {str(e)}")
-            self.ai_assistant_widget.set_status("Error")
+            print(f"DEBUG: Context error: {e}")
+        
+        # Create worker and connect signals
+        worker = AIWorker(self.ai_processor, text, context_instance)
+        worker.signals.result.connect(self._on_ai_response)
+        worker.signals.error.connect(self._on_ai_error)
+        
+        # Submit to thread pool (non-blocking)
+        self.thread_pool.start(worker)
+    
+    def _on_ai_response(self, response: str):
+        """Handle AI response from worker thread"""
+        print(f"DEBUG: AI Response received: '{response[:50]}...'")
+        self.ai_assistant_widget.append_message("AI", response)
+        self.ai_assistant_widget.set_status("Ready")
+    
+    def _on_ai_error(self, error_msg: str):
+        """Handle AI error from worker thread"""
+        print(f"DEBUG: AI Error: {error_msg}")
+        self.ai_assistant_widget.append_message("System", f"❌ Error: {error_msg}")
+        self.ai_assistant_widget.set_status("Error")
 
     def _handle_ai_action(self, action_name: str):
         """Execute action requested by AI"""

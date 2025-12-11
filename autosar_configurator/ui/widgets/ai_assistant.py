@@ -29,6 +29,8 @@ class AIAssistantWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         
+        self.knowledge_base = None  # Set by main window after AI processor init
+        
         self._setup_ui()
         self._welcome_message()
         
@@ -100,7 +102,11 @@ class AIAssistantWidget(QWidget):
         
     def _open_settings(self):
         """Open the Knowledge Base settings dialog"""
-        dialog = KnowledgeBaseDialog(self)
+        # Emit signal to tell main window to ensure AI processor is initialized
+        # This will set self.knowledge_base before we open the dialog
+        self.settings_clicked.emit()
+        
+        dialog = KnowledgeBaseDialog(self, knowledge_base=self.knowledge_base)
         if dialog.exec():
             # Check if API key was changed in the dialog
             if dialog.api_key_changed:
@@ -191,7 +197,7 @@ class KnowledgeBaseDialog(QDialog):
     """
     Dialog to manage Knowledge Base files and API Configuration.
     """
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, knowledge_base=None):
         super().__init__(parent)
         self.setWindowTitle("AI Assistant Settings")
         self.setMinimumWidth(500)
@@ -199,6 +205,7 @@ class KnowledgeBaseDialog(QDialog):
         
         self.settings = QSettings("AUTOSAR", "DaVinciConfigurator")
         self.api_key_changed = False # Track if changed
+        self.knowledge_base = knowledge_base  # Reference to KnowledgeBase for loading files
         
         layout = QVBoxLayout(self)
         
@@ -223,8 +230,17 @@ class KnowledgeBaseDialog(QDialog):
         kb_layout = QVBoxLayout()
         
         self.file_list = QListWidget()
-        # Mock data for prototype
-        self.file_list.addItem("datasheets/sample_chip_manual.txt (Active)")
+        # Show documents currently loaded in knowledge base
+        if self.knowledge_base and hasattr(self.knowledge_base, 'loaded_files'):
+            import os
+            if self.knowledge_base.loaded_files:
+                for filepath in self.knowledge_base.loaded_files:
+                    filename = os.path.basename(filepath)
+                    self.file_list.addItem(f"✅ {filename}")
+            else:
+                self.file_list.addItem("(No documents loaded)")
+        else:
+            self.file_list.addItem("(Knowledge Base not ready)")
         kb_layout.addWidget(self.file_list)
         
         btn_layout = QHBoxLayout()
@@ -233,6 +249,11 @@ class KnowledgeBaseDialog(QDialog):
         btn_layout.addWidget(self.add_btn)
         
         kb_layout.addLayout(btn_layout)
+        
+        # Status label for feedback
+        self.status_label = QLabel("")
+        self.status_label.setStyleSheet("color: #666;")
+        kb_layout.addWidget(self.status_label)
         
         kb_group.setLayout(kb_layout)
         layout.addWidget(kb_group)
@@ -264,6 +285,31 @@ class KnowledgeBaseDialog(QDialog):
         self.accept()
 
     def _add_file(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select Datasheet/Image", "", "Documents (*.txt *.md *.pdf *.png *.jpg *.jpeg);;All Files (*)")
+        """Add a file to the knowledge base"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "Select Datasheet/Image", 
+            "", 
+            "Documents (*.txt *.md *.pdf *.png *.jpg *.jpeg);;All Files (*)"
+        )
         if file_path:
-            self.file_list.addItem(f"{file_path} (Queued)")
+            # Try to load into knowledge base
+            if self.knowledge_base:
+                try:
+                    self.status_label.setText(f"Loading: {file_path}...")
+                    self.status_label.repaint()  # Force UI update
+                    
+                    self.knowledge_base.load_document(file_path)
+                    
+                    # Update list with success
+                    import os
+                    filename = os.path.basename(file_path)
+                    self.file_list.addItem(f"✅ {filename}")
+                    self.status_label.setText(f"✅ Loaded: {filename}")
+                except Exception as e:
+                    self.status_label.setText(f"❌ Error: {str(e)}")
+                    self.file_list.addItem(f"❌ {file_path} (Error)")
+            else:
+                # No knowledge base available - just show in list
+                self.file_list.addItem(f"{file_path} (⚠️ KB not available)")
+                self.status_label.setText("⚠️ Knowledge Base not initialized")
