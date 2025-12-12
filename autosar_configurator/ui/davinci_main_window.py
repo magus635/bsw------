@@ -461,6 +461,12 @@ class DaVinciMainWindow(QMainWindow):
         # Wizards menu
         wizards_menu = menubar.addMenu("Wizards")
         wizards_menu.addAction(self.quick_config_action)
+        
+        # Help menu
+        help_menu = menubar.addMenu("Help")
+        about_action = QAction("关于 DaVinci Configurator", self)
+        about_action.triggered.connect(self._show_about_dialog)
+        help_menu.addAction(about_action)
     
     def _create_toolbars(self):
         """Create toolbars"""
@@ -1793,6 +1799,28 @@ except Exception as e:
         
         # Start subprocess
         process.start(sys.executable, ["-c", script, api_key, prompt, model_name])
+    
+    def _show_about_dialog(self):
+        """Show about dialog with version information"""
+        version = "1.0.0"
+        QMessageBox.about(
+            self,
+            "关于 DaVinci Configurator",
+            f"""<h3>DaVinci Configurator</h3>
+            <p><b>版本:</b> {version}</p>
+            <p><b>描述:</b> AUTOSAR BSW 配置工具</p>
+            <p>支持模块定义解析、配置编辑、代码生成和AI辅助验证。</p>
+            <p><b>主要功能:</b></p>
+            <ul>
+            <li>📋 模块定义和配置管理</li>
+            <li>🔍 跨模块依赖分析</li>
+            <li>🤖 AI 智能验证和帮助</li>
+            <li>📊 依赖关系可视化</li>
+            <li>⚙️ 代码自动生成</li>
+            </ul>
+            <p><b>技术栈:</b> Python 3, PySide6, Google Gemini AI</p>
+            """
+        )
     
     def _update_recent_files_menu(self):
         """Update recent files menu with current list"""

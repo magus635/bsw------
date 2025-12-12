@@ -39,12 +39,12 @@
 
 | # | 状态 | 来源 | 源参数 | 条件 | 目标参数 | 要求 | 原因 |
 |---|------|------|--------|------|----------|------|------|
-| 1 | [ ] | 📋 定义 | `Adc.AdcClockSourceRef` | != null | `Mcu.McuClockSource` | exists true | 模块定义引用：Adc 通过 AdcClockSourceRef 引用 Mcu |
-| 2 | [ ] | 🤖 AI | `Adc.AdcClockSourceRef` | == /McuConfig/Mcu/McuClockConfig/McuClockSource_PLL | `McuClockConfig/McuClockSource_PLL.McuClockFrequency` | > 0 | ADC时钟源依赖于MCU时钟，频率必须有效，否则ADC无法正常工作。 |
-| 3 | [ ] | 🤖 AI | `Adc.AdcResolution` | == ADC_RESOLUTION_12BIT | `Adc.AdcSamplingTime` | >= X | 较高分辨率需要更长的采样时间，确保转换精度，避免采样不足。X的具体值取决于硬件特性。 |
-| 4 | [ ] | 🤖 AI | `Adc.AdcDmaEnable` | == True | `Mcu.McuDmaEnable` | == True | ADC使用DMA传输数据，需要MCU使能DMA功能，否则数据传输会失败。 |
-| 5 | [ ] | 🤖 AI | `Adc.AdcDevErrorDetect` | == True | `Mcu.McuDevErrorDetect` | == True | ADC开启错误检测，建议MCU也开启，便于统一处理错误，提高系统可靠性。 |
-| 6 | [ ] | 🤖 AI | `Adc.AdcPrescale` | > 1 | `McuClockConfig/McuClockSource_PLL.McuClockFrequency` | >= Y | ADC分频系数影响时钟频率，MCU主频需满足ADC最小时钟要求，Y的具体值取决于硬件特性。 |
+| 1 | [ x ] | 📋 定义 | `Adc.AdcClockSourceRef` | != null | `Mcu.McuClockSource` | exists true | 模块定义引用：Adc 通过 AdcClockSourceRef 引用 Mcu |
+| 2 | [x] | 🤖 AI | `Adc.AdcClockSourceRef` | == /McuConfig/Mcu/McuClockConfig/McuClockSource_PLL | `McuClockConfig/McuClockSource_PLL.McuClockSourceType` | == MCU_CLOCK_PLL | ADC时钟源必须与MCU配置的时钟源类型一致，否则ADC无法正常工作。 |
+| 3 | [] | 🤖 AI | `Adc.AdcResolution` | == ADC_RESOLUTION_12BIT | `Adc.AdcSamplingTime` | >= 12 | 较高分辨率需要更长的采样时间，确保ADC转换精度，避免采样时间不足导致转换错误。 |
+| 4 | [ x] | 🤖 AI | `Adc.AdcDmaEnable` | == True | `Mcu.McuDmaEnable` | == True | ADC使用DMA传输时，MCU必须启用DMA功能，否则DMA传输无法进行，数据无法正确传输。 |
+| 5 | [ ] | 🤖 AI | `Adc.AdcDevErrorDetect` | == True | `Mcu.McuDevErrorDetect` | == True | ADC开启错误检测时，MCU也应开启，确保错误能够被正确检测和处理，提高系统安全性。 |
+| 6 | [x ] | 🤖 AI | `McuClockConfig/McuClockSource_PLL.McuClockFrequency` | > 0 | `Adc.AdcPrescale` | > 0 | ADC分频系数必须大于0，否则ADC时钟频率为0，无法正常工作，导致系统崩溃。 |
 
 ---
 

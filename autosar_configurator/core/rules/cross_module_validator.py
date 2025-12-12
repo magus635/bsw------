@@ -62,42 +62,56 @@ class CrossModuleValidator:
         
         content = md_path.read_text(encoding='utf-8')
         
-        # Parse table rows - look for lines with confirmed status [x]
-        # Format: | # | [x] | `source_param` | condition value | `target_param` | condition value | reason |
-        table_pattern = re.compile(
-            r'\|\s*\d+\s*\|\s*\[x\]\s*\|\s*`([^`]+)`\s*\|\s*([^|]+)\|\s*`([^`]+)`\s*\|\s*([^|]+)\|\s*([^|]+)\|'
+        # Parse table rows - look for lines with confirmed status [x] (flexible whitespace)
+        # New format: | # | [x] | 来源 | `source_param` | condition value | `target_param` | condition value | reason |
+        # Old format: | # | [x] | `source_param` | condition value | `target_param` | condition value | reason |
+        # Support [x], [ x], [x ], [ x ]
+        table_pattern_new = re.compile(
+            r'\|\s*\d+\s*\|\s*\[\s*x\s*\]\s*\|[^|]+\|\s*`([^`]+)`\s*\|\s*([^|]+)\|\s*`([^`]+)`\s*\|\s*([^|]+)\|\s*([^|]+)\|',
+            re.IGNORECASE
+        )
+        table_pattern_old = re.compile(
+            r'\|\s*\d+\s*\|\s*\[\s*x\s*\]\s*\|\s*`([^`]+)`\s*\|\s*([^|]+)\|\s*`([^`]+)`\s*\|\s*([^|]+)\|\s*([^|]+)\|',
+            re.IGNORECASE
         )
         
-        for match in table_pattern.finditer(content):
-            source_param = match.group(1).strip()
-            source_cond_val = match.group(2).strip()
-            target_param = match.group(3).strip()
-            target_cond_val = match.group(4).strip()
-            reason = match.group(5).strip()
+        # Try new format first, then old format
+        for pattern in [table_pattern_new, table_pattern_old]:
+            for match in pattern.finditer(content):
+                source_param = match.group(1).strip()
+                source_cond_val = match.group(2).strip()
+                target_param = match.group(3).strip()
+                target_cond_val = match.group(4).strip()
+                reason = match.group(5).strip()
+                
+                # Parse condition and value
+                source_cond, source_val = self._parse_condition_value(source_cond_val)
+                target_cond, target_val = self._parse_condition_value(target_cond_val)
+                
+                if source_cond and target_cond:
+                    rule = CrossModuleDependencyRule(
+                        source_param=source_param,
+                        source_condition=source_cond,
+                        source_value=source_val,
+                        target_param=target_param,
+                        target_condition=target_cond,
+                        target_value=target_val,
+                        reason=reason,
+                        status='confirmed'
+                    )
+                    self.rules.append(rule)
             
-            # Parse condition and value
-            source_cond, source_val = self._parse_condition_value(source_cond_val)
-            target_cond, target_val = self._parse_condition_value(target_cond_val)
-            
-            if source_cond and target_cond:
-                rule = CrossModuleDependencyRule(
-                    source_param=source_param,
-                    source_condition=source_cond,
-                    source_value=source_val,
-                    target_param=target_param,
-                    target_condition=target_cond,
-                    target_value=target_val,
-                    reason=reason,
-                    status='confirmed'
-                )
-                self.rules.append(rule)
+            # If found rules with current pattern, stop
+            if self.rules:
+                break
         
         print(f"Loaded {len(self.rules)} confirmed dependency rules")
         return len(self.rules)
     
     def _parse_condition_value(self, cond_val: str) -> Tuple[Optional[str], Optional[str]]:
-        """Parse condition and value from a string like '= true' or '>= 1024'"""
-        match = re.match(r'([=<>!]+)\s*(.+)', cond_val.strip())
+        """Parse condition and value from a string like '= true', '>= 1024', or 'exists true'"""
+        # Support operators: =, ==, !=, <, <=, >, >=, exists
+        match = re.match(r'([=<>!]+|exists)\s*(.+)', cond_val.strip())
         if match:
             return match.group(1), match.group(2).strip()
         return None, None
@@ -211,6 +225,7 @@ class CrossModuleValidator:
                     severity="error",
                     message=f"跨模块依赖违规: {rule.source_param} = {source_value}，"
                             f"但目标 {rule.target_param} 不存在",
+                    rule_name="CrossModuleDependency",
                     details=rule.reason,
                     suggested_fix=f"确保 {rule.target_param} 已配置"
                 ))
@@ -222,6 +237,7 @@ class CrossModuleValidator:
                 severity="error",
                 message=f"跨模块依赖违规: {rule.source_param} = {source_value}，"
                         f"但目标参数 {rule.target_param} 未配置",
+                rule_name="CrossModuleDependency",
                 details=rule.reason,
                 suggested_fix=f"配置 {rule.target_param} {rule.target_condition} {rule.target_value}"
             ))
@@ -231,6 +247,7 @@ class CrossModuleValidator:
                 message=f"跨模块依赖违规: {rule.source_param} = {source_value}，"
                         f"要求 {rule.target_param} {rule.target_condition} {rule.target_value}，"
                         f"但实际值为 {target_value}",
+                rule_name="CrossModuleDependency",
                 details=rule.reason,
                 suggested_fix=f"将 {rule.target_param} 设置为 {rule.target_condition} {rule.target_value}"
             ))

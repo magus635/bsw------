@@ -434,8 +434,9 @@ Adc.AdcPrescale > 64 -> Mcu.McuClockFrequency >= 40000000 | ADC采样率受时�
         if not dependencies:
             lines.append("*未发现潜在的跨模块依赖关系*")
         else:
-            lines.append("| # | 状态 | 来源 | 源参数 | 条件 | 目标参数 | 要求 | 原因 |")
-            lines.append("|---|------|------|--------|------|----------|------|------|")
+            # Use wider columns for status and origin
+            lines.append("| #  | 状态  | 来源     | 源参数 | 条件 | 目标参数 | 要求 | 原因 |")
+            lines.append("|----|-------|----------|--------|------|----------|------|------|")
             
             for i, dep in enumerate(dependencies, 1):
                 status = "[ ]" if dep.get('status') == 'pending' else (
