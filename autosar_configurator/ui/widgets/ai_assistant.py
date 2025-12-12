@@ -281,6 +281,10 @@ class KnowledgeBaseDialog(QDialog):
         if new_key != old_key:
             self.settings.setValue("gemini_api_key", new_key)
             self.api_key_changed = True
+        
+        # Save knowledge base to disk for persistence
+        if self.knowledge_base and self.knowledge_base.documents:
+            self.knowledge_base.save_to_disk()
             
         self.accept()
 
@@ -306,6 +310,10 @@ class KnowledgeBaseDialog(QDialog):
                     filename = os.path.basename(file_path)
                     self.file_list.addItem(f"✅ {filename}")
                     self.status_label.setText(f"✅ Loaded: {filename}")
+                    
+                    # Auto-save to disk for persistence
+                    self.knowledge_base.save_to_disk()
+                    
                 except Exception as e:
                     self.status_label.setText(f"❌ Error: {str(e)}")
                     self.file_list.addItem(f"❌ {file_path} (Error)")

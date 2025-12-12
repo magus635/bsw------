@@ -417,6 +417,9 @@ class ConfigurationManager:
         serializer = EcucValueSerializer()
         serializer.serialize_to_file(self.configuration, file_path)
         
+        # Mark as saved to reset is_modified flag
+        self.configuration.mark_saved()
+        
     def load_configuration(self, file_path: Path):
         """Load configuration from ARXML file
         
@@ -455,6 +458,9 @@ class ConfigurationManager:
                 # Rebuild counters based on loaded configuration
                 for container in self.configuration.containers:
                     self._update_counters_recursive(container)
+                    
+                # Mark as saved (just loaded, no modifications)
+                self.configuration.mark_saved()
                     
         except Exception as e:
             raise ValueError(f"Failed to load configuration: {e}")

@@ -250,8 +250,67 @@ class KnowledgeBase:
         except Exception as e:
             print(f"Search failed: {e}")
             return []
+    
+    def save_to_disk(self, cache_path: str = None):
+        """
+        Save the knowledge base (documents, embeddings, loaded files) to disk.
+        
+        Args:
+            cache_path: Path to save the cache file. Defaults to ~/.gemini/kb_cache.json
+        """
+        if not cache_path:
+            cache_dir = os.path.expanduser("~/.gemini")
+            os.makedirs(cache_dir, exist_ok=True)
+            cache_path = os.path.join(cache_dir, "kb_cache.json")
+        
+        data = {
+            "documents": self.documents,
+            "embeddings": self.embeddings,
+            "loaded_files": self.loaded_files
+        }
+        
+        try:
+            with open(cache_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            print(f"Knowledge base saved to {cache_path} ({len(self.documents)} documents)")
+            return True
+        except Exception as e:
+            print(f"Error saving knowledge base: {e}")
+            return False
+    
+    def load_from_disk(self, cache_path: str = None) -> bool:
+        """
+        Load the knowledge base from disk.
+        
+        Args:
+            cache_path: Path to the cache file. Defaults to ~/.gemini/kb_cache.json
+            
+        Returns:
+            True if loaded successfully, False otherwise
+        """
+        if not cache_path:
+            cache_path = os.path.expanduser("~/.gemini/kb_cache.json")
+        
+        if not os.path.exists(cache_path):
+            print(f"No cache file found at {cache_path}")
+            return False
+        
+        try:
+            with open(cache_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            self.documents = data.get("documents", [])
+            self.embeddings = data.get("embeddings", [])
+            self.loaded_files = data.get("loaded_files", [])
+            
+            print(f"Knowledge base loaded from {cache_path} ({len(self.documents)} documents)")
+            return True
+        except Exception as e:
+            print(f"Error loading knowledge base: {e}")
+            return False
             
     def clear(self):
         """Clear knowledge base"""
         self.documents = []
         self.embeddings = []
+        self.loaded_files = []

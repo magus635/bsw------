@@ -34,15 +34,22 @@ class NaturalLanguageProcessor:
         # Callback for executing actions (e.g. create_container)
         self.action_handler = action_handler
         
-        # Prototype: Auto-load sample data if exists
-        sample_path = "datasheets/sample_chip_manual.txt"
-        if os.path.exists(sample_path) and self.knowledge_base.is_ready:
-            print(f"DEBUG: NLP loading knowledge from {sample_path}")
-            try:
-                # Use load_document to handle ext detection
-                self.knowledge_base.load_document(sample_path)
-            except Exception as e:
-                print(f"DEBUG: Failed to load sample knowledge: {e}")
+        # Try to load cached knowledge base first
+        if self.knowledge_base.is_ready:
+            loaded = self.knowledge_base.load_from_disk()
+            if loaded and self.knowledge_base.documents:
+                print(f"DEBUG: Restored {len(self.knowledge_base.documents)} documents from cache")
+            else:
+                # Fallback: Auto-load sample data if exists and cache was empty
+                sample_path = "datasheets/sample_chip_manual.txt"
+                if os.path.exists(sample_path):
+                    print(f"DEBUG: NLP loading knowledge from {sample_path}")
+                    try:
+                        self.knowledge_base.load_document(sample_path)
+                        # Save to cache for next time
+                        self.knowledge_base.save_to_disk()
+                    except Exception as e:
+                        print(f"DEBUG: Failed to load sample knowledge: {e}")
                 
     def process_message(self, text: str, context_instance: Optional[EcucContainerValue] = None) -> str:
         """
@@ -115,7 +122,16 @@ class NaturalLanguageProcessor:
                 return "✅ 已触发代码生成。"
             return "⚠️无法执行代码生成。"
 
-        # 7. Intent: Intelligent Validation
+        # 7. Intent: Single Parameter Validation
+        # Pattern: "check <ParamName>" or "检查<ParamName>" or "validate <ParamName>"
+        # Allow optional space between keyword and parameter name for Chinese input
+        single_check_match = re.search(r"^(?:check|检查|validate|验证)\s*([A-Za-z_][A-Za-z0-9_]*)$", text, re.IGNORECASE)
+        if single_check_match:
+            param_name = single_check_match.group(1)
+            print(f"DEBUG: Single param validation triggered for: '{param_name}'")
+            return self._handle_single_param_validation(param_name, context_instance)
+
+        # 8. Intent: Full Configuration Validation
         # Allow optional '@' prefix so users can say "@验证配置"
         if re.search(r"^@?\s*(validate|check|audit|verify|检查配置|验证配置)", text, re.IGNORECASE):
             # Prioritize Project-Wide Validation if project is loaded
@@ -373,3 +389,75 @@ class NaturalLanguageProcessor:
             else:
                 available = [m.replace('models/', '') for m in self.gemini_client.get_available_models()]
                 return f"❌ 模型 '{target_name}' 不可用。\n可用模型: {', '.join(available[:5])}"
+    
+    def _handle_single_param_validation(self, param_name: str, context_instance: Optional[EcucContainerValue]) -> str:
+        """
+        Handle validation of a single parameter.
+        
+        Args:
+            param_name: Name of the parameter to validate
+            context_instance: The currently selected container instance
+            
+        Returns:
+            Validation result string
+        """
+        if not self.config_manager:
+            return "⚠️ 请先加载项目或模块配置。"
+        
+        # Strategy 1: If context_instance is provided, search there first
+        if context_instance:
+            # Check if parameter exists in this instance
+            param_value = None
+            for pname, pval in context_instance.parameter_values.items():
+                if pname.lower() == param_name.lower():
+                    param_name = pname  # Use correct case
+                    param_value = pval.value
+                    break
+            
+            if param_value is not None:
+                return self.validator.validate_parameter(
+                    param_name,
+                    param_value,
+                    context_instance.short_name,
+                    self.config_manager
+                )
+        
+        # Strategy 2: Search all containers for the parameter
+        found_params = []
+        
+        def search_container(container: EcucContainerValue):
+            for pname, pval in container.parameter_values.items():
+                if pname.lower() == param_name.lower():
+                    found_params.append((container, pname, pval.value))
+            for sub in container.sub_containers:
+                search_container(sub)
+        
+        for container in self.config_manager.configuration.containers:
+            search_container(container)
+        if not found_params:
+            return f"❌ 未找到参数 '{param_name}'。请确保参数名称正确。"
+        
+        print(f"DEBUG: Found {len(found_params)} instance(s) of '{param_name}'")
+        
+        if len(found_params) == 1:
+            container, actual_name, value = found_params[0]
+            print(f"DEBUG: Validating single instance: {container.short_name}.{actual_name} = {value}")
+            return self.validator.validate_parameter(
+                actual_name,
+                value,
+                container.short_name,
+                self.config_manager
+            )
+        
+        # Multiple instances found
+        results = [f"找到 {len(found_params)} 个 '{param_name}' 实例，逐个检查：\n"]
+        for container, actual_name, value in found_params:
+            result = self.validator.validate_parameter(
+                actual_name,
+                value,
+                container.short_name,
+                self.config_manager
+            )
+            results.append(f"\n**{container.short_name}.{actual_name}** = {value}\n{result}\n")
+        
+        return "\n".join(results)

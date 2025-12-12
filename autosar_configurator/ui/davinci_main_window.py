@@ -595,8 +595,7 @@ class DaVinciMainWindow(QMainWindow):
                         
                         # Save the module configuration file
                         manager.save_configuration(config_file)
-                        # Clear the modified flag so closeEvent knows it's saved
-                        manager.configuration.is_modified = False
+                        # mark_saved() is called inside save_configuration
                         saved_count += 1
                     except Exception as e:
                         failed_modules.append((module_name, str(e)))
@@ -1474,9 +1473,9 @@ class DaVinciMainWindow(QMainWindow):
         analyzer = DependencyAnalyzer(gemini_client)
         
         # Show progress
-        self.statusBar().showMessage("正在分析跨模块依赖...")
+        self.statusBar().showMessage("正在分析跨模块依赖（后台运行中）...")
         
-        # Extract parameters
+        # Extract parameters (this is fast)
         params = analyzer.extract_project_parameters(self.current_project)
         
         if not params:
@@ -1487,22 +1486,51 @@ class DaVinciMainWindow(QMainWindow):
             )
             return
         
-        # Analyze with AI or heuristics
-        dependencies = analyzer.analyze_with_ai(params)
-        
-        # Generate markdown - save to project directory
+        # Store for later use
         project_dir = Path(self.current_project.path).parent if self.current_project.path else Path.cwd()
         output_path = project_dir / "dependencies.md"
         
-        content = analyzer.generate_markdown(dependencies, output_path)
+        # Run AI analysis in background thread
+        class DependencyWorker(QRunnable):
+            def __init__(self, analyzer, params, output_path, signals):
+                super().__init__()
+                self.analyzer = analyzer
+                self.params = params
+                self.output_path = output_path
+                self.signals = signals
+            
+            @Slot()
+            def run(self):
+                try:
+                    # This is the slow AI call
+                    dependencies = self.analyzer.analyze_with_ai(self.params)
+                    # Generate markdown
+                    self.analyzer.generate_markdown(dependencies, self.output_path)
+                    self.signals.result.emit(f"{len(dependencies)}|{str(self.output_path)}")
+                except Exception as e:
+                    self.signals.error.emit(str(e))
         
-        self.statusBar().showMessage(f"依赖分析完成，发现 {len(dependencies)} 条潜在规则")
+        # Create worker with signals
+        worker = DependencyWorker(analyzer, params, output_path, AIWorkerSignals())
+        worker.signals.result.connect(self._on_dependency_analysis_done)
+        worker.signals.error.connect(self._on_dependency_analysis_error)
+        
+        # Submit to thread pool
+        self.thread_pool.start(worker)
+    
+    def _on_dependency_analysis_done(self, result: str):
+        """Handle completed dependency analysis"""
+        parts = result.split("|", 1)
+        count = int(parts[0])
+        output_path = parts[1]
+        
+        self.statusBar().showMessage(f"依赖分析完成，发现 {count} 条潜在规则", 5000)
         
         # Ask to open file
         reply = QMessageBox.question(
             self,
             "分析完成",
-            f"发现 {len(dependencies)} 条潜在的跨模块依赖关系。\n\n"
+            f"发现 {count} 条潜在的跨模块依赖关系。\n\n"
             f"结果已保存到:\n{output_path}\n\n"
             "是否打开文件进行审核？",
             QMessageBox.Yes | QMessageBox.No,
@@ -1518,6 +1546,15 @@ class DaVinciMainWindow(QMainWindow):
                 subprocess.run(['start', str(output_path)], shell=True)
             else:
                 subprocess.run(['xdg-open', str(output_path)])
+    
+    def _on_dependency_analysis_error(self, error: str):
+        """Handle dependency analysis error"""
+        self.statusBar().showMessage("依赖分析失败", 3000)
+        QMessageBox.critical(
+            self,
+            "分析失败",
+            f"依赖分析过程中出错：\n\n{error}"
+        )
     
     def _validate_cross_module_dependencies(self):
         """Validate project against confirmed dependency rules"""

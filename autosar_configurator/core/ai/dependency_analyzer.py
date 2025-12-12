@@ -73,25 +73,59 @@ class DependencyAnalyzer:
         # Check for references that point to other modules
         for ref_name, ref_def in container_def.references.items():
             dest_ref = ref_def.destination_ref or ""
-            # Check if reference points to a different module
-            if dest_ref and not dest_ref.startswith(f"/{module_name}"):
+            
+            if not dest_ref:
+                continue
+                
+            # Debug output
+            print(f"[DEP] Checking ref: {ref_name} -> {dest_ref}")
+            
+            # Extract target module name from destination_ref
+            # Format: /AUTOSAR/EcucDefs/ModuleName/...
+            # or: /ModuleName_Def_Pkg/ModuleName/...
+            target_module = self._extract_module_from_path(dest_ref)
+            
+            if target_module and target_module.lower() != module_name.lower():
                 # This is a cross-module reference!
-                # Extract target module from path like "/Module2_Def_Pkg/Module2"
-                parts = dest_ref.strip('/').split('/')
-                if len(parts) >= 2:
-                    target_module = parts[1] if 'Def_Pkg' in parts[0] else parts[0]
-                    self.cross_module_refs.append({
-                        'source_module': module_name,
-                        'source_container': container_path,
-                        'reference_name': ref_name,
-                        'target_path': dest_ref,
-                        'target_module': target_module,
-                        'description': ref_def.description or ""
-                    })
+                print(f"[DEP] Found cross-module ref: {module_name}.{ref_name} -> {target_module}")
+                self.cross_module_refs.append({
+                    'source_module': module_name,
+                    'source_container': container_path,
+                    'reference_name': ref_name,
+                    'target_path': dest_ref,
+                    'target_module': target_module,
+                    'description': ref_def.description or ""
+                })
         
         # Recurse into sub-containers
         for sub_container in container_def.sub_containers.values():
             self._extract_container_def_references(module_name, sub_container, container_path)
+    
+    def _extract_module_from_path(self, path: str) -> str:
+        """Extract module name from a definition reference path.
+        
+        Examples:
+            /AUTOSAR/EcucDefs/Mcu/McuModuleConfiguration -> Mcu
+            /Mcu_Def_Pkg/Mcu/Container -> Mcu
+            /AUTOSAR/EcucDefs/Adc/AdcConfigSet -> Adc
+        """
+        if not path:
+            return ""
+        
+        parts = path.strip('/').split('/')
+        
+        # Pattern 1: /AUTOSAR/EcucDefs/ModuleName/...
+        if len(parts) >= 3 and parts[0] == 'AUTOSAR' and parts[1] == 'EcucDefs':
+            return parts[2]
+        
+        # Pattern 2: /ModuleName_Def_Pkg/ModuleName/...
+        if len(parts) >= 2:
+            if '_Def_Pkg' in parts[0] or 'Def_Pkg' in parts[0]:
+                return parts[1]
+            # Pattern 3: /ModuleName/Container/...
+            return parts[0]
+        
+        return ""
     
     def _extract_module_parameters(
         self, 
@@ -158,22 +192,45 @@ class DependencyAnalyzer:
         Returns:
             List of potential dependency rules
         """
-        if not self.gemini_client or not self.gemini_client.is_ready():
+        dependencies = []
+        
+        # 1. Always include cross-module references from module definitions
+        # (These are factual, not AI-generated)
+        for ref in getattr(self, 'cross_module_refs', []):
+            dependencies.append({
+                'source_param': f"{ref['source_module']}.{ref['reference_name']}",
+                'source_condition': '!=',
+                'source_value': 'null',
+                'target_param': f"{ref['target_module']}.{ref['target_path'].split('/')[-1]}",
+                'target_condition': 'exists',
+                'target_value': 'true',
+                'reason': f"模块定义引用：{ref['source_module']} 通过 {ref['reference_name']} 引用 {ref['target_module']}",
+                'status': 'pending',
+                'origin': '📋 定义'  # Source: Module Definition
+            })
+        
+        # 2. Use AI to find additional parameter dependencies
+        if self.gemini_client and self.gemini_client.is_ready():
+            prompt = self._build_analysis_prompt(params_info)
+            
+            try:
+                response = self.gemini_client.generate_response(prompt, timeout=60)
+                ai_dependencies = self._parse_ai_response(response)
+                dependencies.extend(ai_dependencies)
+            except Exception as e:
+                print(f"AI analysis failed: {e}")
+        
+        # 3. If no dependencies found, use heuristic fallback
+        if not dependencies:
             return self._fallback_heuristic_analysis(params_info)
         
-        # Build prompt for AI
-        prompt = self._build_analysis_prompt(params_info)
-        
-        try:
-            response = self.gemini_client.generate_response(prompt, timeout=60)
-            dependencies = self._parse_ai_response(response)
-            return dependencies
-        except Exception as e:
-            print(f"AI analysis failed: {e}, using heuristic fallback")
-            return self._fallback_heuristic_analysis(params_info)
+        return dependencies
     
     def _build_analysis_prompt(self, params_info: Dict[str, List[Dict]]) -> str:
         """Build the prompt for AI dependency analysis"""
+        # Build a list of valid module.parameter combinations
+        valid_params = []
+        
         # Summarize parameters by module
         summary_lines = []
         for module_name, params in params_info.items():
@@ -185,6 +242,8 @@ class DependencyAnalyzer:
                 if container not in by_container:
                     by_container[container] = []
                 by_container[container].append(f"  - {p['parameter']} ({p['type']}): {p['value']}")
+                # Track valid parameter paths
+                valid_params.append(f"{module_name}.{p['parameter']}")
             
             for container, param_list in by_container.items():
                 summary_lines.append(f"### {container}")
@@ -198,13 +257,18 @@ class DependencyAnalyzer:
 
 {params_summary}
 
+【重要约束】
+1. 你只能使用上述列表中**实际存在**的参数名称
+2. **禁止创造或猜测**不在上述列表中的参数名
+3. 源参数和目标参数都必须来自上述列表
+4. 如果你不确定某个参数是否存在，请不要输出该规则
+
 请识别可能的依赖关系，按以下格式输出（每行一条规则）：
 
-SOURCE_MODULE.PARAM = VALUE -> TARGET_MODULE.PARAM REQUIREMENT EXPECTED_VALUE | REASON
+MODULE.PARAM 条件 值 -> MODULE.PARAM 条件 期望值 | 原因
 
 例如：
-CryptoDriver.UseHwAcceleration = true -> Can.HwSupport = true | 加密硬件加速需要CAN模块支持
-Os.TaskCount > 10 -> Com.BufferSize >= 1024 | 多任务需要更大的通信缓冲区
+Crypto.UseHwAcceleration = true -> Mcu.HwSupport = true | 加密硬件加速需依赖MCU配置
 
 请只输出规则，不要有其他说明。如果没有发现依赖关系，输出 "NO_DEPENDENCIES"。"""
 
@@ -238,7 +302,8 @@ Os.TaskCount > 10 -> Com.BufferSize >= 1024 | 多任务需要更大的通信缓�
                     'target_condition': match.group(5),
                     'target_value': match.group(6),
                     'reason': match.group(7).strip(),
-                    'status': 'pending'  # pending, confirmed, rejected
+                    'status': 'pending',
+                    'origin': '🤖 AI'  # Source: AI Inference
                 })
         
         return dependencies
@@ -293,7 +358,8 @@ Os.TaskCount > 10 -> Com.BufferSize >= 1024 | 多任务需要更大的通信缓�
                         'target_condition': 'exists',
                         'target_value': 'true',
                         'reason': f"引用参数 {ref_p['parameter']} 指向的目标必须存在",
-                        'status': 'pending'
+                        'status': 'pending',
+                        'origin': '📄 配置'  # Source: Config Reference
                     })
         
         return dependencies
@@ -336,15 +402,16 @@ Os.TaskCount > 10 -> Com.BufferSize >= 1024 | 多任务需要更大的通信缓�
         if not dependencies:
             lines.append("*未发现潜在的跨模块依赖关系*")
         else:
-            lines.append("| # | 状态 | 源参数 | 条件 | 目标参数 | 要求 | 原因 |")
-            lines.append("|---|------|--------|------|----------|------|------|")
+            lines.append("| # | 状态 | 来源 | 源参数 | 条件 | 目标参数 | 要求 | 原因 |")
+            lines.append("|---|------|------|--------|------|----------|------|------|")
             
             for i, dep in enumerate(dependencies, 1):
                 status = "[ ]" if dep.get('status') == 'pending' else (
                     "[x]" if dep.get('status') == 'confirmed' else "[-]"
                 )
+                origin = dep.get('origin', '❓ 未知')
                 lines.append(
-                    f"| {i} | {status} | `{dep['source_param']}` | "
+                    f"| {i} | {status} | {origin} | `{dep['source_param']}` | "
                     f"{dep['source_condition']} {dep['source_value']} | "
                     f"`{dep['target_param']}` | "
                     f"{dep['target_condition']} {dep['target_value']} | "
