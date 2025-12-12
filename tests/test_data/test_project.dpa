@@ -1,0 +1,16 @@
+{
+  "name": "TestCrossModuleProject",
+  "version": "1.0",
+  "modules": [
+    {
+      "name": "Adc",
+      "def_path": "Adc_Def.arxml",
+      "config_path": "Adc_Config.arxml"
+    },
+    {
+      "name": "Mcu",
+      "def_path": "Mcu_Def.arxml",
+      "config_path": "Mcu_Config.arxml"
+    }
+  ]
+}

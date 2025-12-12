@@ -1760,22 +1760,31 @@ except Exception as e:
         
         def on_finished(exit_code, exit_status):
             if self.config_panel.ai_request_cancelled:
+                self._ai_help_process = None
                 return
             
-            output = process.readAllStandardOutput().data().decode('utf-8').strip()
-            error = process.readAllStandardError().data().decode('utf-8').strip()
-            
-            if exit_code == 0 and output:
-                self.config_panel.update_ai_help(output)
-                self.config_panel.cache_ai_help(container_name, param_name, output)
-            elif error:
-                self.config_panel.update_ai_help(f"❌ {error}")
-            else:
-                self.config_panel.update_ai_help("❌ 请求失败，请重试")
-            
-            self.config_panel.current_ai_process = None
+            try:
+                if self._ai_help_process:
+                    output = self._ai_help_process.readAllStandardOutput().data().decode('utf-8').strip()
+                    error = self._ai_help_process.readAllStandardError().data().decode('utf-8').strip()
+                    
+                    if exit_code == 0 and output:
+                        self.config_panel.update_ai_help(output)
+                        self.config_panel.cache_ai_help(container_name, param_name, output)
+                    elif error:
+                        self.config_panel.update_ai_help(f"❌ {error}")
+                    else:
+                        self.config_panel.update_ai_help("❌ 请求失败，请重试")
+            except RuntimeError:
+                pass  # Process already deleted
+            finally:
+                self.config_panel.current_ai_process = None
+                self._ai_help_process = None
         
         process.finished.connect(on_finished)
+        
+        # Store reference to prevent garbage collection
+        self._ai_help_process = process
         
         # Get current model name
         model_name = "gemini-2.0-flash"

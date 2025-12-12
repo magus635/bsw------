@@ -135,10 +135,17 @@ class DependencyAnalyzer:
         """Extract parameters from a module configuration"""
         params = []
         
+        print(f"[DEP] Extracting params from module: {module_name}")
+        print(f"[DEP]   Containers count: {len(configuration.containers)}")
+        
         for container in configuration.containers:
             params.extend(self._extract_container_parameters(
                 module_name, container, ""
             ))
+        
+        print(f"[DEP]   Total params extracted: {len(params)}")
+        for p in params:
+            print(f"[DEP]     - {p['parameter']} = {p['value']}")
         
         return params
     
@@ -265,10 +272,15 @@ class DependencyAnalyzer:
 
 请识别可能的依赖关系，按以下格式输出（每行一条规则）：
 
-MODULE.PARAM 条件 值 -> MODULE.PARAM 条件 期望值 | 原因
+MODULE.PARAM 条件 值 -> MODULE.PARAM 条件 期望值 | 详细原因
+
+【原因说明要求】
+- 原因部分需要**详细说明**为什么存在这个依赖
+- 包括：技术背景、可能导致的问题、AUTOSAR规范依据（如有）
+- 长度：20-50个字
 
 例如：
-Crypto.UseHwAcceleration = true -> Mcu.HwSupport = true | 加密硬件加速需依赖MCU配置
+Adc.AdcPrescale > 64 -> Mcu.McuClockFrequency >= 40000000 | ADC采样率受时钟影响，分频系数过大时需提高MCU主频确保转换精度
 
 请只输出规则，不要有其他说明。如果没有发现依赖关系，输出 "NO_DEPENDENCIES"。"""
 
@@ -398,6 +410,26 @@ Crypto.UseHwAcceleration = true -> Mcu.HwSupport = true | 加密硬件加速需�
             "## 发现的依赖关系",
             "",
         ]
+        
+        # Add debug info about extracted parameters
+        if hasattr(self, 'extracted_params') and self.extracted_params:
+            lines.extend([
+                "",
+                "<details>",
+                "<summary>📊 分析数据 (点击展开)</summary>",
+                "",
+            ])
+            for module_name, params in self.extracted_params.items():
+                lines.append(f"**{module_name}** ({len(params)} 个参数)")
+                for p in params[:10]:  # Limit to 10
+                    lines.append(f"- `{p['parameter']}` = {p['value']}")
+                if len(params) > 10:
+                    lines.append(f"- ... 及其他 {len(params) - 10} 个参数")
+                lines.append("")
+            lines.extend([
+                "</details>",
+                "",
+            ])
         
         if not dependencies:
             lines.append("*未发现潜在的跨模块依赖关系*")

@@ -124,10 +124,11 @@ class GeminiClient:
             
         try:
             print("DEBUG: Sending request to Gemini...")
-            # Add timeout via generation_config
+            # Add timeout and temperature=0 for deterministic output
             response = self.model.generate_content(
                 prompt,
                 request_options={"timeout": timeout},
+                generation_config={"temperature": 0.0},
                 **kwargs
             )
             print("DEBUG: Gemini response received.")
