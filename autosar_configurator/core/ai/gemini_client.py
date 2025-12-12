@@ -49,13 +49,23 @@ class GeminiClient:
             except Exception as list_err:
                 print(f"DEBUG: Failed to list models: {list_err}")
                 
-            # Selection Strategy
+            # Selection Strategy - Prioritize latest Gemini models
             preferred_order = [
-                'models/gemini-1.5-flash',
-                'models/gemini-1.5-pro',
-                'models/gemini-2.0-flash-exp',
-                'models/gemini-1.0-pro',
-                'models/gemini-pro'
+                'models/gemini-3.0-flash-exp',      # Future: Gemini 3.0 experimental
+                'models/gemini-3.0-flash',          # Future: Gemini 3.0 stable
+                'models/gemini-3.0-pro-exp',        # Future: Gemini 3.0 Pro experimental
+                'models/gemini-3.0-pro',            # Future: Gemini 3.0 Pro
+                'models/gemini-2.5-flash-exp',      # Gemini 2.5 experimental
+                'models/gemini-2.5-flash',          # Gemini 2.5 stable
+                'models/gemini-2.5-pro-exp',        # Gemini 2.5 Pro experimental
+                'models/gemini-2.5-pro',            # Gemini 2.5 Pro
+                'models/gemini-2.0-flash-exp',      # Gemini 2.0 experimental
+                'models/gemini-2.0-flash',          # Gemini 2.0 stable
+                'models/gemini-2.0-pro-exp',        # Gemini 2.0 Pro experimental
+                'models/gemini-1.5-pro',            # Previous best
+                'models/gemini-1.5-flash',          # Fast and reliable
+                'models/gemini-1.0-pro',            # Legacy
+                'models/gemini-pro'                 # Fallback
             ]
             
             selected_model_name = None
