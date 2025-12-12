@@ -186,38 +186,50 @@ class DaVinciConfigPanel(QWidget):
         refs_layout.addWidget(self.refs_table)
         self.content_layout.addWidget(self.references_group)
     
-    def show_instance(self, instance: EcucContainerValue, container_def: EcucContainerDef, config_manager: ConfigurationManager):
+    def show_instance(self, instance: EcucContainerValue, container_def: EcucContainerDef, config_manager: ConfigurationManager, project=None):
         """Show container instance for editing"""
-        self.current_instance = instance
-        self.current_def = container_def
-        self.config_manager = config_manager
-        
-        # Hide empty message
-        self.empty_label.hide()
-        
-        # Update general info
-        self.name_label.setText(instance.short_name)
-        self.def_label.setText(container_def.short_name)
-        self.mult_label.setText(container_def.multiplicity_str)
-        self.general_group.show()
-        
-        # Populate parameters table
-        self._populate_parameters(instance, container_def)
-        self.parameters_group.setTitle(f"⚙️ Parameters ({len(container_def.parameters)})")
-        self.parameters_group.show()
-        
-        # Populate references table
-        self._populate_references(instance, container_def)
-        self.references_group.setTitle(f"🔗 References ({len(container_def.references)})")
-        if len(container_def.references) > 0:
-            self.references_group.show()
-        else:
+        try:
+            self.current_instance = instance
+            self.current_def = container_def
+            self.config_manager = config_manager
+            self.project = project
+            
+            # Reset UI state first to prevent stale data
+            self.empty_label.hide()
             self.references_group.hide()
+            self.parameters_group.hide()
+            self.general_group.hide()
+            
+            # Update general info
+            self.name_label.setText(instance.short_name)
+            self.def_label.setText(container_def.short_name)
+            self.mult_label.setText(container_def.multiplicity_str)
+            self.general_group.show()
+            
+            # Populate parameters table
+            self._populate_parameters(instance, container_def)
+            self.parameters_group.setTitle(f"⚙️ Parameters ({len(container_def.parameters)})")
+            self.parameters_group.show()
+            
+            # Populate references table
+            self._populate_references(instance, container_def)
+            self.references_group.setTitle(f"🔗 References ({len(container_def.references)})")
+            if len(container_def.references) > 0:
+                self.references_group.show()
+                
+        except Exception as e:
+            print(f"Error showing instance {instance.short_name}: {e}")
+            import traceback
+            traceback.print_exc()
+            # Show error in panel?
+            self.empty_label.setText(f"Error displaying instance:\n{e}")
+            self.empty_label.show()
     
     def show_definition(self, container_def: EcucContainerDef):
         """Show container definition (read-only info)"""
         self.current_instance = None
         self.current_def = container_def
+        self.project = None
         
         self.empty_label.hide()
         
@@ -255,6 +267,7 @@ class DaVinciConfigPanel(QWidget):
         
         self.params_table.resizeColumnsToContents()
         self.parameters_group.show()
+        self.references_group.hide()  # Ensure references are hidden in definition mode
     
     def _populate_parameters(self, instance: EcucContainerValue, container_def: EcucContainerDef):
         """Populate parameters table with editable widgets"""
@@ -276,8 +289,14 @@ class DaVinciConfigPanel(QWidget):
             # Clear any existing item in the value cell to prevent "shadow" text
             self.params_table.setItem(row, 1, QTableWidgetItem(""))
             
-            editor = self._create_parameter_editor(param_name, param_def, current_value, instance)
-            self.params_table.setCellWidget(row, 1, editor)
+            try:
+                editor = self._create_parameter_editor(param_name, param_def, current_value, instance)
+                self.params_table.setCellWidget(row, 1, editor)
+            except Exception as e:
+                print(f"Error creating editor for {param_name}: {e}")
+                error_item = QTableWidgetItem(f"Error: {e}")
+                error_item.setForeground(Qt.red)
+                self.params_table.setItem(row, 1, error_item)
             
             # Column 2: Type
             type_item = QTableWidgetItem(param_def.param_type.name)
@@ -375,7 +394,11 @@ class DaVinciConfigPanel(QWidget):
             max_val = min(max_val, 2147483647)
             spinbox.setRange(int(min_val), int(max_val))
             
-            value = int(current_value) if current_value is not None else 0
+            try:
+                value = int(current_value) if current_value is not None else 0
+            except (ValueError, TypeError):
+                value = 0 # Default on error
+            
             spinbox.setValue(value)
             
             return spinbox, spinbox.value, spinbox.valueChanged
@@ -388,7 +411,11 @@ class DaVinciConfigPanel(QWidget):
                 param_def.max_value if param_def.max_value is not None else 1e308
             )
             
-            value = float(current_value) if current_value is not None else 0.0
+            try:
+                value = float(current_value) if current_value is not None else 0.0
+            except (ValueError, TypeError):
+                value = 0.0
+                
             spinbox.setValue(value)
             
             return spinbox, spinbox.value, spinbox.valueChanged
@@ -721,10 +748,20 @@ class DaVinciConfigPanel(QWidget):
         combo = QComboBox()
         combo.addItem("(Not set)", None)
         
-        # Get available targets (simplified - just show all instances)
-        if self.config_manager:
-            for container in self.config_manager.configuration.containers:
+        # Helper to search containers in a manager
+        def search_in_manager(manager):
+            for container in manager.configuration.containers:
                 self._add_reference_targets(combo, container, ref_def)
+
+        # Get available targets
+        if hasattr(self, 'project') and self.project:
+            # Search all modules in project
+            for module_name, manager in self.project.module_managers.items():
+                if manager.configuration:
+                    search_in_manager(manager)
+        elif self.config_manager:
+            # Single module mode
+            search_in_manager(self.config_manager)
         
         # Set current value
         if current_value:
@@ -741,15 +778,77 @@ class DaVinciConfigPanel(QWidget):
     
     def _add_reference_targets(self, combo: QComboBox, container: EcucContainerValue, ref_def, prefix=""):
         """Recursively add matching containers to combobox"""
-        # Simple implementation: add all containers
-        # TODO: Filter by destination_ref type
+        # Calculate full path for display
         display_name = f"{prefix}/{container.short_name}" if prefix else container.short_name
-        path = f"/Config/{display_name}"
-        combo.addItem(display_name, path)
+        
+        # Use container's actual absolute path for value
+        path = container.get_path()
+        
+        # Check if this container is a valid target
+        container_def_ref = container.definition_ref or ""
+        dest_ref = ref_def.destination_ref or ""
+        
+        # Match strategies:
+        is_match = False
+        
+        # Strategy 1: Exact match
+        if container_def_ref == dest_ref:
+            is_match = True
+        
+        # Strategy 2: Container def ref ends with destination ref
+        elif dest_ref and container_def_ref.endswith(dest_ref):
+            is_match = True
+        
+        # Strategy 3: Destination ref ends with container def ref's suffix
+        elif container_def_ref and dest_ref.endswith(container_def_ref.split('/')[-1]):
+            is_match = True
+        
+        # Strategy 4: Compare last path component (type name)
+        else:
+            container_type = container_def_ref.split('/')[-1] if container_def_ref else ""
+            dest_type = dest_ref.split('/')[-1] if dest_ref else ""
+            
+            if container_type and dest_type and container_type == dest_type:
+                is_match = True
+        
+        if is_match:
+            # Build enhanced display name with parameter values
+            enhanced_name = self._build_enhanced_display_name(container, display_name)
+            combo.addItem(enhanced_name, path)
         
         # Add sub-containers
         for sub in container.sub_containers:
             self._add_reference_targets(combo, sub, ref_def, display_name)
+    
+    def _build_enhanced_display_name(self, container: EcucContainerValue, base_name: str) -> str:
+        """Build a descriptive display name including key parameter values"""
+        # Collect parameter value summaries
+        param_summaries = []
+        
+        for param_name, param_value in container.parameter_values.items():
+            value = param_value.value
+            if value is not None:
+                # Format value based on type
+                if isinstance(value, bool):
+                    value_str = "✓" if value else "✗"
+                elif isinstance(value, float):
+                    value_str = f"{value:.2f}"
+                elif isinstance(value, str) and len(value) > 20:
+                    value_str = value[:17] + "..."
+                else:
+                    value_str = str(value)
+                
+                param_summaries.append(value_str)
+        
+        # Build final display name
+        if param_summaries:
+            # Show up to 2 parameter values
+            summary = ", ".join(param_summaries[:2])
+            if len(param_summaries) > 2:
+                summary += ", ..."
+            return f"{base_name} ({summary})"
+        
+        return base_name
     
     def _on_reference_changed(self, ref_name: str, target_path: str):
         """Handle reference value change"""

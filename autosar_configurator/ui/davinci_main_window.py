@@ -445,6 +445,19 @@ class DaVinciMainWindow(QMainWindow):
         gen_menu = menubar.addMenu("Generate")
         gen_menu.addAction(self.generate_action)
         
+        # Analysis menu (new)
+        analysis_menu = menubar.addMenu("Analysis")
+        self.analyze_dependencies_action = QAction("🔍 分析跨模块依赖...", self)
+        self.analyze_dependencies_action.triggered.connect(self._analyze_cross_module_dependencies)
+        analysis_menu.addAction(self.analyze_dependencies_action)
+        
+        self.validate_dependencies_action = QAction("✅ 验证跨模块依赖...", self)
+        self.validate_dependencies_action.triggered.connect(self._validate_cross_module_dependencies)
+        analysis_menu.addAction(self.validate_dependencies_action)
+        
+        analysis_menu.addSeparator()
+        analysis_menu.addAction(self.show_dep_graph_action)
+        
         # Wizards menu
         wizards_menu = menubar.addMenu("Wizards")
         wizards_menu.addAction(self.quick_config_action)
@@ -1433,14 +1446,148 @@ class DaVinciMainWindow(QMainWindow):
             # Show dialog
             self.dep_graph_dialog.show()
         else:
-            # Refresh existing graph and show
-            self.dep_graph_widget.build_graph(
-                self.module_def,
-                self.config_manager.configuration
-            )
-            self.dep_graph_dialog.show()
             self.dep_graph_dialog.raise_()
             self.dep_graph_dialog.activateWindow()
+    
+    def _analyze_cross_module_dependencies(self):
+        """Analyze project to find potential cross-module dependencies using AI"""
+        if not self.current_project:
+            QMessageBox.warning(
+                self,
+                "需要项目",
+                "请先打开一个包含多个模块的项目。\n\n"
+                "此功能用于分析跨模块依赖，需要加载多模块项目。"
+            )
+            return
+        
+        from pathlib import Path
+        from ..core.ai.dependency_analyzer import DependencyAnalyzer
+        
+        # Get API key  
+        api_key = self.settings.value("gemini_api_key")
+        gemini_client = None
+        if api_key:
+            from ..core.ai.gemini_client import GeminiClient
+            gemini_client = GeminiClient(api_key)
+        
+        # Create analyzer
+        analyzer = DependencyAnalyzer(gemini_client)
+        
+        # Show progress
+        self.statusBar().showMessage("正在分析跨模块依赖...")
+        
+        # Extract parameters
+        params = analyzer.extract_project_parameters(self.current_project)
+        
+        if not params:
+            QMessageBox.information(
+                self,
+                "无参数",
+                "未找到可分析的参数。请确保已加载模块配置。"
+            )
+            return
+        
+        # Analyze with AI or heuristics
+        dependencies = analyzer.analyze_with_ai(params)
+        
+        # Generate markdown - save to project directory
+        project_dir = Path(self.current_project.path).parent if self.current_project.path else Path.cwd()
+        output_path = project_dir / "dependencies.md"
+        
+        content = analyzer.generate_markdown(dependencies, output_path)
+        
+        self.statusBar().showMessage(f"依赖分析完成，发现 {len(dependencies)} 条潜在规则")
+        
+        # Ask to open file
+        reply = QMessageBox.question(
+            self,
+            "分析完成",
+            f"发现 {len(dependencies)} 条潜在的跨模块依赖关系。\n\n"
+            f"结果已保存到:\n{output_path}\n\n"
+            "是否打开文件进行审核？",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes
+        )
+        
+        if reply == QMessageBox.Yes:
+            import subprocess
+            import sys
+            if sys.platform == 'darwin':
+                subprocess.run(['open', str(output_path)])
+            elif sys.platform == 'win32':
+                subprocess.run(['start', str(output_path)], shell=True)
+            else:
+                subprocess.run(['xdg-open', str(output_path)])
+    
+    def _validate_cross_module_dependencies(self):
+        """Validate project against confirmed dependency rules"""
+        if not self.current_project:
+            QMessageBox.warning(
+                self,
+                "需要项目",
+                "请先打开一个包含多个模块的项目。"
+            )
+            return
+        
+        from pathlib import Path
+        from ..core.rules.cross_module_validator import CrossModuleValidator
+        
+        # Find dependencies.md
+        project_dir = Path(self.current_project.path).parent if self.current_project.path else Path.cwd()
+        dep_file = project_dir / "dependencies.md"
+        
+        if not dep_file.exists():
+            QMessageBox.warning(
+                self,
+                "规则文件未找到",
+                f"未找到依赖规则文件:\n{dep_file}\n\n"
+                "请先执行 '分析跨模块依赖' 生成规则文件，\n"
+                "然后在文件中确认规则（将 [ ] 改为 [x]）。"
+            )
+            return
+        
+        # Load and validate
+        validator = CrossModuleValidator()
+        rule_count = validator.load_rules_from_markdown(dep_file)
+        
+        if rule_count == 0:
+            QMessageBox.information(
+                self,
+                "无确认的规则",
+                f"文件 {dep_file.name} 中没有已确认的规则。\n\n"
+                "请编辑该文件，将要启用的规则状态从 [ ] 改为 [x]。"
+            )
+            return
+        
+        # Validate project
+        result = validator.validate_project(self.current_project)
+        
+        # Show results
+        if result.is_valid:
+            QMessageBox.information(
+                self,
+                "验证通过 ✅",
+                f"跨模块依赖验证通过！\n\n"
+                f"已检查 {rule_count} 条规则，未发现违规。"
+            )
+        else:
+            # Build error message
+            errors = [m for m in result.messages if m.severity == 'error']
+            warnings = [m for m in result.messages if m.severity == 'warning']
+            
+            error_text = "\n\n".join([
+                f"❌ {e.message}\n   建议: {e.suggested_fix}" for e in errors[:5]
+            ])
+            
+            if len(errors) > 5:
+                error_text += f"\n\n...还有 {len(errors) - 5} 个错误"
+            
+            QMessageBox.critical(
+                self,
+                "验证失败 ❌",
+                f"发现 {len(errors)} 个错误, {len(warnings)} 个警告:\n\n"
+                f"{error_text}"
+            )
     
     def _on_instance_selected(self, instance: EcucContainerValue, container_def: EcucContainerDef, manager=None):
         """Handle instance selection in tree"""
@@ -1448,7 +1595,7 @@ class DaVinciMainWindow(QMainWindow):
         if manager:
             self._update_active_context(manager)
             
-        self.config_panel.show_instance(instance, container_def, self.config_manager)
+        self.config_panel.show_instance(instance, container_def, self.config_manager, self.current_project)
     
     def _on_def_selected(self, container_def: EcucContainerDef, manager=None):
         """Handle definition node selection in tree"""
