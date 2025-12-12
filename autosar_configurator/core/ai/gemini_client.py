@@ -124,11 +124,15 @@ class GeminiClient:
             
         try:
             print("DEBUG: Sending request to Gemini...")
-            # Add timeout and temperature=0 for deterministic output
+            # Merge generation_config if provided in kwargs
+            gen_config = kwargs.pop('generation_config', {})
+            if 'temperature' not in gen_config:
+                gen_config['temperature'] = 0.0
+            
             response = self.model.generate_content(
                 prompt,
                 request_options={"timeout": timeout},
-                generation_config={"temperature": 0.0},
+                generation_config=gen_config,
                 **kwargs
             )
             print("DEBUG: Gemini response received.")
