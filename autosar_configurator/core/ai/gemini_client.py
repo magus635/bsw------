@@ -28,10 +28,6 @@ class GeminiClient:
             
     def configure(self, api_key: str):
         """Configure the client with an API key"""
-        if not api_key:
-            print("DEBUG: Gemini configure called with empty key. Skipping.")
-            return
-
         print(f"DEBUG: Configuring Gemini with key: {api_key[:4]}...***")
         if not HAS_GEMINI:
             print("DEBUG: google-generativeai package not installed.")

@@ -1,0 +1,305 @@
+"""
+XPath Engine for EB Template Engine
+
+Implements XPath 2.0 subset for AUTOSAR configuration navigation:
+- Axes: child:: (default), parent:: (..), descendant:: (//), absolute (/)
+- Predicates: [index], [condition], [@attr='value']
+- Path navigation against ConfigurationNode tree
+"""
+import re
+from typing import Any, List, Optional, Union, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .symbol_table import ConfigurationNode, SymbolTable
+    from .context import ContextStack
+
+
+class XPathEngine:
+    """XPath-like query engine for ConfigurationNode tree"""
+    
+    def __init__(self, symbol_table: 'SymbolTable', context_stack: 'ContextStack'):
+        self.symbol_table = symbol_table
+        self.context_stack = context_stack
+    
+    def evaluate(self, xpath: str) -> Any:
+        """Evaluate an XPath expression.
+        
+        Args:
+            xpath: XPath expression string
+            
+        Returns:
+            Single node, list of nodes, or None
+        """
+        xpath = xpath.strip()
+        
+        # Handle function calls like as:modconf('Mcu')
+        if '(' in xpath and ')' in xpath:
+            return self._evaluate_function(xpath)
+        
+        # Handle absolute path
+        if xpath.startswith('/'):
+            return self._evaluate_absolute(xpath)
+        
+        # Handle current node
+        if xpath == '.' or xpath == 'node:current()':
+            return self.context_stack.current_node()
+        
+        # Handle relative path from current context
+        return self._evaluate_relative(xpath)
+    
+    def _evaluate_absolute(self, xpath: str) -> Any:
+        """Evaluate absolute path like /Mcu/McuConfig"""
+        # Try direct path lookup
+        node = self.symbol_table.get_by_path(xpath)
+        if node:
+            return node
+        
+        # Try parsing as module/path
+        parts = [p for p in xpath.split('/') if p]
+        if not parts:
+            return None
+        
+        # First part might be module name
+        module = self.symbol_table.get_module(parts[0])
+        if module:
+            return self._navigate_path(module, parts[1:])
+        
+        return None
+    
+    def _evaluate_relative(self, xpath: str) -> Any:
+        """Evaluate relative path from current context"""
+        current = self.context_stack.current_node()
+        if not current:
+            return None
+        
+        # Strip leading ./
+        if xpath.startswith('./'):
+            xpath = xpath[2:]
+        
+        # Parse path segments with predicates
+        segments = self._parse_path(xpath)
+        return self._navigate_segments(current, segments)
+    
+    def _parse_path(self, xpath: str) -> List[dict]:
+        """Parse path into segments with optional predicates.
+        
+        Returns list of {'name': str, 'predicates': list, 'axis': str}
+        """
+        segments = []
+        
+        # Handle descendant axis //
+        if xpath.startswith('//'):
+            xpath = xpath[2:]
+            # First segment uses descendant axis
+            first_segment_axis = 'descendant'
+        else:
+            first_segment_axis = 'child'
+        
+        # Split by / but preserve predicates
+        parts = []
+        current = ""
+        bracket_depth = 0
+        
+        for char in xpath:
+            if char == '[':
+                bracket_depth += 1
+                current += char
+            elif char == ']':
+                bracket_depth -= 1
+                current += char
+            elif char == '/' and bracket_depth == 0:
+                if current:
+                    parts.append(current)
+                current = ""
+            else:
+                current += char
+        if current:
+            parts.append(current)
+        
+        for i, part in enumerate(parts):
+            axis = first_segment_axis if i == 0 else 'child'
+            
+            # Check for parent axis
+            if part == '..':
+                segments.append({'name': '..', 'predicates': [], 'axis': 'parent'})
+                continue
+            
+            # Parse name and predicates
+            name, predicates = self._parse_segment(part)
+            segments.append({'name': name, 'predicates': predicates, 'axis': axis})
+        
+        return segments
+    
+    def _parse_segment(self, segment: str) -> tuple:
+        """Parse a single segment like 'Container[1]' or 'Param[@name="x"]'
+        
+        Returns (name, list_of_predicates)
+        """
+        predicates = []
+        
+        # Find predicates [...]
+        match = re.match(r'^([^\[]+)(.*)', segment)
+        if not match:
+            return segment, []
+        
+        name = match.group(1)
+        predicate_str = match.group(2)
+        
+        # Extract all predicates
+        for pred_match in re.finditer(r'\[([^\]]+)\]', predicate_str):
+            predicates.append(pred_match.group(1))
+        
+        return name, predicates
+    
+    def _navigate_segments(self, node: 'ConfigurationNode', segments: List[dict]) -> Any:
+        """Navigate through path segments from a starting node"""
+        current = [node] if node else []
+        
+        for segment in segments:
+            if not current:
+                return None
+            
+            next_nodes = []
+            axis = segment['axis']
+            name = segment['name']
+            predicates = segment['predicates']
+            
+            for n in current:
+                if axis == 'parent':
+                    if n.parent:
+                        next_nodes.append(n.parent)
+                elif axis == 'descendant':
+                    next_nodes.extend(self._find_descendants(n, name))
+                else:  # child axis
+                    if name == '*':
+                        next_nodes.extend(n.get_children_list())
+                    else:
+                        child = n.get_child(name)
+                        if child:
+                            next_nodes.append(child)
+            
+            # Apply predicates
+            current = self._apply_predicates(next_nodes, predicates)
+        
+        # Return single node or list
+        if len(current) == 0:
+            return None
+        elif len(current) == 1:
+            return current[0]
+        else:
+            return current
+    
+    def _navigate_path(self, node: 'ConfigurationNode', parts: List[str]) -> Any:
+        """Simple path navigation (legacy support)"""
+        current = node
+        for part in parts:
+            if not current:
+                return None
+            if part == '..':
+                current = current.parent
+            else:
+                current = current.get_child(part)
+        return current
+    
+    def _find_descendants(self, node: 'ConfigurationNode', name: str) -> List['ConfigurationNode']:
+        """Find all descendants matching name (// axis)"""
+        results = []
+        
+        for child in node.children.values():
+            if name == '*' or child.short_name == name:
+                results.append(child)
+            results.extend(self._find_descendants(child, name))
+        
+        return results
+    
+    def _apply_predicates(self, nodes: List['ConfigurationNode'], predicates: List[str]) -> List['ConfigurationNode']:
+        """Apply predicate filters to node list"""
+        result = nodes
+        
+        for pred in predicates:
+            pred = pred.strip()
+            
+            # Numeric index [1], [2], etc.
+            if pred.isdigit():
+                idx = int(pred) - 1  # XPath is 1-indexed
+                if 0 <= idx < len(result):
+                    result = [result[idx]]
+                else:
+                    result = []
+                continue
+            
+            # last() function
+            if pred == 'last()':
+                result = [result[-1]] if result else []
+                continue
+            
+            # Attribute filter [@name='value']
+            attr_match = re.match(r"@(\w+)\s*=\s*['\"]([^'\"]+)['\"]", pred)
+            if attr_match:
+                attr_name = attr_match.group(1)
+                attr_value = attr_match.group(2)
+                result = [n for n in result if self._check_attribute(n, attr_name, attr_value)]
+                continue
+            
+            # General condition - evaluate as boolean
+            result = [n for n in result if self._evaluate_predicate_condition(n, pred)]
+        
+        return result
+    
+    def _check_attribute(self, node: 'ConfigurationNode', attr: str, value: str) -> bool:
+        """Check if node has attribute matching value"""
+        if attr == 'name':
+            return node.short_name == value
+        if attr == 'path':
+            return node.path == value
+        if attr == 'type':
+            return node.node_type == value
+        
+        # Check in children (for parameter-like access)
+        child = node.get_child(attr)
+        if child:
+            return str(child.get_value()) == value
+        
+        return False
+    
+    def _evaluate_predicate_condition(self, node: 'ConfigurationNode', condition: str) -> bool:
+        """Evaluate a predicate condition in context of a node"""
+        # Simple existence check
+        child = node.get_child(condition)
+        if child:
+            return bool(child.get_value())
+        
+        # Check for comparison operators
+        for op in ['=', '!=', '>', '<']:
+            if op in condition:
+                # Would need full expression evaluator here
+                pass
+        
+        return False
+    
+    def _evaluate_function(self, expr: str) -> Any:
+        """Evaluate function calls in XPath expression"""
+        # as:modconf('ModuleName')
+        match = re.match(r"as:modconf\s*\(\s*['\"](\w+)['\"]\s*\)", expr)
+        if match:
+            module_name = match.group(1)
+            return self.symbol_table.get_module(module_name)
+        
+        # as:modconf('Module')/path/to/item
+        match = re.match(r"as:modconf\s*\(\s*['\"](\w+)['\"]\s*\)(.*)", expr)
+        if match:
+            module_name = match.group(1)
+            rest_path = match.group(2)
+            
+            module = self.symbol_table.get_module(module_name)
+            if not module:
+                return None
+            
+            if rest_path:
+                # Continue navigation
+                rest_path = rest_path.lstrip('/')
+                segments = self._parse_path(rest_path)
+                return self._navigate_segments(module, segments)
+            return module
+        
+        return None

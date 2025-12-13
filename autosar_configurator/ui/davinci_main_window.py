@@ -224,9 +224,8 @@ class DaVinciMainWindow(QMainWindow):
         else:
             # Update config manager reference if it changed
             self.ai_processor.config_manager = self.config_manager
-            # Update key if it changed AND new key is valid
-            # If settings key is empty, keep using current key (e.g. from env)
-            if api_key and self.ai_processor.gemini_client.api_key != api_key:
+            # Update key if it changed
+            if self.ai_processor.gemini_client.api_key != api_key:
                  self.ai_processor.gemini_client.configure(api_key)
             # Update handler
             self.ai_processor.action_handler = self._handle_ai_action
