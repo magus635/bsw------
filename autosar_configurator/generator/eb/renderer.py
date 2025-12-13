@@ -100,30 +100,36 @@ class Renderer:
         Returns:
             Rendered output string
         """
-        # Determine initial context node
-        root_node = None
-        if module_name:
-            root_node = self.symbol_table.get_module(module_name)
-        elif self.symbol_table.get_all_modules():
-            # Use first module if only one loaded
-            modules = self.symbol_table.get_all_modules()
-            if len(modules) == 1:
-                root_node = self.symbol_table.get_module(modules[0])
-        
-        # Initialize context
+    def render(self, template_str: str, module_name: str, context_path: str = None, initial_variables: Dict[str, Any] = None) -> str:
+        """Render a template string."""
+        # Reset context stack
+        root_node = self.symbol_table.get_module(module_name)
+        if not root_node:
+            raise ValueError(f"Module '{module_name}' not found in symbol table")
+            
         self._context_stack = ContextStack(root_node)
+        
+        # Add initial variables
+        if initial_variables:
+            for name, value in initial_variables.items():
+                self._context_stack.set_variable(name, value)
+        
+        # Set initial context node if path provided
+        if context_path:
+            # Evaluate context_path relative to root_node
+            # This will set the initial current_node in the context stack
+            initial_context_node = self._xpath_engine.evaluate(context_path, context_node=root_node)
+            if isinstance(initial_context_node, list):
+                initial_context_node = initial_context_node[0] if initial_context_node else None
+            self._context_stack.push(initial_context_node) # Push the specific context node
+
         self._builtins = BuiltinFunctions(self.symbol_table, self._context_stack)
         self._xpath_engine = XPathEngine(self.symbol_table, self._context_stack)
         self._output_buffer = []
         self._suppress_next_newline = False
         
-        # Inject extra variables
-        if extra_vars:
-            for name, value in extra_vars.items():
-                self._context_stack.set_variable(name, value)
-        
         # Tokenize
-        tokens = tokenize(template)
+        tokens = tokenize(template_str)
         
         # Execute
         self._execute_tokens(tokens, 0, len(tokens))
@@ -309,6 +315,17 @@ class Renderer:
         # Get items to iterate
         # Use _evaluate_expression to support function calls like node:order()
         items = self._evaluate_expression(xpath_expr)
+        
+        # If result is a string (e.g. from quoted literal "CanController/*"), 
+        # evaluate it as XPath
+        if isinstance(items, str):
+            items = self._evaluate_xpath(items)
+        
+        # If result is a string (e.g. from quoted literal "CanController/*"), 
+        # evaluate it as XPath
+        if isinstance(items, str):
+            items = self._evaluate_xpath(items)
+             
         if not items:
             items = []
         elif not isinstance(items, list):
@@ -351,7 +368,12 @@ class Renderer:
         
         # Get target node - may be None/empty, which is allowed per spec
         node = self._evaluate_expression(xpath_expr)
-        if isinstance(node, list):
+        
+        # If result is a string, evaluate as XPath
+        if isinstance(node, str):
+            node = self._evaluate_xpath(node)
+            
+        if node and isinstance(node, list):
             node = node[0] if node else None
         
         # Always execute the block, even with empty context
@@ -399,8 +421,40 @@ class Renderer:
                 # Plain string literal
                 return inner
         
-        # Variable reference ($name)
-        if expr.startswith('$'):
+        # Function call
+        # Distinguish between EB built-in functions (ns:name) and XPath functions (count, last, etc.)
+        if '(' in expr and expr.endswith(')'):
+            func_name = expr.split('(')[0].strip()
+            # EB functions usually have a namespace 'ns:' or are registered variants
+            if ':' in func_name:
+                return self._evaluate_function_call(expr)
+        
+        # Arithmetic Operations (Simple implementation)
+        # Note: We place this early to catch expressions like "$A + $B" which start with $
+        # but are not simple variable lookups.
+        for op in [' + ', ' - ', ' * ', ' div ', ' mod ']:
+            if op in expr:
+                # Basic check to ensure op is not inside quotes
+                parts = expr.split(op, 1)
+                if len(parts) == 2:
+                    left = self._evaluate_expression(parts[0])
+                    right = self._evaluate_expression(parts[1])
+                    
+                    # Unwrap
+                    left = self._unwrap_value(left)
+                    right = self._unwrap_value(right)
+                    
+                    try:
+                        if op == ' + ': return int(left) + int(right)
+                        if op == ' - ': return int(left) - int(right)
+                        if op == ' * ': return int(left) * int(right)
+                        if op == ' div ': return int(left) / int(right)
+                        if op == ' mod ': return int(left) % int(right)
+                    except (ValueError, TypeError):
+                        pass # Fallback if not numbers
+        
+        # Variable reference ($name) - Only simple names, not paths like $Var/Child
+        if expr.startswith('$') and '/' not in expr:
             var_name = expr[1:]
             if self._context_stack.has_variable(var_name):
                 return self._context_stack.get_variable(var_name)
@@ -408,12 +462,8 @@ class Renderer:
                 raise UndefinedVariableError(var_name)
             return None
         
-        # Function call
-        if '(' in expr and expr.endswith(')'):
-            return self._evaluate_function_call(expr)
-        
-        # XPath or node access
-        if '/' in expr or expr.startswith('.') or 'as:' in expr:
+        # XPath or node access (including XPath functions like count())
+        if '/' in expr or expr.startswith('.') or 'as:' in expr or '(' in expr:
             return self._evaluate_xpath(expr)
         
         # Numeric literal
@@ -439,6 +489,14 @@ class Renderer:
         
         return expr  # Return as-is
     
+        return i  # After ENDIF
+    
+    def _unwrap_value(self, val: Any) -> Any:
+        """Unwrap value from ConfigurationNode if needed"""
+        if hasattr(val, 'get_value'):
+            return val.get_value()
+        return val
+        
     def _evaluate_condition(self, condition: str) -> bool:
         """Evaluate a boolean condition."""
         condition = condition.strip()
@@ -454,24 +512,40 @@ class Renderer:
             return not self._evaluate_condition(inner)
         
         # Handle comparison operators
-        for op in [' == ', ' != ', ' > ', ' < ', ' >= ', ' <= ']:
+        for op in [' == ', ' != ', ' > ', ' < ', ' >= ', ' <= ', ' = ']:
+            # Note: Added ' = ' as alias for ' == ' common in templates
+            check_op = op.strip()
             if op in condition:
                 left, right = condition.split(op, 1)
                 left_val = self._evaluate_expression(left.strip())
                 right_val = self._evaluate_expression(right.strip())
                 
-                if op == ' == ':
+                # Unwrap nodes to values for comparison
+                left_val = self._unwrap_value(left_val)
+                right_val = self._unwrap_value(right_val)
+                
+                # Boolean normalization for string comparison "true" == True
+                if isinstance(left_val, bool) and isinstance(right_val, str):
+                    right_val = right_val.lower() in ('true', '1', 'yes', 'on')
+                if isinstance(right_val, bool) and isinstance(left_val, str):
+                    left_val = left_val.lower() in ('true', '1', 'yes', 'on')
+                
+                if check_op == '==' or check_op == '=':
                     return left_val == right_val
-                elif op == ' != ':
+                elif check_op == '!=':
                     return left_val != right_val
-                elif op == ' > ':
-                    return left_val > right_val
-                elif op == ' < ':
-                    return left_val < right_val
-                elif op == ' >= ':
-                    return left_val >= right_val
-                elif op == ' <= ':
-                    return left_val <= right_val
+                elif check_op == '>':
+                    try: return left_val > right_val
+                    except: return False
+                elif check_op == '<':
+                    try: return left_val < right_val
+                    except: return False
+                elif check_op == '>=':
+                    try: return left_val >= right_val
+                    except: return False
+                elif check_op == '<=':
+                    try: return left_val <= right_val
+                    except: return False
         
         # Handle 'and' / 'or'
         if ' and ' in condition:
@@ -483,6 +557,11 @@ class Renderer:
         
         # Simple truthiness check
         value = self._evaluate_expression(condition)
+        value = self._unwrap_value(value)
+        
+        if isinstance(value, str):
+             return value.lower() in ('true', '1', 'yes', 'on')
+             
         return bool(value)
     
     def _evaluate_function_call(self, expr: str) -> Any:

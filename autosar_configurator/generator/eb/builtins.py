@@ -86,20 +86,13 @@ class BuiltinFunctions:
     
     # ========== Node Functions ==========
     
-    def node_value(self, node: Any) -> Any:
+    def node_value(self, node_or_path: Any) -> Any:
         """Get the value of a node (with default fallback).
-        
-        Per EB Capability Spec 4.3 AUTOSAR Semantic Mapping:
-        - Boolean (feature): STD_ON / STD_OFF
-        - Boolean (runtime): TRUE / FALSE
-        - Enum: ShortName string
-        - Reference: resolved target object
-        - No config + default: default value
-        - No config + no default: None (empty node-set)
-        
-        Args:
-            node: ConfigurationNode object OR XPath string (absolute or relative)
+        ...
         """
+        node = node_or_path
+        path = None
+        
         # Auto-resolve string paths
         if isinstance(node, str):
             path = node
@@ -127,6 +120,11 @@ class BuiltinFunctions:
                     node = None
         
         if node is None:
+            # If resolution failed, but input was a string, assume input IS the value
+            # Note: We check the original input variable 'node_or_path' which is passed as 'node'
+            if isinstance(path, str): # path was set if input was str
+                return path
+            # If input was not str, but node became None (shouldn't happen if we didn't enter first if)
             return None
         
         # Robustness: If node is already a value (not a ConfigurationNode), return it

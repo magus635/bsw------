@@ -45,6 +45,21 @@ class XPathEngine:
             return self.context_stack.current_node()
         
         # Handle relative path from current context
+        # Or variable-based path $Var/child
+        if xpath.startswith('$'):
+            # Variable reference start
+            parts = xpath.split('/', 1)
+            var_name = parts[0][1:] # Strip $
+            if self.context_stack.has_variable(var_name):
+                start_node = self.context_stack.get_variable(var_name)
+                # If variable holds a Node (like from node:ref), use it as context
+                if hasattr(start_node, 'node_type'):
+                    if len(parts) > 1:
+                        # Continue navigation relative to this node
+                        return self._evaluate_relative(parts[1], start_node)
+                    else:
+                        return start_node
+        
         return self._evaluate_relative(xpath)
     
     def _evaluate_absolute(self, xpath: str) -> Any:
@@ -66,9 +81,9 @@ class XPathEngine:
         
         return None
     
-    def _evaluate_relative(self, xpath: str) -> Any:
+    def _evaluate_relative(self, xpath: str, context_node: Optional['ConfigurationNode'] = None) -> Any:
         """Evaluate relative path from current context"""
-        current = self.context_stack.current_node()
+        current = context_node or self.context_stack.current_node()
         if not current:
             return None
         
@@ -301,5 +316,15 @@ class XPathEngine:
                 segments = self._parse_path(rest_path)
                 return self._navigate_segments(module, segments)
             return module
-        
+            
+        # count(path)
+        if expr.startswith('count(') and expr.endswith(')'):
+            inner = expr[6:-1].strip()
+            res = self.evaluate(inner)
+            if res is None:
+                return 0
+            if isinstance(res, list):
+                return len(res)
+            return 1 # Single node
+            
         return None
