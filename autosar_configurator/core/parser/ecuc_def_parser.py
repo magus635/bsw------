@@ -46,6 +46,15 @@ class EcucDefParser:
         # Find ECUC-MODULE-DEF element
         module_def_elem = root.find('.//ar:ECUC-MODULE-DEF', self.NAMESPACES)
         if module_def_elem is None:
+            # Check if it's a configuration file to give a better error message
+            config_elem = root.find('.//ar:ECUC-MODULE-CONFIGURATION-VALUES', self.NAMESPACES)
+            if config_elem is not None:
+                raise ValueError(
+                    f"File contains configuration values (ECUC-MODULE-CONFIGURATION-VALUES), "
+                    f"but a module definition (ECUC-MODULE-DEF) was expected. "
+                    f"Please select the correct BSW Module Definition file (checking {file_path})."
+                )
+            
             raise ValueError(f"No ECUC-MODULE-DEF found in {file_path}")
         
         return self.parse_module_def(module_def_elem)
