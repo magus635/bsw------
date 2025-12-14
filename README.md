@@ -1,41 +1,39 @@
 # AUTOSAR BSW图形配置工具
 
 一个基于Python和PySide6开发的AUTOSAR基础软件模块图形化配置工具，类似于Vector DaVinci Configurator Pro。
+本项目集成了**EB Tresos兼容的模板引擎**，支持从ARXML配置直接生成符合AUTOSAR标准的C代码。
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
-![Tests](https://img.shields.io/badge/tests-77%20passed-brightgreen.svg)
-![Coverage](https://img.shields.io/badge/coverage-82%25-green.svg)
+![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
+![Code Gen](https://img.shields.io/badge/CodeGen-EB%20Tresos-orange)
+![Tests](https://img.shields.io/badge/tests-Passed-brightgreen.svg)
 
 ## 功能特性
 
-### ✅ 核心功能
-- **ARXML文件支持**: 完整的AUTOSAR 4.4.0 XML解析和序列化
-- **图形化编辑**: 直观的树形导航和属性编辑面板
-- **实时验证**: 参数类型和约束验证
-- **观察者模式**: 数据模型自动同步UI显示
-- **线程安全**: RLock保护并发操作
+### 🚀 核心功能
+- **ARXML全功能支持**: 解析和序列化AUTOSAR 4.x ARXML文件
+- **图形化配置**: 树形视图、属性编辑器、多选操作
+- **实时验证**: 参数类型的即时校验
+- **Undo/Redo**: 完整的撤销重做支持
 
-### ✨ 高级功能 (新)
-- **撤销/重做 (Undo/Redo)**: 完整的命令模式支持，可撤销所有编辑操作
-- **搜索与过滤**: 强大的搜索对话框，支持按名称、类型、值搜索，支持正则表达式
-- **批量编辑**: 支持多选删除、批量修改参数值
-- **扩展类型支持**:
-  - **ARRAY**: 数组类型参数，支持逗号分隔编辑
-  - **STRUCT**: 结构体参数，支持JSON格式编辑
-  - **REFERENCE**: 引用类型支持
+### 🏭 代码生成 (新!)
+本项目内置了强大的 **EB Tresos 兼容模板引擎**，支持以下特性：
+- **EB 语法支持**: 
+  - 控制流: `[!IF]`, `[!ELSE]`, `[!LOOP]`, `[!SELECT]`, `[!VAR]`
+  - 表达式: 支持复杂 XPath 导航、算术运算 (`+`, `-`, `*`)、逻辑运算
+- **内置函数库**:
+  - 节点操作: `node:value()`, `node:ref()`, `node:name()`, `node:path()`
+  - 算术与字符串: `num:i()`, `num:inttohex()`, `string:concat()` 等
+- **自动生成**: 支持生成 `_Cfg.h` 和 `_PBcfg.c` 等标准文件
+- **引用解析**: 自动处理跨模块引用（如 `Forwared Refs`）
 
-### 📊 数据模型
-- **Container**: 支持无限层级嵌套
-- **Parameter**: 支持STRING, INTEGER, FLOAT, BOOLEAN, ENUM, REFERENCE, ARRAY, STRUCT类型
-- **约束验证**: Min/Max值、枚举值、数组元素类型、结构体字段验证
-- **元数据**: UUID、描述、路径、引用等
-
-### 🖥️ 用户界面
-- **主窗口**: 现代化工具栏图标、状态栏反馈、深色风格优化
-- **导航树**: 懒加载(Lazy Loading)支持大文件，多选支持
-- **配置面板**: 智能类型编辑器，自动格式化
-- **文件操作**: 新建、打开、保存、另存为
+### ✨ 高级 UI 功能
+- **搜索与过滤**: 支持正则搜索、类型过滤
+- **批量编辑**: 多选修改、批量删除
+- **扩展类型**:
+  - **ARRAY**: 逗号分隔编辑
+  - **STRUCT**: JSON格式编辑
+  - **REFERENCE**: 智能引用选择
 
 ## 快速开始
 
@@ -49,37 +47,37 @@ pip install -r requirements.txt
 python3 main.py
 ```
 
-### 运行测试
+### 运行代码生成测试
+验证模板引擎功能的测试套件：
 ```bash
-# 运行所有测试
-pytest tests/ -v
+python3 -m unittest tests.generator.eb.test_user_templates -v
 ```
 
-## 使用示例
+## EB 模板引擎支持详情
 
-### 1. 高级编辑功能
-- **撤销/重做**: 使用工具栏按钮或 Ctrl+Z / Ctrl+Y
-- **搜索**: 点击工具栏搜索图标或 Ctrl+F，输入关键词查找
-- **批量操作**: 在树视图中按住 Ctrl/Shift 多选，右键选择 "Batch Edit" 或 "Batch Delete"
-
-### 2. 扩展类型编辑
-- **数组 (ARRAY)**: 在值输入框中输入 `1, 2, 3` (自动解析为列表)
-- **结构体 (STRUCT)**: 输入 JSON 格式 `{"id": 1, "name": "demo"}`
+引擎已通过以下关键场景验证：
+1. **基础配置头文件**: `Can_Cfg.h` (宏定义, 开关控制)
+2. **Post-Build配置**: `Can_PBcfg.c` (结构体数组, 指针引用)
+3. **复杂逻辑**:
+   - 嵌套循环 (`LOOP`)
+   - 变量计算与Hex格式化 (`VAR`, `num:inttohex`)
+   - 跨模块引用解引用 (`node:ref(Param)`)
+   - 变体处理 (`VARIANT-POST-BUILD`)
 
 ## 开发进度
 
 ### ✅ 已完成
-- [x] 阶段1: 核心框架与ARXML支持
-- [x] 阶段2: GUI基础框架
-- [x] 阶段3: Undo/Redo系统 (Command模式)
-- [x] 阶段4: 搜索与过滤功能
-- [x] 阶段5: 批量编辑支持
-- [x] 阶段6: 扩展参数类型 (ARRAY, STRUCT, REFERENCE)
-- [x] 阶段7: 用户体验优化 (懒加载, UI美化)
+- [x] 阶段1-7: UI框架、Undo/Redo、数据模型
+- [x] 阶段8: 依赖分析与验证
+- [x] 阶段9: **代码生成引擎 (EB Tresos 兼容)**
+  - [x] 词法分析器 (Lexer)
+  - [x] 渲染器 (Renderer)
+  - [x] XPath 导航支持
+  - [x] 必须的内置函数库
 
 ### 🚧 计划中
-- [ ] 阶段8: 验证引擎（自定义规则、依赖检查）
-- [ ] 阶段9: 代码生成（C/C++配置代码）
+- [ ] 阶段10: 生成报告与日志优化
+- [ ] 阶段11: CI/CD 集成
 
 ## 许可证
 
@@ -89,10 +87,3 @@ MIT License
 
 欢迎提交Issue和Pull Request！
 
-## 联系方式
-
-如有问题或建议，请创建Issue。
-
-## 致谢
-
-感谢AUTOSAR组织提供的标准规范。
