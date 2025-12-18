@@ -4,6 +4,8 @@ Provides CRUD operations for container instances with validation
 """
 from typing import Optional, List, Dict, Tuple
 from pathlib import Path
+import os
+from enum import Enum
 
 from .model.definition_model import (
     EcucModuleDef,
@@ -23,16 +25,162 @@ class ValidationError(Exception):
     pass
 
 
+class ProjectType(Enum):
+    VECTOR = "Vector DaVinci"
+    EB_TRESOS = "EB Tresos"
+    UNKNOWN = "Unknown"
+
+
+class ProjectTypeDetector:
+    """Detects the type of AUTOSAR project (Vector vs EB)"""
+    
+    @staticmethod
+    def detect(project_root: Path) -> ProjectType:
+        """Detect project type based on marker files"""
+        if not project_root.exists():
+            return ProjectType.UNKNOWN
+            
+        # Check for Vector .dpa file
+        if list(project_root.glob("*.dpa")):
+            return ProjectType.VECTOR
+            
+        # Check for EB Tresos markers
+        if (project_root / ".tresos").exists() or (project_root / ".project").exists():
+            # Could check content of .project for tresos nature, but existence is a strong hint
+            return ProjectType.EB_TRESOS
+            
+        return ProjectType.UNKNOWN
+
+
+class ConfigLoader:
+    """Helper to load Definitions and Configurations based on Project Type"""
+    
+    @staticmethod
+    def get_def_search_paths(project_root: Path) -> List[Path]:
+        """Get list of paths to search for ECUC-MODULE-DEF files"""
+        paths = [project_root]
+        
+        project_type = ProjectTypeDetector.detect(project_root)
+        
+        if project_type == ProjectType.EB_TRESOS:
+            # Add TRESOS_PLUGINS_PATH
+            tresos_plugins = os.environ.get('TRESOS_PLUGINS_PATH')
+            if tresos_plugins:
+                plugin_path = Path(tresos_plugins)
+                if plugin_path.exists():
+                    paths.append(plugin_path)
+                    # Also search inside subdirectories of plugins often
+                    # But globbing handles that usually. 
+                    # For now, just adding the root plugins path is a good step.
+        
+        return paths
+
+
+class RecFileScanner:
+    """Scanner for recommended configuration (*_rec.arxml) files"""
+    
+    @staticmethod
+    def find_rec_files(project_root: Path) -> Dict[str, Path]:
+        """Find all _rec.arxml files in project directory
+        
+        Args:
+            project_root: Path to project root directory
+            
+        Returns:
+            Dict mapping module name to rec file path
+        """
+        rec_files = {}
+        
+        # Search for *_rec.arxml files
+        for rec_path in project_root.rglob("*_rec.arxml"):
+            # Extract module name from filename
+            # e.g., "CanNm_rec.arxml" -> "CanNm"
+            filename = rec_path.stem  # e.g., "CanNm_rec"
+            if filename.endswith("_rec"):
+                module_name = filename[:-4]  # Remove "_rec" suffix
+                rec_files[module_name] = rec_path
+        
+        return rec_files
+    
+    @staticmethod
+    def find_rec_for_module(project_root: Path, module_name: str) -> Optional[Path]:
+        """Find the rec file for a specific module
+        
+        Args:
+            project_root: Path to project root directory
+            module_name: Name of the module to find rec file for
+            
+        Returns:
+            Path to rec file if found, None otherwise
+        """
+        # Try common patterns
+        patterns = [
+            f"{module_name}_rec.arxml",
+            f"{module_name.lower()}_rec.arxml",
+            f"{module_name}_Rec.arxml",
+        ]
+        
+        for pattern in patterns:
+            matches = list(project_root.rglob(pattern))
+            if matches:
+                return matches[0]
+        
+        return None
+
+
+class DefFileScanner:
+    """Scanner for module definition files (*.arxml, *.xdm)"""
+    
+    @staticmethod
+    def find_def_files(search_paths: List[Path]) -> Dict[str, Path]:
+        """Find all definition files in search paths
+        
+        Args:
+            search_paths: List of paths to search (files or directories)
+            
+        Returns:
+            Dict mapping module name (from filename) to file path
+        """
+        def_files = {}
+        
+        for search_path in search_paths:
+            if not search_path.exists():
+                continue
+                
+            if search_path.is_file():
+                # Single file
+                if search_path.suffix in ['.arxml', '.xdm']:
+                    # Heuristic: filename is module name (e.g. Adc.xdm -> Adc)
+                    module_name = search_path.stem
+                    # Filter out config files (e.g. *_Config.arxml, *_rec.arxml)
+                    if not module_name.endswith("_Config") and not module_name.endswith("_rec"):
+                        def_files[module_name] = search_path
+            else:
+                # Directory search
+                for ext in ['*.arxml', '*.xdm']:
+                    for file_path in search_path.rglob(ext):
+                        module_name = file_path.stem
+                        # Filter out config/rec files
+                        if not module_name.endswith("_Config") and not module_name.endswith("_rec"):
+                            # Avoid duplicates (wins first found, but could optimize)
+                            if module_name not in def_files:
+                                def_files[module_name] = file_path
+                                
+        return def_files
+
+
 class ConfigurationManager:
     """Manages ECUC configuration instances based on definitions"""
     
-    def __init__(self, module_def: EcucModuleDef):
+    def __init__(self, module_def: EcucModuleDef, project_context=None):
         """Initialize configuration manager
         
         Args:
             module_def: Module definition (template)
+            project_context: Optional reference to WorkspaceProject
         """
         self.module_def = module_def
+        self.project_context = project_context
         
         # Create empty configuration
         self.configuration = EcucModuleConfiguration(
@@ -394,7 +542,7 @@ class ConfigurationManager:
         """Validate current configuration"""
         from .validation_engine import ValidationEngine
         
-        engine = ValidationEngine(self.module_def, self.configuration)
+        engine = ValidationEngine(self.module_def, self.configuration, project_context=self.project_context)
         engine.register_default_rules()
         
         # Load custom rules
@@ -543,3 +691,142 @@ class ConfigurationManager:
         """
         from .rules.reference_rules import ReferenceIntegrityRule
         return ReferenceIntegrityRule.find_references_to(target_container, self.configuration)
+    
+    # ========== Recommended Values Support ==========
+    
+    def load_recommended_values(self, rec_file_path: Path) -> Optional['EcucModuleConfiguration']:
+        """Load recommended values from a _rec.arxml file
+        
+        Args:
+            rec_file_path: Path to the _rec.arxml file
+            
+        Returns:
+            EcucModuleConfiguration with recommended values, or None if failed
+        """
+        from .parser.arxml_parser import ArxmlParser
+        import lxml.etree as etree
+        
+        try:
+            tree = etree.parse(str(rec_file_path))
+            root = tree.getroot()
+            
+            # Find ECUC-MODULE-CONFIGURATION-VALUES (same structure as _ecuc.arxml)
+            config_elem = root.find('.//{http://autosar.org/schema/r4.0}ECUC-MODULE-CONFIGURATION-VALUES')
+            if config_elem is None:
+                config_elem = root.find('.//ECUC-MODULE-CONFIGURATION-VALUES')
+            
+            if config_elem is None:
+                return None
+            
+            parser = ArxmlParser()
+            return parser.parse_ecuc_configuration_values(config_elem)
+            
+        except Exception as e:
+            print(f"Warning: Failed to load recommended values from {rec_file_path}: {e}")
+            return None
+    
+    def get_recommended_value_comparison(self, rec_config: 'EcucModuleConfiguration') -> List[Dict]:
+        """Compare recommended values with current configuration
+        
+        Args:
+            rec_config: Recommended configuration loaded from _rec.arxml
+            
+        Returns:
+            List of dicts with 'param_path', 'current_value', 'recommended_value', 'differs'
+        """
+        comparisons = []
+        
+        def compare_container(current: EcucContainerValue, recommended: EcucContainerValue, path_prefix: str):
+            for param_name, rec_param_obj in recommended.parameter_values.items():
+                current_param_obj = current.parameter_values.get(param_name)
+                
+                # Extract actual values
+                current_value = current_param_obj.value if current_param_obj else None
+                rec_value = rec_param_obj.value
+                
+                param_path = f"{path_prefix}/{param_name}"
+                
+                comparisons.append({
+                    'param_path': param_path,
+                    'param_name': param_name,
+                    'current_value': current_value,
+                    'recommended_value': rec_value,
+                    'differs': current_value != rec_value
+                })
+            
+            # Recurse into sub-containers
+            for rec_sub in recommended.sub_containers:
+                # Find matching current sub-container by short_name
+                current_sub = next(
+                    (c for c in current.sub_containers if c.short_name == rec_sub.short_name),
+                    None
+                )
+                if current_sub:
+                    compare_container(current_sub, rec_sub, f"{path_prefix}/{rec_sub.short_name}")
+        
+        # Compare top-level containers
+        for rec_container in rec_config.containers:
+            current_container = next(
+                (c for c in self.configuration.containers if c.short_name == rec_container.short_name),
+                None
+            )
+            if current_container:
+                compare_container(current_container, rec_container, rec_container.short_name)
+        
+        return comparisons
+    
+    def apply_recommended_values(self, rec_config: 'EcucModuleConfiguration', only_empty: bool = True) -> int:
+        """Apply recommended values to current configuration
+        
+        Args:
+            rec_config: Recommended configuration loaded from _rec.arxml
+            only_empty: If True, only apply to parameters with no current value
+            
+        Returns:
+            Number of parameters updated
+        """
+        updated_count = 0
+        
+        def apply_to_container(current: EcucContainerValue, recommended: EcucContainerValue):
+            nonlocal updated_count
+            
+            for param_name, rec_param_obj in recommended.parameter_values.items():
+                current_param_obj = current.parameter_values.get(param_name)
+                
+                current_value = current_param_obj.value if current_param_obj else None
+                rec_value = rec_param_obj.value
+                
+                # Apply if: not only_empty, OR current value is None/empty
+                should_apply = not only_empty or current_value is None or current_value == ""
+                
+                if should_apply and rec_value is not None:
+                    # Pass the definition ref from the recommended value if available, or just empty string
+                    # The configuration manager will ensure it's valid if we had full robust logic,
+                    # but here we rely on existing mechanisms.
+                    # Note: We need the definition_ref to create a new EcucParameterValue if one doesn't exist.
+                    # Ideally we should look it up from definition.
+                    # But for now, let's use the one from rec_value or try to find it.
+                    
+                    def_ref = rec_param_obj.definition_ref
+                    current.set_parameter_value(param_name, rec_value, def_ref)
+                    updated_count += 1
+            
+            # Recurse into sub-containers
+            for rec_sub in recommended.sub_containers:
+                current_sub = next(
+                    (c for c in current.sub_containers if c.short_name == rec_sub.short_name),
+                    None
+                )
+                if current_sub:
+                    apply_to_container(current_sub, rec_sub)
+        
+        # Apply to top-level containers
+        for rec_container in rec_config.containers:
+            current_container = next(
+                (c for c in self.configuration.containers if c.short_name == rec_container.short_name),
+                None
+            )
+            if current_container:
+                apply_to_container(current_container, rec_container)
+        
+        return updated_count

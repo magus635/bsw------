@@ -23,6 +23,7 @@ class DaVinciConfigPanel(QWidget):
     # Signals
     parameter_changed = Signal(EcucContainerValue, str, object)  # instance, param_name, value
     ai_help_requested = Signal(str, str)  # container_name, param_name - request AI help for parameter
+    check_impact_requested = Signal(str, str)  # container_path, param_name - request impact analysis
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -122,6 +123,10 @@ class DaVinciConfigPanel(QWidget):
         self.params_table.setAlternatingRowColors(True)
         self.params_table.verticalHeader().setVisible(False)
         self.params_table.setSortingEnabled(False)  # We handle sorting manually
+        
+        # Enable context menu for impact analysis
+        self.params_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.params_table.customContextMenuRequested.connect(self._on_table_context_menu)
         
         params_layout.addWidget(self.params_table)
         
@@ -798,10 +803,41 @@ class DaVinciConfigPanel(QWidget):
         # Strategy 2: Container def ref ends with destination ref
         elif dest_ref and container_def_ref.endswith(dest_ref):
             is_match = True
-        
+            
         # Strategy 3: Destination ref ends with container def ref's suffix
         elif container_def_ref and dest_ref.endswith(container_def_ref.split('/')[-1]):
             is_match = True
+            
+        return is_match
+
+    def _on_table_context_menu(self, pos):
+        """Show context menu for parameter table"""
+        item = self.params_table.itemAt(pos)
+        if not item:
+            return
+            
+        row = item.row()
+        name_item = self.params_table.item(row, 0)
+        if not name_item:
+            return
+            
+        param_name = name_item.text()
+        
+        from PySide6.QtWidgets import QMenu
+        from PySide6.QtGui import QAction
+        
+        menu = QMenu(self)
+        impact_action = QAction("🔍 Check Change Impact", self)
+        impact_action.triggered.connect(lambda: self._emit_check_impact(param_name))
+        menu.addAction(impact_action)
+        
+        menu.exec(self.params_table.viewport().mapToGlobal(pos))
+        
+    def _emit_check_impact(self, param_name: str):
+        """Emit signal for impact analysis"""
+        if self.current_instance:
+            self.check_impact_requested.emit(self.current_instance.get_path(), param_name)
+
         
         # Strategy 4: Compare last path component (type name)
         else:

@@ -62,6 +62,10 @@ class EcucParameterDef:
     
     # Variant support
     variant_type: Optional[VariantType] = None  # Default to None (all variants)
+
+    # Logic Loop attributes (Pre-compile/Link-time/Post-build)
+    config_class: Optional[str] = None  # e.g., "PRE-COMPILE"
+    config_variant: Optional[str] = None # e.g., "VARIANT-PRE-COMPILE"
     
     @property
     def is_required(self) -> bool:

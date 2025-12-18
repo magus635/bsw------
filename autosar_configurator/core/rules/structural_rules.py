@@ -20,7 +20,7 @@ class MultiplicityValidationRule(ValidationRule):
             description="Validates that container instances conform to min/max multiplicity constraints"
         )
     
-    def validate(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration) -> ValidationResult:
+    def validate(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration, project_context=None) -> ValidationResult:
         result = ValidationResult()
         
         # Validate top-level containers

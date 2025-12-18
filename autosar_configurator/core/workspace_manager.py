@@ -21,6 +21,17 @@ class WorkspaceProject:
         # Map module name to its definition file path (for reloading)
         self.module_defs: Dict[str, Path] = {}
         
+        # Project type (Vector or EB)
+        from .config_manager import ProjectType
+        self.project_type: ProjectType = ProjectType.VECTOR
+        
+        # Definition search paths (for EB projects with external plugins)
+        self.def_search_paths: List[Path] = []
+        
+        # Variant Management
+        self.variants: List[str] = []  # e.g., ["Compact_SUV", "Mid_Sedan", "Luxury_Car"]
+        self.active_variant: Optional[str] = None  # Currently selected variant
+        
         # Metadata
         from datetime import datetime
         self.created_date: str = datetime.now().isoformat()
@@ -28,12 +39,15 @@ class WorkspaceProject:
         self.description: str = ""
         self.version: str = "1.0.0"
         
+        # Cross-module dependency rules (cached results from analysis)
+        self.dependency_rules: List[Dict] = []
+        
     def add_module(self, module_def: EcucModuleDef, def_path: Path) -> ConfigurationManager:
         """Add a new module to the project"""
         if module_def.short_name in self.module_managers:
             raise ValueError(f"Module {module_def.short_name} already exists in project")
             
-        manager = ConfigurationManager(module_def)
+        manager = ConfigurationManager(module_def, project_context=self)
         self.module_managers[module_def.short_name] = manager
         self.module_defs[module_def.short_name] = def_path
         return manager
@@ -75,14 +89,18 @@ class WorkspaceManager:
         from datetime import datetime
         
         data = {
-            "format_version": 1,
+            "format_version": 3,
             "tool_version": "1.0.0",
+            "project_type": self.current_project.project_type.value,
             "name": self.current_project.name,
             "created": self.current_project.created_date,
             "last_modified": datetime.now().isoformat(),
             "author": getattr(self.current_project, 'author', ''),
             "description": getattr(self.current_project, 'description', ''),
             "version": getattr(self.current_project, 'version', '1.0.0'),
+            "def_search_paths": [str(p) for p in self.current_project.def_search_paths],
+            "variants": self.current_project.variants,
+            "active_variant": self.current_project.active_variant,
             "modules": []
         }
         
@@ -124,7 +142,7 @@ class WorkspaceManager:
         
         # Check format version
         format_version = data.get("format_version", 0)
-        if format_version > 1:
+        if format_version > 3:
             raise ValueError(
                 f"Unsupported project format version {format_version}. "
                 f"Please upgrade the tool."
@@ -135,10 +153,26 @@ class WorkspaceManager:
         
         # Store metadata
         from datetime import datetime
+        from .config_manager import ProjectType
+        
         project.created_date = data.get("created", datetime.now().isoformat())
         project.author = data.get("author", "")
         project.description = data.get("description", "")
         project.version = data.get("version", "1.0.0")
+        
+        # Load project type (new in format v2)
+        project_type_str = data.get("project_type", "Vector DaVinci")
+        for pt in ProjectType:
+            if pt.value == project_type_str:
+                project.project_type = pt
+                break
+        
+        # Load def search paths
+        project.def_search_paths = [Path(p) for p in data.get("def_search_paths", [])]
+        
+        # Load variants (new in format v3)
+        project.variants = data.get("variants", [])
+        project.active_variant = data.get("active_variant", None)
         
         project_dir = project_path.parent
         failed_modules = []

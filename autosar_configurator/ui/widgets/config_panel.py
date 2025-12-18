@@ -21,7 +21,9 @@ class ConfigPanel(QWidget):
 
     # Signals
     parameter_changed = Signal(Parameter)
+    parameter_changed = Signal(Parameter)
     container_changed = Signal(Container)
+    check_impact_requested = Signal(str, str)  # container_path, param_name
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -106,6 +108,10 @@ class ConfigPanel(QWidget):
         self.params_table.setSelectionBehavior(QTableWidget.SelectRows)
         # Make cells read-only for now (double-click edit will be added later)
         self.params_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        
+        # Context menu
+        self.params_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.params_table.customContextMenuRequested.connect(self._on_table_context_menu)
         
         params_layout.addWidget(self.params_table)
         self.content_layout.addWidget(self.params_table_group)
@@ -466,3 +472,34 @@ class ConfigPanel(QWidget):
                 self.current_parameter.mark_dirty()
             except Exception:
                 pass
+
+    def _on_table_context_menu(self, pos):
+        """Show context menu for parameter table"""
+        from PySide6.QtWidgets import QMenu
+        from PySide6.QtGui import QAction
+        
+        item = self.params_table.itemAt(pos)
+        if not item:
+            return
+            
+        row = item.row()
+        name_item = self.params_table.item(row, 0)
+        if not name_item:
+            return
+            
+        param_name = name_item.text()
+        
+        menu = QMenu(self)
+        
+        # Check Impact Action
+        impact_action = QAction("🔍 Check Change Impact", self)
+        impact_action.triggered.connect(lambda: self._emit_check_impact(param_name))
+        menu.addAction(impact_action)
+        
+        menu.exec_(self.params_table.mapToGlobal(pos))
+        
+    def _emit_check_impact(self, param_name: str):
+        """Emit check impact signal"""
+        if self.current_container:
+            self.check_impact_requested.emit(self.current_container.path, param_name)
+

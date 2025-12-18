@@ -67,15 +67,11 @@ class ArxmlParser:
                 root_container = Container(short_name="AUTOSAR")
 
                 # Find AR-PACKAGES element
-                ar_packages_elem = root.find('.//ar:AR-PACKAGES', self.NAMESPACES)
-                if ar_packages_elem is None:
-                    ar_packages_elem = root.find('.//AR-PACKAGES')
+                ar_packages_elem = self._find_descendant(root, 'AR-PACKAGES')
 
                 if ar_packages_elem is not None:
                     # Parse all AR-PACKAGE elements
-                    ar_packages = ar_packages_elem.findall('ar:AR-PACKAGE', self.NAMESPACES)
-                    if not ar_packages:
-                        ar_packages = ar_packages_elem.findall('AR-PACKAGE')
+                    ar_packages = self._findall_descendants(ar_packages_elem, 'AR-PACKAGE')
 
                     for ar_package in ar_packages:
                         # Parse AR-PACKAGE as a container
@@ -106,16 +102,9 @@ class ArxmlParser:
             # Check if this is an AUTOSAR root element
             if 'AUTOSAR' in root.tag:
                 # Navigate to the first container in AR-PACKAGES/AR-PACKAGE/ELEMENTS
-                elements = root.find('.//ELEMENTS')
+                elements = self._find_descendant(root, 'ELEMENTS')
                 if elements is not None:
-                    container_elem = elements.find('CONTAINER')
-                    if container_elem is not None:
-                        return self._parse_container(container_elem)
-
-                # Try with namespace
-                elements = root.find('.//ar:ELEMENTS', self.NAMESPACES)
-                if elements is not None:
-                    container_elem = elements.find('ar:CONTAINER', self.NAMESPACES)
+                    container_elem = self._find_descendant(elements, 'CONTAINER')
                     if container_elem is not None:
                         return self._parse_container(container_elem)
 
@@ -134,71 +123,42 @@ class ArxmlParser:
             Parsed Container object representing the package
         """
         # Extract short-name
-        short_name_elem = element.find('ar:SHORT-NAME', self.NAMESPACES)
-        if short_name_elem is None:
-            short_name_elem = element.find('SHORT-NAME')
-
-        short_name = short_name_elem.text if short_name_elem is not None else "UnnamedPackage"
+        short_name = self._get_short_name(element)
+        if not short_name:
+            short_name = "UnnamedPackage"
 
         # Create container for the package
         package_container = Container(short_name=short_name)
 
         # Parse description
-        desc_elem = element.find('ar:DESC', self.NAMESPACES)
-        if desc_elem is None:
-            desc_elem = element.find('DESC')
-        if desc_elem is not None and desc_elem.text:
-            package_container.description = desc_elem.text
+        package_container.description = self._get_description(element)
 
         # Parse elements in the package
-        elements = element.find('ar:ELEMENTS', self.NAMESPACES)
-        if elements is None:
-            elements = element.find('ELEMENTS')
+        elements = self._find_descendant(element, 'ELEMENTS')
 
         if elements is not None:
             # Check for ECUC-MODULE-DEF elements (ECUC structure)
-            for module_def in elements.findall('ar:ECUC-MODULE-DEF', self.NAMESPACES):
+            for module_def in self._findall_descendants(elements, 'ECUC-MODULE-DEF'):
                 ecuc_module = self.parse_ecuc_module_def(module_def)
                 if ecuc_module:
                     package_container.add_sub_container(ecuc_module)
             
-            # Parse all containers in elements (direct children only)
-            for container_elem in elements.findall('ar:CONTAINER', self.NAMESPACES):
+            # Parse all containers in elements (direct children only/generic container)
+            # Use specific findall for containers
+            for container_elem in self._findall_descendants(elements, 'CONTAINER'):
                 sub_container = self._parse_container(container_elem)
                 if sub_container:
                     package_container.add_sub_container(sub_container)
 
-            # Also check without namespace
-            for container_elem in elements.findall('CONTAINER'):
-                sub_container = self._parse_container(container_elem)
-                if sub_container:
-                    try:
-                        package_container.add_sub_container(sub_container)
-                    except ValueError:
-                        # Container already exists, skip
-                        pass
-
         # Parse nested AR-PACKAGEs
-        ar_packages_elem = element.find('ar:AR-PACKAGES', self.NAMESPACES)
-        if ar_packages_elem is None:
-            ar_packages_elem = element.find('AR-PACKAGES')
+        ar_packages_elem = self._find_descendant(element, 'AR-PACKAGES')
 
         if ar_packages_elem is not None:
-            # Parse all AR-PACKAGE elements (direct children only)
-            for nested_package in ar_packages_elem.findall('ar:AR-PACKAGE', self.NAMESPACES):
+            # Parse all AR-PACKAGE elements
+            for nested_package in self._findall_descendants(ar_packages_elem, 'AR-PACKAGE'):
                 nested_container = self._parse_ar_package(nested_package)
                 if nested_container:
                     package_container.add_sub_container(nested_container)
-
-            # Also check without namespace
-            for nested_package in ar_packages_elem.findall('AR-PACKAGE'):
-                nested_container = self._parse_ar_package(nested_package)
-                if nested_container:
-                    try:
-                        package_container.add_sub_container(nested_container)
-                    except ValueError:
-                        # Container already exists, skip
-                        pass
 
         return package_container
 
@@ -212,76 +172,43 @@ class ArxmlParser:
             Parsed Container object
         """
         # Extract short-name
-        short_name_elem = element.find('.//ar:SHORT-NAME', self.NAMESPACES)
-        if short_name_elem is None:
-            short_name_elem = element.find('SHORT-NAME')
-
-        short_name = short_name_elem.text if short_name_elem is not None else "UnnamedContainer"
+        short_name = self._get_short_name(element)
+        if not short_name:
+            short_name = "UnnamedContainer"
 
         # Create container
         container = Container(short_name=short_name)
 
         # Parse description
-        desc_elem = element.find('.//ar:DESC', self.NAMESPACES)
-        if desc_elem is None:
-            desc_elem = element.find('DESC')
-        if desc_elem is not None and desc_elem.text:
-            container.description = desc_elem.text
+        container.description = self._get_description(element)
 
         # Parse parameters
-        param_container = element.find('.//ar:PARAMETERS', self.NAMESPACES)
-        if param_container is None:
-            param_container = element.find('PARAMETERS')
+        param_container = self._find_descendant(element, 'PARAMETERS')
 
         if param_container is not None:
-            for param_elem in param_container.findall('.//ar:PARAMETER', self.NAMESPACES):
-                if param_elem is None:
-                    continue
+            for param_elem in self._findall_descendants(param_container, 'PARAMETER'):
                 param = self._parse_parameter(param_elem)
                 if param:
                     container.add_parameter(param)
 
-            # Also check for parameters without namespace
-            for param_elem in param_container.findall('PARAMETER'):
-                param = self._parse_parameter(param_elem)
-                if param:
-                    try:
-                        container.add_parameter(param)
-                    except ValueError:
-                        # Parameter already exists, skip
-                        pass
-
         # Parse sub-containers
-        sub_containers_elem = element.find('.//ar:SUB-CONTAINERS', self.NAMESPACES)
-        if sub_containers_elem is None:
-            sub_containers_elem = element.find('SUB-CONTAINERS')
+        sub_containers_elem = self._find_descendant(element, 'SUB-CONTAINERS')
 
         if sub_containers_elem is not None:
-            for container_elem in sub_containers_elem.findall('.//ar:CONTAINER', self.NAMESPACES):
-                if container_elem is None:
-                    continue
+            for container_elem in self._findall_descendants(sub_containers_elem, 'CONTAINER'):
                 sub_container = self._parse_container(container_elem)
                 if sub_container:
                     container.add_sub_container(sub_container)
 
-            # Also check for containers without namespace
-            for container_elem in sub_containers_elem.findall('CONTAINER'):
-                sub_container = self._parse_container(container_elem)
-                if sub_container:
-                    try:
-                        container.add_sub_container(sub_container)
-                    except ValueError:
-                        # Container already exists, skip
-                        pass
-
         # Parse references
-        refs_elem = element.find('.//ar:REFERENCES', self.NAMESPACES)
-        if refs_elem is None:
-            refs_elem = element.find('REFERENCES')
+        refs_elem = self._find_descendant(element, 'REFERENCES')
 
         if refs_elem is not None:
+            # For references, we just want direct children usually, or specific REFERENCE types
+            # iterating over all children to handle unknown tags
             for ref_elem in refs_elem:
-                ref_name = ref_elem.tag.replace('{' + self.NAMESPACES['ar'] + '}', '')
+                # Basic handling: use tag as name (strip namespace)
+                ref_name = etree.QName(ref_elem).localname
                 if ref_elem.text:
                     container.references[ref_name] = ref_elem.text
 
@@ -297,68 +224,38 @@ class ArxmlParser:
             Parsed Parameter object or None if invalid
         """
         # Extract short-name
-        short_name_elem = element.find('.//ar:SHORT-NAME', self.NAMESPACES)
-        if short_name_elem is None:
-            short_name_elem = element.find('SHORT-NAME')
-
-        if short_name_elem is None or not short_name_elem.text:
+        short_name = self._get_short_name(element)
+        if not short_name:
             return None
 
-        short_name = short_name_elem.text
-
         # Extract type
-        type_elem = element.find('.//ar:TYPE', self.NAMESPACES)
-        if type_elem is None:
-            type_elem = element.find('TYPE')
-
+        type_elem = self._find_descendant(element, 'TYPE')
         value_type = type_elem.text if type_elem is not None else "STRING"
         
         # Extract value based on type
         value = None
         
         if value_type == "ARRAY":
-            array_elem = element.find('.//ar:ARRAY-VALUES', self.NAMESPACES)
-            if array_elem is None:
-                array_elem = element.find('ARRAY-VALUES')
-                
+            array_elem = self._find_descendant(element, 'ARRAY-VALUES')
             if array_elem is not None:
                 value = []
-                for val_elem in array_elem.findall('.//ar:VALUE', self.NAMESPACES):
+                for val_elem in self._findall_descendants(array_elem, 'VALUE'):
                     if val_elem.text:
                         value.append(val_elem.text)
-                # Also check without namespace
-                if not value:
-                    for val_elem in array_elem.findall('VALUE'):
-                        if val_elem.text:
-                            value.append(val_elem.text)
         
         elif value_type == "STRUCT":
-            struct_elem = element.find('.//ar:STRUCT-VALUES', self.NAMESPACES)
-            if struct_elem is None:
-                struct_elem = element.find('STRUCT-VALUES')
-                
+            struct_elem = self._find_descendant(element, 'STRUCT-VALUES')
             if struct_elem is not None:
                 value = {}
-                # Handle namespaced elements
-                for field_elem in struct_elem.findall('.//ar:STRUCT-VALUE', self.NAMESPACES):
-                    name_elem = field_elem.find('.//ar:NAME', self.NAMESPACES)
-                    val_elem = field_elem.find('.//ar:VALUE', self.NAMESPACES)
+                for field_elem in self._findall_descendants(struct_elem, 'STRUCT-VALUE'):
+                    name_elem = self._find_descendant(field_elem, 'NAME')
+                    val_elem = self._find_descendant(field_elem, 'VALUE')
                     if name_elem is not None and name_elem.text and val_elem is not None:
                         value[name_elem.text] = val_elem.text
-                        
-                # Handle non-namespaced elements if empty
-                if not value:
-                    for field_elem in struct_elem.findall('STRUCT-VALUE'):
-                        name_elem = field_elem.find('NAME')
-                        val_elem = field_elem.find('VALUE')
-                        if name_elem is not None and name_elem.text and val_elem is not None:
-                            value[name_elem.text] = val_elem.text
                             
         # Fallback to simple value
         if value is None:
-            value_elem = element.find('.//ar:VALUE', self.NAMESPACES)
-            if value_elem is None:
-                value_elem = element.find('VALUE')
+            value_elem = self._find_descendant(element, 'VALUE')
             value = value_elem.text if value_elem is not None else None
 
         # Create parameter
@@ -369,25 +266,19 @@ class ArxmlParser:
         )
         
         # Parse content type for arrays
-        content_type_elem = element.find('.//ar:CONTENT-TYPE', self.NAMESPACES)
-        if content_type_elem is None:
-            content_type_elem = element.find('CONTENT-TYPE')
+        content_type_elem = self._find_descendant(element, 'CONTENT-TYPE')
         if content_type_elem is not None and content_type_elem.text:
             param.content_type = content_type_elem.text
 
         # Parse min/max values
-        min_elem = element.find('.//ar:MIN-VALUE', self.NAMESPACES)
-        if min_elem is None:
-            min_elem = element.find('MIN-VALUE')
+        min_elem = self._find_descendant(element, 'MIN-VALUE')
         if min_elem is not None and min_elem.text:
             try:
                 param.min_value = float(min_elem.text)
             except ValueError:
                 pass
 
-        max_elem = element.find('.//ar:MAX-VALUE', self.NAMESPACES)
-        if max_elem is None:
-            max_elem = element.find('MAX-VALUE')
+        max_elem = self._find_descendant(element, 'MAX-VALUE')
         if max_elem is not None and max_elem.text:
             try:
                 param.max_value = float(max_elem.text)
@@ -395,17 +286,11 @@ class ArxmlParser:
                 pass
 
         # Parse enum values
-        enum_elem = element.find('.//ar:ENUM-VALUES', self.NAMESPACES)
-        if enum_elem is None:
-            enum_elem = element.find('ENUM-VALUES')
+        enum_elem = self._find_descendant(element, 'ENUM-VALUES')
 
         if enum_elem is not None:
             enum_values = []
-            for val_elem in enum_elem.findall('.//ar:ENUM-VALUE', self.NAMESPACES):
-                if val_elem.text:
-                    enum_values.append(val_elem.text)
-            # Also check without namespace
-            for val_elem in enum_elem.findall('ENUM-VALUE'):
+            for val_elem in self._findall_descendants(enum_elem, 'ENUM-VALUE'):
                 if val_elem.text and val_elem.text not in enum_values:
                     enum_values.append(val_elem.text)
 
@@ -413,18 +298,12 @@ class ArxmlParser:
                 param.enum_values = enum_values
 
         # Parse unit
-        unit_elem = element.find('.//ar:UNIT', self.NAMESPACES)
-        if unit_elem is None:
-            unit_elem = element.find('UNIT')
+        unit_elem = self._find_descendant(element, 'UNIT')
         if unit_elem is not None and unit_elem.text:
             param.unit = unit_elem.text
 
         # Parse description
-        desc_elem = element.find('.//ar:DESC', self.NAMESPACES)
-        if desc_elem is None:
-            desc_elem = element.find('DESC')
-        if desc_elem is not None and desc_elem.text:
-            param.description = desc_elem.text
+        param.description = self._get_description(element)
 
         return param
 
@@ -446,18 +325,13 @@ class ArxmlParser:
         modules = []
 
         # Look for module definitions
-        module_defs = root.findall('.//ar:MODULE-DEF', self.NAMESPACES)
-        if not module_defs:
-            module_defs = root.findall('.//MODULE-DEF')
+        module_defs = self._findall_descendants(root, 'MODULE-DEF')
 
         for module_def in module_defs:
-            short_name_elem = module_def.find('.//ar:SHORT-NAME', self.NAMESPACES)
-            if short_name_elem is None:
-                short_name_elem = module_def.find('SHORT-NAME')
-
-            if short_name_elem is not None and short_name_elem.text:
+            short_name = self._get_short_name(module_def)
+            if short_name:
                 modules.append({
-                    'name': short_name_elem.text,
+                    'name': short_name,
                     'element': module_def
                 })
 
@@ -487,9 +361,9 @@ class ArxmlParser:
         module.description = self._get_description(element)
         
         # Parse CONTAINERS element
-        containers_elem = element.find('.//ar:CONTAINERS', self.NAMESPACES)
+        containers_elem = self._find_descendant(element, 'CONTAINERS')
         if containers_elem is not None:
-            for cont_def in containers_elem.findall('.//ar:ECUC-PARAM-CONF-CONTAINER-DEF', self.NAMESPACES):
+            for cont_def in self._findall_descendants(containers_elem, 'ECUC-PARAM-CONF-CONTAINER-DEF'):
                 sub_container = self._parse_ecuc_container_def(cont_def)
                 if sub_container:
                     module.add_sub_container(sub_container)
@@ -518,33 +392,36 @@ class ArxmlParser:
         container.description = self._get_description(element)
         
         # Parse multiplicity
-        container.lower_multiplicity = self._get_int_value(element, 'ar:LOWER-MULTIPLICITY', 0)
-        upper_mult = self._get_text_value(element, 'ar:UPPER-MULTIPLICITY')
+        container.lower_multiplicity = self._get_int_value(element, 'LOWER-MULTIPLICITY', 0)
+        upper_mult = self._get_text_value(element, 'UPPER-MULTIPLICITY')
         if upper_mult == '*':
             container.upper_multiplicity = -1
         else:
             container.upper_multiplicity = int(upper_mult) if upper_mult else 1
         
         # Parse PARAMETERS
-        params_elem = element.find('.//ar:PARAMETERS', self.NAMESPACES)
+        params_elem = self._find_descendant(element, 'PARAMETERS')
         if params_elem is not None:
+            # Using direct iteration or findall for generic parameter handling
             for param_def in params_elem:
-                param = self._parse_ecuc_parameter_def(param_def)
-                if param:
-                    container.add_parameter(param)
+                # Check for parameter definition tags (ECUC-*-PARAM-DEF)
+                if 'PARAM-DEF' in param_def.tag:
+                    param = self._parse_ecuc_parameter_def(param_def)
+                    if param:
+                        container.add_parameter(param)
         
         # Parse REFERENCES
-        refs_elem = element.find('.//ar:REFERENCES', self.NAMESPACES)
+        refs_elem = self._find_descendant(element, 'REFERENCES')
         if refs_elem is not None:
-            for ref_def in refs_elem.findall('.//ar:ECUC-REFERENCE-DEF', self.NAMESPACES):
+            for ref_def in self._findall_descendants(refs_elem, 'ECUC-REFERENCE-DEF'):
                 ref = self._parse_ecuc_reference_def(ref_def)
                 if ref:
                     container.add_reference_def(ref)
         
         # Parse SUB-CONTAINERS recursively
-        sub_conts_elem = element.find('.//ar:SUB-CONTAINERS', self.NAMESPACES)
+        sub_conts_elem = self._find_descendant(element, 'SUB-CONTAINERS')
         if sub_conts_elem is not None:
-            for sub_cont_def in sub_conts_elem.findall('.//ar:ECUC-PARAM-CONF-CONTAINER-DEF', self.NAMESPACES):
+            for sub_cont_def in self._findall_descendants(sub_conts_elem, 'ECUC-PARAM-CONF-CONTAINER-DEF'):
                 sub_container = self._parse_ecuc_container_def(sub_cont_def)
                 if sub_container:
                     container.add_sub_container(sub_container)
@@ -552,20 +429,13 @@ class ArxmlParser:
         return container
     
     def _parse_ecuc_parameter_def(self, element: etree._Element) -> Optional[EcucParameter]:
-        """Parse ECUC parameter definition element
-        
-        Args:
-            element: ECUC parameter element (ECUC-INTEGER-PARAM-DEF, ECUC-ENUMERATION-PARAM-DEF, etc.)
-            
-        Returns:
-            EcucParameter with type-specific metadata
-        """
+        """Parse ECUC parameter definition element"""
         short_name = self._get_short_name(element)
         if not short_name:
             return None
         
-        # Determine parameter type from tag
-        param_type = element.tag.split('}')[-1] if '}' in element.tag else element.tag
+        # Determine parameter type from tag (localname)
+        param_type = etree.QName(element).localname
         
         param = EcucParameter(
             short_name=short_name,
@@ -576,17 +446,17 @@ class ArxmlParser:
         param.description = self._get_description(element)
         
         # Parse multiplicity
-        param.lower_multiplicity = self._get_int_value(element, 'ar:LOWER-MULTIPLICITY', 0)
-        param.upper_multiplicity = self._get_int_value(element, 'ar:UPPER-MULTIPLICITY', 1)
+        param.lower_multiplicity = self._get_int_value(element, 'LOWER-MULTIPLICITY', 0)
+        param.upper_multiplicity = self._get_int_value(element, 'UPPER-MULTIPLICITY', 1)
         
         # Parse type-specific fields
         if param_type == 'ECUC-ENUMERATION-PARAM-DEF':
             param.value_type = "ENUM"
             # Parse LITERALS
-            literals_elem = element.find('.//ar:LITERALS', self.NAMESPACES)
+            literals_elem = self._find_descendant(element, 'LITERALS')
             if literals_elem is not None:
                 literals = []
-                for lit_def in literals_elem.findall('.//ar:ECUC-ENUMERATION-LITERAL-DEF', self.NAMESPACES):
+                for lit_def in self._findall_descendants(literals_elem, 'ECUC-ENUMERATION-LITERAL-DEF'):
                     lit_name = self._get_short_name(lit_def)
                     if lit_name:
                         literals.append(lit_name)
@@ -594,13 +464,13 @@ class ArxmlParser:
         
         elif param_type == 'ECUC-INTEGER-PARAM-DEF':
             param.value_type = "INTEGER"
-            param.min_value = self._get_int_value(element, 'ar:MIN')
-            param.max_value = self._get_int_value(element, 'ar:MAX')
+            param.min_value = self._get_int_value(element, 'MIN')
+            param.max_value = self._get_int_value(element, 'MAX')
         
         elif param_type == 'ECUC-FLOAT-PARAM-DEF':
             param.value_type = "FLOAT"
-            param.min_value = self._get_float_value(element, 'ar:MIN')
-            param.max_value = self._get_float_value(element, 'ar:MAX')
+            param.min_value = self._get_float_value(element, 'MIN')
+            param.max_value = self._get_float_value(element, 'MAX')
         
         elif param_type == 'ECUC-BOOLEAN-PARAM-DEF':
             param.value_type = "BOOLEAN"
@@ -609,31 +479,24 @@ class ArxmlParser:
             param.value_type = "STRING"
         
         # Parse DEFAULT-VALUE
-        default_val =self._get_text_value(element, 'ar:DEFAULT-VALUE')
+        default_val = self._get_text_value(element, 'DEFAULT-VALUE')
         if default_val:
             param.value = default_val
         
         # Parse SCOPE
-        scope = self._get_text_value(element, 'ar:SCOPE')
+        scope = self._get_text_value(element, 'SCOPE')
         if scope:
             param.scope = scope
         
         # Parse ORIGIN
-        origin = self._get_text_value(element, 'ar:ORIGIN')
+        origin = self._get_text_value(element, 'ORIGIN')
         if origin:
             param.origin = origin
         
         return param
     
     def _parse_ecuc_reference_def(self, element: etree._Element) -> Optional[EcucReference]:
-        """Parse ECUC-REFERENCE-DEF element
-        
-        Args:
-            element: ECUC-REFERENCE-DEF XML element
-            
-        Returns:
-            EcucReference object
-        """
+        """Parse ECUC-REFERENCE-DEF element"""
         short_name = self._get_short_name(element)
         if not short_name:
             return None
@@ -644,55 +507,17 @@ class ArxmlParser:
         ref.description = self._get_description(element)
         
         # Parse DESTINATION-REF
-        dest_ref_elem = element.find('.//ar:DESTINATION-REF', self.NAMESPACES)
+        dest_ref_elem = self._find_descendant(element, 'DESTINATION-REF')
         if dest_ref_elem is not None:
             ref.destination_ref = dest_ref_elem.text or ""
             ref.destination_type = dest_ref_elem.get('DEST', 'ECUC-PARAM-CONF-CONTAINER-DEF')
         
         # Parse multiplicity
-        ref.lower_multiplicity = self._get_int_value(element, 'ar:LOWER-MULTIPLICITY', 0)
-        ref.upper_multiplicity = self._get_int_value(element, 'ar:UPPER-MULTIPLICITY', 1)
+        ref.lower_multiplicity = self._get_int_value(element, 'LOWER-MULTIPLICITY', 0)
+        ref.upper_multiplicity = self._get_int_value(element, 'UPPER-MULTIPLICITY', 1)
         
         return ref
     
-    # Helper methods
-    
-    def _get_short_name(self, element: etree._Element) -> Optional[str]:
-        """Extract SHORT-NAME from element"""
-        short_name_elem = element.find('ar:SHORT-NAME', self.NAMESPACES)
-        if short_name_elem is None:
-            short_name_elem = element.find('SHORT-NAME')
-        return short_name_elem.text if short_name_elem is not None else None
-    
-    def _get_description(self, element: etree._Element) -> str:
-        """Extract DESC/L-2 from element"""
-        desc_elem = element.find('.//ar:DESC/ar:L-2', self.NAMESPACES)
-        if desc_elem is None:
-            desc_elem = element.find('.//ar:DESC', self.NAMESPACES)
-        if desc_elem is None:
-            desc_elem = element.find('.//DESC')
-        return desc_elem.text if desc_elem is not None and desc_elem.text else ""
-    
-    def _get_text_value(self, element: etree._Element, xpath: str) -> Optional[str]:
-        """Get text value from XPath"""
-        elem = element.find(xpath, self.NAMESPACES)
-        return elem.text if elem is not None else None
-    
-    def _get_int_value(self, element: etree._Element, xpath: str, default: int = 0) -> int:
-        """Get integer value from XPath"""
-        text = self._get_text_value(element, xpath)
-        try:
-            return int(text) if text else default
-        except ValueError:
-            return default
-    
-    def _get_float_value(self, element: etree._Element, xpath: str, default: float = 0.0) -> float:
-        """Get float value from XPath"""
-        text = self._get_text_value(element, xpath)
-        try:
-            return float(text) if text else default
-        except ValueError:
-            return default
     def parse_ecuc_configuration_values(self, element: etree._Element) -> Optional[EcucModuleConfiguration]:
         """Parse ECUC-MODULE-CONFIGURATION-VALUES element
         
@@ -707,11 +532,7 @@ class ArxmlParser:
             return None
             
         # Get definition reference
-        def_ref_elem = element.find('.//ar:DEFINITION-REF', self.NAMESPACES)
-        if def_ref_elem is None:
-            def_ref_elem = element.find('DEFINITION-REF')
-            
-        definition_ref = def_ref_elem.text if def_ref_elem is not None else ""
+        definition_ref = self._get_text_value(element, 'DEFINITION-REF') or ""
         
         config = EcucModuleConfiguration(
             short_name=short_name,
@@ -719,9 +540,9 @@ class ArxmlParser:
         )
         
         # Parse containers
-        containers_elem = element.find('.//ar:CONTAINERS', self.NAMESPACES)
+        containers_elem = self._find_descendant(element, 'CONTAINERS')
         if containers_elem is not None:
-            for container_elem in containers_elem.findall('ar:ECUC-CONTAINER-VALUE', self.NAMESPACES):
+            for container_elem in self._findall_descendants(containers_elem, 'ECUC-CONTAINER-VALUE'):
                 container = self._parse_ecuc_container_value(container_elem)
                 if container:
                     config.add_container(container)
@@ -735,11 +556,7 @@ class ArxmlParser:
             return None
             
         # Get definition reference
-        def_ref_elem = element.find('.//ar:DEFINITION-REF', self.NAMESPACES)
-        if def_ref_elem is None:
-            def_ref_elem = element.find('DEFINITION-REF')
-            
-        definition_ref = def_ref_elem.text if def_ref_elem is not None else ""
+        definition_ref = self._get_text_value(element, 'DEFINITION-REF') or ""
         
         container = EcucContainerValue(
             short_name=short_name,
@@ -747,26 +564,26 @@ class ArxmlParser:
         )
         
         # Parse parameters
-        param_values_elem = element.find('.//ar:PARAMETER-VALUES', self.NAMESPACES)
+        param_values_elem = self._find_descendant(element, 'PARAMETER-VALUES')
         if param_values_elem is not None:
             # Parse numerical values
-            for param_elem in param_values_elem.findall('ar:ECUC-NUMERICAL-PARAM-VALUE', self.NAMESPACES):
+            for param_elem in self._findall_descendants(param_values_elem, 'ECUC-NUMERICAL-PARAM-VALUE'):
                 self._parse_ecuc_parameter_value(param_elem, container)
                 
             # Parse textual values
-            for param_elem in param_values_elem.findall('ar:ECUC-TEXTUAL-PARAM-VALUE', self.NAMESPACES):
+            for param_elem in self._findall_descendants(param_values_elem, 'ECUC-TEXTUAL-PARAM-VALUE'):
                 self._parse_ecuc_parameter_value(param_elem, container)
                 
         # Parse references
-        ref_values_elem = element.find('.//ar:REFERENCE-VALUES', self.NAMESPACES)
+        ref_values_elem = self._find_descendant(element, 'REFERENCE-VALUES')
         if ref_values_elem is not None:
-            for ref_elem in ref_values_elem.findall('ar:ECUC-REFERENCE-VALUE', self.NAMESPACES):
+            for ref_elem in self._findall_descendants(ref_values_elem, 'ECUC-REFERENCE-VALUE'):
                 self._parse_ecuc_reference_value(ref_elem, container)
                 
         # Parse sub-containers
-        sub_containers_elem = element.find('.//ar:SUB-CONTAINERS', self.NAMESPACES)
+        sub_containers_elem = self._find_descendant(element, 'SUB-CONTAINERS')
         if sub_containers_elem is not None:
-            for sub_elem in sub_containers_elem.findall('ar:ECUC-CONTAINER-VALUE', self.NAMESPACES):
+            for sub_elem in self._findall_descendants(sub_containers_elem, 'ECUC-CONTAINER-VALUE'):
                 sub_container = self._parse_ecuc_container_value(sub_elem)
                 if sub_container:
                     sub_container.parent = container
@@ -777,25 +594,19 @@ class ArxmlParser:
     def _parse_ecuc_parameter_value(self, element: etree._Element, container: EcucContainerValue):
         """Parse parameter value and add to container"""
         # Get definition reference
-        def_ref_elem = element.find('.//ar:DEFINITION-REF', self.NAMESPACES)
-        if def_ref_elem is None:
-            def_ref_elem = element.find('DEFINITION-REF')
-            
-        if def_ref_elem is None or not def_ref_elem.text:
+        definition_ref = self._get_text_value(element, 'DEFINITION-REF') or ""
+        if not definition_ref:
             return
             
-        definition_ref = def_ref_elem.text
         param_name = definition_ref.split('/')[-1]
         
         # Get value
-        value_elem = element.find('.//ar:VALUE', self.NAMESPACES)
-        if value_elem is None:
-            value_elem = element.find('VALUE')
-            
-        value = value_elem.text if value_elem is not None else None
+        value = self._get_text_value(element, 'VALUE')
         
-        # Determine if it's numerical (try to convert)
-        if element.tag.endswith('ECUC-NUMERICAL-PARAM-VALUE'):
+        # Determine if it's numerical (try to convert) if tag implies it
+        # Or just try smart conversion based on content?
+        # The element tag tells us if it's numerical or textual.
+        if 'NUMERICAL-PARAM-VALUE' in element.tag:
             # Try int, then float, then bool
             try:
                 # Check for boolean keywords first
@@ -815,21 +626,84 @@ class ArxmlParser:
     def _parse_ecuc_reference_value(self, element: etree._Element, container: EcucContainerValue):
         """Parse reference value and add to container"""
         # Get definition reference
-        def_ref_elem = element.find('.//ar:DEFINITION-REF', self.NAMESPACES)
-        if def_ref_elem is None:
-            def_ref_elem = element.find('DEFINITION-REF')
-            
-        if def_ref_elem is None or not def_ref_elem.text:
+        definition_ref = self._get_text_value(element, 'DEFINITION-REF') or ""
+        if not definition_ref:
             return
             
-        definition_ref = def_ref_elem.text
         ref_name = definition_ref.split('/')[-1]
         
         # Get target reference
-        val_ref_elem = element.find('.//ar:VALUE-REF', self.NAMESPACES)
-        if val_ref_elem is None:
-            val_ref_elem = element.find('VALUE-REF')
-            
-        target_ref = val_ref_elem.text if val_ref_elem is not None else ""
+        target_ref = self._get_text_value(element, 'VALUE-REF') or ""
         
         container.set_reference_value(ref_name, target_ref, definition_ref)
+
+    # Helper methods for Permissive Parsing
+    
+    def _find_descendant(self, element: etree._Element, tag_name: str) -> Optional[etree._Element]:
+        """Find first descendant with tag_name, ignoring namespace"""
+        # 1. Try direct find with namespace (fastest) - Assumes AR namespace
+        elem = element.find(f".//ar:{tag_name}", self.NAMESPACES)
+        if elem is not None:
+            return elem
+            
+        # 2. Try XPath with local-name (namespace agnostic)
+        xpath = f".//*[local-name()='{tag_name}']"
+        matches = element.xpath(xpath)
+        if matches:
+            return matches[0]
+            
+        return None
+        
+    def _findall_descendants(self, element: etree._Element, tag_name: str) -> List[etree._Element]:
+        """Find all descendants with tag_name, ignoring namespace"""
+        # 1. Try direct find with namespace
+        elems = element.findall(f".//ar:{tag_name}", self.NAMESPACES)
+        if elems:
+            return elems
+            
+        # 2. XPath local-name
+        xpath = f".//*[local-name()='{tag_name}']"
+        return element.xpath(xpath)
+
+    def _get_short_name(self, element: etree._Element) -> Optional[str]:
+        """Extract SHORT-NAME from element"""
+        # SHORT-NAME is typically a direct child
+        for child in element:
+            if etree.QName(child).localname == 'SHORT-NAME':
+                return child.text
+        return None
+    
+    def _get_description(self, element: etree._Element) -> str:
+        """Extract DESC/L-2 from element"""
+        # Try finding L-2 anywhere
+        l2_elem = self._find_descendant(element, 'L-2')
+        if l2_elem is not None and l2_elem.text:
+            return l2_elem.text
+            
+        # Fallback to DESC
+        desc_elem = self._find_descendant(element, 'DESC')
+        if desc_elem is not None and desc_elem.text:
+            return desc_elem.text
+        
+        return ""
+    
+    def _get_text_value(self, element: etree._Element, tag_name: str) -> Optional[str]:
+        """Get text value of a descendant"""
+        elem = self._find_descendant(element, tag_name)
+        return elem.text if elem is not None else None
+    
+    def _get_int_value(self, element: etree._Element, tag_name: str, default: int = 0) -> int:
+        """Get integer value of a descendant"""
+        text = self._get_text_value(element, tag_name)
+        try:
+            return int(text) if text else default
+        except ValueError:
+            return default
+            
+    def _get_float_value(self, element: etree._Element, tag_name: str, default: float = 0.0) -> float:
+        """Get float value of a descendant"""
+        text = self._get_text_value(element, tag_name)
+        try:
+            return float(text) if text else default
+        except ValueError:
+            return default

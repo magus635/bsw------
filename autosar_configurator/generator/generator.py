@@ -1,13 +1,25 @@
 """
 Code Generator
 Generates C/C++ code from ECUC configuration using EB Tresos Templates
+Routes parameters to different files based on config_class:
+- PRE-COMPILE -> Cfg.h (macro definitions)
+- LINK-TIME -> Lcfg.c (const struct members)
+- POST-BUILD -> PBcfg.c (PB struct members)
 """
-from typing import Dict, Any, List
+import hashlib
+import json
+from typing import Dict, Any, List, Tuple, Optional
 from pathlib import Path
 from ..core.model.configuration_model import EcucModuleConfiguration, EcucContainerValue
-from ..core.model.definition_model import EcucModuleDef
-# from .template_engine import TemplateEngine, TemplateLoader # Legacy
-from .eb_template_engine import EBTemplateEngine  # New verified engine
+from ..core.model.definition_model import EcucModuleDef, EcucContainerDef, EcucParameterDef
+from .eb_template_engine import EBTemplateEngine
+
+
+class ConfigClass:
+    """Constants for config class types"""
+    PRE_COMPILE = "PRE-COMPILE"
+    LINK_TIME = "LINK-TIME"
+    POST_BUILD = "POST-BUILD"
 
 
 class CodeGenerator:
@@ -25,108 +37,355 @@ class CodeGenerator:
         
         # Initialize EB Engine
         self.template_engine = EBTemplateEngine(strict=False) 
-        # Note: strict=False for robustness during initial integration
         
-    def generate_all(self, output_dir: Path):
-        """Generate all code files
+    def generate_all(self, output_dir: Path, force: bool = False) -> bool:
+        """Generate all code files based on config_class routing
         
         Args:
             output_dir: Directory to write generated files
+            force: Force generation even if fingerprint matches
+            
+        Returns:
+            bool: True if files were generated, False if skipped
         """
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         
-        # In a real EB Tresos flow, the tool renders whatever templates are provided.
-        # Here we mimic the previous behavior of generating Cfg.h and PBcfg.c
-        # assuming standard template files exist or using default fallback.
+        # 1. Calculate current fingerprint
+        current_hash = self._calculate_fingerprint()
+        meta_file = output_dir / f".{self.configuration.short_name}.meta"
         
-        self.generate_config_header(output_dir)
-        self.generate_pbcfg_source(output_dir)
+        # 2. Check overlap with previous generation
+        if not force and meta_file.exists():
+            try:
+                with open(meta_file, 'r') as f:
+                    meta = json.load(f)
+                
+                # Check if hash matches and files exist
+                if meta.get('hash') == current_hash:
+                    # Verify files exist
+                    files_exist = True
+                    for fname in meta.get('files', []):
+                        if not (output_dir / fname).exists():
+                            files_exist = False
+                            break
+                    
+                    if files_exist:
+                        return False  # Skip generation
+            except Exception:
+                pass  # Ignore read errors, proceed to generate
         
+        # 3. Generate files
+        generated_files = []
+        
+        self.generate_config_header(output_dir)   # PRE-COMPILE params
+        generated_files.append(f"{self.configuration.short_name}_Cfg.h")
+        
+        self.generate_lcfg_source(output_dir)     # LINK-TIME params
+        generated_files.append(f"{self.configuration.short_name}_Lcfg.c")
+
+        self.generate_pbcfg_source(output_dir)    # POST-BUILD params
+        generated_files.append(f"{self.configuration.short_name}_PBcfg.c")
+        
+        # 4. Save new fingerprint
+        try:
+            with open(meta_file, 'w') as f:
+                json.dump({
+                    'hash': current_hash,
+                    'timestamp': str(self.configuration.last_saved) if self.configuration.last_saved else '',
+                    'files': generated_files
+                }, f)
+        except Exception:
+            pass
+            
+        return True
+
+    def _calculate_fingerprint(self) -> str:
+        """Calculate a hash of the current configuration content"""
+        # We build a stable string representation of the config
+        parts = []
+        
+        # Add module info
+        parts.append(f"Module:{self.configuration.short_name}")
+        
+        # Recursively add containers (sorted for stability)
+        def process_container(container: EcucContainerValue):
+            parts.append(f"C:{container.short_name}")
+            
+            # Parameters
+            for name in sorted(container.parameter_values.keys()):
+                val = container.parameter_values[name]
+                parts.append(f"P:{name}={val.value}")
+                
+            # References
+            for name in sorted(container.reference_values.keys()):
+                ref = container.reference_values[name]
+                parts.append(f"R:{name}={ref.value_ref}")
+                
+            # Sub-containers
+            # Note: sub_containers is a list, theoretically order matters for index
+            # But usually we want sorting by name if index doesn't matter?
+            # Creating AUTOSAR usually implies order matters (index).
+            # So we keep list order.
+            for sub in container.sub_containers:
+                process_container(sub)
+                
+        # Top level containers
+        # Here order definitely matters for configuration logic sometimes,
+        # but EcucModuleConfiguration stores them in a list.
+        for container in self.configuration.containers:
+            process_container(container)
+            
+        # Hash the result
+        content = "|".join(parts)
+        return hashlib.sha256(content.encode('utf-8')).hexdigest()
+        
+    def _get_params_by_config_class(self, config_class: str) -> List[Tuple[str, str, Any]]:
+        """Get parameters filtered by config_class
+        
+        Args:
+            config_class: One of PRE-COMPILE, LINK-TIME, POST-BUILD
+            
+        Returns:
+            List of tuples (container_name, param_name, param_value)
+        """
+        params = []
+        
+        def collect_from_container(container: EcucContainerValue, container_def: EcucContainerDef, path: str):
+            # Iterate over all parameter definitions (to handle default values / overlay)
+            # Sort by param name for deterministic output
+            for param_name in sorted(container_def.parameters.keys()):
+                param_def = container_def.parameters[param_name]
+                
+                # Check config_class
+                param_config_class = param_def.config_class or ConfigClass.PRE_COMPILE
+                if param_config_class == config_class:
+                    # Get value (Overlay logic)
+                    if param_name in container.parameter_values:
+                        param_value = container.parameter_values[param_name].value
+                    else:
+                        param_value = param_def.default_value
+                    
+                    if param_value is not None:
+                        params.append((path, param_name, param_value))
+            
+            # Recurse into sub-containers, sorted by definition then short_name for deterministic output
+            # Group sub-containers by definition for better organization
+            sub_container_map = {}
+            for sub in container.sub_containers:
+                # Extract base definition name (handle _0, _1 suffixes)
+                base_name = sub.short_name.rsplit('_', 1)[0] if '_' in sub.short_name else sub.short_name
+                sub_def = container_def.sub_containers.get(base_name)
+                if sub_def:
+                    if base_name not in sub_container_map:
+                        sub_container_map[base_name] = (sub_def, [])
+                    sub_container_map[base_name][1].append(sub)
+            
+            # Process in sorted definition order
+            for base_name in sorted(sub_container_map.keys()):
+                sub_def, instances = sub_container_map[base_name]
+                # Sort instances of same definition by short_name
+                for sub in sorted(instances, key=lambda x: x.short_name):
+                    collect_from_container(sub, sub_def, f"{path}_{sub.short_name}")
+        
+        # Iterate all top-level containers in sorted order
+        # Sort by short_name for deterministic output
+        for container in sorted(self.configuration.containers, key=lambda x: x.short_name):
+            # Find matching container def
+            base_name = container.short_name.rsplit('_', 1)[0] if '_' in container.short_name else container.short_name
+            container_def = self.module_def.get_container_def(base_name)
+            if container_def:
+                collect_from_container(container, container_def, container.short_name)
+        
+        return params
+        
+    def _get_references(self) -> List[tuple]:
+        """Collect all references from the configuration.
+        
+        Returns:
+            List of tuples (container_path, ref_name, target_path)
+        """
+        refs = []
+        
+        def collect_from_container(container: EcucContainerValue, path: str):
+            # Collect references
+            for ref_name in sorted(container.reference_values.keys()):
+                ref_val = container.reference_values[ref_name]
+                if ref_val.value_ref:
+                    refs.append((path, ref_name, ref_val.value_ref))
+            
+            # Recurse
+            for sub in sorted(container.sub_containers, key=lambda x: x.short_name):
+                collect_from_container(sub, f"{path}_{sub.short_name}")
+                
+        for container in sorted(self.configuration.containers, key=lambda x: x.short_name):
+            collect_from_container(container, container.short_name)
+            
+        return refs
+
+    def resolve_ref(self, ref_path: str) -> str:
+        """Resolve a full ARXML path to a C identifier/linkable name.
+        Example: /Config/Can/CanConfigSet/CanController_0 -> CAN_CONTROLLER_0
+        """
+        if not ref_path:
+            return "NULL"
+        
+        # Simple implementation: extract last part and make uppercase
+        parts = ref_path.strip('/').split('/')
+        if not parts:
+            return "NULL"
+            
+        # Try to find if it belongs to a specific module we know
+        # For now just use the short_name part
+        name = parts[-1]
+        
+        # If it's a cross-module reference, we might want to include module prefix
+        # but for simplicity let's stick to name-based resolving
+        return name.upper()
+
     def generate_config_header(self, output_dir: Path):
-        """Generate Xxx_Cfg.h file"""
+        """Generate Xxx_Cfg.h file with PRE-COMPILE parameters as macros"""
         module_name = self.configuration.short_name
+        precompile_params = self._get_params_by_config_class(ConfigClass.PRE_COMPILE)
+        references = self._get_references()
         
-        # Context for EB Engine needs the models
         context = {
             'module_def': self.module_def,
             'configuration': self.configuration,
-            'module_name': module_name
+            'module_name': module_name,
+            'precompile_params': precompile_params,
+            'references': references,
+            'resolve_ref': self.resolve_ref
         }
         
-        # Try to use a template file if it exists
-        # In this environment, we might expect templates in a 'templates' dir?
-        # For now, we use our Hardcoded Defaults converted to EB Syntax
-        # to ensure the app continues to work without external files.
-        
-        template = self._get_default_cfg_header_template_eb(module_name)
-            
+        template = self._get_cfg_header_template(module_name)
         rendered = self.template_engine.render(template, context)
         
         output_file = output_dir / f"{module_name}_Cfg.h"
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(rendered)
             
-    def generate_pbcfg_source(self, output_dir: Path):
-        """Generate Xxx_PBcfg.c file"""
+    def generate_lcfg_source(self, output_dir: Path):
+        """Generate Xxx_Lcfg.c file with LINK-TIME parameters as const struct"""
         module_name = self.configuration.short_name
+        linktime_params = self._get_params_by_config_class(ConfigClass.LINK_TIME)
+        references = self._get_references()
         
         context = {
             'module_def': self.module_def,
             'configuration': self.configuration,
-            'module_name': module_name
+            'module_name': module_name,
+            'linktime_params': linktime_params,
+            'references': references,
+            'resolve_ref': self.resolve_ref
         }
         
-        template = self._get_default_pbcfg_source_template_eb(module_name)
+        template = self._get_lcfg_source_template(module_name)
+        rendered = self.template_engine.render(template, context)
+        
+        output_file = output_dir / f"{module_name}_Lcfg.c"
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(rendered)
             
+    def generate_pbcfg_source(self, output_dir: Path):
+        """Generate Xxx_PBcfg.c file with POST-BUILD parameters"""
+        module_name = self.configuration.short_name
+        postbuild_params = self._get_params_by_config_class(ConfigClass.POST_BUILD)
+        references = self._get_references()
+        
+        context = {
+            'module_def': self.module_def,
+            'configuration': self.configuration,
+            'module_name': module_name,
+            'postbuild_params': postbuild_params,
+            'references': references,
+            'resolve_ref': self.resolve_ref
+        }
+        
+        template = self._get_pbcfg_source_template(module_name)
         rendered = self.template_engine.render(template, context)
         
         output_file = output_dir / f"{module_name}_PBcfg.c"
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(rendered)
     
-    # --- Default Templates (EB Syntax) ---
+    # --- Templates ---
     
-    def _get_default_cfg_header_template_eb(self, module_name: str) -> str:
-        """Get default Cfg header in EB syntax"""
-        # A generic dumper of parameters is hard in EB syntax without knowing the structure.
-        # But we can iterate the module roughly if we wanted.
-        # For safety/simplicity in this fallback, we produce a minimal valid header.
+    def _get_cfg_header_template(self, module_name: str) -> str:
+        """Template for Cfg.h - PRE-COMPILE parameters as macros"""
         guard = f"{module_name.upper()}_CFG_H"
         return f"""/**
  * @file {module_name}_Cfg.h
- * @brief Configuration header for {module_name} module
- * @note Auto-generated file by EB Template Engine
+ * @brief Pre-Compile Configuration for {module_name} module
+ * @note Auto-generated - PRE-COMPILE parameters only
  */
 
 #ifndef {guard}
 #define {guard}
 
-#include "{module_name}.h"
+#include "Std_Types.h"
 
-/* Generic Parameter Dump */
-[!LOOP "{module_name}/*"!]
-  /* Container: [!"node:name(.)"!] */
-  [!LOOP "node:order(./*)"!]
-    [!IF "node:isparameter(.)"!]
-#define {module_name}_[!"node:name(..)"!]_[!"node:name(.)"!]  [!"node:value(.)"!]
-    [!ENDIF!]
-  [!ENDLOOP!]
-[!ENDLOOP!]
+/* --- Pre-Compile Parameters --- */
+{{% for path_name_value in precompile_params %}}
+#define {{ module_name.upper() }}_{{ path_name_value.1.upper() }}    ({{ path_name_value.2 }})
+{{% endfor %}}
+
+/* --- Pre-Compile References --- */
+{{% for path_name_target in references %}}
+/* Reference from {{ path_name_target.0 }} to {{ path_name_target.2 }} */
+#define {{ module_name.upper() }}_{{ path_name_target.1.upper() }}_REF    {{ resolve_ref(path_name_target.2) }}
+{{% endfor %}}
 
 #endif /* {guard} */
 """
 
-    def _get_default_pbcfg_source_template_eb(self, module_name: str) -> str:
+    def _get_lcfg_source_template(self, module_name: str) -> str:
+        """Template for Lcfg.c - LINK-TIME parameters as const struct"""
         return f"""/**
- * @file {module_name}_PBcfg.c
- * @brief Post-Build configuration for {module_name} module
+ * @file {module_name}_Lcfg.c
+ * @brief Link-Time Configuration for {module_name} module
  */
 
 #include "{module_name}_Cfg.h"
+#include "{module_name}_MemMap.h"
 
-/* Generic Configuration Structure Dump */
-/* Note: Functionality limited in generic fallback */
-/* Please provide explicit .c.tt template for full generation */
+#define {module_name.upper()}_START_SEC_CONFIG_DATA_UNSPECIFIED
+#include "{module_name}_MemMap.h"
+
+/* Link-Time Parameters Configuration */
+CONST({module_name}_ConfigType, {module_name.upper()}_CONST) {module_name}_Config = {{
+{{% for path_name_value in linktime_params %}}
+    ./* {{ path_name_value.0 }} */{{ path_name_value.1 }} = {{ path_name_value.2 }},
+{{% endfor %}}
+}};
+
+#define {module_name.upper()}_STOP_SEC_CONFIG_DATA_UNSPECIFIED
+#include "{module_name}_MemMap.h"
 """
+
+    def _get_pbcfg_source_template(self, module_name: str) -> str:
+        """Template for PBcfg.c - POST-BUILD parameters"""
+        return f"""/**
+ * @file {module_name}_PBcfg.c
+ * @brief Post-Build Configuration for {module_name} module
+ */
+
+#include "{module_name}_Cfg.h"
+#include "{module_name}_MemMap.h"
+
+#define {module_name.upper()}_START_SEC_CONFIG_DATA_POSTBUILD
+#include "{module_name}_MemMap.h"
+
+/* Post-Build Parameters Configuration */
+CONST({module_name}_ConfigType, {module_name.upper()}_CONST) {module_name}_PBConfig = {{
+{{% for path_name_value in postbuild_params %}}
+    ./* {{ path_name_value.0 }} */{{ path_name_value.1 }} = {{ path_name_value.2 }},
+{{% endfor %}}
+}};
+
+#define {module_name.upper()}_STOP_SEC_CONFIG_DATA_POSTBUILD
+#include "{module_name}_MemMap.h"
+"""
+
+
 

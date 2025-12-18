@@ -140,7 +140,7 @@ class CustomRule(ValidationRule):
         self.message = definition.get('message', 'Validation failed')
         self.severity = ValidationSeverity(definition.get('severity', 'error').lower())
         
-    def validate(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration) -> ValidationResult:
+    def validate(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration, project_context=None) -> ValidationResult:
         result = ValidationResult()
         
         # Iterate over all containers
@@ -230,4 +230,48 @@ class RuleLoader:
              else:
                  rules.append(CustomRule(data))
                  
+        return rules
+
+
+class PythonRuleLoader:
+    """Loads rules from Python scripts"""
+    
+    @staticmethod
+    def load_from_file(file_path: Path) -> List[ValidationRule]:
+        """Load ValidationRule subclasses from .py file"""
+        import importlib.util
+        import inspect
+        
+        # Load module dynamically
+        spec = importlib.util.spec_from_file_location(file_path.stem, file_path)
+        if not spec or not spec.loader:
+            raise ImportError(f"Could not load spec for {file_path}")
+            
+        module = importlib.util.module_from_spec(spec)
+        try:
+            spec.loader.exec_module(module)
+        except Exception as e:
+            raise ImportError(f"Failed to execute rule script: {e}")
+        
+        rules = []
+        # Find all ValidationRule subclasses in the module
+        for name, obj in inspect.getmembers(module):
+            if inspect.isclass(obj) and issubclass(obj, ValidationRule) and obj is not ValidationRule:
+                # Don't load rules imported from other modules, only defined here
+                if obj.__module__ != module.__name__:
+                    continue
+                    
+                try:
+                    # Try to instantiate with no arguments
+                    # Convention: Custom rules should have no-arg __init__ or __init__(name, desc)
+                    try:
+                        rule = obj()
+                    except TypeError:
+                        # Maybe it requires name/desc?
+                        rule = obj(name=name, description="Custom Python Rule")
+                        
+                    rules.append(rule)
+                except Exception as e:
+                    print(f"Warning: Failed to instantiate rule class {name}: {e}")
+                    
         return rules

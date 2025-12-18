@@ -117,12 +117,14 @@ class ValidationRule(ABC):
     @abstractmethod
     def validate(self, 
                  module_def: EcucModuleDef,
-                 configuration: EcucModuleConfiguration) -> ValidationResult:
+                 configuration: EcucModuleConfiguration,
+                 project_context=None) -> ValidationResult:
         """Execute validation rule
         
         Args:
             module_def: Module definition (template)
             configuration: Configuration to validate
+            project_context: Optional WorkspaceProject context for cross-module validation
             
         Returns:
             ValidationResult with messages
@@ -162,15 +164,18 @@ class ValidationEngine:
     
     def __init__(self, 
                  module_def: EcucModuleDef,
-                 configuration: EcucModuleConfiguration):
+                 configuration: EcucModuleConfiguration,
+                 project_context=None):
         """Initialize validation engine
         
         Args:
             module_def: Module definition (template)
             configuration: Configuration to validate
+            project_context: Optional WorkspaceProject context
         """
         self.module_def = module_def
         self.configuration = configuration
+        self.project_context = project_context
         self.rules: List[ValidationRule] = []
     
     def register_rule(self, rule: ValidationRule):
@@ -219,20 +224,25 @@ class ValidationEngine:
         ])
         
     def load_custom_rules(self, file_path: str):
-        """Load custom rules from a JSON file
+        """Load custom rules from a JSON or Python file
         
         Args:
-            file_path: Path to the JSON rule file
+            file_path: Path to the rule file (.json or .py)
         """
-        from .rules.custom_rules import RuleLoader
+        from .rules.custom_rules import RuleLoader, PythonRuleLoader
         from pathlib import Path
         
+        path = Path(file_path)
         try:
-            new_rules = RuleLoader.load_from_file(Path(file_path))
+            if path.suffix.lower() == '.py':
+                new_rules = PythonRuleLoader.load_from_file(path)
+            else:
+                new_rules = RuleLoader.load_from_file(path)
+                
             self.register_rules(new_rules)
             return len(new_rules)
         except Exception as e:
-            raise ValueError(f"Failed to load custom rules: {str(e)}")
+            raise ValueError(f"Failed to load custom rules from {path.name}: {str(e)}")
     
     def validate(self) -> ValidationResult:
         """Execute all registered rules and aggregate results
@@ -244,7 +254,13 @@ class ValidationEngine:
         
         for rule in self.rules:
             try:
-                rule_result = rule.validate(self.module_def, self.configuration)
+                # Pass project_context if available
+                try:
+                    rule_result = rule.validate(self.module_def, self.configuration, project_context=self.project_context)
+                except TypeError:
+                    # Fallback for rules that don't accept project_context yet
+                    rule_result = rule.validate(self.module_def, self.configuration)
+                    
                 result.merge(rule_result)
             except Exception as e:
                 # If a rule fails, add error message but continue

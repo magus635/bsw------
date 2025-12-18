@@ -29,7 +29,7 @@ class TypeValidationRule(ValidationRule):
             description="Validates that parameter values match their defined types"
         )
     
-    def validate(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration) -> ValidationResult:
+    def validate(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration, project_context=None) -> ValidationResult:
         result = ValidationResult()
         
         for container in configuration.containers:
@@ -133,7 +133,7 @@ class RangeValidationRule(ValidationRule):
             description="Validates that numeric parameters are within min/max bounds"
         )
     
-    def validate(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration) -> ValidationResult:
+    def validate(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration, project_context=None) -> ValidationResult:
         result = ValidationResult()
         
         for container in configuration.containers:
@@ -199,7 +199,7 @@ class EnumerationValidationRule(ValidationRule):
             description="Validates that enumeration parameters have allowed literal values"
         )
     
-    def validate(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration) -> ValidationResult:
+    def validate(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration, project_context=None) -> ValidationResult:
         result = ValidationResult()
         
         for container in configuration.containers:
@@ -255,7 +255,7 @@ class RequiredParameterRule(ValidationRule):
             description="Validates that all required parameters are configured"
         )
     
-    def validate(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration) -> ValidationResult:
+    def validate(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration, project_context=None) -> ValidationResult:
         result = ValidationResult()
         
         for container in configuration.containers:

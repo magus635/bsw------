@@ -35,7 +35,7 @@ from ..generator.generator import CodeGenerator
 
 class AIWorkerSignals(QObject):
     """Signals for AI worker thread"""
-    result = Signal(str)  # Emits the response text
+    result = Signal(object)  # Emits the response (str or complex object)
     error = Signal(str)   # Emits error message
 
 
@@ -141,6 +141,7 @@ class DaVinciMainWindow(QMainWindow):
         self.config_panel = DaVinciConfigPanel()
         self.config_panel.parameter_changed.connect(self._on_parameter_changed)
         self.config_panel.ai_help_requested.connect(self._on_ai_help_requested)
+        self.config_panel.check_impact_requested.connect(self._handle_check_impact)
         splitter.addWidget(self.config_panel)
         
         # Set splitter proportions
@@ -298,9 +299,17 @@ class DaVinciMainWindow(QMainWindow):
         self.project_properties_action.setEnabled(False)
         self.project_properties_action.triggered.connect(self.show_project_properties)
         
+        self.manage_variants_action = QAction("Manage Variants...", self)
+        self.manage_variants_action.setEnabled(False)
+        self.manage_variants_action.triggered.connect(self.manage_variants)
+        
         self.add_module_action = QAction("Add Module to Project...", self)
         self.add_module_action.setEnabled(False)
         self.add_module_action.triggered.connect(self.add_module_to_project)
+        
+        self.load_recommended_action = QAction("Load Recommended Values...", self)
+        self.load_recommended_action.setEnabled(False)
+        self.load_recommended_action.triggered.connect(self.load_recommended_values)
         
         # File actions
         self.open_def_action = QAction("Open DEF File...", self)
@@ -407,8 +416,10 @@ class DaVinciMainWindow(QMainWindow):
         file_menu.addAction(self.open_project_action)
         file_menu.addAction(self.save_project_action)
         file_menu.addAction(self.project_properties_action)
+        file_menu.addAction(self.manage_variants_action)
         file_menu.addSeparator()
         file_menu.addAction(self.add_module_action)
+        file_menu.addAction(self.load_recommended_action)
         file_menu.addSeparator()
         file_menu.addAction(self.open_def_action)
         file_menu.addSeparator()
@@ -470,6 +481,8 @@ class DaVinciMainWindow(QMainWindow):
     
     def _create_toolbars(self):
         """Create toolbars"""
+        from PySide6.QtWidgets import QComboBox
+        
         toolbar = self.addToolBar("Main Toolbar")
         toolbar.setObjectName("MainToolbar")  # Fix QMainWindow::saveState() warning
         toolbar.addAction(self.open_def_action)
@@ -485,6 +498,16 @@ class DaVinciMainWindow(QMainWindow):
         toolbar.addAction(self.validate_action)
         toolbar.addSeparator()
         toolbar.addAction(self.generate_action)
+        toolbar.addSeparator()
+        
+        # Variant selector
+        toolbar.addWidget(QLabel("Variant:"))
+        self.variant_selector = QComboBox()
+        self.variant_selector.setMinimumWidth(150)
+        self.variant_selector.addItem("(No Variants)")
+        self.variant_selector.setEnabled(False)
+        self.variant_selector.currentTextChanged.connect(self._on_variant_changed)
+        toolbar.addWidget(self.variant_selector)
     
     def _create_statusbar(self):
         """Create status bar with permanent indicators"""
@@ -495,6 +518,11 @@ class DaVinciMainWindow(QMainWindow):
         self.mode_label = QLabel("Mode: Single Module")
         self.mode_label.setStyleSheet("QLabel { padding: 2px 10px; }")
         self.statusbar.addPermanentWidget(self.mode_label)
+        
+        # Variant indicator
+        self.variant_label = QLabel("Variant: None")
+        self.variant_label.setStyleSheet("QLabel { padding: 2px 10px; }")
+        self.statusbar.addPermanentWidget(self.variant_label)
         
         # Validation status (right side - permanent)
         self.validation_status_label = QLabel("Not validated")
@@ -511,58 +539,212 @@ class DaVinciMainWindow(QMainWindow):
         self.statusbar.addWidget(self.value_file_label)
         self.statusbar.addPermanentWidget(self.validation_label)
     
+    def _on_variant_changed(self, variant_name: str):
+        """Handle Variant selector change"""
+        if not self.current_project or variant_name == "(No Variants)":
+            return
+        
+        self.current_project.active_variant = variant_name
+        self.variant_label.setText(f"Variant: {variant_name}")
+        self.statusbar.showMessage(f"Switched to Variant: {variant_name}", 3000)
+    
+    def _update_variant_selector(self):
+        """Update the Variant selector dropdown with project variants"""
+        self.variant_selector.blockSignals(True)
+        self.variant_selector.clear()
+        
+        if self.current_project and self.current_project.variants:
+            self.variant_selector.setEnabled(True)
+            for variant in self.current_project.variants:
+                self.variant_selector.addItem(variant)
+            
+            # Select active variant
+            if self.current_project.active_variant:
+                idx = self.variant_selector.findText(self.current_project.active_variant)
+                if idx >= 0:
+                    self.variant_selector.setCurrentIndex(idx)
+            
+            self.variant_label.setText(f"Variant: {self.current_project.active_variant or self.current_project.variants[0]}")
+        else:
+            self.variant_selector.addItem("(No Variants)")
+            self.variant_selector.setEnabled(False)
+            self.variant_label.setText("Variant: None")
+        
+        self.variant_selector.blockSignals(False)
+    
     # Project operations
     
     def new_project(self):
         """Create a new project"""
-        from PySide6.QtWidgets import QInputDialog
+        from PySide6.QtWidgets import QInputDialog, QComboBox, QDialog, QVBoxLayout, QDialogButtonBox, QFormLayout
+        from ..core.config_manager import ProjectType, ConfigLoader
         
-        name, ok = QInputDialog.getText(self, "New Project", "Project name:")
-        if not ok or not name:
+        # Project type selection dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle("New Project")
+        layout = QVBoxLayout(dialog)
+        
+        form = QFormLayout()
+        
+        name_edit = QLineEdit()
+        form.addRow("Project Name:", name_edit)
+        
+        type_combo = QComboBox()
+        type_combo.addItem("Vector DaVinci", ProjectType.VECTOR)
+        type_combo.addItem("EB Tresos", ProjectType.EB_TRESOS)
+        form.addRow("Project Type:", type_combo)
+        
+        layout.addLayout(form)
+        
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        
+        if dialog.exec() != QDialog.Accepted:
             return
             
-        file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Project As",
-            str(Path.home() / f"{name}.dpa"),
-            "DaVinci Project (*.dpa);;All Files (*)"
-        )
+        name = name_edit.text().strip()
+        project_type = type_combo.currentData()
         
-        if not file_path:
+        if not name:
+            QMessageBox.warning(self, "Error", "Project name cannot be empty")
             return
+        
+        # Choose save location based on type
+        if project_type == ProjectType.VECTOR:
+            file_path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save Project As",
+                str(Path.home() / f"{name}.dpa"),
+                "DaVinci Project (*.dpa);;All Files (*)"
+            )
+            if not file_path:
+                return
+            project_path = Path(file_path)
+        else:
+            # EB: Select folder
+            folder_path = QFileDialog.getExistingDirectory(
+                self,
+                "Select EB Project Folder",
+                str(Path.home()),
+                QFileDialog.ShowDirsOnly
+            )
+            if not folder_path:
+                return
+            project_path = Path(folder_path) / f"{name}.dpa"
             
-        self.current_project = self.workspace_manager.create_project(name, Path(file_path))
-        self.current_project_file = Path(file_path)
+            # Create .tresos marker folder for EB
+            tresos_marker = Path(folder_path) / ".tresos"
+            tresos_marker.mkdir(exist_ok=True)
+            
+        self.current_project = self.workspace_manager.create_project(name, project_path)
+        self.current_project.project_type = project_type
+        self.current_project.def_search_paths = ConfigLoader.get_def_search_paths(project_path.parent)
+        self.current_project_file = project_path
         self.tree_view.set_project(self.current_project)
         
         self.save_project_action.setEnabled(True)
         self.add_module_action.setEnabled(True)
-        self.statusbar.showMessage(f"Created project: {name}", 3000)
+        self.manage_variants_action.setEnabled(True)
+        
+        # Update variant selector
+        self._update_variant_selector()
+        
+        # Update mode label
+        self.mode_label.setText(f"Project: {project_type.value}")
+        
+        self.statusbar.showMessage(f"Created {project_type.value} project: {name}", 3000)
         
     def open_project(self):
-        """Open an existing project"""
+        """Open an existing project (Vector .dpa or EB folder)"""
+        from ..core.config_manager import ProjectTypeDetector, ConfigLoader, ProjectType
+        
+        # Allow selecting a file (.dpa) OR a folder (for EB projects)
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            "Open Project",
+            "Open Project (.dpa) or select a folder",
             str(Path.home()),
             "DaVinci Project (*.dpa);;All Files (*)"
         )
         
+        # If user cancelled file dialog, try folder dialog
         if not file_path:
+            folder_path = QFileDialog.getExistingDirectory(
+                self,
+                "Open Project Folder (EB Tresos)",
+                str(Path.home()),
+                QFileDialog.ShowDirsOnly
+            )
+            if not folder_path:
+                return
+            project_root = Path(folder_path)
+        else:
+            project_root = Path(file_path).parent
+            
+        # Detect project type
+        project_type = ProjectTypeDetector.detect(project_root)
+        
+        if project_type == ProjectType.UNKNOWN:
+            QMessageBox.warning(
+                self,
+                "Unknown Project Type",
+                f"Could not detect project type for:\n{project_root}\n\n"
+                "Expected: .dpa file (Vector) or .tresos/.project marker (EB)"
+            )
             return
             
+        self.statusbar.showMessage(f"Detected {project_type.value} project, loading...")
+        
+        # Get search paths for definitions
+        def_search_paths = ConfigLoader.get_def_search_paths(project_root)
+        
         try:
-            self.statusbar.showMessage("Loading project...")
-            self.current_project, failed_modules = self.workspace_manager.load_project(Path(file_path))
-            self.current_project_file = Path(file_path)
+            if project_type == ProjectType.VECTOR and file_path:
+                # Use existing .dpa loading logic
+                self.current_project, failed_modules = self.workspace_manager.load_project(Path(file_path))
+                self.current_project_file = Path(file_path)
+            else:
+                # EB project: Create a new project from folder
+                # For now, we just set up the search paths and let user add modules manually
+                # A more advanced implementation would scan for .xdm files
+                project_name = project_root.name
+                self.current_project = self.workspace_manager.create_project(
+                    project_name,
+                    project_root / f"{project_name}.dpa"  # Virtual path
+                )
+                self.current_project_file = project_root
+                failed_modules = []
+                
+                # Store search paths for later use when adding modules
+                self.current_project.def_search_paths = def_search_paths
+                
+                QMessageBox.information(
+                    self,
+                    "EB Project Loaded",
+                    f"EB Tresos project detected.\n\n"
+                    f"Definition search paths:\n" + "\n".join([f"• {p}" for p in def_search_paths]) +
+                    f"\n\nUse 'Add Module to Project' to add modules."
+                )
+            
             self.tree_view.set_project(self.current_project)
+            
+            # Set project type on loaded project
+            self.current_project.project_type = project_type
             
             # Enable project actions
             self.save_project_action.setEnabled(True)
             self.project_properties_action.setEnabled(True)
+            self.manage_variants_action.setEnabled(True)
             self.add_module_action.setEnabled(True)
             
-            status_msg = f"Loaded project: {self.current_project.name}"
+            # Update variant selector
+            self._update_variant_selector()
+            
+            # Update mode label
+            self.mode_label.setText(f"Project: {project_type.value}")
+            
+            status_msg = f"Loaded project: {self.current_project.name} ({project_type.value})"
             
             # Show warning if some modules failed to load
             if failed_modules:
@@ -647,6 +829,66 @@ class DaVinciMainWindow(QMainWindow):
             
             self.statusbar.showMessage("Project properties updated", 3000)
     
+    def manage_variants(self):
+        """Show dialog to manage project variants"""
+        if not self.current_project:
+            return
+        
+        from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QListWidget,
+                                       QPushButton, QDialogButtonBox, QInputDialog)
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Manage Variants")
+        dialog.setMinimumWidth(400)
+        layout = QVBoxLayout(dialog)
+        
+        # List of variants
+        list_widget = QListWidget()
+        for variant in self.current_project.variants:
+            list_widget.addItem(variant)
+        layout.addWidget(list_widget)
+        
+        # Buttons for add/remove
+        btn_layout = QHBoxLayout()
+        
+        add_btn = QPushButton("Add Variant")
+        def add_variant():
+            name, ok = QInputDialog.getText(dialog, "Add Variant", "Variant name:")
+            if ok and name.strip():
+                if name.strip() not in self.current_project.variants:
+                    self.current_project.variants.append(name.strip())
+                    list_widget.addItem(name.strip())
+                else:
+                    QMessageBox.warning(dialog, "Duplicate", "Variant already exists")
+        add_btn.clicked.connect(add_variant)
+        btn_layout.addWidget(add_btn)
+        
+        remove_btn = QPushButton("Remove Selected")
+        def remove_variant():
+            current = list_widget.currentItem()
+            if current:
+                variant_name = current.text()
+                self.current_project.variants.remove(variant_name)
+                list_widget.takeItem(list_widget.currentRow())
+                if self.current_project.active_variant == variant_name:
+                    self.current_project.active_variant = None
+        remove_btn.clicked.connect(remove_variant)
+        btn_layout.addWidget(remove_btn)
+        
+        layout.addLayout(btn_layout)
+        
+        # Dialog buttons
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok)
+        buttons.accepted.connect(dialog.accept)
+        layout.addWidget(buttons)
+        
+        dialog.exec()
+        
+        # Update UI
+        self._update_variant_selector()
+        self.manage_variants_action.setEnabled(True)
+        self.statusbar.showMessage(f"Variants updated: {len(self.current_project.variants)} defined", 3000)
+    
     def add_module_to_project(self):
         """Add a module to the current project"""
         if not self.current_project:
@@ -656,7 +898,7 @@ class DaVinciMainWindow(QMainWindow):
             self,
             "Select Module DEF File",
             str(Path.home()),
-            "ARXML Files (*.arxml);;All Files (*)"
+            "All Supported Files (*.arxml *.xdm);;ARXML Files (*.arxml);;EB Tresos Files (*.xdm);;All Files (*)"
         )
         
         if not file_path:
@@ -669,6 +911,95 @@ class DaVinciMainWindow(QMainWindow):
             self.statusbar.showMessage(f"Added module: {module_def.short_name}", 3000)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to add module:\n{str(e)}")
+    
+    def load_recommended_values(self):
+        """Load and apply recommended values from _rec.arxml file"""
+        from ..core.config_manager import RecFileScanner
+        from PySide6.QtWidgets import (QDialog, QVBoxLayout, QTableWidget, QTableWidgetItem,
+                                       QDialogButtonBox, QHeaderView, QCheckBox)
+        
+        # Need an active configuration
+        if not self.config_manager:
+            QMessageBox.warning(self, "No Module Loaded", "Please load a module first.")
+            return
+        
+        # Find rec files
+        if self.current_project and self.current_project.path:
+            project_root = self.current_project.path.parent
+        else:
+            project_root = Path.home()
+        
+        # Let user select rec file
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Recommended Values File",
+            str(project_root),
+            "Rec Files (*_rec.arxml *.xdm);;ARXML Files (*.arxml);;EB Tresos Files (*.xdm);;All Files (*)"
+        )
+        
+        if not file_path:
+            return
+        
+        # Load recommended values
+        rec_config = self.config_manager.load_recommended_values(Path(file_path))
+        if not rec_config:
+            QMessageBox.warning(self, "Load Failed", "Could not parse recommended values file.")
+            return
+        
+        # Get comparison
+        comparisons = self.config_manager.get_recommended_value_comparison(rec_config)
+        
+        if not comparisons:
+            QMessageBox.information(self, "No Values", "No comparable values found in rec file.")
+            return
+        
+        # Show comparison dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Recommended Values Comparison")
+        dialog.setMinimumSize(700, 400)
+        layout = QVBoxLayout(dialog)
+        
+        # Table
+        table = QTableWidget()
+        table.setColumnCount(4)
+        table.setHorizontalHeaderLabels(["Parameter", "Current", "Recommended", "Different"])
+        table.setRowCount(len(comparisons))
+        
+        for row, comp in enumerate(comparisons):
+            table.setItem(row, 0, QTableWidgetItem(comp['param_path']))
+            table.setItem(row, 1, QTableWidgetItem(str(comp['current_value'] or "")))
+            table.setItem(row, 2, QTableWidgetItem(str(comp['recommended_value'] or "")))
+            table.setItem(row, 3, QTableWidgetItem("Yes" if comp['differs'] else ""))
+            
+            # Highlight differing rows
+            if comp['differs']:
+                for col in range(4):
+                    table.item(row, col).setBackground(Qt.yellow)
+        
+        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        layout.addWidget(table)
+        
+        # Checkbox for only_empty option
+        only_empty_cb = QCheckBox("Only apply to empty/unset parameters")
+        only_empty_cb.setChecked(True)
+        layout.addWidget(only_empty_cb)
+        
+        # Buttons
+        buttons = QDialogButtonBox(QDialogButtonBox.Apply | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Apply).clicked.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        
+        if dialog.exec() == QDialog.Accepted:
+            only_empty = only_empty_cb.isChecked()
+            updated = self.config_manager.apply_recommended_values(rec_config, only_empty)
+            
+            # Refresh UI
+            if self.tree_view.currentItem():
+                self.tree_view._on_item_clicked(self.tree_view.currentItem(), 0)
+            
+            QMessageBox.information(self, "Applied", f"Updated {updated} parameter(s) with recommended values.")
+            self.statusbar.showMessage(f"Applied {updated} recommended values", 3000)
     
     # File operations
     
@@ -708,7 +1039,7 @@ class DaVinciMainWindow(QMainWindow):
             self,
             "Open DEF File",
             str(Path.home()),
-            "ARXML Files (*.arxml);;All Files (*)"
+            "All Supported Files (*.arxml *.xdm);;ARXML Files (*.arxml);;EB Tresos Files (*.xdm);;All Files (*)"
         )
         
         if not file_path:
@@ -772,6 +1103,7 @@ class DaVinciMainWindow(QMainWindow):
         self.generate_action.setEnabled(True)
         self.quick_config_action.setEnabled(True)
         self.show_dep_graph_action.setEnabled(True)
+        self.load_recommended_action.setEnabled(True)
         
         self.value_file_label.setText("New configuration (unsaved)")
         self.current_value_file = None
@@ -788,7 +1120,7 @@ class DaVinciMainWindow(QMainWindow):
             self,
             "Open Configuration File",
             str(Path.home()),
-            "ARXML Files (*.arxml);;All Files (*)"
+            "All Supported Files (*.arxml *.xdm);;ARXML Files (*.arxml);;EB Tresos Files (*.xdm);;All Files (*)"
         )
         
         if not file_path:
@@ -812,6 +1144,7 @@ class DaVinciMainWindow(QMainWindow):
             self.generate_action.setEnabled(True)
             self.quick_config_action.setEnabled(True)
             self.show_dep_graph_action.setEnabled(True)
+            self.load_recommended_action.setEnabled(True)
             
             self.statusbar.showMessage("Configuration loaded successfully", 3000)
             
@@ -836,7 +1169,7 @@ class DaVinciMainWindow(QMainWindow):
             self,
             "Save Configuration As",
             str(Path.home() / default_name),
-            "ARXML Files (*.arxml)"
+            "ARXML Files (*.arxml);;EB Tresos Files (*.xdm)"
         )
         
         if not file_path:
@@ -1115,7 +1448,7 @@ class DaVinciMainWindow(QMainWindow):
             self,
             "Load Custom Rules",
             str(Path.home()),
-            "JSON Files (*.json);;All Files (*)"
+            "Custom Rules (*.json *.py);;JSON Files (*.json);;Python Scripts (*.py);;All Files (*)"
         )
         
         if not file_path:
@@ -1186,7 +1519,7 @@ class DaVinciMainWindow(QMainWindow):
             self.statusbar.showMessage("Code generation failed", 3000)
     
     def _generate_project_code(self):
-        """Generate code for all modules in project"""
+        """Generate code for all modules in project (Incremental & Parallel)"""
         if not self.current_project:
             return
         
@@ -1200,84 +1533,128 @@ class DaVinciMainWindow(QMainWindow):
         if not output_dir:
             return
         
-        try:
-            from ..generator.generator import CodeGenerator
-            from PySide6.QtWidgets import QProgressDialog
-            from PySide6.QtCore import Qt as QtCore_Qt
-            
-            output_path = Path(output_dir)
-            modules = list(self.current_project.module_managers.items())
-            
-            # Create progress dialog
-            progress = QProgressDialog(
-                "Generating code for project modules...",
-                "Cancel",
-                0,
-                len(modules),
-                self
-            )
-            progress.setWindowModality(QtCore_Qt.WindowModal)
-            progress.setMinimumDuration(0)
-            
-            generated_modules = []
-            failed_modules = []
-            
-            for i, (module_name, manager) in enumerate(modules):
-                if progress.wasCanceled():
-                    break
+        from ..generator.generator import CodeGenerator
+        from PySide6.QtWidgets import QProgressDialog
+        from PySide6.QtCore import Qt as QtCore_Qt, QObject, Signal, QRunnable, Slot
+        
+        output_path = Path(output_dir)
+        modules = list(self.current_project.module_managers.items())
+        
+        if not modules:
+            QMessageBox.information(self, "No Modules", "Project has no modules to generate.")
+            return
+
+        # --- Worker Classes ---
+        class GenSignals(QObject):
+            finished = Signal(str, str, str) # module_name, status (GEN/SKIP/FAIL), message
+
+        class GenWorker(QRunnable):
+            def __init__(self, name, manager, out_path):
+                super().__init__()
+                self.name = name
+                self.manager = manager
+                self.out_path = out_path
+                self.signals = GenSignals()
                 
-                progress.setValue(i)
-                progress.setLabelText(f"Generating {module_name}...")
-                
+            @Slot()
+            def run(self):
                 try:
-                    # Create module-specific output directory
-                    module_output = output_path / module_name
-                    module_output.mkdir(exist_ok=True)
+                    # Create module output dir
+                    mod_out = self.out_path / self.name
+                    mod_out.mkdir(exist_ok=True)
                     
-                    # Generate code
-                    generator = CodeGenerator(
-                        manager.module_def,
-                        manager.configuration
-                    )
-                    generator.generate_all(module_output)
+                    # Generate
+                    generator = CodeGenerator(self.manager.module_def, self.manager.configuration)
+                    # Pass force=False to enable incremental check
+                    generated = generator.generate_all(mod_out, force=False)
                     
-                    generated_modules.append(module_name)
-                    
+                    status = "GEN" if generated else "SKIP"
+                    self.signals.finished.emit(self.name, status, "")
                 except Exception as e:
-                    failed_modules.append((module_name, str(e)))
+                    self.signals.finished.emit(self.name, "FAIL", str(e))
+
+        # --- Setup Progress ---
+        self._gen_progress = QProgressDialog(
+            "Initializing code generation...",
+            "Cancel",
+            0,
+            len(modules),
+            self
+        )
+        self._gen_progress.setWindowModality(QtCore_Qt.WindowModal)
+        self._gen_progress.setMinimumDuration(0)
+        self._gen_progress.setValue(0)
+        
+        # Stats tracking
+        self._gen_stats = {
+            'generated': [],
+            'skipped': [],
+            'failed': []
+        }
+        self._gen_processed = 0
+        self._gen_total = len(modules)
+        
+        # --- Completion Handler ---
+        def on_module_done(name, status, msg):
+            if self._gen_progress.wasCanceled():
+                return
+                
+            self._gen_processed += 1
+            self._gen_progress.setValue(self._gen_processed)
+            self._gen_progress.setLabelText(f"Processed {name} ({status})...")
             
-            progress.setValue(len(modules))
+            if status == "GEN":
+                self._gen_stats['generated'].append(name)
+            elif status == "SKIP":
+                self._gen_stats['skipped'].append(name)
+            else:
+                self._gen_stats['failed'].append((name, msg))
             
+            # Check if all done
+            if self._gen_processed >= self._gen_total:
+                finalize_generation()
+
+        def finalize_generation():
             # Show summary
-            summary = f"Code generation completed!\n\n"
-            summary += f"✅ Generated: {len(generated_modules)} module(s)\n"
-            if generated_modules:
-                summary += "  - " + "\n  - ".join(generated_modules) + "\n\n"
+            stats = self._gen_stats
+            summary = "Code generation completed!\n\n"
             
-            if failed_modules:
-                summary += f"❌ Failed: {len(failed_modules)} module(s)\n"
-                for mod, err in failed_modules:
-                    summary += f"  - {mod}: {err}\n"
-            
+            if stats['generated']:
+                summary += f"✅ Generated: {len(stats['generated'])} module(s)\n"
+            if stats['skipped']:
+                summary += f"⏩ Skipped (Unchanged): {len(stats['skipped'])} module(s)\n"
+            if stats['failed']:
+                summary += f"❌ Failed: {len(stats['failed'])} module(s)\n"
+                for m, err in stats['failed']:
+                    summary += f"  - {m}: {err}\n"
+                    
             summary += f"\nOutput: {output_dir}"
             
-            if failed_modules:
-                QMessageBox.warning(self, "Code Generation Completed with Errors", summary)
+            if stats['failed']:
+                QMessageBox.warning(self, "Generation Completed with Errors", summary)
             else:
-                QMessageBox.information(self, "Code Generation Successful", summary)
-            
+                QMessageBox.information(self, "Generation Successful", summary)
+                
             self.statusbar.showMessage(
-                f"Project code generated: {len(generated_modules)}/{len(modules)} modules",
+                f"Generated: {len(stats['generated'])}, Skipped: {len(stats['skipped'])}, Failed: {len(stats['failed'])}",
                 5000
             )
             
-        except Exception as e:
-            QMessageBox.critical(
-                self,
-                "Project Code Generation Error",
-                f"Failed to generate project code:\n{str(e)}"
-            )
-            self.statusbar.showMessage("Project code generation failed", 3000)
+            # Cleanup
+            self._gen_progress = None
+            self._gen_stats = None
+
+        # --- Start Workers ---
+        for name, manager in modules:
+            if not manager.configuration:
+                # Should not happen if strictly managed, but handle safe
+                self._gen_stats['skipped'].append(name + " (No Config)")
+                self._gen_processed += 1
+                continue
+                
+            worker = GenWorker(name, manager, output_path)
+            worker.signals.finished.connect(on_module_done)
+            self.thread_pool.start(worker)
     
     def launch_quick_config_wizard(self):
         """Launch the quick configuration wizard"""
@@ -1512,7 +1889,7 @@ class DaVinciMainWindow(QMainWindow):
                     dependencies = self.analyzer.analyze_with_ai(self.params)
                     # Generate markdown
                     self.analyzer.generate_markdown(dependencies, self.output_path)
-                    self.signals.result.emit(f"{len(dependencies)}|{str(self.output_path)}")
+                    self.signals.result.emit((dependencies, str(self.output_path)))
                 except Exception as e:
                     self.signals.error.emit(str(e))
         
@@ -1524,11 +1901,20 @@ class DaVinciMainWindow(QMainWindow):
         # Submit to thread pool
         self.thread_pool.start(worker)
     
-    def _on_dependency_analysis_done(self, result: str):
+    def _on_dependency_analysis_done(self, result: object):
         """Handle completed dependency analysis"""
-        parts = result.split("|", 1)
-        count = int(parts[0])
-        output_path = parts[1]
+        if isinstance(result, tuple):
+            dependencies, output_path = result
+            count = len(dependencies)
+            
+            # Store rules in project for impact analysis
+            if self.current_project:
+                self.current_project.dependency_rules = dependencies
+        else:
+            # Fallback for string format (legacy)
+            parts = str(result).split("|", 1)
+            count = int(parts[0])
+            output_path = parts[1]
         
         self.statusBar().showMessage(f"依赖分析完成，发现 {count} 条潜在规则", 5000)
         
@@ -1651,13 +2037,21 @@ class DaVinciMainWindow(QMainWindow):
     def _on_module_selected(self, module_def: EcucModuleDef, manager=None):
         """Handle module node selection in tree"""
         if manager:
-            self._update_active_context(manager)
+            self.config_manager = manager
+            self.module_def = module_def
+            
+            # Update actions for the selected module
+            self.save_value_action.setEnabled(True)
+            self.save_value_as_action.setEnabled(True)
+            self.validate_action.setEnabled(True)
+            self.load_rules_action.setEnabled(True)
+            self.generate_action.setEnabled(True)
+            self.quick_config_action.setEnabled(True)
+            self.show_dep_graph_action.setEnabled(True)
+            self.load_recommended_action.setEnabled(True)
+            
+            self.value_file_label.setText(f"Config: {manager.configuration.short_name}")
         
-        # Show module info in panel? Or just clear?
-        # For now, let's clear or show basic module info
-        # self.config_panel.clear() 
-        # Or better:
-        # self.config_panel.show_module_info(module_def) (If implemented)
         self.config_panel.clear()
         
     def _update_active_context(self, manager):
@@ -1886,3 +2280,59 @@ except Exception as e:
         self.settings.setValue("geometry", self.saveGeometry())
         self.settings.setValue("windowState", self.saveState())
         event.accept()
+
+    def _handle_check_impact(self, container_path: str, param_name: str):
+        """Analyze and show impact of changing a parameter"""
+        if not self.config_manager or not self.current_project:
+            return
+            
+        from ..core.analysis.impact_analyzer import ImpactAnalyzer
+        from PySide6.QtWidgets import QDialog, QVBoxLayout, QListWidget, QLabel, QDialogButtonBox
+        
+        # Initialize analyzer
+        analyzer = ImpactAnalyzer()
+        
+        # Build structure from all modules in project
+        for module_name, manager in self.current_project.module_managers.items():
+            if manager.configuration:
+                analyzer.build_from_configuration(manager.configuration, module_name)
+                
+        # Load AI rules
+        if self.current_project.dependency_rules:
+            analyzer.load_dependencies(self.current_project.dependency_rules)
+            
+        # Determine source node path
+        module_name = self.config_manager.module_def.short_name
+        # If container_path starts with /, strip it
+        clean_cont_path = container_path.lstrip('/')
+        
+        # Heuristic node naming: Module.Container/Path.Param
+        # Container path usually already has slashes.
+        source_node = f"{module_name}.{clean_cont_path}.{param_name}"
+        
+        # Analyze
+        impacts = analyzer.analyze_impact(source_node)
+        
+        # Show results
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Impact Analysis: {param_name}")
+        dialog.resize(600, 400)
+        
+        layout = QVBoxLayout(dialog)
+        
+        if impacts:
+            layout.addWidget(QLabel(f"Changing <b>{param_name}</b> may affect {len(impacts)} items:"))
+            list_widget = QListWidget()
+            for impact in impacts:
+                icon = "🤖" if impact.dependency_type == 'logical' else "🔗"
+                item_text = f"{icon} {impact.target}\n    reason: {impact.reason}"
+                list_widget.addItem(item_text)
+            layout.addWidget(list_widget)
+        else:
+            layout.addWidget(QLabel(f"No detected dependencies for <b>{source_node}</b>."))
+            
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok)
+        buttons.accepted.connect(dialog.accept)
+        layout.addWidget(buttons)
+        
+        dialog.exec()
