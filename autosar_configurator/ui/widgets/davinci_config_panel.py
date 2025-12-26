@@ -856,7 +856,22 @@ class DaVinciConfigPanel(QWidget):
         elif container_def_ref and dest_ref.endswith(container_def_ref.split('/')[-1]):
             is_match = True
             
-        return is_match
+        # Strategy 4: Compare last path component (type name)
+        else:
+            container_type = container_def_ref.split('/')[-1] if container_def_ref else ""
+            dest_type = dest_ref.split('/')[-1] if dest_ref else ""
+            
+            if container_type and dest_type and container_type == dest_type:
+                is_match = True
+        
+        if is_match:
+            # Build enhanced display name with parameter values
+            enhanced_name = self._build_enhanced_display_name(container, display_name)
+            combo.addItem(enhanced_name, path)
+        
+        # Add sub-containers recursively
+        for sub in container.sub_containers:
+            self._add_reference_targets(combo, sub, ref_def, display_name)
 
     def _on_table_context_menu(self, pos):
         """Show context menu for parameter table"""
@@ -885,54 +900,11 @@ class DaVinciConfigPanel(QWidget):
         """Emit signal for impact analysis"""
         if self.current_instance:
             self.check_impact_requested.emit(self.current_instance.get_path(), param_name)
-
-        
-        # Strategy 4: Compare last path component (type name)
-        else:
-            container_type = container_def_ref.split('/')[-1] if container_def_ref else ""
-            dest_type = dest_ref.split('/')[-1] if dest_ref else ""
-            
-            if container_type and dest_type and container_type == dest_type:
-                is_match = True
-        
-        if is_match:
-            # Build enhanced display name with parameter values
-            enhanced_name = self._build_enhanced_display_name(container, display_name)
-            combo.addItem(enhanced_name, path)
-        
-        # Add sub-containers
-        for sub in container.sub_containers:
-            self._add_reference_targets(combo, sub, ref_def, display_name)
     
     def _build_enhanced_display_name(self, container: EcucContainerValue, base_name: str) -> str:
-        """Build a descriptive display name including key parameter values"""
-        # Collect parameter value summaries
-        param_summaries = []
-        
-        for param_name, param_value in container.parameter_values.items():
-            value = param_value.value
-            if value is not None:
-                # Format value based on type
-                if isinstance(value, bool):
-                    value_str = "✓" if value else "✗"
-                elif isinstance(value, float):
-                    value_str = f"{value:.2f}"
-                elif isinstance(value, str) and len(value) > 20:
-                    value_str = value[:17] + "..."
-                else:
-                    value_str = str(value)
-                
-                param_summaries.append(value_str)
-        
-        # Build final display name
-        if param_summaries:
-            # Show up to 2 parameter values
-            summary = ", ".join(param_summaries[:2])
-            if len(param_summaries) > 2:
-                summary += ", ..."
-            return f"{base_name} ({summary})"
-        
-        return base_name
+        """Build a descriptive display name - show full path"""
+        # Return the full path for clarity
+        return container.get_path()
     
     def _on_reference_changed(self, ref_name: str, target_path: str):
         """Handle reference value change"""
@@ -944,9 +916,20 @@ class DaVinciConfigPanel(QWidget):
             # Main window will handle the actual update via Command
             self.parameter_changed.emit(self.current_instance, f"ref:{ref_name}", target_path)
             
+            # Refresh the Status column after a short delay to allow command to execute
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(100, self._refresh_reference_status)
+            
         except Exception as e:
             from PySide6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "Reference Error", f"Failed to set reference: {e}")
+    
+    def _refresh_reference_status(self):
+        """Refresh reference status indicators"""
+        if not self.current_instance or not self.current_def:
+            return
+        
+        self._populate_references(self.current_instance, self.current_def)
 
 class ListEditorWidget(QWidget):
     """Widget for editing a list of values"""

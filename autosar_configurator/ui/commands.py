@@ -71,6 +71,29 @@ class SetReferenceCommand(QUndoCommand):
             if container_def and self.ref_name in container_def.references:
                 ref_def = container_def.references[self.ref_name]
                 self.instance.set_reference_value(self.ref_name, self.new_target, ref_def.definition_ref)
+                
+                # Immediately resolve the reference to update status to ✅
+                ref_value = self.instance.reference_values.get(self.ref_name)
+                if ref_value:
+                    # Try to resolve via project (cross-module) or config_manager (single module)
+                    target = None
+                    if hasattr(self.config_manager, 'project_context') and self.config_manager.project_context:
+                        target = self.config_manager.project_context.get_instance_by_path(self.new_target)
+                    
+                    if target is None:
+                        # Try single-module resolution
+                        target = self.config_manager.configuration.get_instance_by_path(self.new_target)
+                    
+                    if target:
+                        ref_value.target = target
+                        ref_value.resolution_error = None
+                    else:
+                        # Set resolution error
+                        from ..core.model.configuration_model import ResolutionError
+                        ref_value.resolution_error = ResolutionError(
+                            ResolutionError.PATH_NOT_FOUND,
+                            self.new_target
+                        )
         else:
             # Clear reference
             if self.ref_name in self.instance.reference_values:
