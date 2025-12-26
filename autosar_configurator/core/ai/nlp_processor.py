@@ -31,6 +31,10 @@ class NaturalLanguageProcessor:
         self.prompt_manager = PromptManager(self.config_manager)
         self.undo_stack = undo_stack # Keep undo_stack as it's used later
         
+        # Object Graph Context Builder for AI context expansion
+        from .context_builder import ObjectGraphContextBuilder
+        self.context_builder = ObjectGraphContextBuilder(self.project)
+        
         # Callback for executing actions (e.g. create_container)
         self.action_handler = action_handler
         
@@ -150,7 +154,7 @@ class NaturalLanguageProcessor:
             text = text.strip()[1:].strip() # Remove '@'
             
         if self.gemini_client.is_ready():
-            return self._handle_gemini_chat(text, use_rag=use_rag)
+            return self._handle_gemini_chat(text, use_rag=use_rag, context_instance=context_instance)
             
         # Default response
         return (
@@ -163,22 +167,42 @@ class NaturalLanguageProcessor:
             "• @查找资料 (使用知识库)"
         )
 
-    def _handle_gemini_chat(self, text: str, use_rag: bool = False) -> str:
-        """Ask Gemini a question, optionally using RAG context"""
+    def _handle_gemini_chat(self, text: str, use_rag: bool = False, context_instance=None) -> str:
+        """Ask Gemini a question, with optional RAG and object graph context
+        
+        Args:
+            text: User question
+            use_rag: Whether to search knowledge base
+            context_instance: Currently selected container (for object graph context)
+        """
         
         context_str = ""
+        
+        # 1. Object Graph Context (from selected container)
+        if context_instance and self.project:
+            self.context_builder.project = self.project
+            result = self.context_builder.build_context(context_instance)
+            if result.context_text:
+                context_str += "\n[Configuration Context from Object Graph]:\n"
+                context_str += result.context_text
+                if result.truncated:
+                    context_str += f"\n*Note: Context was trimmed ({result.node_count} nodes, depth {result.depth_reached})*\n"
+                context_str += "\n[End of Configuration Context]\n\n"
+                print(f"DEBUG: Added object graph context ({len(result.context_text)} chars, {result.node_count} nodes, truncated={result.truncated})")
+        
+        # 2. RAG Knowledge Base Context
         if use_rag and self.knowledge_base.is_ready:
             print(f"DEBUG: RAG Search for: '{text}'")
             results = self.knowledge_base.search(text)
             if results:
-                context_str = "\n[Retrieved Knowledge from Knowledge Base]:\n"
+                context_str += "\n[Retrieved Knowledge from Knowledge Base]:\n"
                 for doc, score in results:
                     # Truncate doc content for prompt size management
                     context_str += f"- {doc.strip()[:300]}...\n"
                 context_str += "\n[End of Knowledge Base]\n"
                 context_str += "Note: Please prioritize the specific knowledge provided above if it is relevant to the user's question.\n"
             else:
-                context_str = "\n[Knowledge Base]: No relevant documents found.\n"
+                context_str += "\n[Knowledge Base]: No relevant documents found.\n"
         
         full_text = f"{context_str}\nUser Question: {text}"
         prompt = self.prompt_manager.build_general_prompt(full_text)

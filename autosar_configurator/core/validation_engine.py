@@ -213,6 +213,9 @@ class ValidationEngine:
         from .rules.structural_rules import (
             MultiplicityValidationRule,
         )
+        from .rules.reference_rules import (
+            ResolutionErrorValidationRule,
+        )
         
         # Register basic rules
         self.register_rules([
@@ -221,6 +224,7 @@ class ValidationEngine:
             EnumerationValidationRule(),
             RequiredParameterRule(),
             MultiplicityValidationRule(),
+            ResolutionErrorValidationRule(),
         ])
         
     def load_custom_rules(self, file_path: str):

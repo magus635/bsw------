@@ -63,6 +63,92 @@ class WorkspaceProject:
         
     def get_all_managers(self) -> List[ConfigurationManager]:
         return list(self.module_managers.values())
+    
+    def get_instance_by_path(self, path: str) -> Optional['EcucContainerValue']:
+        """Get a container instance by path, searching across all modules
+        
+        EMF-style global resolver: enables cross-module reference resolution.
+        
+        Args:
+            path: Full path to container instance (e.g., "/Config/Can/CanController_0")
+            
+        Returns:
+            EcucContainerValue if found, None otherwise
+        """
+        from .model.configuration_model import EcucContainerValue
+        
+        for manager in self.module_managers.values():
+            config = manager.configuration
+            instance = config.get_instance_by_path(path)
+            if instance is not None:
+                return instance
+        
+        return None
+    
+    def resolve_all_references(self) -> tuple:
+        """Resolve all cross-module references in all loaded configurations
+        
+        EMF-style reference resolution: converts string paths to object pointers
+        across all modules in the project.
+        
+        Returns:
+            Tuple of (total_resolved, total_errors)
+        """
+        total_resolved = 0
+        total_errors = 0
+        
+        for manager in self.module_managers.values():
+            resolved, errors = manager.configuration.resolve_references(self.get_instance_by_path)
+            total_resolved += resolved
+            total_errors += errors
+        
+        return total_resolved, total_errors
+    
+    def get_all_resolution_errors(self) -> list:
+        """Get all resolution errors across all modules
+        
+        Returns:
+            List of ResolutionError objects for UI/AI display
+        """
+        all_errors = []
+        for manager in self.module_managers.values():
+            all_errors.extend(manager.configuration.get_resolution_errors())
+        return all_errors
+    
+    def build_reverse_reference_index(self) -> int:
+        """Build reverse reference index: populate 'referenced_by' on each container
+        
+        For each resolved reference, add the reference to the target's 'referenced_by' list.
+        This enables queries like "who references this container?"
+        
+        Must be called AFTER resolve_all_references().
+        
+        Returns:
+            Number of reverse references indexed
+        """
+        indexed_count = 0
+        
+        def process_container(container):
+            nonlocal indexed_count
+            
+            for ref_name, ref_value in container.reference_values.items():
+                # Only process resolved references
+                if ref_value.is_resolved and ref_value.target is not None:
+                    # Add this reference to the target's referenced_by list
+                    if ref_value not in ref_value.target.referenced_by:
+                        ref_value.target.referenced_by.append(ref_value)
+                        indexed_count += 1
+            
+            # Recurse into sub-containers
+            for sub in container.sub_containers:
+                process_container(sub)
+        
+        # Process all containers in all modules
+        for manager in self.module_managers.values():
+            for container in manager.configuration.containers:
+                process_container(container)
+        
+        return indexed_count
 
 
 class WorkspaceManager:
@@ -209,6 +295,21 @@ class WorkspaceManager:
                 error_msg = f"DEF file not found: {def_path}"
                 failed_modules.append((name, error_msg))
                 print(f"Definition file not found for {name}: {def_path}")
+        
+        # EMF-style reference resolution: resolve cross-module references
+        try:
+            resolved_count, error_count = project.resolve_all_references()
+            if resolved_count > 0:
+                print(f"Resolved {resolved_count} cross-module reference(s)")
+            if error_count > 0:
+                print(f"⚠️ {error_count} reference(s) could not be resolved")
+            
+            # Build reverse reference index for "who references me?" queries
+            reverse_count = project.build_reverse_reference_index()
+            if reverse_count > 0:
+                print(f"Indexed {reverse_count} reverse reference(s)")
+        except Exception as e:
+            print(f"Warning: Reference resolution failed: {e}")
                 
         self.current_project = project
         return project, failed_modules

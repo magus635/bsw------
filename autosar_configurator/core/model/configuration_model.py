@@ -28,17 +28,191 @@ class EcucParameterValue:
         self.last_modified = datetime.now()
 
 
+class ResolutionSeverity:
+    """Severity levels for resolution errors"""
+    INFO = "info"        # 等待加载
+    WARNING = "warning"  # 可运行但需注意
+    ERROR = "error"      # 必须修复
+
+
+class ResolutionError:
+    """Engineering-grade resolution error with explainable information for UI and AI
+    
+    工程级设计目标：失败也要"可诊断、可定位、可解释、可恢复"
+    
+    Provides structured error information that can be:
+    1. Displayed in UI (warnings, tooltips, validation reports)
+    2. Used by AI to explain problems and suggest fixes
+    3. Used for impact analysis
+    """
+    
+    # ===== Error Types (10 engineering-grade categories) =====
+    
+    # Basic resolution errors
+    PATH_NOT_FOUND = "path_not_found"           # 路径不存在
+    MODULE_NOT_LOADED = "module_not_loaded"     # 模块未加载
+    INVALID_PATH = "invalid_path"               # 路径格式错误
+    
+    # Type/semantic errors
+    TYPE_MISMATCH = "type_mismatch"             # 目标类型不匹配
+    AMBIGUOUS_REFERENCE = "ambiguous_reference" # 多候选歧义
+    DEF_VALUE_MISMATCH = "def_value_mismatch"   # 定义/值层级混淆
+    
+    # Lifecycle errors
+    UNRESOLVED = "unresolved"                   # 尚未解析
+    STALE_REFERENCE = "stale_reference"         # 陈旧引用（目标已删除）
+    
+    # Structural warnings
+    CIRCULAR_REFERENCE = "circular_reference"   # 循环引用
+    DEEP_CHAIN = "deep_chain"                   # 过深引用链
+    
+    # Optional reference
+    OPTIONAL_NOT_SET = "optional_not_set"       # 可选引用未配置
+    
+    def __init__(
+        self, 
+        error_type: str, 
+        path: str,
+        message: str = None,
+        suggestion: str = None,
+        severity: str = None,
+        # AI-ready fields
+        expected_type: str = None,
+        actual_type: str = None,
+        candidates: list = None,
+        impact_scope: list = None,
+        recoverable: bool = True
+    ):
+        self.error_type = error_type
+        self.path = path
+        self.severity = severity or self._default_severity(error_type)
+        self.message = message or self._default_message(error_type, path)
+        self.suggestion = suggestion or self._default_suggestion(error_type)
+        
+        # AI-ready fields
+        self.expected_type = expected_type
+        self.actual_type = actual_type
+        self.candidates = candidates or []
+        self.impact_scope = impact_scope or []
+        self.recoverable = recoverable
+    
+    def _default_severity(self, error_type: str) -> str:
+        severity_map = {
+            self.UNRESOLVED: ResolutionSeverity.INFO,
+            self.OPTIONAL_NOT_SET: ResolutionSeverity.INFO,
+            self.CIRCULAR_REFERENCE: ResolutionSeverity.WARNING,
+            self.DEEP_CHAIN: ResolutionSeverity.WARNING,
+            # All others are ERROR
+        }
+        return severity_map.get(error_type, ResolutionSeverity.ERROR)
+    
+    def _default_message(self, error_type: str, path: str) -> str:
+        module_hint = path.split('/')[2] if path and '/' in path and len(path.split('/')) > 2 else "Unknown"
+        
+        messages = {
+            self.PATH_NOT_FOUND: f"目标容器不存在: {path}",
+            self.MODULE_NOT_LOADED: f"模块 '{module_hint}' 尚未加载到当前工程",
+            self.INVALID_PATH: f"无效的引用路径格式: {path}",
+            self.TYPE_MISMATCH: f"目标类型不匹配: {path}",
+            self.AMBIGUOUS_REFERENCE: f"引用存在多个候选目标: {path}",
+            self.DEF_VALUE_MISMATCH: f"引用错误地指向了定义而非实例: {path}",
+            self.UNRESOLVED: f"该引用尚未解析: {path}",
+            self.STALE_REFERENCE: f"目标对象已被删除/替换: {path}",
+            self.CIRCULAR_REFERENCE: f"检测到循环引用: {path}",
+            self.DEEP_CHAIN: f"引用链过深: {path}",
+            self.OPTIONAL_NOT_SET: f"可选引用未配置: {path}",
+        }
+        return messages.get(error_type, f"解析错误: {path}")
+    
+    def _default_suggestion(self, error_type: str) -> str:
+        suggestions = {
+            self.PATH_NOT_FOUND: "检查目标容器是否存在或创建它",
+            self.MODULE_NOT_LOADED: "将引用的模块添加到项目中",
+            self.INVALID_PATH: "检查引用路径格式，使用完整路径",
+            self.TYPE_MISMATCH: "确保引用指向正确类型的容器",
+            self.AMBIGUOUS_REFERENCE: "使用完整路径消除歧义",
+            self.DEF_VALUE_MISMATCH: "引用应指向 EcucContainerValue 而非 EcucContainerDef",
+            self.UNRESOLVED: "请先完成配置加载",
+            self.STALE_REFERENCE: "重新创建目标容器或更新此引用",
+            self.CIRCULAR_REFERENCE: "检查配置逻辑，避免循环依赖",
+            self.DEEP_CHAIN: "考虑简化配置结构",
+            self.OPTIONAL_NOT_SET: "系统将采用默认行为，如需覆盖请配置此引用",
+        }
+        return suggestions.get(error_type, "检查引用配置")
+    
+    def to_dict(self) -> dict:
+        """Convert to dict for AI/API consumption
+        
+        Provides all information AI needs to explain and diagnose the error.
+        """
+        result = {
+            "reference_path": self.path,
+            "state": "Error" if self.severity == ResolutionSeverity.ERROR else self.severity.capitalize(),
+            "error_type": self.error_type,
+            "severity": self.severity,
+            "message": self.message,
+            "suggestion": self.suggestion,
+            "recoverable": self.recoverable,
+        }
+        
+        # Add optional AI-ready fields if present
+        if self.expected_type:
+            result["expected_type"] = self.expected_type
+        if self.actual_type:
+            result["actual_type"] = self.actual_type
+        if self.candidates:
+            result["available_candidates"] = self.candidates
+        if self.impact_scope:
+            result["impact_scope"] = self.impact_scope
+        
+        return result
+    
+    def to_user_message(self) -> str:
+        """Format for user display"""
+        icon = {"error": "❌", "warning": "⚠️", "info": "ℹ️"}.get(self.severity, "❓")
+        return f"{icon} {self.message}\n   💡 {self.suggestion}"
+    
+    def __str__(self) -> str:
+        return f"[{self.severity.upper()}] {self.message}"
+
+
 @dataclass
 class EcucReferenceValue:
     """ECUC Reference Value (ECUC-REFERENCE-VALUE)
     
-    Stores a reference to another container instance
+    Stores a reference to another container instance.
+    
+    EMF-Style Object Navigation:
+    - `value_ref`: Original string path (for serialization)
+    - `target`: Resolved EcucContainerValue object (for object navigation)
+    - `resolution_error`: Structured error if resolution failed
+    
+    After resolution, you can navigate directly:
+        ref.target.parameter_values['SomeParam'].value
+    Instead of:
+        lookup_by_path(ref.value_ref).parameter_values[...]
     """
     definition_ref: str  # Path to EcucReferenceDef
-    value_ref: str  # Path to target container instance, e.g., "/Config/Mcu/McuModuleConfiguration/McuClockReferencePoint_0"
+    value_ref: str  # Path to target container instance
+    
+    # EMF-style resolved target object (populated after resolve_references() is called)
+    target: Optional['EcucContainerValue'] = None
+    
+    # Resolution error (if resolution failed)
+    resolution_error: Optional[ResolutionError] = field(default=None, repr=False)
     
     # Metadata
     is_modified: bool = False
+    
+    @property
+    def is_resolved(self) -> bool:
+        """Check if this reference has been resolved to an object"""
+        return self.target is not None
+    
+    @property
+    def has_error(self) -> bool:
+        """Check if resolution failed with an error"""
+        return self.resolution_error is not None
 
 
 @dataclass
@@ -61,6 +235,10 @@ class EcucContainerValue:
     
     # Parent container (for path generation)
     parent: Optional['EcucContainerValue'] = field(default=None, repr=False)
+    
+    # Reverse references: who references this container?
+    # Populated by WorkspaceProject.build_reverse_reference_index()
+    referenced_by: List['EcucReferenceValue'] = field(default_factory=list, repr=False)
     
     # Metadata
     index: int = 0  # Instance index (for sorting)
@@ -231,3 +409,81 @@ class EcucModuleConfiguration:
         """Mark configuration as saved"""
         self.is_modified = False
         self.last_saved = datetime.now()
+    
+    def resolve_references(self, resolver: callable) -> tuple:
+        """Resolve all references in this configuration to object pointers
+        
+        EMF-style reference resolution: converts string paths to object references.
+        Also tracks resolution errors for UI/AI display.
+        
+        Args:
+            resolver: A callable that takes a path string and returns the
+                      EcucContainerValue object, or None if not found.
+                      Signature: (path: str) -> Optional[EcucContainerValue]
+        
+        Returns:
+            Tuple of (resolved_count, error_count)
+        """
+        resolved_count = 0
+        error_count = 0
+        
+        def resolve_container(container: EcucContainerValue):
+            nonlocal resolved_count, error_count
+            
+            for ref_name, ref_value in container.reference_values.items():
+                if ref_value.value_ref and not ref_value.is_resolved:
+                    target = resolver(ref_value.value_ref)
+                    if target is not None:
+                        ref_value.target = target
+                        ref_value.resolution_error = None  # Clear any previous error
+                        resolved_count += 1
+                    else:
+                        # Create explainable error with proper categorization
+                        path = ref_value.value_ref
+                        if not path or not path.startswith('/'):
+                            error = ResolutionError(
+                                ResolutionError.INVALID_PATH,
+                                path
+                            )
+                        else:
+                            # Extract module hint for better error messages
+                            parts = path.split('/')
+                            module_hint = parts[2] if len(parts) > 2 else ""
+                            
+                            # Determine if it's a module-not-loaded vs path-not-found
+                            # For now, assume PATH_NOT_FOUND (workspace can upgrade to MODULE_NOT_LOADED)
+                            error = ResolutionError(
+                                ResolutionError.PATH_NOT_FOUND,
+                                path,
+                                suggestion=f"检查 '{module_hint}' 模块是否已加载，或目标容器是否存在"
+                            )
+                        ref_value.resolution_error = error
+                        error_count += 1
+            
+            for sub in container.sub_containers:
+                resolve_container(sub)
+        
+        for container in self.containers:
+            resolve_container(container)
+        
+        return resolved_count, error_count
+    
+    def get_resolution_errors(self) -> List[ResolutionError]:
+        """Get all resolution errors in this configuration
+        
+        Returns:
+            List of ResolutionError objects for UI/AI display
+        """
+        errors = []
+        
+        def collect_errors(container: EcucContainerValue):
+            for ref_name, ref_value in container.reference_values.items():
+                if ref_value.has_error:
+                    errors.append(ref_value.resolution_error)
+            for sub in container.sub_containers:
+                collect_errors(sub)
+        
+        for container in self.containers:
+            collect_errors(container)
+        
+        return errors

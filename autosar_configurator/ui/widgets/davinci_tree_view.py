@@ -27,6 +27,7 @@ class DaVinciTreeView(QTreeWidget):
     create_instance_requested = Signal(EcucContainerDef, object, str)  # def, parent_instance, name
     delete_instance_requested = Signal(EcucContainerValue, object)  # instance, parent_instance
     move_instance_requested = Signal(EcucContainerValue, object, int)  # instance, new_parent, new_index
+    view_references_requested = Signal(EcucContainerValue)  # instance - show who references this container
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -307,9 +308,17 @@ class DaVinciTreeView(QTreeWidget):
             add_action.triggered.connect(lambda: self._add_instance(container_def, data.get("parent_instance"), data.get("manager")))
         
         elif item_type == "VALUE":
-            # Right-click on instance - offer "Delete Instance"
+            # Right-click on instance - offer actions
             instance = data["instance"]
             container_def = data["def"]
+            
+            # View reverse references
+            view_refs_action = menu.addAction("🔍 查看谁引用了此容器")
+            view_refs_action.triggered.connect(lambda: self.view_references_requested.emit(instance))
+            
+            menu.addSeparator()
+            
+            # Delete instance
             delete_action = menu.addAction("Delete Instance")
             delete_action.triggered.connect(lambda: self._delete_instance(instance, container_def, data.get("parent_instance"), data.get("manager")))
         

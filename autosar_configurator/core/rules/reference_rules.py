@@ -7,13 +7,66 @@ before allowing deletion.
 """
 from typing import Set, Dict, List, Optional
 
-from ..validation_engine import ValidationRule, ValidationResult
+from ..validation_engine import ValidationRule, ValidationResult, ValidationMessage, ValidationSeverity
 from ..model.definition_model import EcucModuleDef, EcucContainerDef
 from ..model.configuration_model import (
     EcucModuleConfiguration,
     EcucContainerValue,
     EcucReferenceValue
 )
+
+
+class ResolutionErrorValidationRule(ValidationRule):
+    """Convert ResolutionError objects to ValidationMessages
+    
+    This rule leverages the pre-computed resolution status
+    on EcucReferenceValue instead of rebuilding path registries.
+    
+    Benefits:
+    - Uses existing resolution_error info
+    - Rich error messages with type, severity, suggestion
+    - No duplicate path registry building
+    """
+    
+    def __init__(self):
+        super().__init__(
+            name="ResolutionError",
+            description="Converts reference resolution errors to validation messages"
+        )
+    
+    def validate(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration, project_context=None) -> ValidationResult:
+        result = ValidationResult()
+        
+        for container in configuration.containers:
+            self._check_container(container, result)
+        
+        return result
+    
+    def _check_container(self, container: EcucContainerValue, result: ValidationResult):
+        """Check references using has_error property"""
+        for ref_name, ref_value in container.reference_values.items():
+            if ref_value.has_error:
+                error = ref_value.resolution_error
+                
+                # Map ResolutionError severity to ValidationSeverity
+                severity_map = {
+                    "error": ValidationSeverity.ERROR,
+                    "warning": ValidationSeverity.WARNING,
+                    "info": ValidationSeverity.INFO
+                }
+                severity = severity_map.get(error.severity, ValidationSeverity.ERROR)
+                
+                result.add_message(ValidationMessage(
+                    severity=severity,
+                    message=f"Reference '{ref_name}': {error.message}",
+                    rule_name=self.name,
+                    container_path=container.get_path(),
+                    details=f"Error type: {error.error_type}",
+                    suggested_fix=error.suggestion
+                ))
+        
+        for sub in container.sub_containers:
+            self._check_container(sub, result)
 
 
 class ReferenceIntegrityRule(ValidationRule):

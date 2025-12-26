@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QHeaderView, QPushButton, QListWidget, QListWidgetItem
 )
 from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtGui import QColor
 from typing import Optional, List, Any
 
 from ...core.model.definition_model import EcucContainerDef, EcucParameterDef, EcucParameterType
@@ -177,9 +178,9 @@ class DaVinciConfigPanel(QWidget):
         refs_layout = QVBoxLayout(self.references_group)
         
         self.refs_table = QTableWidget()
-        self.refs_table.setColumnCount(4)
+        self.refs_table.setColumnCount(5)
         self.refs_table.setHorizontalHeaderLabels([
-            "Reference", "Target", "Destination Type", "Required"
+            "Reference", "Target", "Destination Type", "Required", "Status"
         ])
         self.refs_table.horizontalHeader().setStretchLastSection(True)
         self.refs_table.setAlternatingRowColors(True)
@@ -216,9 +217,8 @@ class DaVinciConfigPanel(QWidget):
             self.parameters_group.setTitle(f"⚙️ Parameters ({len(container_def.parameters)})")
             self.parameters_group.show()
             
-            # Populate references table
+            # Populate references table (sets title with error count)
             self._populate_references(instance, container_def)
-            self.references_group.setTitle(f"🔗 References ({len(container_def.references)})")
             if len(container_def.references) > 0:
                 self.references_group.show()
                 
@@ -713,8 +713,9 @@ class DaVinciConfigPanel(QWidget):
         self.ai_help_label.setStyleSheet("color: #666; padding: 8px; background: #f8f8f8; border-radius: 4px;")
     
     def _populate_references(self, instance: EcucContainerValue, container_def: EcucContainerDef):
-        """Populate references table"""
+        """Populate references table with resolution error display"""
         self.refs_table.setRowCount(len(container_def.references))
+        error_count = 0
         
         for row, (ref_name, ref_def) in enumerate(container_def.references.items()):
             # Column 0: Reference name
@@ -744,6 +745,53 @@ class DaVinciConfigPanel(QWidget):
             req_item = QTableWidgetItem("*" if ref_def.is_required else "")
             req_item.setTextAlignment(Qt.AlignCenter)
             self.refs_table.setItem(row, 3, req_item)
+            
+            # Column 4: Status (resolution error indicator)
+            status_icon = ""
+            status_tooltip = ""
+            status_color = None
+            
+            if ref_name in instance.reference_values:
+                ref_value = instance.reference_values[ref_name]
+                if ref_value.has_error:
+                    error = ref_value.resolution_error
+                    error_count += 1
+                    # Icon based on severity
+                    severity_icons = {
+                        "error": "❌",
+                        "warning": "⚠️",
+                        "info": "ℹ️"
+                    }
+                    status_icon = severity_icons.get(error.severity, "❓")
+                    status_tooltip = error.to_user_message()
+                    # Color based on severity
+                    status_color = {
+                        "error": QColor(255, 200, 200),    # Light red
+                        "warning": QColor(255, 240, 200),  # Light yellow
+                        "info": QColor(240, 240, 240),     # Light gray
+                    }.get(error.severity)
+                elif ref_value.is_resolved:
+                    status_icon = "✅"
+                    status_tooltip = "引用解析成功"
+                else:
+                    status_icon = "⏳"
+                    status_tooltip = "引用尚未解析"
+            else:
+                status_icon = "◯"
+                status_tooltip = "未配置"
+            
+            status_item = QTableWidgetItem(status_icon)
+            status_item.setTextAlignment(Qt.AlignCenter)
+            status_item.setToolTip(status_tooltip)
+            if status_color:
+                status_item.setBackground(status_color)
+            self.refs_table.setItem(row, 4, status_item)
+        
+        # Update title with error count
+        title = f"🔗 References ({len(container_def.references)})"
+        if error_count > 0:
+            title += f" ⚠️ {error_count} error{'s' if error_count > 1 else ''}"
+        self.references_group.setTitle(title)
         
         # Adjust column widths
         self.refs_table.resizeColumnsToContents()

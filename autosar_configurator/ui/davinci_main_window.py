@@ -135,6 +135,7 @@ class DaVinciMainWindow(QMainWindow):
         self.tree_view.create_instance_requested.connect(self.handle_create_container)
         self.tree_view.delete_instance_requested.connect(self.handle_delete_container)
         self.tree_view.move_instance_requested.connect(self.handle_move_container)
+        self.tree_view.view_references_requested.connect(self._show_reverse_references)
         splitter.addWidget(self.tree_view)
         
         # Right: Config panel
@@ -2336,3 +2337,81 @@ except Exception as e:
         layout.addWidget(buttons)
         
         dialog.exec()
+
+    def _show_reverse_references(self, container):
+        """Show dialog listing all containers that reference this container
+        
+        Part of the Object Graph Context Builder feature: enables users to
+        understand 'who depends on me?' for any container.
+        """
+        from PySide6.QtWidgets import QDialog, QVBoxLayout, QListWidget, QLabel, QDialogButtonBox, QListWidgetItem
+        
+        # Get reverse references
+        refs = getattr(container, 'referenced_by', [])
+        
+        # Create dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"🔍 谁引用了 {container.short_name}?")
+        dialog.resize(600, 400)
+        
+        layout = QVBoxLayout(dialog)
+        
+        if refs:
+            layout.addWidget(QLabel(f"<b>{container.short_name}</b> 被 {len(refs)} 个位置引用:"))
+            list_widget = QListWidget()
+            
+            for ref_val in refs:
+                # Find the source container holding this reference
+                source = self._find_reference_source(ref_val)
+                if source:
+                    ref_name = ref_val.definition_ref.split('/')[-1] if ref_val.definition_ref else "Unknown"
+                    item_text = f"📎 {source.get_path()} (via {ref_name})"
+                    item = QListWidgetItem(item_text)
+                    item.setData(Qt.UserRole, source.get_path())
+                    list_widget.addItem(item)
+                else:
+                    list_widget.addItem(f"📎 (未知来源) via {ref_val.definition_ref}")
+            
+            # Enable click-to-navigate
+            list_widget.itemDoubleClicked.connect(lambda item: self._navigate_to_path(item.data(Qt.UserRole)))
+            
+            layout.addWidget(list_widget)
+            layout.addWidget(QLabel("<i>双击可跳转到引用位置</i>"))
+        else:
+            layout.addWidget(QLabel(f"<b>{container.short_name}</b> 没有被任何容器引用。"))
+            layout.addWidget(QLabel("<i>提示: 确保项目已加载并解析了跨模块引用。</i>"))
+            
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok)
+        buttons.accepted.connect(dialog.accept)
+        layout.addWidget(buttons)
+        
+        dialog.exec()
+    
+    def _find_reference_source(self, ref_val):
+        """Find the container that holds a given reference value"""
+        if not self.current_project:
+            return None
+        
+        for manager in self.current_project.module_managers.values():
+            result = self._search_for_ref_in_containers(ref_val, manager.configuration.containers)
+            if result:
+                return result
+        return None
+    
+    def _search_for_ref_in_containers(self, ref_val, containers):
+        """Recursively search for the container holding a reference"""
+        for container in containers:
+            for ref_name, stored_ref in container.reference_values.items():
+                if stored_ref is ref_val:
+                    return container
+            # Recurse
+            result = self._search_for_ref_in_containers(ref_val, container.sub_containers)
+            if result:
+                return result
+        return None
+    
+    def _navigate_to_path(self, path: str):
+        """Navigate to a container by path"""
+        if path:
+            self.tree_view.select_item_by_path(path)
+

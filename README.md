@@ -35,6 +35,15 @@
   - **STRUCT**: JSON格式编辑
   - **REFERENCE**: 智能引用选择
 
+### 🔗 EMF 对象图 (新!)
+基于 EMF 风格的对象导航系统，支持跨模块引用：
+- **正向解析**: 字符串路径 → 对象指针 (`ref.target`)
+- **反向索引**: 快速查找谁引用了我 (`container.referenced_by`)
+- **Resolution Error 系统**: 10 种工程级错误类型，可诊断、可定位、可恢复
+- **UI 集成**: 引用表显示解析状态图标和错误详情
+- **AI 诊断**: 上下文包含结构化错误信息，AI 可给出精准修复建议
+- **验证规则**: `ResolutionErrorValidationRule` 自动转换为 ValidationMessage
+
 ## 快速开始
 
 ### 安装依赖
@@ -74,10 +83,15 @@ python3 -m unittest tests.generator.eb.test_user_templates -v
   - [x] 渲染器 (Renderer)
   - [x] XPath 导航支持
   - [x] 必须的内置函数库
+- [x] 阶段10: **EMF 对象图系统**
+  - [x] 正向/反向引用解析
+  - [x] ResolutionError 工程级错误系统
+  - [x] UI/AI/Validation 集成
+  - [x] 22 项综合测试全部通过
 
 ### 🚧 计划中
-- [ ] 阶段10: 生成报告与日志优化
-- [ ] 阶段11: CI/CD 集成
+- [ ] 阶段11: 生成报告与日志优化
+- [ ] 阶段12: CI/CD 集成
 
 ## 许可证
 
