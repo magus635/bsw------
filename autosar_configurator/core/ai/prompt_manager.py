@@ -22,16 +22,40 @@ class PromptManager:
             module_name = self.config_manager.module_def.short_name
             
         return (
-            f"You are an expert in AUTOSAR BSW configuration, specifically for the '{module_name}' module.\n"
-            "Your goal is to assist the user in configuring the module correctly according to the ARXML definition.\n"
-            "Be concise and technical.\n"
-            "IMPORTANT: Please respond to all questions and instructions in Chinese (Simplified)."
+            f"You are an expert in AUTOSAR BSW configuration and EB Tresos-compatible template generation, "
+            f"specifically for the '{module_name}' module.\n"
+            "Your goal is to assist the user in configuring the module and writing C templates.\n"
+            "The system uses an enhanced Template Engine with the following capabilities:\n"
+            "- Recursive tags: Supports nested {% for %} and {% if %} up to any depth.\n"
+            "- Logical Operators: Supports 'not', 'in', '==', '!=', 'is None', 'is not None'.\n"
+            "- Loop Metadata: Inside for-loops, 'loop.last', 'loop.first', 'loop.index' are available.\n"
+            "- Filters: Supports '| upper', '| lower', '| length'.\n"
+            "Be concise and technical. Respond in Chinese (Simplified)."
         )
 
     def build_general_prompt(self, user_query: str) -> str:
         """Construct prompt for general queries"""
         system_context = self._get_system_context()
         return f"{system_context}\n\nUser Question: {user_query}"
+
+    def build_template_generation_prompt(self, request: str, module_def: Optional[str] = None) -> str:
+        """Construct prompt specifically for generating templates"""
+        system_context = self._get_system_context()
+        def_info = f"\nModule Structure Context: {module_def}" if module_def else ""
+        
+        return (
+            f"{system_context}\n\n"
+            f"Task: Generate a C template (.tpl) based on the following user request.\n"
+            f"User Request: {request}\n"
+            f"{def_info}\n\n"
+            "Rules for template generation:\n"
+            "1. Use standard C syntax for output.\n"
+            "2. Use {% for container in containers %} to iterate through module containers.\n"
+            "3. Use container.sub_containers to access nested child configurations.\n"
+            "4. Use container.parameter_values[ParamName].value to get parameter values.\n"
+            "5. Always use {% if not loop.last %},{% endif %} for array item separation.\n"
+            "6. Wrap everything in a standard C boilerplate with includes and header guards if requested."
+        )
 
     def build_explain_prompt(self, container_def: EcucContainerDef) -> str:
         """Construct prompt to explain a container"""

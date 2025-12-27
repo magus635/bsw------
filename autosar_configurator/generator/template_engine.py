@@ -16,31 +16,16 @@ class TemplateEngine:
     """
     
     def __init__(self):
-        # Support variable with optional filter: {{ var | filter }}
         self.var_pattern = re.compile(r'\{\{\s*(.+?)\s*\}\}')
-        # Split patterns for manual parsing
-        self.for_start_pattern = re.compile(r'\{%\s*for\s+(\w+)\s+in\s+([a-zA-Z_][a-zA-Z0-9_\.]*)\s*%\}')
+        self.for_start_pattern = re.compile(r'\{%\s*for\s+([a-zA-Z_0-9,\s]+?)\s+in\s+([a-zA-Z_0-9\.\(\)]+?)\s*%\}')
         self.for_end_pattern = re.compile(r'\{%\s*endfor\s*%\}')
-        self.if_pattern = re.compile(r'\{%\s*if\s+(.+?)\s*%\}(.*?)(?:\{%\s*else\s*%\}(.*?))?\{%\s*endif\s*%\}', re.DOTALL)
+        self.if_start_pattern = re.compile(r'\{%\s*if\s+(.+?)\s*%\}')
+        self.else_pattern = re.compile(r'\{%\s*else\s*%\}')
+        self.if_end_pattern = re.compile(r'\{%\s*endif\s*%\}')
         
     def render(self, template: str, context: Dict[str, Any]) -> str:
-        """Render template with given context
-        
-        Args:
-            template: Template string
-            context: Dictionary of variables available to template
-            
-        Returns:
-            Rendered string
-        """
-        # Process for loops (which also processes variables within loops)
-        result = self._process_for_loops(template, context)
-        # Process conditionals
-        result = self._process_conditionals(result, context)
-        # Process any remaining top-level variables
-        result = self._process_variables(result, context)
-        
-        return result
+        """Render template with given context"""
+        return self.render_content(template, context)
     
     def _process_for_loops(self, template: str, context: Dict[str, Any]) -> str:
         """Process {% for item in items %} loops using manual parsing to handle nesting"""
@@ -67,24 +52,47 @@ class TemplateEngine:
                 continue
                 
             # Process the loop
-            item_name = loop_info['item']
+            loop_vars = loop_info['vars'] # Might be ['item'] or ['key', 'val']
             collection_name = loop_info['collection']
             loop_body = loop_info['body']
             
-            # Support dot notation in collection name
+            # Support .items() in collection name
+            is_items = False
+            if collection_name.endswith('.items()'):
+                collection_name = collection_name[:-8]
+                is_items = True
+                
             collection = self._get_value(collection_name, context)
             
-            if isinstance(collection, (list, tuple)):
-                for item in collection:
-                    # Create temporary context with loop variable
-                    loop_context = context.copy()
-                    loop_context[item_name] = item
-                    
-                    # Recursively process nested loops first
-                    rendered_body = self._process_for_loops(loop_body, loop_context)
-                    # Then process variables
-                    rendered_body = self._process_variables(rendered_body, loop_context)
-                    result.append(rendered_body)
+            if is_items and isinstance(collection, dict):
+                items_to_iter = list(collection.items())
+            elif isinstance(collection, (list, tuple)):
+                items_to_iter = collection
+            else:
+                items_to_iter = []
+            
+            for i, item in enumerate(items_to_iter):
+                # Create temporary context with loop variables
+                loop_context = context.copy()
+                
+                # Support loop metadata
+                loop_context['loop'] = {
+                    'index0': i,
+                    'index': i + 1,
+                    'first': i == 0,
+                    'last': i == len(items_to_iter) - 1,
+                    'length': len(items_to_iter)
+                }
+
+                if is_items and len(loop_vars) >= 2:
+                    loop_context[loop_vars[0]] = item[0]
+                    loop_context[loop_vars[1]] = item[1]
+                else:
+                    loop_context[loop_vars[0]] = item
+                
+                # Recursively process the body with all tags (loops, ifs, vars)
+                rendered_body = self.render_content(loop_body, loop_context)
+                result.append(rendered_body)
             
             # Move past the loop
             current_pos = loop_info['end']
@@ -115,55 +123,163 @@ class TemplateEngine:
                 balance -= 1
                 current_pos = next_end.end()
                 end_pos = next_end.start()
-                
+        
+        # Parse loop variables (could be "item" or "key, val")
+        var_part = start_match.group(1).strip()
+        vars = [v.strip() for v in var_part.split(',')]
+        
         return {
-            'item': start_match.group(1),
-            'collection': start_match.group(2),
+            'vars': vars,
+            'collection': start_match.group(2).strip(),
             'body': template[content_start:end_pos],
             'end': current_pos
         }
     
     def _process_conditionals(self, template: str, context: Dict[str, Any]) -> str:
-        """Process {% if condition %} statements"""
-        def replace_conditional(match):
-            condition = match.group(1).strip()
-            if_block = match.group(2)
-            else_block = match.group(3) if match.group(3) else ''
-            
-            # Evaluate condition
-            # Support simple checks: variable, !variable, variable == value
-            if self._evaluate_condition(condition, context):
-                return if_block
-            else:
-                return else_block
+        """Process {% if condition %} statements recursively"""
+        result = []
+        current_pos = 0
         
-        return self.if_pattern.sub(replace_conditional, template)
+        while True:
+            match = self.if_start_pattern.search(template, current_pos)
+            if not match:
+                result.append(template[current_pos:])
+                break
+                
+            # Add text before the if
+            result.append(template[current_pos:match.start()])
+            
+            # Find balanced endif
+            if_info = self._find_balanced_if_end(template, match)
+            if not if_info:
+                # Fallback: treat as normal text if unbalanced
+                result.append(template[match.start():match.end()])
+                current_pos = match.end()
+                continue
+                
+            # Evaluate condition
+            if self._evaluate_condition(if_info['condition'], context):
+                # Process the if body (it might have nested tags)
+                body = if_info['if_body']
+            else:
+                # Process the else body
+                body = if_info['else_body']
+            
+            # Recursively process the selected body
+            rendered_body = self.render_content(body, context)
+            result.append(rendered_body)
+            
+            current_pos = if_info['end']
+            
+        return ''.join(result)
+
+    def _find_balanced_if_end(self, template: str, start_match) -> Dict[str, Any]:
+        """Find the matching end tag for an if block"""
+        content_start = start_match.end()
+        
+        balance = 1
+        current_pos = content_start
+        else_pos = None
+        else_end = None
+        
+        while balance > 0:
+            next_start = self.if_start_pattern.search(template, current_pos)
+            next_else = self.else_pattern.search(template, current_pos)
+            next_end = self.if_end_pattern.search(template, current_pos)
+            
+            if not next_end:
+                return None
+                
+            # Determine which tag comes first
+            tags = []
+            if next_start: tags.append(('start', next_start))
+            if next_else and balance == 1: tags.append(('else', next_else))
+            tags.append(('end', next_end))
+            
+            tags.sort(key=lambda x: x[1].start())
+            tag_type, match = tags[0]
+            
+            if tag_type == 'start':
+                balance += 1
+                current_pos = match.end()
+            elif tag_type == 'else':
+                else_pos = match.start()
+                else_end = match.end()
+                current_pos = match.end()
+            else: # end
+                balance -= 1
+                if balance == 0:
+                    end_pos = match.start()
+                    current_pos = match.end()
+                else:
+                    current_pos = match.end()
+        
+        return {
+            'condition': start_match.group(1).strip(),
+            'if_body': template[content_start:else_pos if else_pos else end_pos],
+            'else_body': template[else_end:end_pos] if else_pos else '',
+            'end': current_pos
+        }
+
+    def render_content(self, content: str, context: Dict[str, Any]) -> str:
+        """Helper to process all tags in a block of content"""
+        content = self._process_for_loops(content, context)
+        content = self._process_conditionals(content, context)
+        content = self._process_variables(content, context)
+        return content
     
     def _evaluate_condition(self, condition: str, context: Dict[str, Any]) -> bool:
         """Evaluate a simple condition"""
-        # Handle negation
-        if condition.startswith('!'):
-            var_name = condition[1:].strip()
-            value = self._get_value(var_name, context)
-            return not bool(value)
+        condition = condition.strip()
         
+        # Handle 'not ' prefix
+        is_negated = False
+        if condition.startswith('not '):
+            is_negated = True
+            condition = condition[4:].strip()
+        elif condition.startswith('!'):
+            is_negated = True
+            condition = condition[1:].strip()
+
+        # Handle 'is not None' / 'is None'
+        if condition.endswith(' is None'):
+            var_name = condition[:-8].strip()
+            val = self._get_value(var_name, context)
+            result = val is None
+        elif condition.endswith(' is not None'):
+            var_name = condition[:-12].strip()
+            val = self._get_value(var_name, context)
+            result = val is not None
+        # Handle 'in' check
+        elif ' in ' in condition:
+            left, right = condition.split(' in ', 1)
+            left_val = self._parse_literal(left.strip())
+            right_val = self._get_value(right.strip(), context)
+            if right_val is None: 
+                result = False
+            else:
+                try:
+                    result = left_val in right_val
+                except:
+                    result = False
         # Handle equality check
-        if ' == ' in condition:
+        elif ' == ' in condition:
             left, right = condition.split(' == ', 1)
             left_val = self._get_value(left.strip(), context)
             right_val = self._parse_literal(right.strip())
-            return left_val == right_val
-        
+            result = left_val == right_val
         # Handle inequality check
-        if ' != ' in condition:
+        elif ' != ' in condition:
             left, right = condition.split(' != ', 1)
             left_val = self._get_value(left.strip(), context)
             right_val = self._parse_literal(right.strip())
-            return left_val != right_val
-        
-        # Simple variable check
-        value = self._get_value(condition, context)
-        return bool(value)
+            result = left_val != right_val
+        else:
+            # Simple variable check
+            value = self._get_value(condition, context)
+            result = bool(value)
+            
+        return not result if is_negated else result
     
     def _parse_literal(self, value: str) -> Any:
         """Parse a literal value from template"""

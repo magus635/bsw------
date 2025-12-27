@@ -1,0 +1,28 @@
+{
+  "format_version": 3,
+  "tool_version": "1.0.0",
+  "project_type": "Vector DaVinci",
+  "name": "TestRelocation",
+  "created": "2025-12-27T20:35:33.159649",
+  "last_modified": "2025-12-27T20:35:33.162350",
+  "author": "",
+  "description": "",
+  "version": "1.0.0",
+  "def_search_paths": [],
+  "variants": [],
+  "active_variant": null,
+  "modules": [
+    {
+      "name": "Mcu",
+      "def_path": "tests/test_data/Mcu_Def.arxml",
+      "config_path": "ConfigValue/Mcu_Config.arxml",
+      "variant_overrides": {}
+    },
+    {
+      "name": "Port",
+      "def_path": "test_project_relocation/Port_Def.arxml",
+      "config_path": "ConfigValue/Port_Config.arxml",
+      "variant_overrides": {}
+    }
+  ]
+}

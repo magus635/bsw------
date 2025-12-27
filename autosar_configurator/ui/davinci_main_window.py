@@ -5,10 +5,11 @@ Dual-mode: loads DEF files and allows creating VALUE instances
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QSplitter, QMenuBar, QMenu, QToolBar, QStatusBar,
-    QFileDialog, QMessageBox, QStyle, QLabel, QInputDialog, QLineEdit
+    QFileDialog, QMessageBox, QStyle, QLabel, QInputDialog, QLineEdit,
+    QPushButton, QToolButton, QDialog
 )
 from PySide6.QtCore import Qt, Signal, QSettings, QRunnable, QThreadPool, QObject, Slot, QTimer
-from PySide6.QtGui import QAction, QKeySequence, QUndoStack
+from PySide6.QtGui import QAction, QKeySequence, QUndoStack, QIcon
 from PySide6.QtWidgets import QDockWidget
 from pathlib import Path
 from typing import Optional
@@ -513,6 +514,27 @@ class DaVinciMainWindow(QMainWindow):
         self.variant_selector.setEnabled(False)
         self.variant_selector.currentTextChanged.connect(self._on_variant_changed)
         toolbar.addWidget(self.variant_selector)
+        
+        # Quick manage button
+        self.manage_variants_btn = QPushButton()
+        self.manage_variants_btn.setIcon(self.style().standardIcon(QStyle.SP_FileDialogDetailedView))
+        self.manage_variants_btn.setToolTip("Manage Variants...")
+        self.manage_variants_btn.setFixedWidth(30)
+        self.manage_variants_btn.clicked.connect(self.manage_variants)
+        self.manage_variants_btn.setEnabled(False)
+        toolbar.addWidget(self.manage_variants_btn)
+        
+        toolbar.addSeparator()
+        
+        # AI Assistant toggle button
+        self.ai_toggle_btn = QPushButton()
+        self.ai_toggle_btn.setIcon(self.style().standardIcon(QStyle.SP_MessageBoxQuestion))
+        self.ai_toggle_btn.setToolTip("Toggle AI Assistant")
+        self.ai_toggle_btn.setFixedWidth(30)
+        self.ai_toggle_btn.clicked.connect(self.toggle_ai_action.trigger)
+        toolbar.addWidget(self.ai_toggle_btn)
+        
+        toolbar.addSeparator()
     
     def _create_statusbar(self):
         """Create status bar with permanent indicators"""
@@ -666,6 +688,7 @@ class DaVinciMainWindow(QMainWindow):
         self.save_project_action.setEnabled(True)
         self.add_module_action.setEnabled(True)
         self.manage_variants_action.setEnabled(True)
+        self.manage_variants_btn.setEnabled(True)
         
         # Update variant selector
         self._update_variant_selector()
@@ -773,6 +796,7 @@ class DaVinciMainWindow(QMainWindow):
             self.save_project_action.setEnabled(True)
             self.project_properties_action.setEnabled(True)
             self.manage_variants_action.setEnabled(True)
+            self.manage_variants_btn.setEnabled(True)
             self.add_module_action.setEnabled(True)
             
             # Update variant selector
@@ -873,64 +897,17 @@ class DaVinciMainWindow(QMainWindow):
             self.statusbar.showMessage("Project properties updated", 3000)
     
     def manage_variants(self):
-        """Show dialog to manage project variants"""
+        """Show improved dialog to manage project variants"""
         if not self.current_project:
             return
+            
+        from .widgets.variant_management_dialog import VariantManagementDialog
         
-        from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QListWidget,
-                                       QPushButton, QDialogButtonBox, QInputDialog)
-        
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Manage Variants")
-        dialog.setMinimumWidth(400)
-        layout = QVBoxLayout(dialog)
-        
-        # List of variants
-        list_widget = QListWidget()
-        for variant in self.current_project.variants:
-            list_widget.addItem(variant)
-        layout.addWidget(list_widget)
-        
-        # Buttons for add/remove
-        btn_layout = QHBoxLayout()
-        
-        add_btn = QPushButton("Add Variant")
-        def add_variant():
-            name, ok = QInputDialog.getText(dialog, "Add Variant", "Variant name:")
-            if ok and name.strip():
-                if name.strip() not in self.current_project.variants:
-                    self.current_project.variants.append(name.strip())
-                    list_widget.addItem(name.strip())
-                else:
-                    QMessageBox.warning(dialog, "Duplicate", "Variant already exists")
-        add_btn.clicked.connect(add_variant)
-        btn_layout.addWidget(add_btn)
-        
-        remove_btn = QPushButton("Remove Selected")
-        def remove_variant():
-            current = list_widget.currentItem()
-            if current:
-                variant_name = current.text()
-                self.current_project.variants.remove(variant_name)
-                list_widget.takeItem(list_widget.currentRow())
-                if self.current_project.active_variant == variant_name:
-                    self.current_project.active_variant = None
-        remove_btn.clicked.connect(remove_variant)
-        btn_layout.addWidget(remove_btn)
-        
-        layout.addLayout(btn_layout)
-        
-        # Dialog buttons
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok)
-        buttons.accepted.connect(dialog.accept)
-        layout.addWidget(buttons)
-        
-        dialog.exec()
-        
-        # Update UI
-        self._update_variant_selector()
-        self.manage_variants_action.setEnabled(True)
-        self.statusbar.showMessage(f"Variants updated: {len(self.current_project.variants)} defined", 3000)
+        dialog = VariantManagementDialog(self.current_project, self)
+        if dialog.exec() == QDialog.Accepted:
+            # Update UI
+            self._update_variant_selector()
+            self.statusbar.showMessage(f"Variants updated: {len(self.current_project.variants)} defined", 3000)
     
     def add_module_to_project(self):
         """Add a module to the current project"""

@@ -1,36 +1,20 @@
-/**
- * @file {{ module_name }}_Cfg.h
- * @brief Configuration header for {{ module_name }} module
- * 
- * ==========================================
- * >>> ADC MODULE-SPECIFIC TEMPLATE <<<
- * This file was generated using Adc-specific template!
- * ==========================================
- * 
- * @note Auto-generated file - DO NOT EDIT
- */
-
 #ifndef {{ header_guard }}
 #define {{ header_guard }}
 
-/*===========================================================================
- *                              INCLUDES
- *===========================================================================*/
-#include "{{ module_name }}.h"
-#include "Adc_Types.h"  /* Adc-specific include */
+/* Enumerations from Definition */
+{% for enum in enums %}
+/* {{ enum.name }} */
+typedef enum {
+    {% for literal in enum.literals %}
+    {{ literal }}{% if not loop.last %},{% endif %}
+    {% endfor %}
+} {{ enum.name }}Type;
 
-/*===========================================================================
- *                   ADC PRE-COMPILE PARAMETERS
- *===========================================================================*/
-
-{% for param in precompile_params %}
-/* {{ param.path }} */
-#define {{ module_name }}_{{ param.name }}  ({{ param.value }})
 {% endfor %}
 
-/*===========================================================================
- *                   ADC CHANNEL CONFIGURATION
- *===========================================================================*/
-/* ADC-specific configuration would go here */
+/* Pre-compile Parameters */
+{% for param in precompile_params %}
+#define {{ param.name | upper }}  ({{ param.value }})
+{% endfor %}
 
 #endif /* {{ header_guard }} */

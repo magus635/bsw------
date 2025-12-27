@@ -146,7 +146,10 @@ class CodeGenerator:
         """
         output_dir = Path(output_dir)
         
-        # Create variant-specific subdirectory if variant specified
+        # Prepare output directory (add module name and variant)
+        module_name = self.configuration.short_name
+        output_dir = output_dir / module_name
+        
         if variant:
             output_dir = output_dir / variant
             logger.info(f"Generating for variant: {variant}")
@@ -367,12 +370,14 @@ class CodeGenerator:
         context = {
             'module_def': self.module_def,
             'configuration': self.configuration,
+            'containers': self.configuration.containers,
             'module_name': module_name,
             'header_guard': f"{module_name.upper()}_CFG_H",
             'precompile_params': precompile_params,
             'references': references,
             'resolve_ref': self.resolve_ref,
-            'active_variant': self.variant_name
+            'active_variant': self.variant_name,
+            'enums': self._get_enums()
         }
         
         # Try external template first (module-specific or generic)
@@ -401,11 +406,13 @@ class CodeGenerator:
         context = {
             'module_def': self.module_def,
             'configuration': self.configuration,
+            'containers': self.configuration.containers,
             'module_name': module_name,
             'linktime_params': linktime_params,
             'references': references,
             'resolve_ref': self.resolve_ref,
-            'active_variant': self.variant_name
+            'active_variant': self.variant_name,
+            'enums': self._get_enums()
         }
         
         # Try external template first (module-specific or generic)
@@ -432,11 +439,13 @@ class CodeGenerator:
         context = {
             'module_def': self.module_def,
             'configuration': self.configuration,
+            'containers': self.configuration.containers,
             'module_name': module_name,
             'postbuild_params': postbuild_params,
             'references': references,
             'resolve_ref': self.resolve_ref,
-            'active_variant': self.variant_name
+            'active_variant': self.variant_name,
+            'enums': self._get_enums()
         }
         
         # Try external template first (module-specific or generic)
@@ -454,6 +463,51 @@ class CodeGenerator:
             f.write(rendered)
         logger.debug(f"Generated: {output_file}")
     
+    def _get_enums(self) -> List[Dict[str, Any]]:
+        """Extract all enumeration definitions from module definition"""
+        from ..core.model.definition_model import EcucParameterType
+        enums = []
+        # Track seen enums by name and their literal sets for deduplication
+        seen_enums = {}  # name -> set(literals)
+        logger.debug(f"Extracting enums for module: {self.configuration.short_name}")
+
+        def process_container_def(container_def):
+            for param_name, param_def in container_def.parameters.items():
+                if param_def.param_type == EcucParameterType.ENUMERATION:
+                    literals = param_def.literals or []
+                    literal_set = set(literals)
+                    
+                    if param_def.short_name not in seen_enums:
+                        seen_enums[param_def.short_name] = literal_set
+                        enums.append({
+                            'name': param_def.short_name,
+                            'ref': param_def.definition_ref,
+                            'literals': literals
+                        })
+                        logger.debug(f"Added enum: {param_def.short_name} with {len(literals)} literals")
+                    else:
+                        # If same name exists, check if literals are identical
+                        if literal_set == seen_enums[param_def.short_name]:
+                            logger.debug(f"Skipping identical duplicate enum: {param_def.short_name}")
+                        else:
+                            # Warning: name collision with different literals
+                            logger.warning(f"Enum name collision with different literals: {param_def.short_name}")
+                            # To avoid C compilation error, we might need a suffix, but usually this indicates a DEF issue
+                            # For now, we just skip it to avoid redefinition error
+            
+            for sub_def in container_def.sub_containers.values():
+                process_container_def(sub_def)
+
+        if self.module_def:
+            logger.debug(f"Module definition found: {self.module_def.short_name}")
+            for container_name, container_def in self.module_def.containers.items():
+                process_container_def(container_def)
+        else:
+            logger.warning("No module definition available during enum extraction")
+        
+        logger.info(f"Extracted {len(enums)} unique enums from definition")
+        return enums
+
     # --- Fallback Templates (used when external templates not found) ---
     
     def _get_cfg_header_template(self, module_name: str) -> str:

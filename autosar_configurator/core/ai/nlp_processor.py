@@ -144,7 +144,15 @@ class NaturalLanguageProcessor:
             elif self.config_manager:
                 return self.validator.validate(self.config_manager)
             return "⚠️ 无法验证：未连接 Project 或 ConfigurationManager。"
-        
+
+        # 9. Intent: Template Generation
+        # Pattern: "Write template for <Module>" or "Generate tpl for <Module>"
+        tpl_match = re.search(r"(?:Write|Generate|帮我写|生成)\s*(?:a\s+)?(?:template|tpl|模板)\s*(?:for|给)?\s*(.+)", text, re.IGNORECASE)
+        if tpl_match:
+            module_hint = tpl_match.group(1)
+            if self.gemini_client.is_ready():
+                 return self._handle_gemini_template_gen(text, module_hint)
+            return "⚠️ 请配置 API Key 以使用 AI 辅助生成模板。"
         
         # 3. Fallback to Gemini for general questions / RAG
         # Check for explicit RAG trigger '@'
@@ -166,6 +174,22 @@ class NaturalLanguageProcessor:
             "• Set AdcClock to 80000\n"
             "• @查找资料 (使用知识库)"
         )
+
+    def _handle_gemini_template_gen(self, text: str, module_hint: str) -> str:
+        """Use Gemini to generate a C template for a module"""
+        module_def_context = ""
+        
+        # If the user mentioned a module that is currently loaded, provide its definition context
+        if self.config_manager and self.config_manager.module_def:
+            if module_hint.lower() in self.config_manager.module_def.short_name.lower():
+                module_def_context = f"Current Module: {self.config_manager.module_def.short_name}\n"
+                # Add top-level containers as context
+                containers = self.config_manager.module_def.containers
+                if containers:
+                    module_def_context += "Available Containers: " + ", ".join(containers.keys())
+        
+        prompt = self.prompt_manager.build_template_generation_prompt(text, module_def_context)
+        return self.gemini_client.generate_response(prompt)
 
     def _handle_gemini_chat(self, text: str, use_rag: bool = False, context_instance=None) -> str:
         """Ask Gemini a question, with optional RAG and object graph context
