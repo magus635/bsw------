@@ -248,7 +248,8 @@ class WorkspaceManager:
             data["modules"].append({
                 "name": name,
                 "def_path": str(def_path),
-                "config_path": config_filename
+                "config_path": config_filename,
+                "variant_overrides": manager.configuration.variant_overrides
             })
             
         # Write project file
@@ -325,6 +326,10 @@ class WorkspaceManager:
                     # Load configuration if exists
                     if config_path.exists():
                         manager.load_configuration(config_path)
+                    
+                    # Restore variant overrides if saved
+                    if "variant_overrides" in module_data:
+                        manager.configuration.variant_overrides = module_data["variant_overrides"]
                         
                 except Exception as e:
                     error_msg = f"Failed to load: {str(e)}"

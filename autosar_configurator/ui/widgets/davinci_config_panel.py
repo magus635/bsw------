@@ -289,11 +289,27 @@ class DaVinciConfigPanel(QWidget):
             self.params_table.setItem(row,0, name_item)
             
             # Column 1: Editable value widget
+            # Check for variant override first, then base value
             current_value = None
-            if param_name in instance.parameter_values:
-                current_value = instance.parameter_values[param_name].value
-            elif param_def.default_value is not None:
-                current_value = param_def.default_value
+            is_variant_override = False
+            
+            # Check if there's an active variant with an override
+            if self.project and hasattr(self.project, 'active_variant') and self.project.active_variant:
+                variant = self.project.active_variant
+                module_config = instance.module_config
+                if module_config:
+                    param_path = f"{instance.short_name}.{param_name}"
+                    override_value, is_override = module_config.get_value_for_variant(param_path, variant)
+                    if is_override:
+                        current_value = override_value
+                        is_variant_override = True
+            
+            # Fall back to base value if no variant override
+            if current_value is None:
+                if param_name in instance.parameter_values:
+                    current_value = instance.parameter_values[param_name].value
+                elif param_def.default_value is not None:
+                    current_value = param_def.default_value
             
             # Clear any existing item in the value cell to prevent "shadow" text
             self.params_table.setItem(row, 1, QTableWidgetItem(""))
@@ -575,8 +591,24 @@ class DaVinciConfigPanel(QWidget):
         if not self.current_instance or not self.config_manager:
             return
         
-        # Emit signal - main window will handle validation and update
+        # Check if we should write to variant override instead of base config
+        if self.project and hasattr(self.project, 'active_variant') and self.project.active_variant:
+            variant = self.project.active_variant
+            module_config = self.current_instance.module_config
+            if module_config:
+                param_path = f"{self.current_instance.short_name}.{param_name}"
+                module_config.set_value_for_variant(param_path, value, variant)
+                # Still emit signal for UI updates (status bar, etc.)
+                self.parameter_changed.emit(self.current_instance, param_name, value)
+                return
+        
+        # No variant active - emit signal for base config modification
         self.parameter_changed.emit(self.current_instance, param_name, value)
+    
+    def refresh(self):
+        """Refresh the panel to reflect current variant values"""
+        if self.current_instance and self.current_def and self.config_manager:
+            self.show_instance(self.current_instance, self.current_def, self.config_manager, self.project)
     
     def clear(self):
         """Clear panel"""

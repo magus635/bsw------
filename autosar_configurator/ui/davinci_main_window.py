@@ -549,9 +549,23 @@ class DaVinciMainWindow(QMainWindow):
         if not self.current_project or variant_name == "(No Variants)":
             return
         
+        old_variant = self.current_project.active_variant
         self.current_project.active_variant = variant_name
         self.variant_label.setText(f"Variant: {variant_name}")
-        self.statusbar.showMessage(f"Switched to Variant: {variant_name}", 3000)
+        
+        # Count overrides for this variant across all modules
+        total_overrides = 0
+        for manager in self.current_project.module_managers.values():
+            total_overrides += manager.configuration.get_variant_overrides_count(variant_name)
+        
+        # Refresh config panel to show variant-applied values
+        if hasattr(self, 'config_panel') and self.config_panel:
+            self.config_panel.refresh()
+        
+        msg = f"Switched to Variant: {variant_name}"
+        if total_overrides > 0:
+            msg += f" ({total_overrides} parameter overrides)"
+        self.statusbar.showMessage(msg, 3000)
     
     def _update_variant_selector(self):
         """Update the Variant selector dropdown with project variants"""

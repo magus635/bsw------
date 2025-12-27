@@ -367,6 +367,58 @@ class EcucModuleConfiguration:
     # All created instance paths (for quick lookup)
     _instance_registry: Dict[str, EcucContainerValue] = field(default_factory=dict)
     
+    # Variant Management: stores parameter overrides per variant
+    # Structure: {"VariantName": {"Container.ParamName": value, ...}}
+    variant_overrides: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    
+    def get_value_for_variant(self, param_path: str, variant: Optional[str]) -> tuple:
+        """Get parameter value considering variant override
+        
+        Args:
+            param_path: Full parameter path (e.g., "AdcConfigSet.AdcPrescale")
+            variant: Variant name, or None for base configuration
+            
+        Returns:
+            Tuple of (value, is_override) where is_override indicates if value
+            comes from variant override layer
+        """
+        if variant and variant in self.variant_overrides:
+            overrides = self.variant_overrides[variant]
+            if param_path in overrides:
+                return (overrides[param_path], True)
+        
+        # Fall back to base value - search in containers
+        return (None, False)  # Caller should use container's value
+    
+    def set_value_for_variant(self, param_path: str, value: Any, variant: Optional[str]):
+        """Set parameter value for a specific variant
+        
+        Args:
+            param_path: Full parameter path
+            value: New value to set
+            variant: Variant name (None means modify base configuration directly)
+        """
+        if variant:
+            if variant not in self.variant_overrides:
+                self.variant_overrides[variant] = {}
+            self.variant_overrides[variant][param_path] = value
+            self.is_modified = True
+        # If variant is None, caller should modify container directly
+    
+    def clear_variant_override(self, param_path: str, variant: str):
+        """Remove a variant-specific override (revert to base value)"""
+        if variant in self.variant_overrides:
+            if param_path in self.variant_overrides[variant]:
+                del self.variant_overrides[variant][param_path]
+                self.is_modified = True
+    
+    def get_variant_overrides_count(self, variant: str) -> int:
+        """Get number of parameter overrides for a variant"""
+        if variant in self.variant_overrides:
+            return len(self.variant_overrides[variant])
+        return 0
+
+    
     def add_container(self, container: EcucContainerValue):
         """Add a top-level container instance"""
         container.module_name = self.short_name
