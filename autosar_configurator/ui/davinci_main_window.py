@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QSplitter, QMenuBar, QMenu, QToolBar, QStatusBar,
     QFileDialog, QMessageBox, QStyle, QLabel, QInputDialog, QLineEdit
 )
-from PySide6.QtCore import Qt, Signal, QSettings, QRunnable, QThreadPool, QObject, Slot
+from PySide6.QtCore import Qt, Signal, QSettings, QRunnable, QThreadPool, QObject, Slot, QTimer
 from PySide6.QtGui import QAction, QKeySequence, QUndoStack
 from PySide6.QtWidgets import QDockWidget
 from pathlib import Path
@@ -767,6 +767,9 @@ class DaVinciMainWindow(QMainWindow):
             # Update mode label
             self.mode_label.setText(f"Project: {project_type.value}")
             
+            # Update menu/toolbar states for project mode
+            self._update_mode_actions()
+            
             status_msg = f"Loaded project: {self.current_project.name} ({project_type.value})"
             
             # Show warning if some modules failed to load
@@ -1095,6 +1098,12 @@ class DaVinciMainWindow(QMainWindow):
             
             self.statusbar.showMessage(f"Loaded DEF: {self.module_def.short_name}", 5000)
             
+            # Update mode label for single-module mode
+            self.mode_label.setText(f"Module: {self.module_def.short_name}")
+            
+            # Update menu/toolbar states
+            self._update_mode_actions()
+            
             # Save to settings
             self.settings.setValue("last_def_file", str(file_path))
             
@@ -1128,6 +1137,9 @@ class DaVinciMainWindow(QMainWindow):
         self.load_rules_action.setEnabled(True)
         self.generate_action.setEnabled(True)
         self.quick_config_action.setEnabled(True)
+        
+        # Update mode actions to ensure consistency
+        self._update_mode_actions()
         self.show_dep_graph_action.setEnabled(True)
         self.load_recommended_action.setEnabled(True)
         
@@ -2242,6 +2254,12 @@ except Exception as e:
             """
         )
     
+    def _update_recent_files_menu(self):
+        """Update recent files menu with current list"""
+        # TODO: Implement fully
+        self.recent_files_menu.clear()
+        no_files_action = QAction("(No recent files)", self)
+        no_files_action.setEnabled(False)
         self.recent_files_menu.addAction(no_files_action)
         
     def _auto_load_last_project(self):
@@ -2252,6 +2270,39 @@ except Exception as e:
             if path.exists():
                 self.statusbar.showMessage(f"Auto-loading last project: {path.name}...")
                 self._load_project_at_path(path)
+    
+    def _update_mode_actions(self):
+        """Enable/disable actions based on current mode (project vs single-module)
+        
+        This ensures menu items and toolbar buttons are only active when appropriate:
+        - Project mode: project-related actions enabled, single-module actions disabled
+        - Single-module mode: single-module actions enabled, project actions disabled
+        """
+        is_project_mode = self.current_project is not None
+        is_single_module_mode = (self.config_manager is not None) and not is_project_mode
+        has_module_def = self.module_def is not None
+        
+        # === Project-only actions (already correctly managed, but ensure consistency) ===
+        self.save_project_action.setEnabled(is_project_mode)
+        self.project_properties_action.setEnabled(is_project_mode)
+        self.manage_variants_action.setEnabled(is_project_mode)
+        self.add_module_action.setEnabled(is_project_mode)
+        self.load_recommended_action.setEnabled(is_project_mode)
+        
+        # === Single-module only actions ===
+        self.save_value_action.setEnabled(is_single_module_mode)
+        self.save_value_as_action.setEnabled(is_single_module_mode)
+        self.open_value_action.setEnabled(is_single_module_mode and has_module_def)
+        self.new_config_action.setEnabled(is_single_module_mode and has_module_def)
+        
+        # === Actions available in both modes (when config is available) ===
+        has_any_config = is_project_mode or is_single_module_mode
+        self.validate_action.setEnabled(has_any_config)
+        self.generate_action.setEnabled(has_any_config)
+        self.show_dep_graph_action.setEnabled(is_project_mode)  # Cross-module graph needs project
+        self.quick_config_action.setEnabled(has_any_config)
+        self.load_rules_action.setEnabled(has_any_config)
+
     
     def closeEvent(self, event):
         """Handle window close event - check for unsaved changes"""
@@ -2304,6 +2355,12 @@ except Exception as e:
         if hasattr(self, 'thread_pool') and self.thread_pool:
             self.thread_pool.clear()  # Clear pending tasks
             self.thread_pool.waitForDone(1000)  # Wait max 1 second for running tasks
+            
+        # Cleanup background processes
+        if hasattr(self, '_ai_help_process') and self._ai_help_process:
+            if self._ai_help_process.state() != QProcess.NotRunning:
+                self._ai_help_process.terminate()
+                self._ai_help_process.waitForFinished(1000)
         
         # Save window geometry
         self.settings.setValue("geometry", self.saveGeometry())

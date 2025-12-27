@@ -262,26 +262,29 @@ class DependencyAnalyzer:
         
         params_summary = "\n".join(summary_lines)
         
-        prompt = f"""你是一个高级 AUTOSAR BSW 配置专家。请深度分析以下模块的参数配置，识别出它们之间潜在的耦合与依赖关系。
-        
-【分析重点】
-1. **时钟一致性**：检查时钟引用(ClockRef/ClockSource)与频率参数(Frequency/Hz)之间的关联。
-2. **硬件绑定**：检查驱动对象(DriverObject)与硬件通道(HwUnit/Channel)的映射。
-3. **性能约束**：检查周期(Period/LoopTime)与处理能力之间的平衡点。
-4. **功能链**：检查使能开关(Enable/Status)是否是其他功能运行的前提。
+        prompt = f"""你是一个顶级的 AUTOSAR 系统架构师和 BSW 配置专家。
+请深度分析以下模块的参数配置（包括它们的值和物理引用关系），识别出它们之间**潜在**的逻辑耦合、一致性要求或安全限制。
 
-【参数列表】
+【分析任务】
+即便没有显式的错误，也请基于 AUTOSAR 最佳实践推断潜在的依赖规则。例如：
+- **时钟频率约束**：如果 A 引用了 Mcu 的某个时钟，那么该时钟的频率是否应高于某个阈值？
+- **硬件资源互斥**：检查是否有多个驱动可能在使用相同的底层硬件资源（虽然参数名不同）。
+- **同步/延时要求**：主循环周期与采样周期是否匹配？
+- **一致性检查**：如果 A 模块使能了某个功能，B 模块中对应的接口或参数是否也必须配置？
+
+【输入参数列表】
 {params_summary}
 
 【输出要求】
-1. 每一行输出一条规则，严格遵循格式：`MODULE.PARAM 条件 值 -> MODULE.PARAM 条件 期望值 | 详细原因`
-2. 条件必须是 [=, !=, >, <, >=, <=, exists] 之一。
-3. 原因部分必须包含：逻辑推断依据、潜在风险说明。
-4. 必须只回答发现的规则，如果没有发现任何依赖，输出 "NO_DEPENDENCIES"。
-5. 只使用列表中存在的参数名。
+1. **严格**遵循以下格式输出规则（每行一条）：
+   `MODULE.PARAM 条件 值 -> MODULE.PARAM 条件 期望值 | 详细原因`
+2. 即使关系比较微妙，也请作为“潜在规则”输出，供人工审核。
+3. 原因部分请用中文详细说明：逻辑依据 + 潜在风险。
+4. **禁止**输出任何 Markdown 标题、列表或解释性文字。
+5. 如果确实没有任何发现，输出 "NO_DEPENDENCIES"。
 
 示例：
-Mcu.McuClockFrequency < 80000000 -> Adc.AdcPrescale >= 2 | 主频较低时需调大预分频系数以保证ADC采样电荷泵稳定"""
+Adc.AdcClockSource == Mcu.McuClockRef -> Mcu.McuClockFrequency >= 80000000 | ADC 使用该时钟源时，为了确保采样转换精度，MCU 主频不建议低于 80MHz"""
 
         return prompt
     
@@ -450,11 +453,15 @@ Mcu.McuClockFrequency < 80000000 -> Adc.AdcPrescale >= 2 | 主频较低时需调
                     '📄 配置': '📄 配置引用'
                 }
                 display_origin = origin_map.get(origin, origin)
+                # Ensure values are clean for the table
+                source_val_display = f"{dep['source_condition']} {dep['source_value']}"
+                target_req_display = f"{dep['target_condition']} {dep['target_value']}"
+                
                 lines.append(
                     f"| {i} | {status} | {display_origin} | `{dep['source_param']}` | "
-                    f"{dep['source_condition']} {dep['source_value']} | "
+                    f"{source_val_display} | "
                     f"`{dep['target_param']}` | "
-                    f"{dep['target_condition']} {dep['target_value']} | "
+                    f"{target_req_display} | "
                     f"{dep['reason']} |"
                 )
         
