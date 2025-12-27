@@ -51,21 +51,17 @@ class GeminiClient:
                 
             # Selection Strategy - Prioritize latest Gemini models
             preferred_order = [
-                'models/gemini-3.0-flash-exp',      # Future: Gemini 3.0 experimental
-                'models/gemini-3.0-flash',          # Future: Gemini 3.0 stable
-                'models/gemini-3.0-pro-exp',        # Future: Gemini 3.0 Pro experimental
-                'models/gemini-3.0-pro',            # Future: Gemini 3.0 Pro
-                'models/gemini-2.5-flash-exp',      # Gemini 2.5 experimental
-                'models/gemini-2.5-flash',          # Gemini 2.5 stable
-                'models/gemini-2.5-pro-exp',        # Gemini 2.5 Pro experimental
-                'models/gemini-2.5-pro',            # Gemini 2.5 Pro
-                'models/gemini-2.0-flash-exp',      # Gemini 2.0 experimental
-                'models/gemini-2.0-flash',          # Gemini 2.0 stable
-                'models/gemini-2.0-pro-exp',        # Gemini 2.0 Pro experimental
-                'models/gemini-1.5-pro',            # Previous best
-                'models/gemini-1.5-flash',          # Fast and reliable
-                'models/gemini-1.0-pro',            # Legacy
-                'models/gemini-pro'                 # Fallback
+                'models/gemini-3.0-flash-exp',
+                'models/gemini-3.0-flash',
+                'models/gemini-2.5-flash',
+                'models/gemini-2.5-flash-exp',
+                'models/gemini-2.5-pro',
+                'models/gemini-2.5-pro-exp',
+                'models/gemini-2.0-flash',
+                'models/gemini-2.0-flash-exp',
+                'models/gemini-1.5-pro',
+                'models/gemini-1.5-flash',
+                'models/gemini-pro'
             ]
             
             selected_model_name = None
@@ -152,6 +148,8 @@ class GeminiClient:
             print(f"DEBUG: Gemini API Error: {error_msg}")
             if "timeout" in error_msg.lower() or "deadline" in error_msg.lower():
                 return "⏱️ 请求超时，请稍后重试"
+            if "location" in error_msg.lower() and "not supported" in error_msg.lower():
+                return "🌍 地理位置限制：当前网络环境不支持 Gemini API，请检查代理设置。"
             return f"❌ Gemini API Error: {error_msg}"
 
     def is_ready(self) -> bool:

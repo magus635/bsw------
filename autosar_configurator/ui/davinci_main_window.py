@@ -101,6 +101,9 @@ class DaVinciMainWindow(QMainWindow):
         self._create_toolbars()
         self._create_statusbar()
         
+        # Auto-load last project after a short delay to allow UI to show
+        QTimer.singleShot(100, self._auto_load_last_project)
+        
         self.setWindowTitle("AUTOSAR DaVinci Configurator")
         self.resize(1400, 900)
         
@@ -682,7 +685,24 @@ class DaVinciMainWindow(QMainWindow):
                 return
             project_root = Path(folder_path)
         else:
-            project_root = Path(file_path).parent
+            file_path = file_path
+            project_path = Path(file_path)
+            
+        self._load_project_at_path(project_path)
+
+    def _load_project_at_path(self, path: Path):
+        """Unified logic to load a project from a path (file or folder)"""
+        from ..core.config_manager import ProjectTypeDetector, ConfigLoader, ProjectType
+        
+        if not path.exists():
+            return
+
+        if path.is_file():
+            project_root = path.parent
+            file_path = str(path)
+        else:
+            project_root = path
+            file_path = None
             
         # Detect project type
         project_type = ProjectTypeDetector.detect(project_root)
@@ -702,10 +722,11 @@ class DaVinciMainWindow(QMainWindow):
         def_search_paths = ConfigLoader.get_def_search_paths(project_root)
         
         try:
-            if project_type == ProjectType.VECTOR and file_path:
+            if project_type == ProjectType.VECTOR and (file_path or path.is_file()):
                 # Use existing .dpa loading logic
-                self.current_project, failed_modules = self.workspace_manager.load_project(Path(file_path))
-                self.current_project_file = Path(file_path)
+                load_path = Path(file_path) if file_path else path
+                self.current_project, failed_modules = self.workspace_manager.load_project(load_path)
+                self.current_project_file = load_path
             else:
                 # EB project: Create a new project from folder
                 # For now, we just set up the search paths and let user add modules manually
@@ -763,6 +784,9 @@ class DaVinciMainWindow(QMainWindow):
             
             # Auto-select first module
             self.tree_view.select_first_module()
+            
+            # Save as last loaded project for auto-loading next time
+            self.settings.setValue("last_project_path", str(self.current_project_file))
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load project:\n{str(e)}")
@@ -2218,13 +2242,16 @@ except Exception as e:
             """
         )
     
-    def _update_recent_files_menu(self):
-        """Update recent files menu with current list"""
-        # TODO: Implement fully
-        self.recent_files_menu.clear()
-        no_files_action = QAction("(No recent files)", self)
-        no_files_action.setEnabled(False)
         self.recent_files_menu.addAction(no_files_action)
+        
+    def _auto_load_last_project(self):
+        """Automatically load the last project from settings"""
+        last_path = self.settings.value("last_project_path")
+        if last_path:
+            path = Path(last_path)
+            if path.exists():
+                self.statusbar.showMessage(f"Auto-loading last project: {path.name}...")
+                self._load_project_at_path(path)
     
     def closeEvent(self, event):
         """Handle window close event - check for unsaved changes"""

@@ -222,10 +222,14 @@ class DependencyAnalyzer:
             
             try:
                 response = self.gemini_client.generate_response(prompt, timeout=60)
-                ai_dependencies = self._parse_ai_response(response)
-                dependencies.extend(ai_dependencies)
+                print(f"[DEP] Raw AI Response:\n{response}\n[DEP] End of Raw Response")
+                if response.startswith("🌍") or response.startswith("❌"):
+                    print(f"[DEP] AI Analysis unavailable: {response}")
+                else:
+                    ai_dependencies = self._parse_ai_response(response)
+                    dependencies.extend(ai_dependencies)
             except Exception as e:
-                print(f"AI analysis failed: {e}")
+                print(f"[DEP] AI analysis failed with exception: {e}")
         
         # 3. If no dependencies found, use heuristic fallback
         if not dependencies:
@@ -244,7 +248,7 @@ class DependencyAnalyzer:
             summary_lines.append(f"\n## 模块: {module_name}")
             # Group by container
             by_container = {}
-            for p in params[:50]:  # Limit to avoid token overflow
+            for p in params[:500]:  # Increased limit to 500
                 container = p['container']
                 if container not in by_container:
                     by_container[container] = []
@@ -254,35 +258,30 @@ class DependencyAnalyzer:
             
             for container, param_list in by_container.items():
                 summary_lines.append(f"### {container}")
-                summary_lines.extend(param_list[:10])  # Limit per container
+                summary_lines.extend(param_list[:50])  # Increased limit per container to 50
         
         params_summary = "\n".join(summary_lines)
         
-        prompt = f"""你是一个AUTOSAR BSW配置专家。请分析以下多个模块的参数配置，找出可能存在的跨模块依赖关系。
+        prompt = f"""你是一个高级 AUTOSAR BSW 配置专家。请深度分析以下模块的参数配置，识别出它们之间潜在的耦合与依赖关系。
+        
+【分析重点】
+1. **时钟一致性**：检查时钟引用(ClockRef/ClockSource)与频率参数(Frequency/Hz)之间的关联。
+2. **硬件绑定**：检查驱动对象(DriverObject)与硬件通道(HwUnit/Channel)的映射。
+3. **性能约束**：检查周期(Period/LoopTime)与处理能力之间的平衡点。
+4. **功能链**：检查使能开关(Enable/Status)是否是其他功能运行的前提。
 
-跨模块依赖是指：模块A中的参数X的值会影响或约束模块B中的参数Y的值。
-
+【参数列表】
 {params_summary}
 
-【重要约束】
-1. 你只能使用上述列表中**实际存在**的参数名称
-2. **禁止创造或猜测**不在上述列表中的参数名
-3. 源参数和目标参数都必须来自上述列表
-4. 如果你不确定某个参数是否存在，请不要输出该规则
+【输出要求】
+1. 每一行输出一条规则，严格遵循格式：`MODULE.PARAM 条件 值 -> MODULE.PARAM 条件 期望值 | 详细原因`
+2. 条件必须是 [=, !=, >, <, >=, <=, exists] 之一。
+3. 原因部分必须包含：逻辑推断依据、潜在风险说明。
+4. 必须只回答发现的规则，如果没有发现任何依赖，输出 "NO_DEPENDENCIES"。
+5. 只使用列表中存在的参数名。
 
-请识别可能的依赖关系，按以下格式输出（每行一条规则）：
-
-MODULE.PARAM 条件 值 -> MODULE.PARAM 条件 期望值 | 详细原因
-
-【原因说明要求】
-- 原因部分需要**详细说明**为什么存在这个依赖
-- 包括：技术背景、可能导致的问题、AUTOSAR规范依据（如有）
-- 长度：20-50个字
-
-例如：
-Adc.AdcPrescale > 64 -> Mcu.McuClockFrequency >= 40000000 | ADC采样率受时钟影响，分频系数过大时需提高MCU主频确保转换精度
-
-请只输出规则，不要有其他说明。如果没有发现依赖关系，输出 "NO_DEPENDENCIES"。"""
+示例：
+Mcu.McuClockFrequency < 80000000 -> Adc.AdcPrescale >= 2 | 主频较低时需调大预分频系数以保证ADC采样电荷泵稳定"""
 
         return prompt
     
@@ -300,9 +299,10 @@ Adc.AdcPrescale > 64 -> Mcu.McuClockFrequency >= 40000000 | ADC采样率受时�
             if not line or line.startswith('#'):
                 continue
             
-            # Try to parse: SOURCE = VALUE -> TARGET REQUIREMENT EXPECTED | REASON
+            # Try to parse: SOURCE COND VAL -> TARGET COND VAL | REASON
+            # Improved regex to handle spaces and various characters more robustly
             match = re.match(
-                r'(\S+)\s*([=<>!]+)\s*(\S+)\s*->\s*(\S+)\s*([=<>!]+)\s*(\S+)\s*\|\s*(.+)',
+                r'([A-Za-z0-9_.]+)\s*([=<>!]+|exists)\s*(\S+)\s*->\s*([A-Za-z0-9_.]+)\s*([=<>!]+|exists)\s*(\S+)\s*\|\s*(.+)',
                 line
             )
             if match:
@@ -443,8 +443,15 @@ Adc.AdcPrescale > 64 -> Mcu.McuClockFrequency >= 40000000 | ADC采样率受时�
                     "[x]" if dep.get('status') == 'confirmed' else "[-]"
                 )
                 origin = dep.get('origin', '❓ 未知')
+                # Use emojis for clarity
+                origin_map = {
+                    '🤖 AI': '🤖 AI 智能推断',
+                    '📋 定义': '📋 模块定义',
+                    '📄 配置': '📄 配置引用'
+                }
+                display_origin = origin_map.get(origin, origin)
                 lines.append(
-                    f"| {i} | {status} | {origin} | `{dep['source_param']}` | "
+                    f"| {i} | {status} | {display_origin} | `{dep['source_param']}` | "
                     f"{dep['source_condition']} {dep['source_value']} | "
                     f"`{dep['target_param']}` | "
                     f"{dep['target_condition']} {dep['target_value']} | "
