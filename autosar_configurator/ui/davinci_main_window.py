@@ -1548,12 +1548,21 @@ class DaVinciMainWindow(QMainWindow):
             
             self.statusbar.showMessage("Generating code...")
             
+            # Get variant overrides if in project mode with active variant
+            variant_overrides = {}
+            variant_name = None
+            if hasattr(self, 'current_project') and self.current_project:
+                variant_name = self.current_project.active_variant
+                if variant_name and self.config_manager.configuration:
+                    variant_overrides = self.config_manager.configuration.variant_overrides.get(variant_name, {})
+            
             generator = CodeGenerator(
                 self.module_def,
-                self.config_manager.configuration
+                self.config_manager.configuration,
+                variant_overrides=variant_overrides
             )
             
-            generator.generate_all(Path(output_dir))
+            generator.generate_all(Path(output_dir), variant=variant_name)
             
             QMessageBox.information(
                 self,
@@ -1575,15 +1584,20 @@ class DaVinciMainWindow(QMainWindow):
         if not self.current_project:
             return
         
-        # Select output directory
+        # Default output directory is project_path/generateCode
+        project_dir = self.current_project.path.parent if self.current_project.path else Path.home()
+        default_output = project_dir / "generateCode"
+        
+        # Ask user to confirm or change output directory
         output_dir = QFileDialog.getExistingDirectory(
             self,
-            "Select Project Output Directory",
-            str(Path.home())
+            "选择代码生成输出目录",
+            str(default_output)
         )
         
+        # If user cancels, use default
         if not output_dir:
-            return
+            output_dir = str(default_output)
         
         from ..generator.generator import CodeGenerator
         from PySide6.QtWidgets import QProgressDialog
@@ -1601,28 +1615,44 @@ class DaVinciMainWindow(QMainWindow):
             finished = Signal(str, str, str) # module_name, status (GEN/SKIP/FAIL), message
 
         class GenWorker(QRunnable):
-            def __init__(self, name, manager, out_path):
+            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None):
                 super().__init__()
                 self.name = name
                 self.manager = manager
                 self.out_path = out_path
+                self.variant_name = variant_name
+                self.variant_overrides = variant_overrides or {}
                 self.signals = GenSignals()
                 
             @Slot()
             def run(self):
                 try:
-                    # Create module output dir
+                    print(f"[GEN] Starting generation for: {self.name}")
+                    # Create module output dir (with variant subdirectory if specified)
                     mod_out = self.out_path / self.name
-                    mod_out.mkdir(exist_ok=True)
+                    if self.variant_name:
+                        mod_out = mod_out / self.variant_name
+                    mod_out.mkdir(parents=True, exist_ok=True)
+                    print(f"[GEN] Output dir: {mod_out}")
                     
-                    # Generate
-                    generator = CodeGenerator(self.manager.module_def, self.manager.configuration)
+                    # Generate with variant overrides
+                    print(f"[GEN] Creating CodeGenerator...")
+                    generator = CodeGenerator(
+                        self.manager.module_def, 
+                        self.manager.configuration,
+                        variant_overrides=self.variant_overrides
+                    )
+                    print(f"[GEN] CodeGenerator created, calling generate_all...")
                     # Pass force=False to enable incremental check
                     generated = generator.generate_all(mod_out, force=False)
+                    print(f"[GEN] Generation completed: {generated}")
                     
                     status = "GEN" if generated else "SKIP"
                     self.signals.finished.emit(self.name, status, "")
                 except Exception as e:
+                    print(f"[GEN] ERROR: {e}")
+                    import traceback
+                    traceback.print_exc()
                     self.signals.finished.emit(self.name, "FAIL", str(e))
 
         # --- Setup Progress ---
@@ -1648,27 +1678,52 @@ class DaVinciMainWindow(QMainWindow):
         
         # --- Completion Handler ---
         def on_module_done(name, status, msg):
-            if self._gen_progress.wasCanceled():
+            print(f"[GEN] Signal received: {name} -> {status}")
+            # Capture reference at start to avoid race condition
+            progress = self._gen_progress
+            stats = self._gen_stats
+            
+            # Check if already cleaned up (race condition with multiple signals)
+            if progress is None or stats is None:
+                print(f"[GEN] Skipping (already finalized)")
+                return
+            if progress.wasCanceled():
                 return
                 
             self._gen_processed += 1
-            self._gen_progress.setValue(self._gen_processed)
-            self._gen_progress.setLabelText(f"Processed {name} ({status})...")
+            
+            # Update progress UI safely
+            try:
+                progress.setValue(self._gen_processed)
+                progress.setLabelText(f"Processed {name} ({status})...")
+            except RuntimeError:
+                # Widget may have been deleted
+                pass
             
             if status == "GEN":
-                self._gen_stats['generated'].append(name)
+                stats['generated'].append(name)
             elif status == "SKIP":
-                self._gen_stats['skipped'].append(name)
+                stats['skipped'].append(name)
             else:
-                self._gen_stats['failed'].append((name, msg))
+                stats['failed'].append((name, msg))
             
             # Check if all done
             if self._gen_processed >= self._gen_total:
                 finalize_generation()
 
         def finalize_generation():
+            # Guard against multiple calls
+            if self._gen_stats is None:
+                return
+            
             # Show summary
             stats = self._gen_stats
+            
+            # Cleanup first to prevent re-entry
+            self._gen_progress = None
+            self._gen_stats = None
+            self._gen_workers = None
+            
             summary = "Code generation completed!\n\n"
             
             if stats['generated']:
@@ -1691,21 +1746,31 @@ class DaVinciMainWindow(QMainWindow):
                 f"Generated: {len(stats['generated'])}, Skipped: {len(stats['skipped'])}, Failed: {len(stats['failed'])}",
                 5000
             )
-            
-            # Cleanup
-            self._gen_progress = None
-            self._gen_stats = None
 
         # --- Start Workers ---
+        # Get current variant info
+        variant_name = self.current_project.active_variant if self.current_project else None
+        
+        # Keep references to prevent garbage collection
+        self._gen_workers = []
+        
         for name, manager in modules:
             if not manager.configuration:
                 # Should not happen if strictly managed, but handle safe
                 self._gen_stats['skipped'].append(name + " (No Config)")
                 self._gen_processed += 1
                 continue
+            
+            # Get variant overrides for this module
+            variant_overrides = {}
+            if variant_name and manager.configuration:
+                variant_overrides = manager.configuration.variant_overrides.get(variant_name, {})
                 
-            worker = GenWorker(name, manager, output_path)
-            worker.signals.finished.connect(on_module_done)
+            worker = GenWorker(name, manager, output_path, variant_name, variant_overrides)
+            worker.setAutoDelete(False)  # Prevent automatic deletion
+            # Use QueuedConnection for cross-thread signal delivery
+            worker.signals.finished.connect(on_module_done, QtCore_Qt.QueuedConnection)
+            self._gen_workers.append(worker)  # Keep reference
             self.thread_pool.start(worker)
     
     def launch_quick_config_wizard(self):
