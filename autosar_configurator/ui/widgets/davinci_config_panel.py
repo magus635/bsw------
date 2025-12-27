@@ -298,8 +298,15 @@ class DaVinciConfigPanel(QWidget):
                 variant = self.project.active_variant
                 module_config = instance.module_config
                 if module_config:
-                    param_path = f"{instance.short_name}.{param_name}"
+                    # Try full path first (new format)
+                    param_path = f"{instance.get_path()}.{param_name}"
                     override_value, is_override = module_config.get_value_for_variant(param_path, variant)
+                    
+                    # Fallback to short path for backward compatibility with old saved data
+                    if not is_override:
+                        short_path = f"{instance.short_name}.{param_name}"
+                        override_value, is_override = module_config.get_value_for_variant(short_path, variant)
+                    
                     if is_override:
                         current_value = override_value
                         is_variant_override = True
@@ -596,7 +603,7 @@ class DaVinciConfigPanel(QWidget):
             variant = self.project.active_variant
             module_config = self.current_instance.module_config
             if module_config:
-                param_path = f"{self.current_instance.short_name}.{param_name}"
+                param_path = f"{self.current_instance.get_path()}.{param_name}"
                 module_config.set_value_for_variant(param_path, value, variant)
                 # Still emit signal for UI updates (status bar, etc.)
                 self.parameter_changed.emit(self.current_instance, param_name, value)
