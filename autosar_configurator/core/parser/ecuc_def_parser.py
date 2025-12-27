@@ -86,8 +86,8 @@ class EcucDefParser:
         # Parse CONTAINERS
         containers_elem = self._find_descendant(element, 'CONTAINERS')
         if containers_elem is not None:
-            # Find all container defs
-            for container_elem in self._findall_descendants(containers_elem, 'ECUC-PARAM-CONF-CONTAINER-DEF'):
+            # Find only immediate container defs (not all descendants)
+            for container_elem in self._findall_children(containers_elem, 'ECUC-PARAM-CONF-CONTAINER-DEF'):
                 container_def = self._parse_container_def(container_elem)
                 if container_def:
                     # Set full definition reference path
@@ -140,7 +140,8 @@ class EcucDefParser:
         # Parse REFERENCES
         refs_elem = self._find_descendant(element, 'REFERENCES')
         if refs_elem is not None:
-            for ref_elem in self._findall_descendants(refs_elem, 'ECUC-REFERENCE-DEF'):
+            # Find only immediate reference defs
+            for ref_elem in self._findall_children(refs_elem, 'ECUC-REFERENCE-DEF'):
                 ref_def = self._parse_reference_def(ref_elem, current_path)
                 if ref_def:
                     container_def.add_reference(ref_def)
@@ -148,7 +149,8 @@ class EcucDefParser:
         # Parse SUB-CONTAINERS (recursive)
         sub_conts_elem = self._find_descendant(element, 'SUB-CONTAINERS')
         if sub_conts_elem is not None:
-            for sub_cont_elem in self._findall_descendants(sub_conts_elem, 'ECUC-PARAM-CONF-CONTAINER-DEF'):
+            # Find only immediate sub-container defs
+            for sub_cont_elem in self._findall_children(sub_conts_elem, 'ECUC-PARAM-CONF-CONTAINER-DEF'):
                 sub_container_def = self._parse_container_def(sub_cont_elem, current_path)
                 if sub_container_def:
                     container_def.add_sub_container(sub_container_def)
@@ -319,6 +321,17 @@ class EcucDefParser:
             
         # 2. XPath local-name
         xpath = f".//*[local-name()='{tag_name}']"
+        return element.xpath(xpath)
+
+    def _findall_children(self, element: etree._Element, tag_name: str) -> List[etree._Element]:
+        """Find immediate children with tag_name, ignoring namespace"""
+        # 1. Try direct find with namespace
+        elems = element.findall(f"ar:{tag_name}", self.NAMESPACES)
+        if elems:
+            return elems
+            
+        # 2. XPath local-name
+        xpath = f"./*[local-name()='{tag_name}']"
         return element.xpath(xpath)
 
     def _get_short_name(self, element: etree._Element) -> Optional[str]:

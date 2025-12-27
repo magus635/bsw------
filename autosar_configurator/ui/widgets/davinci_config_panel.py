@@ -25,6 +25,7 @@ class DaVinciConfigPanel(QWidget):
     parameter_changed = Signal(EcucContainerValue, str, object)  # instance, param_name, value
     ai_help_requested = Signal(str, str)  # container_name, param_name - request AI help for parameter
     check_impact_requested = Signal(str, str)  # container_path, param_name - request impact analysis
+    reference_jump_requested = Signal(str)  # target_path - request navigation to referenced container
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -188,6 +189,9 @@ class DaVinciConfigPanel(QWidget):
         
         # Connect cell click to AI help request
         self.refs_table.cellClicked.connect(self._on_ref_cell_clicked)
+        
+        # Connect double-click for navigation
+        self.refs_table.cellDoubleClicked.connect(self._on_ref_cell_double_clicked)
         
         refs_layout.addWidget(self.refs_table)
         self.content_layout.addWidget(self.references_group)
@@ -462,6 +466,15 @@ class DaVinciConfigPanel(QWidget):
         search_text = self.param_search.text().lower()
         type_filter = self.type_filter.currentText()
         
+        # Map friendly names to internal Enum names
+        type_map = {
+            "Integer": "INTEGER",
+            "Float": "FLOAT",
+            "Boolean": "BOOLEAN",
+            "Enum": "ENUMERATION",
+            "String": "STRING"
+        }
+        
         for row in range(self.params_table.rowCount()):
             # Get parameter name and type
             name_item = self.params_table.item(row, 0)
@@ -483,7 +496,8 @@ class DaVinciConfigPanel(QWidget):
             if type_filter == "Required Only":
                 type_match = is_required
             elif type_filter != "All Types":
-                type_match = param_type == type_filter
+                target_type = type_map.get(type_filter, type_filter.upper())
+                type_match = param_type == target_type
             
             # Show/hide row based on both filters
             self.params_table.setRowHidden(row, not (text_match and type_match))
@@ -637,6 +651,31 @@ class DaVinciConfigPanel(QWidget):
         # Emit signal with special format for reference
         # Format: container_name, "REF:ref_name:dest_type"
         self.ai_help_requested.emit(container_name, f"REF:{ref_name}:{dest_type}")
+    
+    def _on_ref_cell_double_clicked(self, row: int, column: int):
+        """Handle double-click on references table - navigate to target container"""
+        if not self.current_instance:
+            return
+        
+        # Get the reference name from column 0
+        name_item = self.refs_table.item(row, 0)
+        if not name_item:
+            return
+        
+        ref_name = name_item.text()
+        
+        # Check if this reference is set and resolved
+        if ref_name in self.current_instance.reference_values:
+            ref_value = self.current_instance.reference_values[ref_name]
+            
+            if ref_value.is_resolved and ref_value.target is not None:
+                # Emit navigation signal with target path
+                target_path = ref_value.target.get_path()
+                self.reference_jump_requested.emit(target_path)
+            elif ref_value.value_ref:
+                # Try to navigate using the stored path even if not resolved
+                self.reference_jump_requested.emit(ref_value.value_ref)
+
     
     def update_ai_help(self, help_text: str):
         """Update AI help panel with response"""
@@ -804,9 +843,11 @@ class DaVinciConfigPanel(QWidget):
         # Helper to search containers in a manager
         def search_in_manager(manager):
             for container in manager.configuration.containers:
-                self._add_reference_targets(combo, container, ref_def)
+                self._add_reference_targets(combo, container, ref_def, added_paths=added_paths)
 
-        # Get available targets
+        # Get available targets - keep track of added paths to avoid duplicates
+        added_paths = set()
+        
         if hasattr(self, 'project') and self.project:
             # Search all modules in project
             for module_name, manager in self.project.module_managers.items():
@@ -816,11 +857,23 @@ class DaVinciConfigPanel(QWidget):
             # Single module mode
             search_in_manager(self.config_manager)
         
-        # Set current value
+        # Set current value - handle legacy /Config/ paths
         if current_value:
             index = combo.findData(current_value)
+            
+            # Try legacy path conversion if not found
+            if index < 0 and current_value.startswith("/Config/"):
+                # Try to find matching module-aware path
+                suffix = current_value[8:]  # Remove "/Config/"
+                for i in range(1, combo.count()):  # Skip "(Not set)"
+                    item_path = combo.itemData(i)
+                    if item_path and item_path.endswith("/" + suffix):
+                        index = i
+                        break
+            
             if index >= 0:
                 combo.setCurrentIndex(index)
+            # If still not found, keep at "Not set" (index 0)
         
         # Connect signal
         combo.currentIndexChanged.connect(
@@ -828,14 +881,21 @@ class DaVinciConfigPanel(QWidget):
         )
         
         return combo
+
     
-    def _add_reference_targets(self, combo: QComboBox, container: EcucContainerValue, ref_def, prefix=""):
+    def _add_reference_targets(self, combo: QComboBox, container: EcucContainerValue, ref_def, prefix="", added_paths=None):
         """Recursively add matching containers to combobox"""
         # Calculate full path for display
         display_name = f"{prefix}/{container.short_name}" if prefix else container.short_name
         
         # Use container's actual absolute path for value
         path = container.get_path()
+        
+        # Avoid duplicate entries
+        if added_paths is not None:
+            if path in added_paths:
+                return
+            added_paths.add(path)
         
         # Check if this container is a valid target
         container_def_ref = container.definition_ref or ""
@@ -848,21 +908,41 @@ class DaVinciConfigPanel(QWidget):
         if container_def_ref == dest_ref:
             is_match = True
         
-        # Strategy 2: Container def ref ends with destination ref
+        # Strategy 2: Container def ref ends with destination ref (for partial paths)
         elif dest_ref and container_def_ref.endswith(dest_ref):
             is_match = True
             
-        # Strategy 3: Destination ref ends with container def ref's suffix
-        elif container_def_ref and dest_ref.endswith(container_def_ref.split('/')[-1]):
-            is_match = True
-            
-        # Strategy 4: Compare last path component (type name)
-        else:
+        # Strategy 3: Destination ref ends with container's definition ref path
+        # (more strict - require the full container type path to match)
+        elif container_def_ref and dest_ref:
+            # Extract container type from definition_ref (e.g., "AdcChannel" from ".../AdcChannel")
             container_type = container_def_ref.split('/')[-1] if container_def_ref else ""
             dest_type = dest_ref.split('/')[-1] if dest_ref else ""
             
+            # Only match if types are equal AND the container's module path matches
+            # This prevents matching AdcChannel from Crypto module when looking for Adc's AdcChannel
             if container_type and dest_type and container_type == dest_type:
-                is_match = True
+                # Additional check: verify the module context makes sense
+                # Extract module name from destination ref (e.g., /AUTOSAR/EcucDefs/Adc/... -> Adc)
+                dest_parts = dest_ref.split('/')
+                container_parts = container_def_ref.split('/')
+                
+                # Get module name (typically after /AUTOSAR/EcucDefs/)
+                dest_module = None
+                for i, part in enumerate(dest_parts):
+                    if part == "EcucDefs" and i + 1 < len(dest_parts):
+                        dest_module = dest_parts[i + 1]
+                        break
+                
+                container_module = None
+                for i, part in enumerate(container_parts):
+                    if part == "EcucDefs" and i + 1 < len(container_parts):
+                        container_module = container_parts[i + 1]
+                        break
+                
+                # Only match if modules are the same (or if we couldn't determine module)
+                if dest_module is None or container_module is None or dest_module == container_module:
+                    is_match = True
         
         if is_match:
             # Build enhanced display name with parameter values
@@ -871,7 +951,7 @@ class DaVinciConfigPanel(QWidget):
         
         # Add sub-containers recursively
         for sub in container.sub_containers:
-            self._add_reference_targets(combo, sub, ref_def, display_name)
+            self._add_reference_targets(combo, sub, ref_def, display_name, added_paths=added_paths)
 
     def _on_table_context_menu(self, pos):
         """Show context menu for parameter table"""

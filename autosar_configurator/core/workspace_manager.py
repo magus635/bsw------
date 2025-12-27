@@ -65,23 +65,29 @@ class WorkspaceProject:
         return list(self.module_managers.values())
     
     def get_instance_by_path(self, path: str) -> Optional['EcucContainerValue']:
-        """Get a container instance by path, searching across all modules
+        """Get container instance by its full path from any module
         
         EMF-style global resolver: enables cross-module reference resolution.
-        
-        Args:
-            path: Full path to container instance (e.g., "/Config/Can/CanController_0")
-            
-        Returns:
-            EcucContainerValue if found, None otherwise
+        Supports both new module-aware paths (e.g., /Adc/AdcConfigSet)
+        and legacy /Config paths (e.g., /Config/AdcConfigSet) for backward compatibility.
         """
         from .model.configuration_model import EcucContainerValue
         
+        # 1. Try exact match (best for module-aware paths)
         for manager in self.module_managers.values():
             config = manager.configuration
             instance = config.get_instance_by_path(path)
             if instance is not None:
                 return instance
+        
+        # 2. Fallback for legacy /Config/ paths
+        if path.startswith("/Config/"):
+            suffix = path[8:]  # Remove "/Config/"
+            for module_name, manager in self.module_managers.items():
+                alt_path = f"/{module_name}/{suffix}"
+                instance = manager.configuration.get_instance_by_path(alt_path)
+                if instance is not None:
+                    return instance
         
         return None
     
@@ -128,11 +134,22 @@ class WorkspaceProject:
         """
         indexed_count = 0
         
+        # First, clear all existing referenced_by lists to avoid stale entries
+        def clear_referenced_by(container):
+            container.referenced_by.clear()
+            for sub in container.sub_containers:
+                clear_referenced_by(sub)
+        
+        for manager in self.module_managers.values():
+            for container in manager.configuration.containers:
+                clear_referenced_by(container)
+        
+        # Now build fresh index
         def process_container(container):
             nonlocal indexed_count
             
             for ref_name, ref_value in container.reference_values.items():
-                # Only process resolved references
+                # Only process resolved references with valid target
                 if ref_value.is_resolved and ref_value.target is not None:
                     # Add this reference to the target's referenced_by list
                     if ref_value not in ref_value.target.referenced_by:
@@ -149,6 +166,28 @@ class WorkspaceProject:
                 process_container(container)
         
         return indexed_count
+
+
+
+    def register_container_references(self, container: 'EcucContainerValue'):
+        """Recursively register all references in a container tree to their targets' referenced_by list"""
+        for ref_name, ref_value in container.reference_values.items():
+            if ref_value.is_resolved and ref_value.target is not None:
+                if ref_value not in ref_value.target.referenced_by:
+                    ref_value.target.referenced_by.append(ref_value)
+        
+        for sub in container.sub_containers:
+            self.register_container_references(sub)
+
+    def unregister_container_references(self, container: 'EcucContainerValue'):
+        """Recursively remove all references in a container tree from their targets' referenced_by list"""
+        for ref_name, ref_value in container.reference_values.items():
+            if ref_value.is_resolved and ref_value.target is not None:
+                if ref_value in ref_value.target.referenced_by:
+                    ref_value.target.referenced_by.remove(ref_value)
+        
+        for sub in container.sub_containers:
+            self.unregister_container_references(sub)
 
 
 class WorkspaceManager:

@@ -157,8 +157,10 @@ class DaVinciTreeView(QTreeWidget):
         # Add existing instances under this DEF node
         self._populate_instances(item, container_def, config_manager)
         
-        # Add "Add Instance..." node if multiple instances allowed or no instances yet
-        if container_def.is_multiple or len(instances) == 0:
+        # Add "Add Instance..." node if more instances can be added
+        # Check: is_multiple means unlimited OR check if under the limit
+        can_add_more = container_def.upper_multiplicity == -1 or instance_count < container_def.upper_multiplicity
+        if can_add_more:
             add_node = QTreeWidgetItem(["➕ Add Instance..."])
             add_node.setForeground(0, QBrush(QColor("#0066CC")))
             add_node.setData(0, Qt.UserRole, {"type": "ADD_PROMPT", "def": container_def, "parent_item": item, "manager": config_manager})
@@ -232,8 +234,9 @@ class DaVinciTreeView(QTreeWidget):
             sub_instance_item = self._create_instance_node(sub_instance, container_def, config_manager, parent_instance)
             item.addChild(sub_instance_item)
         
-        # Add "Add Instance..." prompt
-        if container_def.is_multiple or len(sub_instances) < container_def.upper_multiplicity:
+        # Add "Add Instance..." prompt only if more instances can be added
+        can_add_more = container_def.upper_multiplicity == -1 or len(sub_instances) < container_def.upper_multiplicity
+        if can_add_more:
             add_node = QTreeWidgetItem(["➕ Add Instance..."])
             add_node.setForeground(0, QBrush(QColor("#0066CC")))
             add_node.setData(0, Qt.UserRole, {
@@ -336,6 +339,22 @@ class DaVinciTreeView(QTreeWidget):
         """Add a new container instance"""
         manager = config_manager or self.config_manager
         if not manager:
+            return
+        
+        # Pre-validation: Check multiplicity limit before showing dialog
+        if parent_instance:
+            current_count = sum(1 for c in parent_instance.sub_containers if c.definition_ref == container_def.definition_ref)
+        else:
+            current_count = sum(1 for c in manager.configuration.containers if c.definition_ref == container_def.definition_ref)
+        
+        if container_def.upper_multiplicity != -1 and current_count >= container_def.upper_multiplicity:
+            QMessageBox.information(
+                self,
+                "无法添加实例",
+                f"已达到 {container_def.short_name} 的最大实例数限制 ({container_def.upper_multiplicity})。\n\n"
+                f"如需添加更多实例，请先删除现有实例或检查模块定义。",
+                QMessageBox.Ok
+            )
             return
 
         # Ask for instance name
@@ -495,6 +514,9 @@ class DaVinciTreeView(QTreeWidget):
             self.scrollToItem(best_match_item)
             best_match_item.setExpanded(True)
             
+            # Manually trigger click handler to update UI (right panel)
+            self._on_item_clicked(best_match_item, 0)
+            
             # Determine if there is a parameter part remaining
             # instance_path: /Config/Module/Container
             # target_path: /Config/Module/Container/Parameter
@@ -542,6 +564,8 @@ class DaVinciTreeView(QTreeWidget):
                     self.scrollToItem(item)
                     # Also expand it
                     item.setExpanded(True)
+                    # Manually trigger click handler
+                    self._on_item_clicked(item, 0)
                     return True
             
             for i in range(item.childCount()):
@@ -552,6 +576,10 @@ class DaVinciTreeView(QTreeWidget):
         for i in range(self.topLevelItemCount()):
             if traverse(self.topLevelItem(i)):
                 break
+    
+    def select_container(self, container: EcucContainerValue):
+        """Public API: Select and navigate to a container in the tree"""
+        self._select_instance(container)
     
     def _delete_instance(self, instance: EcucContainerValue, container_def: EcucContainerDef, parent_instance: Optional[EcucContainerValue] = None, config_manager: Optional[ConfigurationManager] = None):
         """Delete a container instance"""

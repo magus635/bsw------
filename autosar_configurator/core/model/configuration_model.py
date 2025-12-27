@@ -240,6 +240,10 @@ class EcucContainerValue:
     # Populated by WorkspaceProject.build_reverse_reference_index()
     referenced_by: List['EcucReferenceValue'] = field(default_factory=list, repr=False)
     
+    # Module association (for path uniqueness and registration)
+    module_name: str = ""
+    module_config: Optional['EcucModuleConfiguration'] = field(default=None, repr=False)
+    
     # Metadata
     index: int = 0  # Instance index (for sorting)
     is_modified: bool = False
@@ -252,7 +256,10 @@ class EcucContainerValue:
         """Get full path of this container instance"""
         if self.parent:
             return f"{self.parent.get_path()}/{self.short_name}"
-        return f"/Config/{self.short_name}"
+        
+        # Use module name if available to avoid cross-module clashing
+        root = f"/{self.module_name}" if self.module_name else "/Config"
+        return f"{root}/{self.short_name}"
     
     def set_parameter_value(self, param_name: str, value: Any, definition_ref: str):
         """Set or update a parameter value"""
@@ -281,7 +288,15 @@ class EcucContainerValue:
     def add_sub_container(self, sub_container: 'EcucContainerValue'):
         """Add a sub-container instance"""
         sub_container.parent = self
+        sub_container.module_name = self.module_name
+        sub_container.module_config = self.module_config
+        
         self.sub_containers.append(sub_container)
+        
+        # Register in module if possible
+        if self.module_config:
+            self.module_config._register_instance(sub_container)
+            
         self.mark_modified()
     
     def remove_sub_container(self, sub_container: 'EcucContainerValue'):
@@ -354,6 +369,20 @@ class EcucModuleConfiguration:
     
     def add_container(self, container: EcucContainerValue):
         """Add a top-level container instance"""
+        container.module_name = self.short_name
+        container.module_config = self
+        
+        # Recursively propagate module info to all sub-containers
+        # (important for containers loaded from ARXML where sub-containers
+        # were added before the top-level container was added to config)
+        def propagate_module_info(c: EcucContainerValue):
+            c.module_name = self.short_name
+            c.module_config = self
+            for sub in c.sub_containers:
+                propagate_module_info(sub)
+        
+        propagate_module_info(container)
+        
         self.containers.append(container)
         self._register_instance(container)
         self.is_modified = True

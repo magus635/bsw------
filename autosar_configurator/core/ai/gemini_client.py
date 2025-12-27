@@ -79,7 +79,7 @@ class GeminiClient:
                 if self._available_models:
                      selected_model_name = self._available_models[0]
                 else:
-                     selected_model_name = 'gemini-1.5-flash' # More robust default than legacy gemini-pro
+                     selected_model_name = 'gemini-2.5-flash' # Updated fallback model
             
             print(f"DEBUG: Selected model: {selected_model_name}")
             self.model = genai.GenerativeModel(selected_model_name)

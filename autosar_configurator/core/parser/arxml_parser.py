@@ -70,9 +70,9 @@ class ArxmlParser:
                 ar_packages_elem = self._find_descendant(root, 'AR-PACKAGES')
 
                 if ar_packages_elem is not None:
-                    # Parse all AR-PACKAGE elements
-                    ar_packages = self._findall_descendants(ar_packages_elem, 'AR-PACKAGE')
-
+                    # Parse only immediate AR-PACKAGE elements to avoid duplication
+                    ar_packages = self._findall_children(ar_packages_elem, 'AR-PACKAGE')
+                    
                     for ar_package in ar_packages:
                         # Parse AR-PACKAGE as a container
                         package_container = self._parse_ar_package(ar_package)
@@ -137,15 +137,14 @@ class ArxmlParser:
         elements = self._find_descendant(element, 'ELEMENTS')
 
         if elements is not None:
-            # Check for ECUC-MODULE-DEF elements (ECUC structure)
-            for module_def in self._findall_descendants(elements, 'ECUC-MODULE-DEF'):
-                ecuc_module = self.parse_ecuc_module_def(module_def)
-                if ecuc_module:
-                    package_container.add_sub_container(ecuc_module)
+            # Parse only immediate ECUC-MODULE-DEF elements
+            for module_def in self._findall_children(elements, 'ECUC-MODULE-DEF'):
+                module = self.parse_ecuc_module_def(module_def)
+                if module:
+                    package_container.add_sub_container(module)
             
-            # Parse all containers in elements (direct children only/generic container)
-            # Use specific findall for containers
-            for container_elem in self._findall_descendants(elements, 'CONTAINER'):
+            # Parse all containers in elements (direct children only)
+            for container_elem in self._findall_children(elements, 'CONTAINER'):
                 sub_container = self._parse_container(container_elem)
                 if sub_container:
                     package_container.add_sub_container(sub_container)
@@ -154,8 +153,8 @@ class ArxmlParser:
         ar_packages_elem = self._find_descendant(element, 'AR-PACKAGES')
 
         if ar_packages_elem is not None:
-            # Parse all AR-PACKAGE elements
-            for nested_package in self._findall_descendants(ar_packages_elem, 'AR-PACKAGE'):
+            # Parse only immediate AR-PACKAGE elements
+            for nested_package in self._findall_children(ar_packages_elem, 'AR-PACKAGE'):
                 nested_container = self._parse_ar_package(nested_package)
                 if nested_container:
                     package_container.add_sub_container(nested_container)
@@ -186,7 +185,7 @@ class ArxmlParser:
         param_container = self._find_descendant(element, 'PARAMETERS')
 
         if param_container is not None:
-            for param_elem in self._findall_descendants(param_container, 'PARAMETER'):
+            for param_elem in self._findall_children(param_container, 'PARAMETER'):
                 param = self._parse_parameter(param_elem)
                 if param:
                     container.add_parameter(param)
@@ -195,7 +194,7 @@ class ArxmlParser:
         sub_containers_elem = self._find_descendant(element, 'SUB-CONTAINERS')
 
         if sub_containers_elem is not None:
-            for container_elem in self._findall_descendants(sub_containers_elem, 'CONTAINER'):
+            for container_elem in self._findall_children(sub_containers_elem, 'CONTAINER'):
                 sub_container = self._parse_container(container_elem)
                 if sub_container:
                     container.add_sub_container(sub_container)
@@ -363,7 +362,8 @@ class ArxmlParser:
         # Parse CONTAINERS element
         containers_elem = self._find_descendant(element, 'CONTAINERS')
         if containers_elem is not None:
-            for cont_def in self._findall_descendants(containers_elem, 'ECUC-PARAM-CONF-CONTAINER-DEF'):
+            # Find only immediate container defs
+            for cont_def in self._findall_children(containers_elem, 'ECUC-PARAM-CONF-CONTAINER-DEF'):
                 sub_container = self._parse_ecuc_container_def(cont_def)
                 if sub_container:
                     module.add_sub_container(sub_container)
@@ -413,7 +413,8 @@ class ArxmlParser:
         # Parse REFERENCES
         refs_elem = self._find_descendant(element, 'REFERENCES')
         if refs_elem is not None:
-            for ref_def in self._findall_descendants(refs_elem, 'ECUC-REFERENCE-DEF'):
+            # Find only immediate reference defs
+            for ref_def in self._findall_children(refs_elem, 'ECUC-REFERENCE-DEF'):
                 ref = self._parse_ecuc_reference_def(ref_def)
                 if ref:
                     container.add_reference_def(ref)
@@ -421,7 +422,8 @@ class ArxmlParser:
         # Parse SUB-CONTAINERS recursively
         sub_conts_elem = self._find_descendant(element, 'SUB-CONTAINERS')
         if sub_conts_elem is not None:
-            for sub_cont_def in self._findall_descendants(sub_conts_elem, 'ECUC-PARAM-CONF-CONTAINER-DEF'):
+            # Find only immediate sub-container defs
+            for sub_cont_def in self._findall_children(sub_conts_elem, 'ECUC-PARAM-CONF-CONTAINER-DEF'):
                 sub_container = self._parse_ecuc_container_def(sub_cont_def)
                 if sub_container:
                     container.add_sub_container(sub_container)
@@ -542,7 +544,8 @@ class ArxmlParser:
         # Parse containers
         containers_elem = self._find_descendant(element, 'CONTAINERS')
         if containers_elem is not None:
-            for container_elem in self._findall_descendants(containers_elem, 'ECUC-CONTAINER-VALUE'):
+            # Find only immediate container values
+            for container_elem in self._findall_children(containers_elem, 'ECUC-CONTAINER-VALUE'):
                 container = self._parse_ecuc_container_value(container_elem)
                 if container:
                     config.add_container(container)
@@ -567,23 +570,24 @@ class ArxmlParser:
         param_values_elem = self._find_descendant(element, 'PARAMETER-VALUES')
         if param_values_elem is not None:
             # Parse numerical values
-            for param_elem in self._findall_descendants(param_values_elem, 'ECUC-NUMERICAL-PARAM-VALUE'):
+            for param_elem in self._findall_children(param_values_elem, 'ECUC-NUMERICAL-PARAM-VALUE'):
                 self._parse_ecuc_parameter_value(param_elem, container)
                 
             # Parse textual values
-            for param_elem in self._findall_descendants(param_values_elem, 'ECUC-TEXTUAL-PARAM-VALUE'):
+            for param_elem in self._findall_children(param_values_elem, 'ECUC-TEXTUAL-PARAM-VALUE'):
                 self._parse_ecuc_parameter_value(param_elem, container)
                 
         # Parse references
         ref_values_elem = self._find_descendant(element, 'REFERENCE-VALUES')
         if ref_values_elem is not None:
-            for ref_elem in self._findall_descendants(ref_values_elem, 'ECUC-REFERENCE-VALUE'):
+            for ref_elem in self._findall_children(ref_values_elem, 'ECUC-REFERENCE-VALUE'):
                 self._parse_ecuc_reference_value(ref_elem, container)
                 
         # Parse sub-containers
         sub_containers_elem = self._find_descendant(element, 'SUB-CONTAINERS')
         if sub_containers_elem is not None:
-            for sub_elem in self._findall_descendants(sub_containers_elem, 'ECUC-CONTAINER-VALUE'):
+            # Find only immediate sub-container values
+            for sub_elem in self._findall_children(sub_containers_elem, 'ECUC-CONTAINER-VALUE'):
                 sub_container = self._parse_ecuc_container_value(sub_elem)
                 if sub_container:
                     sub_container.parent = container
@@ -663,6 +667,17 @@ class ArxmlParser:
             
         # 2. XPath local-name
         xpath = f".//*[local-name()='{tag_name}']"
+        return element.xpath(xpath)
+
+    def _findall_children(self, element: etree._Element, tag_name: str) -> List[etree._Element]:
+        """Find immediate children with tag_name, ignoring namespace"""
+        # 1. Try direct find with namespace
+        elems = element.findall(f"ar:{tag_name}", self.NAMESPACES)
+        if elems:
+            return elems
+            
+        # 2. XPath local-name
+        xpath = f"./*[local-name()='{tag_name}']"
         return element.xpath(xpath)
 
     def _get_short_name(self, element: etree._Element) -> Optional[str]:

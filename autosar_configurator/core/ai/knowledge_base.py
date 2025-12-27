@@ -119,7 +119,7 @@ class KnowledgeBase:
         print(f"Transcribing image: {image_path}...")
         try:
             img = Image.open(image_path)
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            model = genai.GenerativeModel('gemini-2.5-flash')
             
             prompt = (
                 "Transcribe the text in this image verbatim. "

@@ -1,0 +1,36 @@
+{
+  "format_version": 3,
+  "tool_version": "1.0.0",
+  "project_type": "Vector DaVinci",
+  "name": "\u7231\u4ed6",
+  "created": "2025-12-05T21:40:37.381443",
+  "last_modified": "2025-12-27T12:01:11.387713",
+  "author": "",
+  "description": "",
+  "version": "1.0.0",
+  "def_search_paths": [],
+  "variants": [],
+  "active_variant": null,
+  "modules": [
+    {
+      "name": "Adc",
+      "def_path": "/Users/qlwang/Documents/codegenerator_1111/epd/Adc_THA6206_LFBGA292.arxml",
+      "config_path": "Adc_Config.arxml"
+    },
+    {
+      "name": "Crypto",
+      "def_path": "/Users/qlwang/Documents/codegenerator_1111/epd/Crypto_THA6206_LFBGA292.arxml",
+      "config_path": "Crypto_Config.arxml"
+    },
+    {
+      "name": "Spi",
+      "def_path": "/Users/qlwang/Documents/codegenerator_1111/epd/Spi_THA6206_LFBGA292.arxml",
+      "config_path": "Spi_Config.arxml"
+    },
+    {
+      "name": "Mcu",
+      "def_path": "/Users/qlwang/Documents/codegenerator_1111/epd/Mcu_THA6206_LFBGA292.arxml",
+      "config_path": "Mcu_Config.arxml"
+    }
+  ]
+}

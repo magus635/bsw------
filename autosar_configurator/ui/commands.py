@@ -65,6 +65,10 @@ class SetReferenceCommand(QUndoCommand):
         self.setText(f"Set Reference {ref_name}")
 
     def redo(self):
+        # Capture old target object for reverse reference cleanup
+        old_ref_value = self.instance.reference_values.get(self.ref_name)
+        old_target_obj = old_ref_value.target if old_ref_value else None
+        
         if self.new_target:
             # We need the definition ref for the reference
             container_def = self.config_manager.get_container_def(self.instance.definition_ref)
@@ -87,6 +91,10 @@ class SetReferenceCommand(QUndoCommand):
                     if target:
                         ref_value.target = target
                         ref_value.resolution_error = None
+                        
+                        # UPDATE REVERSE REFERENCE
+                        if ref_value not in target.referenced_by:
+                            target.referenced_by.append(ref_value)
                     else:
                         # Set resolution error
                         from ..core.model.configuration_model import ResolutionError
@@ -94,23 +102,54 @@ class SetReferenceCommand(QUndoCommand):
                             ResolutionError.PATH_NOT_FOUND,
                             self.new_target
                         )
+                    
+                    # CLEANUP OLD REVERSE REFERENCE
+                    if old_target_obj and old_ref_value in old_target_obj.referenced_by:
+                        old_target_obj.referenced_by.remove(old_ref_value)
         else:
             # Clear reference
             if self.ref_name in self.instance.reference_values:
+                # CLEANUP OLD REVERSE REFERENCE
+                if old_target_obj and old_ref_value in old_target_obj.referenced_by:
+                    old_target_obj.referenced_by.remove(old_ref_value)
+                    
                 del self.instance.reference_values[self.ref_name]
                 self.instance.mark_modified()
 
     def undo(self):
+        # Capture current (to-be-undone) target object for cleanup
+        current_ref_value = self.instance.reference_values.get(self.ref_name)
+        current_target_obj = current_ref_value.target if current_ref_value else None
+        
         if self.old_target:
             container_def = self.config_manager.get_container_def(self.instance.definition_ref)
             if container_def and self.ref_name in container_def.references:
                 ref_def = container_def.references[self.ref_name]
                 self.instance.set_reference_value(self.ref_name, self.old_target, ref_def.definition_ref)
+                
+                # Re-resolve old target
+                ref_value = self.instance.reference_values.get(self.ref_name)
+                if ref_value:
+                    target = None
+                    if hasattr(self.config_manager, 'project_context') and self.config_manager.project_context:
+                        target = self.config_manager.project_context.get_instance_by_path(self.old_target)
+                    if target is None:
+                        target = self.config_manager.configuration.get_instance_by_path(self.old_target)
+                    
+                    if target:
+                        ref_value.target = target
+                        # RESTORE REVERSE REFERENCE
+                        if ref_value not in target.referenced_by:
+                            target.referenced_by.append(ref_value)
         else:
-            # Clear reference
+            # Was originally empty
             if self.ref_name in self.instance.reference_values:
                 del self.instance.reference_values[self.ref_name]
                 self.instance.mark_modified()
+        
+        # CLEANUP UNDONE REVERSE REFERENCE
+        if current_target_obj and current_ref_value in current_target_obj.referenced_by:
+            current_target_obj.referenced_by.remove(current_ref_value)
 
 class CreateContainerCommand(QUndoCommand):
     """Command to create a container instance"""
@@ -143,8 +182,12 @@ class CreateContainerCommand(QUndoCommand):
                 self.parent_instance.add_sub_container(self.created_instance)
             else:
                 self.config_manager.configuration.add_container(self.created_instance)
+                
+            # Update reverse references if in project context
+            if hasattr(self.config_manager, 'project_context') and self.config_manager.project_context:
+                self.config_manager.project_context.register_container_references(self.created_instance)
         else:
-            # First time creation
+            # First time creation (initially empty, no references to register)
             self.created_instance = self.config_manager.create_container_instance(
                 self.container_def,
                 parent=self.parent_instance,
@@ -153,6 +196,10 @@ class CreateContainerCommand(QUndoCommand):
 
     def undo(self):
         if self.created_instance:
+            # Update reverse references if in project context (unregister)
+            if hasattr(self.config_manager, 'project_context') and self.config_manager.project_context:
+                self.config_manager.project_context.unregister_container_references(self.created_instance)
+                
             self.config_manager.delete_container_instance(
                 self.created_instance,
                 parent=self.parent_instance
@@ -173,6 +220,10 @@ class DeleteContainerCommand(QUndoCommand):
         self.setText(f"Delete {instance.short_name}")
 
     def redo(self):
+        # Update reverse references if in project context (unregister)
+        if hasattr(self.config_manager, 'project_context') and self.config_manager.project_context:
+            self.config_manager.project_context.unregister_container_references(self.instance)
+            
         self.config_manager.delete_container_instance(
             self.instance,
             parent=self.parent_instance
@@ -181,6 +232,10 @@ class DeleteContainerCommand(QUndoCommand):
     def undo(self):
         # Restore the instance
         self.config_manager.add_container_instance(self.instance, self.parent_instance)
+        
+        # Update reverse references if in project context (register)
+        if hasattr(self.config_manager, 'project_context') and self.config_manager.project_context:
+            self.config_manager.project_context.register_container_references(self.instance)
 
 class MoveContainerCommand(QUndoCommand):
     """Command to move a container to a new parent or reorder"""
@@ -218,6 +273,11 @@ class MoveContainerCommand(QUndoCommand):
         self._move(self.instance, self.new_parent, self.old_parent, self.old_index)
         
     def _move(self, instance, source_parent, target_parent, target_index):
+        # Update reverse references if in project context (unregister before move if path changes, 
+        # but paths are relative. Actually referenced_by uses object pointers so it's mostly safe.
+        # However, if references inside the moved tree resolve differently, we might need a re-resolve.
+        # For now, let's keep it simple as referenced_by is object-based.)
+        
         # Remove from source
         if source_parent:
             if instance in source_parent.sub_containers:
@@ -262,6 +322,13 @@ class PasteContainerCommand(QUndoCommand):
         
     def redo(self):
         self.config_manager.add_container_instance(self.new_instance, self.parent_instance)
+        # Update reverse references if in project context
+        if hasattr(self.config_manager, 'project_context') and self.config_manager.project_context:
+            self.config_manager.project_context.register_container_references(self.new_instance)
         
     def undo(self):
+        # Update reverse references if in project context
+        if hasattr(self.config_manager, 'project_context') and self.config_manager.project_context:
+            self.config_manager.project_context.unregister_container_references(self.new_instance)
+            
         self.config_manager.delete_container_instance(self.new_instance, self.parent_instance)

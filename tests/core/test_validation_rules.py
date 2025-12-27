@@ -255,7 +255,7 @@ class TestReferenceIntegrityRule:
         )
         container_a.set_reference_value(
             "RefToB",
-            "/Config/ContainerB_0",
+            container_b.get_path(),  # Use actual container path
             "/AUTOSAR/EcucDefs/Test/ContainerA/RefToB"
         )
         config.add_container(container_a)
@@ -303,7 +303,7 @@ class TestReferenceIntegrityRule:
         )
         container_a.set_reference_value(
             "RefToB",
-            "/Config/ContainerB_0",
+            container_b.get_path(),  # Use actual container path
             "/AUTOSAR/EcucDefs/Test/ContainerA/RefToB"
         )
         config.add_container(container_a)

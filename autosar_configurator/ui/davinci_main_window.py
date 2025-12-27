@@ -143,6 +143,7 @@ class DaVinciMainWindow(QMainWindow):
         self.config_panel.parameter_changed.connect(self._on_parameter_changed)
         self.config_panel.ai_help_requested.connect(self._on_ai_help_requested)
         self.config_panel.check_impact_requested.connect(self._handle_check_impact)
+        self.config_panel.reference_jump_requested.connect(self._on_reference_jump_requested)
         splitter.addWidget(self.config_panel)
         
         # Set splitter proportions
@@ -2282,10 +2283,32 @@ except Exception as e:
         self.settings.setValue("windowState", self.saveState())
         event.accept()
 
+    def _on_reference_jump_requested(self, target_path: str):
+        """Navigate to the referenced container in the tree view"""
+        if not target_path:
+            return
+        
+        # Try to find the container in tree
+        target_container = None
+        
+        # First try exact path
+        if self.current_project:
+            target_container = self.current_project.get_instance_by_path(target_path)
+        elif self.config_manager:
+            target_container = self.config_manager.configuration.get_instance_by_path(target_path)
+        
+        if target_container:
+            # Find and select the item in the tree
+            self.tree_view.select_container(target_container)
+            self.statusbar.showMessage(f"Navigated to: {target_path}", 3000)
+        else:
+            self.statusbar.showMessage(f"Could not find: {target_path}", 3000)
+    
     def _handle_check_impact(self, container_path: str, param_name: str):
         """Analyze and show impact of changing a parameter"""
         if not self.config_manager or not self.current_project:
             return
+
             
         from ..core.analysis.impact_analyzer import ImpactAnalyzer
         from PySide6.QtWidgets import QDialog, QVBoxLayout, QListWidget, QLabel, QDialogButtonBox
