@@ -16,7 +16,8 @@ class TemplateEngine:
     """
     
     def __init__(self):
-        self.var_pattern = re.compile(r'\{\{\s*([a-zA-Z_][a-zA-Z0-9_\.]*)\s*\}\}')
+        # Support variable with optional filter: {{ var | filter }}
+        self.var_pattern = re.compile(r'\{\{\s*(.+?)\s*\}\}')
         # Split patterns for manual parsing
         self.for_start_pattern = re.compile(r'\{%\s*for\s+(\w+)\s+in\s+([a-zA-Z_][a-zA-Z0-9_\.]*)\s*%\}')
         self.for_end_pattern = re.compile(r'\{%\s*endfor\s*%\}')
@@ -192,8 +193,17 @@ class TemplateEngine:
         return self.var_pattern.sub(replace_var, template)
     
     def _get_value(self, var_name: str, context: Dict[str, Any]) -> Any:
-        """Get value from context, supporting dot notation"""
-        parts = var_name.split('.')
+        """Get value from context, supporting dot notation and filters"""
+        # Handle filters first (e.g., var|length or var|upper)
+        filter_name = None
+        if '|' in var_name:
+            var_name, filter_name = var_name.split('|', 1)
+            var_name = var_name.strip()
+            filter_name = filter_name.strip()
+            
+        # Handle method calls in dot notation (e.g., var.upper())
+        # We simplify by stripping () if present
+        parts = [p.replace('()', '') for p in var_name.split('.')]
         value = context
         
         for part in parts:
@@ -201,9 +211,27 @@ class TemplateEngine:
                 value = value.get(part)
             elif hasattr(value, part):
                 value = getattr(value, part)
+                # Auto-call if it's a simple method like upper or lower
+                if callable(value) and part in ['upper', 'lower']:
+                    try:
+                        value = value()
+                    except:
+                        pass
             else:
-                return None
+                value = None
+                break
                 
+        # Apply filters
+        if filter_name == 'upper':
+            return str(value).upper() if value is not None else ''
+        elif filter_name == 'lower':
+            return str(value).lower() if value is not None else ''
+        elif filter_name == 'length':
+            try:
+                return len(value) if value is not None else 0
+            except:
+                return 0
+            
         return value
 
 

@@ -1589,14 +1589,15 @@ class DaVinciMainWindow(QMainWindow):
         default_output = project_dir / "generateCode"
         
         # Ask user to confirm or change output directory
+        # Use project_dir as base for dialog, but suggest generateCode
         output_dir = QFileDialog.getExistingDirectory(
             self,
             "选择代码生成输出目录",
-            str(default_output)
+            str(project_dir)
         )
         
-        # If user cancels, use default
-        if not output_dir:
+        # If user cancels or selects project root, default to generateCode
+        if not output_dir or Path(output_dir) == project_dir:
             output_dir = str(default_output)
         
         from ..generator.generator import CodeGenerator
@@ -1604,6 +1605,7 @@ class DaVinciMainWindow(QMainWindow):
         from PySide6.QtCore import Qt as QtCore_Qt, QObject, Signal, QRunnable, Slot
         
         output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
         modules = list(self.current_project.module_managers.items())
         
         if not modules:
@@ -1615,42 +1617,40 @@ class DaVinciMainWindow(QMainWindow):
             finished = Signal(str, str, str) # module_name, status (GEN/SKIP/FAIL), message
 
         class GenWorker(QRunnable):
-            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None):
+            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None, project_template_dir=None):
                 super().__init__()
                 self.name = name
                 self.manager = manager
                 self.out_path = out_path
                 self.variant_name = variant_name
                 self.variant_overrides = variant_overrides or {}
+                self.project_template_dir = project_template_dir
                 self.signals = GenSignals()
                 
             @Slot()
             def run(self):
                 try:
-                    print(f"[GEN] Starting generation for: {self.name}")
-                    # Create module output dir (with variant subdirectory if specified)
-                    mod_out = self.out_path / self.name
-                    if self.variant_name:
-                        mod_out = mod_out / self.variant_name
-                    mod_out.mkdir(parents=True, exist_ok=True)
-                    print(f"[GEN] Output dir: {mod_out}")
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.debug(f"Starting generation for: {self.name}")
                     
-                    # Generate with variant overrides
-                    print(f"[GEN] Creating CodeGenerator...")
+                    # Module output base (generateCode/ModuleName)
+                    mod_base = self.out_path / self.name
+                    
+                    # Generate with variant overrides, project templates, and directory structure
                     generator = CodeGenerator(
                         self.manager.module_def, 
                         self.manager.configuration,
-                        variant_overrides=self.variant_overrides
+                        project_template_dir=self.project_template_dir,
+                        variant_overrides=self.variant_overrides,
+                        variant_name=self.variant_name
                     )
-                    print(f"[GEN] CodeGenerator created, calling generate_all...")
-                    # Pass force=False to enable incremental check
-                    generated = generator.generate_all(mod_out, force=False)
-                    print(f"[GEN] Generation completed: {generated}")
+                    # Pass variant name to generate_all to handle subdirectory and functional split
+                    generated = generator.generate_all(mod_base, force=False, variant=self.variant_name)
                     
                     status = "GEN" if generated else "SKIP"
                     self.signals.finished.emit(self.name, status, "")
                 except Exception as e:
-                    print(f"[GEN] ERROR: {e}")
                     import traceback
                     traceback.print_exc()
                     self.signals.finished.emit(self.name, "FAIL", str(e))
@@ -1678,14 +1678,12 @@ class DaVinciMainWindow(QMainWindow):
         
         # --- Completion Handler ---
         def on_module_done(name, status, msg):
-            print(f"[GEN] Signal received: {name} -> {status}")
             # Capture reference at start to avoid race condition
             progress = self._gen_progress
             stats = self._gen_stats
             
             # Check if already cleaned up (race condition with multiple signals)
             if progress is None or stats is None:
-                print(f"[GEN] Skipping (already finalized)")
                 return
             if progress.wasCanceled():
                 return
@@ -1751,6 +1749,14 @@ class DaVinciMainWindow(QMainWindow):
         # Get current variant info
         variant_name = self.current_project.active_variant if self.current_project else None
         
+        # Calculate project template directory (project_dir/templates)
+        project_template_dir = None
+        if self.current_project and self.current_project.path:
+            project_dir = self.current_project.path.parent
+            project_template_dir = project_dir / "templates"
+            if not project_template_dir.exists():
+                project_template_dir = None  # Don't use if doesn't exist
+        
         # Keep references to prevent garbage collection
         self._gen_workers = []
         
@@ -1766,7 +1772,7 @@ class DaVinciMainWindow(QMainWindow):
             if variant_name and manager.configuration:
                 variant_overrides = manager.configuration.variant_overrides.get(variant_name, {})
                 
-            worker = GenWorker(name, manager, output_path, variant_name, variant_overrides)
+            worker = GenWorker(name, manager, output_path, variant_name, variant_overrides, project_template_dir)
             worker.setAutoDelete(False)  # Prevent automatic deletion
             # Use QueuedConnection for cross-thread signal delivery
             worker.signals.finished.connect(on_module_done, QtCore_Qt.QueuedConnection)

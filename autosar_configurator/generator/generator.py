@@ -38,49 +38,99 @@ class CodeGenerator:
     DEFAULT_TEMPLATE_DIR = Path(__file__).parent / "templates"
     
     def __init__(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration,
-                 user_template_dir: Optional[Path] = None, variant_overrides: Optional[Dict[str, Any]] = None):
+                 project_template_dir: Optional[Path] = None,
+                 user_template_dir: Optional[Path] = None, 
+                 variant_overrides: Optional[Dict[str, Any]] = None,
+                 variant_name: Optional[str] = None):
         """Initialize generator
         
         Args:
             module_def: Module definition
             configuration: Configuration instance
-            user_template_dir: Optional user-defined template directory (searched first)
+            project_template_dir: Optional project-specific template directory (highest priority)
+            user_template_dir: Optional user-defined template directory (searched after project)
             variant_overrides: Optional dict of param_path -> value for variant-specific values
+            variant_name: Optional name of the active variant
         """
         self.module_def = module_def
         self.configuration = configuration
+        self.project_template_dir = project_template_dir
         self.user_template_dir = user_template_dir
         self.variant_overrides = variant_overrides or {}
+        self.variant_name = variant_name
         
         # Initialize EB Engine
         self.template_engine = EBTemplateEngine(strict=False)
         
         logger.info(f"CodeGenerator initialized for module: {configuration.short_name}")
+        if variant_name:
+            logger.info(f"Active variant: {variant_name}")
+        if project_template_dir:
+            logger.info(f"Project template directory: {project_template_dir}")
         if user_template_dir:
             logger.info(f"User template directory: {user_template_dir}")
         if variant_overrides:
             logger.info(f"Variant overrides: {len(variant_overrides)} parameters")
     
-    def _load_template(self, template_name: str) -> str:
-        """Load template from file system.
+    def _load_template(self, template_name: str, module_name: str = None) -> str:
+        """Load template from file system with module, project and variant support.
         
         Search order:
-        1. User template directory (if specified)
-        2. Built-in templates directory
-        
-        NOTE: Currently disabled because existing templates use Jinja2 syntax
-        which is incompatible with EBTemplateEngine (expects EB Tresos syntax).
-        TODO: Convert templates to EB Tresos syntax or use Jinja2 engine for simple templates.
+        1. Project Variant: project_dir/templates/ModuleName/VariantName/ModuleName_template_name
+        2. Project Module: project_dir/templates/ModuleName/ModuleName_template_name
+        3. Project Generic: project_dir/templates/template_name
+        4. User Variant: user_dir/ModuleName/VariantName/ModuleName_template_name
+        5. User Module: user_dir/ModuleName/ModuleName_template_name
+        6. User Generic: user_dir/template_name
+        7. Built-in Module: templates/ModuleName/ModuleName_template_name
+        8. Built-in Generic: templates/template_name
+        9. Fallback to hardcoded template (return None)
         
         Args:
-            template_name: Name of template file (e.g., "Module_Cfg.h.tpl")
+            template_name: Name of template file (e.g., "Cfg.h.tpl")
+            module_name: Optional module name for module-specific lookup
             
         Returns:
             Template content as string, or None to use fallback
         """
-        # TODO: Enable external templates after syntax conversion
-        # For now, always use fallback hardcoded templates
-        logger.debug(f"Using fallback template for: {template_name}")
+        search_paths = []
+        variant = self.variant_name
+        
+        # 1. Project templates
+        if self.project_template_dir:
+            if module_name:
+                if variant:
+                    # Project Variant Specific
+                    search_paths.append(self.project_template_dir / module_name / variant / f"{module_name}_{template_name}")
+                # Project Module Specific
+                search_paths.append(self.project_template_dir / module_name / f"{module_name}_{template_name}")
+            # Project Generic
+            search_paths.append(self.project_template_dir / f"Module_{template_name}")
+        
+        # 2. User templates
+        if self.user_template_dir:
+            if module_name:
+                if variant:
+                    # User Variant Specific
+                    search_paths.append(self.user_template_dir / module_name / variant / f"{module_name}_{template_name}")
+                # User Module Specific
+                search_paths.append(self.user_template_dir / module_name / f"{module_name}_{template_name}")
+            # User Generic
+            search_paths.append(self.user_template_dir / f"Module_{template_name}")
+        
+        # 3. Built-in templates
+        if module_name:
+            search_paths.append(self.DEFAULT_TEMPLATE_DIR / module_name / f"{module_name}_{template_name}")
+        search_paths.append(self.DEFAULT_TEMPLATE_DIR / f"Module_{template_name}")
+        
+        # Try each path in order
+        for path in search_paths:
+            if path.exists():
+                logger.info(f"Loading template: {path}")
+                return path.read_text(encoding='utf-8')
+        
+        # No template found, return None to use hardcoded fallback
+        logger.debug(f"No external template found for {template_name}, using fallback")
         return None
         
     def generate_all(self, output_dir: Path, force: bool = False, variant: Optional[str] = None) -> bool:
@@ -130,17 +180,26 @@ class CodeGenerator:
         
         # 3. Generate files
         generated_files = []
+        module_name = self.configuration.short_name
         
-        logger.info(f"Generating code for {self.configuration.short_name}...")
+        # Create functional subdirectories
+        include_dir = output_dir / "include"
+        src_dir = output_dir / "src"
+        include_dir.mkdir(exist_ok=True)
+        src_dir.mkdir(exist_ok=True)
         
-        self.generate_config_header(output_dir)   # PRE-COMPILE params
-        generated_files.append(f"{self.configuration.short_name}_Cfg.h")
+        logger.info(f"Generating code for {module_name}...")
         
-        self.generate_lcfg_source(output_dir)     # LINK-TIME params
-        generated_files.append(f"{self.configuration.short_name}_Lcfg.c")
+        # Header (include/)
+        self.generate_config_header(include_dir)
+        generated_files.append(f"include/{module_name}_Cfg.h")
+        
+        # Sources (src/)
+        self.generate_lcfg_source(src_dir)
+        generated_files.append(f"src/{module_name}_Lcfg.c")
 
-        self.generate_pbcfg_source(output_dir)    # POST-BUILD params
-        generated_files.append(f"{self.configuration.short_name}_PBcfg.c")
+        self.generate_pbcfg_source(src_dir)
+        generated_files.append(f"src/{module_name}_PBcfg.c")
         
         # 4. Save new fingerprint
         try:
@@ -230,7 +289,11 @@ class CodeGenerator:
                         param_value = param_def.default_value
                     
                     if param_value is not None:
-                        params.append((path, param_name, param_value))
+                        params.append({
+                            'path': path,
+                            'name': param_name,
+                            'value': param_value
+                        })
             
             # Recurse into sub-containers, sorted by definition then short_name for deterministic output
             sub_container_map = {}
@@ -308,15 +371,21 @@ class CodeGenerator:
             'header_guard': f"{module_name.upper()}_CFG_H",
             'precompile_params': precompile_params,
             'references': references,
-            'resolve_ref': self.resolve_ref
+            'resolve_ref': self.resolve_ref,
+            'active_variant': self.variant_name
         }
         
-        # Try external template first
-        template = self._load_template("Module_Cfg.h.tpl")
-        if not template:
+        # Try external template first (module-specific or generic)
+        template = self._load_template("Cfg.h.tpl", module_name)
+        if template:
+            # Use simple template engine for Jinja2-style templates
+            from .template_engine import TemplateEngine
+            simple_engine = TemplateEngine()
+            rendered = simple_engine.render(template, context)
+        else:
+            # Use fallback hardcoded template with EB engine
             template = self._get_cfg_header_template(module_name)
-        
-        rendered = self.template_engine.render(template, context)
+            rendered = self.template_engine.render(template, context)
         
         output_file = output_dir / f"{module_name}_Cfg.h"
         with open(output_file, 'w', encoding='utf-8') as f:
@@ -335,15 +404,19 @@ class CodeGenerator:
             'module_name': module_name,
             'linktime_params': linktime_params,
             'references': references,
-            'resolve_ref': self.resolve_ref
+            'resolve_ref': self.resolve_ref,
+            'active_variant': self.variant_name
         }
         
-        # Try external template first
-        template = self._load_template("Module_Lcfg.c.tpl")
-        if not template:
+        # Try external template first (module-specific or generic)
+        template = self._load_template("Lcfg.c.tpl", module_name)
+        if template:
+            from .template_engine import TemplateEngine
+            simple_engine = TemplateEngine()
+            rendered = simple_engine.render(template, context)
+        else:
             template = self._get_lcfg_source_template(module_name)
-        
-        rendered = self.template_engine.render(template, context)
+            rendered = self.template_engine.render(template, context)
         
         output_file = output_dir / f"{module_name}_Lcfg.c"
         with open(output_file, 'w', encoding='utf-8') as f:
@@ -362,15 +435,19 @@ class CodeGenerator:
             'module_name': module_name,
             'postbuild_params': postbuild_params,
             'references': references,
-            'resolve_ref': self.resolve_ref
+            'resolve_ref': self.resolve_ref,
+            'active_variant': self.variant_name
         }
         
-        # Try external template first
-        template = self._load_template("Module_PBcfg.c.tpl")
-        if not template:
+        # Try external template first (module-specific or generic)
+        template = self._load_template("PBcfg.c.tpl", module_name)
+        if template:
+            from .template_engine import TemplateEngine
+            simple_engine = TemplateEngine()
+            rendered = simple_engine.render(template, context)
+        else:
             template = self._get_pbcfg_source_template(module_name)
-        
-        rendered = self.template_engine.render(template, context)
+            rendered = self.template_engine.render(template, context)
         
         output_file = output_dir / f"{module_name}_PBcfg.c"
         with open(output_file, 'w', encoding='utf-8') as f:

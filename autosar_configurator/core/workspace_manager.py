@@ -231,15 +231,17 @@ class WorkspaceManager:
         
         # Save each module
         project_dir = self.current_project.path.parent
+        config_value_dir = project_dir / "ConfigValue"
+        config_value_dir.mkdir(exist_ok=True)
         
         for name, manager in self.current_project.module_managers.items():
             # Determine paths
             def_path = self.current_project.module_defs[name]
             
-            # We assume module config is saved next to project or in a subfolder
-            # For now, let's just save the config to a file named {ModuleName}_Config.arxml
+            # Module config is saved in ConfigValue folder
             config_filename = f"{name}_Config.arxml"
-            config_path = project_dir / config_filename
+            relative_config_path = f"ConfigValue/{config_filename}"
+            config_path = project_dir / relative_config_path
             
             # Save the actual config content
             manager.save_configuration(config_path)
@@ -248,7 +250,7 @@ class WorkspaceManager:
             data["modules"].append({
                 "name": name,
                 "def_path": str(def_path),
-                "config_path": config_filename,
+                "config_path": relative_config_path,
                 "variant_overrides": manager.configuration.variant_overrides
             })
             
@@ -314,6 +316,19 @@ class WorkspaceManager:
                 def_path = project_dir / def_path
                 
             config_path = project_dir / config_path_str
+            
+            # Fallback for legacy projects (files in project root)
+            if not config_path.exists() and "/" not in config_path_str:
+                legacy_path = project_dir / Path(config_path_str).name
+                if legacy_path.exists():
+                    config_path = legacy_path
+                    print(f"Loading legacy config location: {config_path}")
+            # Extended fallback: if ConfigValue is missing but file is in root
+            elif not config_path.exists() and "ConfigValue/" in config_path_str:
+                legacy_path = project_dir / Path(config_path_str).name
+                if legacy_path.exists():
+                    config_path = legacy_path
+                    print(f"Fallback to legacy config location: {config_path}")
             
             if def_path.exists():
                 try:
