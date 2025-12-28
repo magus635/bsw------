@@ -118,14 +118,23 @@ class OverlayEngine:
             # Handle sub-container instances
             for sub_def_name, sub_def in container_def.sub_containers.items():
                 # Find matching sub-container instances
-                matching_subs = [s for s in config_instance.sub_containers 
-                                 if s.short_name == sub_def_name or 
-                                 s.definition_ref.endswith(f"/{sub_def_name}")]
+                all_subs = getattr(config_instance, 'sub_containers', []) or []
+                if not all_subs:
+                    children = getattr(config_instance, 'children', [])
+                    if isinstance(children, dict):
+                        # For dictionary children, assume values are the subjects
+                        all_subs = [v for k, v in children.items() if not hasattr(v, 'value')]
+                    else:
+                        all_subs = children
+                
+                matching_subs = [s for s in all_subs 
+                                 if getattr(s, 'short_name', None) == sub_def_name or 
+                                 getattr(s, 'definition_ref', '').endswith(f"/{sub_def_name}")]
                 
                 if matching_subs:
-                    for sub_config in matching_subs:
+                    for sub_config_raw in matching_subs:
                         sub_nodes = self._build_container_nodes(
-                            sub_def, sub_config, container_path
+                            sub_def, sub_config_raw, container_path
                         )
                         for sub_node in sub_nodes:
                             node.add_child(sub_node)
@@ -158,19 +167,23 @@ class OverlayEngine:
         )
         
         # Add parameters
+        params_source = getattr(config_instance, 'parameter_values', {}) or \
+                        {k: v for k, v in getattr(config_instance, 'children', {}).items() if hasattr(v, 'value') and not hasattr(v, 'value_ref')}
         for param_name, param_def in container_def.parameters.items():
             param_node = self._create_parameter_node(
                 param_def,
-                config_instance.parameter_values.get(param_name),
+                params_source.get(param_name),
                 f"{path}/{param_name}"
             )
             node.add_child(param_node)
         
         # Add references
+        refs_source = getattr(config_instance, 'reference_values', {}) or \
+                      {k: v for k, v in getattr(config_instance, 'children', {}).items() if hasattr(v, 'value_ref')}
         for ref_name, ref_def in container_def.references.items():
             ref_node = self._create_reference_node(
                 ref_def,
-                config_instance.reference_values.get(ref_name),
+                refs_source.get(ref_name),
                 f"{path}/{ref_name}"
             )
             node.add_child(ref_node)

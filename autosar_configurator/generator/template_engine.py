@@ -325,6 +325,9 @@ class TemplateEngine:
         for part in parts:
             if isinstance(value, dict):
                 value = value.get(part)
+            elif isinstance(value, (list, tuple)) and part.isdigit():
+                idx = int(part)
+                value = value[idx] if 0 <= idx < len(value) else None
             elif hasattr(value, part):
                 value = getattr(value, part)
                 # Auto-call if it's a simple method like upper or lower
@@ -347,6 +350,11 @@ class TemplateEngine:
                 return len(value) if value is not None else 0
             except:
                 return 0
+        elif filter_name and filter_name in context and callable(context[filter_name]):
+            try:
+                return context[filter_name](value)
+            except:
+                return value
             
         return value
 

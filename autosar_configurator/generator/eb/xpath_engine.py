@@ -17,9 +17,10 @@ if TYPE_CHECKING:
 class XPathEngine:
     """XPath-like query engine for ConfigurationNode tree"""
     
-    def __init__(self, symbol_table: 'SymbolTable', context_stack: 'ContextStack'):
+    def __init__(self, symbol_table: 'SymbolTable', context_stack: 'ContextStack', function_handler=None):
         self.symbol_table = symbol_table
         self.context_stack = context_stack
+        self.function_handler = function_handler
     
     def evaluate(self, xpath: str) -> Any:
         """Evaluate an XPath expression.
@@ -34,7 +35,10 @@ class XPathEngine:
         
         # Handle function calls like as:modconf('Mcu')
         if '(' in xpath and ')' in xpath:
-            return self._evaluate_function(xpath)
+            # Check if it is a predicate like [contains(., 'x')] - heuristic
+            # If it starts with a function call pattern
+            if re.match(r'^[\w:]+\s*\(', xpath):
+                return self._evaluate_function(xpath)
         
         # Handle absolute path
         if xpath.startswith('/'):
@@ -61,6 +65,102 @@ class XPathEngine:
                         return start_node
         
         return self._evaluate_relative(xpath)
+    
+    # ... (rest of methods)
+
+    def _evaluate_function(self, expr: str) -> Any:
+        """Evaluate function calls in XPath expression"""
+        # as:modconf('ModuleName') possibly followed by path or predicates
+        match = re.match(r"as:modconf\s*\(\s*['\"](\w+)['\"]\s*\)(.*)", expr)
+        if match:
+            module_name = match.group(1)
+            rest_path = match.group(2)
+            module = self.symbol_table.get_module(module_name)
+            if not module:
+                return None
+            
+            if rest_path:
+                # Handle predicates on the function result itself
+                if rest_path.startswith('['):
+                    bracket_depth = 0
+                    for i, char in enumerate(rest_path):
+                        if char == '[': bracket_depth += 1
+                        elif char == ']': 
+                            bracket_depth -= 1
+                            if bracket_depth == 0:
+                                pred_str = rest_path[1:i]
+                                module_list = self._apply_predicates([module], [pred_str])
+                                if not module_list: return None
+                                module = module_list[0]
+                                rest_path = rest_path[i+1:]
+                                break
+                    
+                if rest_path:
+                    # Continue navigation
+                    rest_path = rest_path.lstrip('/')
+                    if rest_path:
+                        segments = self._parse_path(rest_path)
+                        return self._navigate_segments(module, segments)
+            return module
+            
+        # count(path)
+        if expr.startswith('count(') and expr.endswith(')'):
+            inner = expr[6:-1].strip()
+            res = self.evaluate(inner)
+            if res is None:
+                return 0
+            if isinstance(res, list):
+                return len(res)
+            return 1 # Single node
+            
+        # Generic function handler via callback
+        if self.function_handler:
+            # Parse function name and arguments
+            match = re.match(r"^([\w:]+)\s*\((.*)\)$", expr, re.DOTALL)
+            if match:
+                func_name = match.group(1)
+                args_str = match.group(2)
+                
+                # Parse arguments handling nested parens
+                args = []
+                if args_str:
+                    depth = 0
+                    current_arg = []
+                    for char in args_str:
+                        if char == '(':
+                            depth += 1
+                        elif char == ')':
+                            depth -= 1
+                        elif char == ',' and depth == 0:
+                            args.append(''.join(current_arg).strip())
+                            current_arg = []
+                            continue
+                        current_arg.append(char)
+                    if current_arg:
+                        args.append(''.join(current_arg).strip())
+                
+                # Evaluate arguments
+                evaluated_args = []
+                for arg in args:
+                    # Arg could be an xpath or literal
+                    # Determine if literal
+                    arg = arg.strip()
+                    if (arg.startswith('"') and arg.endswith('"')) or \
+                       (arg.startswith("'") and arg.endswith("'")):
+                        evaluated_args.append(arg[1:-1])
+                    else:
+                        # Try evaluate as xpath
+                        val = self.evaluate(arg)
+                        if val is None:
+                             # Keep as string if eval failed (e.g. simple string without quotes for some functions?)
+                             # But standard requires quotes for strings.
+                             # If null, pass None or empty list?
+                             pass
+                        evaluated_args.append(val)
+                
+                return self.function_handler(func_name, *evaluated_args)
+
+        return None
     
     def _evaluate_absolute(self, xpath: str) -> Any:
         """Evaluate absolute path like /Mcu/McuConfig"""
@@ -249,7 +349,7 @@ class XPathEngine:
                 continue
             
             # last() function
-            if pred == 'last()':
+            if pred == 'last()' or pred == 'last':
                 result = [result[-1]] if result else []
                 continue
             
@@ -299,27 +399,37 @@ class XPathEngine:
     
     def _evaluate_function(self, expr: str) -> Any:
         """Evaluate function calls in XPath expression"""
-        # as:modconf('ModuleName')
-        match = re.match(r"as:modconf\s*\(\s*['\"](\w+)['\"]\s*\)", expr)
-        if match:
-            module_name = match.group(1)
-            return self.symbol_table.get_module(module_name)
-        
-        # as:modconf('Module')/path/to/item
+        # as:modconf('ModuleName') possibly followed by path or predicates
         match = re.match(r"as:modconf\s*\(\s*['\"](\w+)['\"]\s*\)(.*)", expr)
         if match:
             module_name = match.group(1)
             rest_path = match.group(2)
-            
             module = self.symbol_table.get_module(module_name)
             if not module:
                 return None
             
             if rest_path:
-                # Continue navigation
-                rest_path = rest_path.lstrip('/')
-                segments = self._parse_path(rest_path)
-                return self._navigate_segments(module, segments)
+                # Handle predicates on the function result itself
+                if rest_path.startswith('['):
+                    bracket_depth = 0
+                    for i, char in enumerate(rest_path):
+                        if char == '[': bracket_depth += 1
+                        elif char == ']': 
+                            bracket_depth -= 1
+                            if bracket_depth == 0:
+                                pred_str = rest_path[1:i]
+                                module_list = self._apply_predicates([module], [pred_str])
+                                if not module_list: return None
+                                module = module_list[0]
+                                rest_path = rest_path[i+1:]
+                                break
+                    
+                if rest_path:
+                    # Continue navigation
+                    rest_path = rest_path.lstrip('/')
+                    if rest_path:
+                        segments = self._parse_path(rest_path)
+                        return self._navigate_segments(module, segments)
             return module
             
         # count(path)
@@ -332,4 +442,46 @@ class XPathEngine:
                 return len(res)
             return 1 # Single node
             
+        # Generic function handler via callback
+        if self.function_handler:
+            # Parse function name and arguments
+            match = re.match(r"^([\w:]+)\s*\((.*)\)$", expr, re.DOTALL)
+            if match:
+                func_name = match.group(1)
+                args_str = match.group(2)
+                
+                # Parse arguments handling nested parens
+                args = []
+                if args_str:
+                    depth = 0
+                    current_arg = []
+                    for char in args_str:
+                        if char == '(':
+                            depth += 1
+                        elif char == ')':
+                            depth -= 1
+                        elif char == ',' and depth == 0:
+                            args.append(''.join(current_arg).strip())
+                            current_arg = []
+                            continue
+                        current_arg.append(char)
+                    if current_arg:
+                        args.append(''.join(current_arg).strip())
+                
+                # Evaluate arguments
+                evaluated_args = []
+                for arg in args:
+                    # Arg could be an xpath or literal
+                    # Determine if literal
+                    arg = arg.strip()
+                    if (arg.startswith('"') and arg.endswith('"')) or \
+                       (arg.startswith("'") and arg.endswith("'")):
+                        evaluated_args.append(arg[1:-1])
+                    else:
+                        # Try evaluate as xpath
+                        val = self.evaluate(arg)
+                        evaluated_args.append(val)
+                
+                return self.function_handler(func_name, *evaluated_args)
+
         return None

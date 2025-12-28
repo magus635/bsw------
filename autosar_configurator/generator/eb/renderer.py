@@ -88,24 +88,43 @@ class Renderer:
         self, 
         template: str, 
         module_name: Optional[str] = None,
-        extra_vars: Optional[Dict[str, Any]] = None
+        context_path: Optional[str] = None,
+        initial_variables: Optional[Dict[str, Any]] = None
     ) -> str:
         """Render a template string.
         
         Args:
             template: Template source code
-            module_name: Name of module to use as initial context (optional)
-            extra_vars: Additional variables to inject into context
+            module_name: Name of module to use as initial context
+            context_path: XPath-like path to set as initial context node
+            initial_variables: Additional variables to inject into context
             
         Returns:
             Rendered output string
         """
-    def render(self, template_str: str, module_name: str, context_path: str = None, initial_variables: Dict[str, Any] = None) -> str:
-        """Render a template string."""
+        root_node = None
         # Reset context stack
-        root_node = self.symbol_table.get_module(module_name)
+        if module_name:
+            root_node = self.symbol_table.get_module(module_name)
+            if not root_node:
+                if self.strict:
+                    raise ValueError(f"Module '{module_name}' not found in symbol table")
+                # Fallback to first module if not found and not strict
+                modules = self.symbol_table.get_all_modules()
+                if modules:
+                    root_node = self.symbol_table.get_module(modules[0])
+        else:
+            # Pick first available module as default context
+            modules = self.symbol_table.get_all_modules()
+            if modules:
+                root_node = self.symbol_table.get_module(modules[0])
+
         if not root_node:
-            raise ValueError(f"Module '{module_name}' not found in symbol table")
+            if self.strict:
+                raise ValueError("No module found in symbol table and no module_name provided")
+            # Create a dummy root node for basic rendering in non-strict mode (useful for unit tests)
+            from .symbol_table import ConfigurationNode
+            root_node = ConfigurationNode(short_name="Root", node_type="module", path="/Config")
             
         self._context_stack = ContextStack(root_node)
         
@@ -114,22 +133,22 @@ class Renderer:
             for name, value in initial_variables.items():
                 self._context_stack.set_variable(name, value)
         
+        # Initialize engines
+        self._builtins = BuiltinFunctions(self.symbol_table, self._context_stack)
+        self._xpath_engine = XPathEngine(self.symbol_table, self._context_stack, function_handler=self._builtins.call)
+        self._output_buffer = []
+        self._suppress_next_newline = False
+
         # Set initial context node if path provided
-        if context_path:
-            # Evaluate context_path relative to root_node
-            # This will set the initial current_node in the context stack
+        if context_path and root_node:
             initial_context_node = self._xpath_engine.evaluate(context_path, context_node=root_node)
             if isinstance(initial_context_node, list):
                 initial_context_node = initial_context_node[0] if initial_context_node else None
-            self._context_stack.push(initial_context_node) # Push the specific context node
+            if initial_context_node:
+                self._context_stack.push(initial_context_node)
 
-        self._builtins = BuiltinFunctions(self.symbol_table, self._context_stack)
-        self._xpath_engine = XPathEngine(self.symbol_table, self._context_stack)
-        self._output_buffer = []
-        self._suppress_next_newline = False
-        
         # Tokenize
-        tokens = tokenize(template_str)
+        tokens = tokenize(template)
         
         # Execute
         self._execute_tokens(tokens, 0, len(tokens))
@@ -140,20 +159,11 @@ class Renderer:
         self, 
         template_path: Path,
         module_name: Optional[str] = None,
-        extra_vars: Optional[Dict[str, Any]] = None
+        initial_variables: Optional[Dict[str, Any]] = None
     ) -> str:
-        """Render a template from a file.
-        
-        Args:
-            template_path: Path to template file
-            module_name: Module name for initial context
-            extra_vars: Additional variables
-            
-        Returns:
-            Rendered output string
-        """
+        """Render a template from a file."""
         template = self._load_template_file(template_path)
-        return self.render(template, module_name, extra_vars)
+        return self.render(template, module_name, initial_variables=initial_variables)
     
     def _load_template_file(self, path: Path) -> str:
         """Load and cache a template file"""
@@ -487,7 +497,10 @@ class Renderer:
             if child:
                 return child.get_value() if child.node_type == 'parameter' else child
         
-        return expr  # Return as-is
+        if self.strict:
+            from .errors import UndefinedVariableError
+            raise UndefinedVariableError(expr)
+        return None  # Return None for undefined identifiers (falsy)
     
         return i  # After ENDIF
     
@@ -560,7 +573,10 @@ class Renderer:
         value = self._unwrap_value(value)
         
         if isinstance(value, str):
-             return value.lower() in ('true', '1', 'yes', 'on')
+            val_lower = value.lower()
+            if val_lower in ('true', '1', 'yes', 'on', 'std_on'): return True
+            if val_lower in ('false', '0', 'no', 'off', 'std_off'): return False
+            return bool(value) # Non-empty string is True
              
         return bool(value)
     

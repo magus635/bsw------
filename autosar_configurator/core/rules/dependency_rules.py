@@ -58,7 +58,8 @@ class CircularDependencyRule(ValidationRule):
             graph[path] = []
             
             for ref_value in container.reference_values.values():
-                graph[path].append(ref_value.value_ref)
+                if ref_value.value_ref:
+                    graph[path].append(ref_value.value_ref)
             
             for sub_container in container.sub_containers:
                 add_to_graph(sub_container)

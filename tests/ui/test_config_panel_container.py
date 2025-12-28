@@ -12,10 +12,11 @@ def test_show_container(qtbot):
     
     container = Container(short_name="TestContainer", description="Test Description")
     
+    panel.show()
     panel.show_container(container)
     
     assert panel.current_container == container
     assert panel.container_name_edit.text() == "TestContainer"
     assert panel.container_desc_edit.toPlainText() == "Test Description"
-    assert panel.container_group.isVisible()
+    assert panel.general_group.isVisible()
     assert not panel.parameter_group.isVisible()

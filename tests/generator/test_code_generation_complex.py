@@ -45,12 +45,13 @@ def test_reference_resolution():
     
     # Verify reference is resolved
     assert len(context['containers']) == 1
-    container_data = context['containers'][0]
-    assert len(container_data['references']) == 1
+    container = context['containers'][0]
+    assert len(container.reference_values) == 1
     
-    ref_data = container_data['references'][0]
-    assert ref_data['name'] == 'AdcClockRef'
-    assert ref_data['target'] == '&Mcu_McuModuleConfiguration_McuClockSettingConfig_Config'
+    ref_name = list(container.reference_values.keys())[0]
+    ref_value = container.reference_values[ref_name]
+    assert ref_name == 'AdcClockRef'
+    assert f"&{generator.resolve_ref(ref_value.value_ref)}_Config" == '&Mcu_McuModuleConfiguration_McuClockSettingConfig_Config'
 
 
 def test_value_type_formatting():
@@ -127,7 +128,7 @@ def test_complete_generation_with_references(tmp_path):
     generator.generate_all(tmp_path)
     
     # Verify generated C source contains expected content
-    pbcfg_source = tmp_path / "Adc_PBcfg.c"
+    pbcfg_source = tmp_path / "Adc" / "src" / "Adc_PBcfg.c"
     assert pbcfg_source.exists()
     
     source_content = pbcfg_source.read_text()

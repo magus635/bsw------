@@ -128,13 +128,14 @@ class BuiltinFunctions:
             return None
         
         # Robustness: If node is already a value (not a ConfigurationNode), return it
-        if not hasattr(node, 'get_value'):
+        if not hasattr(node, 'get_value') and not hasattr(node, 'value'):
             return node
             
-        value = node.get_value()
+        value = node.get_value() if hasattr(node, 'get_value') else node.value
         
-        if node.param_type:
-            param_type = node.param_type.upper()
+        param_type = getattr(node, 'param_type', None)
+        if param_type:
+            param_type = param_type.upper()
             
             # Boolean -> AUTOSAR semantic mapping
             if 'BOOLEAN' in param_type:
@@ -276,6 +277,8 @@ class BuiltinFunctions:
         # If it's a node, get its value
         if hasattr(value, 'get_value'):
             return self.num_i(value.get_value())
+        if hasattr(value, 'value'):
+            return self.num_i(value.value)
         return 0
     
     def num_inttohex(self, value: Any, width: int = 0) -> str:

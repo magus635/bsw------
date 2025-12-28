@@ -12,7 +12,7 @@ class TestObserver(Observer):
     def __init__(self):
         self.events = []
 
-    def update(self, event: str, data=None):
+    def handle_update(self, event: str, data=None):
         self.events.append({'event': event, 'data': data})
 
 

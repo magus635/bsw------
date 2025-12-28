@@ -57,7 +57,7 @@ class CodeGenerator:
         # Initialize EB Engine
         self.template_engine = EBTemplateEngine(strict=False)
         
-        logger.info(f"CodeGenerator initialized for module: {configuration.short_name}")
+        logger.info(f"CodeGenerator initialized for module: {configuration.short_name if configuration else 'None'}")
         if variant_name:
             logger.info(f"Active variant: {variant_name}")
         if project_template_dir:
@@ -269,25 +269,75 @@ class CodeGenerator:
             
         return results
 
+    def _prepare_context(self, variant: Optional[str] = None) -> Dict[str, Any]:
+        """Prepare the complete generation context for template engines"""
+        module_name = self.configuration.short_name if self.configuration else "Unknown"
+        
+        return {
+            'module_def': self.module_def,
+            'configuration': self.configuration,
+            'containers': self.configuration.containers if self.configuration else [],
+            'module_name': module_name,
+            'resolve_ref': self.resolve_ref,
+            'active_variant': variant or self.variant_name,
+            'enums': self._get_enums(),
+            'precompile_params': self._get_params_by_config_class(ConfigClass.PRE_COMPILE) if self.configuration else [],
+            'linktime_params': self._get_params_by_config_class(ConfigClass.LINK_TIME) if self.configuration else [],
+            'postbuild_params': self._get_params_by_config_class(ConfigClass.POST_BUILD) if self.configuration else [],
+            'references': self._get_references() if self.configuration else [],
+            'header_guard': f"{module_name.upper()}_CFG_H"
+        }
+
+    def _serialize_container_link(self, container: EcucContainerValue) -> Dict[str, Any]:
+        """Convert container instance to a dictionary for template context"""
+        res = {
+            'name': container.short_name,
+            'path': container.get_path(),
+            'definition': container.definition_ref,
+            'parameters': [],
+            'references': [],
+            'sub_containers': [self._serialize_container_link(s) for s in container.sub_containers]
+        }
+        
+        # Parameters
+        for name, val in container.parameter_values.items():
+            res['parameters'].append({
+                'name': name,
+                'value': self._format_value(val.value),
+                'raw_value': val.value
+            })
+            
+        # References
+        for name, ref in container.reference_values.items():
+            res['references'].append({
+                'name': name,
+                'target': f"&{self.resolve_ref(ref.value_ref)}_Config" if ref.value_ref else "NULL",
+                'path': ref.value_ref
+            })
+            
+        return res
+
+    def _format_value(self, value: Any) -> str:
+        """Format value for C code output"""
+        if value is None:
+            return "NULL"
+        if isinstance(value, bool):
+            return "TRUE" if value else "FALSE"
+        if isinstance(value, str):
+            # If it looks like an identifier (all caps/numbers/underscore), don't quote it
+            # This is a heuristic for enumeration literals
+            if value.replace('_', '').isalnum() and (value.isupper() or value[0].isnumeric()):
+                return value
+            return f'"{value}"'
+        return str(value)
+
     def _generate_single_file(self, template_type: str, output_parent: Path) -> bool:
         """Generate a single file from a template type"""
         module_name = self.configuration.short_name
         
         # Prepare context (same for all types, but filtered params differ)
-        context = {
-            'module_def': self.module_def,
-            'configuration': self.configuration,
-            'containers': self.configuration.containers,
-            'module_name': module_name,
-            'resolve_ref': self.resolve_ref,
-            'active_variant': self.variant_name,
-            'enums': self._get_enums(),
-            'precompile_params': self._get_params_by_config_class(ConfigClass.PRE_COMPILE),
-            'linktime_params': self._get_params_by_config_class(ConfigClass.LINK_TIME),
-            'postbuild_params': self._get_params_by_config_class(ConfigClass.POST_BUILD),
-            'references': self._get_references(),
-            'header_guard': f"{module_name.upper()}_{template_type.replace('.', '_').upper()}"
-        }
+        context = self._prepare_context()
+        context['header_guard'] = f"{module_name.upper()}_{template_type.replace('.', '_').upper()}"
         
         template_name = f"{template_type}.tpl"
         template_content = self._load_template(template_name, module_name)
@@ -385,11 +435,7 @@ class CodeGenerator:
                         param_value = param_def.default_value
                     
                     if param_value is not None:
-                        params.append({
-                            'path': path,
-                            'name': param_name,
-                            'value': param_value
-                        })
+                        params.append((path, param_name, param_value))
             
             sub_container_map = {}
             for sub in container.sub_containers:
@@ -430,9 +476,9 @@ class CodeGenerator:
     def resolve_ref(self, ref_path: str) -> str:
         """Resolve a full ARXML path to a C identifier"""
         if not ref_path: return "NULL"
-        parts = ref_path.strip('/').split('/')
+        parts = [p for p in ref_path.strip('/').split('/') if p != 'Config']
         if not parts: return "NULL"
-        return parts[-1].upper()
+        return "_".join(parts)
 
     def _get_enums(self) -> List[Dict[str, Any]]:
         """Extract all enumeration definitions from module definition"""
@@ -497,13 +543,13 @@ class CodeGenerator:
 
 /* --- Pre-Compile Parameters --- */
 {{% for path_name_value in precompile_params %}}
-#define {{ module_name.upper() }}_{{ path_name_value.1.upper() }}    ({{ path_name_value.2 }})
+#define {{{{ module_name.upper() }}}}_{{{{ path_name_value.1.upper() }}}}    ({{{{ path_name_value.2 }}}}) /* {{{{ path_name_value.1 }}}} */
 {{% endfor %}}
 
 /* --- Pre-Compile References --- */
 {{% for path_name_target in references %}}
-/* Reference from {{ path_name_target.0 }} to {{ path_name_target.2 }} */
-#define {{ module_name.upper() }}_{{ path_name_target.1.upper() }}_REF    {{ resolve_ref(path_name_target.2) }}
+/* Reference from {{{{ path_name_target.0 }}}} to {{{{ path_name_target.2 }}}} */
+#define {{{{ module_name.upper() }}}}_{{{{ path_name_target.1.upper() }}}}_REF    {{{{ resolve_ref(path_name_target.2) }}}}
 {{% endfor %}}
 
 #endif /* {guard} */
@@ -550,6 +596,15 @@ CONST({module_name}_ConfigType, {module_name.upper()}_CONST) {module_name}_Confi
 CONST({module_name}_ConfigType, {module_name.upper()}_CONST) {module_name}_PBConfig = {{
 {{% for path_name_value in postbuild_params %}}
     ./* {{ path_name_value.0 }} */{{ path_name_value.1 }} = {{ path_name_value.2 }},
+{{% endfor %}}
+{{% for container in containers %}}
+    /* Container: {{{{ container.short_name }}}} */
+    {{% for param_name, param_val in container.parameter_values.items() %}}
+        /* Param: {{{{ param_name }}}} = {{{{ param_val.value|upper }}}} */
+    {{% endfor %}}
+    {{% for ref_name, ref_val in container.reference_values.items() %}}
+        /* Ref: {{{{ ref_name }}}} = &{{{{ ref_val.value_ref|resolve_ref }}}}_Config */
+    {{% endfor %}}
 {{% endfor %}}
 }};
 

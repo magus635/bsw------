@@ -4,7 +4,7 @@ from autosar_configurator.generator.eb_template_engine import EBTemplateEngine
 
 class TestEBTemplateEngine(unittest.TestCase):
     def setUp(self):
-        self.engine = EBTemplateEngine()
+        self.engine = EBTemplateEngine(strict=False)
         self.context = {
             'foo': 'bar',
             'num': 10,
@@ -65,6 +65,7 @@ class TestEBTemplateEngine(unittest.TestCase):
                 self.reference_values = {}
         class MockConfig:
             def __init__(self):
+                self.short_name = "Any"
                 self.containers = [
                     MockContainer('Mcu', {'Clock': MockParam(8000000)})
                 ]

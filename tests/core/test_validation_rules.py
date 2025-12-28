@@ -42,7 +42,7 @@ class TestTypeValidationRule:
     @pytest.fixture
     def module_def(self):
         """Create module with INTEGER parameter"""
-        module = EcucModuleDef(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+        module = EcucModuleDef(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
         container_def = EcucContainerDef(
             short_name="Container",
             definition_ref="/AUTOSAR/EcucDefs/Test/Container"
@@ -58,7 +58,7 @@ class TestTypeValidationRule:
     
     def test_valid_integer_type(self, module_def):
         """Test valid INTEGER parameter"""
-        config = EcucModuleConfiguration(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+        config = EcucModuleConfiguration(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
         container = EcucContainerValue(
             short_name="Container_0",
             definition_ref="/AUTOSAR/EcucDefs/Test/Container"
@@ -72,7 +72,7 @@ class TestTypeValidationRule:
     
     def test_invalid_type(self, module_def):
         """Test invalid parameter type (string instead of integer)"""
-        config = EcucModuleConfiguration(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+        config = EcucModuleConfiguration(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
         container = EcucContainerValue(
             short_name="Container_0",
             definition_ref="/AUTOSAR/EcucDefs/Test/Container"
@@ -92,7 +92,7 @@ class TestRangeValidationRule:
     @pytest.fixture
     def module_def(self):
         """Create module with range-constrained parameter"""
-        module = EcucModuleDef(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+        module = EcucModuleDef(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
         container_def = EcucContainerDef(
             short_name="Container",
             definition_ref="/AUTOSAR/EcucDefs/Test/Container"
@@ -110,7 +110,7 @@ class TestRangeValidationRule:
     
     def test_value_in_range(self, module_def):
         """Test value within range"""
-        config = EcucModuleConfiguration(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+        config = EcucModuleConfiguration(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
         container = EcucContainerValue(
             short_name="Container_0",
             definition_ref="/AUTOSAR/EcucDefs/Test/Container"
@@ -124,7 +124,7 @@ class TestRangeValidationRule:
     
     def test_value_below_min(self, module_def):
         """Test value below minimum"""
-        config = EcucModuleConfiguration(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+        config = EcucModuleConfiguration(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
         container = EcucContainerValue(
             short_name="Container_0",
             definition_ref="/AUTOSAR/EcucDefs/Test/Container"
@@ -139,7 +139,7 @@ class TestRangeValidationRule:
     
     def test_value_above_max(self, module_def):
         """Test value above maximum"""
-        config = EcucModuleConfiguration(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+        config = EcucModuleConfiguration(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
         container = EcucContainerValue(
             short_name="Container_0",
             definition_ref="/AUTOSAR/EcucDefs/Test/Container"
@@ -159,7 +159,7 @@ class TestEnumerationValidationRule:
     @pytest.fixture
     def module_def(self):
         """Create module with ENUM parameter"""
-        module = EcucModuleDef(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+        module = EcucModuleDef(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
         container_def = EcucContainerDef(
             short_name="Container",
             definition_ref="/AUTOSAR/EcucDefs/Test/Container"
@@ -176,7 +176,7 @@ class TestEnumerationValidationRule:
     
     def test_valid_enum_value(self, module_def):
         """Test valid enumeration value"""
-        config = EcucModuleConfiguration(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+        config = EcucModuleConfiguration(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
         container = EcucContainerValue(
             short_name="Container_0",
             definition_ref="/AUTOSAR/EcucDefs/Test/Container"
@@ -190,7 +190,7 @@ class TestEnumerationValidationRule:
     
     def test_invalid_enum_value(self, module_def):
         """Test invalid enumeration value"""
-        config = EcucModuleConfiguration(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+        config = EcucModuleConfiguration(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
         container = EcucContainerValue(
             short_name="Container_0",
             definition_ref="/AUTOSAR/EcucDefs/Test/Container"
@@ -210,7 +210,7 @@ class TestReferenceIntegrityRule:
     @pytest.fixture
     def module_with_references(self):
         """Create module definition with references"""
-        module = EcucModuleDef(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+        module = EcucModuleDef(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
         
         # Container A
         container_a_def = EcucContainerDef(
@@ -239,7 +239,7 @@ class TestReferenceIntegrityRule:
     
     def test_valid_reference(self, module_with_references):
         """Test valid reference to existing container"""
-        config = EcucModuleConfiguration(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+        config = EcucModuleConfiguration(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
         
         # Create container B (target)
         container_b = EcucContainerValue(
@@ -266,7 +266,7 @@ class TestReferenceIntegrityRule:
     
     def test_dangling_reference(self, module_with_references):
         """Test dangling reference (target doesn't exist)"""
-        config = EcucModuleConfiguration(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+        config = EcucModuleConfiguration(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
         
         # Create container A with reference to non-existent B
         container_a = EcucContainerValue(
@@ -287,7 +287,7 @@ class TestReferenceIntegrityRule:
     
     def test_find_references_to(self, module_with_references):
         """Test finding references to a container (TODO functionality)"""
-        config = EcucModuleConfiguration(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+        config = EcucModuleConfiguration(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
         
         # Create container B (target)
         container_b = EcucContainerValue(
@@ -320,7 +320,7 @@ class TestCircularDependencyRule:
     
     def test_no_circular_dependency(self):
         """Test linear reference chain: A -> B -> C"""
-        config = EcucModuleConfiguration(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+        config = EcucModuleConfiguration(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
         
         container_a = EcucContainerValue(short_name="A", definition_ref="/Test/A")
         container_b = EcucContainerValue(short_name="B", definition_ref="/Test/B")
@@ -333,7 +333,7 @@ class TestCircularDependencyRule:
         config.add_container(container_b)
         config.add_container(container_c)
         
-        module_def = EcucModuleDef(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+        module_def = EcucModuleDef(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
         
         rule = CircularDependencyRule()
         result = rule.validate(module_def, config)
@@ -341,7 +341,7 @@ class TestCircularDependencyRule:
     
     def test_circular_dependency(self):
         """Test circular dependency: A -> B -> C -> A"""
-        config = EcucModuleConfiguration(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+        config = EcucModuleConfiguration(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
         
         container_a = EcucContainerValue(short_name="A", definition_ref="/Test/A")
         container_b = EcucContainerValue(short_name="B", definition_ref="/Test/B")
@@ -355,7 +355,7 @@ class TestCircularDependencyRule:
         config.add_container(container_b)
         config.add_container(container_c)
         
-        module_def = EcucModuleDef(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+        module_def = EcucModuleDef(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
         
         rule = CircularDependencyRule()
         result = rule.validate(module_def, config)

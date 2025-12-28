@@ -73,9 +73,9 @@ def test_code_generation(tmp_path):
     generator = CodeGenerator(module, manager.configuration)
     generator.generate_all(tmp_path)
     
-    # Verify files exist
-    cfg_header = tmp_path / "Test_Cfg.h"
-    pbcfg_source = tmp_path / "Test_PBcfg.c"
+    # Verify files exist in structured directories
+    cfg_header = tmp_path / "Test" / "include" / "Test_Cfg.h"
+    pbcfg_source = tmp_path / "Test" / "src" / "Test_PBcfg.c"
     
     assert cfg_header.exists()
     assert pbcfg_source.exists()

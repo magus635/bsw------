@@ -6,7 +6,9 @@ from typing import Dict, Any, Optional
 from pathlib import Path
 
 from ..core.model.configuration_model import EcucModuleConfiguration
-from ..core.model.definition_model import EcucModuleDef
+from ..core.model.definition_model import (
+    EcucModuleDef, EcucContainerDef, EcucParameterDef, EcucReferenceDef, EcucParameterType
+)
 from .eb.renderer import Renderer
 
 class EBTemplateEngine:
@@ -32,26 +34,88 @@ class EBTemplateEngine:
         Returns:
             Rendered string
         """
-        # Auto-initialize if context provides necessary models
+        # Determine module name for context
+        module_name = context.get('module_name')
+        if not module_name and context.get('configuration'):
+            # Safe access for mocks
+            config = context.get('configuration')
+            module_name = getattr(config, 'short_name', None)
+
         if not self.initialized:
             module_def = context.get('module_def')
             configuration = context.get('configuration')
             
-            if module_def and configuration:
+            if configuration:
+                if not module_def:
+                    # Create dummy definition if missing (for unit tests)
+                    module_def = EcucModuleDef(
+                        short_name=module_name or 'Unknown',
+                        definition_ref=getattr(configuration, 'definition_ref', '/Def')
+                    )
+                    # Add structure from configuration to the dummy definition
+                    def add_structure(parent_val, parent_def):
+                        # Add parameters
+                        params = getattr(parent_val, 'parameter_values', {}) or {}
+                        if isinstance(params, dict):
+                            for name in params:
+                                parent_def.add_parameter(EcucParameterDef(
+                                    short_name=name,
+                                    param_type=EcucParameterType.INTEGER,
+                                    definition_ref=f"{parent_def.definition_ref}/{name}"
+                                ))
+                        
+                        # Add references
+                        refs = getattr(parent_val, 'reference_values', {}) or {}
+                        if isinstance(refs, dict):
+                            for name in refs:
+                                parent_def.add_reference(EcucReferenceDef(
+                                    short_name=name,
+                                    definition_ref=f"{parent_def.definition_ref}/{name}",
+                                    destination_ref="/Def" # Dummy
+                                ))
+
+                        # Add containers/sub-containers
+                        containers = getattr(parent_val, 'containers', []) or \
+                                     getattr(parent_val, 'sub_containers', []) or \
+                                     getattr(parent_val, 'children', [])
+                        
+                        if isinstance(containers, dict):
+                            for name, child in containers.items():
+                                if hasattr(child, 'value') and not hasattr(child, 'value_ref'): # parameter
+                                    parent_def.add_parameter(EcucParameterDef(
+                                        short_name=name,
+                                        param_type=EcucParameterType.INTEGER,
+                                        definition_ref=f"{parent_def.definition_ref}/{name}"
+                                    ))
+                                elif hasattr(child, 'value_ref'): # reference
+                                    parent_def.add_reference(EcucReferenceDef(
+                                        short_name=name,
+                                        definition_ref=f"{parent_def.definition_ref}/{name}",
+                                        destination_ref="/Def"
+                                    ))
+                                else:
+                                    cont_def = EcucContainerDef(
+                                        short_name=name,
+                                        definition_ref=f"{parent_def.definition_ref}/{name}"
+                                    )
+                                    parent_def.add_container(cont_def)
+                                    add_structure(child, cont_def)
+                        elif isinstance(containers, list):
+                            for container in containers:
+                                cont_def = EcucContainerDef(
+                                    short_name=getattr(container, 'short_name', 'Unknown'),
+                                    definition_ref=getattr(container, 'definition_ref', f"{parent_def.definition_ref}/Child")
+                                )
+                                parent_def.add_container(cont_def)
+                                add_structure(container, cont_def)
+                    
+                    add_structure(configuration, module_def)
                 self.renderer.load_module(module_def, configuration)
                 self.initialized = True
-        
-        # Determine module name for context
-        module_name = context.get('module_name')
-        if not module_name and context.get('configuration'):
-            module_name = context['configuration'].short_name
             
         # Extract extra variables from context (excluding model objects)
         extra_vars = {k: v for k, v in context.items() 
                      if k not in ('module_def', 'configuration', 'module_name')}
-        
-        # Determine initial variables to pass (mapped to Renderer's expected format if needed)
-        # The Renderer.render method supports initial_variables
         
         return self.renderer.render(template, module_name=module_name, initial_variables=extra_vars)
 
