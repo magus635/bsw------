@@ -28,6 +28,7 @@ class DependencyAnalyzer:
         """
         self.gemini_client = gemini_client
         self.extracted_params: Dict[str, List[Dict]] = {}  # module_name -> params
+        self.ai_status = "未运行" # Track AI execution status
     
     def extract_project_parameters(self, project) -> Dict[str, List[Dict]]:
         """
@@ -78,7 +79,7 @@ class DependencyAnalyzer:
                 continue
                 
             # Debug output
-            print(f"[DEP] Checking ref: {ref_name} -> {dest_ref}")
+            # print(f"[DEP] Checking ref: {ref_name} -> {dest_ref}")
             
             # Extract target module name from destination_ref
             # Format: /AUTOSAR/EcucDefs/ModuleName/...
@@ -144,8 +145,9 @@ class DependencyAnalyzer:
             ))
         
         print(f"[DEP]   Total params extracted: {len(params)}")
-        for p in params:
-            print(f"[DEP]     - {p['parameter']} = {p['value']}")
+        # Verbose logging disabled
+        # for p in params:
+        #    print(f"[DEP]     - {p['parameter']} = {p['value']}")
         
         return params
     
@@ -220,22 +222,60 @@ class DependencyAnalyzer:
         if self.gemini_client and self.gemini_client.is_ready():
             prompt = self._build_analysis_prompt(params_info)
             
-            try:
-                response = self.gemini_client.generate_response(prompt, timeout=60)
-                print(f"[DEP] Raw AI Response:\n{response}\n[DEP] End of Raw Response")
-                if response.startswith("🌍") or response.startswith("❌"):
-                    print(f"[DEP] AI Analysis unavailable: {response}")
-                else:
-                    ai_dependencies = self._parse_ai_response(response)
-                    dependencies.extend(ai_dependencies)
-            except Exception as e:
-                print(f"[DEP] AI analysis failed with exception: {e}")
+            # Retry logic: Try twice
+            max_retries = 2
+            for attempt in range(max_retries):
+                try:
+                    print(f"DEBUG: AI Request Attempt {attempt + 1}/{max_retries}")
+                    # Increased timeout to 120 seconds for large prompts
+                    response = self.gemini_client.generate_response(prompt, timeout=120)
+                    # Verbose logging disabled
+                    # print(f"[DEP] Raw AI Response:\n{response}\n[DEP] End of Raw Response")
+                    
+                    if response.startswith("🌍") or response.startswith("❌"):
+                        print(f"[DEP] AI Analysis unavailable: {response}")
+                        self.ai_status = f"不可用: {response}"
+                        # If it's a timeout/network error, we might retry, but client usually handles simple retries.
+                        # If it returns error string, it's often a caught exception in client.
+                        if "504" in response or "timeout" in response.lower():
+                            if attempt < max_retries - 1:
+                                print("DEBUG: 504 Timeout, retrying...")
+                                continue
+                        break # Stop if other error
+                    else:
+                        ai_dependencies = self._parse_ai_response(response)
+                        dependencies.extend(ai_dependencies)
+                        self.ai_status = f"成功 (发现 {len(ai_dependencies)} 条规则)"
+                        break # Success
+                        
+                except Exception as e:
+                    print(f"[DEP] AI analysis failed with exception: {e}")
+                    self.ai_status = f"失败: {str(e)}"
+                    # Retry on general exception
+                    if attempt < max_retries - 1:
+                        continue
+        else:
+            self.ai_status = "跳过 (未配置 API Key 或 Client 未就绪)"
         
         # 3. If no dependencies found, use heuristic fallback
         if not dependencies:
             return self._fallback_heuristic_analysis(params_info)
         
         return dependencies
+    
+    def _build_analysis_prompt(self, params_info: Dict[str, List[Dict]]) -> str:
+        """Build the prompt for AI dependency analysis"""
+        # ... (omitted for brevity, assume unchanged)
+        # We need to see the implementation of _build_analysis_prompt to not break file context, 
+        # but the replace_file_content tool requires contiguous blocks. 
+        # I'll effectively 'skip' modifying _build_analysis_prompt by starting the replacement chunk AFTER it if possible,
+        # or just including the end of it if I was editing near it.
+        # Wait, the tool requires me to replace the chunk. I can break this into two replacements if needed.
+        # But here I am editing `analyze_with_ai` (lines 220-238) and `_parse_ai_response` (lines 291-324).
+        # These are separated by `_build_analysis_prompt`. I should do TWO replace calls.
+        pass
+
+    # ... skipping to _parse_ai_response ...
     
     def _build_analysis_prompt(self, params_info: Dict[str, List[Dict]]) -> str:
         """Build the prompt for AI dependency analysis"""
@@ -248,7 +288,7 @@ class DependencyAnalyzer:
             summary_lines.append(f"\n## 模块: {module_name}")
             # Group by container
             by_container = {}
-            for p in params[:500]:  # Increased limit to 500
+            for p in params[:300]:  # Limit to 300 params per module
                 container = p['container']
                 if container not in by_container:
                     by_container[container] = []
@@ -258,7 +298,7 @@ class DependencyAnalyzer:
             
             for container, param_list in by_container.items():
                 summary_lines.append(f"### {container}")
-                summary_lines.extend(param_list[:50])  # Increased limit per container to 50
+                summary_lines.extend(param_list[:30])  # Limit per container to 30 to avoid huge context
         
         params_summary = "\n".join(summary_lines)
         
@@ -304,8 +344,55 @@ Adc.AdcClockSource == Mcu.McuClockRef -> Mcu.McuClockFrequency >= 80000000 | ADC
             
             # Try to parse: SOURCE COND VAL -> TARGET COND VAL | REASON
             # Improved regex to handle spaces and various characters more robustly
+            # Relaxed regex:
+            # 1. Source: Non-whitespace, space, Not ->, space, Not ->
+            # 2. Target: Not |, space, Not |, space, Not |
+            # 3. Reason: Rest
+            
+            # Pattern: SRC_PART -> TGT_PART | REASON
+            parts = line.split('|')
+            if len(parts) >= 2:
+                rule_part = parts[0].strip()
+                reason_part = parts[1].strip()
+                
+                if '->' in rule_part:
+                    src_full, tgt_full = rule_part.split('->', 1)
+                    src_full = src_full.strip()
+                    tgt_full = tgt_full.strip()
+                    
+                    # Helper to split "PARAM COND VAL"
+                    def parse_expr(expr):
+                        # Attempt to split by first space, then second space?
+                        # Or just take first token as param, second as cond, rest as value
+                        tokens = expr.split(None, 2)
+                        if len(tokens) >= 3:
+                            return tokens[0], tokens[1], tokens[2]
+                        elif len(tokens) == 2:
+                            return tokens[0], tokens[1], "N/A"
+                        elif len(tokens) == 1:
+                            return tokens[0], "exists", "true"
+                        return "", "", ""
+
+                    s_param, s_cond, s_val = parse_expr(src_full)
+                    t_param, t_cond, t_val = parse_expr(tgt_full)
+                    
+                    if s_param and t_param:
+                        dependencies.append({
+                            'source_param': s_param,
+                            'source_condition': s_cond,
+                            'source_value': s_val,
+                            'target_param': t_param,
+                            'target_condition': t_cond,
+                            'target_value': t_val,
+                            'reason': reason_part,
+                            'status': 'pending',
+                            'origin': '🤖 AI'
+                        })
+                        continue
+
+            # Fallback legacy regex if simple split fails (unlikely given the format)
             match = re.match(
-                r'([A-Za-z0-9_.]+)\s*([=<>!]+|exists)\s*(\S+)\s*->\s*([A-Za-z0-9_.]+)\s*([=<>!]+|exists)\s*(\S+)\s*\|\s*(.+)',
+                r'([A-Za-z0-9_./]+)\s*([=<>!]+|exists)\s*(\S+)\s*->\s*([A-Za-z0-9_./]+)\s*([^|]+?)\s*\|\s*(.+)',
                 line
             )
             if match:
@@ -314,9 +401,9 @@ Adc.AdcClockSource == Mcu.McuClockRef -> Mcu.McuClockFrequency >= 80000000 | ADC
                     'source_condition': match.group(2),
                     'source_value': match.group(3),
                     'target_param': match.group(4),
-                    'target_condition': match.group(5),
-                    'target_value': match.group(6),
-                    'reason': match.group(7).strip(),
+                    'target_condition': match.group(5).strip().split(' ', 1)[0] if ' ' in match.group(5).strip() else match.group(5).strip(),
+                    'target_value': match.group(5).strip().split(' ', 1)[1] if ' ' in match.group(5).strip() else "N/A",  # Heuristic splitting
+                    'reason': match.group(6).strip(),
                     'status': 'pending',
                     'origin': '🤖 AI'  # Source: AI Inference
                 })
@@ -411,6 +498,8 @@ Adc.AdcClockSource == Mcu.McuClockRef -> Mcu.McuClockFrequency >= 80000000 | ADC
             "---",
             "",
             "## 发现的依赖关系",
+            "",
+            f"> **AI 分析状态**: {getattr(self, 'ai_status', '未知')}",
             "",
         ]
         
