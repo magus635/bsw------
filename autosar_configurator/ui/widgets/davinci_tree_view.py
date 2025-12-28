@@ -95,9 +95,57 @@ class DaVinciTreeView(QTreeWidget):
             
     def _create_module_node(self, module_def: EcucModuleDef, config_manager: ConfigurationManager):
         """Create a top-level module node"""
+        # Detect template engine for this module
+        from ...generator.generator import CodeGenerator
+        from pathlib import Path
+        
+        project_template_dir = None
+        if self.project and self.project.path:
+            project_template_dir = self.project.path.parent / "templates"
+        
+        generator = CodeGenerator(
+            module_def,
+            config_manager.configuration,
+            project_template_dir=project_template_dir if project_template_dir and project_template_dir.exists() else None
+        )
+        
+        infos = generator.get_template_info(module_def.short_name)
+        eb_count = sum(1 for info in infos if info['engine'] == "EB")
+        std_count = sum(1 for info in infos if info['engine'] == "Standard")
+        
+        if eb_count > 0 and std_count > 0:
+            badge = " [Mixed]"
+            color = "#D97706"  # Amber for mixed
+            engine_desc = "Mixed (EB + Jinja2)"
+        elif eb_count > 0:
+            badge = " [EB]"
+            color = "#0066CC"  # Blue for EB
+            engine_desc = "EB Tresos Compatible"
+        else:
+            badge = " [Std]"
+            color = "#4B5563"  # Dark gray for Standard
+            engine_desc = "Standard Jinja2"
+        
+        display_name = f"📦 {module_def.short_name}{badge}"
+        
         # Create module root
-        root_item = QTreeWidgetItem([f"📦 {module_def.short_name}"])
+        root_item = QTreeWidgetItem([display_name])
         root_item.setFont(0, self._get_bold_font())
+        root_item.setForeground(0, QBrush(QColor(color)))
+        
+        # Build detailed tooltip
+        tooltip_lines = [
+            f"Module: {module_def.short_name}",
+            f"Primary Engine: {engine_desc}",
+            "\nTemplates:"
+        ]
+        for info in infos:
+            engine_hint = "EB" if info['engine'] == "EB" else "Std"
+            source_hint = "fallback" if "Fallback" in info['path'] else "custom"
+            tooltip_lines.append(f"  • {info['type']}: {engine_hint} ({source_hint})")
+            
+        root_item.setToolTip(0, "\n".join(tooltip_lines))
+            
         # Store config manager in root item for retrieval
         root_item.setData(0, Qt.UserRole, {
             "type": "MODULE", 
@@ -575,11 +623,41 @@ class DaVinciTreeView(QTreeWidget):
         
         for i in range(self.topLevelItemCount()):
             if traverse(self.topLevelItem(i)):
-                break
+                return True
+        return False
     
     def select_container(self, container: EcucContainerValue):
         """Public API: Select and navigate to a container in the tree"""
         self._select_instance(container)
+
+    def select_definition(self, definition_ref: str):
+        """Find and select a specific definition in the tree (recursive)"""
+        def traverse(item):
+            data = item.data(0, Qt.UserRole)
+            if data and data.get("type") == "DEF":
+                if data["def"].definition_ref == definition_ref:
+                    # Found it!
+                    self.setCurrentItem(item)
+                    self.scrollToItem(item)
+                    # Expand all parents
+                    parent = item.parent()
+                    while parent:
+                        parent.setExpanded(True)
+                        parent = parent.parent()
+                    # Manually trigger click handler
+                    self._on_item_clicked(item, 0)
+                    return True
+            
+            for i in range(item.childCount()):
+                if traverse(item.child(i)):
+                    return True
+            return False
+
+        # Try to find in all top-level modules
+        for i in range(self.topLevelItemCount()):
+            if traverse(self.topLevelItem(i)):
+                return True
+        return False
     
     def _delete_instance(self, instance: EcucContainerValue, container_def: EcucContainerDef, parent_instance: Optional[EcucContainerValue] = None, config_manager: Optional[ConfigurationManager] = None):
         """Delete a container instance"""

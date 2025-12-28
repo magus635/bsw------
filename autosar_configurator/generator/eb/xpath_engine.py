@@ -192,6 +192,11 @@ class XPathEngine:
                         child = n.get_child(name)
                         if child:
                             next_nodes.append(child)
+                        else:
+                            # EB Tresos behavior: if not found by short_name, match by definition name
+                            for c in n.get_children_list():
+                                if c.definition_ref.endswith(f"/{name}"):
+                                    next_nodes.append(c)
             
             # Apply predicates
             current = self._apply_predicates(next_nodes, predicates)

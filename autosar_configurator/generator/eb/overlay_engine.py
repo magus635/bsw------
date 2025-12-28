@@ -62,25 +62,33 @@ class OverlayEngine:
             definition_ref=module_def.definition_ref
         )
         
-        # Build container nodes from definition + overlay with configuration
-        config_containers = {}
-        if configuration:
-            for container in configuration.containers:
-                config_containers[container.short_name] = container
-        
         for container_name, container_def in module_def.containers.items():
             # Find matching configuration instances
-            config_instance = config_containers.get(container_name)
+            matching_instances = []
+            if configuration:
+                # Match by exact name or definition reference
+                matching_instances = [c for c in configuration.containers 
+                                      if c.short_name == container_name or 
+                                      c.definition_ref.endswith(f"/{container_name}")]
             
-            # Build container node(s)
-            container_nodes = self._build_container_nodes(
-                container_def,
-                config_instance,
-                parent_path=f"/{module_name}"
-            )
-            
-            for node in container_nodes:
-                root.add_child(node)
+            if matching_instances:
+                for inst in matching_instances:
+                    container_nodes = self._build_container_nodes(
+                        container_def,
+                        inst,
+                        parent_path=f"/{module_name}"
+                    )
+                    for node in container_nodes:
+                        root.add_child(node)
+            elif container_def.is_required:
+                # Build from defaults if required but no instance found
+                container_nodes = self._build_container_nodes(
+                    container_def,
+                    None,
+                    parent_path=f"/{module_name}"
+                )
+                for node in container_nodes:
+                    root.add_child(node)
         
         # Register in symbol table
         self.symbol_table.register_module(module_name, root)

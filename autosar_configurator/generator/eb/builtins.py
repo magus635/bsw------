@@ -204,10 +204,14 @@ class BuiltinFunctions:
     
     def node_exists(self, path_or_node) -> bool:
         """Check if a path or node exists"""
-        if path_or_node is None:
-            return False
         if isinstance(path_or_node, str):
-            return self.symbol_table.get_by_path(path_or_node) is not None
+            if path_or_node.startswith('/'):
+                return self.symbol_table.get_by_path(path_or_node) is not None
+            else:
+                current = self.context_stack.current_node()
+                if current:
+                    return current.get_child(path_or_node) is not None
+                return False
         return True  # Node object exists
     
     def node_current(self) -> Optional['ConfigurationNode']:

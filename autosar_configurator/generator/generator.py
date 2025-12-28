@@ -225,6 +225,50 @@ class CodeGenerator:
             
         return sorted(list(template_files))
 
+    def get_template_info(self, module_name: str) -> List[Dict[str, str]]:
+        """
+        Get info about all templates for a module.
+        Returns a list of dicts: [{'type': 'Cfg.h', 'engine': 'EB', 'path': '...'}, ...]
+        """
+        template_types = self._discover_template_types(module_name)
+        results = []
+        
+        for t_type in template_types:
+            template_name = f"{t_type}.tpl"
+            # Attempt to load content to check engine
+            content = self._load_template(template_name, module_name)
+            engine = "Standard"
+            source = "Embedded Fallback"
+            
+            # Find which file was actually loaded
+            # Re-running search logic to find the path (since _load_template only returns content)
+            search_dirs = []
+            if self.project_template_dir:
+                search_dirs.append(self.project_template_dir / module_name)
+                if self.variant_name:
+                    search_dirs.append(self.project_template_dir / module_name / self.variant_name)
+            if self.user_template_dir:
+                search_dirs.append(self.user_template_dir / module_name)
+            search_dirs.append(self.DEFAULT_TEMPLATE_DIR / module_name)
+
+            for d in search_dirs:
+                potential_file = d / f"{module_name}_{template_name}"
+                if potential_file.exists():
+                    source = str(potential_file)
+                    break
+
+            if content:
+                if "[!" in content:
+                    engine = "EB"
+            
+            results.append({
+                'type': t_type,
+                'engine': engine,
+                'path': source
+            })
+            
+        return results
+
     def _generate_single_file(self, template_type: str, output_parent: Path) -> bool:
         """Generate a single file from a template type"""
         module_name = self.configuration.short_name
@@ -249,11 +293,16 @@ class CodeGenerator:
         template_content = self._load_template(template_name, module_name)
         
         if template_content:
-            from .template_engine import TemplateEngine
-            engine = TemplateEngine()
-            rendered = engine.render(template_content, context)
+            # Automatic engine selection: EB syntax [! ... !] vs Standard
+            if "[!" in template_content:
+                logger.debug(f"Detected EB syntax in {template_name}, using EBTemplateEngine")
+                rendered = self.template_engine.render(template_content, context)
+            else:
+                from .template_engine import TemplateEngine
+                engine = TemplateEngine()
+                rendered = engine.render(template_content, context)
         else:
-            # Fallback for standard types only
+            # Fallback for standard types only - these hardcoded templates use Standard syntax
             if template_type == "Cfg.h":
                 template_content = self._get_cfg_header_template(module_name)
             elif template_type == "Lcfg.c":
@@ -264,7 +313,9 @@ class CodeGenerator:
                 logger.warning(f"No template found for {template_type} and no fallback available")
                 return False
             
-            rendered = self.template_engine.render(template_content, context)
+            from .template_engine import TemplateEngine
+            engine = TemplateEngine()
+            rendered = engine.render(template_content, context)
             
         output_file = output_parent / f"{module_name}_{template_type}"
         with open(output_file, 'w', encoding='utf-8') as f:

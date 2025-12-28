@@ -1,0 +1,258 @@
+INFO: Running dual-engine generation...
+INFO: CodeGenerator initialized for module: Adc
+INFO: Project template directory: eb_test_templates
+INFO: Generating code for Adc...
+DEBUG: Extracting enums for module: Adc
+DEBUG: Module definition found: Adc
+DEBUG: Added enum: AdcHwUnitId with 6 literals
+DEBUG: Added enum: AdcClockSource with 1 literals
+DEBUG: Added enum: AdcRequestSource0Prio with 4 literals
+DEBUG: Added enum: AdcRequestSource1Prio with 4 literals
+DEBUG: Added enum: AdcRequestSource2Prio with 4 literals
+DEBUG: Added enum: AdcResolution with 3 literals
+DEBUG: Added enum: AdcRefVoltsrcHigh with 2 literals
+DEBUG: Added enum: AdcRefVoltsrcLow with 1 literals
+DEBUG: Added enum: AdcResultHandlingImplementation with 3 literals
+DEBUG: Added enum: AdcSyncConvMode with 3 literals
+DEBUG: Skipping identical duplicate enum: AdcHwUnitId
+DEBUG: Skipping identical duplicate enum: AdcClockSource
+DEBUG: Skipping identical duplicate enum: AdcRequestSource0Prio
+DEBUG: Skipping identical duplicate enum: AdcRequestSource1Prio
+DEBUG: Skipping identical duplicate enum: AdcRequestSource2Prio
+DEBUG: Skipping identical duplicate enum: AdcResolution
+DEBUG: Skipping identical duplicate enum: AdcRefVoltsrcHigh
+DEBUG: Skipping identical duplicate enum: AdcRefVoltsrcLow
+DEBUG: Skipping identical duplicate enum: AdcResultHandlingImplementation
+DEBUG: Skipping identical duplicate enum: AdcSyncConvMode
+DEBUG: Added enum: AdcAnChannelNum with 60 literals
+DEBUG: Added enum: AdcChannelRangeSelect with 7 literals
+DEBUG: Added enum: AdcChannelRefVoltsrcHigh with 1 literals
+DEBUG: Added enum: AdcChannelRefVoltsrcLow with 1 literals
+DEBUG: Added enum: AdcGroupAccessMode with 2 literals
+DEBUG: Added enum: AdcGroupConversionMode with 2 literals
+DEBUG: Added enum: AdcGroupReplacement with 2 literals
+DEBUG: Added enum: AdcGroupTriggSrc with 2 literals
+DEBUG: Added enum: AdcGroupRequestSource with 3 literals
+DEBUG: Added enum: AdcHwGatePin with 1 literals
+DEBUG: Added enum: AdcHwGateSignal with 3 literals
+DEBUG: Added enum: AdcHwTrigSignal with 3 literals
+DEBUG: Added enum: AdcStreamingBufferMode with 2 literals
+DEBUG: Added enum: AdcPriorityImplementation with 3 literals
+DEBUG: Added enum: AdcResultAlignment with 2 literals
+INFO: Extracted 25 unique enums from definition
+INFO: Loading template: /Users/qlwang/Desktop/bsw图形配置工具/autosar_configurator/generator/templates/Adc/Adc_Cfg.h.tpl
+DEBUG: Generated: output_eb_verify/Adc/include/Adc_Cfg.h
+DEBUG: Extracting enums for module: Adc
+DEBUG: Module definition found: Adc
+DEBUG: Added enum: AdcHwUnitId with 6 literals
+DEBUG: Added enum: AdcClockSource with 1 literals
+DEBUG: Added enum: AdcRequestSource0Prio with 4 literals
+DEBUG: Added enum: AdcRequestSource1Prio with 4 literals
+DEBUG: Added enum: AdcRequestSource2Prio with 4 literals
+DEBUG: Added enum: AdcResolution with 3 literals
+DEBUG: Added enum: AdcRefVoltsrcHigh with 2 literals
+DEBUG: Added enum: AdcRefVoltsrcLow with 1 literals
+DEBUG: Added enum: AdcResultHandlingImplementation with 3 literals
+DEBUG: Added enum: AdcSyncConvMode with 3 literals
+DEBUG: Skipping identical duplicate enum: AdcHwUnitId
+DEBUG: Skipping identical duplicate enum: AdcClockSource
+DEBUG: Skipping identical duplicate enum: AdcRequestSource0Prio
+DEBUG: Skipping identical duplicate enum: AdcRequestSource1Prio
+DEBUG: Skipping identical duplicate enum: AdcRequestSource2Prio
+DEBUG: Skipping identical duplicate enum: AdcResolution
+DEBUG: Skipping identical duplicate enum: AdcRefVoltsrcHigh
+DEBUG: Skipping identical duplicate enum: AdcRefVoltsrcLow
+DEBUG: Skipping identical duplicate enum: AdcResultHandlingImplementation
+DEBUG: Skipping identical duplicate enum: AdcSyncConvMode
+DEBUG: Added enum: AdcAnChannelNum with 60 literals
+DEBUG: Added enum: AdcChannelRangeSelect with 7 literals
+DEBUG: Added enum: AdcChannelRefVoltsrcHigh with 1 literals
+DEBUG: Added enum: AdcChannelRefVoltsrcLow with 1 literals
+DEBUG: Added enum: AdcGroupAccessMode with 2 literals
+DEBUG: Added enum: AdcGroupConversionMode with 2 literals
+DEBUG: Added enum: AdcGroupReplacement with 2 literals
+DEBUG: Added enum: AdcGroupTriggSrc with 2 literals
+DEBUG: Added enum: AdcGroupRequestSource with 3 literals
+DEBUG: Added enum: AdcHwGatePin with 1 literals
+DEBUG: Added enum: AdcHwGateSignal with 3 literals
+DEBUG: Added enum: AdcHwTrigSignal with 3 literals
+DEBUG: Added enum: AdcStreamingBufferMode with 2 literals
+DEBUG: Added enum: AdcPriorityImplementation with 3 literals
+DEBUG: Added enum: AdcResultAlignment with 2 literals
+INFO: Extracted 25 unique enums from definition
+INFO: Loading template: eb_test_templates/Adc/Adc_EB_Test.h.tpl
+DEBUG: Detected EB syntax in EB_Test.h.tpl, using EBTemplateEngine
+DEBUG: Generated: output_eb_verify/Adc/include/Adc_EB_Test.h
+DEBUG: Extracting enums for module: Adc
+DEBUG: Module definition found: Adc
+DEBUG: Added enum: AdcHwUnitId with 6 literals
+DEBUG: Added enum: AdcClockSource with 1 literals
+DEBUG: Added enum: AdcRequestSource0Prio with 4 literals
+DEBUG: Added enum: AdcRequestSource1Prio with 4 literals
+DEBUG: Added enum: AdcRequestSource2Prio with 4 literals
+DEBUG: Added enum: AdcResolution with 3 literals
+DEBUG: Added enum: AdcRefVoltsrcHigh with 2 literals
+DEBUG: Added enum: AdcRefVoltsrcLow with 1 literals
+DEBUG: Added enum: AdcResultHandlingImplementation with 3 literals
+DEBUG: Added enum: AdcSyncConvMode with 3 literals
+DEBUG: Skipping identical duplicate enum: AdcHwUnitId
+DEBUG: Skipping identical duplicate enum: AdcClockSource
+DEBUG: Skipping identical duplicate enum: AdcRequestSource0Prio
+DEBUG: Skipping identical duplicate enum: AdcRequestSource1Prio
+DEBUG: Skipping identical duplicate enum: AdcRequestSource2Prio
+DEBUG: Skipping identical duplicate enum: AdcResolution
+DEBUG: Skipping identical duplicate enum: AdcRefVoltsrcHigh
+DEBUG: Skipping identical duplicate enum: AdcRefVoltsrcLow
+DEBUG: Skipping identical duplicate enum: AdcResultHandlingImplementation
+DEBUG: Skipping identical duplicate enum: AdcSyncConvMode
+DEBUG: Added enum: AdcAnChannelNum with 60 literals
+DEBUG: Added enum: AdcChannelRangeSelect with 7 literals
+DEBUG: Added enum: AdcChannelRefVoltsrcHigh with 1 literals
+DEBUG: Added enum: AdcChannelRefVoltsrcLow with 1 literals
+DEBUG: Added enum: AdcGroupAccessMode with 2 literals
+DEBUG: Added enum: AdcGroupConversionMode with 2 literals
+DEBUG: Added enum: AdcGroupReplacement with 2 literals
+DEBUG: Added enum: AdcGroupTriggSrc with 2 literals
+DEBUG: Added enum: AdcGroupRequestSource with 3 literals
+DEBUG: Added enum: AdcHwGatePin with 1 literals
+DEBUG: Added enum: AdcHwGateSignal with 3 literals
+DEBUG: Added enum: AdcHwTrigSignal with 3 literals
+DEBUG: Added enum: AdcStreamingBufferMode with 2 literals
+DEBUG: Added enum: AdcPriorityImplementation with 3 literals
+DEBUG: Added enum: AdcResultAlignment with 2 literals
+INFO: Extracted 25 unique enums from definition
+INFO: Loading template: /Users/qlwang/Desktop/bsw图形配置工具/autosar_configurator/generator/templates/Adc/Adc_Lcfg.c.tpl
+DEBUG: Generated: output_eb_verify/Adc/src/Adc_Lcfg.c
+DEBUG: Extracting enums for module: Adc
+DEBUG: Module definition found: Adc
+DEBUG: Added enum: AdcHwUnitId with 6 literals
+DEBUG: Added enum: AdcClockSource with 1 literals
+DEBUG: Added enum: AdcRequestSource0Prio with 4 literals
+DEBUG: Added enum: AdcRequestSource1Prio with 4 literals
+DEBUG: Added enum: AdcRequestSource2Prio with 4 literals
+DEBUG: Added enum: AdcResolution with 3 literals
+DEBUG: Added enum: AdcRefVoltsrcHigh with 2 literals
+DEBUG: Added enum: AdcRefVoltsrcLow with 1 literals
+DEBUG: Added enum: AdcResultHandlingImplementation with 3 literals
+DEBUG: Added enum: AdcSyncConvMode with 3 literals
+DEBUG: Skipping identical duplicate enum: AdcHwUnitId
+DEBUG: Skipping identical duplicate enum: AdcClockSource
+DEBUG: Skipping identical duplicate enum: AdcRequestSource0Prio
+DEBUG: Skipping identical duplicate enum: AdcRequestSource1Prio
+DEBUG: Skipping identical duplicate enum: AdcRequestSource2Prio
+DEBUG: Skipping identical duplicate enum: AdcResolution
+DEBUG: Skipping identical duplicate enum: AdcRefVoltsrcHigh
+DEBUG: Skipping identical duplicate enum: AdcRefVoltsrcLow
+DEBUG: Skipping identical duplicate enum: AdcResultHandlingImplementation
+DEBUG: Skipping identical duplicate enum: AdcSyncConvMode
+DEBUG: Added enum: AdcAnChannelNum with 60 literals
+DEBUG: Added enum: AdcChannelRangeSelect with 7 literals
+DEBUG: Added enum: AdcChannelRefVoltsrcHigh with 1 literals
+DEBUG: Added enum: AdcChannelRefVoltsrcLow with 1 literals
+DEBUG: Added enum: AdcGroupAccessMode with 2 literals
+DEBUG: Added enum: AdcGroupConversionMode with 2 literals
+DEBUG: Added enum: AdcGroupReplacement with 2 literals
+DEBUG: Added enum: AdcGroupTriggSrc with 2 literals
+DEBUG: Added enum: AdcGroupRequestSource with 3 literals
+DEBUG: Added enum: AdcHwGatePin with 1 literals
+DEBUG: Added enum: AdcHwGateSignal with 3 literals
+DEBUG: Added enum: AdcHwTrigSignal with 3 literals
+DEBUG: Added enum: AdcStreamingBufferMode with 2 literals
+DEBUG: Added enum: AdcPriorityImplementation with 3 literals
+DEBUG: Added enum: AdcResultAlignment with 2 literals
+INFO: Extracted 25 unique enums from definition
+DEBUG: No external template found for PBcfg.c.tpl, using fallback
+DEBUG: Generated: output_eb_verify/Adc/src/Adc_PBcfg.c
+DEBUG: Extracting enums for module: Adc
+DEBUG: Module definition found: Adc
+DEBUG: Added enum: AdcHwUnitId with 6 literals
+DEBUG: Added enum: AdcClockSource with 1 literals
+DEBUG: Added enum: AdcRequestSource0Prio with 4 literals
+DEBUG: Added enum: AdcRequestSource1Prio with 4 literals
+DEBUG: Added enum: AdcRequestSource2Prio with 4 literals
+DEBUG: Added enum: AdcResolution with 3 literals
+DEBUG: Added enum: AdcRefVoltsrcHigh with 2 literals
+DEBUG: Added enum: AdcRefVoltsrcLow with 1 literals
+DEBUG: Added enum: AdcResultHandlingImplementation with 3 literals
+DEBUG: Added enum: AdcSyncConvMode with 3 literals
+DEBUG: Skipping identical duplicate enum: AdcHwUnitId
+DEBUG: Skipping identical duplicate enum: AdcClockSource
+DEBUG: Skipping identical duplicate enum: AdcRequestSource0Prio
+DEBUG: Skipping identical duplicate enum: AdcRequestSource1Prio
+DEBUG: Skipping identical duplicate enum: AdcRequestSource2Prio
+DEBUG: Skipping identical duplicate enum: AdcResolution
+DEBUG: Skipping identical duplicate enum: AdcRefVoltsrcHigh
+DEBUG: Skipping identical duplicate enum: AdcRefVoltsrcLow
+DEBUG: Skipping identical duplicate enum: AdcResultHandlingImplementation
+DEBUG: Skipping identical duplicate enum: AdcSyncConvMode
+DEBUG: Added enum: AdcAnChannelNum with 60 literals
+DEBUG: Added enum: AdcChannelRangeSelect with 7 literals
+DEBUG: Added enum: AdcChannelRefVoltsrcHigh with 1 literals
+DEBUG: Added enum: AdcChannelRefVoltsrcLow with 1 literals
+DEBUG: Added enum: AdcGroupAccessMode with 2 literals
+DEBUG: Added enum: AdcGroupConversionMode with 2 literals
+DEBUG: Added enum: AdcGroupReplacement with 2 literals
+DEBUG: Added enum: AdcGroupTriggSrc with 2 literals
+DEBUG: Added enum: AdcGroupRequestSource with 3 literals
+DEBUG: Added enum: AdcHwGatePin with 1 literals
+DEBUG: Added enum: AdcHwGateSignal with 3 literals
+DEBUG: Added enum: AdcHwTrigSignal with 3 literals
+DEBUG: Added enum: AdcStreamingBufferMode with 2 literals
+DEBUG: Added enum: AdcPriorityImplementation with 3 literals
+DEBUG: Added enum: AdcResultAlignment with 2 literals
+INFO: Extracted 25 unique enums from definition
+INFO: Loading template: eb_test_templates/Adc/Adc_Std_Test.h.tpl
+DEBUG: Generated: output_eb_verify/Adc/include/Adc_Std_Test.h
+INFO: Generated 5 files to output_eb_verify/Adc
+INFO: EB Output generated:
+/**
+ * @file Adc_EB_Test.h
+ * EB Syntax Test
+ */
+    #define ADC_HW_UNIT_HW_0    SARADC0
+    #define ADC_HW_UNIT_HW_1    SARADC0
+
+#define ADC_TOTAL_HW_UNITS    0
+
+ERROR: ❌ EB Syntax Logic Failed
+INFO: Std Output generated:
+/**
+ * Standard Syntax Test
+ */
+#define MODULE_NAME    Adc
+
+INFO: ✅ Standard Syntax Logic Verified
+TOKEN: Token(TEXT, '/**\n * @file Adc_EB_...')
+TOKEN: Token(VAR, '"TotalHW"="0"')
+TOKEN: Token(TEXT, '')
+TOKEN: Token(LOOP, '"AdcConfigSet/AdcHwUnit"')
+TOKEN: Token(COMMENT, '[!VAR "TotalHW"="$TotalHW + 1"')
+TOKEN: Token(TEXT, '    #define ADC_HW_U...')
+TOKEN: Token(OUTPUT, '"node:name(.)"')
+TOKEN: Token(TEXT, '    ')
+TOKEN: Token(OUTPUT, '"node:value(./AdcHwUnitId)"')
+TOKEN: Token(TEXT, '\n')
+TOKEN: Token(ENDLOOP, '')
+TOKEN: Token(TEXT, '\n#define ADC_TOTAL_H...')
+TOKEN: Token(OUTPUT, '"$TotalHW"')
+TOKEN: Token(TEXT, '\n')
+DEBUG: Executing token TokenType.TEXT at 1:1
+DEBUG: Executing token TokenType.VAR at 5:1
+DEBUG: VAR TotalHW = "0" evaluated to 0
+DEBUG: Executing token TokenType.TEXT at 5:22
+DEBUG: Executing token TokenType.LOOP at 6:1
+DEBUG: Executing token TokenType.COMMENT at 6:34
+DEBUG: Executing token TokenType.TEXT at 7:37
+DEBUG: Executing token TokenType.OUTPUT at 8:25
+DEBUG: Executing token TokenType.TEXT at 8:43
+DEBUG: Executing token TokenType.OUTPUT at 8:47
+DEBUG: Executing token TokenType.TEXT at 8:78
+DEBUG: Executing token TokenType.COMMENT at 6:34
+DEBUG: Executing token TokenType.TEXT at 7:37
+DEBUG: Executing token TokenType.OUTPUT at 8:25
+DEBUG: Executing token TokenType.TEXT at 8:43
+DEBUG: Executing token TokenType.OUTPUT at 8:47
+DEBUG: Executing token TokenType.TEXT at 8:78
+DEBUG: Executing token TokenType.TEXT at 9:12
+DEBUG: Executing token TokenType.OUTPUT at 11:31
+DEBUG: Executing token TokenType.TEXT at 11:45

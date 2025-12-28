@@ -4,7 +4,8 @@ Allows editing project metadata
 """
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QLineEdit, QTextEdit, QDialogButtonBox, QLabel, QGroupBox
+    QLineEdit, QTextEdit, QDialogButtonBox, QLabel, QGroupBox,
+    QWidget
 )
 from PySide6.QtCore import Qt
 
@@ -26,6 +27,14 @@ class ProjectPropertiesDialog(QDialog):
         """Setup UI"""
         layout = QVBoxLayout(self)
         
+        from PySide6.QtWidgets import QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView
+        self.tabs = QTabWidget()
+        layout.addWidget(self.tabs)
+        
+        # --- General Tab ---
+        general_tab = QWidget()
+        general_tab_layout = QVBoxLayout(general_tab)
+        
         # General info group
         general_group = QGroupBox("General Information")
         general_layout = QFormLayout(general_group)
@@ -39,7 +48,7 @@ class ProjectPropertiesDialog(QDialog):
         self.author_edit = QLineEdit()
         general_layout.addRow("Author:", self.author_edit)
         
-        layout.addWidget(general_group)
+        general_tab_layout.addWidget(general_group)
         
         # Description group
         desc_group = QGroupBox("Description")
@@ -49,7 +58,7 @@ class ProjectPropertiesDialog(QDialog):
         self.description_edit.setPlaceholderText("Enter project description...")
         desc_layout.addWidget(self.description_edit)
         
-        layout.addWidget(desc_group)
+        general_tab_layout.addWidget(desc_group)
         
         # Metadata group (read-only)
         meta_group = QGroupBox("Metadata")
@@ -65,7 +74,21 @@ class ProjectPropertiesDialog(QDialog):
         self.path_label.setWordWrap(True)
         meta_layout.addRow("Location:", self.path_label)
         
-        layout.addWidget(meta_group)
+        general_tab_layout.addWidget(meta_group)
+        self.tabs.addTab(general_tab, "General")
+        
+        # --- Templates Tab ---
+        templates_tab = QWidget()
+        templates_layout = QVBoxLayout(templates_tab)
+        
+        self.templates_table = QTableWidget()
+        self.templates_table.setColumnCount(4)
+        self.templates_table.setHorizontalHeaderLabels(["Module", "Template Type", "Engine", "Source Path"])
+        self.templates_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.templates_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
+        templates_layout.addWidget(self.templates_table)
+        
+        self.tabs.addTab(templates_tab, "Templates")
         
         # Buttons
         buttons = QDialogButtonBox(
@@ -97,6 +120,47 @@ class ProjectPropertiesDialog(QDialog):
             self.path_label.setText(str(self.project.path.parent))
         else:
             self.path_label.setText("Not saved")
+            
+        # --- Populate Templates Table ---
+        from ...generator.generator import CodeGenerator
+        from pathlib import Path
+        
+        project_template_dir = None
+        if self.project.path:
+            project_template_dir = self.project.path.parent / "templates"
+            
+        self.templates_table.setRowCount(0)
+        
+        for module_name, manager in self.project.module_managers.items():
+            if not manager.configuration:
+                continue
+                
+            generator = CodeGenerator(
+                manager.module_def,
+                manager.configuration,
+                project_template_dir=project_template_dir if project_template_dir and project_template_dir.exists() else None
+            )
+            
+            infos = generator.get_template_info(module_name)
+            for info in infos:
+                row = self.templates_table.rowCount()
+                self.templates_table.insertRow(row)
+                
+                from PySide6.QtWidgets import QTableWidgetItem
+                from PySide6.QtGui import QColor
+                
+                self.templates_table.setItem(row, 0, QTableWidgetItem(module_name))
+                self.templates_table.setItem(row, 1, QTableWidgetItem(info['type']))
+                
+                engine_item = QTableWidgetItem(info['engine'])
+                if info['engine'] == "EB":
+                    engine_item.setForeground(QColor("#0066CC"))  # Blue for EB
+                self.templates_table.setItem(row, 2, engine_item)
+                
+                source_item = QTableWidgetItem(info['path'])
+                if "Fallback" in info['path']:
+                    source_item.setForeground(QColor("#888888"))
+                self.templates_table.setItem(row, 3, source_item)
     
     def get_data(self):
         """Get updated project data"""
