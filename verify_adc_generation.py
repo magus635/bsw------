@@ -59,7 +59,8 @@ def main():
     output_dir = Path("output_verify")
     output_dir.mkdir(exist_ok=True)
     
-    generator = CodeGenerator(module_def, config_manager.configuration)
+    project_templ_dir = Path("test_project_relocation/templates")
+    generator = CodeGenerator(module_def, config_manager.configuration, project_template_dir=project_templ_dir)
     
     # Test enum extraction manually first
     enums = generator._get_enums()
@@ -71,20 +72,30 @@ def main():
     generator.generate_all(output_dir, force=True)
     
     # Check output
-    cfg_h = output_dir / "Adc_Cfg.h"
-    lcfg_c = output_dir / "Adc_Lcfg.c"
+    cfg_h = output_dir / "Adc" / "include" / "Adc_Cfg.h"
+    lcfg_c = output_dir / "Adc" / "src" / "Adc_Lcfg.c"
+    pbcfg_c = output_dir / "Adc" / "src" / "Adc_PBcfg.c"
     
     if cfg_h.exists():
         logger.info(f"Adc_Cfg.h generated. Size: {cfg_h.stat().st_size}")
-        # print(cfg_h.read_text())
+        # Check if it uses the custom template (e.g. contains "Adc General Configuration")
+        content = cfg_h.read_text()
+        if "Adc General Configuration" in content:
+            logger.info("Adc_Cfg.h uses custom template")
+        else:
+            logger.warning("Adc_Cfg.h uses default template")
     else:
         logger.error("Adc_Cfg.h NOT generated")
 
     if lcfg_c.exists():
         logger.info(f"Adc_Lcfg.c generated. Size: {lcfg_c.stat().st_size}")
-        # print(lcfg_c.read_text())
     else:
         logger.error("Adc_Lcfg.c NOT generated")
+
+    if pbcfg_c.exists():
+        logger.info(f"Adc_PBcfg.c generated. Size: {pbcfg_c.stat().st_size}")
+    else:
+        logger.error("Adc_PBcfg.c NOT generated")
 
 if __name__ == "__main__":
     main()

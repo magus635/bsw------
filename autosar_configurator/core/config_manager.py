@@ -316,6 +316,10 @@ class ConfigurationManager:
         else:
             self.configuration.remove_container(instance)
             
+        # Clean up outgoing references from this container tree (important for project-level reverse indexing)
+        if self.project_context:
+            self.project_context.unregister_container_references(instance)
+            
     def add_container_instance(self, instance: EcucContainerValue, parent: Optional[EcucContainerValue] = None):
         """Add an existing container instance (e.g. from paste/undo)
         
@@ -689,6 +693,10 @@ class ConfigurationManager:
         Returns:
             List of tuples (source_container, reference_name) that reference the target
         """
+        # If we have a project context, use it for cross-module search
+        if self.project_context:
+            return self.project_context.find_global_references_to(target_container)
+            
         from .rules.reference_rules import ReferenceIntegrityRule
         return ReferenceIntegrityRule.find_references_to(target_container, self.configuration)
     

@@ -17,6 +17,13 @@ class EcucParameterType(Enum):
     FUNCTION = "ECUC-FUNCTION-NAME-DEF"
 
 
+class ConfigClass:
+    """Constants for config class types"""
+    PRE_COMPILE = "PRE-COMPILE"
+    LINK_TIME = "LINK-TIME"
+    POST_BUILD = "POST-BUILD"
+
+
 class VariantType(Enum):
     """AUTOSAR variant types for parameters"""
     PRECOMPILE = "VARIANT-PRE-COMPILE"

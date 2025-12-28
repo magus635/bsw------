@@ -167,6 +167,25 @@ class WorkspaceProject:
         
         return indexed_count
 
+    def find_global_references_to(self, target_container: 'EcucContainerValue') -> List[tuple]:
+        """Find all references pointing to a specific container across ALL modules
+        
+        Args:
+            target_container: Container to search references for
+            
+        Returns:
+            List of tuples (source_container, reference_name)
+        """
+        target_path = target_container.get_path()
+        references = []
+        
+        from .rules.reference_rules import ReferenceIntegrityRule
+        for manager in self.module_managers.values():
+            refs = ReferenceIntegrityRule.find_references_to(target_container, manager.configuration)
+            references.extend(refs)
+            
+        return references
+
 
 
     def register_container_references(self, container: 'EcucContainerValue'):

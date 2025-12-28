@@ -17,18 +17,13 @@ import logging
 from typing import Dict, Any, List, Tuple, Optional
 from pathlib import Path
 from ..core.model.configuration_model import EcucModuleConfiguration, EcucContainerValue
-from ..core.model.definition_model import EcucModuleDef, EcucContainerDef, EcucParameterDef
+from ..core.model.definition_model import EcucModuleDef, EcucContainerDef, EcucParameterDef, ConfigClass
 from .eb_template_engine import EBTemplateEngine
 
 # Setup logger
 logger = logging.getLogger(__name__)
 
 
-class ConfigClass:
-    """Constants for config class types"""
-    PRE_COMPILE = "PRE-COMPILE"
-    LINK_TIME = "LINK-TIME"
-    POST_BUILD = "POST-BUILD"
 
 
 class CodeGenerator:
@@ -134,75 +129,57 @@ class CodeGenerator:
         return None
         
     def generate_all(self, output_dir: Path, force: bool = False, variant: Optional[str] = None) -> bool:
-        """Generate all code files based on config_class routing
-        
-        Args:
-            output_dir: Directory to write generated files
-            force: Force generation even if fingerprint matches
-            variant: Optional variant name for variant-specific output directory
-            
-        Returns:
-            bool: True if files were generated, False if skipped
-        """
+        """Generate all code files by discovering templates in search directories"""
         output_dir = Path(output_dir)
-        
-        # Prepare output directory (add module name and variant)
         module_name = self.configuration.short_name
-        output_dir = output_dir / module_name
         
+        # Prepare output directory
+        out_module_dir = output_dir / module_name
         if variant:
-            output_dir = output_dir / variant
+            out_module_dir = out_module_dir / variant
             logger.info(f"Generating for variant: {variant}")
+        out_module_dir.mkdir(parents=True, exist_ok=True)
         
-        output_dir.mkdir(parents=True, exist_ok=True)
-        
-        # 1. Calculate current fingerprint (include variant name)
+        # 1. Calculate current fingerprint
         current_hash = self._calculate_fingerprint(variant)
-        meta_file = output_dir / f".{self.configuration.short_name}.meta"
+        meta_file = out_module_dir / f".{module_name}.meta"
         
         # 2. Check overlap with previous generation
         if not force and meta_file.exists():
             try:
                 with open(meta_file, 'r') as f:
                     meta = json.load(f)
-                
-                # Check if hash matches and files exist
                 if meta.get('hash') == current_hash:
-                    # Verify files exist
-                    files_exist = True
-                    for fname in meta.get('files', []):
-                        if not (output_dir / fname).exists():
-                            files_exist = False
-                            break
-                    
-                    if files_exist:
+                    # Verify all previously generated files still exist
+                    if all((out_module_dir / f).exists() for f in meta.get('files', [])):
                         logger.info(f"Skipping generation - configuration unchanged")
-                        return False  # Skip generation
+                        return False
             except Exception as e:
                 logger.warning(f"Error reading meta file: {e}")
         
-        # 3. Generate files
+        # 3. Discover and generate files
         generated_files = []
-        module_name = self.configuration.short_name
         
-        # Create functional subdirectories
-        include_dir = output_dir / "include"
-        src_dir = output_dir / "src"
+        # Create standard subdirectories
+        include_dir = out_module_dir / "include"
+        src_dir = out_module_dir / "src"
         include_dir.mkdir(exist_ok=True)
         src_dir.mkdir(exist_ok=True)
         
         logger.info(f"Generating code for {module_name}...")
         
-        # Header (include/)
-        self.generate_config_header(include_dir)
-        generated_files.append(f"include/{module_name}_Cfg.h")
+        # Get all templates to process
+        template_types = self._discover_template_types(module_name)
         
-        # Sources (src/)
-        self.generate_lcfg_source(src_dir)
-        generated_files.append(f"src/{module_name}_Lcfg.c")
-
-        self.generate_pbcfg_source(src_dir)
-        generated_files.append(f"src/{module_name}_PBcfg.c")
+        for t_type in template_types:
+            # Determine output location
+            is_header = t_type.lower().endswith('.h')
+            target_parent = include_dir if is_header else src_dir
+            rel_path = f"{'include' if is_header else 'src'}/{module_name}_{t_type}"
+            
+            # Generate the file
+            if self._generate_single_file(t_type, target_parent):
+                generated_files.append(rel_path)
         
         # 4. Save new fingerprint
         try:
@@ -216,11 +193,87 @@ class CodeGenerator:
         except Exception as e:
             logger.warning(f"Error writing meta file: {e}")
         
-        logger.info(f"Generated {len(generated_files)} files to {output_dir}")
+        logger.info(f"Generated {len(generated_files)} files to {out_module_dir}")
         return True
 
+    def _discover_template_types(self, module_name: str) -> List[str]:
+        """Find all unique template types (e.g., 'Cfg.h', 'Lcfg.c') for the module"""
+        template_files = set()
+        
+        search_dirs = []
+        if self.project_template_dir:
+            search_dirs.append(self.project_template_dir / module_name)
+            if self.variant_name:
+                search_dirs.append(self.project_template_dir / module_name / self.variant_name)
+        if self.user_template_dir:
+            search_dirs.append(self.user_template_dir / module_name)
+            if self.variant_name:
+                search_dirs.append(self.user_template_dir / module_name / self.variant_name)
+        search_dirs.append(self.DEFAULT_TEMPLATE_DIR / module_name)
+        
+        for d in search_dirs:
+            if d.exists() and d.is_dir():
+                for f in d.glob(f"{module_name}_*.tpl"):
+                    # Extract the type (e.g., Adc_Cfg.h.tpl -> Cfg.h)
+                    t_type = f.name[len(module_name)+1:-4]
+                    template_files.add(t_type)
+        
+        # Always include defaults if not found, to trigger fallback logic
+        defaults = ["Cfg.h", "Lcfg.c", "PBcfg.c"]
+        for d in defaults:
+            template_files.add(d)
+            
+        return sorted(list(template_files))
+
+    def _generate_single_file(self, template_type: str, output_parent: Path) -> bool:
+        """Generate a single file from a template type"""
+        module_name = self.configuration.short_name
+        
+        # Prepare context (same for all types, but filtered params differ)
+        context = {
+            'module_def': self.module_def,
+            'configuration': self.configuration,
+            'containers': self.configuration.containers,
+            'module_name': module_name,
+            'resolve_ref': self.resolve_ref,
+            'active_variant': self.variant_name,
+            'enums': self._get_enums(),
+            'precompile_params': self._get_params_by_config_class(ConfigClass.PRE_COMPILE),
+            'linktime_params': self._get_params_by_config_class(ConfigClass.LINK_TIME),
+            'postbuild_params': self._get_params_by_config_class(ConfigClass.POST_BUILD),
+            'references': self._get_references(),
+            'header_guard': f"{module_name.upper()}_{template_type.replace('.', '_').upper()}"
+        }
+        
+        template_name = f"{template_type}.tpl"
+        template_content = self._load_template(template_name, module_name)
+        
+        if template_content:
+            from .template_engine import TemplateEngine
+            engine = TemplateEngine()
+            rendered = engine.render(template_content, context)
+        else:
+            # Fallback for standard types only
+            if template_type == "Cfg.h":
+                template_content = self._get_cfg_header_template(module_name)
+            elif template_type == "Lcfg.c":
+                template_content = self._get_lcfg_source_template(module_name)
+            elif template_type == "PBcfg.c":
+                template_content = self._get_pbcfg_source_template(module_name)
+            else:
+                logger.warning(f"No template found for {template_type} and no fallback available")
+                return False
+            
+            rendered = self.template_engine.render(template_content, context)
+            
+        output_file = output_parent / f"{module_name}_{template_type}"
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(rendered)
+        logger.debug(f"Generated: {output_file}")
+        return True
     def _calculate_fingerprint(self, variant: Optional[str] = None) -> str:
         """Calculate a hash of the current configuration content"""
+        import hashlib
         # We build a stable string representation of the config
         parts = []
         
@@ -262,27 +315,16 @@ class CodeGenerator:
         content = "|".join(parts)
         return hashlib.sha256(content.encode('utf-8')).hexdigest()
         
-    def _get_params_by_config_class(self, config_class: str) -> List[Tuple[str, str, Any]]:
-        """Get parameters filtered by config_class, applying variant overrides
-        
-        Args:
-            config_class: One of PRE-COMPILE, LINK-TIME, POST-BUILD
-            
-        Returns:
-            List of tuples (container_name, param_name, param_value)
-        """
+    def _get_params_by_config_class(self, config_class: str) -> List[Dict[str, Any]]:
+        """Get parameters filtered by config_class, applying variant overrides"""
         params = []
         
         def collect_from_container(container: EcucContainerValue, container_def: EcucContainerDef, path: str):
-            # Iterate over all parameter definitions (to handle default values / overlay)
-            # Sort by param name for deterministic output
             for param_name in sorted(container_def.parameters.keys()):
                 param_def = container_def.parameters[param_name]
                 
-                # Check config_class
                 param_config_class = param_def.config_class or ConfigClass.PRE_COMPILE
                 if param_config_class == config_class:
-                    # Check for variant override first
                     param_path = f"{container.get_path()}.{param_name}"
                     if param_path in self.variant_overrides:
                         param_value = self.variant_overrides[param_path]
@@ -298,7 +340,6 @@ class CodeGenerator:
                             'value': param_value
                         })
             
-            # Recurse into sub-containers, sorted by definition then short_name for deterministic output
             sub_container_map = {}
             for sub in container.sub_containers:
                 base_name = sub.short_name.rsplit('_', 1)[0] if '_' in sub.short_name else sub.short_name
@@ -308,13 +349,11 @@ class CodeGenerator:
                         sub_container_map[base_name] = (sub_def, [])
                     sub_container_map[base_name][1].append(sub)
             
-            # Process in sorted definition order
             for base_name in sorted(sub_container_map.keys()):
                 sub_def, instances = sub_container_map[base_name]
                 for sub in sorted(instances, key=lambda x: x.short_name):
                     collect_from_container(sub, sub_def, f"{path}_{sub.short_name}")
         
-        # Iterate all top-level containers in sorted order
         for container in sorted(self.configuration.containers, key=lambda x: x.short_name):
             base_name = container.short_name.rsplit('_', 1)[0] if '_' in container.short_name else container.short_name
             container_def = self.module_def.get_container_def(base_name)
@@ -324,145 +363,26 @@ class CodeGenerator:
         return params
         
     def _get_references(self) -> List[tuple]:
-        """Collect all references from the configuration.
-        
-        Returns:
-            List of tuples (container_path, ref_name, target_path)
-        """
+        """Collect all references from the configuration"""
         refs = []
-        
         def collect_from_container(container: EcucContainerValue, path: str):
-            # Collect references
             for ref_name in sorted(container.reference_values.keys()):
                 ref_val = container.reference_values[ref_name]
                 if ref_val.value_ref:
                     refs.append((path, ref_name, ref_val.value_ref))
-            
-            # Recurse
             for sub in sorted(container.sub_containers, key=lambda x: x.short_name):
                 collect_from_container(sub, f"{path}_{sub.short_name}")
-                
         for container in sorted(self.configuration.containers, key=lambda x: x.short_name):
             collect_from_container(container, container.short_name)
-            
         return refs
 
     def resolve_ref(self, ref_path: str) -> str:
-        """Resolve a full ARXML path to a C identifier/linkable name.
-        Example: /Config/Can/CanConfigSet/CanController_0 -> CAN_CONTROLLER_0
-        """
-        if not ref_path:
-            return "NULL"
-        
+        """Resolve a full ARXML path to a C identifier"""
+        if not ref_path: return "NULL"
         parts = ref_path.strip('/').split('/')
-        if not parts:
-            return "NULL"
-            
-        name = parts[-1]
-        return name.upper()
+        if not parts: return "NULL"
+        return parts[-1].upper()
 
-    def generate_config_header(self, output_dir: Path):
-        """Generate Xxx_Cfg.h file with PRE-COMPILE parameters as macros"""
-        module_name = self.configuration.short_name
-        precompile_params = self._get_params_by_config_class(ConfigClass.PRE_COMPILE)
-        references = self._get_references()
-        
-        context = {
-            'module_def': self.module_def,
-            'configuration': self.configuration,
-            'containers': self.configuration.containers,
-            'module_name': module_name,
-            'header_guard': f"{module_name.upper()}_CFG_H",
-            'precompile_params': precompile_params,
-            'references': references,
-            'resolve_ref': self.resolve_ref,
-            'active_variant': self.variant_name,
-            'enums': self._get_enums()
-        }
-        
-        # Try external template first (module-specific or generic)
-        template = self._load_template("Cfg.h.tpl", module_name)
-        if template:
-            # Use simple template engine for Jinja2-style templates
-            from .template_engine import TemplateEngine
-            simple_engine = TemplateEngine()
-            rendered = simple_engine.render(template, context)
-        else:
-            # Use fallback hardcoded template with EB engine
-            template = self._get_cfg_header_template(module_name)
-            rendered = self.template_engine.render(template, context)
-        
-        output_file = output_dir / f"{module_name}_Cfg.h"
-        with open(output_file, 'w', encoding='utf-8') as f:
-            f.write(rendered)
-        logger.debug(f"Generated: {output_file}")
-            
-    def generate_lcfg_source(self, output_dir: Path):
-        """Generate Xxx_Lcfg.c file with LINK-TIME parameters as const struct"""
-        module_name = self.configuration.short_name
-        linktime_params = self._get_params_by_config_class(ConfigClass.LINK_TIME)
-        references = self._get_references()
-        
-        context = {
-            'module_def': self.module_def,
-            'configuration': self.configuration,
-            'containers': self.configuration.containers,
-            'module_name': module_name,
-            'linktime_params': linktime_params,
-            'references': references,
-            'resolve_ref': self.resolve_ref,
-            'active_variant': self.variant_name,
-            'enums': self._get_enums()
-        }
-        
-        # Try external template first (module-specific or generic)
-        template = self._load_template("Lcfg.c.tpl", module_name)
-        if template:
-            from .template_engine import TemplateEngine
-            simple_engine = TemplateEngine()
-            rendered = simple_engine.render(template, context)
-        else:
-            template = self._get_lcfg_source_template(module_name)
-            rendered = self.template_engine.render(template, context)
-        
-        output_file = output_dir / f"{module_name}_Lcfg.c"
-        with open(output_file, 'w', encoding='utf-8') as f:
-            f.write(rendered)
-        logger.debug(f"Generated: {output_file}")
-            
-    def generate_pbcfg_source(self, output_dir: Path):
-        """Generate Xxx_PBcfg.c file with POST-BUILD parameters"""
-        module_name = self.configuration.short_name
-        postbuild_params = self._get_params_by_config_class(ConfigClass.POST_BUILD)
-        references = self._get_references()
-        
-        context = {
-            'module_def': self.module_def,
-            'configuration': self.configuration,
-            'containers': self.configuration.containers,
-            'module_name': module_name,
-            'postbuild_params': postbuild_params,
-            'references': references,
-            'resolve_ref': self.resolve_ref,
-            'active_variant': self.variant_name,
-            'enums': self._get_enums()
-        }
-        
-        # Try external template first (module-specific or generic)
-        template = self._load_template("PBcfg.c.tpl", module_name)
-        if template:
-            from .template_engine import TemplateEngine
-            simple_engine = TemplateEngine()
-            rendered = simple_engine.render(template, context)
-        else:
-            template = self._get_pbcfg_source_template(module_name)
-            rendered = self.template_engine.render(template, context)
-        
-        output_file = output_dir / f"{module_name}_PBcfg.c"
-        with open(output_file, 'w', encoding='utf-8') as f:
-            f.write(rendered)
-        logger.debug(f"Generated: {output_file}")
-    
     def _get_enums(self) -> List[Dict[str, Any]]:
         """Extract all enumeration definitions from module definition"""
         from ..core.model.definition_model import EcucParameterType

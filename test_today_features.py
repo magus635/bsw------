@@ -305,7 +305,7 @@ def test_project_metadata():
             data = json.load(f)
         
         tests = [
-            ("format_version", 1),
+            ("format_version", 3),
             ("name", "MetadataTest"),
             ("author", "Test Author"),
             ("description", "Test Description"),

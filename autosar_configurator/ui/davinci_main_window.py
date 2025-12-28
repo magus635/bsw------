@@ -1539,6 +1539,7 @@ class DaVinciMainWindow(QMainWindow):
                 variant_overrides=variant_overrides
             )
             
+            # Pass parent output directory; generator.generate_all() will handle the ModuleName/ subdirectory
             generator.generate_all(Path(output_dir), variant=variant_name)
             
             QMessageBox.information(
@@ -1611,9 +1612,6 @@ class DaVinciMainWindow(QMainWindow):
                     logger = logging.getLogger(__name__)
                     logger.debug(f"Starting generation for: {self.name}")
                     
-                    # Module output base (generateCode/ModuleName)
-                    mod_base = self.out_path / self.name
-                    
                     # Generate with variant overrides, project templates, and directory structure
                     generator = CodeGenerator(
                         self.manager.module_def, 
@@ -1622,8 +1620,8 @@ class DaVinciMainWindow(QMainWindow):
                         variant_overrides=self.variant_overrides,
                         variant_name=self.variant_name
                     )
-                    # Pass variant name to generate_all to handle subdirectory and functional split
-                    generated = generator.generate_all(mod_base, force=False, variant=self.variant_name)
+                    # Pass parent output path; generator.generate_all() will handle the ModuleName/ subdirectory
+                    generated = generator.generate_all(self.out_path, force=False, variant=self.variant_name)
                     
                     status = "GEN" if generated else "SKIP"
                     self.signals.finished.emit(self.name, status, "")

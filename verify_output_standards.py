@@ -53,7 +53,11 @@ def verify():
     files = list(output_dir.glob("TestModule_*"))
     print(f"Generated files: {[f.name for f in files]}")
     
-    expected_files = ["TestModule_Cfg.h", "TestModule_Lcfg.c", "TestModule_PBcfg.c"]
+    expected_files = [
+        Path("TestModule/include/TestModule_Cfg.h"),
+        Path("TestModule/src/TestModule_Lcfg.c"),
+        Path("TestModule/src/TestModule_PBcfg.c")
+    ]
     for ef in expected_files:
         if (output_dir / ef).exists():
             print(f"✅ Found {ef}")
@@ -61,7 +65,7 @@ def verify():
             print(f"❌ Missing {ef}")
 
     # Check for Std_Types.h in Cfg.h
-    cfg_h = (output_dir / "TestModule_Cfg.h").read_text()
+    cfg_h = (output_dir / "TestModule/include/TestModule_Cfg.h").read_text()
     if '#include "Std_Types.h"' in cfg_h:
         print("✅ TestModule_Cfg.h includes Std_Types.h")
     else:
@@ -71,14 +75,14 @@ def verify():
         print("✅ TestModule_Cfg.h contains Pre-Compile macro")
 
     # Check for MemMap in Lcfg.c
-    lcfg_c = (output_dir / "TestModule_Lcfg.c").read_text()
+    lcfg_c = (output_dir / "TestModule/src/TestModule_Lcfg.c").read_text()
     if "START_SEC_CONFIG_DATA_UNSPECIFIED" in lcfg_c and "STOP_SEC_CONFIG_DATA_UNSPECIFIED" in lcfg_c:
         print("✅ TestModule_Lcfg.c contains MemMap segments")
     if "CONST(TestModule_ConfigType, TESTMODULE_CONST) TestModule_Config" in lcfg_c:
         print("✅ TestModule_Lcfg.c uses CONST macro")
 
     # Check for MemMap in PBcfg.c
-    pbcfg_c = (output_dir / "TestModule_PBcfg.c").read_text()
+    pbcfg_c = (output_dir / "TestModule/src/TestModule_PBcfg.c").read_text()
     if "START_SEC_CONFIG_DATA_POSTBUILD" in pbcfg_c and "STOP_SEC_CONFIG_DATA_POSTBUILD" in pbcfg_c:
         print("✅ TestModule_PBcfg.c contains Post-Build MemMap segments")
 
