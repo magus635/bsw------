@@ -92,6 +92,7 @@ class DaVinciMainWindow(QMainWindow):
         # Undo Stack
         self.undo_stack = QUndoStack(self)
         self.undo_stack.cleanChanged.connect(self._on_undo_clean_changed)
+        self.undo_stack.indexChanged.connect(lambda idx: self._update_dependency_graph_if_open())
 
         # Internal Clipboard
         self.clipboard_instance: Optional[EcucContainerValue] = None
@@ -1146,6 +1147,7 @@ class DaVinciMainWindow(QMainWindow):
         self.current_value_file = None
         
         self.statusbar.showMessage("New configuration created", 3000)
+        self._update_dependency_graph_if_open()
     
     def open_value_file(self):
         """Open existing ECUC-VALUE file"""
@@ -1172,6 +1174,7 @@ class DaVinciMainWindow(QMainWindow):
             self.value_file_label.setText(f"Config: {self.current_value_file.name}")
             self.tree_view.refresh()
             self.config_panel.clear()
+            self._update_dependency_graph_if_open()
             
             # Enable actions
             self.save_value_action.setEnabled(True)
@@ -1259,6 +1262,7 @@ class DaVinciMainWindow(QMainWindow):
         
         # Refresh UI if needed (e.g. if reference changed, might need to update other views)
         # For now, config panel updates itself, but tree view might need refresh if name changed (not supported yet)
+        self._update_dependency_graph_if_open()
         
     def handle_create_container(self, container_def: EcucContainerDef, parent_instance: Optional[EcucContainerValue], name: str):
         """Handle container creation request via command"""
@@ -1277,6 +1281,8 @@ class DaVinciMainWindow(QMainWindow):
         # Select the new instance
         if command.created_instance:
             self.tree_view._select_instance(command.created_instance)
+        
+        self._update_dependency_graph_if_open()
             
     def handle_delete_container(self, instance: EcucContainerValue, parent_instance: Optional[EcucContainerValue]):
         """Handle container deletion request via command"""
@@ -1332,6 +1338,8 @@ class DaVinciMainWindow(QMainWindow):
         if self.config_panel.current_instance == instance:
             self.config_panel.clear()
 
+        self._update_dependency_graph_if_open()
+
     def handle_move_container(self, instance: EcucContainerValue, new_parent, new_index):
         """Handle container move request via command"""
         if not self.config_manager:
@@ -1348,6 +1356,8 @@ class DaVinciMainWindow(QMainWindow):
         
         # Reselect
         self.tree_view._select_instance(instance)
+        
+        self._update_dependency_graph_if_open()
         
     def copy_container(self):
         """Copy selected container to internal clipboard"""
@@ -1433,6 +1443,8 @@ class DaVinciMainWindow(QMainWindow):
             # Refresh and select
             self.tree_view.refresh()
             self.tree_view._select_instance(new_instance)
+            
+            self._update_dependency_graph_if_open()
             
         except Exception as e:
             QMessageBox.critical(self, "Paste Error", f"Failed to paste:\n{str(e)}")
@@ -1972,7 +1984,7 @@ class DaVinciMainWindow(QMainWindow):
     
     def show_dependency_graph(self):
         """Show dependency graph in a new window"""
-        if not self.config_manager or not self.module_def:
+        if not self.current_project and (not self.config_manager or not self.module_def):
             QMessageBox.warning(
                 self,
                 "No Configuration",
@@ -1993,18 +2005,41 @@ class DaVinciMainWindow(QMainWindow):
             self.dep_graph_widget = DependencyGraphWidget()
             layout.addWidget(self.dep_graph_widget)
             
-            # Build graph
-            self.dep_graph_widget.build_graph(
-                self.module_def,
-                self.config_manager.configuration
-            )
-            
             # Show dialog
             self.dep_graph_dialog.show()
         else:
             self.dep_graph_dialog.raise_()
             self.dep_graph_dialog.activateWindow()
+            if self.dep_graph_dialog.isHidden():
+                self.dep_graph_dialog.show()
+
+        # Always update graph data when showing
+        if self.dep_graph_widget:
+            if self.current_project:
+                self.dep_graph_widget.build_graph_project(self.current_project)
+            else:
+                self.dep_graph_widget.build_graph(
+                    self.module_def,
+                    self.config_manager.configuration
+                )
+
     
+    def _update_dependency_graph_if_open(self):
+        """Update dependency graph if the widget is open/visible"""
+        if (hasattr(self, 'dep_graph_dialog') and 
+            self.dep_graph_dialog is not None and 
+            self.dep_graph_dialog.isVisible() and
+            hasattr(self, 'dep_graph_widget') and 
+            self.dep_graph_widget is not None):
+            
+            if self.current_project:
+                self.dep_graph_widget.build_graph_project(self.current_project)
+            elif self.module_def and self.config_manager:
+                self.dep_graph_widget.build_graph(
+                    self.module_def,
+                    self.config_manager.configuration
+                )
+
     def _analyze_cross_module_dependencies(self):
         """Analyze project to find potential cross-module dependencies using AI"""
         if not self.current_project:
@@ -2227,6 +2262,7 @@ class DaVinciMainWindow(QMainWindow):
             self.value_file_label.setText(f"Config: {manager.configuration.short_name}")
         
         self.config_panel.clear()
+        self._update_dependency_graph_if_open()
         
     def _update_active_context(self, manager):
         """Update active configuration context (for Project Mode)"""
