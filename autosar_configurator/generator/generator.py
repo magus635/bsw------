@@ -36,7 +36,8 @@ class CodeGenerator:
                  project_template_dir: Optional[Path] = None,
                  user_template_dir: Optional[Path] = None, 
                  variant_overrides: Optional[Dict[str, Any]] = None,
-                 variant_name: Optional[str] = None):
+                 variant_name: Optional[str] = None,
+                 all_configurations: Optional[Dict[str, Any]] = None):
         """Initialize generator
         
         Args:
@@ -46,6 +47,7 @@ class CodeGenerator:
             user_template_dir: Optional user-defined template directory (searched after project)
             variant_overrides: Optional dict of param_path -> value for variant-specific values
             variant_name: Optional name of the active variant
+            all_configurations: Optional dict of module_name -> (module_def, configuration)
         """
         self.module_def = module_def
         self.configuration = configuration
@@ -53,6 +55,7 @@ class CodeGenerator:
         self.user_template_dir = user_template_dir
         self.variant_overrides = variant_overrides or {}
         self.variant_name = variant_name
+        self.all_configurations = all_configurations or {}
         
         # Initialize EB Engine
         self.template_engine = EBTemplateEngine(strict=False)
@@ -91,31 +94,56 @@ class CodeGenerator:
         search_paths = []
         variant = self.variant_name
         
-        # 1. Project templates
-        if self.project_template_dir:
-            if module_name:
+        def find_case_insensitive_dir(parent: Path, target_name: str) -> Optional[Path]:
+            """Find directory by name, case-insensitive"""
+            if not parent.exists():
+                return None
+            for item in parent.iterdir():
+                if item.is_dir() and item.name.lower() == target_name.lower():
+                    return item
+            return None
+        
+        def add_search_paths_for_dir(base_dir: Path, mod_name: str):
+            """Add search paths for a base directory, handling case-insensitivity"""
+            if not base_dir or not base_dir.exists():
+                return
+            
+            # Try exact match first, then case-insensitive
+            module_dir = base_dir / mod_name
+            if not module_dir.exists():
+                module_dir = find_case_insensitive_dir(base_dir, mod_name)
+            
+            if module_dir and module_dir.exists():
                 if variant:
-                    # Project Variant Specific
-                    search_paths.append(self.project_template_dir / module_name / variant / f"{module_name}_{template_name}")
-                # Project Module Specific
-                search_paths.append(self.project_template_dir / module_name / f"{module_name}_{template_name}")
-            # Project Generic
-            search_paths.append(self.project_template_dir / f"Module_{template_name}")
+                    variant_dir = module_dir / variant
+                    if not variant_dir.exists():
+                        variant_dir = find_case_insensitive_dir(module_dir, variant)
+                    if variant_dir:
+                        # With .tpl suffix
+                        search_paths.append(variant_dir / f"{mod_name}_{template_name}")
+                        # Without .tpl suffix (for EB Tresos style templates)
+                        if template_name.endswith('.tpl'):
+                            search_paths.append(variant_dir / f"{mod_name}_{template_name[:-4]}")
+                
+                # Module directory
+                search_paths.append(module_dir / f"{mod_name}_{template_name}")
+                if template_name.endswith('.tpl'):
+                    search_paths.append(module_dir / f"{mod_name}_{template_name[:-4]}")
+            
+            # Generic templates
+            search_paths.append(base_dir / f"Module_{template_name}")
+        
+        # 1. Project templates
+        if self.project_template_dir and module_name:
+            add_search_paths_for_dir(self.project_template_dir, module_name)
         
         # 2. User templates
-        if self.user_template_dir:
-            if module_name:
-                if variant:
-                    # User Variant Specific
-                    search_paths.append(self.user_template_dir / module_name / variant / f"{module_name}_{template_name}")
-                # User Module Specific
-                search_paths.append(self.user_template_dir / module_name / f"{module_name}_{template_name}")
-            # User Generic
-            search_paths.append(self.user_template_dir / f"Module_{template_name}")
+        if self.user_template_dir and module_name:
+            add_search_paths_for_dir(self.user_template_dir, module_name)
         
         # 3. Built-in templates
         if module_name:
-            search_paths.append(self.DEFAULT_TEMPLATE_DIR / module_name / f"{module_name}_{template_name}")
+            add_search_paths_for_dir(self.DEFAULT_TEMPLATE_DIR, module_name)
         search_paths.append(self.DEFAULT_TEMPLATE_DIR / f"Module_{template_name}")
         
         # Try each path in order
@@ -200,23 +228,63 @@ class CodeGenerator:
         """Find all unique template types (e.g., 'Cfg.h', 'Lcfg.c') for the module"""
         template_files = set()
         
+        def find_case_insensitive_dir(parent: Path, target_name: str) -> Optional[Path]:
+            """Find directory by name, case-insensitive"""
+            if not parent or not parent.exists():
+                return None
+            for item in parent.iterdir():
+                if item.is_dir() and item.name.lower() == target_name.lower():
+                    return item
+            return None
+        
+        def add_module_dir(base_dir: Path):
+            """Add module directory with case-insensitive matching"""
+            if not base_dir or not base_dir.exists():
+                return
+            # Try exact match first, then case-insensitive
+            module_dir = base_dir / module_name
+            if not module_dir.exists():
+                module_dir = find_case_insensitive_dir(base_dir, module_name)
+            if module_dir and module_dir.exists():
+                search_dirs.append(module_dir)
+                if self.variant_name:
+                    variant_dir = module_dir / self.variant_name
+                    if not variant_dir.exists():
+                        variant_dir = find_case_insensitive_dir(module_dir, self.variant_name)
+                    if variant_dir:
+                        search_dirs.append(variant_dir)
+        
         search_dirs = []
         if self.project_template_dir:
-            search_dirs.append(self.project_template_dir / module_name)
-            if self.variant_name:
-                search_dirs.append(self.project_template_dir / module_name / self.variant_name)
+            add_module_dir(self.project_template_dir)
         if self.user_template_dir:
-            search_dirs.append(self.user_template_dir / module_name)
-            if self.variant_name:
-                search_dirs.append(self.user_template_dir / module_name / self.variant_name)
-        search_dirs.append(self.DEFAULT_TEMPLATE_DIR / module_name)
+            add_module_dir(self.user_template_dir)
+        add_module_dir(self.DEFAULT_TEMPLATE_DIR)
         
         for d in search_dirs:
             if d.exists() and d.is_dir():
+                # Search for templates with .tpl suffix
                 for f in d.glob(f"{module_name}_*.tpl"):
-                    # Extract the type (e.g., Adc_Cfg.h.tpl -> Cfg.h)
-                    t_type = f.name[len(module_name)+1:-4]
+                    t_type = f.name[len(module_name)+1:-4]  # Remove prefix and .tpl
                     template_files.add(t_type)
+                
+                # Also search for EB Tresos style templates without .tpl suffix
+                # Match patterns like Fee_Cfg.h, Fee_PBcfg.c, Fee.m (macros)
+                for f in d.glob(f"{module_name}_*.[ch]"):
+                    t_type = f.name[len(module_name)+1:]  # Remove prefix, keep extension
+                    template_files.add(t_type)
+                
+                # Also try case-insensitive matching for module name in filename
+                for f in d.iterdir():
+                    if f.is_file():
+                        name_lower = f.name.lower()
+                        prefix_lower = f"{module_name}_".lower()
+                        if name_lower.startswith(prefix_lower):
+                            suffix = f.name[len(module_name)+1:]
+                            if suffix.endswith('.tpl'):
+                                template_files.add(suffix[:-4])
+                            elif suffix.endswith('.c') or suffix.endswith('.h'):
+                                template_files.add(suffix)
         
         # Always include defaults if not found, to trigger fallback logic
         defaults = ["Cfg.h", "Lcfg.c", "PBcfg.c"]
@@ -340,13 +408,19 @@ class CodeGenerator:
         context['header_guard'] = f"{module_name.upper()}_{template_type.replace('.', '_').upper()}"
         
         template_name = f"{template_type}.tpl"
-        template_content = self._load_template(template_name, module_name)
+        template_content, template_source_dir = self._load_template_with_path(template_name, module_name)
         
         if template_content:
             # Automatic engine selection: EB syntax [! ... !] vs Standard
             if "[!" in template_content:
                 logger.debug(f"Detected EB syntax in {template_name}, using EBTemplateEngine")
-                rendered = self.template_engine.render(template_content, context)
+                # Create engine with template directory for INCLUDE resolution
+                eb_engine = EBTemplateEngine(strict=False, template_dir=template_source_dir)
+                
+                # Add cross-module contexts
+                context['all_modules'] = self.all_configurations
+                
+                rendered = eb_engine.render(template_content, context)
             else:
                 from .template_engine import TemplateEngine
                 engine = TemplateEngine()
@@ -372,11 +446,79 @@ class CodeGenerator:
             f.write(rendered)
         logger.debug(f"Generated: {output_file}")
         return True
-    def _calculate_fingerprint(self, variant: Optional[str] = None) -> str:
-        """Calculate a hash of the current configuration content"""
+    
+    def _load_template_with_path(self, template_name: str, module_name: str = None) -> Tuple[Optional[str], Optional[Path]]:
+        """Load template and return both content and source directory.
+        
+        Returns:
+            Tuple of (template_content, source_directory)
+        """
+        variant = self.variant_name
+        
+        def find_case_insensitive_dir(parent: Path, target_name: str) -> Optional[Path]:
+            """Find directory by name, case-insensitive"""
+            if not parent.exists():
+                return None
+            for item in parent.iterdir():
+                if item.is_dir() and item.name.lower() == target_name.lower():
+                    return item
+            return None
+        
+        def add_search_paths_for_dir(base_dir: Path, mod_name: str, paths_list: list):
+            """Add search paths for a base directory, handling case-insensitivity"""
+            if not base_dir or not base_dir.exists():
+                return
+            
+            module_dir = base_dir / mod_name
+            if not module_dir.exists():
+                module_dir = find_case_insensitive_dir(base_dir, mod_name)
+            
+            if module_dir and module_dir.exists():
+                if variant:
+                    variant_dir = module_dir / variant
+                    if not variant_dir.exists():
+                        variant_dir = find_case_insensitive_dir(module_dir, variant)
+                    if variant_dir:
+                        paths_list.append((variant_dir / f"{mod_name}_{template_name}", variant_dir))
+                        if template_name.endswith('.tpl'):
+                            paths_list.append((variant_dir / f"{mod_name}_{template_name[:-4]}", variant_dir))
+                
+                paths_list.append((module_dir / f"{mod_name}_{template_name}", module_dir))
+                if template_name.endswith('.tpl'):
+                    paths_list.append((module_dir / f"{mod_name}_{template_name[:-4]}", module_dir))
+            
+            paths_list.append((base_dir / f"Module_{template_name}", base_dir))
+        
+        search_paths = []  # List of (path, source_dir)
+        
+        if self.project_template_dir and module_name:
+            add_search_paths_for_dir(self.project_template_dir, module_name, search_paths)
+        if self.user_template_dir and module_name:
+            add_search_paths_for_dir(self.user_template_dir, module_name, search_paths)
+        if module_name:
+            add_search_paths_for_dir(self.DEFAULT_TEMPLATE_DIR, module_name, search_paths)
+        search_paths.append((self.DEFAULT_TEMPLATE_DIR / f"Module_{template_name}", self.DEFAULT_TEMPLATE_DIR))
+        
+        for path, source_dir in search_paths:
+            if path.exists():
+                logger.info(f"Loading template: {path}")
+                return path.read_text(encoding='utf-8'), source_dir
+        
+        logger.debug(f"No external template found for {template_name}, using fallback")
+        return None, None
+
+    def _calculate_fingerprint(self, variant: Optional[str] = None, template_types: Optional[List[str]] = None) -> str:
+        """Calculate a hash of the current configuration content and templates"""
         import hashlib
         # We build a stable string representation of the config
         parts = []
+        
+        # Add template info (to detect template changes)
+        if template_types:
+            for t_type in sorted(template_types):
+                content, _ = self._load_template_with_path(f"{t_type}.tpl", self.configuration.short_name)
+                if content:
+                    parts.append(f"T:{t_type}={hashlib.md5(content.encode('utf-8')).hexdigest()}")
         
         # Add module info
         parts.append(f"Module:{self.configuration.short_name}")

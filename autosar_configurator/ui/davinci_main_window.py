@@ -12,7 +12,10 @@ from PySide6.QtCore import Qt, Signal, QSettings, QRunnable, QThreadPool, QObjec
 from PySide6.QtGui import QAction, QKeySequence, QUndoStack, QIcon
 from PySide6.QtWidgets import QDockWidget
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any, List
+import logging
+
+logger = logging.getLogger(__name__)
 
 from .commands import (
     SetParameterCommand, SetReferenceCommand,
@@ -1255,10 +1258,24 @@ class DaVinciMainWindow(QMainWindow):
         else:
             # Parameter change
             command = SetParameterCommand(self.config_manager, instance, param_name, value)
+        
+        try:
+            self.undo_stack.push(command)
+            self._has_unsaved_changes = True
+            self.statusbar.showMessage(f"Set {param_name}", 2000)
+        except Exception as e:
+            # Handle validation errors gracefully
+            error_msg = str(e)
+            # Extract the meaningful part of the error message
+            if "Error calling Python override" in error_msg:
+                # Extract the actual validation message
+                parts = error_msg.split(":")
+                if len(parts) >= 2:
+                    error_msg = ":".join(parts[-2:]).strip()
             
-        self.undo_stack.push(command)
-        self._has_unsaved_changes = True
-        self.statusbar.showMessage(f"Set {param_name}", 2000)
+            QMessageBox.warning(self, "验证失败", f"参数值无效:\n{error_msg}")
+            self.statusbar.showMessage(f"验证失败: {param_name}", 3000)
+            return
         
         # Refresh UI if needed (e.g. if reference changed, might need to update other views)
         # For now, config panel updates itself, but tree view might need refresh if name changed (not supported yet)
@@ -1515,6 +1532,15 @@ class DaVinciMainWindow(QMainWindow):
                 self,
             )
 
+    def _get_all_project_configurations(self) -> Dict[str, Any]:
+        """Collect all module configurations in the current project for cross-module access."""
+        all_configs = {}
+        if self.current_project:
+            for name, manager in self.current_project.module_managers.items():
+                if manager.module_def and manager.configuration:
+                    all_configs[name] = (manager.module_def, manager.configuration)
+        return all_configs
+
     def generate_code(self):
         """Generate C/C++ code for current module or entire project"""
         # Check if in Project mode
@@ -1553,10 +1579,20 @@ class DaVinciMainWindow(QMainWindow):
                 if variant_name and self.config_manager.configuration:
                     variant_overrides = self.config_manager.configuration.variant_overrides.get(variant_name, {})
             
+            # Calculate project template directory (project_dir/templates)
+                project_template_dir = project_dir / "templates"
+                if not project_template_dir.exists():
+                    logger.info(f"Project template directory not found at: {project_template_dir}")
+                    project_template_dir = None
+                else:
+                    logger.info(f"Using project template directory: {project_template_dir}")
+            
             generator = CodeGenerator(
                 self.module_def,
                 self.config_manager.configuration,
-                variant_overrides=variant_overrides
+                project_template_dir=project_template_dir,
+                variant_overrides=variant_overrides,
+                all_configurations=self._get_all_project_configurations()
             )
             
             # Pass parent output directory; generator.generate_all() will handle the ModuleName/ subdirectory
@@ -1615,7 +1651,7 @@ class DaVinciMainWindow(QMainWindow):
             finished = Signal(str, str, str) # module_name, status (GEN/SKIP/FAIL), message
 
         class GenWorker(QRunnable):
-            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None, project_template_dir=None):
+            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None, project_template_dir=None, all_configs=None):
                 super().__init__()
                 self.name = name
                 self.manager = manager
@@ -1623,6 +1659,7 @@ class DaVinciMainWindow(QMainWindow):
                 self.variant_name = variant_name
                 self.variant_overrides = variant_overrides or {}
                 self.project_template_dir = project_template_dir
+                self.all_configs = all_configs
                 self.signals = GenSignals()
                 
             @Slot()
@@ -1638,7 +1675,8 @@ class DaVinciMainWindow(QMainWindow):
                         self.manager.configuration,
                         project_template_dir=self.project_template_dir,
                         variant_overrides=self.variant_overrides,
-                        variant_name=self.variant_name
+                        variant_name=self.variant_name,
+                        all_configurations=self.all_configs
                     )
                     # Pass parent output path; generator.generate_all() will handle the ModuleName/ subdirectory
                     generated = generator.generate_all(self.out_path, force=False, variant=self.variant_name)
@@ -1750,10 +1788,14 @@ class DaVinciMainWindow(QMainWindow):
             project_dir = self.current_project.path.parent
             project_template_dir = project_dir / "templates"
             if not project_template_dir.exists():
-                project_template_dir = None  # Don't use if doesn't exist
+                logger.info(f"Project template directory not found at: {project_template_dir}")
+                project_template_dir = None
+            else:
+                logger.info(f"Using project template directory: {project_template_dir}")
         
         # Keep references to prevent garbage collection
         self._gen_workers = []
+        all_configs = self._get_all_project_configurations()
         
         for name, manager in modules:
             if not manager.configuration:
@@ -1763,11 +1805,17 @@ class DaVinciMainWindow(QMainWindow):
                 continue
             
             # Get variant overrides for this module
-            variant_overrides = {}
+            mod_variant_overrides = {}
             if variant_name and manager.configuration:
-                variant_overrides = manager.configuration.variant_overrides.get(variant_name, {})
+                mod_variant_overrides = manager.configuration.variant_overrides.get(variant_name, {})
                 
-            worker = GenWorker(name, manager, output_path, variant_name, variant_overrides, project_template_dir)
+            worker = GenWorker(
+                name, manager, output_path, 
+                variant_name=variant_name, 
+                variant_overrides=mod_variant_overrides,
+                project_template_dir=project_template_dir,
+                all_configs=all_configs
+            )
             worker.setAutoDelete(False)  # Prevent automatic deletion
             # Use QueuedConnection for cross-thread signal delivery
             worker.signals.finished.connect(on_module_done, QtCore_Qt.QueuedConnection)

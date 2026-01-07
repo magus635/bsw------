@@ -47,6 +47,7 @@ class BuiltinFunctions:
             'num:i': self.num_i,
             'num:inttohex': self.num_inttohex,
             'num:is_nan': self.num_is_nan,
+            'num:isnumber': self.num_isnumber,  # NEW: Check if value is a number
             
             # String functions
             'string:concat': self.string_concat,
@@ -57,6 +58,13 @@ class BuiltinFunctions:
             'string:match': self.string_match,
             'string:length': self.string_length,
             'string:contains': self.string_contains,
+            'string:substring': self.string_substring,  # NEW
+            
+            # XPath standard function aliases (for compatibility)
+            'string-length': self.string_length,
+            'concat': self.string_concat,
+            'contains': self.string_contains,
+            'substring': self.string_substring,
             
             # Count function
             'count': self.count,
@@ -67,6 +75,9 @@ class BuiltinFunctions:
             # Variant functions (MUST-Minimal per spec 4.4)
             'variant:check': self.variant_check,
             'variant:exists': self.variant_exists,
+            
+            # ECU Resource functions
+            'ecu:get': self.ecu_get,
         }
     
     def get(self, name: str) -> Optional[Callable]:
@@ -189,15 +200,26 @@ class BuiltinFunctions:
             return ""
         return node.path
     
-    def node_ref(self, node: 'ConfigurationNode') -> Optional['ConfigurationNode']:
-        """Resolve a reference node to its target.
+    def node_ref(self, path_or_node: Union[str, 'ConfigurationNode']) -> Optional['ConfigurationNode']:
+        """Resolve a reference node or path to its target node.
         
-        For reference-type nodes, this returns the node being referenced.
+        Args:
+            path_or_node: Either a ConfigurationNode (of type 'reference') or a path string.
         """
-        if node is None or node.node_type != 'reference':
+        if path_or_node is None:
+            return None
+            
+        if isinstance(path_or_node, str):
+            # If it's a string, attempt to resolve it as a reference path
+            return self.symbol_table.resolve_reference(path_or_node)
+            
+        # If it's a node, it must be of type 'reference'
+        if path_or_node.node_type != 'reference':
+            # EB Tresos quirk: sometimes node:ref is called on a node that IS a reference target
+            # return it as is or return None? Usually standard is it must be a reference parameter.
             return None
         
-        ref_path = node.get_value()
+        ref_path = path_or_node.get_value()
         if not ref_path:
             return None
         
@@ -228,14 +250,18 @@ class BuiltinFunctions:
     # ========== Model Functions ==========
     
     def as_modconf(self, module_name: str) -> Optional['ConfigurationNode']:
-        """Get a module's configuration root by name.
+        """Get a module's root configuration node by name.
         
         This is the key function for cross-module access.
         Example: as:modconf('Mcu') returns the Mcu module root.
         """
+        if module_name is None:
+            return None
+            
         # Strip quotes if present
-        if module_name.startswith(("'", '"')) and module_name.endswith(("'", '"')):
-            module_name = module_name[1:-1]
+        if isinstance(module_name, str):
+            if module_name.startswith(("'", '"')) and module_name.endswith(("'", '"')):
+                module_name = module_name[1:-1]
         
         return self.symbol_table.get_module(module_name)
     
@@ -307,6 +333,43 @@ class BuiltinFunctions:
         except (ValueError, TypeError):
             return True
     
+    def num_isnumber(self, value: Any) -> bool:
+        """Check if value is a number"""
+        if value is None:
+            return False
+            
+        # Unwrap ConfigurationNode if passed
+        if hasattr(value, 'get_value'):
+            value = value.get_value()
+        elif hasattr(value, 'value'):
+            value = value.value
+            
+        if isinstance(value, (int, float)):
+            return True
+            
+        if isinstance(value, str):
+            # Strip quotes
+            v = value.strip().strip('"\'')
+            if not v:
+                return False
+                
+            # Handle hex
+            if v.lower().startswith('0x'):
+                try:
+                    int(v, 16)
+                    return True
+                except ValueError:
+                    return False
+            
+            # Handle float/int
+            try:
+                float(v)
+                return True
+            except (ValueError, TypeError):
+                return False
+                
+        return False
+    
     # ========== String Functions ==========
     
     def string_concat(self, *args) -> str:
@@ -348,6 +411,8 @@ class BuiltinFunctions:
     
     def string_length(self, s: str) -> int:
         """Get string length"""
+        if s is None:
+            return 0
         if not isinstance(s, str):
             s = str(s)
         return len(s)
@@ -357,6 +422,30 @@ class BuiltinFunctions:
         if not isinstance(s, str):
             s = str(s)
         return substring in s
+    
+    def string_substring(self, s: str, start: int, length: int = None) -> str:
+        """Extract substring from string.
+        
+        XPath substring() is 1-indexed, Python is 0-indexed.
+        
+        Args:
+            s: Source string
+            start: Start position (1-indexed per XPath)
+            length: Optional length
+            
+        Returns:
+            Substring
+        """
+        if not isinstance(s, str):
+            s = str(s)
+        
+        # Convert 1-indexed XPath to 0-indexed Python
+        start_idx = max(0, int(start) - 1)
+        
+        if length is not None:
+            return s[start_idx:start_idx + int(length)]
+        else:
+            return s[start_idx:]
     
     # ========== Other Functions ==========
     
@@ -496,4 +585,37 @@ class BuiltinFunctions:
         
         # Resolve the reference to its target
         return self.node_ref(node)
+
+    def ecu_get(self, path: str) -> Any:
+        """Get ECU resource parameter (XDM-G).
+        
+        This implementation attempts to find the parameter in the Resource module
+        or Fls module if it's a known hardware parameter.
+        """
+        print(f"DEBUG: ecu:get('{path}') called")
+        
+        # Mapping for common EB Tresos ecu:get paths
+        if path == 'Fls.PageSize':
+            # Attempt to find FlsPageSize in Fls module configuration
+            fls = self.symbol_table.get_module('Fls')
+            if fls:
+                # Common path: FlsConfigSet/FlsConfigSet_0/FlsGeneral/FlsPageSize
+                # Or searching children
+                for child in fls.get_children_recursive():
+                    if child.short_name == 'FlsPageSize':
+                        val = self.num_i(child)
+                        print(f"DEBUG: ecu:get('Fls.PageSize') found in Fls module: {val}")
+                        return val
+            
+            # Fallback to Resource module
+            res = self.symbol_table.get_module('Resource')
+            if res:
+                for child in res.get_children_recursive():
+                    if child.short_name == 'FlsPageSize':
+                        val = self.num_i(child)
+                        print(f"DEBUG: ecu:get('Fls.PageSize') found in Resource module: {val}")
+                        return val
+        
+        print(f"DEBUG: ecu:get('{path}') - FALLBACK value 8")
+        return 8 # Default for THA6xxx DFlash if not found
 

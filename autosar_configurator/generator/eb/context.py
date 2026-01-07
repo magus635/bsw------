@@ -98,12 +98,17 @@ class ContextStack:
     # Variable management
     
     def set_variable(self, name: str, value: Any):
-        """Set a variable in the current scope.
+        """Set or update a variable.
         
-        Args:
-            name: Variable name
-            value: Variable value
+        If the variable exists in any scope in the stack, update it there.
+        Otherwise, create it in the current scope.
         """
+        for scope in reversed(self._stack):
+            if name in scope.variables:
+                scope.variables[name] = value
+                return
+                
+        # Not found in any scope, set in current scope
         self._stack[-1].variables[name] = value
     
     def get_variable(self, name: str) -> Any:

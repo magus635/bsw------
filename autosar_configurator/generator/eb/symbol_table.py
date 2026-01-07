@@ -48,6 +48,14 @@ class ConfigurationNode:
         """Get all children as a list"""
         return list(self.children.values())
     
+    def get_children_recursive(self) -> List['ConfigurationNode']:
+        """Recursively get all children/descendants"""
+        results = []
+        for child in self.children.values():
+            results.append(child)
+            results.extend(child.get_children_recursive())
+        return results
+    
     def add_child(self, node: 'ConfigurationNode'):
         """Add a child node"""
         node.parent = self
@@ -68,7 +76,7 @@ class SymbolTable:
     
     def register_module(self, module_name: str, root_node: ConfigurationNode):
         """Register a module's configuration tree"""
-        self._modules[module_name] = root_node
+        self._modules[module_name.lower()] = root_node
         self._index_node(root_node)
     
     def _index_node(self, node: ConfigurationNode):
@@ -82,7 +90,7 @@ class SymbolTable:
         
         This is the implementation of as:modconf('ModuleName').
         """
-        return self._modules.get(module_name)
+        return self._modules.get(module_name.lower())
     
     def get_by_path(self, path: str) -> Optional[ConfigurationNode]:
         """Get any node by its absolute path"""

@@ -31,6 +31,17 @@ class TokenType(Enum):
     CALL = auto()           # [!CALL macro(args)!]
     MACRO = auto()          # [!MACRO name(params)!]
     ENDMACRO = auto()       # [!ENDMACRO!]
+    FOR = auto()            # [!FOR "var" = "start" TO "end"!]
+    ENDFOR = auto()         # [!ENDFOR!]
+    BREAK = auto()          # [!BREAK!]
+    CODE = auto()           # [!CODE!] - output block within NOCODE
+    ENDCODE = auto()        # [!ENDCODE!]
+    NOCODE = auto()         # [!NOCODE!] - suppress output
+    ENDNOCODE = auto()      # [!ENDNOCODE!]
+    ERROR = auto()          # [!ERROR!] - raise compile error
+    ENDERROR = auto()       # [!ENDERROR!]
+    ASSERT = auto()         # [!ASSERT condition!]
+    ENDASSERT = auto()      # [!ENDASSERT!]
 
 
 @dataclass
@@ -53,7 +64,10 @@ class Token:
 class Lexer:
     """Tokenizer for EB Tresos template files"""
     
-    # Pattern to find [! ... !] blocks
+    # Pattern for line comments [!// ... (to end of line, no !] needed)
+    LINE_COMMENT_PATTERN = re.compile(r'\[!//[^\n]*')
+    
+    # Pattern to find [! ... !] blocks (standard tags)
     TAG_PATTERN = re.compile(r'\[!(.*?)!\]', re.DOTALL)
     
     # Directive keywords (must be at start of tag content)
@@ -71,6 +85,17 @@ class Lexer:
         'CALL': TokenType.CALL,
         'MACRO': TokenType.MACRO,
         'ENDMACRO': TokenType.ENDMACRO,
+        'FOR': TokenType.FOR,
+        'ENDFOR': TokenType.ENDFOR,
+        'BREAK': TokenType.BREAK,
+        'CODE': TokenType.CODE,
+        'ENDCODE': TokenType.ENDCODE,
+        'NOCODE': TokenType.NOCODE,
+        'ENDNOCODE': TokenType.ENDNOCODE,
+        'ERROR': TokenType.ERROR,
+        'ENDERROR': TokenType.ENDERROR,
+        'ASSERT': TokenType.ASSERT,
+        'ENDASSERT': TokenType.ENDASSERT,
     }
     
     def __init__(self):
@@ -89,12 +114,18 @@ class Lexer:
         tokens = []
         self._line = 1
         self._column = 1
+        
+        # First, strip line comments [!// ... (to end of line)
+        # Replace them with empty strings to preserve line positions
+        # but mark their positions for potential tracking
+        processed = self.LINE_COMMENT_PATTERN.sub('', template)
+        
         last_pos = 0
         
-        for match in self.TAG_PATTERN.finditer(template):
+        for match in self.TAG_PATTERN.finditer(processed):
             # Add TEXT token for content before this tag
             if match.start() > last_pos:
-                text_content = template[last_pos:match.start()]
+                text_content = processed[last_pos:match.start()]
                 if text_content:
                     tokens.append(self._make_text_token(text_content))
                     self._update_position(text_content)
@@ -109,8 +140,8 @@ class Lexer:
             last_pos = match.end()
         
         # Add remaining text
-        if last_pos < len(template):
-            text_content = template[last_pos:]
+        if last_pos < len(processed):
+            text_content = processed[last_pos:]
             if text_content:
                 tokens.append(self._make_text_token(text_content))
         

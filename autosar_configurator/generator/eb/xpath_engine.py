@@ -9,6 +9,14 @@ Implements XPath 2.0 subset for AUTOSAR configuration navigation:
 import re
 from typing import Any, List, Optional, Union, TYPE_CHECKING
 
+def _debug_log(msg: str):
+    """Helper to write diagnostic logs to a fixed file for worker threads."""
+    try:
+        with open('/tmp/bsw_gen.log', 'a') as f:
+            f.write(msg + '\n')
+    except:
+        pass
+
 if TYPE_CHECKING:
     from .symbol_table import ConfigurationNode, SymbolTable
     from .context import ContextStack
@@ -71,13 +79,16 @@ class XPathEngine:
     def _evaluate_function(self, expr: str) -> Any:
         """Evaluate function calls in XPath expression"""
         # as:modconf('ModuleName') possibly followed by path or predicates
-        match = re.match(r"as:modconf\s*\(\s*['\"](\w+)['\"]\s*\)(.*)", expr)
+        match = re.match(r"(?i)as:modconf\s*\(\s*['\"](\w+)['\"]\s*\)(.*)", expr)
         if match:
             module_name = match.group(1)
             rest_path = match.group(2)
             module = self.symbol_table.get_module(module_name)
             if not module:
+                _debug_log(f"DEBUG: as:modconf('{module_name}') - Module NOT FOUND in symbol table")
                 return None
+            else:
+                _debug_log(f"DEBUG: as:modconf('{module_name}') - Module FOUND")
             
             if rest_path:
                 # Handle predicates on the function result itself
