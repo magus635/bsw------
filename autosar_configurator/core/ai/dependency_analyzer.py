@@ -218,6 +218,8 @@ class DependencyAnalyzer:
                 'origin': '📋 定义'  # Source: Module Definition
             })
         
+        print(f"[DEBUG] Added {len(dependencies)} definition-based rules from cross_module_refs")
+        
         # 2. Use AI to find additional parameter dependencies
         if self.gemini_client and self.gemini_client.is_ready():
             prompt = self._build_analysis_prompt(params_info)
@@ -244,6 +246,7 @@ class DependencyAnalyzer:
                         break # Stop if other error
                     else:
                         ai_dependencies = self._parse_ai_response(response)
+                        print(f"[DEBUG] AI returned {len(ai_dependencies)} additional rules")
                         dependencies.extend(ai_dependencies)
                         self.ai_status = f"成功 (发现 {len(ai_dependencies)} 条规则)"
                         break # Success
@@ -261,6 +264,7 @@ class DependencyAnalyzer:
         if not dependencies:
             return self._fallback_heuristic_analysis(params_info)
         
+        print(f"[DEBUG] Total dependencies to return: {len(dependencies)}")
         return dependencies
     
     def _build_analysis_prompt(self, params_info: Dict[str, List[Dict]]) -> str:

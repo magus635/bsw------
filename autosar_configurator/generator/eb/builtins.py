@@ -8,7 +8,7 @@ Implements the required function library:
 - String functions: string:concat, string:split, string:trim, string:upper, string:lower, string:match
 """
 import re
-from typing import Any, List, Optional, Callable, TYPE_CHECKING
+from typing import Any, List, Optional, Callable, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .symbol_table import ConfigurationNode, SymbolTable

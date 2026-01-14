@@ -90,6 +90,26 @@ class SmartSearchWidget(QWidget):
         """)
         layout.addWidget(self.results_list)
     
+    def build_project_index(self, project):
+        """Build a comprehensive index for the entire project workspace
+        
+        Args:
+            project: WorkspaceProject instance
+        """
+        self.search_index = []
+        if not project or not hasattr(project, 'module_managers'):
+            return
+            
+        for module_name, manager in project.module_managers.items():
+            if manager.module_def:
+                self.build_search_index(
+                    manager.module_def, 
+                    manager.configuration, 
+                    clear=False
+                )
+        
+        self.results_label.setText(f"Index built ({len(self.search_index)} items)")
+
     def build_search_index(self, module_def, configuration=None, clear=True):
         """Build search index from module definition and configuration
         
@@ -101,17 +121,18 @@ class SmartSearchWidget(QWidget):
         if clear:
             self.search_index = []
         
-        module_prefix = f"{module_def.short_name}/"
+        module_name = module_def.short_name
+        module_prefix = f"{module_name}/"
         
         # Always index DEF file definitions
-        self._index_definitions(module_def, prefix=module_prefix)
+        self._index_definitions(module_def, prefix=module_prefix, module_name=module_name)
         
         # Index configuration values if available
         if configuration:
             for container in configuration.containers:
-                self._index_container(container, module_def, parent_path=module_def.short_name)
+                self._index_container(container, module_def, parent_path=module_name, module_name=module_name)
     
-    def _index_definitions(self, module_def, prefix=""):
+    def _index_definitions(self, module_def, prefix="", module_name=""):
         """Index container and parameter definitions from DEF file"""
         for container_name, container_def in module_def.containers.items():
             # Build path with optional prefix
@@ -122,6 +143,7 @@ class SmartSearchWidget(QWidget):
                 'type': 'container_def',
                 'path': container_path,
                 'name': container_name,
+                'module': module_name,
                 'description': container_def.description or "",
                 'definition': f"Definition: {container_name}",
                 'definition_ref': container_def.definition_ref
@@ -135,6 +157,7 @@ class SmartSearchWidget(QWidget):
                     'type': 'parameter_def',
                     'path': param_path,
                     'name': param_name,
+                    'module': module_name,
                     'description': param_def.description or "",
                     'container': container_path,
                     'param_type': str(param_def.param_type) if param_def.param_type else "UNKNOWN",
@@ -142,9 +165,9 @@ class SmartSearchWidget(QWidget):
                 })
             
             # Recursively index sub-container definitions
-            self._index_subcontainer_defs(container_def, container_path, prefix=prefix)
+            self._index_subcontainer_defs(container_def, container_path, prefix=prefix, module_name=module_name)
     
-    def _index_subcontainer_defs(self, container_def, parent_path="", prefix=""):
+    def _index_subcontainer_defs(self, container_def, parent_path="", prefix="", module_name=""):
         """Recursively index sub-container definitions"""
         for sub_name, sub_def in container_def.sub_containers.items():
             sub_path = f"{parent_path}/{sub_name}"
@@ -154,6 +177,7 @@ class SmartSearchWidget(QWidget):
                 'type': 'container_def',
                 'path': sub_path,
                 'name': sub_name,
+                'module': module_name,
                 'description': sub_def.description or "",
                 'definition': f"Definition: {sub_path}",
                 'definition_ref': sub_def.definition_ref
@@ -167,6 +191,7 @@ class SmartSearchWidget(QWidget):
                     'type': 'parameter_def',
                     'path': param_path,
                     'name': param_name,
+                    'module': module_name,
                     'description': param_def.description or "",
                     'container': sub_path,
                     'param_type': str(param_def.param_type) if param_def.param_type else "UNKNOWN",
@@ -174,9 +199,9 @@ class SmartSearchWidget(QWidget):
                 })
             
             # Recurse
-            self._index_subcontainer_defs(sub_def, sub_path, prefix=prefix)
+            self._index_subcontainer_defs(sub_def, sub_path, prefix=prefix, module_name=module_name)
     
-    def _index_container(self, container, module_def, parent_path=""):
+    def _index_container(self, container, module_def, parent_path="", module_name=""):
         """Recursively index a container and its contents"""
         # Get container definition
         def_ref = container.definition_ref.split('/')[-1] if '/' in container.definition_ref else container.definition_ref
@@ -193,6 +218,7 @@ class SmartSearchWidget(QWidget):
             'type': 'container',
             'path': current_path,
             'name': container.short_name,
+            'module': module_name,
             'description': container_def.description if container_def else "",
             'definition': container.definition_ref
         })
@@ -206,6 +232,7 @@ class SmartSearchWidget(QWidget):
                 'type': 'parameter',
                 'path': param_path,
                 'name': param_name,
+                'module': module_name,
                 'value': param_value.value,
                 'description': param_def.description if param_def else "",
                 'container': current_path
@@ -219,13 +246,14 @@ class SmartSearchWidget(QWidget):
                 'type': 'reference',
                 'path': ref_path,
                 'name': ref_name,
+                'module': module_name,
                 'value': ref_value.value_ref,
                 'container': current_path
             })
         
         # Recursively index sub-containers
         for sub_container in container.sub_containers:
-            self._index_container(sub_container, module_def, current_path)
+            self._index_container(sub_container, module_def, current_path, module_name=module_name)
     
     def _on_search_text_changed(self, text: str):
         """Handle search text changes with debouncing"""

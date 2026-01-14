@@ -233,7 +233,7 @@ class WorkspaceManager:
         from datetime import datetime
         
         data = {
-            "format_version": 3,
+            "format_version": 4,
             "tool_version": "1.0.0",
             "project_type": self.current_project.project_type.value,
             "name": self.current_project.name,
@@ -245,6 +245,7 @@ class WorkspaceManager:
             "def_search_paths": [str(p) for p in self.current_project.def_search_paths],
             "variants": self.current_project.variants,
             "active_variant": self.current_project.active_variant,
+            "dependency_rules": self.current_project.dependency_rules,
             "modules": []
         }
         
@@ -289,7 +290,7 @@ class WorkspaceManager:
         
         # Check format version
         format_version = data.get("format_version", 0)
-        if format_version > 3:
+        if format_version > 4:
             raise ValueError(
                 f"Unsupported project format version {format_version}. "
                 f"Please upgrade the tool."
@@ -320,6 +321,11 @@ class WorkspaceManager:
         # Load variants (new in format v3)
         project.variants = data.get("variants", [])
         project.active_variant = data.get("active_variant", None)
+        
+        # Load dependency rules (new in format v4)
+        project.dependency_rules = data.get("dependency_rules", [])
+        if project.dependency_rules:
+            print(f"Loaded {len(project.dependency_rules)} confirmed dependency rules")
         
         project_dir = project_path.parent
         failed_modules = []

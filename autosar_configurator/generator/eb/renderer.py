@@ -13,16 +13,21 @@ from typing import Optional, Dict, Any, List, Union
 from pathlib import Path
 import logging
 import re
+import tempfile
+import os
 
 logger = logging.getLogger(__name__)
+
+# Debug log file path - cross-platform
+_DEBUG_LOG_PATH = os.path.join(tempfile.gettempdir(), 'bsw_gen.log')
 
 def _debug_log(msg: str):
     """Helper to write diagnostic logs to a fixed file for worker threads."""
     try:
-        with open('/tmp/bsw_gen.log', 'a') as f:
+        with open(_DEBUG_LOG_PATH, 'a') as f:
             f.write(msg + '\n')
-    except:
-        pass
+    except (IOError, OSError):
+        pass  # Silently ignore file write errors in debug logging
 
 from .lexer import Lexer, Token, TokenType, tokenize
 from .context import ContextStack
@@ -660,7 +665,6 @@ class Renderer:
         
         # In EB Tresos, identifiers that are not variables or nodes are often
         # intended to be literal strings (e.g., parameter names or enums)
-        return expr
         return expr
     
     def _unwrap_value(self, val: Any) -> Any:

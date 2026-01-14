@@ -7,15 +7,20 @@ Implements XPath 2.0 subset for AUTOSAR configuration navigation:
 - Path navigation against ConfigurationNode tree
 """
 import re
+import tempfile
+import os
 from typing import Any, List, Optional, Union, TYPE_CHECKING
+
+# Debug log file path - cross-platform
+_DEBUG_LOG_PATH = os.path.join(tempfile.gettempdir(), 'bsw_gen.log')
 
 def _debug_log(msg: str):
     """Helper to write diagnostic logs to a fixed file for worker threads."""
     try:
-        with open('/tmp/bsw_gen.log', 'a') as f:
+        with open(_DEBUG_LOG_PATH, 'a') as f:
             f.write(msg + '\n')
-    except:
-        pass
+    except (IOError, OSError):
+        pass  # Silently ignore file write errors in debug logging
 
 if TYPE_CHECKING:
     from .symbol_table import ConfigurationNode, SymbolTable

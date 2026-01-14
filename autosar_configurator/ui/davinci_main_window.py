@@ -170,6 +170,12 @@ class DaVinciMainWindow(QMainWindow):
         
         # Initialize AI Assistant
         self._setup_ai_assistant()
+        
+        # Impact View (Dock Widget)
+        self._setup_impact_view()
+        
+        # Problems View (Bottom Dock)
+        self._setup_problems_view()
     
     def _setup_ai_assistant(self):
         """Setup AI Assistant dock widget"""
@@ -213,11 +219,6 @@ class DaVinciMainWindow(QMainWindow):
 
     def _handle_ai_message(self, text: str):
         """Handle message from AI Assistant Widget"""
-        # Init processor if needed (Always init to allow general chat)
-        if not self.ai_processor:
-             # Can be initialized with None config_manager
-             pass
-            
         # Check/Get API Key (Optional now)
         api_key = self.settings.value("gemini_api_key")
         # if not api_key: ... (Removed blocking check)
@@ -242,7 +243,7 @@ class DaVinciMainWindow(QMainWindow):
             self.ai_processor.action_handler = self._handle_ai_action
 
         # Process Message Asynchronously
-        print(f"DEBUG: Processing AI message (async): '{text}'")
+        logger.debug(f"Processing AI message (async): '{text}'")
         self.ai_assistant_widget.set_status("Thinking...", busy=True)
         
         # Get context from selection (Safely)
@@ -251,9 +252,9 @@ class DaVinciMainWindow(QMainWindow):
             if hasattr(self.tree_view, 'get_selected_instance'):
                 context_instance = self.tree_view.get_selected_instance()
             else:
-                print("DEBUG: tree_view missing get_selected_instance")
+                logger.debug("tree_view missing get_selected_instance")
         except Exception as e:
-            print(f"DEBUG: Context error: {e}")
+            logger.debug(f"Context error: {e}")
         
         # Create worker and connect signals
         worker = AIWorker(self.ai_processor, text, context_instance)
@@ -265,13 +266,13 @@ class DaVinciMainWindow(QMainWindow):
     
     def _on_ai_response(self, response: str):
         """Handle AI response from worker thread"""
-        print(f"DEBUG: AI Response received: '{response[:50]}...'")
+        logger.debug(f"AI Response received: '{response[:50]}...'")
         self.ai_assistant_widget.append_message("AI", response)
         self.ai_assistant_widget.set_status("Ready")
     
     def _on_ai_error(self, error_msg: str):
         """Handle AI error from worker thread"""
-        print(f"DEBUG: AI Error: {error_msg}")
+        logger.debug(f"AI Error: {error_msg}")
         self.ai_assistant_widget.append_message("System", f"❌ Error: {error_msg}")
         self.ai_assistant_widget.set_status("Error")
 
@@ -355,17 +356,14 @@ class DaVinciMainWindow(QMainWindow):
         self.recent_file_actions = []
         self.max_recent_files = 10
         
-        # Edit actions  
+        # Edit actions
         self.validate_action = QAction("Validate Configuration", self)
         self.validate_action.setShortcut(QKeySequence("Ctrl+Shift+V"))
         self.validate_action.setEnabled(False)
-        self.validate_action.setEnabled(False)
         self.validate_action.triggered.connect(self.validate_configuration)
-        
+
         self.load_rules_action = QAction("Load Custom Rules...", self)
         self.load_rules_action.setEnabled(False)
-        self.load_rules_action.triggered.connect(self.load_custom_rules)
-        
         self.load_rules_action.triggered.connect(self.load_custom_rules)
 
         # Copy/Paste Actions
@@ -407,7 +405,6 @@ class DaVinciMainWindow(QMainWindow):
         
         self.show_dep_graph_action = QAction("Dependency Graph", self)
         self.show_dep_graph_action.setShortcut(QKeySequence("Ctrl+D"))
-        self.show_dep_graph_action.setEnabled(False)
         self.show_dep_graph_action.setEnabled(False)
         self.show_dep_graph_action.triggered.connect(self.show_dependency_graph)
 
@@ -732,9 +729,8 @@ class DaVinciMainWindow(QMainWindow):
             )
             if not folder_path:
                 return
-            project_root = Path(folder_path)
+            project_path = Path(folder_path)
         else:
-            file_path = file_path
             project_path = Path(file_path)
             
         self._load_project_at_path(project_path)
@@ -840,6 +836,9 @@ class DaVinciMainWindow(QMainWindow):
             
             # Save as last loaded project for auto-loading next time
             self.settings.setValue("last_project_path", str(self.current_project_file))
+
+            # Add to recent files
+            self._add_to_recent_files(str(self.current_project_file))
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load project:\n{str(e)}")
@@ -1109,6 +1108,9 @@ class DaVinciMainWindow(QMainWindow):
             
             # Save to settings
             self.settings.setValue("last_def_file", str(file_path))
+
+            # Add to recent files
+            self._add_to_recent_files(str(file_path))
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load DEF file:\n{e}")
@@ -1132,8 +1134,6 @@ class DaVinciMainWindow(QMainWindow):
         self.tree_view.refresh()
         
         # Enable save actions
-        self.save_value_action.setEnabled(True)
-        self.save_value_as_action.setEnabled(True)
         self.save_value_action.setEnabled(True)
         self.save_value_as_action.setEnabled(True)
         self.validate_action.setEnabled(True)
@@ -1467,31 +1467,42 @@ class DaVinciMainWindow(QMainWindow):
             QMessageBox.critical(self, "Paste Error", f"Failed to paste:\n{str(e)}")
     
     def validate_configuration(self):
-        """Validate current configuration with rich GUI dialog"""
-        if not self.config_manager:
+        """Validate all modules in the project and show results in the Problems View"""
+        if not self.current_project:
             return
         
-        result = self.config_manager.validate_configuration()
+        from ..core.validation_engine import ValidationResult
+        all_results = ValidationResult()
         
-        # Always show dialog if there are errors, or just success message if valid
-        if not result.is_valid:
-            from .dialogs.validation_results_dialog import ValidationResultsDialog
-            
-            dialog = ValidationResultsDialog(result.errors, self)
-            dialog.navigate_requested.connect(self._navigate_to_path)
-            dialog.exec()
-            
-            # Update status
-            self.validation_status_label.setText(f"❌ {result.error_count} Error(s)")
-            self.validation_status_label.setStyleSheet("QLabel { color: red; padding: 2px 10px; }")
-        else:
-            QMessageBox.information(
-                self,
-                "Validation Success",
-                "✅ Configuration is valid!"
-            )
+        # 1. Run validation for each module
+        for module_name, manager in self.current_project.module_managers.items():
+            if manager.configuration and manager.module_def:
+                # Use manager's engine or create one
+                from ..core.validation_engine import ValidationEngine
+                engine = ValidationEngine(manager.module_def, manager.configuration, self.current_project)
+                engine.register_default_rules()
+                
+                # Execute validation
+                module_result = engine.validate()
+                all_results.merge(module_result)
+        
+        # 2. Add cross-module AI rules validation (if implemented in engine)
+        # For now, these are already merged if rules handle them.
+        
+        # 3. Update Problems View
+        self.problems_view.set_messages(all_results.messages)
+        self.problems_dock.show()
+        self.problems_dock.raise_()
+        
+        # 4. Update status bar/icons
+        if all_results.is_valid:
+            self.statusBar().showMessage(f"✅ Validation complete: No errors found in {len(self.current_project.module_managers)} modules.", 5000)
             self.validation_status_label.setText("✅ Valid")
             self.validation_status_label.setStyleSheet("QLabel { color: green; padding: 2px 10px; }")
+        else:
+            self.statusBar().showMessage(f"❌ Validation complete: Found {all_results.error_count} errors, {all_results.warning_count} warnings.", 5000)
+            self.validation_status_label.setText(f"❌ {all_results.error_count} Errors")
+            self.validation_status_label.setStyleSheet("QLabel { color: red; padding: 2px 10px; }")
 
     def _navigate_to_path(self, path: str):
         """Navigate to a specific path in the configuration tree"""
@@ -1530,6 +1541,8 @@ class DaVinciMainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(
                 self,
+                "Load Rules Error",
+                f"Failed to load custom rules:\n{str(e)}"
             )
 
     def _get_all_project_configurations(self) -> Dict[str, Any]:
@@ -1574,18 +1587,22 @@ class DaVinciMainWindow(QMainWindow):
             # Get variant overrides if in project mode with active variant
             variant_overrides = {}
             variant_name = None
+            project_template_dir = None
+
             if hasattr(self, 'current_project') and self.current_project:
                 variant_name = self.current_project.active_variant
                 if variant_name and self.config_manager.configuration:
                     variant_overrides = self.config_manager.configuration.variant_overrides.get(variant_name, {})
-            
-            # Calculate project template directory (project_dir/templates)
-                project_template_dir = project_dir / "templates"
-                if not project_template_dir.exists():
-                    logger.info(f"Project template directory not found at: {project_template_dir}")
-                    project_template_dir = None
-                else:
-                    logger.info(f"Using project template directory: {project_template_dir}")
+
+                # Calculate project template directory (project_dir/templates)
+                if self.current_project_file:
+                    project_dir = self.current_project_file.parent
+                    project_template_dir = project_dir / "templates"
+                    if not project_template_dir.exists():
+                        logger.info(f"Project template directory not found at: {project_template_dir}")
+                        project_template_dir = None
+                    else:
+                        logger.info(f"Using project template directory: {project_template_dir}")
             
             generator = CodeGenerator(
                 self.module_def,
@@ -1854,14 +1871,7 @@ class DaVinciMainWindow(QMainWindow):
             # Build search index with current module and configuration
             if self.current_project:
                 # Project mode: Index all modules
-                first = True
-                for module_name, manager in self.current_project.module_managers.items():
-                    self.search_widget.build_search_index(
-                        manager.module_def,
-                        manager.configuration,
-                        clear=first
-                    )
-                    first = False
+                self.search_widget.build_project_index(self.current_project)
             elif self.config_manager:
                 # Single module mode
                 self.search_widget.build_search_index(
@@ -2163,38 +2173,71 @@ class DaVinciMainWindow(QMainWindow):
         if isinstance(result, tuple):
             dependencies, output_path = result
             count = len(dependencies)
-            
-            # Store rules in project for impact analysis
-            if self.current_project:
-                self.current_project.dependency_rules = dependencies
         else:
             # Fallback for string format (legacy)
             parts = str(result).split("|", 1)
             count = int(parts[0])
             output_path = parts[1]
+            dependencies = []
         
         self.statusBar().showMessage(f"依赖分析完成，发现 {count} 条潜在规则", 5000)
         
-        # Ask to open file
-        reply = QMessageBox.question(
-            self,
-            "分析完成",
-            f"发现 {count} 条潜在的跨模块依赖关系。\n\n"
-            f"结果已保存到:\n{output_path}\n\n"
-            "是否打开文件进行审核？",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.Yes
-        )
+        if not dependencies:
+            QMessageBox.information(self, "分析完成", "未发现明显的跨模块依赖关系。")
+            return
+
+        # Use the new graphical review dialog
+        from .dialogs.dependency_review_dialog import DependencyReviewDialog
+        dialog = DependencyReviewDialog(dependencies, self)
         
-        if reply == QMessageBox.Yes:
-            import subprocess
-            import sys
-            if sys.platform == 'darwin':
-                subprocess.run(['open', str(output_path)])
-            elif sys.platform == 'win32':
-                subprocess.run(['start', str(output_path)], shell=True)
-            else:
-                subprocess.run(['xdg-open', str(output_path)])
+        # If dialog is accepted, store the confirmed rules
+        if dialog.exec() == QDialog.Accepted:
+            confirmed_rules = dialog.confirmed_rules
+            if self.current_project:
+                self.current_project.dependency_rules = confirmed_rules
+                
+                # Regenerate markdown with confirmed status
+                from ..core.ai.dependency_analyzer import DependencyAnalyzer
+                analyzer = DependencyAnalyzer()
+                
+                # Update status for all dependencies based on confirmation
+                confirmed_ids = {(r.get('source_param'), r.get('target_param')) for r in confirmed_rules}
+                for dep in dependencies:
+                    key = (dep.get('source_param'), dep.get('target_param'))
+                    if key in confirmed_ids:
+                        dep['status'] = 'confirmed'
+                    else:
+                        dep['status'] = 'rejected'
+                
+                # Regenerate the file
+                analyzer.generate_markdown(dependencies, Path(output_path))
+                
+            QMessageBox.information(
+                self, 
+                "规则已应用", 
+                f"已成功应用 {len(confirmed_rules)} 条确认的依赖规则。\n"
+                f"已更新 {Path(output_path).name} 文件标记确认状态。"
+            )
+        
+        # Optionally still offer to open the full report doc
+        if output_path and Path(output_path).exists():
+            reply = QMessageBox.question(
+                self,
+                "查看完整报告",
+                f"分析报告已生成并包含详细原因建议。\n\n是否打开 {Path(output_path).name} 查阅原始报告？",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if reply == QMessageBox.Yes:
+                import subprocess
+                import sys
+                if sys.platform == 'darwin':
+                    subprocess.run(['open', str(output_path)])
+                elif sys.platform == 'win32':
+                    subprocess.run(['start', str(output_path)], shell=True)
+                else:
+                    subprocess.run(['xdg-open', str(output_path)])
     
     def _on_dependency_analysis_error(self, error: str):
         """Handle dependency analysis error"""
@@ -2482,11 +2525,154 @@ except Exception as e:
     
     def _update_recent_files_menu(self):
         """Update recent files menu with current list"""
-        # TODO: Implement fully
         self.recent_files_menu.clear()
-        no_files_action = QAction("(No recent files)", self)
-        no_files_action.setEnabled(False)
-        self.recent_files_menu.addAction(no_files_action)
+
+        # Get recent files from settings
+        recent_files = self.settings.value("recent_files", [])
+
+        # Handle case where settings returns a string instead of list
+        if isinstance(recent_files, str):
+            recent_files = [recent_files] if recent_files else []
+
+        if not recent_files:
+            no_files_action = QAction("(No recent files)", self)
+            no_files_action.setEnabled(False)
+            self.recent_files_menu.addAction(no_files_action)
+            return
+
+        # Add recent files to menu (limit to max_recent_files)
+        for file_path in recent_files[:self.max_recent_files]:
+            if Path(file_path).exists():
+                action = QAction(file_path, self)
+                action.triggered.connect(lambda checked, path=file_path: self._open_recent_file(path))
+                self.recent_files_menu.addAction(action)
+
+        # Add separator and clear action if there are files
+        if self.recent_files_menu.actions():
+            self.recent_files_menu.addSeparator()
+            clear_action = QAction("Clear Recent Files", self)
+            clear_action.triggered.connect(self._clear_recent_files)
+            self.recent_files_menu.addAction(clear_action)
+
+    def _open_recent_file(self, file_path: str):
+        """Open a file from recent files menu"""
+        path = Path(file_path)
+        if not path.exists():
+            QMessageBox.warning(self, "File Not Found", f"The file no longer exists:\n{file_path}")
+            self._remove_from_recent_files(file_path)
+            return
+
+        # Determine file type and open accordingly
+        if path.suffix.lower() == '.dpa':
+            self._load_project_at_path(path)
+        elif path.suffix.lower() in ('.arxml', '.xdm'):
+            self._load_def_file_at_path(path)
+
+    def _load_def_file_at_path(self, path: Path):
+        """Load a DEF file from a specific path (used by recent files)"""
+        # Check if project is active
+        if self.current_project:
+            reply = QMessageBox.question(
+                self,
+                "Close Project?",
+                "Opening a DEF file will close the current project.\n\n"
+                "Do you want to:\n"
+                "• Close project and open DEF file (single-module mode)\n"
+                "• Cancel and use 'Add Module to Project' instead",
+                QMessageBox.Ok | QMessageBox.Cancel,
+                QMessageBox.Cancel
+            )
+
+            if reply == QMessageBox.Cancel:
+                return
+
+            # User chose to close project
+            self.current_project = None
+            self.current_project_file = None
+            self.tree_view.clear()
+            self.save_project_action.setEnabled(False)
+            self.add_module_action.setEnabled(False)
+
+        try:
+            # Show loading cursor
+            from PySide6.QtWidgets import QApplication
+            from PySide6.QtCore import Qt as QtCore_Qt
+            QApplication.setOverrideCursor(QtCore_Qt.WaitCursor)
+            self.statusbar.showMessage("Loading DEF file...")
+
+            # Parse DEF file
+            self.module_def = self.def_parser.parse_module_def_file(path)
+            self.current_def_file = path
+
+            # Create configuration manager
+            self.config_manager = ConfigurationManager(self.module_def)
+
+            # Update UI
+            self.tree_view.set_module_def(self.module_def, self.config_manager)
+            self.def_file_label.setText(f"DEF: {self.module_def.short_name}")
+
+            # Enable actions
+            self.new_config_action.setEnabled(True)
+            self.open_value_action.setEnabled(True)
+
+            self.statusbar.showMessage(f"Loaded DEF: {self.module_def.short_name}", 5000)
+
+            # Update mode label for single-module mode
+            self.mode_label.setText(f"Module: {self.module_def.short_name}")
+
+            # Update menu/toolbar states
+            self._update_mode_actions()
+
+            # Save to settings
+            self.settings.setValue("last_def_file", str(path))
+
+            # Add to recent files
+            self._add_to_recent_files(str(path))
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to load DEF file:\n{e}")
+            self.statusbar.showMessage("Failed to load DEF file", 5000)
+        finally:
+            from PySide6.QtWidgets import QApplication
+            QApplication.restoreOverrideCursor()
+
+    def _add_to_recent_files(self, file_path: str):
+        """Add a file to recent files list"""
+        recent_files = self.settings.value("recent_files", [])
+
+        if isinstance(recent_files, str):
+            recent_files = [recent_files] if recent_files else []
+
+        # Remove if already exists (to move to top)
+        if file_path in recent_files:
+            recent_files.remove(file_path)
+
+        # Add to beginning
+        recent_files.insert(0, file_path)
+
+        # Limit to max_recent_files
+        recent_files = recent_files[:self.max_recent_files]
+
+        # Save and update menu
+        self.settings.setValue("recent_files", recent_files)
+        self._update_recent_files_menu()
+
+    def _remove_from_recent_files(self, file_path: str):
+        """Remove a file from recent files list"""
+        recent_files = self.settings.value("recent_files", [])
+
+        if isinstance(recent_files, str):
+            recent_files = [recent_files] if recent_files else []
+
+        if file_path in recent_files:
+            recent_files.remove(file_path)
+            self.settings.setValue("recent_files", recent_files)
+            self._update_recent_files_menu()
+
+    def _clear_recent_files(self):
+        """Clear all recent files"""
+        self.settings.setValue("recent_files", [])
+        self._update_recent_files_menu()
         
     def _auto_load_last_project(self):
         """Automatically load the last project from settings"""
@@ -2614,14 +2800,50 @@ except Exception as e:
         else:
             self.statusbar.showMessage(f"Could not find: {target_path}", 3000)
     
+    def _setup_impact_view(self):
+        """Setup Impact Analysis dock widget"""
+        self.impact_dock = QDockWidget("Impact Analysis", self)
+        self.impact_dock.setObjectName("ImpactAnalysisDock")
+        self.impact_dock.setAllowedAreas(Qt.RightDockWidgetArea | Qt.LeftDockWidgetArea | Qt.BottomDockWidgetArea)
+        
+        from .widgets.impact_view import ImpactView
+        self.impact_view = ImpactView()
+        self.impact_view.item_requested.connect(self._on_impact_item_requested)
+        self.impact_dock.setWidget(self.impact_view)
+        
+        self.addDockWidget(Qt.RightDockWidgetArea, self.impact_dock)
+        self.impact_dock.hide()
+        
+        # Add to view menu
+        self.toggle_impact_action = self.impact_dock.toggleViewAction()
+        self.toggle_impact_action.setText("Impact Analysis")
+        self.toggle_impact_action.setShortcut(QKeySequence("Ctrl+Shift+I"))
+        
+        # Find view menu and add action
+        menubar = self.menuBar()
+        for action in menubar.actions():
+            if action.text() == "View":
+                action.menu().addAction(self.toggle_impact_action)
+                break
+
+    def _on_impact_item_requested(self, logical_path: str):
+        """Navigate to an item from the impact view"""
+        if '.' not in logical_path:
+            return
+            
+        # For now, use search to find it
+        if hasattr(self, 'search_widget'):
+            self.search_widget.search_input.setText(logical_path.split('.')[-1])
+            self.toggle_search_action.setChecked(True)
+            self.search_widget.show()
+            self.search_widget.focus_search()
+
     def _handle_check_impact(self, container_path: str, param_name: str):
-        """Analyze and show impact of changing a parameter"""
+        """Analyze and show impact of changing a parameter using the ImpactView dock"""
         if not self.config_manager or not self.current_project:
             return
 
-            
         from ..core.analysis.impact_analyzer import ImpactAnalyzer
-        from PySide6.QtWidgets import QDialog, QVBoxLayout, QListWidget, QLabel, QDialogButtonBox
         
         # Initialize analyzer
         analyzer = ImpactAnalyzer()
@@ -2632,44 +2854,21 @@ except Exception as e:
                 analyzer.build_from_configuration(manager.configuration, module_name)
                 
         # Load AI rules
-        if self.current_project.dependency_rules:
+        if hasattr(self.current_project, 'dependency_rules') and self.current_project.dependency_rules:
             analyzer.load_dependencies(self.current_project.dependency_rules)
             
         # Determine source node path
         module_name = self.config_manager.module_def.short_name
-        # If container_path starts with /, strip it
         clean_cont_path = container_path.lstrip('/')
-        
-        # Heuristic node naming: Module.Container/Path.Param
-        # Container path usually already has slashes.
         source_node = f"{module_name}.{clean_cont_path}.{param_name}"
         
         # Analyze
         impacts = analyzer.analyze_impact(source_node)
         
-        # Show results
-        dialog = QDialog(self)
-        dialog.setWindowTitle(f"Impact Analysis: {param_name}")
-        dialog.resize(600, 400)
-        
-        layout = QVBoxLayout(dialog)
-        
-        if impacts:
-            layout.addWidget(QLabel(f"Changing <b>{param_name}</b> may affect {len(impacts)} items:"))
-            list_widget = QListWidget()
-            for impact in impacts:
-                icon = "🤖" if impact.dependency_type == 'logical' else "🔗"
-                item_text = f"{icon} {impact.target}\n    reason: {impact.reason}"
-                list_widget.addItem(item_text)
-            layout.addWidget(list_widget)
-        else:
-            layout.addWidget(QLabel(f"No detected dependencies for <b>{source_node}</b>."))
-            
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok)
-        buttons.accepted.connect(dialog.accept)
-        layout.addWidget(buttons)
-        
-        dialog.exec()
+        # Show in dock
+        self.impact_view.display_impacts(source_node, impacts)
+        self.impact_dock.show()
+        self.impact_dock.raise_()
 
     def _show_reverse_references(self, container):
         """Show dialog listing all containers that reference this container
@@ -2747,4 +2946,42 @@ except Exception as e:
         """Navigate to a container by path"""
         if path:
             self.tree_view.select_item_by_path(path)
+
+    def _setup_problems_view(self):
+        """Setup the centralized Problems View bottom dock"""
+        self.problems_dock = QDockWidget("Problems", self)
+        self.problems_dock.setObjectName("ProblemsDock")
+        self.problems_dock.setAllowedAreas(Qt.BottomDockWidgetArea | Qt.TopDockWidgetArea)
+        
+        from .widgets.problems_view import ProblemsView
+        self.problems_view = ProblemsView()
+        self.problems_view.item_requested.connect(self._on_problems_item_requested)
+        self.problems_dock.setWidget(self.problems_view)
+        
+        self.addDockWidget(Qt.BottomDockWidgetArea, self.problems_dock)
+        self.problems_dock.hide()
+        
+        # Add to view menu
+        self.toggle_problems_action = self.problems_dock.toggleViewAction()
+        self.toggle_problems_action.setText("Problems")
+        self.toggle_problems_action.setShortcut(QKeySequence("Ctrl+Shift+M"))
+        
+        menubar = self.menuBar()
+        for action in menubar.actions():
+            if action.text() == "View":
+                action.menu().addAction(self.toggle_problems_action)
+                break
+
+    def _on_problems_item_requested(self, container_path: str, parameter_name: str):
+        """Navigate to a problem source"""
+        if not container_path:
+            return
+            
+        # 1. Expand/select in tree
+        self.tree_view.select_item_by_path(container_path)
+        
+        # 2. Highlight in config panel if it's a parameter
+        if parameter_name:
+            # Note: We rely on the selection triggering the load
+            pass
 

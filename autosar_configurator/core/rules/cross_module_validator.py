@@ -62,6 +62,10 @@ class CrossModuleValidator:
         
         content = md_path.read_text(encoding='utf-8')
         
+        # First, count how many [x] marked rows exist
+        confirmed_rows = re.findall(r'\|\s*\d+\s*\|\s*\[\s*x\s*\]\s*\|', content, re.IGNORECASE)
+        print(f"[DEBUG] Found {len(confirmed_rows)} rows with [x] status in markdown")
+        
         # Parse table rows - look for lines with confirmed status [x] (flexible whitespace)
         # New format: | # | [x] | 来源 | `source_param` | condition value | `target_param` | condition value | reason |
         # Old format: | # | [x] | `source_param` | condition value | `target_param` | condition value | reason |
@@ -76,8 +80,11 @@ class CrossModuleValidator:
         )
         
         # Try new format first, then old format
-        for pattern in [table_pattern_new, table_pattern_old]:
-            for match in pattern.finditer(content):
+        for pattern_name, pattern in [("new", table_pattern_new), ("old", table_pattern_old)]:
+            matches = list(pattern.finditer(content))
+            print(f"[DEBUG] Pattern '{pattern_name}' matched {len(matches)} rows")
+            
+            for match in matches:
                 source_param = match.group(1).strip()
                 source_cond_val = match.group(2).strip()
                 target_param = match.group(3).strip()
@@ -100,6 +107,8 @@ class CrossModuleValidator:
                         status='confirmed'
                     )
                     self.rules.append(rule)
+                else:
+                    print(f"[WARN] Skipped rule due to condition parsing failure: {source_param} -> {target_param}")
             
             # If found rules with current pattern, stop
             if self.rules:
@@ -109,12 +118,20 @@ class CrossModuleValidator:
         return len(self.rules)
     
     def _parse_condition_value(self, cond_val: str) -> Tuple[Optional[str], Optional[str]]:
-        """Parse condition and value from a string like '= true', '>= 1024', or 'exists true'"""
+        """Parse condition and value from a string like '= true', '>= 1024', 'exists true', or 'undefined N/A'"""
+        cond_val = cond_val.strip()
+        if not cond_val:
+            return None, None
+        
         # Support operators: =, ==, !=, <, <=, >, >=, exists
-        match = re.match(r'([=<>!]+|exists)\s*(.+)', cond_val.strip())
+        match = re.match(r'([=<>!]+|exists)\s*(.+)', cond_val)
         if match:
             return match.group(1), match.group(2).strip()
-        return None, None
+        
+        # Fallback: treat the whole string as value with '=' condition
+        # This handles AI-generated formats like 'undefined N/A', '<reference_to_valid_clock> N/A'
+        # We'll treat it as an existence/presence check
+        return '=', cond_val
     
     def validate_project(self, project) -> ValidationResult:
         """

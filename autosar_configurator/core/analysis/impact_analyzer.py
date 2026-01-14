@@ -75,6 +75,9 @@ class ImpactAnalyzer:
         # So Source affects Target.
         # Edge: Source -> Target.
         
+        loaded_count = 0
+        skipped_count = 0
+        
         for dep in dependencies:
             source = dep.get('source_param')
             target = dep.get('target_param')
@@ -82,6 +85,12 @@ class ImpactAnalyzer:
             
             if source and target:
                 self.add_dependency(source, target, 'logical', reason)
+                loaded_count += 1
+            else:
+                skipped_count += 1
+                print(f"[WARN] Skipped rule missing source/target: {dep}")
+        
+        print(f"[DEBUG] Loaded {loaded_count} dependency rules, skipped {skipped_count}")
 
     def analyze_impact(self, node_path: str) -> List[ImpactPath]:
         """Find all nodes affected by a change in node_path (BFS)"""
