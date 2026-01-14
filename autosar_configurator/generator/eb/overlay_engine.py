@@ -105,42 +105,68 @@ class OverlayEngine:
         
         If config_instance exists, create node from it.
         If not but definition requires it (lowerMultiplicity > 0), create from defaults.
+        
+        For EB Tresos template compatibility:
+        - Multi-instance container definitions (e.g., CanHardwareObject) create a wrapper node
+        - Instances are added as children of this wrapper node
+        - This allows XPath patterns like "CanHardwareObject/*" to work correctly
         """
         nodes = []
         container_name = container_def.short_name
         container_path = f"{parent_path}/{container_name}"
         
         if config_instance:
-            # Create node from configuration
-            node = self._create_container_node(container_def, config_instance, container_path)
+            # Create node from configuration using instance's actual name (may differ from def name)
+            instance_name = config_instance.short_name
+            instance_path = f"{parent_path}/{instance_name}"
+            node = self._create_container_node(container_def, config_instance, instance_path)
             nodes.append(node)
             
-            # Handle sub-container instances
+            # Handle sub-container instances - GROUP BY DEFINITION
+            # First, collect all instances by their definition name
+            all_subs = getattr(config_instance, 'sub_containers', []) or []
+            if not all_subs:
+                children = getattr(config_instance, 'children', [])
+                if isinstance(children, dict):
+                    all_subs = [v for k, v in children.items() if not hasattr(v, 'value')]
+                else:
+                    all_subs = children
+            
             for sub_def_name, sub_def in container_def.sub_containers.items():
-                # Find matching sub-container instances
-                all_subs = getattr(config_instance, 'sub_containers', []) or []
-                if not all_subs:
-                    children = getattr(config_instance, 'children', [])
-                    if isinstance(children, dict):
-                        # For dictionary children, assume values are the subjects
-                        all_subs = [v for k, v in children.items() if not hasattr(v, 'value')]
-                    else:
-                        all_subs = children
-                
+                # Find matching sub-container instances by definition reference
                 matching_subs = [s for s in all_subs 
                                  if getattr(s, 'short_name', None) == sub_def_name or 
                                  getattr(s, 'definition_ref', '').endswith(f"/{sub_def_name}")]
                 
                 if matching_subs:
+                    # ALWAYS create a wrapper/group node for sub-containers
+                    # This allows XPath like "CanHardwareObject/*" to return instances
+                    # Even when there's only 1 instance, the XPath pattern expects instances, not parameters
+                    wrapper_path = f"{instance_path}/{sub_def_name}"
+                    wrapper_node = ConfigurationNode(
+                        short_name=sub_def_name,
+                        node_type='container',
+                        path=wrapper_path,
+                        definition_ref=sub_def.definition_ref,
+                        lower_multiplicity=sub_def.lower_multiplicity,
+                        upper_multiplicity=sub_def.upper_multiplicity
+                    )
+                    
+                    # Add each instance as a child of the wrapper
                     for sub_config_raw in matching_subs:
-                        sub_nodes = self._build_container_nodes(
-                            sub_def, sub_config_raw, container_path
-                        )
-                        for sub_node in sub_nodes:
-                            node.add_child(sub_node)
+                        sub_instance_name = sub_config_raw.short_name
+                        sub_instance_path = f"{wrapper_path}/{sub_instance_name}"
+                        sub_node = self._create_container_node(sub_def, sub_config_raw, sub_instance_path)
+                        
+                        # Recursively process sub-sub-containers
+                        self._process_sub_containers(sub_def, sub_config_raw, sub_node, sub_instance_path)
+                        
+                        wrapper_node.add_child(sub_node)
+                    
+                    node.add_child(wrapper_node)
                 elif sub_def.is_required:
                     # Create from defaults if required
-                    default_node = self._create_default_container_node(sub_def, container_path)
+                    default_node = self._create_default_container_node(sub_def, instance_path)
                     node.add_child(default_node)
         else:
             # No config instance - create from defaults if required
@@ -149,6 +175,51 @@ class OverlayEngine:
                 nodes.append(node)
         
         return nodes
+    
+    def _process_sub_containers(
+        self,
+        container_def: EcucContainerDef,
+        config_instance: EcucContainerValue,
+        node: ConfigurationNode,
+        instance_path: str
+    ):
+        """Recursively process sub-containers for a container instance."""
+        all_subs = getattr(config_instance, 'sub_containers', []) or []
+        if not all_subs:
+            children = getattr(config_instance, 'children', [])
+            if isinstance(children, dict):
+                all_subs = [v for k, v in children.items() if not hasattr(v, 'value')]
+            else:
+                all_subs = children
+        
+        for sub_def_name, sub_def in container_def.sub_containers.items():
+            matching_subs = [s for s in all_subs 
+                             if getattr(s, 'short_name', None) == sub_def_name or 
+                             getattr(s, 'definition_ref', '').endswith(f"/{sub_def_name}")]
+            
+            if matching_subs:
+                # ALWAYS create wrapper node for sub-containers
+                wrapper_path = f"{instance_path}/{sub_def_name}"
+                wrapper_node = ConfigurationNode(
+                    short_name=sub_def_name,
+                    node_type='container',
+                    path=wrapper_path,
+                    definition_ref=sub_def.definition_ref,
+                    lower_multiplicity=sub_def.lower_multiplicity,
+                    upper_multiplicity=sub_def.upper_multiplicity
+                )
+                
+                for sub_config_raw in matching_subs:
+                    sub_instance_name = sub_config_raw.short_name
+                    sub_instance_path = f"{wrapper_path}/{sub_instance_name}"
+                    sub_node = self._create_container_node(sub_def, sub_config_raw, sub_instance_path)
+                    self._process_sub_containers(sub_def, sub_config_raw, sub_node, sub_instance_path)
+                    wrapper_node.add_child(sub_node)
+                
+                node.add_child(wrapper_node)
+            elif sub_def.is_required:
+                default_node = self._create_default_container_node(sub_def, instance_path)
+                node.add_child(default_node)
     
     def _create_container_node(
         self,

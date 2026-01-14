@@ -4,10 +4,10 @@ Shows editable parameters for selected container instance
 """
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLabel, QLineEdit,
-    QComboBox, QSpinBox, QDoubleSpinBox,QCheckBox, QTextEdit,
-    QComboBox, QSpinBox, QDoubleSpinBox,QCheckBox, QTextEdit,
+    QComboBox, QSpinBox, QDoubleSpinBox, QCheckBox, QTextEdit,
     QGroupBox, QTableWidget, QTableWidgetItem, QScrollArea,
-    QHeaderView, QPushButton, QListWidget, QListWidgetItem
+    QHeaderView, QPushButton, QListWidget, QListWidgetItem,
+    QToolButton, QMessageBox
 )
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QColor
@@ -34,6 +34,7 @@ class DaVinciConfigPanel(QWidget):
         self.current_def: Optional[EcucContainerDef] = None
         self.config_manager: Optional[ConfigurationManager] = None
         self.ai_help_cache: dict = {}  # Cache AI help responses
+        self.reference_variant: Optional[str] = None  # Reference variant for comparison (None = Base)
         
         self._setup_ui()
     
@@ -103,7 +104,7 @@ class DaVinciConfigPanel(QWidget):
         
         # Type filter
         self.type_filter = QComboBox()
-        self.type_filter.addItems(["All Types", "Required Only", "Integer", "Float", "Boolean", "Enum", "String"])
+        self.type_filter.addItems(["All Types", "Required Only", "⚡ Overridden Only", "Integer", "Float", "Boolean", "Enum", "String"])
         self.type_filter.currentTextChanged.connect(self._filter_parameters)
         toolbar_layout.addWidget(self.type_filter, 1)
         
@@ -112,6 +113,17 @@ class DaVinciConfigPanel(QWidget):
         self.sort_combo.addItems(["Name ↑", "Name ↓", "Type"])
         self.sort_combo.currentTextChanged.connect(self._sort_parameters)
         toolbar_layout.addWidget(self.sort_combo, 1)
+        
+        # Compare button
+        self.compare_btn = QPushButton("⚡ Check Diff")
+        self.compare_btn.setToolTip("Compare current variant with reference (Base or defined reference)")
+        self.compare_btn.clicked.connect(self._run_comparison)
+        # Use a checkable button to show state
+        self.compare_btn.setCheckable(True)
+        toolbar_layout.addWidget(self.compare_btn, 1)
+        
+        # Comparison results: {param_name: {'current': val, 'reference': val}}
+        self.comparison_results = {}
         
         params_layout.addLayout(toolbar_layout)
         
@@ -210,6 +222,11 @@ class DaVinciConfigPanel(QWidget):
             self.parameters_group.hide()
             self.general_group.hide()
             
+            # Reset comparison state only if not in comparison mode
+            # (comparison mode preserves results during refresh)
+            if hasattr(self, 'compare_btn') and not self.compare_btn.isChecked():
+                self.comparison_results = {}
+            
             # Update general info
             self.name_label.setText(instance.short_name)
             self.def_label.setText(container_def.short_name)
@@ -278,9 +295,96 @@ class DaVinciConfigPanel(QWidget):
         self.parameters_group.show()
         self.references_group.hide()  # Ensure references are hidden in definition mode
     
+    def _run_comparison(self):
+        """Compare current variant with reference (Base or another variant).
+
+        Only compares parameters in the currently selected container.
+        Results stored in self.comparison_results dict.
+        """
+        self.comparison_results = {}
+
+        if not self.compare_btn.isChecked():
+            # Button unchecked - clear highlights
+            self.refresh()
+            return
+
+        if not self.current_instance or not self.current_def:
+            return
+
+        instance = self.current_instance
+        module_config = instance.module_config
+        variant = getattr(self.project, 'active_variant', None) if self.project else None
+
+        for param_name, param_def in self.current_def.parameters.items():
+            # 1. Get base value (from ARXML or default)
+            base_value = None
+            if param_name in instance.parameter_values:
+                base_value = instance.parameter_values[param_name].value
+            elif param_def.default_value is not None:
+                base_value = param_def.default_value
+
+            # 2. Get current value (variant override or base)
+            current_value = base_value
+            param_path = f"{instance.get_path()}.{param_name}"
+            
+            if variant and module_config:
+                override, is_override = module_config.get_value_for_variant(param_path, variant)
+                if not is_override:
+                    short_path = f"{instance.short_name}.{param_name}"
+                    override, is_override = module_config.get_value_for_variant(short_path, variant)
+                if is_override:
+                    current_value = override
+
+            # 3. Get reference value
+            # Priority: reference_variant > "Base" variant > parameter_values/default
+            reference_value = base_value
+            
+            if self.reference_variant and module_config:
+                # Reference is another variant (e.g., compare v1 vs v2)
+                ref_override, is_ref = module_config.get_value_for_variant(param_path, self.reference_variant)
+                if not is_ref:
+                    short_path = f"{instance.short_name}.{param_name}"
+                    ref_override, is_ref = module_config.get_value_for_variant(short_path, self.reference_variant)
+                if is_ref:
+                    reference_value = ref_override
+            elif module_config:
+                # No reference_variant selected - try to read from "Base" variant
+                base_override, is_base = module_config.get_value_for_variant(param_path, "Base")
+                if not is_base:
+                    short_path = f"{instance.short_name}.{param_name}"
+                    base_override, is_base = module_config.get_value_for_variant(short_path, "Base")
+                if is_base:
+                    reference_value = base_override
+
+            # 4. Compare values (robust)
+            if self._values_differ(current_value, reference_value):
+                self.comparison_results[param_name] = {
+                    'current': current_value,
+                    'reference': reference_value
+                }
+        
+        # Refresh display to apply highlights (but don't reset comparison_results)
+        if self.current_instance and self.current_def:
+            self._populate_parameters(self.current_instance, self.current_def)
+
+    def _values_differ(self, val1, val2) -> bool:
+        """Compare two values robustly, handling type differences"""
+        if val1 == val2:
+            return False
+        if str(val1) == str(val2):
+            return False
+        try:
+            if float(val1) == float(val2):
+                return False
+        except (ValueError, TypeError):
+            pass
+        return True
+
     def _populate_parameters(self, instance: EcucContainerValue, container_def: EcucContainerDef):
         """Populate parameters table with editable widgets"""
         self.params_table.setRowCount(len(container_def.parameters))
+        self._override_rows = set()  # Track rows with variant overrides
+        
         
         for row, (param_name, param_def) in enumerate(container_def.parameters.items()):
             # Column 0: Parameter name
@@ -344,6 +448,31 @@ class DaVinciConfigPanel(QWidget):
             req_item = QTableWidgetItem("*" if param_def.is_required else "")
             req_item.setTextAlignment(Qt.AlignCenter)
             self.params_table.setItem(row, 4, req_item)
+            
+            # Apply comparison highlighting
+            if param_name in self.comparison_results:
+                self._override_rows.add(row)
+                diff_info = self.comparison_results[param_name]
+
+                # Update name with indicator
+                new_name = f"⚡ {param_def.short_name}"
+                name_item.setText(new_name)
+
+                # Build detailed tooltip showing actual values
+                reference_display = "Base" if not self.reference_variant else self.reference_variant
+                tooltip_extra = (
+                    f"\n\n⚡ 与 {reference_display} 不同:\n"
+                    f"  当前值: {diff_info['current']}\n"
+                    f"  参考值: {diff_info['reference']}"
+                )
+                name_item.setToolTip(self._get_parameter_tooltip(param_def) + tooltip_extra)
+
+                # Set yellow background for all cells in row
+                override_color = QColor("#FFF3CD")  # Soft warning yellow
+                for col in range(self.params_table.columnCount()):
+                    item = self.params_table.item(row, col)
+                    if item:
+                        item.setBackground(override_color)
         
         self.params_table.resizeColumnsToContents()
         # Allow user to resize columns (Interactive is default, so we just don't lock them)
@@ -370,7 +499,7 @@ class DaVinciConfigPanel(QWidget):
             return list_editor
 
         # Single value editor
-        widget, value_getter, signal = self._create_single_value_editor(param_def, current_value)
+        widget, value_getter, signal = self._create_single_value_editor(param_name, param_def, current_value)
         
         # Initial setting if needed
         # Note: We rely on the caller/instance to have the value, 
@@ -386,13 +515,26 @@ class DaVinciConfigPanel(QWidget):
                  instance.set_parameter_value(param_name, initial_val, param_def.definition_ref)
 
         # Connect signal
-        # Map signal to value
-        signal.connect(lambda *args: self._on_value_changed(param_name, value_getter()))
+        # Use nested function for reliable closure capture
+        def on_change(*args):
+             val = value_getter()
+             # print(f"DEBUG SIGNAL FIRED: {param_name} -> {val}")
+             self._on_value_changed(param_name, val)
+             
+        # Keep reference to prevent GC (Crucial for reliable signal handling)
+        widget._on_change_slot = on_change
+        
+        signal.connect(on_change)
         
         return widget
 
-    def _create_single_value_editor(self, param_def: EcucParameterDef, current_value: any):
+    def _create_single_value_editor(self, param_name: str, param_def: EcucParameterDef, current_value: Any):
         """Create a single value editor widget
+        
+        Args:
+            param_name: Parameter name (used to identify baudrate params)
+            param_def: Parameter definition
+            current_value: Current value of the parameter
         
         Returns:
             (widget, value_getter_func, changed_signal)
@@ -413,7 +555,7 @@ class DaVinciConfigPanel(QWidget):
             if val_to_set:
                 combo.setCurrentText(val_to_set)
 
-            return combo, combo.currentText, combo.currentTextChanged
+            return combo, combo.currentText, combo.activated
         
         elif param_def.param_type == EcucParameterType.INTEGER:
             # SpinBox for integers
@@ -442,6 +584,7 @@ class DaVinciConfigPanel(QWidget):
                 param_def.min_value if param_def.min_value is not None else -1e308,
                 param_def.max_value if param_def.max_value is not None else 1e308
             )
+            spinbox.setDecimals(2)
             
             try:
                 value = float(current_value) if current_value is not None else 0.0
@@ -449,6 +592,24 @@ class DaVinciConfigPanel(QWidget):
                 value = 0.0
                 
             spinbox.setValue(value)
+            
+            # Check if this is a baudrate parameter that supports calculation
+            if param_name in ('CanControllerBaudRate', 'CanControllerFdBaudRate'):
+                container = QWidget()
+                layout = QHBoxLayout(container)
+                layout.setContentsMargins(0, 0, 0, 0)
+                layout.setSpacing(2)
+                layout.addWidget(spinbox)
+                
+                calc_btn = QToolButton()
+                calc_btn.setText("🔢")
+                calc_btn.setToolTip("Calculate timing parameters - 根据波特率自动计算 PRESDIV、PropSeg、Seg1、Seg2")
+                calc_btn.setFixedSize(24, 24)
+                is_fd = (param_name == 'CanControllerFdBaudRate')
+                calc_btn.clicked.connect(lambda checked, sp=spinbox, fd=is_fd: self._on_calc_baudrate_clicked(sp, fd))
+                layout.addWidget(calc_btn)
+                
+                return container, spinbox.value, spinbox.valueChanged
             
             return spinbox, spinbox.value, spinbox.valueChanged
         
@@ -518,6 +679,8 @@ class DaVinciConfigPanel(QWidget):
             type_match = True
             if type_filter == "Required Only":
                 type_match = is_required
+            elif type_filter == "⚡ Overridden Only":
+                type_match = hasattr(self, '_override_rows') and row in self._override_rows
             elif type_filter != "All Types":
                 target_type = type_map.get(type_filter, type_filter.upper())
                 type_match = param_type == target_type
@@ -593,18 +756,23 @@ class DaVinciConfigPanel(QWidget):
         
         return "\n".join(lines)
     
-    def _on_value_changed(self, param_name: str, value: any):
+    def _on_value_changed(self, param_name: str, value: Any):
         """Handle parameter value change"""
         if not self.current_instance or not self.config_manager:
-            return
+             return
         
         # Check if we should write to variant override instead of base config
         if self.project and hasattr(self.project, 'active_variant') and self.project.active_variant:
             variant = self.project.active_variant
             module_config = self.current_instance.module_config
+            
             if module_config:
                 param_path = f"{self.current_instance.get_path()}.{param_name}"
                 module_config.set_value_for_variant(param_path, value, variant)
+                
+                # NOTE: In explicit comparison mode, we do NOT refresh automatically.
+                # User must click "Check Diff" to see updated highlights.
+                
                 # Still emit signal for UI updates (status bar, etc.)
                 self.parameter_changed.emit(self.current_instance, param_name, value)
                 return
@@ -790,6 +958,146 @@ class DaVinciConfigPanel(QWidget):
         self.ai_help_label.setText("✅ 缓存已清除")
         self.ai_help_label.setStyleSheet("color: #666; padding: 8px; background: #f8f8f8; border-radius: 4px;")
     
+    def _on_calc_baudrate_clicked(self, spinbox: QDoubleSpinBox, is_fd: bool = False):
+        """Handle calculate button click for baudrate parameters
+        
+        Calculates optimal timing parameters (PRESDIV, PropSeg, Seg1, Seg2, SJW)
+        based on the current baudrate value and clock frequency.
+        """
+        try:
+            from ...core.can_baudrate_calculator import calculate_can_timing
+        except ImportError:
+            QMessageBox.warning(self, "模块缺失", "找不到波特率计算模块 can_baudrate_calculator.py")
+            return
+        
+        baudrate_kbps = spinbox.value()
+        if baudrate_kbps <= 0:
+            QMessageBox.warning(self, "无效值", "请先输入有效的波特率 (> 0)")
+            return
+        
+        # Get clock frequency from CanCpuClockRef reference
+        clock_hz = self._get_can_clock_frequency()
+        if clock_hz is None or clock_hz <= 0:
+            # Use default common clock frequency
+            clock_hz = 80_000_000  # 80 MHz default
+            QMessageBox.information(
+                self, "使用默认时钟",
+                f"未能获取 CanCpuClockRef 引用的时钟频率，将使用默认值 {clock_hz/1e6:.0f} MHz"
+            )
+        
+        # Calculate timing parameters
+        result = calculate_can_timing(clock_hz, int(baudrate_kbps * 1000), is_fd=is_fd)
+        
+        if not result:
+            QMessageBox.warning(
+                self, "计算失败",
+                f"无法为 {baudrate_kbps} kbps 找到有效的时序参数组合\n"
+                f"时钟频率: {clock_hz/1e6:.0f} MHz"
+            )
+            return
+        
+        # Update sibling timing parameters in the table
+        timing_params = {
+            'CanControllerPRESDIV': result['PRESDIV'],
+            'CanControllerPropSeg': result['PropSeg'],
+            'CanControllerSeg1': result['Seg1'],
+            'CanControllerSeg2': result['Seg2'],
+            'CanControllerSyncJumpWidth': result['SJW'],
+        }
+        
+        # If FD, update FD-specific params instead
+        if is_fd:
+            timing_params = {
+                'CanControllerFdBaudRatePRESDIV': result['PRESDIV'],
+                'CanControllerPropSeg': result['PropSeg'],  # FD shares this
+                'CanControllerSeg1': result['Seg1'],
+                'CanControllerSeg2': result['Seg2'],
+                'CanControllerSyncJumpWidth': result['SJW'],
+            }
+        
+        updated_count = 0
+        for param_name, param_value in timing_params.items():
+            if self._update_parameter_in_table(param_name, param_value):
+                updated_count += 1
+        
+        # Show result dialog
+        QMessageBox.information(
+            self, "✅ 计算完成",
+            f"已更新 {updated_count} 个时序参数:\n\n"
+            f"PRESDIV = {result['PRESDIV']}\n"
+            f"PropSeg = {result['PropSeg']}\n"
+            f"Seg1 = {result['Seg1']}\n"
+            f"Seg2 = {result['Seg2']}\n"
+            f"SJW = {result['SJW']}\n\n"
+            f"────────────────\n"
+            f"实际波特率: {result['actual_baudrate']/1000:.2f} kbps\n"
+            f"采样点: {result['sample_point']:.1f}%\n"
+            f"误差: {result['error_ppm']:.1f} ppm"
+        )
+    
+    def _get_can_clock_frequency(self) -> Optional[int]:
+        """Get CAN clock frequency from CanCpuClockRef reference
+        
+        Returns:
+            Clock frequency in Hz, or None if not found
+        """
+        if not self.current_instance:
+            return None
+        
+        # Try to find parent CanController container to get CanCpuClockRef
+        # The current instance should be CanControllerBaudrateConfig,
+        # and its parent should be CanController which has CanCpuClockRef
+        try:
+            parent = self.current_instance.parent
+            if parent and hasattr(parent, 'reference_values'):
+                if 'CanCpuClockRef' in parent.reference_values:
+                    ref_value = parent.reference_values['CanCpuClockRef']
+                    if ref_value.is_resolved and ref_value.target:
+                        # Get McuClockReferencePointFrequency from target
+                        target = ref_value.target
+                        if 'McuClockReferencePointFrequency' in target.parameter_values:
+                            freq_val = target.parameter_values['McuClockReferencePointFrequency'].value
+                            return int(float(freq_val))
+        except Exception as e:
+            print(f"Error getting CAN clock frequency: {e}")
+        
+        return None
+    
+    def _update_parameter_in_table(self, param_name: str, value: int) -> bool:
+        """Update a parameter value in the params table
+        
+        Args:
+            param_name: Name of the parameter to update
+            value: New value to set
+            
+        Returns:
+            True if parameter was found and updated
+        """
+        for row in range(self.params_table.rowCount()):
+            name_item = self.params_table.item(row, 0)
+            if name_item and name_item.text() == param_name:
+                # Get the widget in column 1
+                widget = self.params_table.cellWidget(row, 1)
+                if widget:
+                    # Handle different widget types
+                    if isinstance(widget, QSpinBox):
+                        widget.setValue(value)
+                        return True
+                    elif isinstance(widget, QDoubleSpinBox):
+                        widget.setValue(float(value))
+                        return True
+                    elif hasattr(widget, 'findChild'):
+                        # Check for nested spinbox in container widget
+                        spinbox = widget.findChild(QSpinBox)
+                        if spinbox:
+                            spinbox.setValue(value)
+                            return True
+                        dspinbox = widget.findChild(QDoubleSpinBox)
+                        if dspinbox:
+                            dspinbox.setValue(float(value))
+                            return True
+        return False
+
     def _populate_references(self, instance: EcucContainerValue, container_def: EcucContainerDef):
         """Populate references table with resolution error display"""
         self.refs_table.setRowCount(len(container_def.references))
@@ -1003,12 +1311,22 @@ class DaVinciConfigPanel(QWidget):
         if not name_item:
             return
             
-        param_name = name_item.text()
+        param_name = name_item.text().replace("⚡ ", "")  # Strip override indicator if present
         
         from PySide6.QtWidgets import QMenu
         from PySide6.QtGui import QAction
         
         menu = QMenu(self)
+        
+        # Check if this row is a variant override
+        is_override = hasattr(self, '_override_rows') and row in self._override_rows
+        
+        if is_override:
+            revert_action = QAction("↩️ 恢复基础值 (Revert to Base)", self)
+            revert_action.triggered.connect(lambda: self._revert_to_base_value(param_name))
+            menu.addAction(revert_action)
+            menu.addSeparator()
+        
         impact_action = QAction("🔍 Check Change Impact", self)
         impact_action.triggered.connect(lambda: self._emit_check_impact(param_name))
         menu.addAction(impact_action)
@@ -1019,6 +1337,40 @@ class DaVinciConfigPanel(QWidget):
         """Emit signal for impact analysis"""
         if self.current_instance:
             self.check_impact_requested.emit(self.current_instance.get_path(), param_name)
+    
+    def _revert_to_base_value(self, param_name: str):
+        """Revert a variant-overridden parameter to its base value
+        
+        Removes the variant override entry and refreshes the panel to show the base value.
+        """
+        if not self.current_instance or not self.project:
+            return
+        
+        variant = getattr(self.project, 'active_variant', None)
+        if not variant:
+            return
+        
+        module_config = self.current_instance.module_config
+        if not module_config:
+            return
+        
+        # Try both path formats
+        param_path = f"{self.current_instance.get_path()}.{param_name}"
+        short_path = f"{self.current_instance.short_name}.{param_name}"
+        
+        # Clear the override
+        module_config.clear_variant_override(param_path, variant)
+        module_config.clear_variant_override(short_path, variant)
+        
+        # Refresh the panel to show base value
+        self.refresh()
+        
+        # Show confirmation
+        QMessageBox.information(
+            self, "✅ 已恢复",
+            f"参数 '{param_name}' 已恢复为基础配置值\n\n"
+            f"变体 '{variant}' 中的覆盖值已移除"
+        )
     
     def _build_enhanced_display_name(self, container: EcucContainerValue, base_name: str) -> str:
         """Build a descriptive display name - show full path"""

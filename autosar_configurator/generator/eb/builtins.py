@@ -241,11 +241,29 @@ class BuiltinFunctions:
         """Get the current context node"""
         return self.context_stack.current_node()
     
-    def node_order(self, nodes: List['ConfigurationNode'], key: str = 'short_name') -> List['ConfigurationNode']:
-        """Sort nodes by a property"""
+    def node_order(self, nodes: Any, key: str = 'short_name') -> List['ConfigurationNode']:
+        """Sort nodes by a property.
+        
+        Handles both single nodes and lists of nodes.
+        """
+        if nodes is None:
+            return []
+        
+        # If it's a single node, wrap it in a list
+        if hasattr(nodes, 'short_name') and not isinstance(nodes, list):
+            nodes = [nodes]
+        
+        if not isinstance(nodes, (list, tuple)):
+            # Try to iterate if possible
+            try:
+                nodes = list(nodes)
+            except TypeError:
+                return []
+        
         if not nodes:
             return []
-        return sorted(nodes, key=lambda n: getattr(n, key, n.short_name))
+            
+        return sorted(nodes, key=lambda n: getattr(n, key, n.short_name if hasattr(n, 'short_name') else ''))
     
     # ========== Model Functions ==========
     

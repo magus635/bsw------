@@ -515,6 +515,13 @@ class DaVinciMainWindow(QMainWindow):
         toolbar.addAction(self.generate_action)
         toolbar.addSeparator()
         
+        # Base configuration button
+        self.base_btn = QPushButton("📋 Base")
+        self.base_btn.setToolTip("创建或修改 Base 配置")
+        self.base_btn.clicked.connect(self._on_base_btn_clicked)
+        self.base_btn.setEnabled(False)
+        toolbar.addWidget(self.base_btn)
+        
         # Variant selector
         toolbar.addWidget(QLabel("Variant:"))
         self.variant_selector = QComboBox()
@@ -532,6 +539,16 @@ class DaVinciMainWindow(QMainWindow):
         self.manage_variants_btn.clicked.connect(self.manage_variants)
         self.manage_variants_btn.setEnabled(False)
         toolbar.addWidget(self.manage_variants_btn)
+        
+        # Reference variant selector for comparison
+        toolbar.addWidget(QLabel(" vs "))
+        self.reference_variant_selector = QComboBox()
+        self.reference_variant_selector.setMinimumWidth(120)
+        self.reference_variant_selector.addItem("Base (基础)")
+        self.reference_variant_selector.setToolTip("选择参考变体进行对比 (高亮显示差异)")
+        self.reference_variant_selector.setEnabled(False)
+        self.reference_variant_selector.currentTextChanged.connect(self._on_reference_variant_changed)
+        toolbar.addWidget(self.reference_variant_selector)
         
         toolbar.addSeparator()
         
@@ -598,15 +615,87 @@ class DaVinciMainWindow(QMainWindow):
             msg += f" ({total_overrides} parameter overrides)"
         self.statusbar.showMessage(msg, 3000)
     
+    def _on_reference_variant_changed(self, reference_name: str):
+        """Handle Reference Variant selector change for comparison"""
+        if not self.current_project:
+            return
+        
+        # Set reference variant on config panel (None = Base)
+        ref_variant = None if reference_name == "Base (基础)" else reference_name
+        
+        if hasattr(self, 'config_panel') and self.config_panel:
+            self.config_panel.reference_variant = ref_variant
+            self.config_panel.refresh()
+        
+        if ref_variant:
+            self.statusbar.showMessage(f"对比参考变体: {ref_variant}", 2000)
+        else:
+            self.statusbar.showMessage("对比参考: 基础配置", 2000)
+    
+    def _on_base_btn_clicked(self):
+        """Handle Base button click - create or modify Base configuration"""
+        if not self.current_project:
+            return
+        
+        from .widgets.base_config_dialog import BaseConfigDialog
+        
+        is_modify = self.current_project.has_base
+        dialog = BaseConfigDialog(self, is_modify=is_modify)
+        
+        if dialog.exec():
+            method = dialog.get_selected_method()
+            self.current_project.create_base(init_method=method)
+            
+            # Update UI
+            self._update_variant_selector()
+            
+            # Status message
+            method_names = {"arxml": "ARXML 配置", "defaults": "定义默认值", "empty": "空白"}
+            if is_modify:
+                self.statusbar.showMessage(f"Base 配置已更新 (来源: {method_names.get(method, method)})", 3000)
+            else:
+                self.statusbar.showMessage(f"Base 配置已创建 (来源: {method_names.get(method, method)})", 3000)
+                QMessageBox.information(
+                    self, "Base 已创建",
+                    "Base 配置已创建！\n\n"
+                    "现在您可以：\n"
+                    "1. 创建和配置变体\n"
+                    "2. 使用 '⚡ Check Diff' 对比变体差异"
+                )
+    
     def _update_variant_selector(self):
         """Update the Variant selector dropdown with project variants"""
         self.variant_selector.blockSignals(True)
         self.variant_selector.clear()
         
+        # Also update reference variant selector
+        self.reference_variant_selector.blockSignals(True)
+        self.reference_variant_selector.clear()
+        self.reference_variant_selector.addItem("Base (基础)")
+        
+        # Update Base button state
+        if self.current_project:
+            self.base_btn.setEnabled(True)
+            if self.current_project.has_base:
+                self.base_btn.setText("📋 修改 Base")
+                self.base_btn.setToolTip("修改 Base 配置")
+            else:
+                self.base_btn.setText("📋 创建 Base")
+                self.base_btn.setToolTip("创建 Base 配置 (必须先创建才能配置变体)")
+        else:
+            self.base_btn.setEnabled(False)
+            self.base_btn.setText("📋 Base")
+        
         if self.current_project and self.current_project.variants:
-            self.variant_selector.setEnabled(True)
+            # Only enable variant selector if Base exists
+            has_base = self.current_project.has_base
+            self.variant_selector.setEnabled(has_base)
+            self.reference_variant_selector.setEnabled(has_base)
+            self.manage_variants_btn.setEnabled(has_base)
+            
             for variant in self.current_project.variants:
                 self.variant_selector.addItem(variant)
+                self.reference_variant_selector.addItem(variant)
             
             # Select active variant
             if self.current_project.active_variant:
@@ -614,13 +703,18 @@ class DaVinciMainWindow(QMainWindow):
                 if idx >= 0:
                     self.variant_selector.setCurrentIndex(idx)
             
-            self.variant_label.setText(f"Variant: {self.current_project.active_variant or self.current_project.variants[0]}")
+            if has_base:
+                self.variant_label.setText(f"Variant: {self.current_project.active_variant or self.current_project.variants[0]}")
+            else:
+                self.variant_label.setText("⚠️ 请先创建 Base")
         else:
             self.variant_selector.addItem("(No Variants)")
             self.variant_selector.setEnabled(False)
+            self.reference_variant_selector.setEnabled(False)
             self.variant_label.setText("Variant: None")
         
         self.variant_selector.blockSignals(False)
+        self.reference_variant_selector.blockSignals(False)
     
     # Project operations
     
@@ -1181,7 +1275,6 @@ class DaVinciMainWindow(QMainWindow):
             
             # Enable actions
             self.save_value_action.setEnabled(True)
-            self.save_value_action.setEnabled(True)
             self.validate_action.setEnabled(True)
             self.load_rules_action.setEnabled(True)
             self.generate_action.setEnabled(True)
@@ -1246,7 +1339,7 @@ class DaVinciMainWindow(QMainWindow):
         # But we handle is_modified manually for now, so maybe just update UI?
         pass
 
-    def handle_parameter_change(self, instance: EcucContainerValue, param_name: str, value: any):
+    def handle_parameter_change(self, instance: EcucContainerValue, param_name: str, value: Any):
         """Handle parameter change request via command"""
         if not self.config_manager:
             return
@@ -2373,7 +2466,7 @@ class DaVinciMainWindow(QMainWindow):
             self.quick_config_action.setEnabled(True)
             self.show_dep_graph_action.setEnabled(True)
     
-    def _on_parameter_changed(self, instance: EcucContainerValue, param_name: str, value: any):
+    def _on_parameter_changed(self, instance: EcucContainerValue, param_name: str, value: Any):
         """Handle parameter value change"""
         # Delegate to command handler
         self.handle_parameter_change(instance, param_name, value)

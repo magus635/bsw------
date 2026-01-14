@@ -31,6 +31,7 @@ class WorkspaceProject:
         # Variant Management
         self.variants: List[str] = []  # e.g., ["Compact_SUV", "Mid_Sedan", "Luxury_Car"]
         self.active_variant: Optional[str] = None  # Currently selected variant
+        self.has_base: bool = False  # Whether Base configuration exists
         
         # Metadata
         from datetime import datetime
@@ -41,6 +42,40 @@ class WorkspaceProject:
         
         # Cross-module dependency rules (cached results from analysis)
         self.dependency_rules: List[Dict] = []
+    
+    def create_base(self, init_method: str = "arxml"):
+        """Create Base configuration for all modules
+        
+        Args:
+            init_method: 'arxml' (from config files), 'defaults' (from definitions), 'empty'
+        """
+        for name, manager in self.module_managers.items():
+            config = manager.configuration
+            if "Base" not in config.variant_overrides:
+                config.variant_overrides["Base"] = {}
+            
+            if init_method == "arxml":
+                # Copy all current ARXML values to Base
+                for container in config.containers:
+                    self._copy_container_to_base(container, config.variant_overrides["Base"])
+            elif init_method == "defaults":
+                # Use definition default values (stored as empty - will read from param_def.default_value)
+                pass  # Leave empty, comparison will use default_value
+            # 'empty' - leave as empty dict
+        
+        self.has_base = True
+        # Add "Base" to variants if not there
+        if "Base" not in self.variants:
+            self.variants.insert(0, "Base")
+    
+    def _copy_container_to_base(self, container, base_dict: dict):
+        """Recursively copy container parameter values to Base dict"""
+        for param_name, param_val in container.parameter_values.items():
+            param_path = f"{container.get_path()}.{param_name}"
+            base_dict[param_path] = param_val.value
+        
+        for sub in container.sub_containers:
+            self._copy_container_to_base(sub, base_dict)
         
     def add_module(self, module_def: EcucModuleDef, def_path: Path) -> ConfigurationManager:
         """Add a new module to the project"""
@@ -233,7 +268,7 @@ class WorkspaceManager:
         from datetime import datetime
         
         data = {
-            "format_version": 4,
+            "format_version": 5,  # Bumped version for has_base support
             "tool_version": "1.0.0",
             "project_type": self.current_project.project_type.value,
             "name": self.current_project.name,
@@ -243,6 +278,7 @@ class WorkspaceManager:
             "description": getattr(self.current_project, 'description', ''),
             "version": getattr(self.current_project, 'version', '1.0.0'),
             "def_search_paths": [str(p) for p in self.current_project.def_search_paths],
+            "has_base": self.current_project.has_base,  # New: Base existence
             "variants": self.current_project.variants,
             "active_variant": self.current_project.active_variant,
             "dependency_rules": self.current_project.dependency_rules,
@@ -290,7 +326,7 @@ class WorkspaceManager:
         
         # Check format version
         format_version = data.get("format_version", 0)
-        if format_version > 4:
+        if format_version > 5:
             raise ValueError(
                 f"Unsupported project format version {format_version}. "
                 f"Please upgrade the tool."
@@ -321,6 +357,9 @@ class WorkspaceManager:
         # Load variants (new in format v3)
         project.variants = data.get("variants", [])
         project.active_variant = data.get("active_variant", None)
+        
+        # Load has_base (new in format v5)
+        project.has_base = data.get("has_base", False)
         
         # Load dependency rules (new in format v4)
         project.dependency_rules = data.get("dependency_rules", [])

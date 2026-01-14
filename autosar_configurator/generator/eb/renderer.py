@@ -383,16 +383,11 @@ class Renderer:
         # Use _evaluate_expression to support function calls like node:order()
         items = self._evaluate_expression(xpath_expr)
         
-        # If result is a string (e.g. from quoted literal "CanController/*"), 
+        # If result is a string (e.g. from quoted literal "CanController/*"),
         # evaluate it as XPath
         if isinstance(items, str):
             items = self._evaluate_xpath(items)
-        
-        # If result is a string (e.g. from quoted literal "CanController/*"), 
-        # evaluate it as XPath
-        if isinstance(items, str):
-            items = self._evaluate_xpath(items)
-             
+
         if not items:
             items = []
         elif not isinstance(items, list):

@@ -112,8 +112,15 @@ class EcucDefParser:
         
         # Parse multiplicity
         container_def.lower_multiplicity = self._get_int_value(element, 'LOWER-MULTIPLICITY', 0)
+        
+        # Check for UPPER-MULTIPLICITY-INFINITE first (AUTOSAR variant for unlimited)
+        upper_mult_infinite = self._get_text_value(element, 'UPPER-MULTIPLICITY-INFINITE')
         upper_mult_text = self._get_text_value(element, 'UPPER-MULTIPLICITY')
-        if upper_mult_text == '*':
+        
+        if upper_mult_infinite and upper_mult_infinite.lower() in ('1', 'true'):
+            # UPPER-MULTIPLICITY-INFINITE = 1/true means unlimited (*)
+            container_def.upper_multiplicity = -1
+        elif upper_mult_text == '*':
             container_def.upper_multiplicity = -1
         else:
             container_def.upper_multiplicity = int(upper_mult_text) if upper_mult_text else 1

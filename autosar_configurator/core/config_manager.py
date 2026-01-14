@@ -2,7 +2,7 @@
 Configuration Manager - Manages user-created configuration instances
 Provides CRUD operations for container instances with validation
 """
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict, Tuple, Any
 from pathlib import Path
 import os
 from enum import Enum
@@ -340,7 +340,7 @@ class ConfigurationManager:
     def set_parameter_value(self,
                            container: EcucContainerValue,
                            param_name: str,
-                           value: any):
+                           value: Any):
         """Set parameter value with validation and type conversion
         
         Args:
@@ -436,7 +436,7 @@ class ConfigurationManager:
             return None
         return container_def.parameters.get(param_name)
     
-    def _validate_parameter_value(self, param_def: EcucParameterDef, value: any):
+    def _validate_parameter_value(self, param_def: EcucParameterDef, value: Any):
         """Validate parameter value against definition
         
         Raises:
