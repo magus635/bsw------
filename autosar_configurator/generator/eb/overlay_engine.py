@@ -39,15 +39,17 @@ class OverlayEngine:
         self.strict = strict
     
     def build_configuration_tree(
-        self,
-        module_def: EcucModuleDef,
-        configuration: Optional[EcucModuleConfiguration] = None
+        self, 
+        module_def: EcucModuleDef, 
+        configuration: Optional[EcucModuleConfiguration] = None,
+        variant: Optional[str] = None
     ) -> ConfigurationNode:
         """Build unified ConfigurationNode tree from definition and configuration.
         
         Args:
             module_def: Module definition (from ARXML DEF / XDM)
             configuration: Module configuration (from ARXML VALUE), optional
+            variant: Name of the active variant for selecting top-level container instances
             
         Returns:
             Root ConfigurationNode for the module
@@ -62,33 +64,89 @@ class OverlayEngine:
             definition_ref=module_def.definition_ref
         )
         
+        # Process top-level containers
         for container_name, container_def in module_def.containers.items():
             # Find matching configuration instances
             matching_instances = []
             if configuration:
-                # Match by exact name or definition reference
+                # Match by definition reference
                 matching_instances = [c for c in configuration.containers 
-                                      if c.short_name == container_name or 
-                                      c.definition_ref.endswith(f"/{container_name}")]
+                                      if c.definition_ref.endswith(f"/{container_name}")]
+            
+            # Create a WRAPPER node for this container definition
+            # This allows [!LOOP "as:modconf('Can')/CanConfigSet/*"!]
+            wrapper_path = f"/{module_name}/{container_name}"
+            wrapper_node = ConfigurationNode(
+                short_name=container_name,
+                node_type='container', # Use container type so it's navigable
+                path=wrapper_path,
+                definition_ref=container_def.definition_ref
+            )
+            
+            active_instance_node = None
             
             if matching_instances:
                 for inst in matching_instances:
-                    container_nodes = self._build_container_nodes(
+                    # Build instances as children of the wrapper
+                    nodes = self._build_container_nodes(
                         container_def,
                         inst,
-                        parent_path=f"/{module_name}"
+                        parent_path=wrapper_path
                     )
-                    for node in container_nodes:
-                        root.add_child(node)
+                    for node in nodes:
+                        wrapper_node.add_child(node)
+                        # Check if this is the active instance for the variant
+                        if variant and getattr(inst, 'variant', None) == variant:
+                            active_instance_node = node
+                
+                # If no variant match, fallback to the first instance as "active" 
+                # (to maintain backward compatibility for single-instance projects)
+                if not active_instance_node and wrapper_node.get_children_list():
+                    active_instance_node = wrapper_node.get_children_list()[0]
+                
+                # ALIASING: Make the wrapper node also behave like the active instance.
+                # This allows as:modconf('Can')/CanConfigSet/CanController to work.
+                if active_instance_node:
+                    for sub_name, sub_node in active_instance_node.children.items():
+                        # Don't overwrite if name clashes with an instance name
+                        if sub_name not in wrapper_node.children:
+                            wrapper_node.children[sub_name] = sub_node
+                    
+                    # Also inherit parameters
+                    for sub_name, sub_node in active_instance_node.children.items():
+                         if sub_node.node_type == 'parameter' and sub_name not in wrapper_node.children:
+                             wrapper_node.children[sub_name] = sub_node
+
             elif container_def.is_required:
-                # Build from defaults if required but no instance found
-                container_nodes = self._build_container_nodes(
+
+                # Build from defaults if required
+                nodes = self._build_container_nodes(
                     container_def,
                     None,
-                    parent_path=f"/{module_name}"
+                    parent_path=wrapper_path
                 )
-                for node in container_nodes:
-                    root.add_child(node)
+                for node in nodes:
+                    wrapper_node.add_child(node)
+
+            # Add the wrapper to the module root
+            root.add_child(wrapper_node)
+            
+            # Special Alias Selection:
+            # If a specific variant is active and we found a matching instance, 
+            # we can make the wrapper node's values reflect that instance?
+            # Actually, EB Tresos often lets you use the definition name as an alias for the active instance.
+            # For now, the user mostly wants the iteration to work.
+            
+            # If we have an active_instance_node, we could optionally alias it?
+            # But wait, if they say 'CanConfigSet/CanController', and CanConfigSet is a wrapper,
+            # it won't find CanController unless we search deeper or alias.
+            
+            # Simple Aliasing: if we have an active instance, and it's NOT named the same as the wrapper,
+            # we can add its children to the wrapper's children? (No, that's messy).
+            
+            # Better Aliasing: Provide access to the active instance's content via the wrapper node if searched.
+            # This is handled by the XPath engine usually.
+
         
         # Register in symbol table
         self.symbol_table.register_module(module_name, root)

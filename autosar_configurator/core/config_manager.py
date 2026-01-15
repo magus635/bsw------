@@ -520,18 +520,19 @@ class ConfigurationManager:
             counter += 1
     
     def _instance_exists(self, name: str, container_def: EcucContainerDef, parent: Optional[EcucContainerValue] = None) -> bool:
-        """Check if instance with name exists in the same scope"""
+        """Check if instance with name exists in the same scope (name must be unique among siblings)"""
         # Get siblings
         if parent:
             siblings = parent.sub_containers
         else:
             siblings = self.configuration.containers
             
-        # Check for name match
+        # Check for name match - AUTOSAR requires short_name to be unique within parent
         for sibling in siblings:
-            if sibling.definition_ref == container_def.definition_ref and sibling.short_name == name:
+            if sibling.short_name == name:
                 return True
         return False
+
 
     def _check_duplicate_name(self, name: str, container_def: EcucContainerDef, parent: Optional[EcucContainerValue] = None):
         """Check if name is duplicate and raise ValidationError"""

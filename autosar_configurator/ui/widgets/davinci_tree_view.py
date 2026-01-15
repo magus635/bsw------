@@ -35,6 +35,7 @@ class DaVinciTreeView(QTreeWidget):
         self.module_def: Optional[EcucModuleDef] = None
         self.config_manager: Optional[ConfigurationManager] = None
         self.project: Optional[WorkspaceProject] = None
+        self.active_variant: Optional[str] = None
         
         # Mappings
         self.def_to_item: Dict[str, QTreeWidgetItem] = {}
@@ -74,7 +75,17 @@ class DaVinciTreeView(QTreeWidget):
         self.module_def = None
         self.config_manager = None
         
+        # Initialize active variant from project
+        if self.project:
+            self.active_variant = getattr(self.project, 'active_variant', None)
+            
         self.refresh()
+    
+    def set_active_variant(self, variant: Optional[str]):
+        """Set active variant and refresh tree filtering"""
+        if self.active_variant != variant:
+            self.active_variant = variant
+            self.refresh()
     
     def refresh(self):
         """Refresh entire tree"""
@@ -276,8 +287,18 @@ class DaVinciTreeView(QTreeWidget):
             "manager": config_manager
         })
         
-        # Add existing sub-instances
-        sub_instances = [sc for sc in parent_instance.sub_containers if sc.definition_ref == container_def.definition_ref]
+        # Add existing sub-instances (Filtered by active variant)
+        sub_instances = []
+        for sc in parent_instance.sub_containers:
+            if sc.definition_ref == container_def.definition_ref:
+                # Filter by active variant:
+                # 1. Match active variant
+                # 2. Or instance has no variant (global)
+                # 3. Or if no variant is selected in view, show all? 
+                #    Actually, standard DaVinci behavior is to show what matches the variant.
+                if self.active_variant is None or sc.variant is None or sc.variant == self.active_variant:
+                    sub_instances.append(sc)
+        
         for sub_instance in sub_instances:
             sub_instance_item = self._create_instance_node(sub_instance, container_def, config_manager, parent_instance)
             item.addChild(sub_instance_item)
@@ -305,7 +326,9 @@ class DaVinciTreeView(QTreeWidget):
         
         return [
             c for c in config_manager.configuration.containers
-            if c.definition_ref == container_def.definition_ref
+            if c.definition_ref == container_def.definition_ref and (
+                self.active_variant is None or c.variant is None or c.variant == self.active_variant
+            )
         ]
     
     # Event handlers

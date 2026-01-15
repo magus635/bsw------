@@ -26,6 +26,7 @@ class DaVinciConfigPanel(QWidget):
     ai_help_requested = Signal(str, str)  # container_name, param_name - request AI help for parameter
     check_impact_requested = Signal(str, str)  # container_path, param_name - request impact analysis
     reference_jump_requested = Signal(str)  # target_path - request navigation to referenced container
+    instance_variant_changed = Signal(EcucContainerValue)  # instance - its assigned variant was changed, needs tree refresh
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -85,7 +86,15 @@ class DaVinciConfigPanel(QWidget):
         self.mult_label = QLabel()
         general_layout.addRow("Multiplicity:", self.mult_label)
         
+        self.variant_label_tag = QLabel("Assigned Variant (归属变体):")
+        self.variant_combo = QComboBox()
+        self.variant_combo.addItem("None (All Variants)")
+        self.variant_combo.setToolTip("Assign this container instance to a specific variant (or None for all variants)")
+        self.variant_combo.currentTextChanged.connect(self._on_instance_variant_changed)
+        general_layout.addRow(self.variant_label_tag, self.variant_combo)
+        
         self.content_layout.addWidget(self.general_group)
+
     
     def _create_parameters_group(self):
         """Create parameters table group with search/filter"""
@@ -231,7 +240,13 @@ class DaVinciConfigPanel(QWidget):
             self.name_label.setText(instance.short_name)
             self.def_label.setText(container_def.short_name)
             self.mult_label.setText(container_def.multiplicity_str)
+            
+            # Show variant info
+            if hasattr(self, 'variant_combo'):
+                self._update_variant_selector(instance)
+            
             self.general_group.show()
+
             
             # Populate parameters table
             self._populate_parameters(instance, container_def)
@@ -300,6 +315,10 @@ class DaVinciConfigPanel(QWidget):
 
         Only compares parameters in the currently selected container.
         Results stored in self.comparison_results dict.
+        
+        PRECONDITION: Comparison only makes sense if the instance is applicable
+        to BOTH variants (i.e., instance.variant is None). If the instance is
+        assigned to a specific variant, it doesn't exist in other variants.
         """
         self.comparison_results = {}
 
@@ -314,6 +333,21 @@ class DaVinciConfigPanel(QWidget):
         instance = self.current_instance
         module_config = instance.module_config
         variant = getattr(self.project, 'active_variant', None) if self.project else None
+
+        # PRECONDITION CHECK: Instance must be applicable to all variants (variant=None)
+        # to allow meaningful comparison between v1 and v2
+        if instance.variant is not None:
+            # Instance is exclusive to a specific variant - comparison is meaningless
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.information(
+                self, 
+                "无法比较 / Cannot Compare",
+                f"该实例 '{instance.short_name}' 专属于变体 '{instance.variant}'，\n"
+                f"因此无法与其他变体进行比较。\n\n"
+                f"只有归属变体为 'None (All Variants)' 的实例才能进行变体间参数比对。"
+            )
+            self.compare_btn.setChecked(False)
+            return
 
         for param_name, param_def in self.current_def.parameters.items():
             # 1. Get base value (from ARXML or default)
@@ -544,63 +578,48 @@ class DaVinciConfigPanel(QWidget):
             # ComboBox for enumerations
             combo = QComboBox()
             combo.addItems(param_def.literals or [])
+            combo.setCurrentText(str(current_value))
+            return combo, combo.currentText, combo.currentTextChanged
             
-            # Determine initial value
-            val_to_set = None
-            if current_value in (param_def.literals or []):
-                val_to_set = current_value
-            elif param_def.literals:
-                val_to_set = param_def.literals[0]
+        elif param_def.param_type == EcucParameterType.BOOLEAN:
+            # Centered CheckBox for booleans
+            container = QWidget()
+            layout = QHBoxLayout(container)
+            layout.setContentsMargins(0, 0, 0, 0)
+            layout.setAlignment(Qt.AlignCenter)
+            checkbox = QCheckBox()
+            checkbox.setChecked(str(current_value).upper() == 'TRUE')
+            layout.addWidget(checkbox)
             
-            if val_to_set:
-                combo.setCurrentText(val_to_set)
-
-            return combo, combo.currentText, combo.activated
-        
+            # Helper to return bool instead of Qt.CheckState
+            def get_bool():
+                return checkbox.isChecked()
+                
+            return container, get_bool, checkbox.toggled
+            
         elif param_def.param_type == EcucParameterType.INTEGER:
-            # Check if value range exceeds 32-bit signed integer limits
-            min_val = param_def.min_value if param_def.min_value is not None else 0
+            # Handle integers, using QLineEdit for large ranges
+            min_val = param_def.min_value if param_def.min_value is not None else -2147483648
             max_val = param_def.max_value if param_def.max_value is not None else 2147483647
             
-            # If range exceeds 32-bit limits, use QLineEdit instead of QSpinBox
+            # Use QLineEdit for values exceeding 32-bit signed limits (e.g. 0..4294967295)
             if min_val < -2147483648 or max_val > 2147483647:
-                edit = QLineEdit()
-                edit.setText(str(current_value) if current_value is not None else "0")
-                edit.setPlaceholderText(f"Integer ({min_val} - {max_val})")
-                return edit, edit.text, edit.textChanged
+                lineedit = QLineEdit()
+                lineedit.setText(str(current_value) if current_value is not None else "0")
+                lineedit.setPlaceholderText(f"Range: {min_val} to {max_val}")
+                return lineedit, lineedit.text, lineedit.textChanged
             
-            # Normal case: use QSpinBox
+            # Standard case: QSpinBox
             spinbox = QSpinBox()
-            min_val = max(int(min_val), -2147483648)
-            max_val = min(int(max_val), 2147483647)
-            spinbox.setRange(min_val, max_val)
+            spinbox.setRange(int(min_val), int(max_val))
             
             try:
-                value = int(current_value) if current_value is not None else 0
-                # Clamp value to range
-                value = max(min_val, min(max_val, value))
+                # Robust conversion and clamping
+                val = int(current_value) if current_value is not None else 0
+                val = max(int(min_val), min(int(max_val), val))
+                spinbox.setValue(val)
             except (ValueError, TypeError):
-                value = 0
-            
-            spinbox.setValue(value)
-            
-            return spinbox, spinbox.value, spinbox.valueChanged
-        
-        elif param_def.param_type == EcucParameterType.FLOAT:
-            # DoubleSpinBox for floats
-            spinbox = QDoubleSpinBox()
-            spinbox.setRange(
-                param_def.min_value if param_def.min_value is not None else -1e308,
-                param_def.max_value if param_def.max_value is not None else 1e308
-            )
-            spinbox.setDecimals(2)
-            
-            try:
-                value = float(current_value) if current_value is not None else 0.0
-            except (ValueError, TypeError):
-                value = 0.0
-                
-            spinbox.setValue(value)
+                spinbox.setValue(0)
             
             # Check if this is a baudrate parameter that supports calculation
             if param_name in ('CanControllerBaudRate', 'CanControllerFdBaudRate'):
@@ -612,7 +631,7 @@ class DaVinciConfigPanel(QWidget):
                 
                 calc_btn = QToolButton()
                 calc_btn.setText("🔢")
-                calc_btn.setToolTip("Calculate timing parameters - 根据波特率自动计算 PRESDIV、PropSeg、Seg1、Seg2")
+                calc_btn.setToolTip("Calculate timing parameters")
                 calc_btn.setFixedSize(24, 24)
                 is_fd = (param_name == 'CanControllerFdBaudRate')
                 calc_btn.clicked.connect(lambda checked, sp=spinbox, fd=is_fd: self._on_calc_baudrate_clicked(sp, fd))
@@ -621,31 +640,73 @@ class DaVinciConfigPanel(QWidget):
                 return container, spinbox.value, spinbox.valueChanged
             
             return spinbox, spinbox.value, spinbox.valueChanged
-        
-        elif param_def.param_type == EcucParameterType.BOOLEAN:
-            # CheckBox for booleans
-            # Need a container for centering, but also need to expose the inner checkbox signal
-            container = QWidget()
-            layout = QHBoxLayout(container)
-            layout.setContentsMargins(0, 0, 0, 0)
-            layout.setAlignment(Qt.AlignCenter)
             
-            value = bool(current_value) if current_value is not None else False
-            checkbox = QCheckBox()
-            checkbox.setChecked(value)
-            layout.addWidget(checkbox)
+        elif param_def.param_type == EcucParameterType.FLOAT:
+            # DoubleSpinBox for floats
+            spinbox = QDoubleSpinBox()
+            spinbox.setRange(
+                param_def.min_value if param_def.min_value is not None else -1e308,
+                param_def.max_value if param_def.max_value is not None else 1e308
+            )
+            spinbox.setDecimals(4)
             
-            def get_bool():
-                return checkbox.isChecked()
+            try:
+                val = float(current_value) if current_value is not None else 0.0
+                spinbox.setValue(val)
+            except (ValueError, TypeError):
+                spinbox.setValue(0.0)
                 
-            return container, get_bool, checkbox.stateChanged
-        
+            return spinbox, spinbox.value, spinbox.valueChanged
+            
         else:
-            # Default: LineEdit for strings
+            # Default: LineEdit for strings, functions, etc.
             lineedit = QLineEdit()
             lineedit.setText(str(current_value) if current_value is not None else "")
-            
             return lineedit, lineedit.text, lineedit.textChanged
+        
+    def _update_variant_selector(self, instance: EcucContainerValue):
+        """Update variant combo box with project variants and current selection"""
+        self.variant_combo.blockSignals(True)
+        self.variant_combo.clear()
+        self.variant_combo.addItem("None (All Variants)")
+        
+        # Get project variants if available
+        if self.project and hasattr(self.project, 'variants'):
+            for v in self.project.variants:
+                self.variant_combo.addItem(v)
+        elif self.project and hasattr(self.project, 'get_variants'):
+             for v in self.project.get_variants():
+                self.variant_combo.addItem(v)
+        
+        # Select current
+        if instance.variant:
+            index = self.variant_combo.findText(instance.variant)
+            if index >= 0:
+                self.variant_combo.setCurrentIndex(index)
+            else:
+                # Variant might have been deleted or manually set
+                self.variant_combo.addItem(instance.variant)
+                self.variant_combo.setCurrentText(instance.variant)
+        else:
+            self.variant_combo.setCurrentIndex(0)
+            
+        self.variant_combo.blockSignals(False)
+
+    def _on_instance_variant_changed(self, variant_text: str):
+        """Handle change of variant for the current instance"""
+        if not self.current_instance:
+            return
+            
+        new_variant = None if variant_text == "None (All Variants)" else variant_text
+        if self.current_instance.variant != new_variant:
+            self.current_instance.variant = new_variant
+            self.current_instance.mark_modified()
+            if self.project:
+                self.project.is_modified = True
+            # Emit signal to notify the main window to refresh the tree
+            self.instance_variant_changed.emit(self.current_instance)
+
+
     
     def _is_boolean_parameter(self, param_def: EcucParameterDef) -> bool:
         """Check if parameter is boolean type"""
@@ -1119,15 +1180,31 @@ class DaVinciConfigPanel(QWidget):
             self.refs_table.setItem(row, 0, name_item)
             
             # Column 1: Target selector (ComboBox)
+            # Check for variant override first, then base value
             current_value = None
-            if ref_name in instance.reference_values:
-                current_value = instance.reference_values[ref_name].value_ref
+            is_variant_override = False
+            
+            if self.project and hasattr(self.project, 'active_variant') and self.project.active_variant:
+                variant = self.project.active_variant
+                module_config = instance.module_config
+                if module_config:
+                    ref_path = f"{instance.get_path()}.ref:{ref_name}"
+                    override_value, is_override = module_config.get_value_for_variant(ref_path, variant)
+                    if is_override:
+                        current_value = override_value
+                        is_variant_override = True
+            
+            # Fall back to base value if no variant override
+            if current_value is None:
+                if ref_name in instance.reference_values:
+                    current_value = instance.reference_values[ref_name].value_ref
             
             # Clear any existing item in the target cell
             self.refs_table.setItem(row, 1, QTableWidgetItem(""))
             
             selector = self._create_reference_selector(ref_name, ref_def, current_value)
             self.refs_table.setCellWidget(row, 1, selector)
+
             
             # Column 2: Destination type
             dest_parts = ref_def.destination_ref.split('/')
@@ -1392,8 +1469,25 @@ class DaVinciConfigPanel(QWidget):
             return
         
         try:
-            # Emit parameter changed signal (reuse for references)
-            # Main window will handle the actual update via Command
+            # Check if we should write to variant override instead of base config
+            if self.project and hasattr(self.project, 'active_variant') and self.project.active_variant:
+                variant = self.project.active_variant
+                module_config = self.current_instance.module_config
+                
+                if module_config:
+                    # Use ref: prefix to distinguish from parameters
+                    ref_path = f"{self.current_instance.get_path()}.ref:{ref_name}"
+                    module_config.set_value_for_variant(ref_path, target_path, variant)
+                    
+                    # Emit signal for UI updates
+                    self.parameter_changed.emit(self.current_instance, f"ref:{ref_name}", target_path)
+                    
+                    # Refresh the Status column after a short delay
+                    from PySide6.QtCore import QTimer
+                    QTimer.singleShot(100, self._refresh_reference_status)
+                    return
+            
+            # No variant active - use command for base config modification
             self.parameter_changed.emit(self.current_instance, f"ref:{ref_name}", target_path)
             
             # Refresh the Status column after a short delay to allow command to execute
@@ -1403,6 +1497,7 @@ class DaVinciConfigPanel(QWidget):
         except Exception as e:
             from PySide6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "Reference Error", f"Failed to set reference: {e}")
+
     
     def _refresh_reference_status(self):
         """Refresh reference status indicators"""

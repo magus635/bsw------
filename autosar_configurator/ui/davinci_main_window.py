@@ -152,6 +152,7 @@ class DaVinciMainWindow(QMainWindow):
         self.config_panel.ai_help_requested.connect(self._on_ai_help_requested)
         self.config_panel.check_impact_requested.connect(self._handle_check_impact)
         self.config_panel.reference_jump_requested.connect(self._on_reference_jump_requested)
+        self.config_panel.instance_variant_changed.connect(self._on_instance_variant_changed)
         splitter.addWidget(self.config_panel)
         
         # Set splitter proportions
@@ -522,8 +523,10 @@ class DaVinciMainWindow(QMainWindow):
         self.base_btn.setEnabled(False)
         toolbar.addWidget(self.base_btn)
         
-        # Variant selector
-        toolbar.addWidget(QLabel("Variant:"))
+        # Global variant selector
+        variant_view_label = QLabel("View Variant (当前视图):")
+        variant_view_label.setToolTip("Select the active variant for filtering the configuration tree and for code generation.")
+        toolbar.addWidget(variant_view_label)
         self.variant_selector = QComboBox()
         self.variant_selector.setMinimumWidth(150)
         self.variant_selector.addItem("(No Variants)")
@@ -597,18 +600,32 @@ class DaVinciMainWindow(QMainWindow):
         if not self.current_project or variant_name == "(No Variants)":
             return
         
-        old_variant = self.current_project.active_variant
-        self.current_project.active_variant = variant_name
+        if self.current_project:
+            self.current_project.active_variant = variant_name
+            # Notify tree view to filter instances
+            self.tree_view.set_active_variant(variant_name)
+            
         self.variant_label.setText(f"Variant: {variant_name}")
         
         # Count overrides for this variant across all modules
         total_overrides = 0
-        for manager in self.current_project.module_managers.values():
-            total_overrides += manager.configuration.get_variant_overrides_count(variant_name)
+        if self.current_project:
+            for manager in self.current_project.module_managers.values():
+                total_overrides += manager.configuration.get_variant_overrides_count(variant_name)
         
-        # Refresh config panel to show variant-applied values
-        if hasattr(self, 'config_panel') and self.config_panel:
-            self.config_panel.refresh()
+        # Check if current config panel instance is still valid for the new variant
+        if hasattr(self, 'config_panel') and self.config_panel and self.config_panel.current_instance:
+            instance = self.config_panel.current_instance
+            # Clear config panel if instance belongs to a different variant (not current and not global)
+            if instance.variant is not None and instance.variant != variant_name:
+                self.config_panel.clear()
+                self.statusbar.showMessage(
+                    f"已清空：实例 '{instance.short_name}' 不属于变体 '{variant_name}'", 
+                    5000
+                )
+            else:
+                # Refresh to show variant-specific values
+                self.config_panel.refresh()
         
         msg = f"Switched to Variant: {variant_name}"
         if total_overrides > 0:
@@ -2470,6 +2487,24 @@ class DaVinciMainWindow(QMainWindow):
         """Handle parameter value change"""
         # Delegate to command handler
         self.handle_parameter_change(instance, param_name, value)
+    
+    def _on_instance_variant_changed(self, instance: EcucContainerValue):
+        """Handle when an instance's assigned variant changes - refresh tree to update filtering"""
+        # Refresh tree to show/hide the instance based on the current view variant
+        self.tree_view.refresh()
+        
+        # Check if the instance is now assigned to a variant different from current view
+        current_view_variant = self.current_project.active_variant if self.current_project else None
+        
+        if instance.variant is not None and instance.variant != current_view_variant:
+            # Instance now belongs to a different variant - clear config panel to prevent accidental editing
+            self.config_panel.clear()
+            self.statusbar.showMessage(
+                f"实例 '{instance.short_name}' 已归属到变体 '{instance.variant}'，当前视图为 '{current_view_variant}'，配置面板已清空", 
+                5000
+            )
+        else:
+            self.statusbar.showMessage(f"Instance '{instance.short_name}' variant updated, tree refreshed", 3000)
     
     def _load_last_session(self):
         """Load last opened DEF file"""

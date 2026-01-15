@@ -106,7 +106,8 @@ class Renderer:
     def load_module(
         self, 
         module_def: EcucModuleDef, 
-        configuration: Optional[EcucModuleConfiguration] = None
+        configuration: Optional[EcucModuleConfiguration] = None,
+        variant: Optional[str] = None
     ):
         """Load a module's definition and configuration.
         
@@ -115,8 +116,10 @@ class Renderer:
         Args:
             module_def: Module definition from EcucDefParser
             configuration: Module configuration from ConfigurationManager
+            variant: Active variant for container selection
         """
-        self.overlay_engine.build_configuration_tree(module_def, configuration)
+        self.overlay_engine.build_configuration_tree(module_def, configuration, variant=variant)
+
     
     def render(
         self, 

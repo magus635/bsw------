@@ -22,12 +22,17 @@ class EBTemplateEngine:
         self.renderer = Renderer(strict=strict, template_dir=template_dir)
         self.initialized_modules = set()
         
-    def add_module(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration):
+    def add_module(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration, variant: Optional[str] = None):
         """Add a module to the engine's symbol table for cross-module access."""
         module_name = module_def.short_name
-        if module_name not in self.initialized_modules:
-            self.renderer.load_module(module_def, configuration)
-            self.initialized_modules.add(module_name)
+        # If variant is different, we might need to reload? 
+        # For now, if it's already in initialized_modules, we skip.
+        # But for variant support, we should allow reloading if variant changes.
+        cache_key = (module_name, variant)
+        if cache_key not in self.initialized_modules:
+            self.renderer.load_module(module_def, configuration, variant=variant)
+            self.initialized_modules.add(cache_key)
+
 
     def render(self, template: str, context: Dict[str, Any]) -> str:
         """Render template with given context.
@@ -52,15 +57,18 @@ class EBTemplateEngine:
 
         # Load all modules if provided, for cross-module lookup
         all_modules = context.get('all_modules', {})
+        active_variant = context.get('active_variant')
+        
         if all_modules:
             for m_name, (m_def, m_config) in all_modules.items():
-                self.add_module(m_def, m_config)
+                self.add_module(m_def, m_config, variant=active_variant)
 
         # Ensure current module is loaded
         module_def = context.get('module_def')
         configuration = context.get('configuration')
         if configuration and module_def:
-            self.add_module(module_def, configuration)
+            self.add_module(module_def, configuration, variant=active_variant)
+
             
         # Extract extra variables from context (excluding model objects)
         extra_vars = {k: v for k, v in context.items() 

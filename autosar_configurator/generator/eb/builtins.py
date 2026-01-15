@@ -206,17 +206,22 @@ class BuiltinFunctions:
             return bool(value)
         return False
     
-    def node_name(self, node: 'ConfigurationNode') -> str:
+    def node_name(self, node: Optional['ConfigurationNode'] = None) -> str:
         """Get the short name of a node"""
+        if node is None:
+            node = self.context_stack.current_node()
         if node is None:
             return ""
         return node.short_name
     
-    def node_path(self, node: 'ConfigurationNode') -> str:
+    def node_path(self, node: Optional['ConfigurationNode'] = None) -> str:
         """Get the absolute path of a node"""
+        if node is None:
+            node = self.context_stack.current_node()
         if node is None:
             return ""
         return node.path
+
     
     def node_ref(self, path_or_node: Union[str, 'ConfigurationNode']) -> Optional['ConfigurationNode']:
         """Resolve a reference node or path to its target node.
@@ -338,16 +343,18 @@ class BuiltinFunctions:
                     val = node.get_child(inner_expr)
                     if val:
                         res = val.get_value()
-                        # Ensure we return something comparable (string or number)
+                        # Convert all values to strings for consistent comparison
+                        # This fixes "TypeError: '<' not supported between instances of 'str' and 'int'"
                         if res is None: return ""
-                        return res
+                        return str(res)
                 
-                # Fallback to short_name
-                return node.short_name
+                # Fallback to short_name (already a string)
+                return node.short_name if hasattr(node, 'short_name') else ""
             finally:
                 self.context_stack.pop()
 
         return sorted(nodes, key=get_sort_key)
+
     
     # ========== Model Functions ==========
     

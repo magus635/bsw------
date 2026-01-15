@@ -252,7 +252,11 @@ class EcucContainerValue:
     # Validation state
     validation_errors: List[str] = field(default_factory=list)
     
+    # Variant Selection: which variant this instance belongs to (None = All)
+    variant: Optional[str] = None
+    
     def get_path(self) -> str:
+
         """Get full path of this container instance"""
         if self.parent:
             return f"{self.parent.get_path()}/{self.short_name}"
@@ -318,9 +322,11 @@ class EcucContainerValue:
         new_instance = EcucContainerValue(
             short_name=self.short_name,
             definition_ref=self.definition_ref,
+            variant=self.variant,
             is_modified=True,
             last_modified=datetime.now()
         )
+
         
         # Clone parameters
         for name, param in self.parameter_values.items():
