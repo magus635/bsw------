@@ -99,7 +99,9 @@ class Renderer:
         # Indentation tracking
         self._indent_stack: List[int] = [0]  # Stack of indent levels
         self._at_line_start: bool = True  # Track if we're at start of a new line
+        self._indent_added_on_this_line: bool = False  # Track if indent_str was already added
         self._spaces_to_skip: int = 0  # Number of spaces to skip from template
+
     
     def load_module(
         self, 
@@ -163,7 +165,9 @@ class Renderer:
         # Reset state for this rendering session
         self._indent_stack = [0]
         self._at_line_start = True
+        self._indent_added_on_this_line = False
         self._spaces_to_skip = 0
+
         self._nocode = False
         self._break_requested = False
         self._suppress_next_newline = False
@@ -347,8 +351,8 @@ class Renderer:
         """Apply current indentation to text.
         
         Adds spaces at the start of each new line based on current indent level.
-        It "consumes" up to indent_level spaces from the template itself to 
-        avoid double-indentation while preserving additional relative indent.
+        It "neutralizes" template indentation by skipping all leading whitespace 
+        from the template until content or a newline is reached.
         """
         if not text:
             return text
@@ -357,50 +361,47 @@ class Renderer:
         indent_level = self._indent_stack[-1] if self._indent_stack else 0
         indent_str = ' ' * indent_level
         
-        # Process the text
         result = []
         i = 0
         while i < len(text):
             char = text[i]
             
             if self._at_line_start:
-                if char not in ('\n', '\r'):
-                    # Start of a non-empty line
-                    result.append(indent_str)
-                    
-                    # Consume ALL leading whitespace from the template for this line
-                    # even if it exceeds indent_level. This "neutralizes" template indentation.
-                    while i < len(text) and text[i] in (' ', '\t'):
-                        i += 1
-                    
-                    if i < len(text):
-                        self._at_line_start = False
-                        # If we have content in this token, resume normal processing
-                        if text[i] == '\n':
-                            continue # Handle newline immediately
-                        result.append(text[i])
-                        i += 1
-                    else:
-                        # We've added the indent and consumed all template spaces in this token.
-                        # Important: Mark that we are NO LONGER at line start so next token
-                        # doesn't add indent again.
-                        self._at_line_start = False
-                        break
-                elif char == '\n':
+                if char in ('\n', '\r'):
+                    # Blank line or just newline
                     result.append(char)
                     i += 1
-                    self._at_line_start = True
-                    continue
+                    # Stay at line start, reset indent flag for NEW line
+                    self._indent_added_on_this_line = False
+                elif char in (' ', '\t'):
+                    # leading whitespace in template
+                    if not self._indent_added_on_this_line:
+                        result.append(indent_str)
+                        self._indent_added_on_this_line = True
+                    # Skip this template whitespace
+                    i += 1
+                else:
+                    # Hit first content character
+                    if not self._indent_added_on_this_line:
+                        result.append(indent_str)
+                        self._indent_added_on_this_line = True
+                    result.append(char)
+                    i += 1
+                    # Now we are officially in the middle of a line
+                    self._at_line_start = False
             else:
-                if char == '\n':
+                # Mid-line logic
+                if char in ('\n', '\r'):
                     result.append(char)
                     i += 1
                     self._at_line_start = True
+                    self._indent_added_on_this_line = False
                 else:
                     result.append(char)
                     i += 1
         
         return "".join(result)
+
     
     def _handle_var(self, content: str):
         """Handle [!VAR "name"="value"!]"""
