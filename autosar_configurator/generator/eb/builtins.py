@@ -751,14 +751,16 @@ class BuiltinFunctions:
             return self.ecu_resources[path]
         
         # Mapping for common EB Tresos ecu:get paths
-        if path == 'Fls.PageSize':
+        # Handle both 'Fls.PageSize' and 'Fls.FlsPageSize' (template uses the latter)
+        if path in ('Fls.PageSize', 'Fls.FlsPageSize'):
             # Attempt to find FlsPageSize in Fls module configuration
             fls = self.symbol_table.get_module('Fls')
             if fls:
                 for child in fls.get_children_recursive():
                     if child.short_name == 'FlsPageSize':
                         val = self.num_i(child)
-                        return val
+                        if val and val != 0:
+                            return val
             
             # Fallback to Resource module
             res = self.symbol_table.get_module('Resource')
@@ -766,8 +768,11 @@ class BuiltinFunctions:
                 for child in res.get_children_recursive():
                     if child.short_name == 'FlsPageSize':
                         val = self.num_i(child)
-                        return val
+                        if val and val != 0:
+                            return val
         
         # Default fallback: return 0 or a sensible default
+        print(f"WARNING: ecu:get('{path}') not found, returning 0")
         return 0
+
 
