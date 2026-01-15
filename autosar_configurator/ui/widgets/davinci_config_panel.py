@@ -558,20 +558,29 @@ class DaVinciConfigPanel(QWidget):
             return combo, combo.currentText, combo.activated
         
         elif param_def.param_type == EcucParameterType.INTEGER:
-            # SpinBox for integers
-            spinbox = QSpinBox()
-            # Limit range to avoid overflow (QSpinBox uses 32-bit int)
-            min_val = param_def.min_value if param_def.min_value is not None else -2147483648
+            # Check if value range exceeds 32-bit signed integer limits
+            min_val = param_def.min_value if param_def.min_value is not None else 0
             max_val = param_def.max_value if param_def.max_value is not None else 2147483647
-            # Clamp to safe 32-bit range
-            min_val = max(min_val, -2147483648)
-            max_val = min(max_val, 2147483647)
-            spinbox.setRange(int(min_val), int(max_val))
+            
+            # If range exceeds 32-bit limits, use QLineEdit instead of QSpinBox
+            if min_val < -2147483648 or max_val > 2147483647:
+                edit = QLineEdit()
+                edit.setText(str(current_value) if current_value is not None else "0")
+                edit.setPlaceholderText(f"Integer ({min_val} - {max_val})")
+                return edit, edit.text, edit.textChanged
+            
+            # Normal case: use QSpinBox
+            spinbox = QSpinBox()
+            min_val = max(int(min_val), -2147483648)
+            max_val = min(int(max_val), 2147483647)
+            spinbox.setRange(min_val, max_val)
             
             try:
                 value = int(current_value) if current_value is not None else 0
+                # Clamp value to range
+                value = max(min_val, min(max_val, value))
             except (ValueError, TypeError):
-                value = 0 # Default on error
+                value = 0
             
             spinbox.setValue(value)
             

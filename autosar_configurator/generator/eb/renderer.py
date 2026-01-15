@@ -95,6 +95,11 @@ class Renderer:
         # Recursion depth for INCLUDE and CALL
         self._recursion_depth: int = 0
         self.MAX_RECURSION_DEPTH: int = 50
+        
+        # Indentation tracking
+        self._indent_stack: List[int] = [0]  # Stack of indent levels
+        self._at_line_start: bool = True  # Track if we're at start of a new line
+        self._spaces_to_skip: int = 0  # Number of spaces to skip from template
     
     def load_module(
         self, 
@@ -155,13 +160,27 @@ class Renderer:
             
         self._context_stack = ContextStack(root_node)
         
+        # Reset state for this rendering session
+        self._indent_stack = [0]
+        self._at_line_start = True
+        self._spaces_to_skip = 0
+        self._nocode = False
+        self._break_requested = False
+        self._suppress_next_newline = False
+        self._recursion_depth = 0
+        
         # Add initial variables
         if initial_variables:
             for name, value in initial_variables.items():
                 self._context_stack.set_variable(name, value)
         
-        # Initialize engines
-        self._builtins = BuiltinFunctions(self.symbol_table, self._context_stack)
+        # Initialize engines - preserve existing ecu_resources if set
+        if self._builtins is None:
+            self._builtins = BuiltinFunctions(self.symbol_table, self._context_stack)
+        else:
+            # Update references for existing builtins
+            self._builtins.symbol_table = self.symbol_table
+            self._builtins.context_stack = self._context_stack
         self._xpath_engine = XPathEngine(self.symbol_table, self._context_stack, function_handler=self._builtins.call)
         self._output_buffer = []
         self._suppress_next_newline = False
@@ -228,6 +247,9 @@ class Renderer:
                     # Also remove leading whitespace if it's just indentation
                     if content.strip() == '':
                         content = ''  # Skip pure whitespace on directive lines
+                
+                # Apply indentation
+                content = self._apply_indent(content)
                 self._output_buffer.append(content)
                 i += 1
                 
@@ -235,7 +257,10 @@ class Renderer:
                 value = self._evaluate_expression(token.content)
                 # Ensure value is unwrapped (get parameter value instead of node)
                 value = self._unwrap_value(value)
-                self._output_buffer.append(str(value) if value is not None else "")
+                output_str = str(value) if value is not None else ""
+                # Apply indentation if at line start
+                output_str = self._apply_indent(output_str)
+                self._output_buffer.append(output_str)
                 i += 1
                 
             elif token.type == TokenType.COMMENT:
@@ -281,12 +306,101 @@ class Renderer:
             elif token.type == TokenType.BREAK:
                 self._break_requested = True
                 i += 1
+            
+            elif token.type == TokenType.INDENT:
+                # [!INDENT "n"!] - push indentation level onto stack
+                try:
+                    n = int(token.content.strip().strip('"').strip("'"))
+                    self._indent_stack.append(n)
+                except (ValueError, TypeError):
+                    pass  # Invalid indent, skip
+                i += 1
+            
+            elif token.type == TokenType.ENDINDENT:
+                # [!ENDINDENT!] - pop indentation level from stack
+                if len(self._indent_stack) > 1:
+                    self._indent_stack.pop()
+                i += 1
+            
+            elif token.type == TokenType.WS:
+                # [!WS "n"!] - output n whitespace characters
+                try:
+                    n = int(token.content.strip().strip('"').strip("'"))
+                    if n > 0:
+                        self._output_buffer.append(' ' * n)
+                        self._at_line_start = False
+                except (ValueError, TypeError):
+                    pass  # Invalid WS count, skip
+                i += 1
+            
+            elif token.type == TokenType.AUTOSPACING:
+                # [!AUTOSPACING!] - auto spacing control (skip, just cosmetic)
+                i += 1
                 
             else:
                 # Unknown or end token - skip
                 i += 1
         
         return i
+    
+    def _apply_indent(self, text: str) -> str:
+        """Apply current indentation to text.
+        
+        Adds spaces at the start of each new line based on current indent level.
+        It "consumes" up to indent_level spaces from the template itself to 
+        avoid double-indentation while preserving additional relative indent.
+        """
+        if not text:
+            return text
+        
+        # Get current indent level (absolute level from top of stack)
+        indent_level = self._indent_stack[-1] if self._indent_stack else 0
+        indent_str = ' ' * indent_level
+        
+        # Process the text
+        result = []
+        i = 0
+        while i < len(text):
+            char = text[i]
+            
+            if self._at_line_start:
+                if char not in ('\n', '\r'):
+                    # Start of a non-empty line
+                    result.append(indent_str)
+                    
+                    # Consume ALL leading whitespace from the template for this line
+                    # even if it exceeds indent_level. This "neutralizes" template indentation.
+                    while i < len(text) and text[i] in (' ', '\t'):
+                        i += 1
+                    
+                    if i < len(text):
+                        self._at_line_start = False
+                        # If we have content in this token, resume normal processing
+                        if text[i] == '\n':
+                            continue # Handle newline immediately
+                        result.append(text[i])
+                        i += 1
+                    else:
+                        # We've added the indent and consumed all template spaces in this token.
+                        # Important: Mark that we are NO LONGER at line start so next token
+                        # doesn't add indent again.
+                        self._at_line_start = False
+                        break
+                elif char == '\n':
+                    result.append(char)
+                    i += 1
+                    self._at_line_start = True
+                    continue
+            else:
+                if char == '\n':
+                    result.append(char)
+                    i += 1
+                    self._at_line_start = True
+                else:
+                    result.append(char)
+                    i += 1
+        
+        return "".join(result)
     
     def _handle_var(self, content: str):
         """Handle [!VAR "name"="value"!]"""
@@ -480,12 +594,32 @@ class Renderer:
         if (expr.startswith('"') and expr.endswith('"')) or \
            (expr.startswith("'") and expr.endswith("'")):
             inner = expr[1:-1]
-            # If it's a variable reference, function call, indexing, or path, evaluate it
-            if inner.startswith('$') or inner.startswith('@') or \
-               '(' in inner or \
-               ('[' in inner and inner.endswith(']')) or \
-               '/' in inner or \
-               'as:' in inner:
+            
+            # Check if it should be evaluated or returned as-is
+            # It should be evaluated if:
+            # - It's a variable reference ($var)
+            # - It's a function call (contains () )
+            # - It's indexing (ends with ] but NOT if it's an XPath path)
+            # - It's an as:modconf path (contains as:)
+            # - It's an XPath path (contains / and may have predicates [])
+            should_evaluate = False
+            if inner.startswith('$') or inner.startswith('@'):
+                should_evaluate = True
+            elif '(' in inner:
+                should_evaluate = True
+            elif '/' in inner:
+                # Path expressions should be evaluated as XPath
+                return self._evaluate_xpath(inner)
+            elif '[' in inner and inner.endswith(']'):
+                # Could be indexing or predicate - if no path separator, treat as indexing
+                should_evaluate = True
+            elif 'as:' in inner:
+                should_evaluate = True
+            # Don't evaluate plain path-like strings without as: prefix
+            # e.g., "/Can/Can/CanController" should remain a string literal
+
+            
+            if should_evaluate:
                 result = self._evaluate_expression(inner)
                 logger.debug(f"Evaluated quoted expression: {expr} -> {result}")
                 return result
@@ -521,25 +655,47 @@ class Renderer:
                 return self._evaluate_expression(expr[1:-1].strip())
         
         if expr.endswith(']'):
-            import re
-            match = re.search(r'(.*)\[(\d+)\]$', expr)
-            if match:
-                base_expr = match.group(1).strip()
-                index = int(match.group(2)) - 1 # 1-indexed to 0-indexed
-                base_val = self._evaluate_expression(base_expr)
+            # Find the matching opening bracket for the last closing bracket
+            depth = 0
+            open_idx = -1
+            for j in range(len(expr) - 1, -1, -1):
+                if expr[j] == ']':
+                    depth += 1
+                elif expr[j] == '[':
+                    depth -= 1
+                    if depth == 0:
+                        open_idx = j
+                        break
+            
+            if open_idx > 0:
+                base_expr = expr[:open_idx].strip()
+                index_expr = expr[open_idx+1:-1].strip()
                 
-                # Treat single objects as a list of 1 for indexing
-                if not isinstance(base_val, list):
-                    items = [base_val] if base_val is not None else []
-                else:
-                    items = base_val
+                base_val = self._evaluate_expression(base_expr)
+                # Ensure base_val is unwrapped if it's a node
+                base_val = self._unwrap_value(base_val)
+                
+                index_val = self._evaluate_expression(index_expr)
+                
+                try:
+                    # Convert index_val to int (using num_i logic)
+                    index = int(self._builtins.num_i(index_val)) - 1
                     
-                if 0 <= index < len(items):
-                    result = items[index]
-                    logger.debug(f"Indexed expression: {expr} -> {result}")
-                    return result
-                logger.debug(f"Index out of bounds or empty: {expr}")
-                return None
+                    if not isinstance(base_val, (list, tuple)):
+                        # If it's a string from text:split, it should already be a list
+                        # But if it's a single object, wrap it
+                        items = [base_val] if base_val is not None else []
+                    else:
+                        items = base_val
+                        
+                    if 0 <= index < len(items):
+                        result = items[index]
+                        logger.debug(f"Indexed expression: {expr} -> {result}")
+                        return result
+                    logger.debug(f"Index {index+1} out of bounds for list of length {len(items)}")
+                    return None
+                except (ValueError, TypeError):
+                    return None
 
         # Arithmetic Operations (Simple implementation)
         if ' + ' in expr:
@@ -692,32 +848,80 @@ class Renderer:
            (condition.startswith("'") and condition.endswith("'")):
             condition = condition[1:-1].strip()
         
+        # Strip outer parentheses if present (e.g., "(expr = 'value')")
+        if condition.startswith('(') and condition.endswith(')'):
+            # Make sure they are matching (not like "(a) and (b)")
+            depth = 0
+            all_nested = True
+            for i, c in enumerate(condition):
+                if c == '(': depth += 1
+                elif c == ')': depth -= 1
+                # If depth hits 0 before the end, they're not matching outer parens
+                if depth == 0 and i < len(condition) - 1:
+                    all_nested = False
+                    break
+            if all_nested:
+                condition = condition[1:-1].strip()
+        
         # Handle negation
         if condition.startswith('!') or condition.startswith('not '):
             inner = condition[1:].strip() if condition.startswith('!') else condition[4:].strip()
             return not self._evaluate_condition(inner)
         
-        # Handle comparison operators
+        # Handle 'and' / 'or' with parenthesis-aware splitting FIRST
+        # (Logical operators have lower precedence than comparisons)
+        def split_logical_op(cond: str, op: str) -> List[str]:
+            """Split condition by logical operator, respecting parentheses."""
+            parts = []
+            depth = 0
+            current = []
+            i = 0
+            op_len = len(op)
+            while i < len(cond):
+                if cond[i] == '(':
+                    depth += 1
+                    current.append(cond[i])
+                elif cond[i] == ')':
+                    depth -= 1
+                    current.append(cond[i])
+                elif depth == 0 and cond[i:i+op_len].lower() == op:
+                    parts.append(''.join(current).strip())
+                    current = []
+                    i += op_len
+                    continue
+                else:
+                    current.append(cond[i])
+                i += 1
+            if current:
+                parts.append(''.join(current).strip())
+            return parts if len(parts) > 1 else []
+        
+        and_parts = split_logical_op(condition, ' and ')
+        if and_parts:
+            return all(self._evaluate_condition(p) for p in and_parts)
+        
+        or_parts = split_logical_op(condition, ' or ')
+        if or_parts:
+            return any(self._evaluate_condition(p) for p in or_parts)
+        
+        # Handle comparison operators (after logical operators)
         for op in [' == ', ' != ', ' > ', ' < ', ' >= ', ' <= ', ' = ']:
-            # Note: Added ' = ' as alias for ' == ' common in templates
             check_op = op.strip()
             if op in condition:
                 left, right = condition.split(op, 1)
                 left_val = self._evaluate_expression(left.strip())
                 right_val = self._evaluate_expression(right.strip())
                 
-                # Unwrap nodes to values for comparison
                 left_val = self._unwrap_value(left_val)
                 right_val = self._unwrap_value(right_val)
                 
-                # Boolean and Numeric normalization for comparison
-                # Handle "true" == True
+                # Boolean normalization
                 if isinstance(left_val, bool) and isinstance(right_val, str):
                     right_val = right_val.lower() in ('true', '1', 'yes', 'on')
                 if isinstance(right_val, bool) and isinstance(left_val, str):
                     left_val = left_val.lower() in ('true', '1', 'yes', 'on')
                 
-                # Handle string-to-number comparison (e.g., "$Count = '1'")
+                # Numeric normalization
                 if isinstance(left_val, (int, float)) and isinstance(right_val, str):
                     try: right_val = float(right_val)
                     except: pass
@@ -725,7 +929,7 @@ class Renderer:
                     try: left_val = float(left_val)
                     except: pass
                 
-                if check_op == '==' or check_op == '=':
+                if check_op in ('==', '='):
                     res = left_val == right_val
                 elif check_op == '!=':
                     res = left_val != right_val
@@ -744,14 +948,6 @@ class Renderer:
                 
                 _debug_log(f"DEBUG: Comparison [{left} {check_op} {right}] => [{left_val} {check_op} {right_val}] Result: {res}")
                 return res
-        
-        # Handle 'and' / 'or'
-        if ' and ' in condition:
-            parts = condition.split(' and ')
-            return all(self._evaluate_condition(p.strip()) for p in parts)
-        if ' or ' in condition:
-            parts = condition.split(' or ')
-            return any(self._evaluate_condition(p.strip()) for p in parts)
         
         # Simple truthiness check
         value = self._evaluate_expression(condition)
@@ -773,21 +969,32 @@ class Renderer:
         func_name = expr[:paren_idx].strip()
         args_str = expr[paren_idx + 1:-1].strip()
         
-        # Parse arguments (simplified - doesn't handle nested parens well)
+        # Parse arguments (supports nested parens and quotes)
         args = []
         if args_str:
-            # Split by comma, but be careful with nested function calls
             depth = 0
+            in_quote = None  # Track if we are inside "..." or '...'
             current_arg = []
-            for char in args_str:
-                if char == '(':
-                    depth += 1
-                elif char == ')':
-                    depth -= 1
-                elif char == ',' and depth == 0:
-                    args.append(''.join(current_arg).strip())
-                    current_arg = []
-                    continue
+            for i, char in enumerate(args_str):
+                # Handle quotes
+                if char in ('"', "'") and depth == 0:
+                    if in_quote is None:
+                        in_quote = char
+                    elif in_quote == char:
+                        # Check if escaped? (EB templates usually don't have backslash escapes in literals)
+                        in_quote = None
+                
+                # Only handle parens and commas if not inside quotes
+                if in_quote is None:
+                    if char == '(':
+                        depth += 1
+                    elif char == ')':
+                        depth -= 1
+                    elif char == ',' and depth == 0:
+                        args.append(''.join(current_arg).strip())
+                        current_arg = []
+                        continue
+                
                 current_arg.append(char)
             if current_arg:
                 args.append(''.join(current_arg).strip())
@@ -897,7 +1104,7 @@ class Renderer:
     def _handle_for(self, tokens: List[Token], start: int, end: int) -> int:
         """Handle FOR/ENDFOR block.
         
-        Syntax: [!FOR "var" = "start" TO "end"!] ... [!ENDFOR!]
+        Syntax: [!FOR "var" = "start_expr" TO "end_expr"!] ... [!ENDFOR!]
         
         Returns index after ENDFOR.
         """
@@ -905,16 +1112,29 @@ class Renderer:
         for_token = tokens[start]
         content = for_token.content.strip()
         
-        # Parse: "var" = "start" TO "end" or var = start TO end
-        match = re.match(r'"?(\w+)"?\s*=\s*"?(\d+)"?\s+TO\s+"?(\d+)"?', content, re.IGNORECASE)
+        # Parse: "var" = expr TO expr
+        # The expr can be a number, a function call, or a complex expression
+        match = re.match(r'"?(\w+)"?\s*=\s*(.+?)\s+TO\s+(.+)', content, re.IGNORECASE)
         if not match:
             if self.strict:
                 raise TemplateParseError(f"Invalid FOR syntax: {content}")
             return start + 1
         
         var_name = match.group(1)
-        start_val = int(match.group(2))
-        end_val = int(match.group(3))
+        start_expr = match.group(2).strip().strip('"\'')
+        end_expr = match.group(3).strip().strip('"\'')
+        
+        # Evaluate start and end expressions
+        start_val_raw = self._evaluate_expression(start_expr)
+        end_val_raw = self._evaluate_expression(end_expr)
+        
+        try:
+            start_val = int(self._builtins.num_i(start_val_raw))
+            end_val = int(self._builtins.num_i(end_val_raw))
+        except (ValueError, TypeError):
+            if self.strict:
+                raise TemplateParseError(f"FOR start/end must evaluate to integers: start={start_expr}, end={end_expr}")
+            return start + 1
         
         # Find matching ENDFOR
         depth = 1
@@ -1126,8 +1346,27 @@ class Renderer:
                 else:
                     self._context_stack.set_variable(param_name, None)
             
-            # Execute macro tokens
-            self._execute_tokens(macro_info['tokens'], macro_info['start'], macro_info['end'])
+            # Execute macro - support two formats:
+            # 1. 'tokens', 'start', 'end' format (from MACRO definition in template)
+            # 2. 'body' string format (from dynamically defined macros)
+            if 'body' in macro_info:
+                # Dynamic macro with string body - tokenize and execute
+                from .lexer import Lexer
+                body_tokens = Lexer().tokenize(macro_info['body'])
+                self._execute_tokens(body_tokens, 0, len(body_tokens))
+            else:
+                # Standard macro with pre-tokenized body
+                self._execute_tokens(macro_info['tokens'], macro_info['start'], macro_info['end'])
+            
+            # IMPORTANT: Propagate variables set in macro to parent scope
+            # This allows macros to set global variables that persist after the call
+            # Get current scope's variables and propagate non-parameter variables to parent
+            current_vars = self._context_stack.current_scope_variables()
+            param_set = set(params)
+            for name, value in current_vars.items():
+                if name not in param_set:
+                    # This variable was set in the macro body, propagate to parent
+                    self._context_stack.set_variable_in_parent(name, value)
         finally:
             self._recursion_depth -= 1
             self._context_stack.pop()

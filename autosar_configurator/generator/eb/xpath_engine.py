@@ -399,16 +399,84 @@ class XPathEngine:
         return False
     
     def _evaluate_predicate_condition(self, node: 'ConfigurationNode', condition: str) -> bool:
-        """Evaluate a predicate condition in context of a node"""
-        # Simple existence check
-        child = node.get_child(condition)
-        if child:
-            return bool(child.get_value())
+        """Evaluate a predicate condition in context of a node.
         
-        # Check for comparison operators
-        for op in ['=', '!=', '>', '<']:
-            if op in condition:
-                # Would need full expression evaluator here
-                pass
-
+        Supports:
+        - Simple existence check: [ParamName]
+        - Equality: [ParamName = 'Value']
+        - Inequality: [ParamName != 'Value']  
+        - Numeric comparisons: [ParamName > 5]
+        """
+        import re
+        
+        # Check for equality comparison: ChildName = 'Value' or ChildName = "Value"
+        eq_match = re.match(r"""^\s*(\w+)\s*=\s*['"]([^'"]*)['"]\s*$""", condition)
+        if eq_match:
+            child_name = eq_match.group(1)
+            expected_value = eq_match.group(2)
+            child = node.get_child(child_name)
+            if child:
+                actual_value = child.get_value()
+                return str(actual_value) == expected_value
+            return False
+        
+        # Check for inequality: ChildName != 'Value'
+        neq_match = re.match(r"""^\s*(\w+)\s*!=\s*['"]([^'"]*)['"]\s*$""", condition)
+        if neq_match:
+            child_name = neq_match.group(1)
+            expected_value = neq_match.group(2)
+            child = node.get_child(child_name)
+            if child:
+                actual_value = child.get_value()
+                return str(actual_value) != expected_value
+            return True  # If child doesn't exist, it's not equal
+        
+        # Check for numeric comparisons: ChildName > 5, ChildName < 10
+        num_match = re.match(r"""^\s*(\w+)\s*([<>]=?)\s*(\d+)\s*$""", condition)
+        if num_match:
+            child_name = num_match.group(1)
+            operator = num_match.group(2)
+            compare_value = int(num_match.group(3))
+            child = node.get_child(child_name)
+            if child:
+                try:
+                    actual_value = int(child.get_value())
+                    if operator == '>':
+                        return actual_value > compare_value
+                    elif operator == '<':
+                        return actual_value < compare_value
+                    elif operator == '>=':
+                        return actual_value >= compare_value
+                    elif operator == '<=':
+                        return actual_value <= compare_value
+                except (ValueError, TypeError):
+                    return False
+            return False
+        
+        # Boolean value check (true/false): ChildName = 'true' or just ChildName
+        bool_match = re.match(r"""^\s*(\w+)\s*=\s*['"]?(true|false)['"]?\s*$""", condition, re.IGNORECASE)
+        if bool_match:
+            child_name = bool_match.group(1)
+            expected = bool_match.group(2).lower() == 'true'
+            child = node.get_child(child_name)
+            if child:
+                val = child.get_value()
+                if isinstance(val, bool):
+                    return val == expected
+                return str(val).lower() == str(expected).lower()
+            return False
+        
+        # Simple existence check: [ParamName]
+        child = node.get_child(condition.strip())
+        if child:
+            val = child.get_value()
+            # Return True if value exists and is truthy
+            if val is None:
+                return False
+            if isinstance(val, bool):
+                return val
+            if isinstance(val, str):
+                return val.lower() not in ('false', '', '0')
+            return bool(val)
+        
         return False

@@ -610,20 +610,33 @@ class ArxmlParser:
         # Determine if it's numerical (try to convert) if tag implies it
         # Or just try smart conversion based on content?
         # The element tag tells us if it's numerical or textual.
+        # Try smart conversion for all parameter values (handle true/false strings)
+        if value is not None and isinstance(value, str):
+            val_lower = value.strip().lower()
+            if val_lower == 'true': 
+                value = 1
+            elif val_lower == 'false': 
+                value = 0
+                
         if 'NUMERICAL-PARAM-VALUE' in element.tag:
-            # Try int, then float, then bool
+            # Try int, then float
             try:
-                # Check for boolean keywords first
-                if value in ('true', '1'):
-                    value = True
-                elif value in ('false', '0'):
-                    value = False
-                elif '.' in value:
+                if value is not None and '.' in str(value):
                     value = float(value)
                 else:
                     value = int(value)
             except (ValueError, TypeError):
                 pass
+        elif 'TEXTUAL-PARAM-VALUE' in element.tag:
+            # Also try numeric conversion for textual values in case they are misused
+            try:
+                if value is not None:
+                    if '.' in str(value):
+                        value = float(value)
+                    else:
+                        value = int(value)
+            except (ValueError, TypeError):
+                pass # Keep as string if not a number
                 
         container.set_parameter_value(param_name, value, definition_ref)
 

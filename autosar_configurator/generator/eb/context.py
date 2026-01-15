@@ -162,3 +162,27 @@ class ContextStack:
     def depth(self) -> int:
         """Get current stack depth (1 = root only)"""
         return len(self._stack)
+    
+    def current_scope_variables(self) -> Dict[str, Any]:
+        """Get variables defined only in the current (top) scope.
+        
+        Returns:
+            Dictionary of variable names to values in current scope only
+        """
+        return self._stack[-1].variables.copy()
+    
+    def set_variable_in_parent(self, name: str, value: Any):
+        """Set a variable in the parent scope (one level up from current).
+        
+        This is used for macro variable propagation - variables set in a macro
+        should be accessible after the macro returns.
+        
+        Args:
+            name: Variable name
+            value: Variable value
+        """
+        if len(self._stack) >= 2:
+            self._stack[-2].variables[name] = value
+        else:
+            # Only root scope, set there
+            self._stack[-1].variables[name] = value

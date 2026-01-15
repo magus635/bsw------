@@ -366,6 +366,12 @@ class ConfigurationManager:
         # Type conversion and validation
         try:
             if param_def.param_type == EcucParameterType.INTEGER:
+                # Fuzzy string conversion (handle 'true'/'false' from ARXML)
+                if isinstance(value, str):
+                    val_lower = value.strip().lower()
+                    if val_lower == 'true': value = 1
+                    elif val_lower == 'false': value = 0
+                
                 value = int(value)
                 if param_def.min_value is not None and value < param_def.min_value:
                     raise ValidationError(f"{param_name}: value {value} < minimum {param_def.min_value}")

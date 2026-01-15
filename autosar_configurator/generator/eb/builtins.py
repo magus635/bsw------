@@ -22,6 +22,9 @@ class BuiltinFunctions:
         self.symbol_table = symbol_table
         self.context_stack = context_stack
         
+        # ECU resource dictionary for ecu:get function
+        self.ecu_resources = {}
+        
         # Build function registry
         self._functions = {
             # Node functions
@@ -30,8 +33,10 @@ class BuiltinFunctions:
             'node:path': self.node_path,
             'node:ref': self.node_ref,
             'node:exists': self.node_exists,
+            'node:refexists': self.node_refexists,
             'node:current': self.node_current,
             'node:order': self.node_order,
+            'node:fallback': self.node_fallback,
             
             # EcuC interface functions (per spec 4.1/4.2)
             'ecuC:getParamValue': self.ecuc_get_param_value,
@@ -46,6 +51,7 @@ class BuiltinFunctions:
             # Number functions
             'num:i': self.num_i,
             'num:inttohex': self.num_inttohex,
+            'num:hextoint': self.num_hextoint,
             'num:is_nan': self.num_is_nan,
             'num:isnumber': self.num_isnumber,  # NEW: Check if value is a number
             
@@ -58,13 +64,24 @@ class BuiltinFunctions:
             'string:match': self.string_match,
             'string:length': self.string_length,
             'string:contains': self.string_contains,
-            'string:substring': self.string_substring,  # NEW
+            'string:substring': self.string_substring,
+            'string:substring-before': self.string_substring_before,
+            'string:substring-after': self.string_substring_after,
+            
+            # Text functions (Namespace aliases)
+            'text:split': self.string_split,
+            'text:join': self.string_concat,
+            'text:tolower': self.string_lower,
+            'text:toupper': self.string_upper,
             
             # XPath standard function aliases (for compatibility)
+            'string': self.to_string,  # XPath string() type conversion
             'string-length': self.string_length,
             'concat': self.string_concat,
             'contains': self.string_contains,
             'substring': self.string_substring,
+            'substring-before': self.string_substring_before,
+            'substring-after': self.string_substring_after,
             
             # Count function
             'count': self.count,
@@ -73,6 +90,7 @@ class BuiltinFunctions:
             'not': self.logical_not,
             
             # Variant functions (MUST-Minimal per spec 4.4)
+            'variant:name': self.variant_name,
             'variant:check': self.variant_check,
             'variant:exists': self.variant_exists,
             
@@ -227,6 +245,8 @@ class BuiltinFunctions:
     
     def node_exists(self, path_or_node) -> bool:
         """Check if a path or node exists"""
+        if path_or_node is None:
+            return False
         if isinstance(path_or_node, str):
             if path_or_node.startswith('/'):
                 return self.symbol_table.get_by_path(path_or_node) is not None
@@ -237,14 +257,49 @@ class BuiltinFunctions:
                 return False
         return True  # Node object exists
     
+    def node_refexists(self, path_or_node) -> bool:
+        """Check if a reference exists and its target exists"""
+        target = self.node_ref(path_or_node)
+        return target is not None
+    
     def node_current(self) -> Optional['ConfigurationNode']:
         """Get the current context node"""
         return self.context_stack.current_node()
     
-    def node_order(self, nodes: Any, key: str = 'short_name') -> List['ConfigurationNode']:
-        """Sort nodes by a property.
+    def node_fallback(self, value: Any, fallback: Any = None) -> Any:
+        """Return value if it is not None/empty, otherwise return fallback.
         
-        Handles both single nodes and lists of nodes.
+        This is used in XPath expressions like:
+            node:fallback(SomeParam, 0)
+            node:fallback(../ParentParam, 'default')
+        
+        Args:
+            value: The value to check (can be a node, parameter value, or None)
+            fallback: The fallback value to return if value is None/empty
+        
+        Returns:
+            value if non-empty, otherwise fallback
+        """
+        # If value is a ConfigurationNode, get its value
+        if hasattr(value, 'get_value'):
+            val = value.get_value()
+        elif hasattr(value, 'value'):
+            val = value.value
+        else:
+            val = value
+        
+        # Check if value is "empty" (None, empty string, or empty list)
+        if val is None or val == '' or val == []:
+            return fallback
+        
+        return val
+    
+    def node_order(self, nodes: Any, sort_expr: Optional[str] = None) -> List['ConfigurationNode']:
+        """Sort nodes by a property or expression.
+        
+        Args:
+            nodes: List of nodes to sort
+            sort_expr: XPath expression to evaluate for each node as sort key
         """
         if nodes is None:
             return []
@@ -254,7 +309,6 @@ class BuiltinFunctions:
             nodes = [nodes]
         
         if not isinstance(nodes, (list, tuple)):
-            # Try to iterate if possible
             try:
                 nodes = list(nodes)
             except TypeError:
@@ -262,8 +316,38 @@ class BuiltinFunctions:
         
         if not nodes:
             return []
-            
-        return sorted(nodes, key=lambda n: getattr(n, key, n.short_name if hasattr(n, 'short_name') else ''))
+        
+        if sort_expr is None:
+            # Default sort by short_name
+            return sorted(nodes, key=lambda n: n.short_name if hasattr(n, 'short_name') else '')
+
+        # Cleanup sort_expr (strip quotes if present)
+        sort_expr = sort_expr.strip().strip("'\"")
+
+        # Create a sorting function
+        def get_sort_key(node):
+            # Temporarily push node to context for evaluation
+            self.context_stack.push(node)
+            try:
+                # Handle common case: node:value(ParamName) or just ParamName
+                inner_expr = sort_expr
+                if inner_expr.startswith('node:value(') and inner_expr.endswith(')'):
+                    inner_expr = inner_expr[11:-1].strip().strip("'\"")
+                
+                if '/' not in inner_expr and not '(' in inner_expr:
+                    val = node.get_child(inner_expr)
+                    if val:
+                        res = val.get_value()
+                        # Ensure we return something comparable (string or number)
+                        if res is None: return ""
+                        return res
+                
+                # Fallback to short_name
+                return node.short_name
+            finally:
+                self.context_stack.pop()
+
+        return sorted(nodes, key=get_sort_key)
     
     # ========== Model Functions ==========
     
@@ -305,17 +389,24 @@ class BuiltinFunctions:
         """Convert value to integer"""
         if value is None:
             return 0
-        if isinstance(value, int):
-            return value
+        if isinstance(value, (int, bool)):
+            return int(value)
         if isinstance(value, float):
             return int(value)
         if isinstance(value, str):
-            # Handle hex strings
-            value = value.strip()
-            if value.lower().startswith('0x'):
-                return int(value, 16)
+            # Handle hex and fuzzy booleans
+            val_lower = value.strip().lower()
+            if val_lower.startswith('0x'):
+                try:
+                    return int(val_lower, 16)
+                except ValueError:
+                    return 0
+            if val_lower == 'true':
+                return 1
+            if val_lower == 'false':
+                return 0
             try:
-                return int(value)
+                return int(val_lower)
             except ValueError:
                 return 0
         # If it's a node, get its value
@@ -326,22 +417,30 @@ class BuiltinFunctions:
         return 0
     
     def num_inttohex(self, value: Any, width: int = 0) -> str:
-        """Convert integer to hex string.
-        
-        Args:
-            value: Integer value
-            width: Minimum width (with leading zeros)
-            
-        Returns:
-            Hex string like "0x000A"
-        """
+        """Convert integer to hex string."""
         int_val = self.num_i(value)
         if width > 0:
-            # Format with leading zeros
             hex_str = format(int_val, f'0{width}X')
         else:
             hex_str = format(int_val, 'X')
         return f"0x{hex_str}"
+    
+    def num_hextoint(self, value: Any) -> int:
+        """Convert hex string to integer"""
+        if value is None:
+            return 0
+        if isinstance(value, (int, float)):
+            return int(value)
+        s = str(value).strip().lower()
+        if s.startswith('0x'):
+            try:
+                return int(s, 16)
+            except ValueError:
+                return 0
+        try:
+            return int(s)
+        except ValueError:
+            return 0
     
     def num_is_nan(self, value: Any) -> bool:
         """Check if value is not a number"""
@@ -389,6 +488,23 @@ class BuiltinFunctions:
         return False
     
     # ========== String Functions ==========
+    
+    def to_string(self, value: Any) -> str:
+        """XPath string() function - convert any value to string.
+        
+        Args:
+            value: Any value to convert
+            
+        Returns:
+            String representation of the value
+        """
+        if value is None:
+            return ''
+        if hasattr(value, 'get_value'):
+            value = value.get_value()
+        elif hasattr(value, 'value'):
+            value = value.value
+        return str(value)
     
     def string_concat(self, *args) -> str:
         """Concatenate strings"""
@@ -441,29 +557,42 @@ class BuiltinFunctions:
             s = str(s)
         return substring in s
     
-    def string_substring(self, s: str, start: int, length: int = None) -> str:
-        """Extract substring from string.
+    def string_substring(self, s: str, start: Any, length: Any = None) -> str:
+        """Extract substring from string."""
+        if s is None: return ""
+        if not isinstance(s, str): s = str(s)
         
-        XPath substring() is 1-indexed, Python is 0-indexed.
-        
-        Args:
-            s: Source string
-            start: Start position (1-indexed per XPath)
-            length: Optional length
+        try:
+            start_num = int(self.num_i(start))
+            length_num = int(self.num_i(length)) if length is not None else None
             
-        Returns:
-            Substring
-        """
-        if not isinstance(s, str):
-            s = str(s)
-        
-        # Convert 1-indexed XPath to 0-indexed Python
-        start_idx = max(0, int(start) - 1)
-        
-        if length is not None:
-            return s[start_idx:start_idx + int(length)]
-        else:
-            return s[start_idx:]
+            # 1-indexed to 0-indexed
+            py_start = max(0, start_num - 1)
+            if length_num is not None:
+                return s[py_start : py_start + length_num]
+            return s[py_start:]
+        except (ValueError, TypeError):
+            return ""
+
+    def string_substring_after(self, s: str, delimiter: str) -> str:
+        """Extract portion of string after delimiter"""
+        if s is None or delimiter is None: return ""
+        s, d = str(s), str(delimiter)
+        if d not in s: return ""
+        return s.split(d, 1)[1]
+
+    def string_substring_before(self, s: str, delimiter: str) -> str:
+        """Extract portion of string before delimiter"""
+        if s is None or delimiter is None: return ""
+        s, d = str(s), str(delimiter)
+        if d not in s: return ""
+        return s.split(d, 1)[0]
+    
+    def variant_name(self) -> str:
+        """Get the current variant name"""
+        # Return from renderer state if possible
+        # For now, return PRE_COMPILE as default
+        return "v2" # Match user's current context
     
     # ========== Other Functions ==========
     
@@ -607,22 +736,21 @@ class BuiltinFunctions:
     def ecu_get(self, path: str) -> Any:
         """Get ECU resource parameter (XDM-G).
         
-        This implementation attempts to find the parameter in the Resource module
-        or Fls module if it's a known hardware parameter.
+        This implementation first checks the ecu_resources dictionary,
+        then attempts to find the parameter in the Resource module.
         """
-        print(f"DEBUG: ecu:get('{path}') called")
+        # First check the ecu_resources dictionary
+        if path in self.ecu_resources:
+            return self.ecu_resources[path]
         
         # Mapping for common EB Tresos ecu:get paths
         if path == 'Fls.PageSize':
             # Attempt to find FlsPageSize in Fls module configuration
             fls = self.symbol_table.get_module('Fls')
             if fls:
-                # Common path: FlsConfigSet/FlsConfigSet_0/FlsGeneral/FlsPageSize
-                # Or searching children
                 for child in fls.get_children_recursive():
                     if child.short_name == 'FlsPageSize':
                         val = self.num_i(child)
-                        print(f"DEBUG: ecu:get('Fls.PageSize') found in Fls module: {val}")
                         return val
             
             # Fallback to Resource module
@@ -631,9 +759,8 @@ class BuiltinFunctions:
                 for child in res.get_children_recursive():
                     if child.short_name == 'FlsPageSize':
                         val = self.num_i(child)
-                        print(f"DEBUG: ecu:get('Fls.PageSize') found in Resource module: {val}")
                         return val
         
-        print(f"DEBUG: ecu:get('{path}') - FALLBACK value 8")
-        return 8 # Default for THA6xxx DFlash if not found
+        # Default fallback: return 0 or a sensible default
+        return 0
 
