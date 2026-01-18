@@ -72,7 +72,15 @@ class TypeValidationRule(ValidationRule):
         value = param_value.value
         
         if param_def.param_type == EcucParameterType.INTEGER:
-            if not isinstance(value, int):
+            # Accept int directly, or string representations of integers
+            is_valid = isinstance(value, int) and not isinstance(value, bool)
+            if isinstance(value, str):
+                try:
+                    int(value)
+                    is_valid = True
+                except ValueError:
+                    pass
+            if not is_valid:
                 result.add_message(self._create_error(
                     f"Expected INTEGER, got {type(value).__name__}",
                     container_path=container_path,
@@ -80,7 +88,15 @@ class TypeValidationRule(ValidationRule):
                 ))
         
         elif param_def.param_type == EcucParameterType.FLOAT:
-            if not isinstance(value, (int, float)):
+            # Accept int/float directly, or string representations of floats
+            is_valid = isinstance(value, (int, float)) and not isinstance(value, bool)
+            if isinstance(value, str):
+                try:
+                    float(value)
+                    is_valid = True
+                except ValueError:
+                    pass
+            if not is_valid:
                 result.add_message(self._create_error(
                     f"Expected FLOAT, got {type(value).__name__}",
                     container_path=container_path,
@@ -88,15 +104,24 @@ class TypeValidationRule(ValidationRule):
                 ))
         
         elif param_def.param_type == EcucParameterType.BOOLEAN:
-            if not isinstance(value, bool):
+            # Accept bool, int (0/1), or string ('true'/'false', '0'/'1')
+            # This is common in AUTOSAR configurations where booleans are stored as integers
+            is_valid_bool = isinstance(value, bool)
+            is_valid_int_bool = isinstance(value, int) and value in (0, 1)
+            is_valid_str_bool = isinstance(value, str) and value.lower() in ('true', 'false', '0', '1')
+            
+            if not (is_valid_bool or is_valid_int_bool or is_valid_str_bool):
                 result.add_message(self._create_error(
-                    f"Expected BOOLEAN, got {type(value).__name__}",
+                    f"Expected BOOLEAN, got {type(value).__name__} (value: {value})",
                     container_path=container_path,
                     parameter_name=param_def.short_name
                 ))
         
         elif param_def.param_type == EcucParameterType.STRING:
-            if not isinstance(value, str):
+            # Accept str directly, and also int/float/bool which can be used as string values
+            # This is common in AUTOSAR for fields like CryptoKeyElementInitValue, FlsExpectedHwId
+            # where numeric IDs might be stored
+            if not isinstance(value, (str, int, float, bool)):
                 result.add_message(self._create_error(
                     f"Expected STRING, got {type(value).__name__}",
                     container_path=container_path,
@@ -155,6 +180,21 @@ class RangeValidationRule(ValidationRule):
             # Only validate numeric types
             if param_def.param_type in (EcucParameterType.INTEGER, EcucParameterType.FLOAT):
                 value = param_value.value
+                
+                # Convert string to number if needed
+                if isinstance(value, str):
+                    try:
+                        if param_def.param_type == EcucParameterType.INTEGER:
+                            value = int(value)
+                        else:
+                            value = float(value)
+                    except (ValueError, TypeError):
+                        # Skip range validation if value can't be converted
+                        continue
+                
+                # Ensure we have a numeric value
+                if not isinstance(value, (int, float)):
+                    continue
                 
                 # Check min value
                 if param_def.min_value is not None and value < param_def.min_value:

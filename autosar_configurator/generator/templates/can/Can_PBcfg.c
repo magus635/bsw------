@@ -44,8 +44,26 @@
 /* Hardware object mapped to Core[!"$CoreIndex"!] */
 #define CAN_USED_HRH_MB_MAX_NUM_TO_CORE[!"$CoreIndex"!]             ([!IF "num:i($HRHNumMapToCorex) = num:i(65535)"!]0[!ELSE!][!"num:i($HRHNumMapToCorex + 1)"!][!ENDIF!]U)
 #define CAN_USED_HTH_MB_MAX_NUM_TO_CORE[!"$CoreIndex"!]             ([!IF "num:i($HTHNumMapToCorex) = num:i(65535)"!]0[!ELSE!][!"num:i($HTHNumMapToCorex + 1)"!][!ENDIF!]U)
+#define CAN_USED_HOH_MB_MAX_NUM_TO_CORE[!"$CoreIndex"!]             ([!IF "num:i($HOHNumMapToCorex) = num:i(65535)"!]0[!ELSE!][!"num:i($HOHNumMapToCorex + 1)"!][!ENDIF!]U)
+#define CAN_USED_CONTROLLER_MAX_NUM_TO_CORE[!"$CoreIndex"!]         ([!IF "num:i($ControllerNumMapToCorex) = num:i(65535)"!]0[!ELSE!][!"num:i($ControllerNumMapToCorex + 1)"!][!ENDIF!]U)
 [!ENDIF!][!//
 [!ENDFOR!][!//
+
+/* Global CAN Configuration Macros */
+[!VAR "CanControllerCount" = "num:i(0)"!][!//
+[!VAR "CanHohCount" = "num:i(0)"!][!//
+[!SELECT "as:modconf('Can')[1]"!][!//
+[!// Use the active CanConfigSet's CanController instances
+[!// CanConfigSet/CanController/* returns controllers from the aliased active instance
+[!LOOP "CanConfigSet/CanController/*"!][!//
+[!VAR "CanControllerCount" = "$CanControllerCount + 1"!][!//
+[!ENDLOOP!][!//
+[!LOOP "CanConfigSet/CanHardwareObject/*"!][!//
+[!VAR "CanHohCount" = "$CanHohCount + 1"!][!//
+[!ENDLOOP!][!//
+[!ENDSELECT!][!//
+#define CAN_USED_CONTROLLER_MAX_NUM             ([!"num:i($CanControllerCount)"!]U)
+#define CAN_USED_HOH_MB_MAX_NUM                 ([!"num:i($CanHohCount)"!]U)
 
 /***************************************************************************************************
 *                               Local Variables

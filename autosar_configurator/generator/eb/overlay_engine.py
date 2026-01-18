@@ -99,10 +99,28 @@ class OverlayEngine:
                         if variant and getattr(inst, 'variant', None) == variant:
                             active_instance_node = node
                 
-                # If no variant match, fallback to the first instance as "active" 
-                # (to maintain backward compatibility for single-instance projects)
+                # If no variant match, select the instance with the MOST sub-containers
+                # This ensures CanConfigSet_1 (with 3 controllers) is preferred over 
+                # CanConfigSet (with 1 controller)
                 if not active_instance_node and wrapper_node.get_children_list():
-                    active_instance_node = wrapper_node.get_children_list()[0]
+                    children_list = wrapper_node.get_children_list()
+                    # Find the child with most nested sub-container INSTANCES
+                    # Structure: CanConfigSet_1 -> CanController (wrapper) -> [CanController_0, CanController_1, ...]
+                    best_node = None
+                    max_total_instances = -1
+                    for child in children_list:
+                        total_instances = 0
+                        # Count all instances inside container-type children (wrappers)
+                        for child_name, child_node in child.children.items():
+                            if hasattr(child_node, 'node_type') and child_node.node_type == 'container':
+                                # This is a wrapper node (like CanController)
+                                # Count its children (the actual instances)
+                                wrapper_children = child_node.get_children_list() if hasattr(child_node, 'get_children_list') else []
+                                total_instances += len(wrapper_children)
+                        if total_instances > max_total_instances:
+                            max_total_instances = total_instances
+                            best_node = child
+                    active_instance_node = best_node if best_node else children_list[0]
                 
                 # ALIASING: Make the wrapper node also behave like the active instance.
                 # This allows as:modconf('Can')/CanConfigSet/CanController to work.
@@ -193,8 +211,7 @@ class OverlayEngine:
             for sub_def_name, sub_def in container_def.sub_containers.items():
                 # Find matching sub-container instances by definition reference
                 matching_subs = [s for s in all_subs 
-                                 if getattr(s, 'short_name', None) == sub_def_name or 
-                                 getattr(s, 'definition_ref', '').endswith(f"/{sub_def_name}")]
+                                 if getattr(s, 'definition_ref', '').endswith(f"/{sub_def_name}")]
                 
                 if matching_subs:
                     # ALWAYS create a wrapper/group node for sub-containers

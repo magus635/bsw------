@@ -326,6 +326,16 @@ class BuiltinFunctions:
             # Default sort by short_name
             return sorted(nodes, key=lambda n: n.short_name if hasattr(n, 'short_name') else '')
 
+        # If sort_expr got evaluated to a ConfigurationNode (because XPath was evaluated),
+        # it means the sorting key couldn't be determined properly - fall back to short_name
+        if hasattr(sort_expr, 'short_name'):
+            # sort_expr is actually a ConfigurationNode, not a string expression
+            return sorted(nodes, key=lambda n: n.short_name if hasattr(n, 'short_name') else '')
+        
+        # Ensure sort_expr is a string
+        if not isinstance(sort_expr, str):
+            return sorted(nodes, key=lambda n: n.short_name if hasattr(n, 'short_name') else '')
+
         # Cleanup sort_expr (strip quotes if present)
         sort_expr = sort_expr.strip().strip("'\"")
 
@@ -740,18 +750,77 @@ class BuiltinFunctions:
         # Resolve the reference to its target
         return self.node_ref(node)
 
+    # ECU Resource Defaults - typical values for automotive MCUs
+    # These can be overridden by setting ecu_resources dictionary
+    ECU_DEFAULTS = {
+        # Core/Resource configuration
+        'Resource.NumOfCores': 4,           # Typical: 1, 2, or 4 cores
+        'Mcu.NoOfCoreAvailable': 4,
+        
+        # CAN Module configuration
+        'Can.MaxModules': 2,                # Number of CAN modules (MCAN0, MCAN1, ...)
+        'Can.MaxNodes': 8,                  # Nodes per module (typical: 4 or 8)
+        
+        # CAN Message RAM Base addresses (typical for Cortex-R52 / THA6xxx)
+        'Can.MCAN0BASERAM': '0x40080000',
+        'Can.MCAN1BASERAM': '0x40090000',
+        'Can.MCAN0ENDRAM': '0x4008FFFF',
+        'Can.MCAN1ENDRAM': '0x4009FFFF',
+        
+        # Alternative naming
+        'Can.MCAN0EndRam': '0x4008FFFF',
+        'Can.MCAN1EndRam': '0x4009FFFF',
+        
+        # Flash configuration
+        'Fls.PageSize': 256,
+        'Fls.FlsPageSize': 256,
+        'Fls.SectorSize': 4096,
+        'Fls.NumberOfSectors': 256,
+        
+        # Fee configuration
+        'Fee.VirtualPageSize': 8,
+    }
+    
     def ecu_get(self, path: str) -> Any:
         """Get ECU resource parameter (XDM-G).
         
-        This implementation first checks the ecu_resources dictionary,
-        then attempts to find the parameter in the Resource module.
+        This implementation checks in order:
+        1. User-provided ecu_resources dictionary
+        2. Resource module configuration (if loaded)
+        3. ECU_DEFAULTS class attribute
+        4. Dynamic path construction for indexed resources (e.g., Can.MCAN0BASERAM)
         """
-        # First check the ecu_resources dictionary
+        # First check the user-provided ecu_resources dictionary
         if path in self.ecu_resources:
             return self.ecu_resources[path]
         
-        # Mapping for common EB Tresos ecu:get paths
-        # Handle both 'Fls.PageSize' and 'Fls.FlsPageSize' (template uses the latter)
+        # Check ECU_DEFAULTS for common paths
+        if path in self.ECU_DEFAULTS:
+            return self.ECU_DEFAULTS[path]
+        
+        # Handle dynamic indexed paths like Can.MCAN{n}BASERAM, Can.MCAN{n}ENDRAM
+        import re
+        mcan_match = re.match(r'Can\.(MCAN\d+)(BASERAM|ENDRAM|BaseRam|EndRam)', path)
+        if mcan_match:
+            module_id = mcan_match.group(1)  # e.g., "MCAN0"
+            suffix = mcan_match.group(2).upper()  # e.g., "BASERAM" or "ENDRAM"
+            
+            # Try to get from defaults with normalized key
+            default_key = f'Can.{module_id}{suffix}'
+            if default_key in self.ECU_DEFAULTS:
+                return self.ECU_DEFAULTS[default_key]
+            
+            # Generate sensible defaults based on module index
+            module_num = int(re.search(r'\d+', module_id).group())
+            base_addr = 0x40080000 + (module_num * 0x10000)
+            end_addr = base_addr + 0xFFFF
+            
+            if 'BASE' in suffix:
+                return hex(base_addr)
+            else:
+                return hex(end_addr)
+        
+        # Mapping for common EB Tresos ecu:get paths - search in modules
         if path in ('Fls.PageSize', 'Fls.FlsPageSize'):
             # Attempt to find FlsPageSize in Fls module configuration
             fls = self.symbol_table.get_module('Fls')
@@ -770,9 +839,25 @@ class BuiltinFunctions:
                         val = self.num_i(child)
                         if val and val != 0:
                             return val
+            
+            # Return default
+            return self.ECU_DEFAULTS.get('Fls.FlsPageSize', 256)
         
-        # Default fallback: return 0 or a sensible default
-        print(f"WARNING: ecu:get('{path}') not found, returning 0")
+        # Try to find path in Resource module if loaded
+        res = self.symbol_table.get_module('Resource')
+        if res:
+            # Parse path like "Resource.NumOfCores" -> look for "NumOfCores" child
+            parts = path.split('.')
+            if len(parts) >= 2:
+                param_name = parts[-1]
+                for child in res.get_children_recursive():
+                    if child.short_name == param_name:
+                        val = child.get_value() if hasattr(child, 'get_value') else getattr(child, 'value', None)
+                        if val is not None:
+                            return val
+        
+        # Default fallback: return 0 with warning
+        print(f"WARNING: ecu:get('{path}') not found in ECU_DEFAULTS or modules, returning 0")
         return 0
 
 
