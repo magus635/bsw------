@@ -142,6 +142,7 @@ class DaVinciMainWindow(QMainWindow):
         self.tree_view.module_selected.connect(self._on_module_selected)
         self.tree_view.create_instance_requested.connect(self.handle_create_container)
         self.tree_view.delete_instance_requested.connect(self.handle_delete_container)
+        self.tree_view.delete_module_requested.connect(self.handle_delete_module)
         self.tree_view.move_instance_requested.connect(self.handle_move_container)
         self.tree_view.view_references_requested.connect(self._show_reverse_references)
         splitter.addWidget(self.tree_view)
@@ -1466,6 +1467,43 @@ class DaVinciMainWindow(QMainWindow):
             self.config_panel.clear()
 
         self._update_dependency_graph_if_open()
+    
+    def handle_delete_module(self, module_name: str):
+        """Handle module deletion request from tree view"""
+        if not self.current_project:
+            QMessageBox.warning(
+                self,
+                "无法删除模块",
+                "请先打开一个项目才能删除模块。"
+            )
+            return
+        
+        if module_name not in self.current_project.module_managers:
+            QMessageBox.warning(
+                self,
+                "模块未找到",
+                f"模块 '{module_name}' 不在当前项目中。"
+            )
+            return
+        
+        # Remove module from project
+        self.current_project.remove_module(module_name)
+        
+        self._has_unsaved_changes = True
+        self.statusbar.showMessage(f"已删除模块: {module_name}", 3000)
+        
+        # Refresh tree view
+        self.tree_view.refresh()
+        
+        # Clear config panel 
+        self.config_panel.clear()
+        
+        # Update dependency graph if open
+        self._update_dependency_graph_if_open()
+        
+        # Update search widget index
+        if self.search_widget:
+            self.search_widget.build_project_index(self.current_project)
 
     def handle_move_container(self, instance: EcucContainerValue, new_parent, new_index):
         """Handle container move request via command"""

@@ -26,6 +26,7 @@ class DaVinciTreeView(QTreeWidget):
     # Command signals
     create_instance_requested = Signal(EcucContainerDef, object, str)  # def, parent_instance, name
     delete_instance_requested = Signal(EcucContainerValue, object)  # instance, parent_instance
+    delete_module_requested = Signal(str)  # module_name - to remove module from project
     move_instance_requested = Signal(EcucContainerValue, object, int)  # instance, new_parent, new_index
     view_references_requested = Signal(EcucContainerValue)  # instance - show who references this container
     
@@ -375,7 +376,14 @@ class DaVinciTreeView(QTreeWidget):
         menu = QMenu(self)
         item_type = data.get("type")
         
-        if item_type == "DEF" or item_type == "ADD_PROMPT":
+        if item_type == "MODULE":
+            # Right-click on module node - offer "Delete Module"
+            module_def = data["def"]
+            module_name = module_def.short_name
+            delete_action = menu.addAction("🗑️ 删除模块 (Remove Module)")
+            delete_action.triggered.connect(lambda: self._delete_module(module_name))
+        
+        elif item_type == "DEF" or item_type == "ADD_PROMPT":
             # Right-click on DEF node - offer "Add Instance"
             container_def = data["def"]
             add_action = menu.addAction("Add Instance")
@@ -696,6 +704,23 @@ class DaVinciTreeView(QTreeWidget):
         
         # Request deletion via signal
         self.delete_instance_requested.emit(instance, parent_instance)
+    
+    def _delete_module(self, module_name: str):
+        """Delete a module from the project"""
+        reply = QMessageBox.question(
+            self,
+            "删除模块 (Delete Module)",
+            f"确定要从项目中删除模块 '{module_name}' 吗?\n\n"
+            f"注意: 这将移除该模块的所有配置数据。\n"
+            f"(This will remove all configuration data for this module.)",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if reply == QMessageBox.No:
+            return
+        
+        # Request deletion via signal
+        self.delete_module_requested.emit(module_name)
     
     # Styling helpers
     
