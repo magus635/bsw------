@@ -810,6 +810,7 @@ class DaVinciMainWindow(QMainWindow):
         self.add_module_action.setEnabled(True)
         self.manage_variants_action.setEnabled(True)
         self.manage_variants_btn.setEnabled(True)
+        self.project_properties_action.setEnabled(True)
         
         # Update variant selector
         self._update_variant_selector()
@@ -961,39 +962,21 @@ class DaVinciMainWindow(QMainWindow):
             return
         
         try:
-            saved_count = 0
-            failed_modules = []
+            # Count modified modules for status message
+            modified_count = sum(
+                1 for manager in self.current_project.module_managers.values() 
+                if manager.configuration.is_modified
+            )
             
-            # Save each modified module configuration
-            for module_name, manager in self.current_project.module_managers.items():
-                if manager.configuration.is_modified:
-                    try:
-                        # Use same naming convention as WorkspaceManager.save_project()
-                        config_file = self.current_project.path.parent / f"{module_name}_Config.arxml"
-                        
-                        # Save the module configuration file
-                        manager.save_configuration(config_file)
-                        # mark_saved() is called inside save_configuration
-                        saved_count += 1
-                    except Exception as e:
-                        failed_modules.append((module_name, str(e)))
-            
-            # Save project metadata file (.dpa)
+            # Save project metadata file (.dpa) and all module configurations
+            # workspace_manager.save_project() handles saving to ConfigValue/ directory
             self.workspace_manager.save_project()
             
             # Show result
-            if failed_modules:
-                error_details = "\n".join([f"  • {name}: {err}" for name, err in failed_modules])
-                QMessageBox.warning(
-                    self,
-                    "Project Saved with Errors",
-                    f"Saved {saved_count} module(s), but {len(failed_modules)} failed:\n\n{error_details}"
-                )
+            if modified_count > 0:
+                self.statusbar.showMessage(f"Project saved: {modified_count} module(s) updated", 3000)
             else:
-                if saved_count > 0:
-                    self.statusbar.showMessage(f"Project saved: {saved_count} module(s) updated", 3000)
-                else:
-                    self.statusbar.showMessage(f"Project saved (no changes)", 3000)
+                self.statusbar.showMessage(f"Project saved (no changes)", 3000)
                     
         except Exception as e:
             QMessageBox.critical(self, "Save Error", f"Failed to save project:\n{str(e)}")
@@ -1783,21 +1766,9 @@ class DaVinciMainWindow(QMainWindow):
         if not self.current_project:
             return
         
-        # Default output directory is project_path/generateCode
+        # Default output directory is project_path/generateCode (no dialog needed)
         project_dir = self.current_project.path.parent if self.current_project.path else Path.home()
-        default_output = project_dir / "generateCode"
-        
-        # Ask user to confirm or change output directory
-        # Use project_dir as base for dialog, but suggest generateCode
-        output_dir = QFileDialog.getExistingDirectory(
-            self,
-            "选择代码生成输出目录",
-            str(project_dir)
-        )
-        
-        # If user cancels or selects project root, default to generateCode
-        if not output_dir or Path(output_dir) == project_dir:
-            output_dir = str(default_output)
+        output_dir = str(project_dir / "generateCode")
         
         from ..generator.generator import CodeGenerator
         from PySide6.QtWidgets import QProgressDialog

@@ -309,7 +309,7 @@ class CodeGenerator:
             source = "Embedded Fallback"
             
             # Find which file was actually loaded
-            # Re-running search logic to find the path (since _load_template only returns content)
+            # Build search dirs
             search_dirs = []
             if self.project_template_dir:
                 search_dirs.append(self.project_template_dir / module_name)
@@ -319,10 +319,22 @@ class CodeGenerator:
                 search_dirs.append(self.user_template_dir / module_name)
             search_dirs.append(self.DEFAULT_TEMPLATE_DIR / module_name)
 
+            # Search for both .tpl and non-.tpl files
+            found = False
             for d in search_dirs:
+                if not d.exists():
+                    continue
+                # Try with .tpl suffix first
                 potential_file = d / f"{module_name}_{template_name}"
                 if potential_file.exists():
                     source = str(potential_file)
+                    found = True
+                    break
+                # Try without .tpl suffix (e.g., Can_PBcfg.c)
+                potential_file_no_tpl = d / f"{module_name}_{t_type}"
+                if potential_file_no_tpl.exists():
+                    source = str(potential_file_no_tpl)
+                    found = True
                     break
 
             if content:
