@@ -283,10 +283,8 @@ class DaVinciMainWindow(QMainWindow):
         if action_name == "validate":
             self.validate_configuration()
         elif action_name == "save":
-            if self.current_project:
-                self.save_project()
-            else:
-                self.save_value_file()
+            # Always use save_project (works for both single module and project mode)
+            self.save_project()
         elif action_name == "generate":
             self.generate_code()
 
@@ -325,29 +323,13 @@ class DaVinciMainWindow(QMainWindow):
         self.load_recommended_action.triggered.connect(self.load_recommended_values)
         
         # File actions
-        self.open_def_action = QAction("Open DEF File...", self)
-        self.open_def_action.setShortcut(QKeySequence.Open)
-        self.open_def_action.setStatusTip("Open a module definition file (ARXML)")
-        self.open_def_action.triggered.connect(self.open_def_file)
+        # Open DEF removed - use Add Module within a project instead
+        # self.open_def_action removed
         
-        self.new_config_action = QAction("New Configuration", self)
-        self.new_config_action.setShortcut(QKeySequence.New)
-        self.new_config_action.setEnabled(False)  # Enable after DEF loaded
-        self.new_config_action.triggered.connect(self.new_configuration)
-        
-        self.open_value_action = QAction("Open VALUE File...", self)
-        self.open_value_action.setEnabled(False)
-        self.open_value_action.triggered.connect(self.open_value_file)
-        
-        self.save_value_action = QAction("Save Configuration", self)
-        self.save_value_action.setShortcut(QKeySequence.Save)
-        self.save_value_action.setStatusTip("Save current configuration to file")
-        self.save_value_action.setEnabled(False)
-        self.save_value_action.triggered.connect(self.save_value_file)
-        
-        self.save_value_as_action = QAction("Save Configuration As...", self)
-        self.save_value_as_action.setEnabled(False)
-        self.save_value_as_action.triggered.connect(self.save_value_file_as)
+        # Single module mode actions (Removed - use Projects instead)
+        # self.new_config_action removed
+        # self.open_value_action removed
+        # save_value actions removed
         
         self.exit_action = QAction("Exit", self)
         self.exit_action.setShortcut(QKeySequence.Quit)
@@ -429,17 +411,13 @@ class DaVinciMainWindow(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction(self.add_module_action)
         file_menu.addAction(self.load_recommended_action)
-        file_menu.addSeparator()
-        file_menu.addAction(self.open_def_action)
+        # Open DEF removed - use Add Module
         file_menu.addSeparator()
         # Recent Files submenu
         self.recent_files_menu = file_menu.addMenu("Recent Files")
         self._update_recent_files_menu()
+        # Single module actions removed - use Project workflow
         file_menu.addSeparator()
-        file_menu.addAction(self.new_config_action)
-        file_menu.addAction(self.open_value_action)
-        file_menu.addAction(self.save_value_action)
-        file_menu.addAction(self.save_value_as_action)
         file_menu.addSeparator()
         file_menu.addAction(self.exit_action)
         
@@ -502,9 +480,7 @@ class DaVinciMainWindow(QMainWindow):
         
         toolbar = self.addToolBar("Main Toolbar")
         toolbar.setObjectName("MainToolbar")  # Fix QMainWindow::saveState() warning
-        toolbar.addAction(self.open_def_action)
-        toolbar.addAction(self.new_config_action)
-        toolbar.addAction(self.save_value_action)
+        toolbar.addAction(self.save_project_action)
         toolbar.addSeparator()
         toolbar.addAction(self.undo_action)
         toolbar.addAction(self.redo_action)
@@ -1087,199 +1063,25 @@ class DaVinciMainWindow(QMainWindow):
     
     # File operations
     
-    def open_def_file(self):
-        """Open ECUC-DEF ARXML file"""
-        # Check if project is active
-        if self.current_project:
-            reply = QMessageBox.question(
-                self,
-                "Close Project?",
-                "Opening a DEF file will close the current project.\n\n"
-                "Do you want to:\n"
-                "• Close project and open DEF file (single-module mode)\n"
-                "• Cancel and use 'Add Module to Project' instead",
-                QMessageBox.Ok | QMessageBox.Cancel,
-                QMessageBox.Cancel
-            )
-            
-            if reply == QMessageBox.Cancel:
-                # Suggest using Add Module instead
-                QMessageBox.information(
-                    self,
-                    "Tip",
-                    "To add modules to your project, use:\n"
-                    "File → Add Module to Project"
-                )
-                return
-            
-            # User chose to close project
-            self.current_project = None
-            self.current_project_file = None
-            self.tree_view.clear()
-            self.save_project_action.setEnabled(False)
-            self.add_module_action.setEnabled(False)
-        
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Open DEF File",
-            str(Path.home()),
-            "All Supported Files (*.arxml *.xdm);;ARXML Files (*.arxml);;EB Tresos Files (*.xdm);;All Files (*)"
-        )
-        
-        if not file_path:
-            return
-        
-        try:
-            # Show loading cursor
-            from PySide6.QtWidgets import QApplication
-            from PySide6.QtCore import Qt as QtCore_Qt
-            QApplication.setOverrideCursor(QtCore_Qt.WaitCursor)
-            self.statusbar.showMessage("Loading DEF file...")
-            
-            # Parse DEF file
-            self.module_def = self.def_parser.parse_module_def_file(Path(file_path))
-            self.current_def_file = Path(file_path)
-            
-            # Create configuration manager
-            self.config_manager = ConfigurationManager(self.module_def)
-            
-            # Update UI
-            self.tree_view.set_module_def(self.module_def, self.config_manager)
-            self.def_file_label.setText(f"DEF: {self.module_def.short_name}")
-            
-            # Enable actions
-            self.new_config_action.setEnabled(True)
-            self.open_value_action.setEnabled(True)
-            
-            self.statusbar.showMessage(f"Loaded DEF: {self.module_def.short_name}", 5000)
-            
-            # Update mode label for single-module mode
-            self.mode_label.setText(f"Module: {self.module_def.short_name}")
-            
-            # Update menu/toolbar states
-            self._update_mode_actions()
-            
-            # Save to settings
-            self.settings.setValue("last_def_file", str(file_path))
-
-            # Add to recent files
-            self._add_to_recent_files(str(file_path))
-            
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to load DEF file:\n{e}")
-            self.statusbar.showMessage("Failed to load DEF file", 5000)
-        finally:
-            # Restore cursor
-            QApplication.restoreOverrideCursor()
+    # open_def_file, new_configuration, open_value_file removed - use projects instead
     
-    def new_configuration(self):
-        """Create new configuration based on loaded DEF"""
-        if not self.config_manager:
-            return
-        
-        # Create new configuration (reset)
-        self.config_manager.configuration = EcucModuleConfiguration(
-            short_name=self.module_def.short_name,
-            definition_ref=self.module_def.definition_ref
-        )
-        
-        # Refresh tree view
-        self.tree_view.refresh()
-        
-        # Enable save actions
-        self.save_value_action.setEnabled(True)
-        self.save_value_as_action.setEnabled(True)
-        self.validate_action.setEnabled(True)
-        self.load_rules_action.setEnabled(True)
-        self.generate_action.setEnabled(True)
-        self.quick_config_action.setEnabled(True)
-        
-        # Update mode actions to ensure consistency
-        self._update_mode_actions()
-        self.show_dep_graph_action.setEnabled(True)
-        self.load_recommended_action.setEnabled(True)
-        
-        self.value_file_label.setText("New configuration (unsaved)")
-        self.current_value_file = None
-        
-        self.statusbar.showMessage("New configuration created", 3000)
-        self._update_dependency_graph_if_open()
+    # new_configuration and open_value_file removed - use projects instead
     
-    def open_value_file(self):
-        """Open existing ECUC-VALUE file"""
-        if not self.config_manager:
-            QMessageBox.warning(self, "No DEF File", "Please open an ECUC-DEF file first.")
-            return
-
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Open Configuration File",
-            str(Path.home()),
-            "All Supported Files (*.arxml *.xdm);;ARXML Files (*.arxml);;EB Tresos Files (*.xdm);;All Files (*)"
-        )
-        
-        if not file_path:
-            return
-            
-        try:
-            self.statusbar.showMessage("Loading configuration...")
-            self.config_manager.load_configuration(Path(file_path))
-            
-            # Update UI
-            self.current_value_file = Path(file_path)
-            self.value_file_label.setText(f"Config: {self.current_value_file.name}")
-            self.tree_view.refresh()
-            self.config_panel.clear()
-            self._update_dependency_graph_if_open()
-            
-            # Enable actions
-            self.save_value_action.setEnabled(True)
-            self.validate_action.setEnabled(True)
-            self.load_rules_action.setEnabled(True)
-            self.generate_action.setEnabled(True)
-            self.quick_config_action.setEnabled(True)
-            self.show_dep_graph_action.setEnabled(True)
-            self.load_recommended_action.setEnabled(True)
-            
-            self.statusbar.showMessage("Configuration loaded successfully", 3000)
-            
-        except Exception as e:
-            QMessageBox.critical(self, "Load Error", f"Failed to load configuration:\n{str(e)}")
-            self.statusbar.showMessage("Load failed", 3000)
-    
-    def save_value_file(self):
-        """Save configuration to VALUE file"""
-        if self.current_value_file:
-            self._save_configuration(self.current_value_file)
-        else:
-            self.save_value_file_as()
-    
-    def save_value_file_as(self):
-        """Save configuration as new VALUE file"""
-        if not self.config_manager:
-            return
-            
-        default_name = f"{self.config_manager.configuration.short_name}_Config.arxml"
-        file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Configuration As",
-            str(Path.home() / default_name),
-            "ARXML Files (*.arxml);;EB Tresos Files (*.xdm)"
-        )
-        
-        if not file_path:
-            return
-        
-        self._save_configuration(Path(file_path))
+    # save_value_file methods removed - use save_project instead
     
     def _save_configuration(self, file_path: Path):
-        """Save configuration to file"""
+        """Save configuration to file (kept for internal use if needed)"""
         try:
             self.statusbar.showMessage("Saving configuration...")
             self.config_manager.save_configuration(file_path)
             
             self.current_value_file = Path(file_path)
             self.value_file_label.setText(f"Config: {Path(file_path).name}")
+            self.statusbar.showMessage(f"Configuration saved to {file_path.name}", 3000)
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Save Error", f"Failed to save configuration:\n{str(e)}")
+            self.statusbar.showMessage("Save failed", 3000)
             self.statusbar.showMessage(f"Saved to {file_path}", 3000)
             
             # Clear unsaved changes flag
@@ -2417,9 +2219,8 @@ class DaVinciMainWindow(QMainWindow):
             self.config_manager = manager
             self.module_def = module_def
             
-            # Update actions for the selected module
-            self.save_value_action.setEnabled(True)
-            self.save_value_as_action.setEnabled(True)
+            # Update actions for the selected module (use save_project)
+            self.save_project_action.setEnabled(True)
             self.validate_action.setEnabled(True)
             self.load_rules_action.setEnabled(True)
             self.generate_action.setEnabled(True)
@@ -2442,8 +2243,8 @@ class DaVinciMainWindow(QMainWindow):
             self.def_file_label.setText(f"DEF: {self.module_def.short_name}")
             self.value_file_label.setText(f"Config: {self.config_manager.configuration.short_name}")
             
-            # Enable actions
-            self.save_value_action.setEnabled(True)
+            # Enable actions (use save_project)
+            self.save_project_action.setEnabled(True)
             self.validate_action.setEnabled(True)
             self.load_rules_action.setEnabled(True)
             self.generate_action.setEnabled(True)
@@ -2779,51 +2580,35 @@ except Exception as e:
                 self._load_project_at_path(path)
     
     def _update_mode_actions(self):
-        """Enable/disable actions based on current mode (project vs single-module)
-        
-        This ensures menu items and toolbar buttons are only active when appropriate:
-        - Project mode: project-related actions enabled, single-module actions disabled
-        - Single-module mode: single-module actions enabled, project actions disabled
-        """
+        """Enable/disable actions based on whether a project is loaded"""
         is_project_mode = self.current_project is not None
-        is_single_module_mode = (self.config_manager is not None) and not is_project_mode
-        has_module_def = self.module_def is not None
         
-        # === Project-only actions (already correctly managed, but ensure consistency) ===
+        # === Project actions ===
         self.save_project_action.setEnabled(is_project_mode)
         self.project_properties_action.setEnabled(is_project_mode)
         self.manage_variants_action.setEnabled(is_project_mode)
         self.add_module_action.setEnabled(is_project_mode)
         self.load_recommended_action.setEnabled(is_project_mode)
+        self.show_dep_graph_action.setEnabled(is_project_mode)
         
-        # === Single-module only actions ===
-        self.save_value_action.setEnabled(is_single_module_mode)
-        self.save_value_as_action.setEnabled(is_single_module_mode)
-        self.open_value_action.setEnabled(is_single_module_mode and has_module_def)
-        self.new_config_action.setEnabled(is_single_module_mode and has_module_def)
-        
-        # === Actions available in both modes (when config is available) ===
-        has_any_config = is_project_mode or is_single_module_mode
-        self.validate_action.setEnabled(has_any_config)
-        self.generate_action.setEnabled(has_any_config)
-        self.show_dep_graph_action.setEnabled(is_project_mode)  # Cross-module graph needs project
-        self.quick_config_action.setEnabled(has_any_config)
-        self.load_rules_action.setEnabled(has_any_config)
+        # === Common configuration actions ===
+        has_config = is_project_mode or (self.config_manager is not None)
+        self.validate_action.setEnabled(has_config)
+        self.generate_action.setEnabled(has_config)
+        self.quick_config_action.setEnabled(has_config)
+        self.load_rules_action.setEnabled(has_config)
 
     
     def closeEvent(self, event):
         """Handle window close event - check for unsaved changes"""
         unsaved_items = []
         
-        # Check for unsaved changes
+        # Check for unsaved changes (only in project mode)
         if self.current_project:
             # Project mode: check all modules
             for module_name, manager in self.current_project.module_managers.items():
                 if manager.configuration.is_modified:
                     unsaved_items.append(f"Module: {module_name}")
-        elif self._has_unsaved_changes:
-            # Single module mode
-            unsaved_items.append("Current configuration")
         
         if unsaved_items:
             items_text = "\n  • ".join(unsaved_items)
@@ -2837,7 +2622,7 @@ except Exception as e:
             )
             
             if reply == QMessageBox.Save:
-                # Try to save
+                # Try to save project (single module save is removed)
                 if self.current_project:
                     self.save_project()
                     # Check if all succeeded
@@ -2846,11 +2631,6 @@ except Exception as e:
                         if mgr.configuration.is_modified
                     ]
                     if still_unsaved:
-                        event.ignore()
-                        return
-                else:
-                    self.save_value_file()
-                    if self._has_unsaved_changes:
                         event.ignore()
                         return
             elif reply == QMessageBox.Cancel:

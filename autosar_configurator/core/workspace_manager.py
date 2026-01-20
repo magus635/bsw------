@@ -317,9 +317,9 @@ class WorkspaceManager:
         with open(project_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
-        # Check format version
+        # Check format version (Current version is 6, removed has_base)
         format_version = data.get("format_version", 0)
-        if format_version > 5:
+        if format_version > 6:
             raise ValueError(
                 f"Unsupported project format version {format_version}. "
                 f"Please upgrade the tool."
