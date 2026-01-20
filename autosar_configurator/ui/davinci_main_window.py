@@ -773,31 +773,40 @@ class DaVinciMainWindow(QMainWindow):
             QMessageBox.warning(self, "Error", "Project name cannot be empty")
             return
         
-        # Choose save location based on type
-        if project_type == ProjectType.VECTOR:
-            file_path, _ = QFileDialog.getSaveFileName(
+        # Unified folder selection for both project types
+        folder_path = QFileDialog.getExistingDirectory(
+            self,
+            f"Select {project_type.value} Project Folder",
+            str(Path.home()),
+            QFileDialog.ShowDirsOnly
+        )
+        if not folder_path:
+            return
+        
+        folder = Path(folder_path)
+        project_path = folder / f"{name}.dpa"
+        
+        # Check if folder has existing content (warn user)
+        existing_items = list(folder.iterdir()) if folder.exists() else []
+        # Filter out hidden files/folders
+        visible_items = [f for f in existing_items if not f.name.startswith('.')]
+        
+        if visible_items:
+            reply = QMessageBox.question(
                 self,
-                "Save Project As",
-                str(Path.home() / f"{name}.dpa"),
-                "DaVinci Project (*.dpa);;All Files (*)"
+                "Non-empty Folder",
+                f"The folder contains {len(visible_items)} item(s).\n\n"
+                "Do you want to create the project here anyway?\n"
+                "(Existing files will not be deleted)",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
             )
-            if not file_path:
+            if reply != QMessageBox.Yes:
                 return
-            project_path = Path(file_path)
-        else:
-            # EB: Select folder
-            folder_path = QFileDialog.getExistingDirectory(
-                self,
-                "Select EB Project Folder",
-                str(Path.home()),
-                QFileDialog.ShowDirsOnly
-            )
-            if not folder_path:
-                return
-            project_path = Path(folder_path) / f"{name}.dpa"
-            
-            # Create .tresos marker folder for EB
-            tresos_marker = Path(folder_path) / ".tresos"
+        
+        # Create .tresos marker folder for EB projects
+        if project_type == ProjectType.EB_TRESOS:
+            tresos_marker = folder / ".tresos"
             tresos_marker.mkdir(exist_ok=True)
             
         self.current_project = self.workspace_manager.create_project(name, project_path)
