@@ -29,9 +29,8 @@ class WorkspaceProject:
         self.def_search_paths: List[Path] = []
         
         # Variant Management
-        self.variants: List[str] = []  # e.g., ["Compact_SUV", "Mid_Sedan", "Luxury_Car"]
-        self.active_variant: Optional[str] = None  # Currently selected variant
-        self.has_base: bool = False  # Whether Base configuration exists
+        self.variants: List[str] = ["Default"]  # Always have at least Default variant
+        self.active_variant: Optional[str] = "Default"  # Currently selected variant
         
         # Metadata
         from datetime import datetime
@@ -43,30 +42,24 @@ class WorkspaceProject:
         # Cross-module dependency rules (cached results from analysis)
         self.dependency_rules: List[Dict] = []
     
-    def create_base(self, init_method: str = "arxml"):
-        """Create Base configuration for all modules
+    def ensure_default_variant(self):
+        """Ensure Default variant exists for all modules
         
-        Args:
-            init_method: 'arxml' (from config files), 'defaults' (from definitions), 'empty'
+        Called when loading projects or adding modules to ensure
+        the Default variant is properly initialized.
         """
         for name, manager in self.module_managers.items():
             config = manager.configuration
-            if "Base" not in config.variant_overrides:
-                config.variant_overrides["Base"] = {}
-            
-            if init_method == "arxml":
-                # Copy all current ARXML values to Base
-                for container in config.containers:
-                    self._copy_container_to_base(container, config.variant_overrides["Base"])
-            elif init_method == "defaults":
-                # Use definition default values (stored as empty - will read from param_def.default_value)
-                pass  # Leave empty, comparison will use default_value
-            # 'empty' - leave as empty dict
+            if "Default" not in config.variant_overrides:
+                config.variant_overrides["Default"] = {}
         
-        self.has_base = True
-        # Add "Base" to variants if not there
-        if "Base" not in self.variants:
-            self.variants.insert(0, "Base")
+        # Ensure Default is in variants list
+        if "Default" not in self.variants:
+            self.variants.insert(0, "Default")
+        
+        # Set active variant to Default if not set
+        if not self.active_variant:
+            self.active_variant = "Default"
     
     def _copy_container_to_base(self, container, base_dict: dict):
         """Recursively copy container parameter values to Base dict"""
@@ -268,7 +261,7 @@ class WorkspaceManager:
         from datetime import datetime
         
         data = {
-            "format_version": 5,  # Bumped version for has_base support
+            "format_version": 6,  # Bumped version: removed has_base, use Default variant
             "tool_version": "1.0.0",
             "project_type": self.current_project.project_type.value,
             "name": self.current_project.name,
@@ -278,7 +271,6 @@ class WorkspaceManager:
             "description": getattr(self.current_project, 'description', ''),
             "version": getattr(self.current_project, 'version', '1.0.0'),
             "def_search_paths": [str(p) for p in self.current_project.def_search_paths],
-            "has_base": self.current_project.has_base,  # New: Base existence
             "variants": self.current_project.variants,
             "active_variant": self.current_project.active_variant,
             "dependency_rules": self.current_project.dependency_rules,
@@ -355,12 +347,25 @@ class WorkspaceManager:
         # Load def search paths
         project.def_search_paths = [Path(p) for p in data.get("def_search_paths", [])]
         
-        # Load variants (new in format v3)
-        project.variants = data.get("variants", [])
-        project.active_variant = data.get("active_variant", None)
+        # Load variants with backward compatibility
+        loaded_variants = data.get("variants", [])
+        loaded_active = data.get("active_variant", None)
         
-        # Load has_base (new in format v5)
-        project.has_base = data.get("has_base", False)
+        # Migrate old projects: ensure Default variant exists
+        if not loaded_variants:
+            # Old project with no variants - create Default
+            project.variants = ["Default"]
+            project.active_variant = "Default"
+        elif "Base" in loaded_variants and "Default" not in loaded_variants:
+            # Old project with Base - rename Base to Default
+            project.variants = ["Default" if v == "Base" else v for v in loaded_variants]
+            project.active_variant = "Default" if loaded_active == "Base" else (loaded_active or "Default")
+        else:
+            project.variants = loaded_variants if "Default" in loaded_variants else ["Default"] + loaded_variants
+            project.active_variant = loaded_active or "Default"
+        
+        # Ignore has_base from old projects (no longer used)
+        # data.get("has_base", False) - deprecated
         
         # Load dependency rules (new in format v4)
         project.dependency_rules = data.get("dependency_rules", [])

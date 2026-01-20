@@ -517,21 +517,14 @@ class DaVinciMainWindow(QMainWindow):
         toolbar.addAction(self.generate_action)
         toolbar.addSeparator()
         
-        # Base configuration button
-        self.base_btn = QPushButton("📋 Base")
-        self.base_btn.setToolTip("创建或修改 Base 配置")
-        self.base_btn.clicked.connect(self._on_base_btn_clicked)
-        self.base_btn.setEnabled(False)
-        toolbar.addWidget(self.base_btn)
-        
-        # Global variant selector
-        variant_view_label = QLabel("View Variant (当前视图):")
-        variant_view_label.setToolTip("Select the active variant for filtering the configuration tree and for code generation.")
+        # Global variant selector (no more Base button - using pure variant model)
+        variant_view_label = QLabel("Variant:")
+        variant_view_label.setToolTip("Select the active variant for configuration and code generation.")
         toolbar.addWidget(variant_view_label)
         self.variant_selector = QComboBox()
         self.variant_selector.setMinimumWidth(150)
-        self.variant_selector.addItem("(No Variants)")
-        self.variant_selector.setEnabled(False)
+        self.variant_selector.addItem("Default")
+        self.variant_selector.setEnabled(True)
         self.variant_selector.currentTextChanged.connect(self._on_variant_changed)
         toolbar.addWidget(self.variant_selector)
         
@@ -648,38 +641,7 @@ class DaVinciMainWindow(QMainWindow):
         if ref_variant:
             self.statusbar.showMessage(f"对比参考变体: {ref_variant}", 2000)
         else:
-            self.statusbar.showMessage("对比参考: 基础配置", 2000)
-    
-    def _on_base_btn_clicked(self):
-        """Handle Base button click - create or modify Base configuration"""
-        if not self.current_project:
-            return
-        
-        from .widgets.base_config_dialog import BaseConfigDialog
-        
-        is_modify = self.current_project.has_base
-        dialog = BaseConfigDialog(self, is_modify=is_modify)
-        
-        if dialog.exec():
-            method = dialog.get_selected_method()
-            self.current_project.create_base(init_method=method)
-            
-            # Update UI
-            self._update_variant_selector()
-            
-            # Status message
-            method_names = {"arxml": "ARXML 配置", "defaults": "定义默认值", "empty": "空白"}
-            if is_modify:
-                self.statusbar.showMessage(f"Base 配置已更新 (来源: {method_names.get(method, method)})", 3000)
-            else:
-                self.statusbar.showMessage(f"Base 配置已创建 (来源: {method_names.get(method, method)})", 3000)
-                QMessageBox.information(
-                    self, "Base 已创建",
-                    "Base 配置已创建！\n\n"
-                    "现在您可以：\n"
-                    "1. 创建和配置变体\n"
-                    "2. 使用 '⚡ Check Diff' 对比变体差异"
-                )
+            self.statusbar.showMessage("对比参考: 默认配置", 2000)
     
     def _update_variant_selector(self):
         """Update the Variant selector dropdown with project variants"""
@@ -689,45 +651,32 @@ class DaVinciMainWindow(QMainWindow):
         # Also update reference variant selector
         self.reference_variant_selector.blockSignals(True)
         self.reference_variant_selector.clear()
-        self.reference_variant_selector.addItem("Base (基础)")
-        
-        # Update Base button state
-        if self.current_project:
-            self.base_btn.setEnabled(True)
-            if self.current_project.has_base:
-                self.base_btn.setText("📋 修改 Base")
-                self.base_btn.setToolTip("修改 Base 配置")
-            else:
-                self.base_btn.setText("📋 创建 Base")
-                self.base_btn.setToolTip("创建 Base 配置 (必须先创建才能配置变体)")
-        else:
-            self.base_btn.setEnabled(False)
-            self.base_btn.setText("📋 Base")
+        self.reference_variant_selector.addItem("Default (默认)")
         
         if self.current_project and self.current_project.variants:
-            # Only enable variant selector if Base exists
-            has_base = self.current_project.has_base
-            self.variant_selector.setEnabled(has_base)
-            self.reference_variant_selector.setEnabled(has_base)
-            self.manage_variants_btn.setEnabled(has_base)
+            # Always enable variant selector (no more has_base check)
+            self.variant_selector.setEnabled(True)
+            self.reference_variant_selector.setEnabled(True)
+            self.manage_variants_btn.setEnabled(True)
             
             for variant in self.current_project.variants:
                 self.variant_selector.addItem(variant)
-                self.reference_variant_selector.addItem(variant)
+                if variant != "Default":  # Already added as reference
+                    self.reference_variant_selector.addItem(variant)
             
             # Select active variant
-            if self.current_project.active_variant:
-                idx = self.variant_selector.findText(self.current_project.active_variant)
-                if idx >= 0:
-                    self.variant_selector.setCurrentIndex(idx)
+            active = self.current_project.active_variant or "Default"
+            idx = self.variant_selector.findText(active)
+            if idx >= 0:
+                self.variant_selector.setCurrentIndex(idx)
             
-            if has_base:
-                self.variant_label.setText(f"Variant: {self.current_project.active_variant or self.current_project.variants[0]}")
-            else:
-                self.variant_label.setText("⚠️ 请先创建 Base")
+            self.variant_label.setText(f"Variant: {active}")
         else:
-            self.variant_selector.addItem("(No Variants)")
-            self.variant_selector.setEnabled(False)
+            self.variant_selector.addItem("Default")
+            self.variant_selector.setEnabled(True)
+            self.reference_variant_selector.setEnabled(True)
+            self.manage_variants_btn.setEnabled(True)
+            self.variant_label.setText("Variant: Default")
             self.reference_variant_selector.setEnabled(False)
             self.variant_label.setText("Variant: None")
         
