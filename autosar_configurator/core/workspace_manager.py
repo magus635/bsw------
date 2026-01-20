@@ -296,8 +296,9 @@ class WorkspaceManager:
             
             # Module config is saved in ConfigValue folder
             config_filename = f"{name}_Config.arxml"
-            relative_config_path = f"ConfigValue/{config_filename}"
-            config_path = project_dir / relative_config_path
+            # Use Path for cross-platform compatibility (converts to correct separator)
+            relative_config_path = str(Path("ConfigValue") / config_filename)
+            config_path = project_dir / "ConfigValue" / config_filename
             
             # Save the actual config content
             manager.save_configuration(config_path)
@@ -382,13 +383,16 @@ class WorkspaceManager:
             config_path = project_dir / config_path_str
             
             # Fallback for legacy projects (files in project root)
-            if not config_path.exists() and "/" not in config_path_str:
+            # Check for both / and \ for cross-platform compatibility
+            has_separator = "/" in config_path_str or "\\" in config_path_str
+            if not config_path.exists() and not has_separator:
                 legacy_path = project_dir / Path(config_path_str).name
                 if legacy_path.exists():
                     config_path = legacy_path
                     print(f"Loading legacy config location: {config_path}")
             # Extended fallback: if ConfigValue is missing but file is in root
-            elif not config_path.exists() and "ConfigValue/" in config_path_str:
+            # Check for both ConfigValue/ and ConfigValue\ for cross-platform compatibility
+            elif not config_path.exists() and ("ConfigValue/" in config_path_str or "ConfigValue\\" in config_path_str):
                 legacy_path = project_dir / Path(config_path_str).name
                 if legacy_path.exists():
                     config_path = legacy_path
