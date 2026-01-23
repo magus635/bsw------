@@ -64,7 +64,9 @@ class CodeGenerator:
         if variant_name:
             logger.info(f"Active variant: {variant_name}")
         if project_template_dir:
-            logger.info(f"Project template directory: {project_template_dir}")
+            logger.info(f"✅ Project template directory SET: {project_template_dir}")
+        else:
+            logger.warning(f"⚠️ Project template directory NOT SET - will use builtin templates!")
         if user_template_dir:
             logger.info(f"User template directory: {user_template_dir}")
         if variant_overrides:
@@ -510,6 +512,12 @@ class CodeGenerator:
         if module_name:
             add_search_paths_for_dir(self.DEFAULT_TEMPLATE_DIR, module_name, search_paths)
         search_paths.append((self.DEFAULT_TEMPLATE_DIR / f"Module_{template_name}", self.DEFAULT_TEMPLATE_DIR))
+        
+        # Debug: Log all search paths
+        logger.info(f"Template search for '{template_name}' (module: {module_name}):")
+        for path, source_dir in search_paths:
+            exists = path.exists()
+            logger.info(f"  {'[FOUND]' if exists else '[     ]'} {path}")
         
         for path, source_dir in search_paths:
             if path.exists():

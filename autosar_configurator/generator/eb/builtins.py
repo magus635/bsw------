@@ -82,6 +82,7 @@ class BuiltinFunctions:
             'substring': self.string_substring,
             'substring-before': self.string_substring_before,
             'substring-after': self.string_substring_after,
+            'normalize-space': self.normalize_space,
             
             # Count function
             'count': self.count,
@@ -604,6 +605,41 @@ class BuiltinFunctions:
         s, d = str(s), str(delimiter)
         if d not in s: return ""
         return s.split(d, 1)[0]
+    
+    def normalize_space(self, s: Any = None) -> str:
+        """XPath normalize-space() function.
+        
+        Strips leading and trailing whitespace and replaces sequences of
+        whitespace characters with a single space.
+        
+        Args:
+            s: String to normalize. If None or not provided, uses current context node's value.
+            
+        Returns:
+            Normalized string
+        """
+        if s is None:
+            # Get value from current context node
+            current = self.context_stack.current_node()
+            if current:
+                s = current.get_value() if hasattr(current, 'get_value') else str(current)
+            else:
+                return ""
+        
+        # Unwrap ConfigurationNode if needed
+        if hasattr(s, 'get_value'):
+            s = s.get_value()
+        elif hasattr(s, 'value'):
+            s = s.value
+        
+        if s is None:
+            return ""
+        
+        # Convert to string and normalize whitespace
+        import re
+        s = str(s)
+        # Replace all whitespace sequences with single space and strip
+        return re.sub(r'\s+', ' ', s).strip()
     
     def variant_name(self) -> str:
         """Get the current variant name"""

@@ -46,6 +46,7 @@ class TokenType(Enum):
     ENDINDENT = auto()      # [!ENDINDENT!] - end indentation
     WS = auto()             # [!WS "n"!] - output whitespace
     AUTOSPACING = auto()    # [!AUTOSPACING!] - auto spacing
+    CR = auto()             # [!CR!] - output carriage return/newline
 
 
 @dataclass
@@ -104,6 +105,7 @@ class Lexer:
         'ENDINDENT': TokenType.ENDINDENT,
         'WS': TokenType.WS,
         'AUTOSPACING': TokenType.AUTOSPACING,
+        'CR': TokenType.CR,
     }
     
     def __init__(self):

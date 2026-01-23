@@ -343,6 +343,13 @@ class Renderer:
             elif token.type == TokenType.AUTOSPACING:
                 # [!AUTOSPACING!] - auto spacing control (skip, just cosmetic)
                 i += 1
+            
+            elif token.type == TokenType.CR:
+                # [!CR!] - output carriage return/newline
+                self._output_buffer.append('\n')
+                self._at_line_start = True
+                self._indent_added_on_this_line = False
+                i += 1
                 
             else:
                 # Unknown or end token - skip
