@@ -47,6 +47,8 @@ class TokenType(Enum):
     WS = auto()             # [!WS "n"!] - output whitespace
     AUTOSPACING = auto()    # [!AUTOSPACING!] - auto spacing
     CR = auto()             # [!CR!] - output carriage return/newline
+    TRACE = auto()          # [!TRACE expression!] - debug print
+
 
 
 @dataclass
@@ -69,11 +71,15 @@ class Token:
 class Lexer:
     """Tokenizer for EB Tresos template files"""
     
+    # Pattern for line continuation [!//!] - removes the marker and following newline
+    LINE_CONTINUATION_PATTERN = re.compile(r'\[!//!?\]\s*\n?')
+    
     # Pattern for line comments [!// ... (to end of line, no !] needed)
-    LINE_COMMENT_PATTERN = re.compile(r'\[!//[^\n]*')
+    # This must not match [!//!] which is line continuation
+    LINE_COMMENT_PATTERN = re.compile(r'\[!//(?!!])(?!\])[^\n]*')
     
     # Pattern to find [! ... !] blocks (standard tags)
-    TAG_PATTERN = re.compile(r'\[!(.*?)!\]', re.DOTALL)
+    TAG_PATTERN = re.compile(r'\[!(.*?)!]', re.DOTALL)
     
     # Directive keywords (must be at start of tag content)
     KEYWORDS = {
@@ -106,7 +112,9 @@ class Lexer:
         'WS': TokenType.WS,
         'AUTOSPACING': TokenType.AUTOSPACING,
         'CR': TokenType.CR,
+        'TRACE': TokenType.TRACE,
     }
+
     
     def __init__(self):
         self._line = 1
@@ -125,10 +133,11 @@ class Lexer:
         self._line = 1
         self._column = 1
         
-        # First, strip line comments [!// ... (to end of line)
-        # Replace them with empty strings to preserve line positions
-        # but mark their positions for potential tracking
-        processed = self.LINE_COMMENT_PATTERN.sub('', template)
+        # First, handle line continuations [!//!] - removes marker AND following newline
+        processed = self.LINE_CONTINUATION_PATTERN.sub('', template)
+        
+        # Then, strip line comments [!// ... (to end of line)
+        processed = self.LINE_COMMENT_PATTERN.sub('', processed)
         
         last_pos = 0
         

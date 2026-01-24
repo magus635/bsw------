@@ -18,12 +18,15 @@ if TYPE_CHECKING:
 class BuiltinFunctions:
     """Registry and implementation of all built-in functions"""
     
-    def __init__(self, symbol_table: 'SymbolTable', context_stack: 'ContextStack'):
+    def __init__(self, symbol_table: 'SymbolTable', context_stack: 'ContextStack', ecu_resources: Optional[dict] = None):
         self.symbol_table = symbol_table
         self.context_stack = context_stack
         
         # ECU resource dictionary for ecu:get function
-        self.ecu_resources = {}
+        self.ecu_resources = ecu_resources or {}
+        
+        # Register synthetic Resource module early if missing
+        self.as_modconf('Resource')
         
         # Build function registry
         self._functions = {
@@ -73,12 +76,14 @@ class BuiltinFunctions:
             'text:join': self.string_concat,
             'text:tolower': self.string_lower,
             'text:toupper': self.string_upper,
+            'text:replace': self.string_replace,
             
             # XPath standard function aliases (for compatibility)
             'string': self.to_string,  # XPath string() type conversion
             'string-length': self.string_length,
             'concat': self.string_concat,
             'contains': self.string_contains,
+            'replace': self.string_replace,
             'substring': self.string_substring,
             'substring-before': self.string_substring_before,
             'substring-after': self.string_substring_after,
@@ -225,23 +230,26 @@ class BuiltinFunctions:
 
     
     def node_ref(self, path_or_node: Union[str, 'ConfigurationNode']) -> Optional['ConfigurationNode']:
-        """Resolve a reference node or path to its target node.
-        
-        Args:
-            path_or_node: Either a ConfigurationNode (of type 'reference') or a path string.
-        """
+        """Resolve a reference node or path to its target node."""
         if path_or_node is None:
             return None
             
         if isinstance(path_or_node, str):
             # If it's a string, attempt to resolve it as a reference path
-            return self.symbol_table.resolve_reference(path_or_node)
+            res = self.symbol_table.resolve_reference(path_or_node)
+            # print(f"DEBUG_NODEREF: '{path_or_node}' -> {res}")
+            return res
             
         # If it's a node, it must be of type 'reference'
-        if path_or_node.node_type != 'reference':
-            # EB Tresos quirk: sometimes node:ref is called on a node that IS a reference target
-            # return it as is or return None? Usually standard is it must be a reference parameter.
-            return None
+        target_path = path_or_node.get_value()
+        if not target_path:
+             # print(f"DEBUG_NODEREF: Node {path_or_node.short_name} has empty value")
+             return None
+
+        res = self.symbol_table.resolve_reference(str(target_path))
+        # print(f"DEBUG_NODEREF: Node {path_or_node.short_name} ('{target_path}') -> {res}")
+        return res
+
         
         ref_path = path_or_node.get_value()
         if not ref_path:
@@ -350,20 +358,39 @@ class BuiltinFunctions:
                 if inner_expr.startswith('node:value(') and inner_expr.endswith(')'):
                     inner_expr = inner_expr[11:-1].strip().strip("'\"")
                 
+                val = None
                 if '/' not in inner_expr and not '(' in inner_expr:
-                    val = node.get_child(inner_expr)
-                    if val:
-                        res = val.get_value()
-                        # Convert all values to strings for consistent comparison
-                        # This fixes "TypeError: '<' not supported between instances of 'str' and 'int'"
-                        if res is None: return ""
-                        return str(res)
+                    child = node.get_child(inner_expr)
+                    if child:
+                        val = child.get_value()
                 
-                # Fallback to short_name (already a string)
-                return node.short_name if hasattr(node, 'short_name') else ""
+                if val is None:
+                    # Fallback to short_name if value not found, or empty string
+                    if inner_expr == 'short_name':
+                        val = node.short_name
+                    else:
+                        # Path traversal logic for complex expressions relative to node
+                        # Simple implementation: check if it's a path
+                        if '/' in inner_expr:
+                            # Try to descend
+                            current = node
+                            parts = inner_expr.split('/')
+                            for part in parts:
+                                if current:
+                                    current = current.get_child(part)
+                            if current:
+                                val = current.get_value()
+
+                # Convert all values to strings for consistent comparison
+
+                # This fixes "TypeError: '<' not supported between instances of 'str' and 'int'"
+                res_str = str(val) if val is not None else ""
+                
+                # Return tuple for stability: (primary_key, short_name)
+                return (res_str, node.short_name)
             finally:
                 self.context_stack.pop()
-
+        
         return sorted(nodes, key=get_sort_key)
 
     
@@ -378,12 +405,35 @@ class BuiltinFunctions:
         if module_name is None:
             return None
             
-        # Strip quotes if present
-        if isinstance(module_name, str):
-            if module_name.startswith(("'", '"')) and module_name.endswith(("'", '"')):
-                module_name = module_name[1:-1]
-        
+        if module_name == 'Resource':
+            # Create a synthetic Resource module if it doesn't exist
+            res = self.symbol_table.get_module('Resource')
+            if res:
+                return res
+                
+            from .symbol_table import ConfigurationNode
+            root = ConfigurationNode(short_name="Resource", node_type="module", path="/Resource")
+            
+            # Add NumOfCores if in defaults
+            cores = self.ecu_get('Resource.NumOfCores')
+            if cores:
+                param = ConfigurationNode(
+                    short_name="NumOfCores", 
+                    node_type="parameter", 
+                    value=cores,
+                    path="/Resource/NumOfCores"
+                )
+                root.add_child(param)
+            
+            # Register it GLOBALLY so XPathEngine and others see it
+            from .renderer import _debug_log
+            _debug_log("EB Renderer: Registering synthetic Resource module")
+            self.symbol_table.register_module("Resource", root)
+            return root
+            
         return self.symbol_table.get_module(module_name)
+
+
     
     def as_container(self, path: str) -> Optional['ConfigurationNode']:
         """Get a container by path from current context"""
@@ -407,10 +457,15 @@ class BuiltinFunctions:
         """Convert value to integer"""
         if value is None:
             return 0
+        if isinstance(value, list):
+            if not value: return 0
+            value = value[0]
+            
         if isinstance(value, (int, bool)):
             return int(value)
         if isinstance(value, float):
             return int(value)
+
         if isinstance(value, str):
             # Handle hex and fuzzy booleans
             val_lower = value.strip().lower()
@@ -424,9 +479,15 @@ class BuiltinFunctions:
             if val_lower == 'false':
                 return 0
             try:
+                # Try as int first
                 return int(val_lower)
             except ValueError:
-                return 0
+                # Try as float, then truncate to int
+                try:
+                    return int(float(val_lower))
+                except ValueError:
+                    return 0
+
         # If it's a node, get its value
         if hasattr(value, 'get_value'):
             return self.num_i(value.get_value())
@@ -437,6 +498,8 @@ class BuiltinFunctions:
     def num_inttohex(self, value: Any, width: int = 0) -> str:
         """Convert integer to hex string."""
         int_val = self.num_i(value)
+
+
         if width > 0:
             hex_str = format(int_val, f'0{width}X')
         else:
@@ -606,6 +669,11 @@ class BuiltinFunctions:
         if d not in s: return ""
         return s.split(d, 1)[0]
     
+    def string_replace(self, s: Any, old: str, new: str) -> str:
+        """Replace substrings"""
+        if s is None: return ""
+        return str(s).replace(str(old), str(new))
+    
     def normalize_space(self, s: Any = None) -> str:
         """XPath normalize-space() function.
         
@@ -647,19 +715,29 @@ class BuiltinFunctions:
         # For now, return PRE_COMPILE as default
         return "v2" # Match user's current context
     
-    # ========== Other Functions ==========
-    
     def count(self, items) -> int:
-        """Count items in a collection or node's children"""
+        """Count items in a collection or node's children."""
         if items is None:
             return 0
+
+
         if isinstance(items, list):
             return len(items)
-        if hasattr(items, 'children'):
-            return len(items.children)
-        if hasattr(items, '__len__'):
+        if hasattr(items, 'short_name'):
+            # It's a single ConfigurationNode
+            return 1
+        
+        # For non-node, non-list items, if it's truthy, return 1?
+        # Actually, in most EB templates, if you count a simple value, it's 1 if present.
+        # But we must avoid len(string) which counts characters.
+        if isinstance(items, str):
+            return 1 if items else 0
+            
+        if hasattr(items, '__len__') and not isinstance(items, (str, bytes)):
             return len(items)
-        return 0
+            
+        return 1 if items else 0
+
     
     def logical_not(self, value: Any) -> bool:
         """Logical NOT"""

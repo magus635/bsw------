@@ -227,7 +227,13 @@ class CodeGenerator:
         return True
 
     def _discover_template_types(self, module_name: str) -> List[str]:
-        """Find all unique template types (e.g., 'Cfg.h', 'Lcfg.c') for the module"""
+        """Find all unique template types (e.g., 'Cfg.h', 'Lcfg.c') for the module
+        
+        Searches in the following structure:
+        - ModuleName/include/ - for header templates (.h)
+        - ModuleName/src/ - for source templates (.c)
+        - ModuleName/ - for shared files (.m macros) and legacy flat structure
+        """
         template_files = set()
         
         def find_case_insensitive_dir(parent: Path, target_name: str) -> Optional[Path]:
@@ -239,8 +245,35 @@ class CodeGenerator:
                     return item
             return None
         
+        def scan_directory_for_templates(directory: Path):
+            """Scan a directory for template files"""
+            if not directory or not directory.exists() or not directory.is_dir():
+                return
+            
+            # Search for templates with .tpl suffix
+            for f in directory.glob(f"{module_name}_*.tpl"):
+                t_type = f.name[len(module_name)+1:-4]  # Remove prefix and .tpl
+                template_files.add(t_type)
+            
+            # Also search for EB Tresos style templates without .tpl suffix
+            for f in directory.glob(f"{module_name}_*.[ch]"):
+                t_type = f.name[len(module_name)+1:]  # Remove prefix, keep extension
+                template_files.add(t_type)
+            
+            # Case-insensitive matching for module name in filename
+            for f in directory.iterdir():
+                if f.is_file():
+                    name_lower = f.name.lower()
+                    prefix_lower = f"{module_name}_".lower()
+                    if name_lower.startswith(prefix_lower):
+                        suffix = f.name[len(module_name)+1:]
+                        if suffix.endswith('.tpl'):
+                            template_files.add(suffix[:-4])
+                        elif suffix.endswith('.c') or suffix.endswith('.h'):
+                            template_files.add(suffix)
+        
         def add_module_dir(base_dir: Path):
-            """Add module directory with case-insensitive matching"""
+            """Add module directory with case-insensitive matching, supporting include/src subdirs"""
             if not base_dir or not base_dir.exists():
                 return
             # Try exact match first, then case-insensitive
@@ -248,45 +281,41 @@ class CodeGenerator:
             if not module_dir.exists():
                 module_dir = find_case_insensitive_dir(base_dir, module_name)
             if module_dir and module_dir.exists():
-                search_dirs.append(module_dir)
+                # New structure: search in include/ and src/ subdirectories
+                include_dir = module_dir / "include"
+                src_dir = module_dir / "src"
+                
+                if include_dir.exists():
+                    scan_directory_for_templates(include_dir)
+                    logger.debug(f"Scanned include dir: {include_dir}")
+                
+                if src_dir.exists():
+                    scan_directory_for_templates(src_dir)
+                    logger.debug(f"Scanned src dir: {src_dir}")
+                
+                # Legacy/fallback: also scan module root for flat structure
+                scan_directory_for_templates(module_dir)
+                
+                # Handle variants
                 if self.variant_name:
                     variant_dir = module_dir / self.variant_name
                     if not variant_dir.exists():
                         variant_dir = find_case_insensitive_dir(module_dir, self.variant_name)
                     if variant_dir:
-                        search_dirs.append(variant_dir)
+                        # Variant can also have include/src structure
+                        var_include = variant_dir / "include"
+                        var_src = variant_dir / "src"
+                        if var_include.exists():
+                            scan_directory_for_templates(var_include)
+                        if var_src.exists():
+                            scan_directory_for_templates(var_src)
+                        scan_directory_for_templates(variant_dir)
         
-        search_dirs = []
         if self.project_template_dir:
             add_module_dir(self.project_template_dir)
         if self.user_template_dir:
             add_module_dir(self.user_template_dir)
         add_module_dir(self.DEFAULT_TEMPLATE_DIR)
-        
-        for d in search_dirs:
-            if d.exists() and d.is_dir():
-                # Search for templates with .tpl suffix
-                for f in d.glob(f"{module_name}_*.tpl"):
-                    t_type = f.name[len(module_name)+1:-4]  # Remove prefix and .tpl
-                    template_files.add(t_type)
-                
-                # Also search for EB Tresos style templates without .tpl suffix
-                # Match patterns like Fee_Cfg.h, Fee_PBcfg.c, Fee.m (macros)
-                for f in d.glob(f"{module_name}_*.[ch]"):
-                    t_type = f.name[len(module_name)+1:]  # Remove prefix, keep extension
-                    template_files.add(t_type)
-                
-                # Also try case-insensitive matching for module name in filename
-                for f in d.iterdir():
-                    if f.is_file():
-                        name_lower = f.name.lower()
-                        prefix_lower = f"{module_name}_".lower()
-                        if name_lower.startswith(prefix_lower):
-                            suffix = f.name[len(module_name)+1:]
-                            if suffix.endswith('.tpl'):
-                                template_files.add(suffix[:-4])
-                            elif suffix.endswith('.c') or suffix.endswith('.h'):
-                                template_files.add(suffix)
         
         # Always include defaults if not found, to trigger fallback logic
         defaults = ["Cfg.h", "Lcfg.c", "PBcfg.c"]
@@ -310,16 +339,30 @@ class CodeGenerator:
             engine = "Standard"
             source = "Embedded Fallback"
             
-            # Find which file was actually loaded
-            # Build search dirs
+            # Determine subdirectory based on type
+            is_header = t_type.lower().endswith('.h')
+            is_source = t_type.lower().endswith('.c')
+            subdir_name = "include" if is_header else ("src" if is_source else None)
+            
+            # Build search dirs - include/src subdirectories + module root
             search_dirs = []
+            base_dirs = []
             if self.project_template_dir:
-                search_dirs.append(self.project_template_dir / module_name)
-                if self.variant_name:
-                    search_dirs.append(self.project_template_dir / module_name / self.variant_name)
+                base_dirs.append(self.project_template_dir / module_name)
             if self.user_template_dir:
-                search_dirs.append(self.user_template_dir / module_name)
-            search_dirs.append(self.DEFAULT_TEMPLATE_DIR / module_name)
+                base_dirs.append(self.user_template_dir / module_name)
+            base_dirs.append(self.DEFAULT_TEMPLATE_DIR / module_name)
+            
+            for base_dir in base_dirs:
+                if subdir_name:
+                    # Search in include/ or src/ first
+                    search_dirs.append(base_dir / subdir_name)
+                # Also search in module root (legacy/fallback)
+                search_dirs.append(base_dir)
+                if self.variant_name:
+                    if subdir_name:
+                        search_dirs.append(base_dir / self.variant_name / subdir_name)
+                    search_dirs.append(base_dir / self.variant_name)
 
             # Search for both .tpl and non-.tpl files
             found = False
@@ -434,11 +477,20 @@ class CodeGenerator:
                 # Add cross-module contexts
                 context['all_modules'] = self.all_configurations
                 
-                rendered = eb_engine.render(template_content, context)
+                try:
+                    rendered = eb_engine.render(template_content, context)
+                except Exception as e:
+                    logger.error(f"CRITICAL ERROR rendering {template_name}: {e}", exc_info=True)
+                    return False
             else:
                 from .template_engine import TemplateEngine
                 engine = TemplateEngine()
-                rendered = engine.render(template_content, context)
+                try:
+                    rendered = engine.render(template_content, context)
+                except Exception as e:
+                    logger.error(f"CRITICAL ERROR rendering {template_name}: {e}", exc_info=True)
+                    return False
+
         else:
             # Fallback for standard types only - these hardcoded templates use Standard syntax
             if template_type == "Cfg.h":
@@ -464,10 +516,20 @@ class CodeGenerator:
     def _load_template_with_path(self, template_name: str, module_name: str = None) -> Tuple[Optional[str], Optional[Path]]:
         """Load template and return both content and source directory.
         
+        Searches in the following structure:
+        - ModuleName/include/ - for header templates (.h)
+        - ModuleName/src/ - for source templates (.c)
+        - ModuleName/ - for shared files (.m macros) and legacy flat structure
+        
         Returns:
             Tuple of (template_content, source_directory)
         """
         variant = self.variant_name
+        
+        # Determine subdirectory based on template type
+        is_header = template_name.lower().endswith('.h') or template_name.lower().endswith('.h.tpl')
+        is_source = template_name.lower().endswith('.c') or template_name.lower().endswith('.c.tpl')
+        subdir_name = "include" if is_header else ("src" if is_source else None)
         
         def find_case_insensitive_dir(parent: Path, target_name: str) -> Optional[Path]:
             """Find directory by name, case-insensitive"""
@@ -488,6 +550,24 @@ class CodeGenerator:
                 module_dir = find_case_insensitive_dir(base_dir, mod_name)
             
             if module_dir and module_dir.exists():
+                # New structure: search in include/ or src/ subdirectory first
+                if subdir_name:
+                    subdir = module_dir / subdir_name
+                    if subdir.exists():
+                        # Variant-specific templates in subdir
+                        if variant:
+                            variant_subdir = module_dir / variant / subdir_name
+                            if variant_subdir.exists():
+                                paths_list.append((variant_subdir / f"{mod_name}_{template_name}", variant_subdir))
+                                if template_name.endswith('.tpl'):
+                                    paths_list.append((variant_subdir / f"{mod_name}_{template_name[:-4]}", variant_subdir))
+                        
+                        # Module subdir templates
+                        paths_list.append((subdir / f"{mod_name}_{template_name}", subdir))
+                        if template_name.endswith('.tpl'):
+                            paths_list.append((subdir / f"{mod_name}_{template_name[:-4]}", subdir))
+                
+                # Legacy: also check variant dir and module root
                 if variant:
                     variant_dir = module_dir / variant
                     if not variant_dir.exists():
@@ -497,6 +577,7 @@ class CodeGenerator:
                         if template_name.endswith('.tpl'):
                             paths_list.append((variant_dir / f"{mod_name}_{template_name[:-4]}", variant_dir))
                 
+                # Module root (legacy flat structure or shared files)
                 paths_list.append((module_dir / f"{mod_name}_{template_name}", module_dir))
                 if template_name.endswith('.tpl'):
                     paths_list.append((module_dir / f"{mod_name}_{template_name[:-4]}", module_dir))
@@ -514,7 +595,7 @@ class CodeGenerator:
         search_paths.append((self.DEFAULT_TEMPLATE_DIR / f"Module_{template_name}", self.DEFAULT_TEMPLATE_DIR))
         
         # Debug: Log all search paths
-        logger.info(f"Template search for '{template_name}' (module: {module_name}):")
+        logger.info(f"Template search for '{template_name}' (module: {module_name}, subdir: {subdir_name}):")
         for path, source_dir in search_paths:
             exists = path.exists()
             logger.info(f"  {'[FOUND]' if exists else '[     ]'} {path}")

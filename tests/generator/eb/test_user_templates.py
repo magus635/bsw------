@@ -114,7 +114,7 @@ class TestUserTemplates(unittest.TestCase):
 
 /* 验证点：XPath读取布尔值，并用 IF 转换为宏 */
 #define CAN_DEV_ERROR_DETECT   [!//!]
-[!IF "node:value(CanGeneral/CanDevErrorDetect) = 'true'"!]STD_ON[!ELSE!]STD_OFF[!ENDIF!]!]
+[!IF "node:value(CanGeneral/CanDevErrorDetect) = 'true'"!]STD_ON[!ELSE!]STD_OFF[!ENDIF!]
 
 /* 验证点：XPath count() 函数 */
 #define CAN_CONTROLLER_COUNT  [!"num:i(count(CanController/*))"!]U
@@ -166,7 +166,6 @@ static CONST(Can_ControllerConfigType, CAN_CONST) CanControllerConfig[] =
     /* 验证点：布尔转 TRUE/FALSE */
     .WakeupSupport = [!//!]
 [!IF "node:value(CanWakeupSupport) = 'true'"!]TRUE[!ELSE!]FALSE[!ENDIF!]
-    !]
   },
 [!ENDLOOP!]
 };

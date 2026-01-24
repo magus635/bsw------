@@ -19,19 +19,28 @@ class EBTemplateEngine:
     
     def __init__(self, strict: bool = True, template_dir: Optional[Path] = None):
         self.template_dir = template_dir
-        self.renderer = Renderer(strict=strict, template_dir=template_dir)
+        
+        # Build include search paths
+        search_paths = []
+        if template_dir:
+            search_paths.append(template_dir)
+            # Add parent directory to allow includes from module root (e.g., from include/ to root)
+            search_paths.append(template_dir.parent)
+            
+        self.renderer = Renderer(strict=strict, template_dir=template_dir, include_search_paths=search_paths)
         self.initialized_modules = set()
         
     def add_module(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration, variant: Optional[str] = None):
         """Add a module to the engine's symbol table for cross-module access."""
         module_name = module_def.short_name
-        # If variant is different, we might need to reload? 
-        # For now, if it's already in initialized_modules, we skip.
-        # But for variant support, we should allow reloading if variant changes.
+        from .eb.renderer import _debug_log
+        _debug_log(f"EBTemplateEngine: adding module {module_name} (variant={variant})")
+        
         cache_key = (module_name, variant)
         if cache_key not in self.initialized_modules:
             self.renderer.load_module(module_def, configuration, variant=variant)
             self.initialized_modules.add(cache_key)
+
 
 
     def render(self, template: str, context: Dict[str, Any]) -> str:

@@ -69,9 +69,10 @@ class OverlayEngine:
             # Find matching configuration instances
             matching_instances = []
             if configuration:
-                # Match by definition reference
+                # Match by definition reference (robust matching)
                 matching_instances = [c for c in configuration.containers 
-                                      if c.definition_ref.endswith(f"/{container_name}")]
+                                      if c.definition_ref == container_name or c.definition_ref.endswith(f"/{container_name}")]
+
             
             # Create a WRAPPER node for this container definition
             # This allows [!LOOP "as:modconf('Can')/CanConfigSet/*"!]
@@ -126,14 +127,11 @@ class OverlayEngine:
                 # This allows as:modconf('Can')/CanConfigSet/CanController to work.
                 if active_instance_node:
                     for sub_name, sub_node in active_instance_node.children.items():
-                        # Don't overwrite if name clashes with an instance name
+                        # Alias parameters and sub-container WRAPPERS to the parent wrapper
+                        # This allows paths like /Can/CanConfigSet/CanController to work
                         if sub_name not in wrapper_node.children:
-                            wrapper_node.children[sub_name] = sub_node
-                    
-                    # Also inherit parameters
-                    for sub_name, sub_node in active_instance_node.children.items():
-                         if sub_node.node_type == 'parameter' and sub_name not in wrapper_node.children:
                              wrapper_node.children[sub_name] = sub_node
+
 
             elif container_def.is_required:
 
@@ -198,6 +196,10 @@ class OverlayEngine:
             node = self._create_container_node(container_def, config_instance, instance_path)
             nodes.append(node)
             
+            def matches_def(ref, name):
+                if not ref: return False
+                return ref == name or ref.endswith(f"/{name}")
+
             # Handle sub-container instances - GROUP BY DEFINITION
             # First, collect all instances by their definition name
             all_subs = getattr(config_instance, 'sub_containers', []) or []
@@ -211,9 +213,12 @@ class OverlayEngine:
             for sub_def_name, sub_def in container_def.sub_containers.items():
                 # Find matching sub-container instances by definition reference
                 matching_subs = [s for s in all_subs 
-                                 if getattr(s, 'definition_ref', '').endswith(f"/{sub_def_name}")]
+                                 if matches_def(getattr(s, 'definition_ref', ''), sub_def_name)]
                 
                 if matching_subs:
+
+
+
                     # ALWAYS create a wrapper/group node for sub-containers
                     # This allows XPath like "CanHardwareObject/*" to return instances
                     # Even when there's only 1 instance, the XPath pattern expects instances, not parameters
@@ -270,7 +275,9 @@ class OverlayEngine:
         for sub_def_name, sub_def in container_def.sub_containers.items():
             matching_subs = [s for s in all_subs 
                              if getattr(s, 'short_name', None) == sub_def_name or 
+                             getattr(s, 'definition_ref', '') == sub_def_name or
                              getattr(s, 'definition_ref', '').endswith(f"/{sub_def_name}")]
+
             
             if matching_subs:
                 # ALWAYS create wrapper node for sub-containers
@@ -315,6 +322,14 @@ class OverlayEngine:
         # Add parameters
         params_source = getattr(config_instance, 'parameter_values', {}) or \
                         {k: v for k, v in getattr(config_instance, 'children', {}).items() if hasattr(v, 'value') and not hasattr(v, 'value_ref')}
+        
+        # DEBUG: Check CanController_1 params
+        if config_instance.short_name == 'CanController_1':
+             print(f"DEBUG_OVERLAY: Creating node for {config_instance.short_name}")
+             print(f"DEBUG_OVERLAY: params_source keys: {list(params_source.keys())}")
+             if 'CanControllerId' in params_source:
+                 print(f"DEBUG_OVERLAY: CanControllerId value = {params_source['CanControllerId'].value}")
+
         for param_name, param_def in container_def.parameters.items():
             param_node = self._create_parameter_node(
                 param_def,
@@ -322,6 +337,7 @@ class OverlayEngine:
                 f"{path}/{param_name}"
             )
             node.add_child(param_node)
+
         
         # Add references
         refs_source = getattr(config_instance, 'reference_values', {}) or \
@@ -405,6 +421,15 @@ class OverlayEngine:
             lower_multiplicity=param_def.lower_multiplicity,
             upper_multiplicity=param_def.upper_multiplicity
         )
+        
+        # DEBUG
+        if param_def.short_name == 'CanControllerId':
+            print(f"DEBUG_OVERLAY_NODE: Created CanControllerId node with value={value} (type={type(value)})")
+            print(f"DEBUG_OVERLAY_NODE: Parent ID: {id(node)} Path: {node.path}")
+            
+        return node
+
+
     
     def _create_reference_node(
         self,

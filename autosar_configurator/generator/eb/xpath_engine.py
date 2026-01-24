@@ -72,10 +72,16 @@ class XPathEngine:
                 # If variable holds a Node (like from node:ref), use it as context
                 if hasattr(start_node, 'node_type'):
                     if len(parts) > 1:
+                        # DEBUG: Trace start node
+                        print(f"DEBUG_XPATH_VAR: Starting nav from '${var_name}' -> Node '{start_node.short_name}'")
+                        print(f"DEBUG_XPATH_VAR: Node Path: {start_node.path}")
+                        print(f"DEBUG_XPATH_VAR: Children: {list(start_node.children.keys())}")
+                        
                         # Continue navigation relative to this node
                         return self._evaluate_relative(parts[1], start_node)
                     else:
                         return start_node
+
         
         return self._evaluate_relative(xpath)
     
@@ -88,12 +94,19 @@ class XPathEngine:
         if match:
             module_name = match.group(1)
             rest_path = match.group(2)
-            module = self.symbol_table.get_module(module_name)
+            
+            # Use function_handler if available to support synthetic fallbacks
+            if self.function_handler and hasattr(self.function_handler, 'as_modconf'):
+                module = self.function_handler.as_modconf(module_name)
+            else:
+                module = self.symbol_table.get_module(module_name)
+                
             if not module:
-                _debug_log(f"DEBUG: as:modconf('{module_name}') - Module NOT FOUND in symbol table")
+                _debug_log(f"DEBUG: as:modconf('{module_name}') - Module NOT FOUND")
                 return None
             else:
                 _debug_log(f"DEBUG: as:modconf('{module_name}') - Module FOUND")
+
             
             if rest_path:
                 # Handle predicates on the function result itself
@@ -131,50 +144,99 @@ class XPathEngine:
             
         # Generic function handler via callback
         if self.function_handler:
-            # Parse function name and arguments
-            match = re.match(r"^([\w:]+)\s*\((.*)\)$", expr, re.DOTALL)
+            # Parse function name and arguments (handle nested parens and trailing predicates)
+            match = re.match(r"^([\w:]+)\s*\(", expr)
             if match:
                 func_name = match.group(1)
-                args_str = match.group(2)
+                start_args = match.end()
                 
-                # Parse arguments handling nested parens
-                args = []
-                if args_str:
-                    depth = 0
-                    current_arg = []
-                    for char in args_str:
-                        if char == '(':
-                            depth += 1
-                        elif char == ')':
-                            depth -= 1
-                        elif char == ',' and depth == 0:
+                # Find matching close paren
+                depth = 1
+                args_end = -1
+                for i in range(start_args, len(expr)):
+                    if expr[i] == '(': depth += 1
+                    elif expr[i] == ')': depth -= 1
+                    
+                    if depth == 0:
+                        args_end = i
+                        break
+                
+                if args_end != -1:
+                    args_str = expr[start_args:args_end]
+                    rest_path = expr[args_end+1:].strip()
+                    
+                    # Parse arguments handling nested parens (comma separation)
+                    args = []
+                    if args_str:
+                        depth = 0
+                        current_arg = []
+                        for char in args_str:
+                            if char == '(': depth += 1
+                            elif char == ')': depth -= 1
+                            elif char == ',' and depth == 0:
+                                args.append(''.join(current_arg).strip())
+                                current_arg = []
+                                continue
+                            current_arg.append(char)
+                        if current_arg:
                             args.append(''.join(current_arg).strip())
-                            current_arg = []
-                            continue
-                        current_arg.append(char)
-                    if current_arg:
-                        args.append(''.join(current_arg).strip())
-                
-                # Evaluate arguments
-                evaluated_args = []
-                for arg in args:
-                    # Arg could be an xpath or literal
-                    # Determine if literal
-                    arg = arg.strip()
-                    if (arg.startswith('"') and arg.endswith('"')) or \
-                       (arg.startswith("'") and arg.endswith("'")):
-                        evaluated_args.append(arg[1:-1])
-                    else:
-                        # Try evaluate as xpath
-                        val = self.evaluate(arg)
-                        if val is None:
-                             # Keep as string if eval failed (e.g. simple string without quotes for some functions?)
-                             # But standard requires quotes for strings.
-                             # If null, pass None or empty list?
-                             pass
-                        evaluated_args.append(val)
-                
-                return self.function_handler(func_name, *evaluated_args)
+                    
+                    # Evaluate arguments
+                    evaluated_args = []
+                    for arg in args:
+                        # Arg could be an xpath or literal
+                        arg = arg.strip()
+                        if (arg.startswith('"') and arg.endswith('"')) or \
+                           (arg.startswith("'") and arg.endswith("'")):
+                            evaluated_args.append(arg[1:-1])
+                        else:
+                            val = self.evaluate(arg)
+                            evaluated_args.append(val)
+                    
+                    # Execute function
+                    result = None
+                    if self.function_handler and hasattr(self.function_handler, 'call'):
+                        result = self.function_handler.call(func_name, *evaluated_args)
+                    elif callable(self.function_handler):
+                        result = self.function_handler(func_name, *evaluated_args)
+                        
+                    # Apply trailing predicates/path if present
+                    if rest_path:
+                        # Handle predicates [n]
+                        if rest_path.startswith('['):
+                            # Make result iterable if it isn't list
+                            if not isinstance(result, list):
+                                result = [result] if result is not None else []
+                                
+                            bracket_depth = 0
+                            for i, char in enumerate(rest_path):
+                                if char == '[': bracket_depth += 1
+                                elif char == ']': 
+                                    bracket_depth -= 1
+                                    if bracket_depth == 0:
+                                        pred_str = rest_path[1:i]
+                                        result = self._apply_predicates(result, [pred_str])
+                                        rest_path = rest_path[i+1:]
+                                        break
+                            
+                            # Auto-unwrap single item list after predicate?
+                            # Standard XPath behavior depends on context.
+                            # Renderer typically expects unwrapped values for further ops.
+                            if isinstance(result, list) and len(result) == 1:
+                                result = result[0]
+                            elif isinstance(result, list) and not result:
+                                result = None
+                                
+                        if rest_path:
+                            # Continue navigation (rare for function results unless node set)
+                            rest_path = rest_path.lstrip('/')
+                            if rest_path and hasattr(result, 'node_type'):
+                                segments = self._parse_path(rest_path)
+                                result = self._navigate_segments(result, segments)
+
+                    return result
+
+
 
         return None
     
@@ -304,15 +366,58 @@ class XPathEngine:
                 else:  # child axis
                     if name == '*':
                         next_nodes.extend(n.get_children_list())
+                    elif name == '.':
+                        next_nodes.append(n)
                     else:
                         child = n.get_child(name)
                         if child:
                             next_nodes.append(child)
                         else:
+                            # Fallback: Case-insensitive lookup (Robustness for CanControllerId vs canControllerId)
+                            for c_name, c_node in n.children.items():
+                                if c_name.lower() == name.lower():
+                                    next_nodes.append(c_node)
+                                    child = c_node
+                                    break
+                            
+                            if child:
+                                continue
+
+
+                            # Fallback: check if we have a transparent container issue
+                            # e.g. parent 'CanHwFilter' contains child 'CanHwFilter'?
+                            # In some ARXMLs, SUB-CONTAINER logic might result in strict nesting
+                            # If we didn't find 'CanHwFilterCode' in 'CanHwFilter', 
+                            # check if 'CanHwFilter' has a child 'CanHwFilter' (sub-container)
+                            if n.short_name == 'CanHwFilter' and 'CanHwFilter' in n.children:
+                                sub = n.get_child('CanHwFilter')
+                                deep_child = sub.get_child(name)
+                                if deep_child:
+                                    next_nodes.append(deep_child)
+                                    # DEBUG: Found via implicit recursion
+                                    # print(f"DEBUG_XPATH: Found {name} inside nested {n.short_name}")
+                                    continue
+
                             # EB Tresos behavior: if not found by short_name, match by definition name
+
+                            found_by_def = False
                             for c in n.get_children_list():
-                                if c.definition_ref.endswith(f"/{name}"):
+                                if c.definition_ref and (c.definition_ref == name or c.definition_ref.endswith(f"/{name}")):
                                     next_nodes.append(c)
+                                    found_by_def = True
+                            
+                            if not found_by_def:
+                                # DEBUG: Log what was searched and what exists
+                                if name == 'CanControllerId':
+                                     print(f"DEBUG_XPATH: Child '{name}' NOT FOUND in '{n.short_name}' (ID: {id(n)}). Available: {list(n.children.keys())}")
+                                pass
+
+
+
+
+
+
+
             
             # Apply predicates
             current = self._apply_predicates(next_nodes, predicates)
@@ -409,16 +514,36 @@ class XPathEngine:
         """
         import re
         
-        # Check for equality comparison: ChildName = 'Value' or ChildName = "Value"
-        eq_match = re.match(r"""^\s*(\w+)\s*=\s*['"]([^'"]*)['"]\s*$""", condition)
+        # Check for equality comparison: Name = 'Value' or Name = "Value"
+        # Supports ChildName or . (self)
+        eq_match = re.match(r"""^\s*([\w.]+)\s*=\s*['"]([^'"]*)['"]\s*$""", condition)
         if eq_match:
-            child_name = eq_match.group(1)
+            name = eq_match.group(1)
             expected_value = eq_match.group(2)
-            child = node.get_child(child_name)
-            if child:
-                actual_value = child.get_value()
-                return str(actual_value) == expected_value
-            return False
+            
+            if name == '.':
+                actual_value = node.get_value() if hasattr(node, 'get_value') else node.value
+            else:
+                child = node.get_child(name)
+                if child:
+                    actual_value = child.get_value()
+                else:
+                    return False
+            
+            # Truthiness normalization
+            def to_bool_str(v):
+                if v is None: return "false"
+                if isinstance(v, bool): return "true" if v else "false"
+                s = str(v).lower()
+                if s in ('true', '1', 'yes', 'on', 'std_on'): return "true"
+                if s in ('false', '0', 'no', 'off', 'std_off'): return "false"
+                return s
+
+            if expected_value.lower() in ('true', 'false'):
+                return to_bool_str(actual_value) == expected_value.lower()
+            
+            return str(actual_value) == expected_value
+
         
         # Check for inequality: ChildName != 'Value'
         neq_match = re.match(r"""^\s*(\w+)\s*!=\s*['"]([^'"]*)['"]\s*$""", condition)

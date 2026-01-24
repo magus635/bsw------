@@ -61,6 +61,14 @@ class ConfigurationNode:
         node.parent = self
         self.children[node.short_name] = node
 
+    def __str__(self):
+        """String representation showing value or short name"""
+        val = self.get_value()
+        if val is not None:
+            return str(val)
+        return self.short_name
+
+
 
 class SymbolTable:
     """Global registry for all loaded module configurations.
@@ -86,11 +94,23 @@ class SymbolTable:
             self._index_node(child)
     
     def get_module(self, module_name: str) -> Optional[ConfigurationNode]:
-        """Get a module's root configuration node by name.
+        """Get a module's root configuration node by name."""
+        if not module_name:
+            return None
         
-        This is the implementation of as:modconf('ModuleName').
-        """
-        return self._modules.get(module_name.lower())
+        name_lower = module_name.lower()
+        res = self._modules.get(name_lower)
+        if res:
+            return res
+            
+        # Fallback for Resource module if not explicitly loaded
+        if name_lower == 'resource':
+            # Note: builtins will populate this if called from Renderer
+            # For now, return None if not registered to avoid circular dependency
+            return self._modules.get('resource')
+            
+        return None
+
     
     def get_by_path(self, path: str) -> Optional[ConfigurationNode]:
         """Get any node by its absolute path"""
@@ -108,24 +128,70 @@ class SymbolTable:
         # Try direct path lookup first
         if ref_path in self._path_index:
             return self._path_index[ref_path]
+
+
         
         # Try to parse and resolve
         parts = [p for p in ref_path.split('/') if p]
         if not parts:
             return None
+            
+        # DEBUG: Trace resolution
+        if 'CanController' in ref_path:
+           print(f"DEBUG_RESOLVE: {ref_path}")
+           print(f"DEBUG_RESOLVE: PathIndex has {len(self._path_index)} entries")
+           if ref_path in self._path_index:
+                print("DEBUG_RESOLVE: Found in Index")
+           else:
+                print(f"DEBUG_RESOLVE: NOT in Index. Modules: {list(self._modules.keys())}")
+                # Try finding similar paths
+                # matches = [k for k in self._path_index.keys() if 'CanController' in k]
+                # print(f"DEBUG_RESOLVE: Similar paths: {matches[:5]}...")
+
         
         # Check if it starts with a known module
+
         for module_name, root in self._modules.items():
-            if parts[0] == module_name or (len(parts) > 1 and parts[1] == module_name):
+            # Module names are stored in lowercase, so compare case-insensitively
+            p0_lower = parts[0].lower()
+            p1_lower = parts[1].lower() if len(parts) > 1 else ""
+            
+            is_match = False
+            start_idx = 0
+            
+            if p0_lower == module_name:
+                is_match = True
+                start_idx = 1
+            elif p1_lower == module_name:
+                # Handle /AUTOSAR/EcucDefs/Mcu or similar prefixes where module is second
+                is_match = True
+                start_idx = 2
+                
+            if is_match:
                 # Navigate from module root
                 current = root
-                start_idx = 1 if parts[0] == module_name else 2
                 for part in parts[start_idx:]:
+
                     child = current.get_child(part)
                     if child is None:
-                        return None
+                        # Fallback: check for wrapper containers (EB Tresos structural mismatch)
+                        # If 'part' is not found directly, check if it exists inside any child container
+                        # (skipping one level of hierarchy often introduced by container definition wrappers)
+                        found_in_wrapper = False
+                        for wrapper in current.children.values():
+                            if wrapper.node_type == 'container':
+                                inner = wrapper.get_child(part)
+                                if inner:
+                                    child = inner
+                                    found_in_wrapper = True
+                                    break
+                        
+                        if not found_in_wrapper:
+                             return None
+                    
                     current = child
                 return current
+
         
         return None
     
