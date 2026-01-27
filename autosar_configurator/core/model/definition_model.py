@@ -82,28 +82,41 @@ class EcucParameterDef:
 
 @dataclass
 class EcucReferenceDef:
-    """ECUC Reference Definition (ECUC-REFERENCE-DEF)
-    
-    Defines a reference to another container (e.g., link to Mcu module)
+    """ECUC Reference Definition (ECUC-REFERENCE-DEF / ECUC-CHOICE-REFERENCE-DEF)
+
+    Defines a reference to another container (e.g., link to Mcu module).
+    For choice references, multiple destination types are allowed.
     """
     short_name: str
     description: str = ""
-    
+
     # Target specification
     destination_ref: str = ""  # e.g., "/AUTOSAR/EcucDefs/Mcu/McuModuleConfiguration/..."
     destination_type: str = "ECUC-PARAM-CONF-CONTAINER-DEF"
-    
+
+    # Choice reference: multiple allowed destination paths
+    choice_destination_refs: list = None  # e.g., ["/AUTOSAR/.../AdcHwUnit", "/AUTOSAR/.../CanController", ...]
+
     # Multiplicity
     lower_multiplicity: int = 0
     upper_multiplicity: int = 1
-    
+
     # Metadata
     scope: str = "LOCAL"
     origin: str = "AUTOSAR_ECUC"
-    
+
     # Full path
     definition_ref: str = ""
-    
+
+    def __post_init__(self):
+        if self.choice_destination_refs is None:
+            self.choice_destination_refs = []
+
+    @property
+    def is_choice_reference(self) -> bool:
+        """Check if this is a choice reference (multiple destination types)"""
+        return len(self.choice_destination_refs) > 1
+
     @property
     def is_required(self) -> bool:
         """Check if this reference is mandatory"""

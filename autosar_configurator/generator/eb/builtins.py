@@ -99,9 +99,26 @@ class BuiltinFunctions:
             'variant:name': self.variant_name,
             'variant:check': self.variant_check,
             'variant:exists': self.variant_exists,
-            
+            'variant:size': self.variant_size,
+
+            # Variable functions
+            'var:defined': self.var_defined,
+            'var:set': self.var_set,
+
             # ECU Resource functions
             'ecu:get': self.ecu_get,
+            'ecu:list': self.ecu_list,
+
+            # Bit manipulation functions
+            'bit:shl': self.bit_shl,
+            'bit:or': self.bit_or,
+            'bit:and': self.bit_and,
+            'bit:xor': self.bit_xor,
+            'bit:not': self.bit_not,
+            'bit:shr': self.bit_shr,
+
+            # Additional node functions
+            'node:refvalid': self.node_refvalid,
         }
     
     def get(self, name: str) -> Optional[Callable]:
@@ -168,7 +185,7 @@ class BuiltinFunctions:
         # Robustness: If node is already a value (not a ConfigurationNode), return it
         if not hasattr(node, 'get_value') and not hasattr(node, 'value'):
             return node
-            
+
         value = node.get_value() if hasattr(node, 'get_value') else node.value
         
         param_type = getattr(node, 'param_type', None)
@@ -236,12 +253,12 @@ class BuiltinFunctions:
         """Resolve a reference node or path to its target node."""
         if path_or_node is None:
             return None
-            
+
         if isinstance(path_or_node, str):
             # If it's a string, attempt to resolve it as a reference path
             res = self.symbol_table.resolve_reference(path_or_node)
             return res
-            
+
         # If it's a node, it must be of type 'reference'
         target_path = path_or_node.get_value()
         if not target_path:
@@ -421,43 +438,54 @@ class BuiltinFunctions:
 
     
     # ========== Model Functions ==========
-    
+
     def as_modconf(self, module_name: str) -> Optional['ConfigurationNode']:
         """Get a module's root configuration node by name.
-        
+
         This is the key function for cross-module access.
         Example: as:modconf('Mcu') returns the Mcu module root.
         """
+        from .renderer import _debug_log
+
         if module_name is None:
             return None
-            
+
+        _debug_log(f"as_modconf: Looking for module '{module_name}'")
+        _debug_log(f"as_modconf: Available modules: {self.symbol_table.get_all_modules()}")
+
         if module_name == 'Resource':
             # Create a synthetic Resource module if it doesn't exist
             res = self.symbol_table.get_module('Resource')
             if res:
+                _debug_log(f"as_modconf: Found Resource module with children: {list(res.children.keys())}")
                 return res
-                
+
+            _debug_log("as_modconf: Resource module NOT found, creating synthetic one")
             from .symbol_table import ConfigurationNode
             root = ConfigurationNode(short_name="Resource", node_type="module", path="/Resource")
-            
+
             # Add NumOfCores if in defaults
             cores = self.ecu_get('Resource.NumOfCores')
             if cores:
                 param = ConfigurationNode(
-                    short_name="NumOfCores", 
-                    node_type="parameter", 
+                    short_name="NumOfCores",
+                    node_type="parameter",
                     value=cores,
                     path="/Resource/NumOfCores"
                 )
                 root.add_child(param)
-            
+
             # Register it GLOBALLY so XPathEngine and others see it
-            from .renderer import _debug_log
             _debug_log("EB Renderer: Registering synthetic Resource module")
             self.symbol_table.register_module("Resource", root)
             return root
-            
-        return self.symbol_table.get_module(module_name)
+
+        result = self.symbol_table.get_module(module_name)
+        if result:
+            _debug_log(f"as_modconf: Found module '{module_name}' with children: {list(result.children.keys())}")
+        else:
+            _debug_log(f"as_modconf: Module '{module_name}' NOT found")
+        return result
 
 
     
@@ -618,10 +646,17 @@ class BuiltinFunctions:
         return "".join(str(a) for a in args)
     
     def string_split(self, s: str, delimiter: str = " ") -> List[str]:
-        """Split string by delimiter"""
+        """Split string by delimiter.
+
+        Note: Empty strings are filtered out to match EB Tresos behavior.
+        This allows both:
+        - text:split('/Adc/Config/Unit', '/')[3] = 'Unit'
+        - text:split('CORE0', 'CORE')[1] = '0'
+        """
         if not isinstance(s, str):
             s = str(s)
-        return s.split(delimiter)
+        # Filter empty strings to match EB Tresos behavior
+        return [x for x in s.split(delimiter) if x]
     
     def string_trim(self, s: str) -> str:
         """Trim whitespace from string"""
@@ -791,11 +826,43 @@ class BuiltinFunctions:
     
     def variant_exists(self, variant_name: str = "") -> bool:
         """Check if a Variant exists.
-        
+
         Returns true if no variant info (compatibility mode).
         """
         return True
-    
+
+    # ========== Variable Functions ==========
+
+    def var_defined(self, var_name: str) -> bool:
+        """Check if a variable is defined in the current context.
+
+        Args:
+            var_name: Name of the variable (without $ prefix)
+
+        Returns:
+            True if the variable is defined, False otherwise
+        """
+        # Remove $ prefix if present
+        if var_name.startswith('$'):
+            var_name = var_name[1:]
+        return self.context_stack.has_variable(var_name)
+
+    def var_set(self, var_name: str, value: Any) -> str:
+        """Set a variable in the current context.
+
+        Args:
+            var_name: Name of the variable (without $ prefix)
+            value: Value to set
+
+        Returns:
+            Empty string (no output)
+        """
+        # Remove $ prefix if present
+        if var_name.startswith('$'):
+            var_name = var_name[1:]
+        self.context_stack.set_variable(var_name, value)
+        return ""
+
     # ========== EcuC Interface Functions (per spec 4.1/4.2) ==========
     
     def ecuc_get_param_value(self, path: str) -> Any:
@@ -903,7 +970,13 @@ class BuiltinFunctions:
         # Core/Resource configuration
         'Resource.NumOfCores': 4,           # Typical: 1, 2, or 4 cores
         'Mcu.NoOfCoreAvailable': 4,
-        
+
+        # ADC Module configuration
+        'Adc.MaxControllers': 4,            # Number of ADC controllers (SARADC0-3)
+        'Adc.ReqSrcCount': 3,               # Request sources per ADC (RS0, RS1, RS2)
+        'Adc.AnalogClockMinMHz': 1,         # Minimum analog clock frequency in MHz
+        'Adc.AnalogClockMaxMHz': 40,        # Maximum analog clock frequency in MHz
+
         # CAN Module configuration
         'Can.MaxModules': 2,                # Number of CAN modules (MCAN0, MCAN1, ...)
         'Can.MaxNodes': 8,                  # Nodes per module (typical: 4 or 8)
@@ -1005,6 +1078,243 @@ class BuiltinFunctions:
         
         # Default fallback: return 0 with warning
         print(f"WARNING: ecu:get('{path}') not found in ECU_DEFAULTS or modules, returning 0")
+        return 0
+
+    # ECU List Defaults - typical list resources for automotive MCUs
+    ECU_LIST_DEFAULTS = {
+        # ADC configuration lists
+        'Adc.ReqSrcClass': ['REQSRC0', 'REQSRC1', 'REQSRC2'],
+        'Adc.HwUnitId': ['SARADC0', 'SARADC1', 'SARADC2', 'SARADC3'],
+        'Adc.AdcChannels_Adc0': [f'AN{i}' for i in range(16)],
+        'Adc.AdcChannels_Adc1': [f'AN{i}' for i in range(16)],
+        'Adc.AdcChannels_Adc2': [f'AN{i}' for i in range(16)],
+        'Adc.AdcChannels_Adc3': [f'AN{i}' for i in range(16)],
+
+        # Sync group configuration
+        'Adc.SyncGroup.Master.SARADC0': ['SLAVE0', 'SLAVE1', 'SLAVE2', 'SLAVE3'],
+        'Adc.SyncGroup.Master.SARADC1': ['SLAVE0', 'SLAVE1', 'SLAVE2', 'SLAVE3'],
+        'Adc.SyncGroup.Master.SARADC2': ['SLAVE0', 'SLAVE1', 'SLAVE2', 'SLAVE3'],
+        'Adc.SyncGroup.Master.SARADC3': ['SLAVE0', 'SLAVE1', 'SLAVE2', 'SLAVE3'],
+
+        # CAN configuration lists
+        'Can.HwUnitId': ['MCAN0', 'MCAN1'],
+        'Can.ControllerBaudRateConfig': ['500kbps', '250kbps', '125kbps', '1Mbps'],
+    }
+
+    def ecu_list(self, path: str) -> List[Any]:
+        """Get ECU resource list (XDM-G).
+
+        This function returns a list of ECU resource values, typically used for
+        iteration over hardware units, channels, etc.
+
+        Args:
+            path: Resource path like 'Adc.ReqSrcClass', 'Adc.HwUnitId', etc.
+
+        Returns:
+            List of resource values
+        """
+        # Check user-provided resources first
+        if path in self.ecu_resources:
+            val = self.ecu_resources[path]
+            if isinstance(val, list):
+                return val
+            return [val]
+
+        # Check ECU_LIST_DEFAULTS
+        if path in self.ECU_LIST_DEFAULTS:
+            return self.ECU_LIST_DEFAULTS[path]
+
+        # Handle dynamic paths with wildcards or patterns
+        # e.g., Adc.AdcChannels_Adc{n} where n is a number
+        import re
+        for key, value in self.ECU_LIST_DEFAULTS.items():
+            # Simple pattern matching for indexed resources
+            pattern = key.replace('{n}', r'\d+')
+            if re.match(f'^{pattern}$', path):
+                return value
+
+        # Try to find in Resource module
+        res = self.symbol_table.get_module('Resource')
+        if res:
+            parts = path.split('.')
+            if len(parts) >= 2:
+                param_name = parts[-1]
+                for child in res.get_children_recursive():
+                    if child.short_name == param_name:
+                        val = child.get_value() if hasattr(child, 'get_value') else getattr(child, 'value', None)
+                        if isinstance(val, list):
+                            return val
+                        if val is not None:
+                            return [val]
+
+        # Default fallback: return empty list with warning
+        print(f"WARNING: ecu:list('{path}') not found, returning empty list")
+        return []
+
+    # ========== Bit Manipulation Functions ==========
+
+    def bit_shl(self, value: Any, shift: Any) -> int:
+        """Bit shift left operation.
+
+        Args:
+            value: The value to shift
+            shift: Number of bits to shift left
+
+        Returns:
+            value << shift
+        """
+        int_val = self.num_i(value)
+        shift_val = self.num_i(shift)
+        return int_val << shift_val
+
+    def bit_shr(self, value: Any, shift: Any) -> int:
+        """Bit shift right operation.
+
+        Args:
+            value: The value to shift
+            shift: Number of bits to shift right
+
+        Returns:
+            value >> shift
+        """
+        int_val = self.num_i(value)
+        shift_val = self.num_i(shift)
+        return int_val >> shift_val
+
+    def bit_or(self, value1: Any, value2: Any) -> int:
+        """Bitwise OR operation.
+
+        Args:
+            value1: First operand
+            value2: Second operand
+
+        Returns:
+            value1 | value2
+        """
+        int_val1 = self.num_i(value1)
+        int_val2 = self.num_i(value2)
+        return int_val1 | int_val2
+
+    def bit_and(self, value1: Any, value2: Any) -> int:
+        """Bitwise AND operation.
+
+        Args:
+            value1: First operand
+            value2: Second operand
+
+        Returns:
+            value1 & value2
+        """
+        int_val1 = self.num_i(value1)
+        int_val2 = self.num_i(value2)
+        return int_val1 & int_val2
+
+    def bit_xor(self, value1: Any, value2: Any) -> int:
+        """Bitwise XOR operation.
+
+        Args:
+            value1: First operand
+            value2: Second operand
+
+        Returns:
+            value1 ^ value2
+        """
+        int_val1 = self.num_i(value1)
+        int_val2 = self.num_i(value2)
+        return int_val1 ^ int_val2
+
+    def bit_not(self, value: Any, width: int = 32) -> int:
+        """Bitwise NOT operation.
+
+        Args:
+            value: The value to negate
+            width: Bit width for masking (default 32)
+
+        Returns:
+            ~value (masked to specified width)
+        """
+        int_val = self.num_i(value)
+        mask = (1 << width) - 1
+        return (~int_val) & mask
+
+    # ========== Additional Node Functions ==========
+
+    def node_refvalid(self, path_or_node: Any) -> str:
+        """Check if a reference is valid (exists and points to a valid target).
+
+        This function checks whether:
+        1. The reference node/path exists
+        2. The reference target can be resolved
+
+        Args:
+            path_or_node: A reference path string or a reference node
+
+        Returns:
+            String 'true' if reference is valid and resolvable, 'false' otherwise.
+            Note: Returns string for EB Tresos template compatibility where
+            templates use string comparison like: node:refvalid(./ref) = 'true'
+        """
+        if path_or_node is None:
+            return 'false'
+
+        # If it's a string path, try to resolve it
+        if isinstance(path_or_node, str):
+            # First check if the path itself exists
+            if path_or_node.startswith('/'):
+                node = self.symbol_table.get_by_path(path_or_node)
+            else:
+                # Relative path from current context
+                # Handle ./ prefix and multi-level paths like ./foo/bar
+                rel_path = path_or_node
+                if rel_path.startswith('./'):
+                    rel_path = rel_path[2:]  # Remove ./ prefix
+
+                current = self.context_stack.current_node()
+                if current:
+                    # Navigate through path segments
+                    node = current
+                    for part in rel_path.split('/'):
+                        if part and node:
+                            node = node.get_child(part)
+                else:
+                    node = None
+
+            if node is None:
+                return 'false'
+
+            # Check if it's a reference and can be resolved
+            if hasattr(node, 'node_type') and node.node_type == 'reference':
+                target = self.node_ref(node)
+                return 'true' if target is not None else 'false'
+
+            # If it's not a reference node, check if the path is valid
+            return 'true'
+
+        # If it's a node, check if it's a valid reference
+        if hasattr(path_or_node, 'node_type'):
+            if path_or_node.node_type == 'reference':
+                target = self.node_ref(path_or_node)
+                return 'true' if target is not None else 'false'
+            # Non-reference node - considered valid
+            return 'true'
+
+        # For any other value, return false
+        return 'false'
+
+    # ========== Additional Variant Functions ==========
+
+    def variant_size(self) -> int:
+        """Get the number of variants defined in the project.
+
+        Per EB Tresos spec: Returns the count of variants available.
+        If no variant information is available, returns 0.
+
+        Returns:
+            Number of variants (0 if no variants defined)
+        """
+        # Check if variants are registered in symbol table
+        # For now, return 0 as default (no variants)
+        # This matches the typical case where variant information is not loaded
         return 0
 
 

@@ -26,8 +26,10 @@ def _debug_log(msg: str):
     try:
         with open(_DEBUG_LOG_PATH, 'a') as f:
             f.write(msg + '\n')
-    except (IOError, OSError):
-        pass  # Silently ignore file write errors in debug logging
+            f.flush()  # Force flush to disk
+        print(f"[DEBUG] {msg}")  # Also print to stdout for immediate visibility
+    except (IOError, OSError) as e:
+        print(f"[DEBUG ERROR] Failed to write log: {e}")
 
 from .lexer import Lexer, Token, TokenType, tokenize
 from .context import ContextStack
@@ -114,21 +116,30 @@ class Renderer:
 
     
     def load_module(
-        self, 
-        module_def: EcucModuleDef, 
+        self,
+        module_def: EcucModuleDef,
         configuration: Optional[EcucModuleConfiguration] = None,
         variant: Optional[str] = None
     ):
         """Load a module's definition and configuration.
-        
+
         This can be called multiple times for multi-module projects.
-        
+
         Args:
             module_def: Module definition from EcucDefParser
             configuration: Module configuration from ConfigurationManager
             variant: Active variant for container selection
         """
+        module_name = module_def.short_name if module_def else "Unknown"
+        _debug_log(f"load_module: Loading module '{module_name}' (variant={variant})")
         self.overlay_engine.build_configuration_tree(module_def, configuration, variant=variant)
+
+        # Verify the module was registered
+        loaded = self.symbol_table.get_module(module_name)
+        if loaded:
+            _debug_log(f"load_module: Module '{module_name}' registered successfully, children: {list(loaded.children.keys())}")
+        else:
+            _debug_log(f"load_module: WARNING - Module '{module_name}' was NOT registered!")
 
     
     def render(
@@ -472,7 +483,7 @@ class Renderer:
         """Handle [!VAR "name"="value"!]"""
         # Parse: "name" = "expression" or name = expression
         match = None
-        
+
         # Try quoted format first
         import re
         patterns = [
@@ -480,12 +491,12 @@ class Renderer:
             r"'(\w+)'\s*=\s*(.+)",  # 'name' = expr
             r'(\w+)\s*=\s*(.+)',    # name = expr
         ]
-        
+
         for pattern in patterns:
             match = re.match(pattern, content.strip())
             if match:
                 break
-        
+
         if match:
             var_name = match.group(1)
             expr = match.group(2).strip()
@@ -662,8 +673,15 @@ class Renderer:
             self._context_stack.push(item)
             self._context_stack.set_loop_info(idx, len(items))
             self._execute_tokens(tokens, start + 1, loop_end)
+
+            # Propagate variables set in loop body to parent scope
+            # This allows macros called within loop to set variables visible after loop
+            current_vars = self._context_stack.current_scope_variables()
+            for name, value in current_vars.items():
+                self._context_stack.set_variable_in_parent(name, value)
+
             self._context_stack.pop()
-            
+
             if self._break_requested:
                 self._break_requested = False
                 break
@@ -711,6 +729,12 @@ class Renderer:
         # node:* functions will check for None and raise appropriate errors
         self._context_stack.push(node)
         self._execute_tokens(tokens, start + 1, select_end)
+
+        # Propagate variables set in select body to parent scope
+        current_vars = self._context_stack.current_scope_variables()
+        for name, value in current_vars.items():
+            self._context_stack.set_variable_in_parent(name, value)
+
         self._context_stack.pop()
         
         return i  # After ENDSELECT
@@ -765,12 +789,17 @@ class Renderer:
         if expr is None: return None
         expr = expr.strip()
 
-
-        
         # 1. Literal Strings (Handle both '...' and "...")
         if (expr.startswith("'") and expr.endswith("'")) or \
            (expr.startswith('"') and expr.endswith('"')):
-            return expr[1:-1]
+            inner = expr[1:-1]
+            # Check if the string content looks like a function call or expression
+            # that should be evaluated (e.g., "node:name(.)", "num:i(5)")
+            # Functions have format: namespace:function(...)
+            if ':' in inner and '(' in inner and ')' in inner:
+                # This looks like a function call, evaluate it
+                return self._evaluate_expression(inner)
+            return inner
         
         # Handle numeric literals explicitly
         try:
@@ -781,28 +810,55 @@ class Renderer:
         except: pass
 
             
-        # 2. Variable reference ($name)
+        # 2. Variable reference ($name) - only if it's a pure variable (no operators)
+        # Check for operators first to avoid matching "$X + 1" as variable "X + 1"
         if expr.startswith('$'):
             var_name = expr[1:]
-            if '/' in var_name:
-                return self._unwrap_value(self._evaluate_xpath(expr))
-            if self._context_stack.has_variable(var_name):
-                return self._context_stack.get_variable(var_name)
-            if self.strict:
-                raise UndefinedVariableError(var_name)
-            return None
+            # Check if this is a pure variable reference (no operators like + - * / etc.)
+            # A pure variable name contains only alphanumeric, underscore, and optionally /
+            is_pure_var = all(c.isalnum() or c in '_/' for c in var_name)
+            if is_pure_var:
+                if '/' in var_name:
+                    return self._unwrap_value(self._evaluate_xpath(expr))
+                if self._context_stack.has_variable(var_name):
+                    return self._context_stack.get_variable(var_name)
+                if self.strict:
+                    raise UndefinedVariableError(var_name)
+                return None
+            # else: fall through to operator parsing below
+
+        # 2b. Parenthesized expression - strip outer parentheses and evaluate
+        if expr.startswith('(') and expr.endswith(')'):
+            # Check if this is a complete parenthesized expression (balanced)
+            depth = 0
+            is_balanced = True
+            for i, char in enumerate(expr):
+                if char == '(': depth += 1
+                elif char == ')': depth -= 1
+                # If depth becomes 0 before the end, parentheses are not balanced
+                if depth == 0 and i < len(expr) - 1:
+                    is_balanced = False
+                    break
+            if is_balanced and depth == 0:
+                # Strip outer parentheses and evaluate inner expression
+                inner = expr[1:-1].strip()
+                return self._evaluate_expression(inner)
 
         # Helper to find operators NOT inside parentheses or brackets
+        # For left-associative operators (like div), we need to find the LAST occurrence
+        # to ensure (a div b div c) is computed as ((a div b) div c)
         def find_top_level_op(s: str, ops: List[str]) -> Optional[Tuple[str, str, str]]:
             depth = 0
             in_quote = None
+            last_found = None  # Track the last found operator position
+
             for i in range(len(s)):
                 char = s[i]
                 if char in ('"', "'"):
                     if in_quote == char: in_quote = None
                     elif in_quote is None: in_quote = char
                 if in_quote: continue
-                
+
                 if char in ('(', '['): depth += 1
                 elif char in (')', ']'): depth -= 1
                 elif depth == 0:
@@ -815,21 +871,28 @@ class Renderer:
                                 prev_char = s[i-1] if i > 0 else None
                                 if prev_char == '/':
                                     continue # Skip '/' followed by '*' as it's XPath
-                                    
+
                             # Ensure it's not a substring of a larger identifier
                             # if it's a word operator like 'div'
-                            if op.strip().isalpha():
-                                # Check boundaries if it's a word
-                                before = s[i-1] if i > 0 else ' '
-                                after = s[i+len(op)] if i+len(op) < len(s) else ' '
-                                if not (before.isalnum() or before == '_') and \
-                                   not (after.isalnum() or after == '_'):
-                                    return op, s[:i], s[i+len(op):]
+                            stripped_op = op.strip()
+                            if stripped_op.isalpha():
+                                # For operators with surrounding spaces (like ' div '),
+                                # the spaces already serve as word boundaries
+                                if op != stripped_op:
+                                    # Operator has surrounding spaces, no extra boundary check needed
+                                    last_found = (op, s[:i], s[i+len(op):])
+                                else:
+                                    # Check boundaries if it's a word without spaces
+                                    before = s[i-1] if i > 0 else ' '
+                                    after = s[i+len(op)] if i+len(op) < len(s) else ' '
+                                    if not (before.isalnum() or before == '_') and \
+                                       not (after.isalnum() or after == '_'):
+                                        last_found = (op, s[:i], s[i+len(op):])
                             else:
-                                # For symbol operators, just return
-                                return op, s[:i], s[i+len(op):]
+                                # For symbol operators, record it
+                                last_found = (op, s[:i], s[i+len(op):])
 
-            return None
+            return last_found
 
         # 3. Logical Operators (Top-level only, lowest precedence)
         and_parts = self._split_top_level(expr, [' and '])
@@ -891,9 +954,9 @@ class Renderer:
                     try:
                         l_v = float(left_val) if not isinstance(left_val, (int, float)) else left_val
                         r_v = float(right_val) if not isinstance(right_val, (int, float)) else right_val
-                        
+
                         clean_op = op.strip()
-                        if clean_op == '+': 
+                        if clean_op == '+':
                             if isinstance(left_val, str) or isinstance(right_val, str):
                                 return str(left_val) + str(right_val)
                             return l_v + r_v
@@ -901,7 +964,8 @@ class Renderer:
                         if clean_op == '*': return l_v * r_v
                         if clean_op == 'div': return l_v / r_v if r_v != 0 else None
                         if clean_op == 'mod': return l_v % r_v
-                    except: pass
+                    except:
+                        pass
                     return None
 
 

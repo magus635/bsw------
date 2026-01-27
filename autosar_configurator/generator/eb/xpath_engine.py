@@ -68,14 +68,20 @@ class XPathEngine:
             parts = xpath.split('/', 1)
             var_name = parts[0][1:] # Strip $
             if self.context_stack.has_variable(var_name):
-                start_node = self.context_stack.get_variable(var_name)
+                var_value = self.context_stack.get_variable(var_name)
                 # If variable holds a Node (like from node:ref), use it as context
-                if hasattr(start_node, 'node_type'):
+                if hasattr(var_value, 'node_type'):
                     if len(parts) > 1:
                         # Continue navigation relative to this node
-                        return self._evaluate_relative(parts[1], start_node)
+                        return self._evaluate_relative(parts[1], var_value)
                     else:
-                        return start_node
+                        return var_value
+                else:
+                    # Variable holds a primitive value (string, number, bool, list)
+                    return var_value
+            else:
+                # Variable not defined - return None/empty (common when Resource module not loaded)
+                return None
 
         
         return self._evaluate_relative(xpath)
@@ -209,7 +215,7 @@ class XPathEngine:
                     # Strip leading / from rest_path if it's there
                     if rest_path.startswith('/'):
                         rest_path = rest_path[1:]
-                    
+
                     if rest_path:
                         # Handle predicates [n]
                         if rest_path.startswith('['):
@@ -217,19 +223,41 @@ class XPathEngine:
                              bracket_depth = 0
                              for i, char in enumerate(rest_path):
                                  if char == '[': bracket_depth += 1
-                                 elif char == ']': 
+                                 elif char == ']':
                                      bracket_depth -= 1
                                      if bracket_depth == 0:
                                          pred_str = rest_path[1:i]
-                                         # Make result iterable if it isn't list
-                                         res_list = result if isinstance(result, list) else [result]
-                                         result = self._apply_predicates(res_list, [pred_str])
-                                         # Unwrap if single item
-                                         if isinstance(result, list) and len(result) == 1:
-                                             result = result[0]
-                                         elif isinstance(result, list) and not result:
-                                             result = None
-                                             
+
+                                         # Special handling for simple lists (e.g., from text:split)
+                                         # If result is a list of non-node items, handle index directly
+                                         if isinstance(result, list) and result and not hasattr(result[0], 'node_type'):
+                                             # Try to get numeric index
+                                             idx = None
+                                             if pred_str.isdigit():
+                                                 idx = int(pred_str) - 1  # XPath is 1-indexed
+                                             elif '(' in pred_str and ')' in pred_str:
+                                                 # Evaluate expression like num:i($ModuleIndex)
+                                                 try:
+                                                     eval_result = self.evaluate(pred_str)
+                                                     if isinstance(eval_result, (int, float)):
+                                                         idx = int(eval_result) - 1
+                                                 except:
+                                                     pass
+
+                                             if idx is not None and 0 <= idx < len(result):
+                                                 result = result[idx]
+                                             else:
+                                                 result = None
+                                         else:
+                                             # Standard node list handling
+                                             res_list = result if isinstance(result, list) else [result]
+                                             result = self._apply_predicates(res_list, [pred_str])
+                                             # Unwrap if single item
+                                             if isinstance(result, list) and len(result) == 1:
+                                                 result = result[0]
+                                             elif isinstance(result, list) and not result:
+                                                 result = None
+
                                          rest_path = rest_path[i+1:]
                                          break
                         
@@ -398,15 +426,32 @@ class XPathEngine:
                                     next_nodes.append(c_node)
                                     child = c_node
                                     break
-                            
+
                             if child:
                                 continue
 
+                            # EB Tresos implicit instance traversal:
+                            # If we're at a container definition and can't find the child directly,
+                            # look inside all instance children (e.g., AdcConfigSet -> AdcConfigSet_0 -> AdcHwUnit)
+                            # This supports paths like "AdcConfigSet/AdcHwUnit/*" where AdcHwUnit is under instances
+                            for c_name, c_node in n.children.items():
+                                # Check if this child is an instance of the current container
+                                # (has same definition_ref or name starts with parent's name)
+                                is_instance = (
+                                    c_node.definition_ref and
+                                    (c_node.definition_ref == n.definition_ref or
+                                     c_node.definition_ref.endswith(f"/{n.short_name}"))
+                                )
+                                if is_instance and hasattr(c_node, 'children'):
+                                    # Look for the target name inside this instance
+                                    instance_child = c_node.get_child(name)
+                                    if instance_child:
+                                        next_nodes.append(instance_child)
 
                             # Fallback: check if we have a transparent container issue
                             # e.g. parent 'CanHwFilter' contains child 'CanHwFilter'?
                             # In some ARXMLs, SUB-CONTAINER logic might result in strict nesting
-                            # If we didn't find 'CanHwFilterCode' in 'CanHwFilter', 
+                            # If we didn't find 'CanHwFilterCode' in 'CanHwFilter',
                             # check if 'CanHwFilter' has a child 'CanHwFilter' (sub-container)
                             if n.short_name == 'CanHwFilter' and 'CanHwFilter' in n.children:
                                 sub = n.get_child('CanHwFilter')
@@ -424,7 +469,7 @@ class XPathEngine:
                                 if c.definition_ref and (c.definition_ref == name or c.definition_ref.endswith(f"/{name}")):
                                     next_nodes.append(c)
                                     found_by_def = True
-                            
+
                             if not found_by_def:
                                 pass
 
@@ -470,12 +515,15 @@ class XPathEngine:
         return results
     
     def _apply_predicates(self, nodes: List['ConfigurationNode'], predicates: List[str]) -> List['ConfigurationNode']:
-        """Apply predicate filters to node list"""
+        """Apply predicate filters to node list.
+
+        Also handles simple lists (e.g., from text:split) when the predicate is a numeric index.
+        """
         result = nodes
-        
+
         for pred in predicates:
             pred = pred.strip()
-            
+
             # Numeric index [1], [2], etc.
             if pred.isdigit():
                 idx = int(pred) - 1  # XPath is 1-indexed
@@ -484,12 +532,28 @@ class XPathEngine:
                 else:
                     result = []
                 continue
-            
+
             # last() function
             if pred == 'last()' or pred == 'last':
                 result = [result[-1]] if result else []
                 continue
-            
+
+            # Try to evaluate the predicate as an expression that returns a number
+            # This handles cases like [num:i($ModuleIndex)] used with text:split
+            if '(' in pred and ')' in pred:
+                try:
+                    # Evaluate the predicate expression
+                    eval_result = self.evaluate(pred)
+                    if isinstance(eval_result, (int, float)):
+                        idx = int(eval_result) - 1  # XPath is 1-indexed
+                        if 0 <= idx < len(result):
+                            result = [result[idx]]
+                        else:
+                            result = []
+                        continue
+                except:
+                    pass  # Fall through to other predicate handling
+
             # Attribute filter [@name='value']
             attr_match = re.match(r"@(\w+)\s*=\s*['\"]([^'\"]+)['\"]", pred)
             if attr_match:
@@ -497,10 +561,10 @@ class XPathEngine:
                 attr_value = attr_match.group(2)
                 result = [n for n in result if self._check_attribute(n, attr_name, attr_value)]
                 continue
-            
+
             # General condition - evaluate as boolean
             result = [n for n in result if self._evaluate_predicate_condition(n, pred)]
-        
+
         return result
     
     def _check_attribute(self, node: 'ConfigurationNode', attr: str, value: str) -> bool:

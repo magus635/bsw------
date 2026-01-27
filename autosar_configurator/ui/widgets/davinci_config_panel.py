@@ -1326,68 +1326,81 @@ class DaVinciConfigPanel(QWidget):
         """Recursively add matching containers to combobox"""
         # Calculate full path for display
         display_name = f"{prefix}/{container.short_name}" if prefix else container.short_name
-        
+
         # Use container's actual absolute path for value
         path = container.get_path()
-        
+
         # Avoid duplicate entries
         if added_paths is not None:
             if path in added_paths:
                 return
             added_paths.add(path)
-        
+
         # Check if this container is a valid target
         container_def_ref = container.definition_ref or ""
-        dest_ref = ref_def.destination_ref or ""
-        
-        # Match strategies:
+
+        # Get all valid destination refs (for choice references, check all destinations)
+        destination_refs = []
+        if hasattr(ref_def, 'choice_destination_refs') and ref_def.choice_destination_refs:
+            destination_refs = ref_def.choice_destination_refs
+        elif ref_def.destination_ref:
+            destination_refs = [ref_def.destination_ref]
+
+        # Match strategies - check against all destination refs
         is_match = False
-        
-        # Strategy 1: Exact match
-        if container_def_ref == dest_ref:
-            is_match = True
-        
-        # Strategy 2: Container def ref ends with destination ref (for partial paths)
-        elif dest_ref and container_def_ref.endswith(dest_ref):
-            is_match = True
-            
-        # Strategy 3: Destination ref ends with container's definition ref path
-        # (more strict - require the full container type path to match)
-        elif container_def_ref and dest_ref:
-            # Extract container type from definition_ref (e.g., "AdcChannel" from ".../AdcChannel")
-            container_type = container_def_ref.split('/')[-1] if container_def_ref else ""
-            dest_type = dest_ref.split('/')[-1] if dest_ref else ""
-            
-            # Only match if types are equal AND the container's module path matches
-            # This prevents matching AdcChannel from Crypto module when looking for Adc's AdcChannel
-            if container_type and dest_type and container_type == dest_type:
-                # Additional check: verify the module context makes sense
-                # Extract module name from destination ref (e.g., /AUTOSAR/EcucDefs/Adc/... -> Adc)
-                dest_parts = dest_ref.split('/')
-                container_parts = container_def_ref.split('/')
-                
-                # Get module name (typically after /AUTOSAR/EcucDefs/)
-                dest_module = None
-                for i, part in enumerate(dest_parts):
-                    if part == "EcucDefs" and i + 1 < len(dest_parts):
-                        dest_module = dest_parts[i + 1]
+
+        for dest_ref in destination_refs:
+            if is_match:
+                break
+
+            # Strategy 1: Exact match
+            if container_def_ref == dest_ref:
+                is_match = True
+                break
+
+            # Strategy 2: Container def ref ends with destination ref (for partial paths)
+            elif dest_ref and container_def_ref.endswith(dest_ref):
+                is_match = True
+                break
+
+            # Strategy 3: Destination ref ends with container's definition ref path
+            # (more strict - require the full container type path to match)
+            elif container_def_ref and dest_ref:
+                # Extract container type from definition_ref (e.g., "AdcChannel" from ".../AdcChannel")
+                container_type = container_def_ref.split('/')[-1] if container_def_ref else ""
+                dest_type = dest_ref.split('/')[-1] if dest_ref else ""
+
+                # Only match if types are equal AND the container's module path matches
+                # This prevents matching AdcChannel from Crypto module when looking for Adc's AdcChannel
+                if container_type and dest_type and container_type == dest_type:
+                    # Additional check: verify the module context makes sense
+                    # Extract module name from destination ref (e.g., /AUTOSAR/EcucDefs/Adc/... -> Adc)
+                    dest_parts = dest_ref.split('/')
+                    container_parts = container_def_ref.split('/')
+
+                    # Get module name (typically after /AUTOSAR/EcucDefs/)
+                    dest_module = None
+                    for i, part in enumerate(dest_parts):
+                        if part == "EcucDefs" and i + 1 < len(dest_parts):
+                            dest_module = dest_parts[i + 1]
+                            break
+
+                    container_module = None
+                    for i, part in enumerate(container_parts):
+                        if part == "EcucDefs" and i + 1 < len(container_parts):
+                            container_module = container_parts[i + 1]
+                            break
+
+                    # Only match if modules are the same (or if we couldn't determine module)
+                    if dest_module is None or container_module is None or dest_module == container_module:
+                        is_match = True
                         break
-                
-                container_module = None
-                for i, part in enumerate(container_parts):
-                    if part == "EcucDefs" and i + 1 < len(container_parts):
-                        container_module = container_parts[i + 1]
-                        break
-                
-                # Only match if modules are the same (or if we couldn't determine module)
-                if dest_module is None or container_module is None or dest_module == container_module:
-                    is_match = True
-        
+
         if is_match:
             # Build enhanced display name with parameter values
             enhanced_name = self._build_enhanced_display_name(container, display_name)
             combo.addItem(enhanced_name, path)
-        
+
         # Add sub-containers recursively
         for sub in container.sub_containers:
             self._add_reference_targets(combo, sub, ref_def, display_name, added_paths=added_paths)

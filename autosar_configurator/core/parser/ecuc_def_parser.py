@@ -134,8 +134,8 @@ class EcucDefParser:
         current_path = f"{parent_path}/{short_name}" if parent_path else short_name
         container_def.definition_ref = current_path
         
-        # Parse PARAMETERS
-        params_elem = self._find_descendant(element, 'PARAMETERS')
+        # Parse PARAMETERS (only direct children)
+        params_elem = self._find_child(element, 'PARAMETERS')
         if params_elem is not None:
             # Iterate over children directly to catch different parameter types
             for param_elem in params_elem:
@@ -144,17 +144,22 @@ class EcucDefParser:
                     if param_def:
                         container_def.add_parameter(param_def)
         
-        # Parse REFERENCES
-        refs_elem = self._find_descendant(element, 'REFERENCES')
+        # Parse REFERENCES (only direct children, not descendants)
+        refs_elem = self._find_child(element, 'REFERENCES')
         if refs_elem is not None:
-            # Find only immediate reference defs
+            # Find only immediate reference defs (both standard and choice references)
             for ref_elem in self._findall_children(refs_elem, 'ECUC-REFERENCE-DEF'):
                 ref_def = self._parse_reference_def(ref_elem, current_path)
                 if ref_def:
                     container_def.add_reference(ref_def)
+            # Also parse ECUC-CHOICE-REFERENCE-DEF (multi-destination references)
+            for ref_elem in self._findall_children(refs_elem, 'ECUC-CHOICE-REFERENCE-DEF'):
+                ref_def = self._parse_choice_reference_def(ref_elem, current_path)
+                if ref_def:
+                    container_def.add_reference(ref_def)
         
-        # Parse SUB-CONTAINERS (recursive)
-        sub_conts_elem = self._find_descendant(element, 'SUB-CONTAINERS')
+        # Parse SUB-CONTAINERS (recursive, only direct children)
+        sub_conts_elem = self._find_child(element, 'SUB-CONTAINERS')
         if sub_conts_elem is not None:
             # Find only immediate sub-container defs
             for sub_cont_elem in self._findall_children(sub_conts_elem, 'ECUC-PARAM-CONF-CONTAINER-DEF'):
@@ -276,9 +281,50 @@ class EcucDefParser:
         
         # Set definition reference path
         ref_def.definition_ref = f"{parent_path}/{short_name}"
-        
+
         return ref_def
-    
+
+    def _parse_choice_reference_def(self, element: etree._Element, parent_path: str = "") -> Optional[EcucReferenceDef]:
+        """Parse ECUC-CHOICE-REFERENCE-DEF element (multi-destination reference).
+
+        Choice references allow pointing to multiple possible container types.
+        E.g., ResourceModuleRef can point to AdcHwUnit, CanController, etc.
+        """
+        short_name = self._get_short_name(element)
+        if not short_name:
+            return None
+
+        ref_def = EcucReferenceDef(
+            short_name=short_name,
+            description=self._get_description(element)
+        )
+
+        # Parse DESTINATION-REFS (multiple destination references)
+        dest_refs_elem = self._find_descendant(element, 'DESTINATION-REFS')
+        destination_refs = []
+        if dest_refs_elem is not None:
+            for dest_ref_elem in self._findall_descendants(dest_refs_elem, 'DESTINATION-REF'):
+                dest_text = dest_ref_elem.text
+                if dest_text:
+                    destination_refs.append(dest_text.strip())
+
+        # Use first destination as primary, store all as choice_destination_refs
+        if destination_refs:
+            ref_def.destination_ref = destination_refs[0]
+            ref_def.destination_type = 'ECUC-PARAM-CONF-CONTAINER-DEF'
+
+        # Store all choice destinations for UI display
+        ref_def.choice_destination_refs = destination_refs
+
+        # Parse multiplicity
+        ref_def.lower_multiplicity = self._get_int_value(element, 'LOWER-MULTIPLICITY', 0)
+        ref_def.upper_multiplicity = self._get_int_value(element, 'UPPER-MULTIPLICITY', 1)
+
+        # Set definition reference path
+        ref_def.definition_ref = f"{parent_path}/{short_name}"
+
+        return ref_def
+
     def _parse_literals(self, element: etree._Element) -> List[str]:
         """Parse enumeration literals"""
         literals = []
@@ -336,10 +382,15 @@ class EcucDefParser:
         elems = element.findall(f"ar:{tag_name}", self.NAMESPACES)
         if elems:
             return elems
-            
+
         # 2. XPath local-name
         xpath = f"./*[local-name()='{tag_name}']"
         return element.xpath(xpath)
+
+    def _find_child(self, element: etree._Element, tag_name: str) -> Optional[etree._Element]:
+        """Find first immediate child with tag_name, ignoring namespace"""
+        children = self._findall_children(element, tag_name)
+        return children[0] if children else None
 
     def _get_short_name(self, element: etree._Element) -> Optional[str]:
         """Extract SHORT-NAME from element (direct child)"""

@@ -118,48 +118,55 @@ class SymbolTable:
     
     def resolve_reference(self, ref_path: str) -> Optional[ConfigurationNode]:
         """Resolve a reference path to its target node.
-        
+
         Args:
             ref_path: Reference path like /AUTOSAR/EcucDefs/Mcu/McuConfig/...
-            
+
         Returns:
             Target ConfigurationNode or None
         """
+        from .renderer import _debug_log
+        _debug_log(f"resolve_reference: Resolving '{ref_path}'")
+        _debug_log(f"resolve_reference: Available modules: {list(self._modules.keys())}")
+
         # Try direct path lookup first
         if ref_path in self._path_index:
+            _debug_log(f"resolve_reference: Found in path_index")
             return self._path_index[ref_path]
 
 
-        
+
         # Try to parse and resolve
         parts = [p for p in ref_path.split('/') if p]
         if not parts:
             return None
-            
-        
+
+
         # Check if it starts with a known module
 
         for module_name, root in self._modules.items():
             # Module names are stored in lowercase, so compare case-insensitively
             p0_lower = parts[0].lower()
             p1_lower = parts[1].lower() if len(parts) > 1 else ""
-            
+            module_name_lower = module_name.lower()
+
             is_match = False
             start_idx = 0
-            
-            if p0_lower == module_name:
+
+            if p0_lower == module_name_lower:
                 is_match = True
                 start_idx = 1
-            elif p1_lower == module_name:
+            elif p1_lower == module_name_lower:
                 # Handle /AUTOSAR/EcucDefs/Mcu or similar prefixes where module is second
                 is_match = True
                 start_idx = 2
-                
+
             if is_match:
+                _debug_log(f"resolve_reference: Matched module '{module_name}', navigating from index {start_idx}")
                 # Navigate from module root
                 current = root
                 for part in parts[start_idx:]:
-
+                    _debug_log(f"resolve_reference: Looking for child '{part}' in '{current.short_name}' (children: {list(current.children.keys())})")
                     child = current.get_child(part)
                     if child is None:
                         # Fallback: check for wrapper containers (EB Tresos structural mismatch)
@@ -172,15 +179,18 @@ class SymbolTable:
                                 if inner:
                                     child = inner
                                     found_in_wrapper = True
+                                    _debug_log(f"resolve_reference: Found '{part}' in wrapper '{wrapper.short_name}'")
                                     break
-                        
+
                         if not found_in_wrapper:
-                             return None
-                    
+                            _debug_log(f"resolve_reference: Child '{part}' NOT FOUND")
+                            return None
+
                     current = child
+                _debug_log(f"resolve_reference: Successfully resolved to '{current.path}'")
                 return current
 
-        
+        _debug_log(f"resolve_reference: No matching module found for path '{ref_path}'")
         return None
     
     def get_all_modules(self) -> List[str]:
