@@ -271,15 +271,19 @@ class DaVinciConfigPanel(QWidget):
         self.current_instance = None
         self.current_def = container_def
         self.project = None
-        
+
         self.empty_label.hide()
-        
+
         # Show definition info
         self.name_label.setText(f"{container_def.short_name} (Definition)")
         self.def_label.setText(container_def.definition_ref)
         self.mult_label.setText(f"{container_def.multiplicity_str} {'(Required)' if container_def.is_required else '(Optional)'}")
         self.general_group.show()
-        
+
+        # Clear existing cell widgets before repopulating (prevent ghost overlays)
+        for row in range(self.params_table.rowCount()):
+            self.params_table.removeCellWidget(row, 1)
+
         # Show parameter definitions (no values)
         self.params_table.setRowCount(len(container_def.parameters))
         for row, (param_name, param_def) in enumerate(container_def.parameters.items()):
@@ -287,25 +291,27 @@ class DaVinciConfigPanel(QWidget):
             name_item = QTableWidgetItem(param_def.short_name)
             name_item.setToolTip(self._get_parameter_tooltip(param_def))
             self.params_table.setItem(row, 0, name_item)
-            
+
             # Value column: show "Not set" for definition view
+            # First remove any cellWidget that might exist from instance view
+            self.params_table.removeCellWidget(row, 1)
             value_item = QTableWidgetItem("(No instance selected)")
             value_item.setForeground(Qt.gray)
             self.params_table.setItem(row, 1, value_item)
-            
+
             # Type
             type_item = QTableWidgetItem(param_def.param_type.name)
             self.params_table.setItem(row, 2, type_item)
-            
+
             # Constraint
             constraint = self._get_constraint_text(param_def)
             constraint_item = QTableWidgetItem(constraint)
             self.params_table.setItem(row, 3, constraint_item)
-            
+
             # Required
             req_item = QTableWidgetItem("*" if param_def.is_required else "")
             self.params_table.setItem(row, 4, req_item)
-        
+
         self.params_table.resizeColumnsToContents()
         self.parameters_group.show()
         self.references_group.hide()  # Ensure references are hidden in definition mode
