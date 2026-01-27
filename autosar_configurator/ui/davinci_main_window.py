@@ -1487,7 +1487,11 @@ class DaVinciMainWindow(QMainWindow):
 
                 # Calculate project template directory (project_dir/templates)
                 if self.current_project_file:
-                    project_dir = self.current_project_file.parent
+                    # Handle both file paths (.dpa) and directory paths (EB projects)
+                    if self.current_project_file.is_dir():
+                        project_dir = self.current_project_file
+                    else:
+                        project_dir = self.current_project_file.parent
                     project_template_dir = project_dir / "templates"
                     if not project_template_dir.exists():
                         logger.info(f"Project template directory not found at: {project_template_dir}")
@@ -1575,7 +1579,8 @@ class DaVinciMainWindow(QMainWindow):
                         all_configurations=self.all_configs
                     )
                     # Pass parent output path; generator.generate_all() will handle the ModuleName/ subdirectory
-                    generated = generator.generate_all(self.out_path, force=False, variant=self.variant_name)
+                    variant_to_use = self.variant_name if self.variant_name else "Default"
+                    generated = generator.generate_all(self.out_path, force=False, variant=variant_to_use)
                     
                     status = "GEN" if generated else "SKIP"
                     self.signals.finished.emit(self.name, status, "")

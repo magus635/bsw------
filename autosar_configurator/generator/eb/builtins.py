@@ -117,7 +117,10 @@ class BuiltinFunctions:
         func = self._functions.get(name)
         if func is None:
             raise NameError(f"Unknown function: {name}")
-        return func(*args)
+        try:
+            return func(*args)
+        except Exception as e:
+            raise e
     
     # ========== Node Functions ==========
     
@@ -237,17 +240,14 @@ class BuiltinFunctions:
         if isinstance(path_or_node, str):
             # If it's a string, attempt to resolve it as a reference path
             res = self.symbol_table.resolve_reference(path_or_node)
-            # print(f"DEBUG_NODEREF: '{path_or_node}' -> {res}")
             return res
             
         # If it's a node, it must be of type 'reference'
         target_path = path_or_node.get_value()
         if not target_path:
-             # print(f"DEBUG_NODEREF: Node {path_or_node.short_name} has empty value")
              return None
 
         res = self.symbol_table.resolve_reference(str(target_path))
-        # print(f"DEBUG_NODEREF: Node {path_or_node.short_name} ('{target_path}') -> {res}")
         return res
 
         
@@ -258,17 +258,43 @@ class BuiltinFunctions:
         return self.symbol_table.resolve_reference(ref_path)
     
     def node_exists(self, path_or_node) -> bool:
-        """Check if a path or node exists"""
+        """Check if a path or node exists.
+        
+        Handles:
+        1. String: Relative or absolute path check.
+        2. Node: Returns True.
+        3. List: Returns True if non-empty.
+        """
         if path_or_node is None:
             return False
+            
+        if isinstance(path_or_node, list):
+            return len(path_or_node) > 0
+            
+        if hasattr(path_or_node, 'short_name') or hasattr(path_or_node, 'node_type'):
+            # It's already a node
+            return True
+            
         if isinstance(path_or_node, str):
             if path_or_node.startswith('/'):
                 return self.symbol_table.get_by_path(path_or_node) is not None
             else:
                 current = self.context_stack.current_node()
                 if current:
-                    return current.get_child(path_or_node) is not None
+                    # Check if it's a child name
+                    child = current.get_child(path_or_node)
+                    if child is not None: return True
+                    # Check if it's an XPath from current context
+                    try:
+                        res = self.renderer._xpath_engine.evaluate(path_or_node)
+                        if res is not None:
+                             if isinstance(res, list): return len(res) > 0
+                             return True
+                    except:
+                        pass
                 return False
+        
+        return bool(path_or_node)
         return True  # Node object exists
     
     def node_refexists(self, path_or_node) -> bool:
@@ -716,26 +742,33 @@ class BuiltinFunctions:
         return "v2" # Match user's current context
     
     def count(self, items) -> int:
-        """Count items in a collection or node's children."""
+        """Count items in a collection or node's children.
+        
+        EB Templates often use count(XPath) where XPath might return a single node or a list.
+        """
         if items is None:
             return 0
-
-
+            
         if isinstance(items, list):
             return len(items)
-        if hasattr(items, 'short_name'):
-            # It's a single ConfigurationNode
+            
+        if hasattr(items, 'short_name') or hasattr(items, 'node_type'):
+            # It's a single ConfigurationNode (wrapped or overlay)
             return 1
-        
-        # For non-node, non-list items, if it's truthy, return 1?
-        # Actually, in most EB templates, if you count a simple value, it's 1 if present.
-        # But we must avoid len(string) which counts characters.
+            
+        # For non-node, non-list items (like simple strings or numbers)
+        # If it's a string, we treat it as 1 item (don't count characters!)
         if isinstance(items, str):
             return 1 if items else 0
             
+        # collections/iterables except strings/bytes
         if hasattr(items, '__len__') and not isinstance(items, (str, bytes)):
-            return len(items)
-            
+            try:
+                return len(items)
+            except:
+                pass
+                
+        # Default truthiness count
         return 1 if items else 0
 
     

@@ -72,91 +72,18 @@ class CodeGenerator:
         if variant_overrides:
             logger.info(f"Variant overrides: {len(variant_overrides)} parameters")
     
-    def _load_template(self, template_name: str, module_name: str = None) -> str:
-        """Load template from file system with module, project and variant support.
-        
-        Search order:
-        1. Project Variant: project_dir/templates/ModuleName/VariantName/ModuleName_template_name
-        2. Project Module: project_dir/templates/ModuleName/ModuleName_template_name
-        3. Project Generic: project_dir/templates/template_name
-        4. User Variant: user_dir/ModuleName/VariantName/ModuleName_template_name
-        5. User Module: user_dir/ModuleName/ModuleName_template_name
-        6. User Generic: user_dir/template_name
-        7. Built-in Module: templates/ModuleName/ModuleName_template_name
-        8. Built-in Generic: templates/template_name
-        9. Fallback to hardcoded template (return None)
+    def _load_template(self, template_name: str, module_name: str = None) -> Optional[str]:
+        """Load template content, searching across project, user, and default directories.
         
         Args:
-            template_name: Name of template file (e.g., "Cfg.h.tpl")
-            module_name: Optional module name for module-specific lookup
+            template_name: Name of template (e.g., 'Cfg.h.tpl')
+            module_name: Optional module name to narrow search
             
         Returns:
-            Template content as string, or None to use fallback
+            Template content string or None
         """
-        search_paths = []
-        variant = self.variant_name
-        
-        def find_case_insensitive_dir(parent: Path, target_name: str) -> Optional[Path]:
-            """Find directory by name, case-insensitive"""
-            if not parent.exists():
-                return None
-            for item in parent.iterdir():
-                if item.is_dir() and item.name.lower() == target_name.lower():
-                    return item
-            return None
-        
-        def add_search_paths_for_dir(base_dir: Path, mod_name: str):
-            """Add search paths for a base directory, handling case-insensitivity"""
-            if not base_dir or not base_dir.exists():
-                return
-            
-            # Try exact match first, then case-insensitive
-            module_dir = base_dir / mod_name
-            if not module_dir.exists():
-                module_dir = find_case_insensitive_dir(base_dir, mod_name)
-            
-            if module_dir and module_dir.exists():
-                if variant:
-                    variant_dir = module_dir / variant
-                    if not variant_dir.exists():
-                        variant_dir = find_case_insensitive_dir(module_dir, variant)
-                    if variant_dir:
-                        # With .tpl suffix
-                        search_paths.append(variant_dir / f"{mod_name}_{template_name}")
-                        # Without .tpl suffix (for EB Tresos style templates)
-                        if template_name.endswith('.tpl'):
-                            search_paths.append(variant_dir / f"{mod_name}_{template_name[:-4]}")
-                
-                # Module directory
-                search_paths.append(module_dir / f"{mod_name}_{template_name}")
-                if template_name.endswith('.tpl'):
-                    search_paths.append(module_dir / f"{mod_name}_{template_name[:-4]}")
-            
-            # Generic templates
-            search_paths.append(base_dir / f"Module_{template_name}")
-        
-        # 1. Project templates
-        if self.project_template_dir and module_name:
-            add_search_paths_for_dir(self.project_template_dir, module_name)
-        
-        # 2. User templates
-        if self.user_template_dir and module_name:
-            add_search_paths_for_dir(self.user_template_dir, module_name)
-        
-        # 3. Built-in templates
-        if module_name:
-            add_search_paths_for_dir(self.DEFAULT_TEMPLATE_DIR, module_name)
-        search_paths.append(self.DEFAULT_TEMPLATE_DIR / f"Module_{template_name}")
-        
-        # Try each path in order
-        for path in search_paths:
-            if path.exists():
-                logger.info(f"Loading template: {path}")
-                return path.read_text(encoding='utf-8')
-        
-        # No template found, return None to use hardcoded fallback
-        logger.debug(f"No external template found for {template_name}, using fallback")
-        return None
+        content, _ = self._load_template_with_path(template_name, module_name)
+        return content
         
     def generate_all(self, output_dir: Path, force: bool = False, variant: Optional[str] = None) -> bool:
         """Generate all code files by discovering templates in search directories"""

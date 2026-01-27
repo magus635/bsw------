@@ -136,18 +136,6 @@ class SymbolTable:
         if not parts:
             return None
             
-        # DEBUG: Trace resolution
-        if 'CanController' in ref_path:
-           print(f"DEBUG_RESOLVE: {ref_path}")
-           print(f"DEBUG_RESOLVE: PathIndex has {len(self._path_index)} entries")
-           if ref_path in self._path_index:
-                print("DEBUG_RESOLVE: Found in Index")
-           else:
-                print(f"DEBUG_RESOLVE: NOT in Index. Modules: {list(self._modules.keys())}")
-                # Try finding similar paths
-                # matches = [k for k in self._path_index.keys() if 'CanController' in k]
-                # print(f"DEBUG_RESOLVE: Similar paths: {matches[:5]}...")
-
         
         # Check if it starts with a known module
 

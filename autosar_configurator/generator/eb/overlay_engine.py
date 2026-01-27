@@ -322,13 +322,29 @@ class OverlayEngine:
         # Add parameters
         params_source = getattr(config_instance, 'parameter_values', {}) or \
                         {k: v for k, v in getattr(config_instance, 'children', {}).items() if hasattr(v, 'value') and not hasattr(v, 'value_ref')}
-        
-        # DEBUG: Check CanController_1 params
-        if config_instance.short_name == 'CanController_1':
-             print(f"DEBUG_OVERLAY: Creating node for {config_instance.short_name}")
-             print(f"DEBUG_OVERLAY: params_source keys: {list(params_source.keys())}")
-             if 'CanControllerId' in params_source:
-                 print(f"DEBUG_OVERLAY: CanControllerId value = {params_source['CanControllerId'].value}")
+
+        # DEBUG: Check CanController params for CanFDSupport issue
+        if 'CanController' in config_instance.short_name:
+            print(f"\n{'='*60}")
+            print(f"DEBUG_OVERLAY: Creating node for '{config_instance.short_name}'")
+            print(f"DEBUG_OVERLAY: Definition params: {list(container_def.parameters.keys())}")
+            print(f"DEBUG_OVERLAY: Config params: {list(params_source.keys())}")
+
+            # Check CanFDSupport specifically
+            if 'CanFDSupport' in params_source:
+                print(f"DEBUG_OVERLAY: ✓ Config HAS CanFDSupport = '{params_source['CanFDSupport'].value}'")
+            else:
+                print(f"DEBUG_OVERLAY: ✗ Config MISSING CanFDSupport")
+
+            if 'CanFDSupport' in container_def.parameters:
+                print(f"DEBUG_OVERLAY: ✓ Definition HAS CanFDSupport")
+            else:
+                print(f"DEBUG_OVERLAY: ✗ Definition MISSING CanFDSupport - THIS IS THE PROBLEM!")
+                # Show similar parameter names that might be a case mismatch
+                similar = [p for p in container_def.parameters.keys() if 'fd' in p.lower() or 'support' in p.lower()]
+                if similar:
+                    print(f"DEBUG_OVERLAY: Similar params in definition: {similar}")
+            print(f"{'='*60}\n")
 
         for param_name, param_def in container_def.parameters.items():
             param_node = self._create_parameter_node(
@@ -421,13 +437,6 @@ class OverlayEngine:
             lower_multiplicity=param_def.lower_multiplicity,
             upper_multiplicity=param_def.upper_multiplicity
         )
-        
-        # DEBUG
-        if param_def.short_name == 'CanControllerId':
-            print(f"DEBUG_OVERLAY_NODE: Created CanControllerId node with value={value} (type={type(value)})")
-            print(f"DEBUG_OVERLAY_NODE: Parent ID: {id(node)} Path: {node.path}")
-            
-        return node
 
 
     

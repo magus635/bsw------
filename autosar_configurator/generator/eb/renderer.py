@@ -305,19 +305,10 @@ class Renderer:
                 expr = self._strip_tag_quotes(token.content)
                 value = self._evaluate_expression(expr)
                 
-                # DEBUG: specific trace for CanControllerId
-                if 'CanControllerId' in expr:
-                    print(f"DEBUG_RENDER: Expr '{expr}' eval result type: {type(value)}")
-                    if isinstance(value, list) and value:
-                         print(f"DEBUG_RENDER: List item 0 type: {type(value[0])}")
-                         if hasattr(value[0], 'get_value'):
-                              print(f"DEBUG_RENDER: Item 0 value: {value[0].get_value()}")
-                
                 # Ensure value is unwrapped (get parameter value instead of node)
                 value = self._unwrap_value(value)
                 
-                if 'CanControllerId' in expr:
-                     print(f"DEBUG_RENDER: Unwrapped value: {value}")
+                value = self._unwrap_value(value)
 
                 output_str = str(value) if value is not None else ""
                 # Apply indentation if at line start
@@ -504,33 +495,83 @@ class Renderer:
             self._context_stack.set_variable(var_name, value)
 
     def _handle_trace(self, content: str):
-        """Handle [!TRACE "expression"!]"""
+        """Handle [!TRACE "expression"!]
+
+        TRACE outputs diagnostic messages during template rendering.
+        Supports:
+        - Variable interpolation: "'label' = $var" -> "label = value"
+        - Pure expression: count(...), $var -> evaluated result
+        """
         # Strip outer quotes if they wrap the entire content
         expr = self._strip_tag_quotes(content.strip())
 
         try:
-            value = self._evaluate_expression(expr)
-
-            # Ensure value is unwrapped
-            value = self._unwrap_value(value)
-            
-            # Format message
-            import pprint
-            if isinstance(value, (list, dict)):
-                val_str = pprint.pformat(value, indent=2)
+            # Check if this looks like a display string with variable references
+            # Pattern: contains $var that should be substituted
+            # Also, if the expression has '=' within quotes, it's likely a display pattern
+            # like "'name' = $var" rather than a comparison
+            if '$' in expr:
+                # Check if it looks like a label=value pattern: 'text' = $var or "text" = $var
+                # In this case, use interpolation instead of evaluation
+                if "' = $" in expr or '" = $' in expr or "' = " in expr:
+                    interpolated = self._interpolate_variables(expr)
+                    # Also strip the inner quotes from literals like 'text'
+                    interpolated = interpolated.replace("'", "")
+                    msg = f"[TRACE] {interpolated}"
+                else:
+                    # Pure variable reference like $var
+                    value = self._evaluate_expression(expr)
+                    value = self._unwrap_value(value)
+                    import pprint
+                    if isinstance(value, (list, dict)):
+                        val_str = pprint.pformat(value, indent=2)
+                    else:
+                        val_str = str(value)
+                    msg = f"[TRACE] {val_str}"
             else:
-                val_str = str(value)
-                
-            msg = f"[TRACE] {expr} = {val_str}"
+                # No variable reference - evaluate as expression
+                value = self._evaluate_expression(expr)
+                value = self._unwrap_value(value)
+
+                # Format message
+                import pprint
+                if isinstance(value, (list, dict)):
+                    val_str = pprint.pformat(value, indent=2)
+                else:
+                    val_str = str(value)
+                msg = f"[TRACE] {val_str}"
+
             _debug_log(msg)
-            
-            # Record in output buffer as a C comment for immediate visibility
-            # Trace bypasses NOCODE to assist debugging
+
+            # Trace goes to output buffer as a C comment.
             self._output_buffer.append(f"\n/* {msg} */\n")
         except Exception as e:
             _debug_log(f"[TRACE ERROR] Failed to evaluate {expr}: {e}")
             if self.strict:
                 raise
+
+    def _interpolate_variables(self, text: str) -> str:
+        """Interpolate $variable references in a string with their actual values.
+
+        Handles:
+        - $varname - simple variable reference
+        - ${varname} - braced variable reference (future)
+        """
+        import re
+
+        def replace_var(match):
+            var_name = match.group(1)
+            if self._context_stack.has_variable(var_name):
+                value = self._context_stack.get_variable(var_name)
+                value = self._unwrap_value(value)
+                return str(value)
+            else:
+                # Variable not found, keep original
+                return match.group(0)
+
+        # Match $varname (alphanumeric and underscore)
+        result = re.sub(r'\$([A-Za-z_][A-Za-z0-9_]*)', replace_var, text)
+        return result
 
 
     
@@ -790,7 +831,16 @@ class Renderer:
 
             return None
 
-        # 3. Arithmetic and Comparison Operations (Top-level only)
+        # 3. Logical Operators (Top-level only, lowest precedence)
+        and_parts = self._split_top_level(expr, [' and '])
+        if and_parts:
+            return all(self._evaluate_condition(p) for p in and_parts)
+            
+        or_parts = self._split_top_level(expr, [' or '])
+        if or_parts:
+            return any(self._evaluate_condition(p) for p in or_parts)
+
+        # 4. Arithmetic and Comparison Operations (Top-level only)
         # Split on lowest precedence first
         op_groups = [
             (['==', '!=', '>=', '<=', '>', '<', '='], 'comp'),
@@ -806,12 +856,6 @@ class Renderer:
                 right_val = self._unwrap_value(self._evaluate_expression(right))
                 
                 if group_type == 'comp':
-                    # Debug print for specific expression
-                    if 'CanHwFilterCode' in expr:
-                        l_v = self._unwrap_value(self._evaluate_expression(left))
-                        r_v = self._unwrap_value(self._evaluate_expression(right))
-                        print(f"DEBUG_EXPR: {expr} -> {left} ({l_v}) {op} {right} ({r_v})")
-
                     # Normalized comparison
 
                     check_op = op.strip()
@@ -973,39 +1017,13 @@ class Renderer:
             inner = condition[1:].strip() if condition.startswith('!') else condition[4:].strip()
             return not self._evaluate_condition(inner)
         
-        # Handle 'and' / 'or' with parenthesis-aware splitting FIRST
+        # Handle 'and' / 'or' with unified parenthesis-aware splitting
         # (Logical operators have lower precedence than comparisons)
-        def split_logical_op(cond: str, op: str) -> List[str]:
-            """Split condition by logical operator, respecting parentheses."""
-            parts = []
-            depth = 0
-            current = []
-            i = 0
-            op_len = len(op)
-            while i < len(cond):
-                if cond[i] == '(':
-                    depth += 1
-                    current.append(cond[i])
-                elif cond[i] == ')':
-                    depth -= 1
-                    current.append(cond[i])
-                elif depth == 0 and cond[i:i+op_len].lower() == op:
-                    parts.append(''.join(current).strip())
-                    current = []
-                    i += op_len
-                    continue
-                else:
-                    current.append(cond[i])
-                i += 1
-            if current:
-                parts.append(''.join(current).strip())
-            return parts if len(parts) > 1 else []
-        
-        and_parts = split_logical_op(condition, ' and ')
+        and_parts = self._split_top_level(condition, [' and '])
         if and_parts:
             return all(self._evaluate_condition(p) for p in and_parts)
         
-        or_parts = split_logical_op(condition, ' or ')
+        or_parts = self._split_top_level(condition, [' or '])
         if or_parts:
             return any(self._evaluate_condition(p) for p in or_parts)
         
@@ -1077,14 +1095,57 @@ class Renderer:
         if value is None:
             return False
             
-        if isinstance(value, str):
-            val_lower = value.strip().lower()
-            if val_lower in ('true', '1', 'yes', 'on', 'std_on'): return True
-            if val_lower in ('false', '0', 'no', 'off', 'std_off'): return False
-            return bool(value.strip()) # Non-empty string is True
-             
         return bool(value)
     
+    def _split_top_level(self, s: str, ops: List[str]) -> List[str]:
+        """Split a string by operators NOT inside parentheses or brackets."""
+        parts = []
+        depth = 0
+        in_quote = None
+        current = []
+        i = 0
+        while i < len(s):
+            char = s[i]
+            if char in ('"', "'"):
+                if in_quote == char: in_quote = None
+                elif in_quote is None: in_quote = char
+            
+            if in_quote is None:
+                if char in ('(', '['):
+                    depth += 1
+                elif char in (')', ']'):
+                    depth -= 1
+                elif depth == 0:
+                    # Check for operators
+                    found_op = None
+                    for op in ops:
+                        if s[i:].lower().startswith(op.lower()):
+                            # Special case for word operators: check boundaries
+                            if op.strip().isalpha():
+                                before = s[i-1] if i > 0 else ' '
+                                after = s[i+len(op)] if i+len(op) < len(s) else ' '
+                                if not (before.isalnum() or before == '_') and \
+                                   not (after.isalnum() or after == '_'):
+                                    found_op = op
+                                    break
+                            else:
+                                found_op = op
+                                break
+                    
+                    if found_op:
+                        parts.append(''.join(current).strip())
+                        current = []
+                        i += len(found_op)
+                        continue
+            
+            current.append(char)
+            i += 1
+        
+        if current:
+            parts.append(''.join(current).strip())
+            
+        return parts if len(parts) > 1 else []
+
     def _evaluate_function_call(self, expr: str) -> Any:
         """Evaluate a function call like node:value(...)."""
         # Parse function name and arguments
@@ -1124,12 +1185,21 @@ class Renderer:
         # Call built-in function
         if self._builtins.has(func_name):
             try:
-                return self._builtins.call(func_name, *evaluated_args)
+                res = self._builtins.call(func_name, *evaluated_args)
+                return res
             except Exception as e:
                 logger.error(f"Error calling function {func_name}: {e}")
                 if self.strict: raise
                 return None
         
+        # Fallback for count() which might be handled by XPath engine but called as function
+        if func_name == 'count' and len(evaluated_args) == 1:
+             # If it was an XPath string, it's already evaluated to a result
+             val = evaluated_args[0]
+             if val is None: return 0
+             if isinstance(val, list): return len(val)
+             return 1
+
         if self.strict:
             raise NameError(f"Unknown function: {func_name}")
         return None
