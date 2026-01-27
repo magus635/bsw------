@@ -1541,7 +1541,13 @@ class DaVinciMainWindow(QMainWindow):
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         modules = list(self.current_project.module_managers.items())
-        
+
+        # Debug: Log all modules in project
+        logger.info(f"[CodeGen] Project has {len(modules)} module(s): {[m[0] for m in modules]}")
+        for name, mgr in modules:
+            has_config = mgr.configuration is not None
+            logger.info(f"[CodeGen]   - {name}: has_config={has_config}")
+
         if not modules:
             QMessageBox.information(self, "No Modules", "Project has no modules to generate.")
             return
@@ -1615,15 +1621,26 @@ class DaVinciMainWindow(QMainWindow):
             # Capture reference at start to avoid race condition
             progress = self._gen_progress
             stats = self._gen_stats
-            
+
             # Check if already cleaned up (race condition with multiple signals)
             if progress is None or stats is None:
+                logger.warning(f"[CodeGen] Signal for {name} arrived after cleanup, ignored")
                 return
             if progress.wasCanceled():
                 return
-                
+
+            # Add to stats BEFORE incrementing counter
+            if status == "GEN":
+                stats['generated'].append(name)
+            elif status == "SKIP":
+                stats['skipped'].append(name)
+            else:
+                stats['failed'].append((name, msg))
+
+            logger.info(f"[CodeGen] Module {name} done: status={status}, processed={self._gen_processed+1}/{self._gen_total}")
+
             self._gen_processed += 1
-            
+
             # Update progress UI safely
             try:
                 progress.setValue(self._gen_processed)
@@ -1631,27 +1648,22 @@ class DaVinciMainWindow(QMainWindow):
             except RuntimeError:
                 # Widget may have been deleted
                 pass
-            
-            if status == "GEN":
-                stats['generated'].append(name)
-            elif status == "SKIP":
-                stats['skipped'].append(name)
-            else:
-                stats['failed'].append((name, msg))
-            
-            # Check if all done
+
+            # Check if all done - only finalize when ALL modules are processed
             if self._gen_processed >= self._gen_total:
-                finalize_generation()
+                # Use QTimer to defer finalization, allowing any pending signals to arrive
+                from PySide6.QtCore import QTimer
+                QTimer.singleShot(100, finalize_generation)
 
         def finalize_generation():
             # Guard against multiple calls
             if self._gen_stats is None:
                 return
-            
-            # Show summary
-            stats = self._gen_stats
-            
-            # Cleanup first to prevent re-entry
+
+            # Capture stats before cleanup
+            stats = dict(self._gen_stats)  # Make a copy
+
+            # Cleanup
             self._gen_progress = None
             self._gen_stats = None
             self._gen_workers = None

@@ -73,10 +73,11 @@ class Lexer:
     
     # Pattern for line continuation [!//!] - removes the marker and following newline
     LINE_CONTINUATION_PATTERN = re.compile(r'\[!//!?\]\s*\n?')
-    
+
     # Pattern for line comments [!// ... (to end of line, no !] needed)
     # This must not match [!//!] which is line continuation
-    LINE_COMMENT_PATTERN = re.compile(r'\[!//(?!!])(?!\])[^\n]*')
+    # IMPORTANT: Also removes the trailing newline to achieve line continuation effect
+    LINE_COMMENT_PATTERN = re.compile(r'\[!//(?!!])(?!\])[^\n]*\n?')
     
     # Pattern to find [! ... !] blocks (standard tags)
     TAG_PATTERN = re.compile(r'\[!(.*?)!]', re.DOTALL)
