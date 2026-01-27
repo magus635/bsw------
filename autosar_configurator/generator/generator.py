@@ -89,67 +89,38 @@ class CodeGenerator:
         """Generate all code files by discovering templates in search directories"""
         output_dir = Path(output_dir)
         module_name = self.configuration.short_name
-        
+
         # Prepare output directory
         out_module_dir = output_dir / module_name
         if variant:
             out_module_dir = out_module_dir / variant
             logger.info(f"Generating for variant: {variant}")
         out_module_dir.mkdir(parents=True, exist_ok=True)
-        
-        # 1. Calculate current fingerprint
-        current_hash = self._calculate_fingerprint(variant)
-        meta_file = out_module_dir / f".{module_name}.meta"
-        
-        # 2. Check overlap with previous generation
-        if not force and meta_file.exists():
-            try:
-                with open(meta_file, 'r') as f:
-                    meta = json.load(f)
-                if meta.get('hash') == current_hash:
-                    # Verify all previously generated files still exist
-                    if all((out_module_dir / f).exists() for f in meta.get('files', [])):
-                        logger.info(f"Skipping generation - configuration unchanged")
-                        return False
-            except Exception as e:
-                logger.warning(f"Error reading meta file: {e}")
-        
-        # 3. Discover and generate files
+
+        # Discover and generate files
         generated_files = []
-        
+
         # Create standard subdirectories
         include_dir = out_module_dir / "include"
         src_dir = out_module_dir / "src"
         include_dir.mkdir(exist_ok=True)
         src_dir.mkdir(exist_ok=True)
-        
+
         logger.info(f"Generating code for {module_name}...")
-        
+
         # Get all templates to process
         template_types = self._discover_template_types(module_name)
-        
+
         for t_type in template_types:
             # Determine output location
             is_header = t_type.lower().endswith('.h')
             target_parent = include_dir if is_header else src_dir
             rel_path = f"{'include' if is_header else 'src'}/{module_name}_{t_type}"
-            
+
             # Generate the file
             if self._generate_single_file(t_type, target_parent):
                 generated_files.append(rel_path)
-        
-        # 4. Save new fingerprint
-        try:
-            with open(meta_file, 'w') as f:
-                json.dump({
-                    'hash': current_hash,
-                    'variant': variant,
-                    'timestamp': str(self.configuration.last_saved) if self.configuration.last_saved else '',
-                    'files': generated_files
-                }, f)
-        except Exception as e:
-            logger.warning(f"Error writing meta file: {e}")
-        
+
         logger.info(f"Generated {len(generated_files)} files to {out_module_dir}")
         return True
 
