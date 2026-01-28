@@ -424,19 +424,26 @@ class DaVinciConfigPanel(QWidget):
         """Populate parameters table with editable widgets"""
         self.params_table.setRowCount(len(container_def.parameters))
         self._override_rows = set()  # Track rows with variant overrides
-        
-        
+
+
         for row, (param_name, param_def) in enumerate(container_def.parameters.items()):
+            # Check if parameter is deprecated
+            is_deprecated = self._is_deprecated_parameter(param_def)
+
             # Column 0: Parameter name
-            name_item = QTableWidgetItem(param_def.short_name)
-            name_item.setToolTip(self._get_parameter_tooltip(param_def))
-            self.params_table.setItem(row,0, name_item)
-            
+            display_name = f"[废弃] {param_def.short_name}" if is_deprecated else param_def.short_name
+            name_item = QTableWidgetItem(display_name)
+            tooltip = self._get_parameter_tooltip(param_def)
+            if is_deprecated:
+                tooltip = "⚠️ 此参数已废弃，请勿使用\n\n" + tooltip
+            name_item.setToolTip(tooltip)
+            self.params_table.setItem(row, 0, name_item)
+
             # Column 1: Editable value widget
             # Check for variant override first, then base value
             current_value = None
             is_variant_override = False
-            
+
             # Check if there's an active variant with an override
             if self.project and hasattr(self.project, 'active_variant') and self.project.active_variant:
                 variant = self.project.active_variant
@@ -445,50 +452,66 @@ class DaVinciConfigPanel(QWidget):
                     # Try full path first (new format)
                     param_path = f"{instance.get_path()}.{param_name}"
                     override_value, is_override = module_config.get_value_for_variant(param_path, variant)
-                    
+
                     # Fallback to short path for backward compatibility with old saved data
                     if not is_override:
                         short_path = f"{instance.short_name}.{param_name}"
                         override_value, is_override = module_config.get_value_for_variant(short_path, variant)
-                    
+
                     if is_override:
                         current_value = override_value
                         is_variant_override = True
-            
+
             # Fall back to base value if no variant override
             if current_value is None:
                 if param_name in instance.parameter_values:
                     current_value = instance.parameter_values[param_name].value
-                elif param_def.default_value is not None:
+                elif param_def.is_required and param_def.default_value is not None:
+                    # Only use default for required parameters
                     current_value = param_def.default_value
-            
+                # For optional parameters without configured value, leave as None
+                # The editor will show "(未配置)" option
+
             # Clear any existing item in the value cell to prevent "shadow" text
             self.params_table.setItem(row, 1, QTableWidgetItem(""))
-            
+
             try:
                 editor = self._create_parameter_editor(param_name, param_def, current_value, instance)
                 self.params_table.setCellWidget(row, 1, editor)
+                # Disable editor for deprecated parameters
+                if is_deprecated:
+                    editor.setEnabled(False)
             except Exception as e:
                 print(f"Error creating editor for {param_name}: {e}")
                 error_item = QTableWidgetItem(f"Error: {e}")
                 error_item.setForeground(Qt.red)
                 self.params_table.setItem(row, 1, error_item)
-            
+
             # Column 2: Type
             type_item = QTableWidgetItem(param_def.param_type.name)
             self.params_table.setItem(row, 2, type_item)
-            
+
             # Column 3: Constraint
             constraint = self._get_constraint_text(param_def)
             constraint_item = QTableWidgetItem(constraint)
             constraint_item.setToolTip(constraint)
             self.params_table.setItem(row, 3, constraint_item)
-            
+
             # Column 4: Required
             req_item = QTableWidgetItem("*" if param_def.is_required else "")
             req_item.setTextAlignment(Qt.AlignCenter)
             self.params_table.setItem(row, 4, req_item)
-            
+
+            # Apply gray styling for deprecated parameters
+            if is_deprecated:
+                gray_color = QColor("#CCCCCC")
+                gray_text = QColor("#888888")
+                for col in range(self.params_table.columnCount()):
+                    item = self.params_table.item(row, col)
+                    if item:
+                        item.setBackground(gray_color)
+                        item.setForeground(gray_text)
+
             # Apply comparison highlighting
             if param_name in self.comparison_results:
                 self._override_rows.add(row)
@@ -513,12 +536,23 @@ class DaVinciConfigPanel(QWidget):
                     item = self.params_table.item(row, col)
                     if item:
                         item.setBackground(override_color)
-        
+
         self.params_table.resizeColumnsToContents()
-        # Allow user to resize columns (Interactive is default, so we just don't lock them)
-        # We can set a stretch for the value column but keep it interactive if needed,
-        # but for now let's just resize to contents and let user adjust.
-    
+
+    def _is_deprecated_parameter(self, param_def: EcucParameterDef) -> bool:
+        """Check if a parameter is deprecated based on its description"""
+        if not param_def.description:
+            return False
+        desc_lower = param_def.description.lower()
+        deprecated_keywords = [
+            "not used",
+            "deprecated",
+            "replaced by",
+            "obsolete",
+            "do not use"
+        ]
+        return any(keyword in desc_lower for keyword in deprecated_keywords)
+
     def _is_list_parameter(self, param_def: EcucParameterDef) -> bool:
         """Check if parameter supports multiple values"""
         return param_def.upper_multiplicity == -1 or param_def.upper_multiplicity > 1
@@ -583,8 +617,19 @@ class DaVinciConfigPanel(QWidget):
         if param_def.param_type == EcucParameterType.ENUMERATION:
             # ComboBox for enumerations
             combo = QComboBox()
+
+            # For optional parameters, add "(未配置)" option at the beginning
+            if not param_def.is_required:
+                combo.addItem("(未配置)")
+
             combo.addItems(param_def.literals or [])
-            combo.setCurrentText(str(current_value))
+
+            # Set current value
+            if current_value is not None:
+                combo.setCurrentText(str(current_value))
+            elif not param_def.is_required:
+                combo.setCurrentIndex(0)  # Select "(未配置)"
+
             return combo, combo.currentText, combo.currentTextChanged
             
         elif param_def.param_type == EcucParameterType.BOOLEAN:
@@ -722,10 +767,10 @@ class DaVinciConfigPanel(QWidget):
         """Filter parameters based on search text and type filter"""
         if not hasattr(self, 'params_table'):
             return
-        
+
         search_text = self.param_search.text().lower()
         type_filter = self.type_filter.currentText()
-        
+
         # Map friendly names to internal Enum names
         type_map = {
             "Integer": "INTEGER",
@@ -734,23 +779,23 @@ class DaVinciConfigPanel(QWidget):
             "Enum": "ENUMERATION",
             "String": "STRING"
         }
-        
+
         for row in range(self.params_table.rowCount()):
             # Get parameter name and type
             name_item = self.params_table.item(row, 0)
             type_item = self.params_table.item(row, 2)
             required_item = self.params_table.item(row, 4)
-            
+
             if not name_item:
                 continue
-            
+
             param_name = name_item.text().lower()
             param_type = type_item.text() if type_item else ""
             is_required = required_item.text() == "*" if required_item else False
-            
+
             # Check search text match
             text_match = search_text == "" or search_text in param_name
-            
+
             # Check type filter match
             type_match = True
             if type_filter == "Required Only":
@@ -760,7 +805,7 @@ class DaVinciConfigPanel(QWidget):
             elif type_filter != "All Types":
                 target_type = type_map.get(type_filter, type_filter.upper())
                 type_match = param_type == target_type
-            
+
             # Show/hide row based on both filters
             self.params_table.setRowHidden(row, not (text_match and type_match))
     
@@ -836,23 +881,31 @@ class DaVinciConfigPanel(QWidget):
         """Handle parameter value change"""
         if not self.current_instance or not self.config_manager:
              return
-        
+
+        # Handle "(未配置)" selection - remove the parameter value
+        if value == "(未配置)":
+            self.current_instance.remove_parameter_value(param_name)
+            if self.project:
+                self.project.is_modified = True
+            self.parameter_changed.emit(self.current_instance, param_name, None)
+            return
+
         # Check if we should write to variant override instead of base config
         if self.project and hasattr(self.project, 'active_variant') and self.project.active_variant:
             variant = self.project.active_variant
             module_config = self.current_instance.module_config
-            
+
             if module_config:
                 param_path = f"{self.current_instance.get_path()}.{param_name}"
                 module_config.set_value_for_variant(param_path, value, variant)
-                
+
                 # NOTE: In explicit comparison mode, we do NOT refresh automatically.
                 # User must click "Check Diff" to see updated highlights.
-                
+
                 # Still emit signal for UI updates (status bar, etc.)
                 self.parameter_changed.emit(self.current_instance, param_name, value)
                 return
-        
+
         # No variant active - emit signal for base config modification
         self.parameter_changed.emit(self.current_instance, param_name, value)
     
@@ -1410,39 +1463,39 @@ class DaVinciConfigPanel(QWidget):
         item = self.params_table.itemAt(pos)
         if not item:
             return
-            
+
         row = item.row()
         name_item = self.params_table.item(row, 0)
         if not name_item:
             return
-            
+
         param_name = name_item.text().replace("⚡ ", "")  # Strip override indicator if present
-        
+
         from PySide6.QtWidgets import QMenu
         from PySide6.QtGui import QAction
-        
+
         menu = QMenu(self)
-        
+
         # Check if this row is a variant override
         is_override = hasattr(self, '_override_rows') and row in self._override_rows
-        
+
         if is_override:
             revert_action = QAction("↩️ 恢复基础值 (Revert to Base)", self)
             revert_action.triggered.connect(lambda: self._revert_to_base_value(param_name))
             menu.addAction(revert_action)
             menu.addSeparator()
-        
+
         impact_action = QAction("🔍 Check Change Impact", self)
         impact_action.triggered.connect(lambda: self._emit_check_impact(param_name))
         menu.addAction(impact_action)
-        
+
         menu.exec(self.params_table.viewport().mapToGlobal(pos))
         
     def _emit_check_impact(self, param_name: str):
         """Emit signal for impact analysis"""
         if self.current_instance:
             self.check_impact_requested.emit(self.current_instance.get_path(), param_name)
-    
+
     def _revert_to_base_value(self, param_name: str):
         """Revert a variant-overridden parameter to its base value
         

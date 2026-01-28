@@ -922,7 +922,7 @@ class Renderer:
                     # Normalized comparison
 
                     check_op = op.strip()
-                    
+
                     # Truthiness normalization
                     def to_bool(v):
                         if isinstance(v, bool): return v
@@ -930,12 +930,21 @@ class Renderer:
                         vs = str(v).lower()
                         return vs in ('true', '1', 'yes', 'on', 'std_on')
 
+                    # Check if either side looks like a boolean value
+                    def is_bool_like(v):
+                        if isinstance(v, bool): return True
+                        if isinstance(v, int) and v in (0, 1): return True
+                        if isinstance(v, str):
+                            return v.lower() in ('true', 'false', '0', '1', 'yes', 'no', 'on', 'off', 'std_on', 'std_off')
+                        return False
+
                     if check_op in ('==', '='):
-                        if isinstance(left_val, bool) or isinstance(right_val, bool):
+                        # Use boolean comparison if either value looks boolean
+                        if is_bool_like(left_val) or is_bool_like(right_val):
                             return to_bool(left_val) == to_bool(right_val)
                         return str(left_val) == str(right_val)
                     elif check_op == '!=':
-                        if isinstance(left_val, bool) or isinstance(right_val, bool):
+                        if is_bool_like(left_val) or is_bool_like(right_val):
                             return to_bool(left_val) != to_bool(right_val)
                         return str(left_val) != str(right_val)
                     
@@ -948,7 +957,7 @@ class Renderer:
                         if check_op == '>=': return l_f >= r_f
                         if check_op == '<=': return l_f <= r_f
                     except:
-                        return False
+                        return None
                 else:
                     # Math operations
                     try:
@@ -1185,7 +1194,11 @@ class Renderer:
                     for op in ops:
                         if s[i:].lower().startswith(op.lower()):
                             # Special case for word operators: check boundaries
+                            # If the operator already has spaces (like ' and '), we don't need extra boundary checks
                             if op.strip().isalpha():
+                                if op.startswith(' ') or op.endswith(' '):
+                                    found_op = op
+                                    break
                                 before = s[i-1] if i > 0 else ' '
                                 after = s[i+len(op)] if i+len(op) < len(s) else ' '
                                 if not (before.isalnum() or before == '_') and \
@@ -1599,17 +1612,28 @@ class Renderer:
             
             for arg_expr in args_exprs:
                 arg_expr = arg_expr.strip()
-                
+
                 # Check for named argument: ParamName = Expr or "ParamName" = Expr
                 name_match = re.match(r'^\s*["\']?([\w:]+)["\']?\s*=(.*)$', arg_expr)
                 if name_match:
                     arg_name = name_match.group(1).strip()
                     arg_val_expr = name_match.group(2).strip()
                     val = self._evaluate_expression(arg_val_expr)
+                    # EB Tresos behavior: If the value looks like an XPath path (contains / but not URL-like),
+                    # try to evaluate it as XPath to get the actual value at that path
+                    if isinstance(val, str) and '/' in val and not val.startswith('http') and not val.startswith('//'):
+                        xpath_val = self._evaluate_xpath(val)
+                        if xpath_val is not None:
+                            val = self._unwrap_value(xpath_val)
                     named_args[arg_name] = val
                 else:
                     # Positional
                     val = self._evaluate_expression(arg_expr)
+                    # Same XPath evaluation for positional arguments
+                    if isinstance(val, str) and '/' in val and not val.startswith('http') and not val.startswith('//'):
+                        xpath_val = self._evaluate_xpath(val)
+                        if xpath_val is not None:
+                            val = self._unwrap_value(xpath_val)
                     pos_args.append(val)
             
             # Map arguments to parameters

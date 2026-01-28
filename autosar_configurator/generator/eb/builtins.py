@@ -17,14 +17,17 @@ if TYPE_CHECKING:
 
 class BuiltinFunctions:
     """Registry and implementation of all built-in functions"""
-    
+
     def __init__(self, symbol_table: 'SymbolTable', context_stack: 'ContextStack', ecu_resources: Optional[dict] = None):
         self.symbol_table = symbol_table
         self.context_stack = context_stack
-        
+
         # ECU resource dictionary for ecu:get function
         self.ecu_resources = ecu_resources or {}
-        
+
+        # Variant name (will be set by renderer)
+        self._variant_name = ""
+
         # Register synthetic Resource module early if missing
         self.as_modconf('Resource')
         

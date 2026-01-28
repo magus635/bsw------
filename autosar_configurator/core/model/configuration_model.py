@@ -279,7 +279,36 @@ class EcucContainerValue:
                 last_modified=datetime.now()
             )
         self.mark_modified()
-    
+
+    def remove_parameter_value(self, param_name: str) -> bool:
+        """Remove a parameter value (revert to unconfigured state)
+
+        Used to clear optional parameters back to their default/unconfigured state.
+        The parameter will not be saved to ARXML after removal.
+
+        Args:
+            param_name: Name of the parameter to remove
+
+        Returns:
+            True if parameter was removed, False if it didn't exist
+        """
+        if param_name in self.parameter_values:
+            del self.parameter_values[param_name]
+            self.mark_modified()
+            return True
+        return False
+
+    def has_parameter_value(self, param_name: str) -> bool:
+        """Check if a parameter has been explicitly configured
+
+        Args:
+            param_name: Name of the parameter to check
+
+        Returns:
+            True if parameter has a configured value, False if using default
+        """
+        return param_name in self.parameter_values
+
     def set_reference_value(self, ref_name: str, value_ref: str, definition_ref: str):
         """Set or update a reference value"""
         self.reference_values[ref_name] = EcucReferenceValue(

@@ -286,10 +286,10 @@ class Lexer:
         line, col = self._line, self._column
         
         # Check for comment
-        if content.startswith('//'):
+        if content.startswith('//') or (content.startswith('/*') and content.endswith('*/')):
             return Token(
                 type=TokenType.COMMENT,
-                content=content[2:].strip(),
+                content=content[2:].strip() if content.startswith('//') else content[2:-2].strip(),
                 line=line, column=col, raw=raw
             )
         
@@ -303,14 +303,21 @@ class Lexer:
             )
         
         # Check for directive keywords
-        first_word = content.split(None, 1)[0].upper() if content else ""
-        
+        # Handle both "WS 0" and "WS"0"" formats (keyword may be followed by space or quote)
+        first_word = ""
+        if content:
+            # Extract keyword part - stop at whitespace, quote, or end of string
+            match = re.match(r'(\w+)', content)
+            if match:
+                first_word = match.group(1).upper()
+
         if first_word in self.KEYWORDS:
             token_type = self.KEYWORDS[first_word]
             # Extract argument (everything after the keyword)
-            parts = content.split(None, 1)
-            argument = parts[1].strip() if len(parts) > 1 else ""
-            
+            # Handle both "WS 0" and "WS"0"" formats (keyword may or may not be followed by space)
+            keyword_len = len(first_word)
+            argument = content[keyword_len:].strip()
+
             return Token(
                 type=token_type,
                 content=argument,

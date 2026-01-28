@@ -617,12 +617,59 @@ class ConfigurationManager:
                 # Rebuild counters based on loaded configuration
                 for container in self.configuration.containers:
                     self._update_counters_recursive(container)
-                    
+
+                # Clean up invalid parameters (parameters in wrong container level)
+                if self.module_def:
+                    cleanup_count = self._cleanup_invalid_parameters()
+                    if cleanup_count > 0:
+                        print(f"[ConfigManager] Cleaned up {cleanup_count} invalid parameter(s) from wrong container levels")
+
                 # Mark as saved (just loaded, no modifications)
                 self.configuration.mark_saved()
                     
         except Exception as e:
             raise ValueError(f"Failed to load configuration: {e}")
+
+    def _cleanup_invalid_parameters(self) -> int:
+        """Clean up parameters that don't belong to their container definition
+
+        This handles cases where configuration files have parameters stored
+        at the wrong container level (e.g., from import or older versions).
+
+        Returns:
+            Number of invalid parameters removed
+        """
+        total_removed = 0
+
+        def cleanup_container(container: EcucContainerValue) -> int:
+            removed = 0
+            container_def = self.get_container_def(container.definition_ref)
+
+            if container_def:
+                # Find parameters that don't exist in the container definition
+                invalid_params = []
+                for param_name in container.parameter_values.keys():
+                    if param_name not in container_def.parameters:
+                        invalid_params.append(param_name)
+
+                # Remove invalid parameters
+                for param_name in invalid_params:
+                    del container.parameter_values[param_name]
+                    removed += 1
+                    print(f"  - Removed '{param_name}' from '{container.short_name}' (not defined in {container_def.short_name})")
+
+            # Recursively clean sub-containers
+            for sub in container.sub_containers:
+                removed += cleanup_container(sub)
+
+            return removed
+
+        # Clean all top-level containers
+        for container in self.configuration.containers:
+            total_removed += cleanup_container(container)
+
+        return total_removed
+
 
     def _update_counters_recursive(self, container: EcucContainerValue):
         """Update instance counters based on existing container"""

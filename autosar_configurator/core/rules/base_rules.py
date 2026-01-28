@@ -47,18 +47,29 @@ class TypeValidationRule(ValidationRule):
                 container_path=container.get_path()
             ))
             return
-        
+
         # Validate each parameter
         for param_name, param_value in container.parameter_values.items():
             param_def = container_def.parameters.get(param_name)
             if not param_def:
-                result.add_message(self._create_warning(
-                    f"Parameter '{param_name}' not defined in container definition",
-                    container_path=container.get_path(),
-                    parameter_name=param_name
-                ))
+                # Try to find where this parameter should be defined
+                correct_location = self._find_parameter_location(param_name, module_def)
+                if correct_location:
+                    result.add_message(self._create_warning(
+                        f"Parameter '{param_name}' is in wrong container. "
+                        f"It should be in '{correct_location}', not '{container_def.short_name}'",
+                        container_path=container.get_path(),
+                        parameter_name=param_name,
+                        suggested_fix=f"Move parameter to {correct_location}"
+                    ))
+                else:
+                    result.add_message(self._create_warning(
+                        f"Parameter '{param_name}' not defined in container '{container_def.short_name}'",
+                        container_path=container.get_path(),
+                        parameter_name=param_name
+                    ))
                 continue
-            
+
             # Type-specific validation
             self._validate_type(param_def, param_value, container.get_path(), result)
         
@@ -145,7 +156,38 @@ class TypeValidationRule(ValidationRule):
         # Handle relative paths
         if definition_ref and not definition_ref.startswith('/'):
             return module_def.get_container_def(definition_ref)
-        
+
+        return None
+
+    def _find_parameter_location(self, param_name: str, module_def: EcucModuleDef) -> Optional[str]:
+        """Search all containers to find where a parameter should be defined
+
+        Args:
+            param_name: Parameter name to search for
+            module_def: Module definition to search in
+
+        Returns:
+            Container path where the parameter is defined, or None
+        """
+        def search_container(container_def: EcucContainerDef, path: str) -> Optional[str]:
+            # Check if parameter is in this container
+            if param_name in container_def.parameters:
+                return path
+
+            # Search sub-containers
+            for sub_name, sub_def in container_def.sub_containers.items():
+                result = search_container(sub_def, f"{path}/{sub_name}")
+                if result:
+                    return result
+
+            return None
+
+        # Search all top-level containers
+        for container_name, container_def in module_def.containers.items():
+            result = search_container(container_def, container_name)
+            if result:
+                return result
+
         return None
 
 
