@@ -1161,6 +1161,10 @@ class BuiltinFunctions:
 
     # ECU List Defaults - typical list resources for automotive MCUs
     ECU_LIST_DEFAULTS = {
+        # Resource/Core configuration lists
+        'Resource.AvailableCores': ['CORE0', 'CORE1', 'CORE2', 'CORE3'],
+        'Resource.SupportProcessor': ['THA6206_LFBGA292', 'THA6206_LQFP176', 'THA6104_LFBGA292', 'THA6104_LQFP176'],
+
         # ADC configuration lists
         'Adc.ReqSrcClass': ['REQSRC0', 'REQSRC1', 'REQSRC2'],
         'Adc.HwUnitId': ['SARADC0', 'SARADC1', 'SARADC2', 'SARADC3'],

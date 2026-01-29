@@ -138,8 +138,9 @@ class EcucDefParser:
         params_elem = self._find_child(element, 'PARAMETERS')
         if params_elem is not None:
             # Iterate over children directly to catch different parameter types
+            # Note: Skip non-element nodes (comments, PIs) where .tag is not a string
             for param_elem in params_elem:
-                if 'PARAM-DEF' in param_elem.tag:
+                if isinstance(param_elem.tag, str) and 'PARAM-DEF' in param_elem.tag:
                     param_def = self._parse_parameter_def(param_elem, current_path)
                     if param_def:
                         container_def.add_parameter(param_def)

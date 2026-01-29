@@ -403,9 +403,10 @@ class ArxmlParser:
         params_elem = self._find_descendant(element, 'PARAMETERS')
         if params_elem is not None:
             # Using direct iteration or findall for generic parameter handling
+            # Note: Skip non-element nodes (comments, PIs) where .tag is not a string
             for param_def in params_elem:
                 # Check for parameter definition tags (ECUC-*-PARAM-DEF)
-                if 'PARAM-DEF' in param_def.tag:
+                if isinstance(param_def.tag, str) and 'PARAM-DEF' in param_def.tag:
                     param = self._parse_ecuc_parameter_def(param_def)
                     if param:
                         container.add_parameter(param)
