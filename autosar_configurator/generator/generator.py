@@ -90,6 +90,10 @@ class CodeGenerator:
         output_dir = Path(output_dir)
         module_name = self.configuration.short_name
 
+        # Update variant_name if provided - this ensures _prepare_context() gets the correct value
+        if variant:
+            self.variant_name = variant
+
         # Prepare output directory
         out_module_dir = output_dir / module_name
         if variant:

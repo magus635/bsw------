@@ -134,6 +134,10 @@ class Renderer:
         _debug_log(f"load_module: Loading module '{module_name}' (variant={variant})")
         self.overlay_engine.build_configuration_tree(module_def, configuration, variant=variant)
 
+        # Store variant for later use by builtins
+        if variant:
+            self._variant = variant
+
         # Verify the module was registered
         loaded = self.symbol_table.get_module(module_name)
         if loaded:
@@ -210,6 +214,11 @@ class Renderer:
             # Update references for existing builtins
             self._builtins.symbol_table = self.symbol_table
             self._builtins.context_stack = self._context_stack
+
+        # Set variant for builtins
+        if self._variant:
+            self._builtins.set_variant(self._variant)
+
         self._xpath_engine = XPathEngine(self.symbol_table, self._context_stack, function_handler=self._builtins)
 
         self._output_buffer = []
@@ -416,7 +425,19 @@ class Renderer:
                 self._at_line_start = True
                 self._indent_added_on_this_line = False
                 i += 1
-                
+
+            elif token.type == TokenType.AUTOGENERATE_WARNING:
+                # [!AUTOGENERATE_WARNING!] - output standard auto-generate warning comment
+                warning_text = """/*
+ * This file is auto-generated. DO NOT MODIFY.
+ * Any changes made to this file will be overwritten during code generation.
+ */
+"""
+                self._output_buffer.append(warning_text)
+                self._at_line_start = True
+                self._indent_added_on_this_line = False
+                i += 1
+
             else:
                 # Unknown or end token - skip
                 i += 1
@@ -799,6 +820,10 @@ class Renderer:
             if ':' in inner and '(' in inner and ')' in inner:
                 # This looks like a function call, evaluate it
                 return self._evaluate_expression(inner)
+            # Check if the string content is a variable reference (starts with $)
+            # EB Tresos treats "$var" as a variable reference, not a literal
+            if inner.startswith('$'):
+                return self._evaluate_expression(inner)
             return inner
         
         # Handle numeric literals explicitly
@@ -889,7 +914,15 @@ class Renderer:
                                        not (after.isalnum() or after == '_'):
                                         last_found = (op, s[:i], s[i+len(op):])
                             else:
-                                # For symbol operators, record it
+                                # For symbol operators like + - * /
+                                # SPECIAL CASE: '-' could be part of a function name like 'substring-after'
+                                # Check if both sides are alphanumeric (part of identifier)
+                                if op == '-':
+                                    before = s[i-1] if i > 0 else ' '
+                                    after = s[i+1] if i+1 < len(s) else ' '
+                                    # If '-' is surrounded by alphanumeric chars, it's likely part of a name
+                                    if (before.isalnum() or before == '_') and (after.isalnum() or after == '_'):
+                                        continue  # Skip, this is part of a function name
                                 last_found = (op, s[:i], s[i+len(op):])
 
             return last_found
@@ -961,14 +994,33 @@ class Renderer:
                 else:
                     # Math operations
                     try:
-                        l_v = float(left_val) if not isinstance(left_val, (int, float)) else left_val
-                        r_v = float(right_val) if not isinstance(right_val, (int, float)) else right_val
+                        # Helper to convert to number if possible
+                        def to_number(v):
+                            if isinstance(v, (int, float)):
+                                return v
+                            if isinstance(v, str):
+                                v = v.strip()
+                                try:
+                                    if '.' in v:
+                                        return float(v)
+                                    return int(v)
+                                except ValueError:
+                                    return None
+                            return None
 
                         clean_op = op.strip()
                         if clean_op == '+':
-                            if isinstance(left_val, str) or isinstance(right_val, str):
-                                return str(left_val) + str(right_val)
-                            return l_v + r_v
+                            # Try numeric addition first
+                            l_num = to_number(left_val)
+                            r_num = to_number(right_val)
+                            if l_num is not None and r_num is not None:
+                                return l_num + r_num
+                            # Fall back to string concatenation
+                            return str(left_val) + str(right_val)
+
+                        l_v = float(left_val) if not isinstance(left_val, (int, float)) else left_val
+                        r_v = float(right_val) if not isinstance(right_val, (int, float)) else right_val
+
                         if clean_op == '-': return l_v - r_v
                         if clean_op == '*': return l_v * r_v
                         if clean_op == 'div': return l_v / r_v if r_v != 0 else None
@@ -979,18 +1031,54 @@ class Renderer:
 
 
         # 4. Function call (Handle explicitly to avoid mixing with XPath)
-        if re.match(r'^[\w:]+\s*\(', expr):
-            if expr.endswith(')'):
-                depth = 0
-                first_open = expr.find('(')
-                for i in range(first_open, len(expr)):
-                    if expr[i] == '(': depth += 1
-                    elif expr[i] == ')':
-                        depth -= 1
-                        if depth == 0:
-                            if i == len(expr) - 1:
-                                return self._evaluate_function_call(expr)
-                            break
+        # Note: Function names can contain hyphens (e.g., substring-after, substring-before)
+        # Also handle function calls with indexing like func(...)[index]
+        if re.match(r'^[\w:\-]+\s*\(', expr):
+            # Find matching closing parenthesis
+            depth = 0
+            first_open = expr.find('(')
+            close_paren_idx = -1
+            for i in range(first_open, len(expr)):
+                if expr[i] == '(': depth += 1
+                elif expr[i] == ')':
+                    depth -= 1
+                    if depth == 0:
+                        close_paren_idx = i
+                        break
+
+            if close_paren_idx >= 0:
+                # Check for indexing after function call: func(...)[index]
+                if close_paren_idx == len(expr) - 1:
+                    # No indexing, just function call
+                    return self._evaluate_function_call(expr)
+                elif expr[close_paren_idx + 1] == '[':
+                    # Has indexing: func(...)[index]
+                    func_part = expr[:close_paren_idx + 1]
+                    index_part = expr[close_paren_idx + 1:]
+
+                    # Evaluate the function
+                    result = self._evaluate_function_call(func_part)
+
+                    # Parse and apply index
+                    if index_part.startswith('[') and index_part.endswith(']'):
+                        idx_str = index_part[1:-1]
+                        idx_val = None
+                        if idx_str.isdigit():
+                            idx_val = int(idx_str) - 1  # 1-indexed to 0-indexed
+                        else:
+                            # Evaluate index expression
+                            evaluated = self._evaluate_expression(idx_str)
+                            if evaluated is not None:
+                                try:
+                                    idx_val = int(evaluated) - 1
+                                except (TypeError, ValueError):
+                                    pass
+
+                        if idx_val is not None and isinstance(result, list):
+                            if 0 <= idx_val < len(result):
+                                return result[idx_val]
+                            return None
+                    return result
 
         # 5. XPath or Node Access
         res = self._evaluate_xpath(expr)
@@ -1142,7 +1230,43 @@ class Renderer:
                     if left_val.lower() not in ('true', 'false'):
                         try: left_val = float(left_val)
                         except: pass
-                
+
+                # Special handling for None/empty values:
+                # When comparing None or empty string with a non-empty string,
+                # they should NOT be considered equal (to avoid false positives in validation)
+                if check_op in ('==', '='):
+                    # None vs non-empty string -> False
+                    if left_val is None and isinstance(right_val, str) and right_val:
+                        _debug_log(f"DEBUG: Comparison [{left} {check_op} {right}] => [None vs non-empty '{right_val}'] Result: False")
+                        return False
+                    if right_val is None and isinstance(left_val, str) and left_val:
+                        _debug_log(f"DEBUG: Comparison [{left} {check_op} {right}] => [non-empty '{left_val}' vs None] Result: False")
+                        return False
+                    # Empty string vs non-empty string -> False
+                    if left_val == '' and isinstance(right_val, str) and right_val and right_val != '':
+                        _debug_log(f"DEBUG: Comparison [{left} {check_op} {right}] => [empty '' vs non-empty '{right_val}'] Result: False")
+                        return False
+                    if right_val == '' and isinstance(left_val, str) and left_val and left_val != '':
+                        _debug_log(f"DEBUG: Comparison [{left} {check_op} {right}] => [non-empty '{left_val}' vs empty ''] Result: False")
+                        return False
+                    # Both empty strings -> False (to avoid false positives in "duplicate" validation)
+                    if left_val == '' and right_val == '':
+                        _debug_log(f"DEBUG: Comparison [{left} {check_op} {right}] => [both empty ''] Result: False")
+                        return False
+
+                # Special handling for != with None values only:
+                # When comparing None with a non-empty string using !=,
+                # return False to avoid triggering validation errors for unconfigured items
+                # NOTE: Do NOT apply this to empty string comparisons - "v" != "" should be True
+                if check_op == '!=':
+                    # None vs non-empty string with != -> False (treat as "equal" to skip validation)
+                    if left_val is None and isinstance(right_val, str) and right_val:
+                        _debug_log(f"DEBUG: Comparison [{left} {check_op} {right}] => [None != non-empty] Result: False (skip validation)")
+                        return False
+                    if right_val is None and isinstance(left_val, str) and left_val:
+                        _debug_log(f"DEBUG: Comparison [{left} {check_op} {right}] => [non-empty != None] Result: False (skip validation)")
+                        return False
+
                 if check_op in ('==', '='):
                     res = left_val == right_val
                 elif check_op == '!=':
@@ -1336,14 +1460,22 @@ class Renderer:
                     return list(node.children.values())
                 return []
             elif node:
-                # Handle indexing like [1]
+                # Handle indexing like [1] or [num:i(1)] or [$var]
                 index = None
                 if '[' in part and part.endswith(']'):
                     base_name = part[:part.index('[')]
                     idx_str = part[part.index('[')+1:-1]
                     if idx_str.isdigit():
                         index = int(idx_str) - 1 # 1-indexed to 0-indexed
-                        part = base_name
+                    else:
+                        # Evaluate the index expression
+                        idx_val = self._evaluate_expression(idx_str)
+                        if idx_val is not None:
+                            try:
+                                index = int(idx_val) - 1  # 1-indexed to 0-indexed
+                            except (TypeError, ValueError):
+                                pass
+                    part = base_name
 
                 child = None
                 if hasattr(node, 'get_child'):
@@ -1663,13 +1795,13 @@ class Renderer:
             
             # IMPORTANT: Propagate variables set in macro to parent scope
             # This allows macros to set global variables that persist after the call
-            # Get current scope's variables and propagate non-parameter variables to parent
+            # NOTE: EB Tresos templates like CG_ChangeStringListMember depend on
+            # parameter variables (like "Object") being propagated back after modification.
+            # So we propagate ALL variables, not just non-parameters.
             current_vars = self._context_stack.current_scope_variables()
-            param_set = set(params)
             for name, value in current_vars.items():
-                if name not in param_set:
-                    # This variable was set in the macro body, propagate to parent
-                    self._context_stack.set_variable_in_parent(name, value)
+                # Propagate all variables including modified parameters
+                self._context_stack.set_variable_in_parent(name, value)
         finally:
             self._recursion_depth -= 1
             self._context_stack.pop()

@@ -103,6 +103,7 @@ class BuiltinFunctions:
             'variant:check': self.variant_check,
             'variant:exists': self.variant_exists,
             'variant:size': self.variant_size,
+            'variant:all': self.variant_all,
 
             # Variable functions
             'var:defined': self.var_defined,
@@ -251,16 +252,50 @@ class BuiltinFunctions:
             return ""
         return node.path
 
-    
+
     def node_ref(self, path_or_node: Union[str, 'ConfigurationNode']) -> Optional['ConfigurationNode']:
-        """Resolve a reference node or path to its target node."""
+        """Resolve a reference node or path to its target node.
+
+        For EB Tresos compatibility, this handles:
+        1. Relative paths: Look for container by name or definition within current context
+        2. Absolute paths: Resolve via symbol table
+        3. Reference nodes: Get the target of the reference
+        """
         if path_or_node is None:
             return None
 
         if isinstance(path_or_node, str):
-            # If it's a string, attempt to resolve it as a reference path
-            res = self.symbol_table.resolve_reference(path_or_node)
-            return res
+            path_str = path_or_node.strip()
+
+            # For relative paths (not starting with /), look within current context first
+            if not path_str.startswith('/'):
+                current = self.context_stack.current_node()
+                if current:
+                    # Try direct child lookup by short_name
+                    child = current.get_child(path_str)
+                    if child:
+                        return child
+
+                    # EB Tresos behavior: If not found by exact name, try to find by definition name
+                    # e.g., looking for 'McuModuleConfiguration' might match 'McuModuleConfiguration_0'
+                    # if its definition ends with '/McuModuleConfiguration'
+                    for child_name, child_node in current.children.items():
+                        # Check if child's definition_ref matches the search term
+                        if child_node.definition_ref:
+                            def_name = child_node.definition_ref.split('/')[-1]
+                            if def_name == path_str:
+                                return child_node
+                        # Also check if child's short_name starts with the search term
+                        # (handles cases like McuModuleConfiguration_0 for McuModuleConfiguration)
+                        if child_name.startswith(path_str + '_') or child_name == path_str:
+                            return child_node
+
+            # Try absolute path resolution via symbol table
+            res = self.symbol_table.resolve_reference(path_str)
+            if res:
+                return res
+
+            return None
 
         # If it's a node, it must be of type 'reference'
         target_path = path_or_node.get_value()
@@ -269,13 +304,6 @@ class BuiltinFunctions:
 
         res = self.symbol_table.resolve_reference(str(target_path))
         return res
-
-        
-        ref_path = path_or_node.get_value()
-        if not ref_path:
-            return None
-        
-        return self.symbol_table.resolve_reference(ref_path)
     
     def node_exists(self, path_or_node) -> bool:
         """Check if a path or node exists.
@@ -772,12 +800,14 @@ class BuiltinFunctions:
         s = str(s)
         # Replace all whitespace sequences with single space and strip
         return re.sub(r'\s+', ' ', s).strip()
-    
+
+    def set_variant(self, variant: str):
+        """Set the current variant name."""
+        self._variant_name = variant or ""
+
     def variant_name(self) -> str:
         """Get the current variant name"""
-        # Return from renderer state if possible
-        # For now, return PRE_COMPILE as default
-        return "v2" # Match user's current context
+        return self._variant_name
     
     def count(self, items) -> int:
         """Count items in a collection or node's children.
@@ -833,6 +863,16 @@ class BuiltinFunctions:
         Returns true if no variant info (compatibility mode).
         """
         return True
+
+    def variant_all(self) -> List[str]:
+        """Get all variant names defined in the project.
+
+        Returns a list of all variant names. If a variant is set,
+        returns a list containing that variant name.
+        """
+        if self._variant_name:
+            return [self._variant_name]
+        return []
 
     # ========== Variable Functions ==========
 
@@ -1002,6 +1042,42 @@ class BuiltinFunctions:
         
         # Fee configuration
         'Fee.VirtualPageSize': 8,
+
+        # GTM Module configuration (THA6206 defaults)
+        'Gtm.NumberOfTimModules': 3,
+        'Gtm.NumberOfTimChannels': 8,
+        'Gtm.MaxNumOfTimChannels': 24,
+        'Gtm.NumberOfTomModules': 3,
+        'Gtm.NumberOfTomChannels': 16,
+        'Gtm.NumberOfTGCPerTom': 2,
+        'Gtm.NumberOfChannelsPerTgc': 8,
+        'Gtm.NumberOfAtomModules': 4,
+        'Gtm.NumberOfAtomChannels': 8,
+        'Gtm.NumberOfTioModules': 3,
+        'Gtm.NumberOfTioChannels': 8,
+        'Gtm.NumberOfAgcPerAtom': 1,
+        'Gtm.NumberOfChannelsPerAgc': 8,
+        'Gtm.NumberOfTbuModules': 3,
+        'Gtm.NumberOfBrcSource': 12,
+        'Gtm.NumberOfAfdChannels': 8,
+        'Gtm.NumberOfFifoModules': 2,
+        'Gtm.NumberOfF2AModules': 2,
+        'Gtm.NumberOfFifoChannels': 8,
+        'Gtm.NumberOfDpllActions': 32,
+        'Gtm.NumberOfMcsChannels': 8,
+        'Gtm.NumberOfMcsModules': 6,
+        'Gtm.NumberOfToutselRegister': 19,
+        'Gtm.NumberOfSpeModules': 4,
+        'Gtm.NumberOfSpePatterns': 8,
+        'Gtm.NumberOfMscSets': 4,
+        'Gtm.NumberOfMscSel': 16,
+        'Gtm.NumberOfMsc': 1,
+        'Gtm.NumberOfTriggerChannel': 5,
+        'Gtm.NumberOfClusters': 3,
+        'Gtm.NumberOfCmu': 1,
+        'Gtm.NumberOfDtmModules': 3,
+        'Gtm.NumberOfDtmChannels': 4,
+        'Gtm.NumberOfSpmModules': 1,
     }
     
     def ecu_get(self, path: str) -> Any:
@@ -1315,9 +1391,9 @@ class BuiltinFunctions:
         Returns:
             Number of variants (0 if no variants defined)
         """
-        # Check if variants are registered in symbol table
-        # For now, return 0 as default (no variants)
-        # This matches the typical case where variant information is not loaded
+        # If variant_name returns non-empty, we have at least 1 variant
+        if self._variant_name:
+            return 1
         return 0
 
 

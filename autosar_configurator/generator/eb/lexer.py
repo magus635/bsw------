@@ -48,6 +48,7 @@ class TokenType(Enum):
     AUTOSPACING = auto()    # [!AUTOSPACING!] - auto spacing
     CR = auto()             # [!CR!] - output carriage return/newline
     TRACE = auto()          # [!TRACE expression!] - debug print
+    AUTOGENERATE_WARNING = auto()  # [!AUTOGENERATE_WARNING!] - auto-generate warning comment
 
 
 
@@ -114,6 +115,7 @@ class Lexer:
         'AUTOSPACING': TokenType.AUTOSPACING,
         'CR': TokenType.CR,
         'TRACE': TokenType.TRACE,
+        'AUTOGENERATE_WARNING': TokenType.AUTOGENERATE_WARNING,
     }
 
     

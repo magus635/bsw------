@@ -585,22 +585,31 @@ class XPathEngine:
     
     def _evaluate_predicate_condition(self, node: 'ConfigurationNode', condition: str) -> bool:
         """Evaluate a predicate condition in context of a node.
-        
+
         Supports:
         - Simple existence check: [ParamName]
-        - Equality: [ParamName = 'Value']
-        - Inequality: [ParamName != 'Value']  
+        - Equality: [ParamName = 'Value'], [ParamName = 0], [ParamName = num:i($var)]
+        - Inequality: [ParamName != 'Value']
         - Numeric comparisons: [ParamName > 5]
         """
         import re
-        
+
+        # Helper function for truthiness normalization
+        def to_bool_str(v):
+            if v is None: return "false"
+            if isinstance(v, bool): return "true" if v else "false"
+            s = str(v).lower()
+            if s in ('true', '1', 'yes', 'on', 'std_on'): return "true"
+            if s in ('false', '0', 'no', 'off', 'std_off'): return "false"
+            return s
+
         # Check for equality comparison: Name = 'Value' or Name = "Value"
         # Supports ChildName or . (self)
         eq_match = re.match(r"""^\s*([\w.]+)\s*=\s*['"]([^'"]*)['"]\s*$""", condition)
         if eq_match:
             name = eq_match.group(1)
             expected_value = eq_match.group(2)
-            
+
             if name == '.':
                 actual_value = node.get_value() if hasattr(node, 'get_value') else node.value
             else:
@@ -609,20 +618,76 @@ class XPathEngine:
                     actual_value = child.get_value()
                 else:
                     return False
-            
-            # Truthiness normalization
-            def to_bool_str(v):
-                if v is None: return "false"
-                if isinstance(v, bool): return "true" if v else "false"
-                s = str(v).lower()
-                if s in ('true', '1', 'yes', 'on', 'std_on'): return "true"
-                if s in ('false', '0', 'no', 'off', 'std_off'): return "false"
-                return s
 
             if expected_value.lower() in ('true', 'false'):
                 return to_bool_str(actual_value) == expected_value.lower()
-            
+
             return str(actual_value) == expected_value
+
+        # Check for equality with unquoted value or function call: Name = 0, Name = num:i($var)
+        # This handles cases like [McuClockSettingId = num:i($ClockIndex)]
+        # Use negative lookbehind to avoid matching != as =
+        general_eq_match = re.match(r"""^\s*([\w.]+)\s*(?<![!])=\s*(.+)\s*$""", condition)
+        # Also check that the condition doesn't contain != to avoid false matches
+        if general_eq_match and '!=' in condition:
+            general_eq_match = None
+        if general_eq_match:
+            name = general_eq_match.group(1)
+            right_expr = general_eq_match.group(2).strip()
+
+            # Get actual value from node
+            if name == '.':
+                actual_value = node.get_value() if hasattr(node, 'get_value') else node.value
+            else:
+                child = node.get_child(name)
+                if child:
+                    actual_value = child.get_value()
+                else:
+                    return False
+
+            # Evaluate the right side expression
+            expected_value = None
+
+            # Check if it's a pure number
+            if right_expr.isdigit() or (right_expr.startswith('-') and right_expr[1:].isdigit()):
+                expected_value = int(right_expr)
+            elif re.match(r'^-?\d+\.\d+$', right_expr):
+                expected_value = float(right_expr)
+            # Check if it's a function call like num:i($var)
+            elif '(' in right_expr and ')' in right_expr and self.function_handler:
+                try:
+                    # Use evaluate to handle function calls
+                    expected_value = self.evaluate(right_expr)
+                    # Unwrap if needed
+                    if hasattr(expected_value, 'get_value'):
+                        expected_value = expected_value.get_value()
+                except Exception as e:
+                    _debug_log(f"DEBUG: Failed to evaluate predicate expression '{right_expr}': {e}")
+                    return False
+            # Check if it's a variable reference
+            elif right_expr.startswith('$'):
+                var_name = right_expr[1:]
+                if self.context_stack.has_variable(var_name):
+                    expected_value = self.context_stack.get_variable(var_name)
+
+            if expected_value is not None:
+                # Compare values - try numeric comparison first, then string
+                try:
+                    actual_num = float(actual_value) if actual_value is not None else None
+                    expected_num = float(expected_value) if expected_value is not None else None
+                    if actual_num is not None and expected_num is not None:
+                        result = actual_num == expected_num
+                        _debug_log(f"DEBUG: Predicate [{name} = {right_expr}] => [{actual_value} == {expected_value}] (numeric) = {result}")
+                        return result
+                except (ValueError, TypeError):
+                    pass
+
+                # String comparison fallback
+                result = str(actual_value) == str(expected_value)
+                _debug_log(f"DEBUG: Predicate [{name} = {right_expr}] => [{actual_value} == {expected_value}] (string) = {result}")
+                return result
+
+            # If we couldn't evaluate the right side, fall through to other handlers
 
         
         # Check for inequality: ChildName != 'Value'

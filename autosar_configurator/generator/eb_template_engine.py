@@ -80,9 +80,17 @@ class EBTemplateEngine:
 
             
         # Extract extra variables from context (excluding model objects)
-        extra_vars = {k: v for k, v in context.items() 
+        extra_vars = {k: v for k, v in context.items()
                      if k not in ('module_def', 'configuration', 'module_name')}
-        
+
+        # Ensure variant is set on renderer before rendering
+        # This is needed because each template file may get a fresh EBTemplateEngine
+        if active_variant:
+            self.renderer._variant = active_variant
+            # Also set on builtins if already initialized
+            if hasattr(self.renderer, '_builtins') and self.renderer._builtins:
+                self.renderer._builtins.set_variant(active_variant)
+
         return self.renderer.render(template, module_name=module_name, initial_variables=extra_vars)
 
     def render_file(self, template_path: str, context: Dict[str, Any]) -> str:
