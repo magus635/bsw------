@@ -24,7 +24,7 @@ from .commands import (
 )
 
 from ..core.parser.ecuc_def_parser import EcucDefParser
-from ..core.config_manager import ConfigurationManager
+from ..core.config_manager import ConfigurationManager, ValidationError
 from ..core.workspace_manager import WorkspaceManager, WorkspaceProject
 from ..core.model.definition_model import EcucModuleDef, EcucContainerDef
 from ..core.model.configuration_model import EcucModuleConfiguration, EcucContainerValue
@@ -142,6 +142,7 @@ class DaVinciMainWindow(QMainWindow):
         self.tree_view.module_selected.connect(self._on_module_selected)
         self.tree_view.create_instance_requested.connect(self.handle_create_container)
         self.tree_view.delete_instance_requested.connect(self.handle_delete_container)
+        self.tree_view.delete_instances_requested.connect(self.handle_delete_containers_batch)
         self.tree_view.delete_module_requested.connect(self.handle_delete_module)
         self.tree_view.move_instance_requested.connect(self.handle_move_container)
         self.tree_view.view_references_requested.connect(self._show_reverse_references)
@@ -1211,6 +1212,105 @@ class DaVinciMainWindow(QMainWindow):
 
         self._update_dependency_graph_if_open()
     
+    def handle_delete_containers_batch(self, instances_list: list):
+        """Handle batch deletion of multiple container instances
+        
+        Args:
+            instances_list: List of (instance, parent_instance) tuples
+        """
+        if not instances_list:
+            return
+        
+        # Validate all instances before deleting
+        blocked_instances = []
+        valid_instances = []
+        
+        for instance, parent_instance in instances_list:
+            # Find the appropriate config_manager for this instance
+            config_manager = None
+            if self.current_project:
+                # Find which module this instance belongs to
+                for module_name, manager in self.current_project.module_managers.items():
+                    if manager.configuration and instance in self._get_all_instances(manager.configuration):
+                        config_manager = manager
+                        break
+            else:
+                config_manager = self.config_manager
+            
+            if not config_manager:
+                continue
+            
+            # Check if instance is referenced
+            refs = config_manager._find_references_to(instance)
+            if refs:
+                ref_names = [f"{src.short_name}.{ref_name}" for src, ref_name in refs]
+                blocked_instances.append((instance, f"被引用: {', '.join(ref_names[:3])}"))
+                continue
+            
+            # Check multiplicity constraint
+            container_def = config_manager.get_container_def(instance.definition_ref)
+            if container_def and parent_instance:
+                current_count = config_manager._count_instances_in_parent(container_def, parent_instance)
+                # Count how many of same type we're trying to delete
+                same_type_deletes = sum(1 for inst, parent in instances_list 
+                                       if parent == parent_instance and inst.definition_ref == instance.definition_ref)
+                if current_count - same_type_deletes < container_def.lower_multiplicity:
+                    blocked_instances.append((instance, f"需保留至少 {container_def.lower_multiplicity} 个实例"))
+                    continue
+            
+            valid_instances.append((instance, parent_instance, config_manager))
+        
+        # Report blocked instances
+        if blocked_instances:
+            blocked_msg = "\n".join([f"  • {inst.short_name}: {reason}" for inst, reason in blocked_instances[:5]])
+            if len(blocked_instances) > 5:
+                blocked_msg += f"\n  ... 及其他 {len(blocked_instances) - 5} 个"
+            QMessageBox.warning(
+                self,
+                "部分实例无法删除",
+                f"以下实例因约束无法删除:\n\n{blocked_msg}\n\n"
+                f"将继续删除其他 {len(valid_instances)} 个有效实例。"
+            )
+        
+        if not valid_instances:
+            return
+        
+        # Begin macro command for undo grouping
+        self.undo_stack.beginMacro(f"批量删除 {len(valid_instances)} 个实例")
+        
+        deleted_count = 0
+        for instance, parent_instance, config_manager in valid_instances:
+            try:
+                command = DeleteContainerCommand(config_manager, instance, parent_instance)
+                self.undo_stack.push(command)
+                deleted_count += 1
+            except Exception as e:
+                logger.warning(f"Failed to delete {instance.short_name}: {e}")
+        
+        self.undo_stack.endMacro()
+        
+        self._has_unsaved_changes = True
+        self.statusbar.showMessage(f"已删除 {deleted_count} 个实例", 3000)
+        
+        # Refresh tree view
+        self.tree_view.refresh()
+        
+        # Clear config panel
+        self.config_panel.clear()
+        
+        self._update_dependency_graph_if_open()
+    
+    def _get_all_instances(self, config) -> list:
+        """Get all instances recursively from a configuration"""
+        instances = []
+        def collect(container):
+            instances.append(container)
+            for sub in container.sub_containers:
+                collect(sub)
+        for c in config.containers:
+            collect(c)
+        return instances
+    
     def handle_delete_module(self, module_name: str):
         """Handle module deletion request from tree view"""
         if not self.current_project:
@@ -1319,7 +1419,21 @@ class DaVinciMainWindow(QMainWindow):
              else:
                  self.statusbar.showMessage("Cannot paste here: Select a valid parent container", 3000)
                  return
-                 
+        
+        # Check multiplicity before paste
+        try:
+            if target_parent:
+                self.config_manager._check_multiplicity_before_add(clip_def, target_parent)
+            else:
+                self.config_manager._check_multiplicity_before_add_toplevel(clip_def)
+        except ValidationError as e:
+            QMessageBox.warning(
+                self,
+                "无法粘贴",
+                f"无法粘贴 '{self.clipboard_instance.short_name}'：\n\n{str(e)}"
+            )
+            return
+                  
         # Clone and Rename
         try:
             new_instance = self.clipboard_instance.clone()

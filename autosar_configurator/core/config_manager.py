@@ -326,10 +326,12 @@ class ConfigurationManager:
         Args:
             instance: Instance to add
             parent: Parent container (None for top-level)
-        """
-        # Validate multiplicity if needed (optional here as undo implies valid state, but paste needs check)
-        # For robustness, we could check. But paste logic handles duplication/naming.
         
+        Note:
+            Multiplicity validation should be performed by the caller before invoking this method.
+            For paste operations, use _check_multiplicity_before_add() beforehand.
+            For undo operations, the previous state is assumed valid.
+        """
         if parent:
             parent.add_sub_container(instance)
             # Register in configuration registry

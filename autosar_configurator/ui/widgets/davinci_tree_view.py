@@ -26,6 +26,7 @@ class DaVinciTreeView(QTreeWidget):
     # Command signals
     create_instance_requested = Signal(EcucContainerDef, object, str)  # def, parent_instance, name
     delete_instance_requested = Signal(EcucContainerValue, object)  # instance, parent_instance
+    delete_instances_requested = Signal(list)  # list of (instance, parent_instance) tuples for batch delete
     delete_module_requested = Signal(str)  # module_name - to remove module from project
     move_instance_requested = Signal(EcucContainerValue, object, int)  # instance, new_parent, new_index
     view_references_requested = Signal(EcucContainerValue)  # instance - show who references this container
@@ -61,6 +62,9 @@ class DaVinciTreeView(QTreeWidget):
         self.setAcceptDrops(True)
         self.setDropIndicatorShown(True)
         self.setDragDropMode(QAbstractItemView.InternalMove)
+        
+        # Enable multi-selection with Ctrl/Shift+Click
+        self.setSelectionMode(QAbstractItemView.ExtendedSelection)
     
     def set_module_def(self, module_def: EcucModuleDef, config_manager: ConfigurationManager):
         """Set module definition and configuration manager"""
@@ -89,7 +93,10 @@ class DaVinciTreeView(QTreeWidget):
             self.refresh()
     
     def refresh(self):
-        """Refresh entire tree"""
+        """Refresh entire tree while preserving expansion state"""
+        # Save expansion state before clearing
+        expanded_state = self._save_expansion_state()
+        
         self.clear()
         self.def_to_item.clear()
         self.item_to_def.clear()
@@ -104,6 +111,9 @@ class DaVinciTreeView(QTreeWidget):
             self.setHeaderLabel("Module Configuration")
             # Render single module
             self._create_module_node(self.module_def, self.config_manager)
+        
+        # Restore expansion state
+        self._restore_expansion_state(expanded_state)
             
     def _create_module_node(self, module_def: EcucModuleDef, config_manager: ConfigurationManager):
         """Create a top-level module node"""
@@ -394,15 +404,26 @@ class DaVinciTreeView(QTreeWidget):
             instance = data["instance"]
             container_def = data["def"]
             
-            # View reverse references
-            view_refs_action = menu.addAction("🔍 查看谁引用了此容器")
-            view_refs_action.triggered.connect(lambda: self.view_references_requested.emit(instance))
+            # Check if multiple VALUE items are selected
+            selected_items = self.selectedItems()
+            value_items = [(item, item.data(0, Qt.UserRole)) for item in selected_items 
+                          if item.data(0, Qt.UserRole) and item.data(0, Qt.UserRole).get("type") == "VALUE"]
             
-            menu.addSeparator()
-            
-            # Delete instance
-            delete_action = menu.addAction("Delete Instance")
-            delete_action.triggered.connect(lambda: self._delete_instance(instance, container_def, data.get("parent_instance"), data.get("manager")))
+            if len(value_items) > 1:
+                # Multi-select mode - show batch delete option
+                delete_action = menu.addAction(f"🗑️ 删除选中的 {len(value_items)} 个实例")
+                delete_action.triggered.connect(lambda: self._delete_selected_instances())
+            else:
+                # Single selection mode
+                # View reverse references
+                view_refs_action = menu.addAction("🔍 查看谁引用了此容器")
+                view_refs_action.triggered.connect(lambda: self.view_references_requested.emit(instance))
+                
+                menu.addSeparator()
+                
+                # Delete instance
+                delete_action = menu.addAction("Delete Instance")
+                delete_action.triggered.connect(lambda: self._delete_instance(instance, container_def, data.get("parent_instance"), data.get("manager")))
         
         menu.exec(self.viewport().mapToGlobal(position))
     
@@ -470,9 +491,12 @@ class DaVinciTreeView(QTreeWidget):
                 data = item.data(0, Qt.UserRole)
                 if data:
                     # Create a unique key
-                    if data.get("type") == "DEF":
+                    item_type = data.get("type")
+                    if item_type == "MODULE":
+                        key = ("MODULE", data["def"].short_name)
+                    elif item_type == "DEF":
                         key = ("DEF", data["def"].definition_ref)
-                    elif data.get("type") == "VALUE":
+                    elif item_type == "VALUE":
                         key = ("VALUE", data["instance"].short_name, data["instance"].definition_ref)
                     else:
                         key = None
@@ -493,10 +517,13 @@ class DaVinciTreeView(QTreeWidget):
             data = item.data(0, Qt.UserRole)
             if data:
                 # Check if this item should be expanded
+                item_type = data.get("type")
                 key = None
-                if data.get("type") == "DEF":
+                if item_type == "MODULE":
+                    key = ("MODULE", data["def"].short_name)
+                elif item_type == "DEF":
                     key = ("DEF", data["def"].definition_ref)
-                elif data.get("type") == "VALUE":
+                elif item_type == "VALUE":
                     key = ("VALUE", data["instance"].short_name, data["instance"].definition_ref)
                 
                 if key and key in expanded_items:
@@ -704,6 +731,41 @@ class DaVinciTreeView(QTreeWidget):
         
         # Request deletion via signal
         self.delete_instance_requested.emit(instance, parent_instance)
+    
+    def _delete_selected_instances(self):
+        """Delete all selected container instances (batch delete)"""
+        selected_items = self.selectedItems()
+        
+        # Filter to only VALUE type items
+        instances_to_delete = []
+        for item in selected_items:
+            data = item.data(0, Qt.UserRole)
+            if data and data.get("type") == "VALUE":
+                instance = data["instance"]
+                parent_instance = data.get("parent_instance")
+                instances_to_delete.append((instance, parent_instance))
+        
+        if not instances_to_delete:
+            return
+        
+        # Show confirmation dialog
+        names = [inst.short_name for inst, _ in instances_to_delete]
+        names_preview = "\n".join(f"  • {name}" for name in names[:10])
+        if len(names) > 10:
+            names_preview += f"\n  ... 及其他 {len(names) - 10} 个实例"
+        
+        reply = QMessageBox.question(
+            self,
+            "批量删除实例",
+            f"确定要删除以下 {len(instances_to_delete)} 个实例吗?\n\n{names_preview}",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if reply == QMessageBox.No:
+            return
+        
+        # Emit batch delete signal
+        self.delete_instances_requested.emit(instances_to_delete)
     
     def _delete_module(self, module_name: str):
         """Delete a module from the project"""

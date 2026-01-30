@@ -17,7 +17,7 @@ import logging
 from typing import Dict, Any, List, Tuple, Optional
 from pathlib import Path
 from ..core.model.configuration_model import EcucModuleConfiguration, EcucContainerValue
-from ..core.model.definition_model import EcucModuleDef, EcucContainerDef, EcucParameterDef, ConfigClass
+from ..core.model.definition_model import EcucModuleDef, EcucContainerDef, EcucParameterDef, EcucParameterType, ConfigClass
 from .eb_template_engine import EBTemplateEngine
 
 # Setup logger
@@ -564,11 +564,11 @@ class CodeGenerator:
     def _get_params_by_config_class(self, config_class: str) -> List[Dict[str, Any]]:
         """Get parameters filtered by config_class, applying variant overrides"""
         params = []
-        
+
         def collect_from_container(container: EcucContainerValue, container_def: EcucContainerDef, path: str):
             for param_name in sorted(container_def.parameters.keys()):
                 param_def = container_def.parameters[param_name]
-                
+
                 param_config_class = param_def.config_class or ConfigClass.PRE_COMPILE
                 if param_config_class == config_class:
                     param_path = f"{container.get_path()}.{param_name}"
@@ -578,10 +578,12 @@ class CodeGenerator:
                         param_value = container.parameter_values[param_name].value
                     else:
                         param_value = param_def.default_value
-                    
+
                     if param_value is not None:
-                        params.append((path, param_name, param_value))
-            
+                        # Format value for C output based on parameter type
+                        formatted_value = self._format_param_value_for_c(param_value, param_def)
+                        params.append((path, param_name, formatted_value))
+
             sub_container_map = {}
             for sub in container.sub_containers:
                 base_name = sub.short_name.rsplit('_', 1)[0] if '_' in sub.short_name else sub.short_name
@@ -590,19 +592,58 @@ class CodeGenerator:
                     if base_name not in sub_container_map:
                         sub_container_map[base_name] = (sub_def, [])
                     sub_container_map[base_name][1].append(sub)
-            
+
             for base_name in sorted(sub_container_map.keys()):
                 sub_def, instances = sub_container_map[base_name]
                 for sub in sorted(instances, key=lambda x: x.short_name):
                     collect_from_container(sub, sub_def, f"{path}_{sub.short_name}")
-        
+
         for container in sorted(self.configuration.containers, key=lambda x: x.short_name):
             base_name = container.short_name.rsplit('_', 1)[0] if '_' in container.short_name else container.short_name
             container_def = self.module_def.get_container_def(base_name)
             if container_def:
                 collect_from_container(container, container_def, container.short_name)
-        
+
         return params
+
+    def _format_param_value_for_c(self, value: Any, param_def) -> str:
+        """Format parameter value for C code output based on parameter type"""
+        if value is None:
+            return "0"
+
+        # Handle boolean values
+        if isinstance(value, bool):
+            return "1" if value else "0"
+
+        # Handle string values that might be booleans
+        if isinstance(value, str):
+            val_lower = value.lower()
+            if val_lower in ('true', 'yes', 'on'):
+                return "1"
+            if val_lower in ('false', 'no', 'off'):
+                return "0"
+
+        # Handle enumeration parameters
+        if param_def and param_def.param_type == EcucParameterType.ENUMERATION:
+            if param_def.literals and isinstance(value, str):
+                # Convert enum literal to its index
+                try:
+                    index = param_def.literals.index(value)
+                    return str(index)
+                except ValueError:
+                    # Literal not found, return as-is (might be already an index)
+                    pass
+
+        # Handle integer values
+        if isinstance(value, int):
+            return str(value)
+
+        # Handle float values
+        if isinstance(value, float):
+            return f"{value}f"
+
+        # Default: return string representation
+        return str(value)
         
     def _get_references(self) -> List[tuple]:
         """Collect all references from the configuration"""

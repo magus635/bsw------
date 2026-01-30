@@ -110,13 +110,13 @@ class EcucDefParser:
             description=self._get_description(element)
         )
         
-        # Parse multiplicity
-        container_def.lower_multiplicity = self._get_int_value(element, 'LOWER-MULTIPLICITY', 0)
-        
+        # Parse multiplicity (use direct child lookup to avoid finding sub-container's multiplicity)
+        container_def.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)
+
         # Check for UPPER-MULTIPLICITY-INFINITE first (AUTOSAR variant for unlimited)
-        upper_mult_infinite = self._get_text_value(element, 'UPPER-MULTIPLICITY-INFINITE')
-        upper_mult_text = self._get_text_value(element, 'UPPER-MULTIPLICITY')
-        
+        upper_mult_infinite = self._get_child_text_value(element, 'UPPER-MULTIPLICITY-INFINITE')
+        upper_mult_text = self._get_child_text_value(element, 'UPPER-MULTIPLICITY')
+
         if upper_mult_infinite and upper_mult_infinite.lower() in ('1', 'true'):
             # UPPER-MULTIPLICITY-INFINITE = 1/true means unlimited (*)
             container_def.upper_multiplicity = -1
@@ -124,9 +124,9 @@ class EcucDefParser:
             container_def.upper_multiplicity = -1
         else:
             container_def.upper_multiplicity = int(upper_mult_text) if upper_mult_text else 1
-            
+
         # Parse Post-Build Variant Multiplicity
-        pb_mult = self._get_text_value(element, 'POST-BUILD-VARIANT-MULTIPLICITY')
+        pb_mult = self._get_child_text_value(element, 'POST-BUILD-VARIANT-MULTIPLICITY')
         if pb_mult:
             container_def.post_build_variant_multiplicity = (pb_mult.lower() == 'true')
         
@@ -192,9 +192,9 @@ class EcucDefParser:
             description=self._get_description(element)
         )
         
-        # Parse multiplicity
-        param_def.lower_multiplicity = self._get_int_value(element, 'LOWER-MULTIPLICITY', 0)
-        param_def.upper_multiplicity = self._get_int_value(element, 'UPPER-MULTIPLICITY', 1)
+        # Parse multiplicity (use direct child lookup)
+        param_def.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)
+        param_def.upper_multiplicity = self._get_child_int_value(element, 'UPPER-MULTIPLICITY', 1)
         
         # Parse DEFAULT-VALUE
         default_val = self._get_text_value(element, 'DEFAULT-VALUE')
@@ -276,9 +276,9 @@ class EcucDefParser:
             ref_def.destination_ref = dest_ref_elem.text or ""
             ref_def.destination_type = dest_ref_elem.get('DEST', 'ECUC-PARAM-CONF-CONTAINER-DEF')
         
-        # Parse multiplicity
-        ref_def.lower_multiplicity = self._get_int_value(element, 'LOWER-MULTIPLICITY', 0)
-        ref_def.upper_multiplicity = self._get_int_value(element, 'UPPER-MULTIPLICITY', 1)
+        # Parse multiplicity (use direct child lookup)
+        ref_def.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)
+        ref_def.upper_multiplicity = self._get_child_int_value(element, 'UPPER-MULTIPLICITY', 1)
         
         # Set definition reference path
         ref_def.definition_ref = f"{parent_path}/{short_name}"
@@ -317,9 +317,9 @@ class EcucDefParser:
         # Store all choice destinations for UI display
         ref_def.choice_destination_refs = destination_refs
 
-        # Parse multiplicity
-        ref_def.lower_multiplicity = self._get_int_value(element, 'LOWER-MULTIPLICITY', 0)
-        ref_def.upper_multiplicity = self._get_int_value(element, 'UPPER-MULTIPLICITY', 1)
+        # Parse multiplicity (use direct child lookup)
+        ref_def.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)
+        ref_def.upper_multiplicity = self._get_child_int_value(element, 'UPPER-MULTIPLICITY', 1)
 
         # Set definition reference path
         ref_def.definition_ref = f"{parent_path}/{short_name}"
@@ -421,7 +421,20 @@ class EcucDefParser:
         # _find_descendant looks for tag_name.
         elem = self._find_descendant(element, tag_name)
         return elem.text if elem is not None else None
-    
+
+    def _get_child_text_value(self, element: etree._Element, tag_name: str) -> Optional[str]:
+        """Get text value of a direct child element only (not descendants)"""
+        elem = self._find_child(element, tag_name)
+        return elem.text if elem is not None else None
+
+    def _get_child_int_value(self, element: etree._Element, tag_name: str, default: int = 0) -> int:
+        """Get integer value of a direct child element only (not descendants)"""
+        text = self._get_child_text_value(element, tag_name)
+        try:
+            return int(text) if text else default
+        except ValueError:
+            return default
+
     def _get_int_value(self, element: etree._Element, tag_name: str, default: int = 0) -> int:
         """Get integer value of a descendant"""
         text = self._get_text_value(element, tag_name)

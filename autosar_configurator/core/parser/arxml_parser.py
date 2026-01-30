@@ -390,11 +390,17 @@ class ArxmlParser:
         
         # Parse description
         container.description = self._get_description(element)
-        
-        # Parse multiplicity
-        container.lower_multiplicity = self._get_int_value(element, 'LOWER-MULTIPLICITY', 0)
-        upper_mult = self._get_text_value(element, 'UPPER-MULTIPLICITY')
-        if upper_mult == '*':
+
+        # Parse multiplicity (use direct child lookup to avoid finding sub-container's multiplicity)
+        container.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)
+
+        # Check for UPPER-MULTIPLICITY-INFINITE first (AUTOSAR variant for unlimited)
+        upper_mult_infinite = self._get_child_text_value(element, 'UPPER-MULTIPLICITY-INFINITE')
+        upper_mult = self._get_child_text_value(element, 'UPPER-MULTIPLICITY')
+
+        if upper_mult_infinite and upper_mult_infinite.lower() in ('1', 'true'):
+            container.upper_multiplicity = -1
+        elif upper_mult == '*':
             container.upper_multiplicity = -1
         else:
             container.upper_multiplicity = int(upper_mult) if upper_mult else 1
@@ -448,9 +454,9 @@ class ArxmlParser:
         # Parse description
         param.description = self._get_description(element)
         
-        # Parse multiplicity
-        param.lower_multiplicity = self._get_int_value(element, 'LOWER-MULTIPLICITY', 0)
-        param.upper_multiplicity = self._get_int_value(element, 'UPPER-MULTIPLICITY', 1)
+        # Parse multiplicity (use direct child lookup)
+        param.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)
+        param.upper_multiplicity = self._get_child_int_value(element, 'UPPER-MULTIPLICITY', 1)
         
         # Parse type-specific fields
         if param_type == 'ECUC-ENUMERATION-PARAM-DEF':
@@ -515,9 +521,9 @@ class ArxmlParser:
             ref.destination_ref = dest_ref_elem.text or ""
             ref.destination_type = dest_ref_elem.get('DEST', 'ECUC-PARAM-CONF-CONTAINER-DEF')
         
-        # Parse multiplicity
-        ref.lower_multiplicity = self._get_int_value(element, 'LOWER-MULTIPLICITY', 0)
-        ref.upper_multiplicity = self._get_int_value(element, 'UPPER-MULTIPLICITY', 1)
+        # Parse multiplicity (use direct child lookup)
+        ref.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)
+        ref.upper_multiplicity = self._get_child_int_value(element, 'UPPER-MULTIPLICITY', 1)
         
         return ref
     
@@ -720,7 +726,25 @@ class ArxmlParser:
         """Get text value of a descendant"""
         elem = self._find_descendant(element, tag_name)
         return elem.text if elem is not None else None
-    
+
+    def _find_child(self, element: etree._Element, tag_name: str) -> Optional[etree._Element]:
+        """Find first immediate child with tag_name, ignoring namespace"""
+        children = self._findall_children(element, tag_name)
+        return children[0] if children else None
+
+    def _get_child_text_value(self, element: etree._Element, tag_name: str) -> Optional[str]:
+        """Get text value of a direct child element only (not descendants)"""
+        elem = self._find_child(element, tag_name)
+        return elem.text if elem is not None else None
+
+    def _get_child_int_value(self, element: etree._Element, tag_name: str, default: int = 0) -> int:
+        """Get integer value of a direct child element only (not descendants)"""
+        text = self._get_child_text_value(element, tag_name)
+        try:
+            return int(text) if text else default
+        except ValueError:
+            return default
+
     def _get_int_value(self, element: etree._Element, tag_name: str, default: int = 0) -> int:
         """Get integer value of a descendant"""
         text = self._get_text_value(element, tag_name)
