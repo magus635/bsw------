@@ -29,6 +29,7 @@ class DaVinciTreeView(QTreeWidget):
     delete_instances_requested = Signal(list)  # list of (instance, parent_instance) tuples for batch delete
     delete_module_requested = Signal(str)  # module_name - to remove module from project
     move_instance_requested = Signal(EcucContainerValue, object, int)  # instance, new_parent, new_index
+    rename_instance_requested = Signal(EcucContainerValue, str)  # instance, new_name
     view_references_requested = Signal(EcucContainerValue)  # instance - show who references this container
     
     def __init__(self, parent=None):
@@ -415,6 +416,10 @@ class DaVinciTreeView(QTreeWidget):
                 delete_action.triggered.connect(lambda: self._delete_selected_instances())
             else:
                 # Single selection mode
+                # Rename instance
+                rename_action = menu.addAction("✏️ 重命名")
+                rename_action.triggered.connect(lambda: self._rename_instance(instance, data.get("parent_instance"), data.get("manager")))
+                
                 # View reverse references
                 view_refs_action = menu.addAction("🔍 查看谁引用了此容器")
                 view_refs_action.triggered.connect(lambda: self.view_references_requested.emit(instance))
@@ -422,7 +427,7 @@ class DaVinciTreeView(QTreeWidget):
                 menu.addSeparator()
                 
                 # Delete instance
-                delete_action = menu.addAction("Delete Instance")
+                delete_action = menu.addAction("🗑️ 删除实例")
                 delete_action.triggered.connect(lambda: self._delete_instance(instance, container_def, data.get("parent_instance"), data.get("manager")))
         
         menu.exec(self.viewport().mapToGlobal(position))
@@ -766,6 +771,43 @@ class DaVinciTreeView(QTreeWidget):
         
         # Emit batch delete signal
         self.delete_instances_requested.emit(instances_to_delete)
+    
+    def _rename_instance(self, instance: EcucContainerValue, parent_instance: Optional[EcucContainerValue] = None, config_manager: Optional[ConfigurationManager] = None):
+        """Rename a container instance"""
+        manager = config_manager or self.config_manager
+        
+        # Get current name
+        current_name = instance.short_name
+        
+        # Show input dialog
+        new_name, ok = QInputDialog.getText(
+            self,
+            "重命名实例",
+            f"请输入新名称:",
+            text=current_name
+        )
+        
+        if not ok or not new_name.strip():
+            return
+        
+        new_name = new_name.strip()
+        
+        # Check if name unchanged
+        if new_name == current_name:
+            return
+        
+        # Check for name conflict
+        container_def = manager.get_container_def(instance.definition_ref) if manager else None
+        if manager and container_def and manager._instance_exists(new_name, container_def, parent_instance):
+            QMessageBox.warning(
+                self,
+                "名称冲突",
+                f"名称 '{new_name}' 已存在，请选择其他名称。"
+            )
+            return
+        
+        # Emit rename signal
+        self.rename_instance_requested.emit(instance, new_name)
     
     def _delete_module(self, module_name: str):
         """Delete a module from the project"""

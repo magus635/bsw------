@@ -289,14 +289,8 @@ class ConfigurationManager:
         if not container_def:
             raise ValidationError(f"Container definition not found: {instance.definition_ref}")
         
-        # Check lower multiplicity
-        if parent:
-            current_count = self._count_instances_in_parent(container_def, parent)
-            if current_count <= container_def.lower_multiplicity:
-                raise ValidationError(
-                    f"Cannot delete: must have at least {container_def.lower_multiplicity} "
-                    f"instances of {container_def.short_name}"
-                )
+        # Note: lower_multiplicity check is skipped to give users more flexibility
+        # Validation will warn about missing required instances separately
         
         
         # Check if instance is referenced by other containers

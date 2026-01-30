@@ -145,6 +145,7 @@ class DaVinciMainWindow(QMainWindow):
         self.tree_view.delete_instances_requested.connect(self.handle_delete_containers_batch)
         self.tree_view.delete_module_requested.connect(self.handle_delete_module)
         self.tree_view.move_instance_requested.connect(self.handle_move_container)
+        self.tree_view.rename_instance_requested.connect(self.handle_rename_container)
         self.tree_view.view_references_requested.connect(self._show_reverse_references)
         splitter.addWidget(self.tree_view)
         
@@ -1158,13 +1159,24 @@ class DaVinciMainWindow(QMainWindow):
             
     def handle_delete_container(self, instance: EcucContainerValue, parent_instance: Optional[EcucContainerValue]):
         """Handle container deletion request via command"""
-        if not self.config_manager:
+        # Find the appropriate config_manager
+        config_manager = self.config_manager
+        
+        if not config_manager and self.current_project:
+            # In project mode, find the manager for this instance
+            for module_name, manager in self.current_project.module_managers.items():
+                if manager.configuration and instance in self._get_all_instances(manager.configuration):
+                    config_manager = manager
+                    break
+        
+        if not config_manager:
+            self.statusbar.showMessage("无法删除：未找到配置管理器", 3000)
             return
         
         # PRE-VALIDATE deletion to provide user feedback
         try:
             # Check if instance is referenced by others
-            refs = self.config_manager._find_references_to(instance)
+            refs = config_manager._find_references_to(instance)
             if refs:
                 ref_list = '\n'.join([f"  • {src.short_name}.{ref_name}" for src, ref_name in refs])
                 QMessageBox.warning(
@@ -1176,19 +1188,8 @@ class DaVinciMainWindow(QMainWindow):
                 )
                 return
             
-            # Check multiplicity constraint
-            container_def = self.config_manager.get_container_def(instance.definition_ref)
-            if container_def and parent_instance:
-                current_count = self.config_manager._count_instances_in_parent(container_def, parent_instance)
-                if current_count <= container_def.lower_multiplicity:
-                    QMessageBox.warning(
-                        self,
-                        "Cannot Delete Container",
-                        f"Cannot delete '{instance.short_name}'.\n\n"
-                        f"The parent requires at least {container_def.lower_multiplicity} "
-                        f"instance(s) of '{container_def.short_name}'."
-                    )
-                    return
+            # Note: lower_multiplicity check is skipped to give users more flexibility
+            # Validation will warn about missing required instances separately
         except Exception as e:
             # If validation check fails, show error and abort
             QMessageBox.critical(
@@ -1198,11 +1199,11 @@ class DaVinciMainWindow(QMainWindow):
             )
             return
             
-        command = DeleteContainerCommand(self.config_manager, instance, parent_instance)
+        command = DeleteContainerCommand(config_manager, instance, parent_instance)
         self.undo_stack.push(command)
         
         self._has_unsaved_changes = True
-        self.statusbar.showMessage(f"Deleted {instance.short_name}", 2000)
+        self.statusbar.showMessage(f"已删除 {instance.short_name}", 2000)
         
         # Refresh tree view
         self.tree_view.refresh()
@@ -1240,23 +1241,15 @@ class DaVinciMainWindow(QMainWindow):
             if not config_manager:
                 continue
             
-            # Check if instance is referenced
+            # Check if instance is referenced (this is a hard constraint)
             refs = config_manager._find_references_to(instance)
             if refs:
                 ref_names = [f"{src.short_name}.{ref_name}" for src, ref_name in refs]
                 blocked_instances.append((instance, f"被引用: {', '.join(ref_names[:3])}"))
                 continue
             
-            # Check multiplicity constraint
-            container_def = config_manager.get_container_def(instance.definition_ref)
-            if container_def and parent_instance:
-                current_count = config_manager._count_instances_in_parent(container_def, parent_instance)
-                # Count how many of same type we're trying to delete
-                same_type_deletes = sum(1 for inst, parent in instances_list 
-                                       if parent == parent_instance and inst.definition_ref == instance.definition_ref)
-                if current_count - same_type_deletes < container_def.lower_multiplicity:
-                    blocked_instances.append((instance, f"需保留至少 {container_def.lower_multiplicity} 个实例"))
-                    continue
+            # Note: lower_multiplicity check is skipped for batch delete to give users more flexibility
+            # Users can delete instances even if it would violate lower_multiplicity
             
             valid_instances.append((instance, parent_instance, config_manager))
         
@@ -1366,6 +1359,29 @@ class DaVinciMainWindow(QMainWindow):
         self.tree_view._select_instance(instance)
         
         self._update_dependency_graph_if_open()
+    
+    def handle_rename_container(self, instance: EcucContainerValue, new_name: str):
+        """Handle container rename request"""
+        if not instance or not new_name:
+            return
+        
+        old_name = instance.short_name
+        
+        # Update instance name directly (no undo support for simple rename for now)
+        instance.short_name = new_name
+        
+        self._has_unsaved_changes = True
+        self.statusbar.showMessage(f"已重命名: {old_name} → {new_name}", 2000)
+        
+        # Refresh tree view
+        self.tree_view.refresh()
+        
+        # Reselect the instance
+        self.tree_view._select_instance(instance)
+        
+        # Update config panel if this instance is displayed
+        if self.config_panel.current_instance == instance:
+            self.config_panel.refresh()
         
     def copy_container(self):
         """Copy selected container to internal clipboard"""
@@ -1438,21 +1454,24 @@ class DaVinciMainWindow(QMainWindow):
         try:
             new_instance = self.clipboard_instance.clone()
             
-            # Auto-rename to avoid collision
+            # Generate a numbered name instead of _Copy suffix
+            # Extract base name (remove any existing _N suffix or _Copy suffix)
             base_name = new_instance.short_name
-            # If it looks like "Name_Copy", strip suffix to avoid "Name_Copy_Copy" duplication if desired?
-            # Or just append. Windows style: Copy -> Copy (2).
-            # Let's keep it simple: Ensure unique name.
-            if "_Copy" not in base_name:
-                base_name += "_Copy"
             
-            # Generate unique name
-            counter = 0
-            candidate_name = base_name
+            # Strip existing _Copy or _CopyN suffix
+            import re
+            base_name = re.sub(r'_Copy\d*$', '', base_name)
+            # Strip existing _N suffix (where N is a number)
+            base_name = re.sub(r'_\d+$', '', base_name)
+            
+            # Find next available number
+            counter = 1
+            candidate_name = f"{base_name}_{counter}"
             while self.config_manager._instance_exists(candidate_name, clip_def, target_parent):
                 counter += 1
-                candidate_name = f"{base_name}{counter}"
+                candidate_name = f"{base_name}_{counter}"
             
+            # Use auto-generated name directly (no dialog)
             new_instance.short_name = candidate_name
              
             # Command
@@ -1460,7 +1479,7 @@ class DaVinciMainWindow(QMainWindow):
             self.undo_stack.push(command)
             
             self._has_unsaved_changes = True
-            self.statusbar.showMessage(f"Pasted {new_instance.short_name}", 2000)
+            self.statusbar.showMessage(f"已粘贴 {new_instance.short_name}", 2000)
             
             # Refresh and select
             self.tree_view.refresh()
