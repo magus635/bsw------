@@ -28,9 +28,6 @@ class BuiltinFunctions:
         # Variant name (will be set by renderer)
         self._variant_name = ""
 
-        # Register synthetic Resource module early if missing
-        self.as_modconf('Resource')
-        
         # Build function registry
         self._functions = {
             # Node functions
@@ -531,38 +528,11 @@ class BuiltinFunctions:
         _debug_log(f"as_modconf: Looking for module '{module_name}'")
         _debug_log(f"as_modconf: Available modules: {self.symbol_table.get_all_modules()}")
 
-        if module_name == 'Resource':
-            # Create a synthetic Resource module if it doesn't exist
-            res = self.symbol_table.get_module('Resource')
-            if res:
-                _debug_log(f"as_modconf: Found Resource module with children: {list(res.children.keys())}")
-                return res
-
-            _debug_log("as_modconf: Resource module NOT found, creating synthetic one")
-            from .symbol_table import ConfigurationNode
-            root = ConfigurationNode(short_name="Resource", node_type="module", path="/Resource")
-
-            # Add NumOfCores if in defaults
-            cores = self.ecu_get('Resource.NumOfCores')
-            if cores:
-                param = ConfigurationNode(
-                    short_name="NumOfCores",
-                    node_type="parameter",
-                    value=cores,
-                    path="/Resource/NumOfCores"
-                )
-                root.add_child(param)
-
-            # Register it GLOBALLY so XPathEngine and others see it
-            _debug_log("EB Renderer: Registering synthetic Resource module")
-            self.symbol_table.register_module("Resource", root)
-            return root
-
         result = self.symbol_table.get_module(module_name)
         if result:
             _debug_log(f"as_modconf: Found module '{module_name}' with children: {list(result.children.keys())}")
         else:
-            _debug_log(f"as_modconf: Module '{module_name}' NOT found")
+            _debug_log(f"WARNING: Module '{module_name}' not loaded")
         return result
 
 
@@ -1054,197 +1024,80 @@ class BuiltinFunctions:
         # Resolve the reference to its target
         return self.node_ref(node)
 
-    # ECU Resource Defaults - typical values for automotive MCUs
-    # These can be overridden by setting ecu_resources dictionary
-    ECU_DEFAULTS = {
-        # Core/Resource configuration
-        'Resource.NumOfCores': 4,           # Typical: 1, 2, or 4 cores
-        'Mcu.NoOfCoreAvailable': 4,
-
-        # ADC Module configuration
-        'Adc.MaxControllers': 4,            # Number of ADC controllers (SARADC0-3)
-        'Adc.ReqSrcCount': 3,               # Request sources per ADC (RS0, RS1, RS2)
-        'Adc.AnalogClockMinMHz': 1,         # Minimum analog clock frequency in MHz
-        'Adc.AnalogClockMaxMHz': 40,        # Maximum analog clock frequency in MHz
-
-        # CAN Module configuration
-        'Can.MaxModules': 2,                # Number of CAN modules (MCAN0, MCAN1, ...)
-        'Can.MaxNodes': 8,                  # Nodes per module (typical: 4 or 8)
-        
-        # CAN Message RAM Base addresses (typical for Cortex-R52 / THA6xxx)
-        'Can.MCAN0BASERAM': '0x40080000',
-        'Can.MCAN1BASERAM': '0x40090000',
-        'Can.MCAN0ENDRAM': '0x4008FFFF',
-        'Can.MCAN1ENDRAM': '0x4009FFFF',
-        
-        # Alternative naming
-        'Can.MCAN0EndRam': '0x4008FFFF',
-        'Can.MCAN1EndRam': '0x4009FFFF',
-        
-        # Flash configuration
-        'Fls.PageSize': 256,
-        'Fls.FlsPageSize': 256,
-        'Fls.SectorSize': 4096,
-        'Fls.NumberOfSectors': 256,
-        
-        # Fee configuration
-        'Fee.VirtualPageSize': 8,
-
-        # GTM Module configuration (THA6206 defaults)
-        'Gtm.NumberOfTimModules': 3,
-        'Gtm.NumberOfTimChannels': 8,
-        'Gtm.MaxNumOfTimChannels': 24,
-        'Gtm.NumberOfTomModules': 3,
-        'Gtm.NumberOfTomChannels': 16,
-        'Gtm.NumberOfTGCPerTom': 2,
-        'Gtm.NumberOfChannelsPerTgc': 8,
-        'Gtm.NumberOfAtomModules': 4,
-        'Gtm.NumberOfAtomChannels': 8,
-        'Gtm.NumberOfTioModules': 3,
-        'Gtm.NumberOfTioChannels': 8,
-        'Gtm.NumberOfAgcPerAtom': 1,
-        'Gtm.NumberOfChannelsPerAgc': 8,
-        'Gtm.NumberOfTbuModules': 3,
-        'Gtm.NumberOfBrcSource': 12,
-        'Gtm.NumberOfAfdChannels': 8,
-        'Gtm.NumberOfFifoModules': 2,
-        'Gtm.NumberOfF2AModules': 2,
-        'Gtm.NumberOfFifoChannels': 8,
-        'Gtm.NumberOfDpllActions': 32,
-        'Gtm.NumberOfMcsChannels': 8,
-        'Gtm.NumberOfMcsModules': 6,
-        'Gtm.NumberOfToutselRegister': 19,
-        'Gtm.NumberOfSpeModules': 4,
-        'Gtm.NumberOfSpePatterns': 8,
-        'Gtm.NumberOfMscSets': 4,
-        'Gtm.NumberOfMscSel': 16,
-
-        # Sent Configuration
-        'Sent.MaxChannelsSupported': 8,
-        'Sent.NumberOfHwUnits': 2,
-        'Sent.ChannelsPerHwUnit': 4,
-        'Gtm.NumberOfMsc': 1,
-        'Gtm.NumberOfTriggerChannel': 5,
-        'Gtm.NumberOfClusters': 3,
-        'Gtm.NumberOfCmu': 1,
-        'Gtm.NumberOfDtmModules': 3,
-        'Gtm.NumberOfDtmChannels': 4,
-        'Gtm.NumberOfSpmModules': 1,
-    }
-    
     def ecu_get(self, path: str) -> Any:
         """Get ECU resource parameter (XDM-G).
-        
-        This implementation checks in order:
-        1. User-provided ecu_resources dictionary
-        2. Resource module configuration (if loaded)
-        3. ECU_DEFAULTS class attribute
-        4. Dynamic path construction for indexed resources (e.g., Can.MCAN0BASERAM)
+
+        Lookup order:
+        1. User-provided ecu_resources dictionary (for testing/overrides)
+        2. Module configuration query (from loaded define files)
+        3. Module definition default values
+        4. Return None with warning if not found
         """
-        # First check the user-provided ecu_resources dictionary
+        from .renderer import _debug_log
+
+        # 1. User override (retained for testing)
         if path in self.ecu_resources:
             return self.ecu_resources[path]
-        
-        # Check ECU_DEFAULTS for common paths
-        if path in self.ECU_DEFAULTS:
-            return self.ECU_DEFAULTS[path]
-        
-        # Handle dynamic indexed paths like Can.MCAN{n}BASERAM, Can.MCAN{n}ENDRAM
-        import re
-        mcan_match = re.match(r'Can\.(MCAN\d+)(BASERAM|ENDRAM|BaseRam|EndRam)', path)
-        if mcan_match:
-            module_id = mcan_match.group(1)  # e.g., "MCAN0"
-            suffix = mcan_match.group(2).upper()  # e.g., "BASERAM" or "ENDRAM"
-            
-            # Try to get from defaults with normalized key
-            default_key = f'Can.{module_id}{suffix}'
-            if default_key in self.ECU_DEFAULTS:
-                return self.ECU_DEFAULTS[default_key]
-            
-            # Generate sensible defaults based on module index
-            module_num = int(re.search(r'\d+', module_id).group())
-            base_addr = 0x40080000 + (module_num * 0x10000)
-            end_addr = base_addr + 0xFFFF
-            
-            if 'BASE' in suffix:
-                return hex(base_addr)
+
+        # 2. Parse path "Module.ParamName" or "Module.Container.ParamName"
+        parts = path.split('.')
+        if len(parts) < 2:
+            _debug_log(f"WARNING: ecu:get('{path}') - invalid path format")
+            return None
+
+        module_name = parts[0]
+        param_parts = parts[1:]
+
+        # 3. Get module from SymbolTable
+        module = self.symbol_table.get_module(module_name)
+        if module is None:
+            # Also try Resource module as a fallback for cross-module params
+            module = self.symbol_table.get_module('Resource')
+            if module is None:
+                _debug_log(f"WARNING: ecu:get('{path}') - module '{module_name}' not loaded")
+                return None
+
+        # 4. Search for the parameter in the module
+        param_name = param_parts[-1]
+
+        # First try navigating the exact path (e.g., "Container.ParamName")
+        if len(param_parts) > 1:
+            current = module
+            for part in param_parts[:-1]:
+                found = False
+                for child in current.children.values():
+                    if child.short_name == part:
+                        current = child
+                        found = True
+                        break
+                if not found:
+                    break
             else:
-                return hex(end_addr)
-        
-        # Mapping for common EB Tresos ecu:get paths - search in modules
-        if path in ('Fls.PageSize', 'Fls.FlsPageSize'):
-            # Attempt to find FlsPageSize in Fls module configuration
-            fls = self.symbol_table.get_module('Fls')
-            if fls:
-                for child in fls.get_children_recursive():
-                    if child.short_name == 'FlsPageSize':
-                        val = self.num_i(child)
-                        if val and val != 0:
-                            return val
-            
-            # Fallback to Resource module
-            res = self.symbol_table.get_module('Resource')
-            if res:
-                for child in res.get_children_recursive():
-                    if child.short_name == 'FlsPageSize':
-                        val = self.num_i(child)
-                        if val and val != 0:
-                            return val
-            
-            # Return default
-            return self.ECU_DEFAULTS.get('Fls.FlsPageSize', 256)
-        
-        # Try to find path in Resource module if loaded
-        res = self.symbol_table.get_module('Resource')
-        if res:
-            # Parse path like "Resource.NumOfCores" -> look for "NumOfCores" child
-            parts = path.split('.')
-            if len(parts) >= 2:
-                param_name = parts[-1]
-                for child in res.get_children_recursive():
+                # Exact path traversal succeeded, look for param in this container
+                for child in current.children.values():
                     if child.short_name == param_name:
-                        val = child.get_value() if hasattr(child, 'get_value') else getattr(child, 'value', None)
+                        val = child.get_value()
                         if val is not None:
                             return val
-        
-        # Default fallback: return 0 with warning
-        print(f"WARNING: ecu:get('{path}') not found in ECU_DEFAULTS or modules, returning 0")
-        return 0
 
-    # ECU List Defaults - typical list resources for automotive MCUs
-    ECU_LIST_DEFAULTS = {
-        # Resource/Core configuration lists
-        'Resource.AvailableCores': ['CORE0', 'CORE1', 'CORE2', 'CORE3'],
-        'Resource.SupportProcessor': ['THA6206_LFBGA292', 'THA6206_LQFP176', 'THA6104_LFBGA292', 'THA6104_LQFP176'],
+        # Fallback: recursive search for param_name anywhere in the module
+        for child in module.get_children_recursive():
+            if child.short_name == param_name:
+                val = child.get_value()
+                if val is not None:
+                    return val
 
-        # ADC configuration lists
-        'Adc.ReqSrcClass': ['REQSRC0', 'REQSRC1', 'REQSRC2'],
-        'Adc.HwUnitId': ['SARADC0', 'SARADC1', 'SARADC2', 'SARADC3'],
-        'Adc.AdcChannels_Adc0': [f'AN{i}' for i in range(16)],
-        'Adc.AdcChannels_Adc1': [f'AN{i}' for i in range(16)],
-        'Adc.AdcChannels_Adc2': [f'AN{i}' for i in range(16)],
-        'Adc.AdcChannels_Adc3': [f'AN{i}' for i in range(16)],
-
-        # Sync group configuration
-        'Adc.SyncGroup.Master.SARADC0': ['SLAVE0', 'SLAVE1', 'SLAVE2', 'SLAVE3'],
-        'Adc.SyncGroup.Master.SARADC1': ['SLAVE0', 'SLAVE1', 'SLAVE2', 'SLAVE3'],
-        'Adc.SyncGroup.Master.SARADC2': ['SLAVE0', 'SLAVE1', 'SLAVE2', 'SLAVE3'],
-        'Adc.SyncGroup.Master.SARADC3': ['SLAVE0', 'SLAVE1', 'SLAVE2', 'SLAVE3'],
-
-        # CAN configuration lists
-        'Can.HwUnitId': ['MCAN0', 'MCAN1'],
-        'Can.ControllerBaudRateConfig': ['500kbps', '250kbps', '125kbps', '1Mbps'],
-
-        # DSADC configuration lists
-        'Dsadc.HwUnitList': ['DSADC0', 'DSADC1', 'DSADC2', 'DSADC3'],
-        'Dsadc.HwUnitId': ['DSADC0', 'DSADC1', 'DSADC2', 'DSADC3'],
-    }
+        # 5. Not found
+        _debug_log(f"WARNING: ecu:get('{path}') - parameter not found in module")
+        return None
 
     def ecu_list(self, path: str) -> List[Any]:
         """Get ECU resource list (XDM-G).
 
-        This function returns a list of ECU resource values, typically used for
-        iteration over hardware units, channels, etc.
+        Lookup order:
+        1. User-provided ecu_resources dictionary (for testing/overrides)
+        2. Module configuration query (from loaded define files)
+        3. Return empty list with warning if not found
 
         Args:
             path: Resource path like 'Adc.ReqSrcClass', 'Adc.HwUnitId', etc.
@@ -1252,42 +1105,48 @@ class BuiltinFunctions:
         Returns:
             List of resource values
         """
-        # Check user-provided resources first
+        from .renderer import _debug_log
+
+        # 1. Check user-provided resources first
         if path in self.ecu_resources:
             val = self.ecu_resources[path]
             if isinstance(val, list):
                 return val
             return [val]
 
-        # Check ECU_LIST_DEFAULTS
-        if path in self.ECU_LIST_DEFAULTS:
-            return self.ECU_LIST_DEFAULTS[path]
+        # 2. Parse path
+        parts = path.split('.')
+        if len(parts) < 2:
+            _debug_log(f"WARNING: ecu:list('{path}') - invalid path format")
+            return []
 
-        # Handle dynamic paths with wildcards or patterns
-        # e.g., Adc.AdcChannels_Adc{n} where n is a number
-        import re
-        for key, value in self.ECU_LIST_DEFAULTS.items():
-            # Simple pattern matching for indexed resources
-            pattern = key.replace('{n}', r'\d+')
-            if re.match(f'^{pattern}$', path):
-                return value
+        module_name = parts[0]
+        param_name = parts[-1]
 
-        # Try to find in Resource module
+        # 3. Try the named module first
+        module = self.symbol_table.get_module(module_name)
+        if module is not None:
+            for child in module.get_children_recursive():
+                if child.short_name == param_name:
+                    val = child.get_value()
+                    if isinstance(val, list):
+                        return val
+                    if val is not None:
+                        return [val]
+
+        # 4. Fallback to Resource module
         res = self.symbol_table.get_module('Resource')
-        if res:
-            parts = path.split('.')
-            if len(parts) >= 2:
-                param_name = parts[-1]
-                for child in res.get_children_recursive():
-                    if child.short_name == param_name:
-                        val = child.get_value() if hasattr(child, 'get_value') else getattr(child, 'value', None)
-                        if isinstance(val, list):
-                            return val
-                        if val is not None:
-                            return [val]
+        if res is not None:
+            for child in res.get_children_recursive():
+                if child.short_name == param_name:
+                    val = child.get_value()
+                    if isinstance(val, list):
+                        return val
+                    if val is not None:
+                        return [val]
 
-        # Default fallback: return empty list with warning
-        print(f"WARNING: ecu:list('{path}') not found, returning empty list")
+        # 5. Not found
+        _debug_log(f"WARNING: ecu:list('{path}') not found in any module, returning empty list")
         return []
 
     # ========== Bit Manipulation Functions ==========

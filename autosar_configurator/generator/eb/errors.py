@@ -72,6 +72,17 @@ class UndefinedVariableError(EBTemplateError):
         super().__init__(f"Undefined variable: ${var_name}")
 
 
+class EcuParameterNotFoundError(EBTemplateError):
+    """Raised when ECU parameter cannot be resolved from any module."""
+    def __init__(self, path: str, reason: str = ""):
+        self.path = path
+        self.reason = reason
+        msg = f"ECU parameter '{path}' not found"
+        if reason:
+            msg += f": {reason}"
+        super().__init__(msg)
+
+
 class XPathError(EBTemplateError):
     """Raised when XPath evaluation fails"""
     def __init__(self, xpath: str, reason: str):
