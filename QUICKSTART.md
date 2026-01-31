@@ -23,7 +23,10 @@ cd <项目目录>
 # 2. 安装依赖 (首次运行)
 pip3 install -r requirements.txt
 
-# 3. 运行应用
+# 3. 运行应用 (推荐 DaVinci 风格界面)
+python3 davinci_main.py
+
+# 或使用旧版界面
 python3 main.py
 ```
 
@@ -47,7 +50,7 @@ python3 -m pytest tests/core/test_observers.py -v
 ### 步骤2: 启动应用
 
 ```bash
-python3 main.py
+python3 davinci_main.py
 ```
 
 你应该会看到 DaVinci Configurator 主窗口打开！
@@ -155,7 +158,7 @@ python3 main.py
 export GEMINI_API_KEY="your-api-key-here"
 
 # 然后启动应用
-python3 main.py
+python3 davinci_main.py
 ```
 
 获取 API Key: https://makersuite.google.com/app/apikey
@@ -193,7 +196,7 @@ pip3 install -r requirements.txt
 ```bash
 # 从项目根目录运行
 cd <项目目录>
-python3 main.py
+python3 davinci_main.py
 ```
 
 ---

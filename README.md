@@ -6,7 +6,7 @@
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
 ![Code Gen](https://img.shields.io/badge/CodeGen-EB%20Tresos-orange)
-![Tests](https://img.shields.io/badge/tests-278%20passed-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-33%20suites-brightgreen.svg)
 
 ---
 
@@ -22,13 +22,21 @@
 ### 代码生成
 本项目内置了强大的 **EB Tresos 兼容模板引擎**：
 - **EB 语法支持**:
-  - 控制流: `[!IF]`, `[!ELSE]`, `[!LOOP]`, `[!SELECT]`, `[!VAR]`
-  - 表达式: 支持复杂 XPath 导航、算术运算 (`+`, `-`, `*`)、逻辑运算
+  - 控制流: `[!IF]`, `[!ELSE]`, `[!ELSEIF]`, `[!LOOP]`, `[!SELECT]`, `[!FOR]`, `[!VAR]`
+  - 输出控制: `[!NOCODE]`, `[!CODE]`, `[!INDENT]`, `[!WS]`, `[!CR]`
+  - 宏系统: `[!MACRO]`, `[!CALL]`, `[!INCLUDE]`
+  - 调试: `[!TRACE]`, `[!ASSERT]`, `[!ERROR]`
+  - 表达式: 支持复杂 XPath 导航、算术运算 (`+`, `-`, `*`, `div`, `mod`)、逻辑运算
 - **内置函数库**:
-  - 节点操作: `node:value()`, `node:ref()`, `node:name()`, `node:path()`
-  - 算术与字符串: `num:i()`, `num:inttohex()`, `string:concat()` 等
+  - 节点操作: `node:value()`, `node:ref()`, `node:name()`, `node:path()`, `node:exists()`, `node:order()`
+  - 算术: `num:i()`, `num:inttohex()`, `num:hextoint()`, `num:isnumber()`
+  - 字符串: `string:concat()`, `string:split()`, `string:substring()`, `string:contains()` 等
+  - 位运算: `bit:shl()`, `bit:shr()`, `bit:or()`, `bit:and()`, `bit:xor()`
+  - ECU 资源: `ecu:get()`, `ecu:list()` (支持硬件资源查询)
+  - 变体管理: `variant:name()`, `variant:check()`, `variant:exists()`
 - **自动生成**: 支持生成 `_Cfg.h`, `_Lcfg.c`, `_PBcfg.c` 等标准文件
 - **引用解析**: 自动处理跨模块引用
+- **容错模式**: 支持 strict/non-strict 模式，适应不完整配置
 
 ### 高级 UI 功能
 - **搜索与过滤**: 支持正则搜索、类型过滤 (`Ctrl+F`)
@@ -63,6 +71,10 @@ pip install -r requirements.txt
 
 ### 运行应用
 ```bash
+# 推荐: DaVinci 风格界面
+python3 davinci_main.py
+
+# 或使用旧版界面
 python3 main.py
 ```
 
@@ -84,7 +96,7 @@ python3 -m pytest tests/generator/ -v
 ### 方式1: 环境变量 (推荐)
 ```bash
 export GEMINI_API_KEY="your-api-key-here"
-python3 main.py
+python3 davinci_main.py
 ```
 
 ### 方式2: 应用内配置
@@ -130,17 +142,33 @@ autosar_configurator/
 │
 ├── generator/              # 代码生成模块
 │   ├── eb/                 # EB Tresos 兼容引擎
-│   │   ├── lexer.py       # 词法分析器
-│   │   ├── renderer.py    # 渲染器
-│   │   └── builtins.py    # 内置函数库
+│   │   ├── lexer.py        # 词法分析器 (支持完整 EB 语法)
+│   │   ├── renderer.py     # 模板渲染器
+│   │   ├── builtins.py     # 内置函数库 (node:*, num:*, string:* 等)
+│   │   ├── xpath_engine.py # XPath 导航引擎
+│   │   ├── overlay_engine.py # 定义/配置叠加引擎
+│   │   ├── context.py      # 上下文管理
+│   │   ├── symbol_table.py # 符号表
+│   │   └── errors.py       # 错误类型定义
 │   └── templates/          # 代码模板
+│       ├── Adc/            # ADC 模块模板
+│       ├── Afe/            # AFE 模块模板
+│       ├── can/            # CAN 模块模板
+│       ├── Crypto/         # Crypto 模块模板
+│       ├── Dsadc/          # DSADC 模块模板
+│       ├── Mcu/            # MCU 模块模板
+│       └── Port/           # Port 模块模板
 │
 ├── ui/                     # 用户界面
-│   ├── davinci_main_window.py  # 主窗口
+│   ├── davinci_main_window.py  # DaVinci 风格主窗口 (推荐)
+│   ├── main_window.py          # 旧版主窗口
 │   ├── widgets/            # UI 组件
 │   └── dialogs/            # 对话框
 │
 └── business/               # 业务逻辑层
+    ├── codegen/            # 代码生成业务
+    ├── dependency/         # 依赖管理
+    └── validation/         # 验证逻辑
 ```
 
 ---
@@ -150,6 +178,7 @@ autosar_configurator/
 | 模块 | 描述 | 模板状态 |
 |------|------|---------|
 | Adc | 模数转换器 | EB |
+| Afe | 模拟前端 | EB |
 | Can | CAN 通信 | EB |
 | Crypto | 加密服务 | EB |
 | Dsadc | Delta-Sigma ADC | EB |
@@ -165,6 +194,11 @@ autosar_configurator/
 - [x] 阶段 8: 依赖分析与验证
 - [x] 阶段 9: 代码生成引擎 (EB Tresos 兼容)
 - [x] 阶段 10: EMF 对象图系统
+- [x] 模板引擎增强:
+  - SELECT/LOOP 空上下文正确处理
+  - None 值健壮性处理 (防止输出 "None")
+  - ERROR 指令的 strict 模式控制
+  - 完整的 XPath 导航支持
 
 ### 计划中
 - [ ] 阶段 11: 生成报告与日志优化
@@ -178,6 +212,7 @@ autosar_configurator/
 - `doc/详细设计文档.md` - 详细架构设计
 - `doc/bsw配置与代码生成原理.md` - BSW 配置原理
 - `doc/EMF.md` - EMF 对象图系统说明
+- `doc/xsd和arxml.md` - XSD 与 ARXML 格式说明
 
 应用内按 `F1` 可查看完整使用手册。
 
