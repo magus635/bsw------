@@ -314,6 +314,38 @@ class CodeGenerator:
             'references': self._get_references() if self.configuration else [],
             'header_guard': f"{module_name.upper()}_CFG_H"
         }
+        
+        # Inject standard EB Tresos version variables
+        if self.configuration:
+            # Try to find version info from CommonPublishedInformation
+            rel_major = "4"
+            rel_minor = "4"
+            rel_patch = "0"
+            sw_major = "1"
+            sw_minor = "0"
+            sw_patch = "0"
+            
+            pub_info = next((c for c in self.configuration.containers if c.short_name == 'CommonPublishedInformation'), None)
+            if pub_info:
+                # helper to get param value
+                def get_val(name, default):
+                    p = pub_info.parameters.get(name)
+                    return str(p.value) if p and p.value is not None else default
+                
+                rel_major = get_val('ArMajorVersion', rel_major)
+                rel_minor = get_val('ArMinorVersion', rel_minor)
+                rel_patch = get_val('ArPatchVersion', rel_patch)
+                sw_major = get_val('SwMajorVersion', sw_major)
+                sw_minor = get_val('SwMinorVersion', sw_minor)
+                sw_patch = get_val('SwPatchVersion', sw_patch)
+            
+            context['moduleReleaseVer'] = f"{rel_major}.{rel_minor}.{rel_patch}"
+            context['moduleSoftwareVer'] = f"{sw_major}.{sw_minor}.{sw_patch}"
+            # Also add with $ prefix for direct variable lookup if engine supports it
+            context['$moduleReleaseVer'] = context['moduleReleaseVer']
+            context['$moduleSoftwareVer'] = context['moduleSoftwareVer']
+            
+        return context
 
     def _serialize_container_link(self, container: EcucContainerValue) -> Dict[str, Any]:
         """Convert container instance to a dictionary for template context"""

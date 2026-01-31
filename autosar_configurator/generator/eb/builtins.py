@@ -1118,6 +1118,11 @@ class BuiltinFunctions:
         'Gtm.NumberOfSpePatterns': 8,
         'Gtm.NumberOfMscSets': 4,
         'Gtm.NumberOfMscSel': 16,
+
+        # Sent Configuration
+        'Sent.MaxChannelsSupported': 8,
+        'Sent.NumberOfHwUnits': 2,
+        'Sent.ChannelsPerHwUnit': 4,
         'Gtm.NumberOfMsc': 1,
         'Gtm.NumberOfTriggerChannel': 5,
         'Gtm.NumberOfClusters': 3,

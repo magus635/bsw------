@@ -330,7 +330,7 @@ class Renderer:
                 
                 value = self._unwrap_value(value)
 
-                output_str = str(value) if value is not None else ""
+                output_str = self._builtins.to_string(value)
                 # Apply indentation if at line start
                 output_str = self._apply_indent(output_str)
                 self._output_buffer.append(output_str)
@@ -764,6 +764,8 @@ class Renderer:
         """Handle [!INCLUDE "file"!]"""
         # Strip quotes
         filename = content.strip().strip('"\'')
+        # Normalize backslashes (Windows style) to forward slashes
+        filename = filename.replace('\\', '/')
         
         # Prevent infinite recursion
         if self._recursion_depth >= self.MAX_RECURSION_DEPTH:
@@ -1846,7 +1848,7 @@ class Renderer:
                     message_parts.append(tok.content)
                 elif tok.type == TokenType.OUTPUT:
                     val = self._evaluate_expression(tok.content)
-                    message_parts.append(str(val) if val is not None else "")
+                    message_parts.append(self._builtins.to_string(val))
             
             message = "".join(message_parts).strip()
             raise TemplateParseError(f"Assertion failed: {message}")
@@ -1884,8 +1886,7 @@ class Renderer:
             if tok.type == TokenType.TEXT:
                 message_parts.append(tok.content)
             elif tok.type == TokenType.OUTPUT:
-                val = self._evaluate_expression(tok.content)
-                message_parts.append(str(val) if val is not None else "")
+                val = self._builtins.to_string(self._evaluate_expression(tok.content))
         
         message = "".join(message_parts).strip()
         _debug_log(f"ERROR: {message}")

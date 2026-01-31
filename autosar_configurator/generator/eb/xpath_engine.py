@@ -3,7 +3,7 @@ XPath Engine for EB Template Engine
 
 Implements XPath 2.0 subset for AUTOSAR configuration navigation:
 - Axes: child:: (default), parent:: (..), descendant:: (//), absolute (/)
-- Predicates: [index], [condition], [@attr='value']
+- Predicates: [index], [condition], @attr='value'
 - Path navigation against ConfigurationNode tree
 """
 import re
@@ -87,8 +87,6 @@ class XPathEngine:
         
         return self._evaluate_relative(xpath)
     
-    # ... (rest of methods)
-
     def _evaluate_function(self, expr: str) -> Any:
         """Evaluate function calls in XPath expression"""
         # as:modconf('ModuleName') possibly followed by path or predicates
@@ -233,26 +231,37 @@ class XPathEngine:
                                      if bracket_depth == 0:
                                          pred_str = rest_path[1:i]
 
-                                         # Special handling for simple lists (e.g., from text:split)
-                                         # If result is a list of non-node items, handle index directly
-                                         if isinstance(result, list) and result and not hasattr(result[0], 'node_type'):
-                                             # Try to get numeric index
-                                             idx = None
+                                         # Improved list handling for non-node items (e.g. from text:split)
+                                         if isinstance(result, list) and result and (not hasattr(result[0], "node_type") if result else True):
+                                             # Check if it's a simple index
                                              if pred_str.isdigit():
-                                                 idx = int(pred_str) - 1  # XPath is 1-indexed
-                                             elif '(' in pred_str and ')' in pred_str:
-                                                 # Evaluate expression like num:i($ModuleIndex)
-                                                 try:
-                                                     eval_result = self.evaluate(pred_str)
-                                                     if isinstance(eval_result, (int, float)):
-                                                         idx = int(eval_result) - 1
-                                                 except:
-                                                     pass
-
-                                             if idx is not None and 0 <= idx < len(result):
-                                                 result = result[idx]
+                                                 idx = int(pred_str) - 1
+                                                 result = result[idx] if 0 <= idx < len(result) else None
                                              else:
-                                                 result = None
+                                                 # Evaluate as a condition for each element
+                                                 filtered = []
+                                                 for pos, item in enumerate(result, 1):
+                                                     # Set temporary context for the predicate evaluation
+                                                     self.context_stack.push(item)
+                                                     self.context_stack.set_variable("position", pos)
+                                                     self.context_stack.set_variable("last", len(result))
+                                                     try:
+                                                         # Evaluate condition
+                                                         if self._evaluate_predicate_condition(item, pred_str):
+                                                             filtered.append(item)
+                                                     finally:
+                                                         self.context_stack.pop()
+                                                 
+                                                 # EB Tresos behavior: if it was a search for a single item (position filter)
+                                                 # it often returns a single item. If it's used in VAR, we want the item or None.
+                                                 if filtered:
+                                                     # If the predicate contains a position check, it is likely meant to find one item
+                                                     if "position(" in pred_str or (pred_str.isdigit()):
+                                                         result = filtered[0]
+                                                     else:
+                                                         result = filtered
+                                                 else:
+                                                     result = None
                                          else:
                                              # Standard node list handling
                                              res_list = result if isinstance(result, list) else [result]
@@ -426,70 +435,52 @@ class XPathEngine:
                     elif name == '.':
                         next_nodes.append(n)
                     else:
-                        child = n.get_child(name)
-                        if child:
-                            next_nodes.append(child)
-                        else:
-                            # Fallback: Case-insensitive lookup (Robustness for CanControllerId vs canControllerId)
-                            for c_name, c_node in n.children.items():
-                                if c_name.lower() == name.lower():
+                        found_current_node = False
+                        
+                        # 1. Primary Match: Match children by short_name OR definition name
+                        # (Iterate to find ALL matching instances for multiple-multiplicity containers)
+                        for c_node in n.children.values():
+                            def_name = c_node.definition_ref.split('/')[-1] if c_node.definition_ref else ""
+                            if c_node.short_name == name or def_name == name:
+                                next_nodes.append(c_node)
+                                found_current_node = True
+                        
+                        # 2. Case-insensitive fallback (if nothing found yet)
+                        if not found_current_node:
+                            for c_node in n.children.values():
+                                def_name = c_node.definition_ref.split('/')[-1] if c_node.definition_ref else ""
+                                if c_node.short_name.lower() == name.lower() or def_name.lower() == name.lower():
                                     next_nodes.append(c_node)
-                                    child = c_node
-                                    break
-
-                            if child:
-                                continue
-
-                            # EB Tresos implicit instance traversal:
-                            # If we're at a container definition and can't find the child directly,
-                            # look inside all instance children (e.g., AdcConfigSet -> AdcConfigSet_0 -> AdcHwUnit)
-                            # This supports paths like "AdcConfigSet/AdcHwUnit/*" where AdcHwUnit is under instances
-                            for c_name, c_node in n.children.items():
-                                # Check if this child is an instance of the current container
-                                # (has same definition_ref or name starts with parent's name)
-                                is_instance = (
-                                    c_node.definition_ref and
-                                    (c_node.definition_ref == n.definition_ref or
-                                     c_node.definition_ref.endswith(f"/{n.short_name}"))
-                                )
-                                if is_instance and hasattr(c_node, 'children'):
-                                    # Look for the target name inside this instance
+                                    found_current_node = True
+                        
+                        # 3. EB Tresos implicit instance traversal (if still nothing found)
+                        # If we're at a container definition and can't find the child directly, 
+                        # look inside all instance children (e.g., AdcConfigSet -> AdcConfigSet_0 -> AdcHwUnit)
+                        if not found_current_node:
+                            for c_node in n.children.values():
+                                if c_node.node_type == 'container':
+                                    # Try to get child by name inside this instance
                                     instance_child = c_node.get_child(name)
                                     if instance_child:
                                         next_nodes.append(instance_child)
+                                        found_current_node = True
+                                    else:
+                                        # Also match grandchild by definition
+                                        for gc in c_node.children.values():
+                                            gc_def = gc.definition_ref.split('/')[-1] if gc.definition_ref else ""
+                                            if gc_def == name:
+                                                next_nodes.append(gc)
+                                                found_current_node = True
 
-                            # Fallback: check if we have a transparent container issue
-                            # e.g. parent 'CanHwFilter' contains child 'CanHwFilter'?
-                            # In some ARXMLs, SUB-CONTAINER logic might result in strict nesting
-                            # If we didn't find 'CanHwFilterCode' in 'CanHwFilter',
-                            # check if 'CanHwFilter' has a child 'CanHwFilter' (sub-container)
-                            if n.short_name == 'CanHwFilter' and 'CanHwFilter' in n.children:
-                                sub = n.get_child('CanHwFilter')
+                        # 4. Fallback for nested/transparent containers (e.g., CanHwFilter/CanHwFilter/...)
+                        if not found_current_node:
+                            if name in n.children:
+                                sub = n.get_child(name)
                                 deep_child = sub.get_child(name)
                                 if deep_child:
                                     next_nodes.append(deep_child)
-                                    # DEBUG: Found via implicit recursion
-                                    # print(f"DEBUG_XPATH: Found {name} inside nested {n.short_name}")
-                                    continue
+                                    found_current_node = True
 
-                            # EB Tresos behavior: if not found by short_name, match by definition name
-
-                            found_by_def = False
-                            for c in n.get_children_list():
-                                if c.definition_ref and (c.definition_ref == name or c.definition_ref.endswith(f"/{name}")):
-                                    next_nodes.append(c)
-                                    found_by_def = True
-
-                            if not found_by_def:
-                                pass
-
-
-
-
-
-
-
-            
             # Apply predicates
             current = self._apply_predicates(next_nodes, predicates)
         
@@ -604,6 +595,34 @@ class XPathEngine:
         """
         import re
 
+        # Handle primitive values (like strings from text:split)
+        is_node = hasattr(node, 'get_child')
+        
+        # position() call
+        if condition.strip() == 'position()':
+             return self.context_stack.get_variable('position') if self.context_stack.has_variable('position') else 1
+
+        # position() comparison like [position() = 1] or [position()-1 = 0]
+        pos_match = re.match(r"position\s*\(\s*\)\s*([-+/*]\s*\d+)?\s*([=<>!]+)\s*(\d+)", condition)
+        if pos_match:
+            offset_str = pos_match.group(1) or "+0"
+            op = pos_match.group(2)
+            val = int(pos_match.group(3))
+            
+            curr_pos = self.context_stack.get_variable('position') if self.context_stack.has_variable('position') else 1
+            # Simple expression evaluation for position
+            expr = f"{curr_pos}{offset_str}"
+            try:
+                actual = eval(expr)
+                if op == '=' or op == '==': return actual == val
+                if op == '!=': return actual != val
+                if op == '>': return actual > val
+                if op == '<': return actual < val
+                if op == '>=': return actual >= val
+                if op == '<=': return actual <= val
+            except:
+                pass
+
         # Helper function for truthiness normalization
         def to_bool_str(v):
             if v is None: return "false"
@@ -623,9 +642,12 @@ class XPathEngine:
             if name == '.':
                 actual_value = node.get_value() if hasattr(node, 'get_value') else node.value
             else:
-                child = node.get_child(name)
-                if child:
-                    actual_value = child.get_value()
+                if is_node:
+                    child = node.get_child(name)
+                    if child:
+                        actual_value = child.get_value()
+                    else:
+                        return False
                 else:
                     return False
 
@@ -649,9 +671,12 @@ class XPathEngine:
             if name == '.':
                 actual_value = node.get_value() if hasattr(node, 'get_value') else node.value
             else:
-                child = node.get_child(name)
-                if child:
-                    actual_value = child.get_value()
+                if is_node:
+                    child = node.get_child(name)
+                    if child:
+                        actual_value = child.get_value()
+                    else:
+                        return False
                 else:
                     return False
 

@@ -167,102 +167,50 @@ class Lexer:
             if text_content:
                 tokens.append(self._make_text_token(text_content))
         
-        # Post-process for Smart Trimming
-        tokens = self._apply_smart_trimming(tokens)
+        # Post-process for directive-only lines and smart trimming
+        tokens = self._identify_directive_lines(tokens)
         
         return tokens
     
-    def _apply_smart_trimming(self, tokens: List[Token]) -> List[Token]:
-        """Apply Smart Trimming: modify TEXT tokens to suppress newlines after directive-only lines.
-        
-        Strategy: Walk through tokens. When we see a TEXT token that ends with newline,
-        check if the preceding tokens on this line were all directives (no OUTPUT).
-        If so, strip the trailing newline.
-        
-        IMPORTANT: Only strip newlines for lines that ONLY contain directives.
-        Lines like "#define X [!IF!]A[!ELSE!]B[!ENDIF!]" should preserve trailing newlines.
+    def _identify_directive_lines(self, tokens: List[Token]) -> List[Token]:
+        """Identify lines that contain only directives and whitespace.
+        Set directive_only_line=True for such tokens.
         """
         if not tokens:
             return tokens
+            
+        # Group tokens by line
+        lines = {}
+        for tok in tokens:
+            if tok.line not in lines:
+                lines[tok.line] = []
+            lines[tok.line].append(tok)
+            
+        # For each line, check if it contains any "outputting" content
+        directive_only_line_numbers = set()
+        for line_num, line_tokens in lines.items():
+            has_output = False
+            for tok in line_tokens:
+                if tok.type == TokenType.OUTPUT:
+                    has_output = True
+                    break
+                if tok.type == TokenType.TEXT:
+                    # Non-whitespace text (excluding newlines) makes it NOT directive-only
+                    content_no_ws = tok.content.replace('\n', '').replace('\r', '').strip()
+                    if content_no_ws:
+                        has_output = True
+                        break
+            
+            if not has_output:
+                directive_only_line_numbers.add(line_num)
         
-        # First pass: mark lines that have TEXT or OUTPUT content (not directive-only)
-        # Track which "line groups" have actual content output
-        line_has_content = False
-        content_line_ends = set()  # Indices of tokens that end a line with content
-        
-        for i, tok in enumerate(tokens):
-            if tok.type == TokenType.TEXT:
-                content = tok.content
-                # Check if this TEXT has actual content (not just whitespace)
-                if content.strip() or (content and '\n' not in content):
-                    line_has_content = True
-                # If this TEXT ends with newline, mark if line had content
-                if '\n' in content:
-                    if line_has_content:
-                        content_line_ends.add(i)
-                    line_has_content = False  # Reset for next line
-            elif tok.type == TokenType.OUTPUT:
-                line_has_content = True
-        
-        # Second pass: apply smart trimming only to directive-only lines
-        result = []
-        for i, tok in enumerate(tokens):
-            if tok.type == TokenType.TEXT:
-                content = tok.content
+        # Mark tokens on those lines
+        for tok in tokens:
+            if tok.line in directive_only_line_numbers:
+                tok.directive_only_line = True
                 
-                # If text is only whitespace ending with newline, and previous token was a directive,
-                # AND the previous line was directive-only (not in content_line_ends)
-                if i > 0 and content.strip() == '' and '\n' in content:
-                    prev = tokens[i - 1]
-                    if prev.type not in (TokenType.TEXT, TokenType.OUTPUT):
-                        # Check if any preceding token on this logical line had content
-                        # If previous index is NOT in content_line_ends, strip
-                        prev_had_content = False
-                        for j in range(i - 1, -1, -1):
-                            if j in content_line_ends:
-                                prev_had_content = True
-                                break
-                            if tokens[j].type == TokenType.TEXT and '\n' in tokens[j].content:
-                                break  # Found previous line end without content
-                        if not prev_had_content:
-                            content = content.replace('\n', '').replace('\r', '')
-                
-                # If text starts with newline and previous was directive on its own line
-                # (not an inline directive on a content line)
-                if i > 0 and content.startswith('\n'):
-                    prev = tokens[i - 1]
-                    if prev.type not in (TokenType.TEXT, TokenType.OUTPUT):
-                        # Check backward to see if any TEXT with content existed before this directive on the same line
-                        is_inline_directive = False
-                        for j in range(i - 1, -1, -1):
-                            t = tokens[j]
-                            if t.type == TokenType.TEXT:
-                                if '\n' in t.content:
-                                    break  # Previous line boundary, not inline
-                                if t.content.strip():
-                                    is_inline_directive = True  # There was content before directive
-                                    break
-                            elif t.type == TokenType.OUTPUT:
-                                is_inline_directive = True
-                                break
-                        
-                        if not is_inline_directive:
-                            content = content[1:]  # Strip leading newline
-                            if content.startswith('\r'):
-                                content = content[1:]
-                
-                result.append(Token(
-                    type=tok.type,
-                    content=content,
-                    line=tok.line,
-                    column=tok.column,
-                    raw=tok.raw,
-                    directive_only_line=tok.directive_only_line
-                ))
-            else:
-                result.append(tok)
-        
-        return result
+        return tokens
+    
     
     def _make_text_token(self, content: str) -> Token:
         """Create a TEXT token"""
