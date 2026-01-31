@@ -4,8 +4,13 @@ Built-in Functions for EB Template Engine
 Implements the required function library:
 - Node functions: node:ref, node:path, node:name, node:value, node:exists, node:current
 - Model functions: as:modconf, as:container
-- Number functions: num:i, num:inttohex, num:is_nan
-- String functions: string:concat, string:split, string:trim, string:upper, string:lower, string:match
+- Number functions: num:i, num:inttohex, num:is_nan, num:round, num:floor, num:ceiling, num:abs
+- String functions: string:concat, string:split, string:trim, string:upper, string:lower, string:match,
+                   string:starts-with, string:ends-with, string:translate
+- Aggregate functions: sum, avg, min, max
+- Math functions: round, floor, ceiling, abs
+- Format functions: format-number
+- XPath compatibility: translate, starts-with, ends-with, document, id, key
 """
 import re
 from typing import Any, List, Optional, Callable, Union, TYPE_CHECKING
@@ -53,10 +58,15 @@ class BuiltinFunctions:
             
             # Number functions
             'num:i': self.num_i,
+            'num:f': self.num_f,                  # Convert to float
             'num:inttohex': self.num_inttohex,
             'num:hextoint': self.num_hextoint,
             'num:is_nan': self.num_is_nan,
             'num:isnumber': self.num_isnumber,  # NEW: Check if value is a number
+            'num:round': self.xpath_round,      # Alias for round()
+            'num:floor': self.xpath_floor,      # Alias for floor()
+            'num:ceiling': self.xpath_ceiling,  # Alias for ceiling()
+            'num:abs': self.xpath_abs,          # Alias for abs()
             
             # String functions
             'string:concat': self.string_concat,
@@ -70,6 +80,9 @@ class BuiltinFunctions:
             'string:substring': self.string_substring,
             'string:substring-before': self.string_substring_before,
             'string:substring-after': self.string_substring_after,
+            'string:starts-with': self.xpath_starts_with,    # Alias for starts-with()
+            'string:ends-with': self.xpath_ends_with,        # Alias for ends-with()
+            'string:translate': self.xpath_translate,        # Alias for translate()
             
             # Text functions (Namespace aliases)
             'text:split': self.string_split,
@@ -91,7 +104,30 @@ class BuiltinFunctions:
             
             # Count function
             'count': self.count,
-            
+
+            # Aggregate functions (XPath 2.0 / common extensions)
+            'sum': self.xpath_sum,
+            'avg': self.xpath_avg,
+            'min': self.xpath_min,
+            'max': self.xpath_max,
+
+            # Math functions
+            'round': self.xpath_round,
+            'floor': self.xpath_floor,
+            'ceiling': self.xpath_ceiling,
+            'abs': self.xpath_abs,
+
+            # Additional string functions
+            'translate': self.xpath_translate,
+            'starts-with': self.xpath_starts_with,
+            'ends-with': self.xpath_ends_with,
+            'format-number': self.xpath_format_number,
+
+            # Special XPath functions (limited implementation)
+            'document': self.xpath_document,
+            'id': self.xpath_id,
+            'key': self.xpath_key,
+
             # Boolean helpers
             'not': self.logical_not,
             
@@ -172,15 +208,33 @@ class BuiltinFunctions:
                             node = node.get_child(part)
                     except:
                         node = None
+                    
+                    # If simple lookup failed, try XPath evaluation from current context
+                    if node is None:
+                        try:
+                            from . import xpath_engine
+                            engine = xpath_engine.XPathEngine(self.symbol_table, self.context_stack, self)
+                            result = engine.evaluate(path)
+                            if result is not None:
+                                # XPath may return list; get first element
+                                if isinstance(result, list) and result:
+                                    node = result[0]
+                                else:
+                                    node = result
+                        except Exception as e:
+                            import logging
+                            logging.debug(f"node:value(): XPath evaluation failed for '{path}': {e}")
+                            node = None
                 else:
                     node = None
         
         if node is None:
-            # If resolution failed, but input was a string, assume input IS the value
-            # Note: We check the original input variable 'node_or_path' which is passed as 'node'
-            if isinstance(path, str): # path was set if input was str
-                return path
-            # If input was not str, but node became None (shouldn't happen if we didn't enter first if)
+            # If resolution failed, log a warning and return empty string
+            # Do NOT return the path string as if it were the value - this causes template output errors
+            if isinstance(path, str):
+                import logging
+                logging.warning(f"node:value(): Could not resolve path '{path}' to a node. Returning empty string.")
+                return ''  # Return empty string, not the path
             return None
         
         # Robustness: If node is already a value (not a ConfigurationNode), return it
@@ -597,6 +651,36 @@ class BuiltinFunctions:
             return self.num_i(value.value)
         return 0
     
+    def num_f(self, value: Any) -> float:
+        """Convert value to float (num:f function)"""
+        if value is None:
+            return 0.0
+        if isinstance(value, list):
+            if not value: return 0.0
+            value = value[0]
+            
+        if isinstance(value, float):
+            return value
+        if isinstance(value, (int, bool)):
+            return float(value)
+
+        if isinstance(value, str):
+            val_stripped = value.strip()
+            if not val_stripped:
+                return 0.0
+            # Handle scientific notation and regular floats
+            try:
+                return float(val_stripped)
+            except ValueError:
+                return 0.0
+
+        # If it's a node, get its value
+        if hasattr(value, 'get_value'):
+            return self.num_f(value.get_value())
+        if hasattr(value, 'value'):
+            return self.num_f(value.value)
+        return 0.0
+    
     def num_inttohex(self, value: Any, width: int = 0) -> str:
         """Convert integer to hex string."""
         int_val = self.num_i(value)
@@ -856,7 +940,568 @@ class BuiltinFunctions:
         # Default truthiness count
         return 1 if items else 0
 
-    
+    # ========== Aggregate Functions (XPath 2.0 / Extensions) ==========
+
+    def _extract_numeric_values(self, items: Any) -> List[float]:
+        """Helper to extract numeric values from items (nodes or values).
+
+        Args:
+            items: A node, list of nodes, list of values, or single value
+
+        Returns:
+            List of numeric values (floats)
+        """
+        if items is None:
+            return []
+
+        # Normalize to list
+        if not isinstance(items, list):
+            items = [items]
+
+        values = []
+        for item in items:
+            # Extract value from node if needed
+            if hasattr(item, 'get_value'):
+                val = item.get_value()
+            elif hasattr(item, 'value'):
+                val = item.value
+            else:
+                val = item
+
+            # Convert to numeric
+            if val is None:
+                continue
+            if isinstance(val, (int, float)):
+                values.append(float(val))
+            elif isinstance(val, str):
+                val_stripped = val.strip()
+                if not val_stripped:
+                    continue
+                # Handle hex
+                if val_stripped.lower().startswith('0x'):
+                    try:
+                        values.append(float(int(val_stripped, 16)))
+                    except ValueError:
+                        continue
+                else:
+                    try:
+                        values.append(float(val_stripped))
+                    except ValueError:
+                        continue
+            elif isinstance(val, bool):
+                values.append(1.0 if val else 0.0)
+
+        return values
+
+    def xpath_sum(self, items: Any) -> float:
+        """XPath sum() - Sum of numeric values in a node-set.
+
+        Args:
+            items: A node-set or list of numeric values
+
+        Returns:
+            Sum of all numeric values (0 if empty)
+        """
+        values = self._extract_numeric_values(items)
+        return sum(values) if values else 0.0
+
+    def xpath_avg(self, items: Any) -> float:
+        """XPath avg() - Average of numeric values (XPath 2.0 extension).
+
+        Args:
+            items: A node-set or list of numeric values
+
+        Returns:
+            Average of all numeric values (0 if empty)
+        """
+        values = self._extract_numeric_values(items)
+        if not values:
+            return 0.0
+        return sum(values) / len(values)
+
+    def xpath_min(self, items: Any) -> Optional[float]:
+        """XPath min() - Minimum numeric value in a node-set.
+
+        Args:
+            items: A node-set or list of numeric values
+
+        Returns:
+            Minimum value, or None if empty
+        """
+        values = self._extract_numeric_values(items)
+        if not values:
+            return None
+        return min(values)
+
+    def xpath_max(self, items: Any) -> Optional[float]:
+        """XPath max() - Maximum numeric value in a node-set.
+
+        Args:
+            items: A node-set or list of numeric values
+
+        Returns:
+            Maximum value, or None if empty
+        """
+        values = self._extract_numeric_values(items)
+        if not values:
+            return None
+        return max(values)
+
+    # ========== Math Functions ==========
+
+    def xpath_round(self, value: Any) -> int:
+        """XPath round() - Round to nearest integer.
+
+        Uses "round half away from zero" semantics (XPath standard):
+        - round(2.5) = 3
+        - round(-2.5) = -3
+
+        Args:
+            value: Numeric value to round
+
+        Returns:
+            Rounded integer
+        """
+        if value is None:
+            return 0
+
+        # Unwrap node
+        if hasattr(value, 'get_value'):
+            value = value.get_value()
+        elif hasattr(value, 'value'):
+            value = value.value
+
+        if isinstance(value, str):
+            value = value.strip()
+            if value.lower().startswith('0x'):
+                try:
+                    return int(value, 16)
+                except ValueError:
+                    return 0
+            try:
+                value = float(value)
+            except ValueError:
+                return 0
+
+        if isinstance(value, (int, float)):
+            # XPath uses "round half away from zero"
+            import math
+            if value >= 0:
+                return int(math.floor(value + 0.5))
+            else:
+                return int(math.ceil(value - 0.5))
+
+        return 0
+
+    def xpath_floor(self, value: Any) -> int:
+        """XPath floor() - Round down to nearest integer.
+
+        Args:
+            value: Numeric value
+
+        Returns:
+            Floor of value
+        """
+        import math
+
+        if value is None:
+            return 0
+
+        # Unwrap node
+        if hasattr(value, 'get_value'):
+            value = value.get_value()
+        elif hasattr(value, 'value'):
+            value = value.value
+
+        if isinstance(value, str):
+            value = value.strip()
+            if value.lower().startswith('0x'):
+                try:
+                    return int(value, 16)
+                except ValueError:
+                    return 0
+            try:
+                value = float(value)
+            except ValueError:
+                return 0
+
+        if isinstance(value, (int, float)):
+            return int(math.floor(value))
+
+        return 0
+
+    def xpath_ceiling(self, value: Any) -> int:
+        """XPath ceiling() - Round up to nearest integer.
+
+        Args:
+            value: Numeric value
+
+        Returns:
+            Ceiling of value
+        """
+        import math
+
+        if value is None:
+            return 0
+
+        # Unwrap node
+        if hasattr(value, 'get_value'):
+            value = value.get_value()
+        elif hasattr(value, 'value'):
+            value = value.value
+
+        if isinstance(value, str):
+            value = value.strip()
+            if value.lower().startswith('0x'):
+                try:
+                    return int(value, 16)
+                except ValueError:
+                    return 0
+            try:
+                value = float(value)
+            except ValueError:
+                return 0
+
+        if isinstance(value, (int, float)):
+            return int(math.ceil(value))
+
+        return 0
+
+    def xpath_abs(self, value: Any) -> float:
+        """XPath abs() - Absolute value (XPath 2.0).
+
+        Args:
+            value: Numeric value
+
+        Returns:
+            Absolute value
+        """
+        if value is None:
+            return 0.0
+
+        # Unwrap node
+        if hasattr(value, 'get_value'):
+            value = value.get_value()
+        elif hasattr(value, 'value'):
+            value = value.value
+
+        if isinstance(value, str):
+            value = value.strip()
+            if value.lower().startswith('0x'):
+                try:
+                    return abs(int(value, 16))
+                except ValueError:
+                    return 0.0
+            try:
+                value = float(value)
+            except ValueError:
+                return 0.0
+
+        if isinstance(value, (int, float)):
+            return abs(value)
+
+        return 0.0
+
+    # ========== Additional String Functions ==========
+
+    def xpath_translate(self, s: Any, from_chars: str, to_chars: str) -> str:
+        """XPath translate() - Character-by-character replacement.
+
+        Each character in 'from_chars' is replaced by the corresponding
+        character in 'to_chars'. If 'from_chars' is longer, extra characters
+        are deleted.
+
+        Example:
+            translate('bar', 'abc', 'ABC') = 'BAr'
+            translate('--aaa--', 'abc-', 'ABC') = 'AAA' (- is deleted)
+
+        Args:
+            s: Source string
+            from_chars: Characters to replace
+            to_chars: Replacement characters
+
+        Returns:
+            Translated string
+        """
+        if s is None:
+            return ""
+
+        # Unwrap node
+        if hasattr(s, 'get_value'):
+            s = s.get_value()
+        elif hasattr(s, 'value'):
+            s = s.value
+
+        s = str(s) if s is not None else ""
+        from_chars = str(from_chars) if from_chars else ""
+        to_chars = str(to_chars) if to_chars else ""
+
+        # Build translation table
+        result = []
+        for char in s:
+            if char in from_chars:
+                idx = from_chars.index(char)
+                if idx < len(to_chars):
+                    result.append(to_chars[idx])
+                # else: character is deleted (from_chars longer than to_chars)
+            else:
+                result.append(char)
+
+        return ''.join(result)
+
+    def xpath_starts_with(self, s: Any, prefix: str) -> bool:
+        """XPath starts-with() - Check if string starts with prefix.
+
+        Args:
+            s: Source string
+            prefix: Prefix to check
+
+        Returns:
+            True if s starts with prefix
+        """
+        if s is None:
+            return prefix == "" or prefix is None
+
+        # Unwrap node
+        if hasattr(s, 'get_value'):
+            s = s.get_value()
+        elif hasattr(s, 'value'):
+            s = s.value
+
+        s = str(s) if s is not None else ""
+        prefix = str(prefix) if prefix else ""
+
+        return s.startswith(prefix)
+
+    def xpath_ends_with(self, s: Any, suffix: str) -> bool:
+        """XPath ends-with() - Check if string ends with suffix (XPath 2.0).
+
+        Args:
+            s: Source string
+            suffix: Suffix to check
+
+        Returns:
+            True if s ends with suffix
+        """
+        if s is None:
+            return suffix == "" or suffix is None
+
+        # Unwrap node
+        if hasattr(s, 'get_value'):
+            s = s.get_value()
+        elif hasattr(s, 'value'):
+            s = s.value
+
+        s = str(s) if s is not None else ""
+        suffix = str(suffix) if suffix else ""
+
+        return s.endswith(suffix)
+
+    def xpath_format_number(self, number: Any, format_str: str, decimal_format: str = None) -> str:
+        """XPath format-number() - Format a number according to a pattern.
+
+        Supports common format patterns:
+        - '#' - Digit, zero shows as absent
+        - '0' - Digit, zero shows as 0
+        - '.' - Decimal separator
+        - ',' - Grouping separator
+        - '%' - Multiply by 100 and show as percentage
+
+        Examples:
+            format-number(1234.5, '#,###.##') = '1,234.5'
+            format-number(0.75, '#.00') = '.75'
+            format-number(0.75, '0.00') = '0.75'
+            format-number(0.5, '#%') = '50%'
+
+        Args:
+            number: Number to format
+            format_str: Format pattern
+            decimal_format: Optional decimal format name (ignored in this impl)
+
+        Returns:
+            Formatted number string
+        """
+        if number is None:
+            return ""
+
+        # Unwrap node
+        if hasattr(number, 'get_value'):
+            number = number.get_value()
+        elif hasattr(number, 'value'):
+            number = number.value
+
+        # Convert to float
+        if isinstance(number, str):
+            number = number.strip()
+            if number.lower().startswith('0x'):
+                try:
+                    number = int(number, 16)
+                except ValueError:
+                    return ""
+            else:
+                try:
+                    number = float(number)
+                except ValueError:
+                    return ""
+
+        if not isinstance(number, (int, float)):
+            return ""
+
+        format_str = str(format_str) if format_str else "#"
+
+        # Handle percentage
+        is_percent = '%' in format_str
+        if is_percent:
+            number = number * 100
+            format_str = format_str.replace('%', '')
+
+        # Parse format pattern
+        use_grouping = ',' in format_str
+        format_str = format_str.replace(',', '')
+
+        # Split into integer and decimal parts
+        if '.' in format_str:
+            int_fmt, dec_fmt = format_str.split('.', 1)
+        else:
+            int_fmt = format_str
+            dec_fmt = ""
+
+        # Determine decimal places
+        dec_places = len(dec_fmt)
+
+        # Format the number
+        if dec_places > 0:
+            formatted = f"{number:.{dec_places}f}"
+        else:
+            formatted = str(int(round(number)))
+
+        # Split formatted number
+        if '.' in formatted:
+            int_part, dec_part = formatted.split('.')
+        else:
+            int_part = formatted
+            dec_part = ""
+
+        # Handle integer format (leading zeros vs optional digits)
+        min_int_digits = int_fmt.count('0')
+        if min_int_digits > 0 and len(int_part.lstrip('-')) < min_int_digits:
+            sign = '-' if int_part.startswith('-') else ''
+            int_part = sign + int_part.lstrip('-').zfill(min_int_digits)
+
+        # Add grouping separators
+        if use_grouping:
+            sign = ''
+            if int_part.startswith('-'):
+                sign = '-'
+                int_part = int_part[1:]
+            # Add commas every 3 digits from the right
+            int_part = sign + ','.join([
+                int_part[max(0, i-3):i]
+                for i in range(len(int_part), 0, -3)
+            ][::-1])
+
+        # Handle decimal format
+        if dec_fmt:
+            # Determine min decimal digits (count of '0')
+            min_dec_digits = dec_fmt.count('0')
+            # Pad or trim decimal part
+            if len(dec_part) < min_dec_digits:
+                dec_part = dec_part.ljust(min_dec_digits, '0')
+            # Strip trailing zeros for '#' positions
+            optional_positions = len(dec_fmt) - min_dec_digits
+            if optional_positions > 0:
+                # Keep at least min_dec_digits
+                while len(dec_part) > min_dec_digits and dec_part.endswith('0'):
+                    dec_part = dec_part[:-1]
+            result = f"{int_part}.{dec_part}" if dec_part else int_part
+        else:
+            result = int_part
+
+        # Add percent sign back
+        if is_percent:
+            result += '%'
+
+        return result
+
+    # ========== Special XPath Functions ==========
+
+    def xpath_document(self, uri: Any, base: Any = None) -> Optional[Any]:
+        """XPath document() - Load external XML document.
+
+        Note: This is a limited implementation. Full external document
+        loading is not supported in this context. Returns None with a warning.
+
+        Args:
+            uri: URI of the document to load
+            base: Optional base URI for resolution
+
+        Returns:
+            None (external documents not supported)
+        """
+        from .renderer import _debug_log
+        _debug_log(f"WARNING: document('{uri}') - external document loading not supported")
+        return None
+
+    def xpath_id(self, id_value: Any) -> Optional[Any]:
+        """XPath id() - Select element by ID.
+
+        Note: This requires DTD/Schema ID attribute declarations which
+        are not available in this AUTOSAR configuration context.
+        Falls back to searching for elements with matching short_name.
+
+        Args:
+            id_value: ID value to search for (can be space-separated list)
+
+        Returns:
+            Matching node(s) or None
+        """
+        if id_value is None:
+            return None
+
+        # Unwrap node
+        if hasattr(id_value, 'get_value'):
+            id_value = id_value.get_value()
+        elif hasattr(id_value, 'value'):
+            id_value = id_value.value
+
+        id_str = str(id_value) if id_value else ""
+        ids = id_str.split()
+
+        if not ids:
+            return None
+
+        # Search for nodes with matching short_name
+        results = []
+        for module in self.symbol_table.get_all_modules():
+            module_node = self.symbol_table.get_module(module)
+            if module_node:
+                for child in module_node.get_children_recursive():
+                    if hasattr(child, 'short_name') and child.short_name in ids:
+                        results.append(child)
+
+        if not results:
+            return None
+        if len(results) == 1:
+            return results[0]
+        return results
+
+    def xpath_key(self, key_name: str, value: Any) -> Optional[Any]:
+        """XPath key() - Select elements using a key defined by xsl:key.
+
+        Note: This requires XSLT key definitions which are not available.
+        This is a stub implementation that always returns None.
+
+        Args:
+            key_name: Name of the key (as defined in xsl:key)
+            value: Value to look up
+
+        Returns:
+            None (key definitions not supported)
+        """
+        from .renderer import _debug_log
+        _debug_log(f"WARNING: key('{key_name}', '{value}') - XSLT key definitions not supported")
+        return None
+
     def logical_not(self, value: Any) -> bool:
         """Logical NOT"""
         return not bool(value)

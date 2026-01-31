@@ -2,9 +2,13 @@
 XPath Engine for EB Template Engine
 
 Implements XPath 2.0 subset for AUTOSAR configuration navigation:
-- Axes: child:: (default), parent:: (..), descendant:: (//), absolute (/)
-- Predicates: [index], [condition], @attr='value'
+- Axes: child:: (default), parent:: (..), descendant:: (//), absolute (/),
+        ancestor::, ancestor-or-self::, following::, following-sibling::,
+        preceding::, preceding-sibling::, self::, attribute:: (@)
+- Predicates: [index], [condition], [@attr='value'], [nested[predicate]]
 - Path navigation against ConfigurationNode tree
+- Union operator: path1 | path2 | path3
+- XPath 2.0 expressions: for, if-then-else, some/every quantifiers
 """
 import re
 import tempfile
@@ -47,6 +51,148 @@ class XPathEngine:
         """
         xpath = xpath.strip()
         
+        # =============================================
+        # XPath 2.0/3.0 Advanced Features
+        # =============================================
+        
+        # Handle range expression: "1 to 10"
+        range_match = re.match(r'^(\d+)\s+to\s+(\d+)$', xpath)
+        if range_match:
+            start = int(range_match.group(1))
+            end = int(range_match.group(2))
+            return list(range(start, end + 1))
+        
+        # Handle for expression: "for $x in //Item return $x/Name"
+        for_match = re.match(r'^for\s+\$(\w+)\s+in\s+(.+?)\s+return\s+(.+)$', xpath, re.IGNORECASE)
+        if for_match:
+            var_name = for_match.group(1)
+            in_expr = for_match.group(2).strip()
+            return_expr = for_match.group(3).strip()
+            
+            # Evaluate the "in" expression to get the sequence
+            items = self.evaluate(in_expr)
+            if items is None:
+                return []
+            if not isinstance(items, list):
+                items = [items]
+            
+            results = []
+            for item in items:
+                # Set the loop variable
+                self.context_stack.push(item if hasattr(item, 'node_type') else self.context_stack.current_node())
+                self.context_stack.set_variable(var_name, item)
+                try:
+                    result = self.evaluate(return_expr)
+                    if result is not None:
+                        if isinstance(result, list):
+                            results.extend(result)
+                        else:
+                            results.append(result)
+                finally:
+                    self.context_stack.pop()
+            return results
+        
+        # Handle if-then-else expression: "if ($a > 0) then 'yes' else 'no'"
+        if_match = re.match(r'^if\s*\((.+?)\)\s+then\s+(.+?)\s+else\s+(.+)$', xpath, re.IGNORECASE)
+        if if_match:
+            condition_expr = if_match.group(1).strip()
+            then_expr = if_match.group(2).strip()
+            else_expr = if_match.group(3).strip()
+            
+            # Evaluate condition
+            condition_result = self._evaluate_condition(condition_expr)
+            
+            if condition_result:
+                return self._evaluate_simple_value(then_expr)
+            else:
+                return self._evaluate_simple_value(else_expr)
+        
+        # Handle some quantifier: "some $x in //Item satisfies $x/Value > 10"
+        some_match = re.match(r'^some\s+\$(\w+)\s+in\s+(.+?)\s+satisfies\s+(.+)$', xpath, re.IGNORECASE)
+        if some_match:
+            var_name = some_match.group(1)
+            in_expr = some_match.group(2).strip()
+            test_expr = some_match.group(3).strip()
+            
+            items = self.evaluate(in_expr)
+            if items is None:
+                return False
+            if not isinstance(items, list):
+                items = [items]
+            
+            for item in items:
+                self.context_stack.push(item if hasattr(item, 'node_type') else self.context_stack.current_node())
+                self.context_stack.set_variable(var_name, item)
+                try:
+                    if self._evaluate_condition(test_expr):
+                        return True
+                finally:
+                    self.context_stack.pop()
+            return False
+        
+        # Handle every quantifier: "every $x in //Item satisfies $x/Valid = 'true'"
+        every_match = re.match(r'^every\s+\$(\w+)\s+in\s+(.+?)\s+satisfies\s+(.+)$', xpath, re.IGNORECASE)
+        if every_match:
+            var_name = every_match.group(1)
+            in_expr = every_match.group(2).strip()
+            test_expr = every_match.group(3).strip()
+            
+            items = self.evaluate(in_expr)
+            if items is None:
+                return True  # Empty sequence satisfies "every"
+            if not isinstance(items, list):
+                items = [items]
+            
+            if len(items) == 0:
+                return True  # Empty sequence satisfies "every"
+            
+            for item in items:
+                self.context_stack.push(item if hasattr(item, 'node_type') else self.context_stack.current_node())
+                self.context_stack.set_variable(var_name, item)
+                try:
+                    if not self._evaluate_condition(test_expr):
+                        return False
+                finally:
+                    self.context_stack.pop()
+            return True
+        
+        # Handle union operator: "//A | //B"
+        # Find | operator not inside parentheses or quotes
+        union_pos = self._find_operator_outside_context(xpath, '|')
+        if union_pos != -1:
+            left_expr = xpath[:union_pos].strip()
+            right_expr = xpath[union_pos + 1:].strip()
+            
+            left_result = self.evaluate(left_expr)
+            right_result = self.evaluate(right_expr)
+            
+            # Combine results into a single list
+            combined = []
+            if left_result is not None:
+                if isinstance(left_result, list):
+                    combined.extend(left_result)
+                else:
+                    combined.append(left_result)
+            if right_result is not None:
+                if isinstance(right_result, list):
+                    combined.extend(right_result)
+                else:
+                    combined.append(right_result)
+            
+            # Remove duplicates while preserving order (for nodes)
+            seen = set()
+            unique = []
+            for item in combined:
+                item_id = id(item) if hasattr(item, 'node_type') else item
+                if item_id not in seen:
+                    seen.add(item_id)
+                    unique.append(item)
+            return unique
+        
+        # =============================================
+        # Standard XPath Evaluation
+        # =============================================
+        
         # Handle function calls like as:modconf('Mcu')
         if '(' in xpath and ')' in xpath:
             # Check if it is a predicate like [contains(., 'x')] - heuristic
@@ -86,6 +232,165 @@ class XPathEngine:
 
         
         return self._evaluate_relative(xpath)
+    
+    def _find_operator_outside_context(self, expr: str, operator: str) -> int:
+        """Find operator position outside of parentheses, brackets, and quotes.
+        
+        Args:
+            expr: Expression string
+            operator: Operator to find
+            
+        Returns:
+            Position of operator, or -1 if not found
+        """
+        depth = 0
+        bracket_depth = 0
+        in_quote = None
+        
+        for i, c in enumerate(expr):
+            if c in ('"', "'") and (i == 0 or expr[i-1] != '\\'):
+                if in_quote == c:
+                    in_quote = None
+                elif in_quote is None:
+                    in_quote = c
+            elif in_quote is None:
+                if c == '(':
+                    depth += 1
+                elif c == ')':
+                    depth -= 1
+                elif c == '[':
+                    bracket_depth += 1
+                elif c == ']':
+                    bracket_depth -= 1
+                elif depth == 0 and bracket_depth == 0:
+                    if expr[i:i+len(operator)] == operator:
+                        return i
+        return -1
+    
+    def _evaluate_simple_value(self, expr: str) -> Any:
+        """Evaluate a simple expression that could be a literal, variable, or path.
+        
+        Handles:
+        - Numeric literals: 5, 3.14, -10
+        - Quoted strings: 'hello', "world"
+        - Variable references: $varname
+        - Paths and function calls (delegated to evaluate)
+        """
+        expr = expr.strip()
+        
+        # Handle quoted strings
+        if (expr.startswith("'") and expr.endswith("'")) or \
+           (expr.startswith('"') and expr.endswith('"')):
+            return expr[1:-1]
+        
+        # Handle numeric literals
+        if re.match(r'^-?\d+$', expr):
+            return int(expr)
+        if re.match(r'^-?\d+\.\d+$', expr):
+            return float(expr)
+        
+        # Handle variable references
+        if expr.startswith('$'):
+            var_name = expr[1:]
+            if '/' in var_name:
+                # Variable with path - delegate to evaluate
+                return self.evaluate(expr)
+            if self.context_stack.has_variable(var_name):
+                return self.context_stack.get_variable(var_name)
+            return None
+        
+        # Handle boolean literals
+        if expr.lower() == 'true':
+            return True
+        if expr.lower() == 'false':
+            return False
+        
+        # Delegate to full evaluate for paths and functions
+        return self.evaluate(expr)
+    
+    def _evaluate_condition(self, condition: str) -> bool:
+        """Evaluate a condition expression and return boolean result.
+        
+        Handles comparisons, boolean values, and existence checks.
+        """
+        condition = condition.strip()
+        
+        # Handle comparison operators
+        for op in ['!=', '<=', '>=', '=', '<', '>']:
+            pos = self._find_operator_outside_context(condition, op)
+            if pos != -1:
+                # Make sure = is not part of !=, <=, >=
+                if op == '=' and pos > 0 and condition[pos-1] in ('!', '<', '>'):
+                    continue
+                    
+                left_expr = condition[:pos].strip()
+                right_expr = condition[pos + len(op):].strip()
+                
+                # Use _evaluate_simple_value for proper literal handling
+                left_val = self._evaluate_simple_value(left_expr)
+                right_val = self._evaluate_simple_value(right_expr)
+                
+                # Unwrap node values
+                if hasattr(left_val, 'get_value'):
+                    left_val = left_val.get_value()
+                if hasattr(right_val, 'get_value'):
+                    right_val = right_val.get_value()
+                
+                # Handle quoted strings
+                if isinstance(right_val, str) and ((right_val.startswith("'") and right_val.endswith("'")) or
+                                                    (right_val.startswith('"') and right_val.endswith('"'))):
+                    right_val = right_val[1:-1]
+                
+                # Try numeric comparison
+                try:
+                    left_num = float(left_val) if left_val is not None else 0
+                    right_num = float(right_val) if right_val is not None else 0
+                    
+                    if op == '=' or op == '==':
+                        return left_num == right_num
+                    elif op == '!=':
+                        return left_num != right_num
+                    elif op == '>':
+                        return left_num > right_num
+                    elif op == '<':
+                        return left_num < right_num
+                    elif op == '>=':
+                        return left_num >= right_num
+                    elif op == '<=':
+                        return left_num <= right_num
+                except (ValueError, TypeError):
+                    pass
+                
+                # String comparison fallback
+                left_str = str(left_val) if left_val is not None else ''
+                right_str = str(right_val) if right_val is not None else ''
+                
+                if op == '=' or op == '==':
+                    return left_str == right_str
+                elif op == '!=':
+                    return left_str != right_str
+                elif op == '>':
+                    return left_str > right_str
+                elif op == '<':
+                    return left_str < right_str
+                elif op == '>=':
+                    return left_str >= right_str
+                elif op == '<=':
+                    return left_str <= right_str
+        
+        # Evaluate as expression and check truthiness
+        result = self.evaluate(condition)
+        if result is None:
+            return False
+        if isinstance(result, bool):
+            return result
+        if isinstance(result, (int, float)):
+            return result != 0
+        if isinstance(result, str):
+            return result.lower() not in ('false', '', '0')
+        if isinstance(result, list):
+            return len(result) > 0
+        return bool(result)
     
     def _evaluate_function(self, expr: str) -> Any:
         """Evaluate function calls in XPath expression"""
@@ -283,8 +588,42 @@ class XPathEngine:
                                  if hasattr(result, 'node_type') or (isinstance(result, list) and result and hasattr(result[0], 'node_type')):
                                      segments = self._parse_path(rest_path)
                                      return self._navigate_segments(result, segments)
+                                 elif isinstance(result, str):
+                                     # String result - interpret as a path/node name and resolve
+                                     # This handles cases like: text:split($Path, '/')[1]/ChildNode
+                                     # where text:split returns a string that represents a path segment
+                                     
+                                     # Try to resolve the string as a path from current context
+                                     string_path = result.strip()
+                                     resolved_node = None
+                                     
+                                     # If it looks like an absolute path, evaluate directly
+                                     if string_path.startswith('/'):
+                                         resolved_node = self._evaluate_absolute(string_path)
+                                     else:
+                                         # Try as a relative path from current context
+                                         current = self.context_stack.current_node()
+                                         if current:
+                                             # First try as direct child name
+                                             resolved_node = current.get_child(string_path)
+                                             if not resolved_node:
+                                                 # Try as a descendant search
+                                                 resolved_node = self._evaluate_relative(string_path, current)
+                                         
+                                         # Also try as module name
+                                         if not resolved_node:
+                                             resolved_node = self.symbol_table.get_module(string_path)
+                                     
+                                     if resolved_node:
+                                         # Continue navigation from the resolved node
+                                         segments = self._parse_path(rest_path)
+                                         return self._navigate_segments(resolved_node, segments)
+                                     else:
+                                         # Could not resolve string to node
+                                         _debug_log(f"DEBUG_XPATH: Could not resolve string '{string_path}' to node for path continuation")
+                                         return None
                                  else:
-                                     # Cannot navigate on primitive result
+                                     # Cannot navigate on primitive result (int, bool, etc.)
                                      return None
                                  
                 return result
@@ -292,7 +631,59 @@ class XPathEngine:
         return None
     
     def _evaluate_absolute(self, xpath: str) -> Any:
-        """Evaluate absolute path like /Mcu/McuConfig"""
+        """Evaluate absolute path like /Mcu/McuConfig or //DescendantName"""
+
+        # Handle descendant-or-self axis from document root: //Name
+        if xpath.startswith('//'):
+            name = xpath[2:]
+            # Parse any predicates from the name
+            if '[' in name:
+                base_name, predicates = self._parse_segment(name.split('/')[0])
+                rest_path = '/'.join(name.split('/')[1:]) if '/' in name else ''
+            else:
+                if '/' in name:
+                    parts = name.split('/', 1)
+                    base_name = parts[0]
+                    rest_path = parts[1]
+                else:
+                    base_name = name
+                    rest_path = ''
+                predicates = []
+
+            # Search all modules for matching descendants
+            all_results = []
+            for module_name in self.symbol_table.get_all_modules():
+                module = self.symbol_table.get_module(module_name)
+                if module:
+                    # Check if module itself matches
+                    if base_name == '*' or self._node_matches_name(module, base_name):
+                        all_results.append(module)
+                    # Find descendants
+                    all_results.extend(self._find_descendants(module, base_name))
+
+            # Apply predicates
+            if predicates:
+                all_results = self._apply_predicates(all_results, predicates)
+
+            # Continue navigation if there's more path
+            if rest_path and all_results:
+                segments = self._parse_path(rest_path)
+                final_results = []
+                for node in all_results:
+                    result = self._navigate_segments(node, segments)
+                    if result:
+                        if isinstance(result, list):
+                            final_results.extend(result)
+                        else:
+                            final_results.append(result)
+                all_results = final_results
+
+            if len(all_results) == 0:
+                return None
+            elif len(all_results) == 1:
+                return all_results[0]
+            return all_results
+
         # Try direct path lookup
         node = self.symbol_table.get_by_path(xpath)
         if node:
@@ -328,6 +719,20 @@ class XPathEngine:
         """Parse path into segments with optional predicates.
         
         Returns list of {'name': str, 'predicates': list, 'axis': str}
+        
+        Supported axes:
+        - child:: (default)
+        - parent:: or ..
+        - self:: or .
+        - descendant:: or //
+        - descendant-or-self::
+        - ancestor::
+        - ancestor-or-self::
+        - following::
+        - following-sibling::
+        - preceding::
+        - preceding-sibling::
+        - attribute:: or @
         """
         segments = []
         
@@ -362,13 +767,49 @@ class XPathEngine:
         
         _debug_log(f"DEBUG_XPATH: _parse_path('{xpath}') -> parts={parts}")
         
+        # Axis patterns (order matters - longer patterns first)
+        axis_patterns = [
+            ('descendant-or-self::', 'descendant-or-self'),
+            ('ancestor-or-self::', 'ancestor-or-self'),
+            ('following-sibling::', 'following-sibling'),
+            ('preceding-sibling::', 'preceding-sibling'),
+            ('descendant::', 'descendant'),
+            ('ancestor::', 'ancestor'),
+            ('following::', 'following'),
+            ('preceding::', 'preceding'),
+            ('attribute::', 'attribute'),
+            ('parent::', 'parent'),
+            ('child::', 'child'),
+            ('self::', 'self'),
+        ]
+        
         for i, part in enumerate(parts):
             axis = first_segment_axis if i == 0 else 'child'
             
-            # Check for parent axis
+            # Check for parent axis shorthand
             if part == '..':
                 segments.append({'name': '..', 'predicates': [], 'axis': 'parent'})
                 continue
+            
+            # Check for self axis shorthand
+            if part == '.':
+                segments.append({'name': '.', 'predicates': [], 'axis': 'self'})
+                continue
+            
+            # Check for attribute shorthand @
+            if part.startswith('@'):
+                attr_name = part[1:]
+                name, predicates = self._parse_segment(attr_name)
+                segments.append({'name': name, 'predicates': predicates, 'axis': 'attribute'})
+                continue
+            
+            # Check for explicit axis syntax
+            part_lower = part.lower()
+            for axis_prefix, axis_name in axis_patterns:
+                if part_lower.startswith(axis_prefix):
+                    axis = axis_name
+                    part = part[len(axis_prefix):]
+                    break
             
             # Parse name and predicates
             name, predicates = self._parse_segment(part)
@@ -379,23 +820,90 @@ class XPathEngine:
     def _parse_segment(self, segment: str) -> tuple:
         """Parse a single segment like 'Container[1]' or 'Param[@name="x"]'
         
+        Handles:
+        - Simple predicates: Container[1]
+        - Multiple predicates: Item[@type='A'][@status='active']
+        - Nested predicates: Container[Item[Value > 10]]
+        - Variable references in name: {$nodeName}
+        
         Returns (name, list_of_predicates)
         """
         predicates = []
         
-        # Find predicates [...]
-        match = re.match(r'^([^\[]+)(.*)', segment)
-        if not match:
-            return segment, []
+        # Find the first '[' to separate name from predicates
+        first_bracket = -1
+        for i, c in enumerate(segment):
+            if c == '[':
+                first_bracket = i
+                break
         
-        name = match.group(1)
-        predicate_str = match.group(2)
+        if first_bracket == -1:
+            # No predicates, check for variable substitution in name
+            name = self._resolve_dynamic_name(segment)
+            return name, []
         
-        # Extract all predicates
-        for pred_match in re.finditer(r'\[([^\]]+)\]', predicate_str):
-            predicates.append(pred_match.group(1))
+        name = self._resolve_dynamic_name(segment[:first_bracket])
+        predicate_str = segment[first_bracket:]
+        
+        # Extract all predicates with proper bracket matching
+        i = 0
+        while i < len(predicate_str):
+            if predicate_str[i] == '[':
+                # Find matching closing bracket
+                depth = 1
+                start = i + 1
+                j = i + 1
+                while j < len(predicate_str) and depth > 0:
+                    if predicate_str[j] == '[':
+                        depth += 1
+                    elif predicate_str[j] == ']':
+                        depth -= 1
+                    j += 1
+                
+                if depth == 0:
+                    # Extract predicate content (without brackets)
+                    pred_content = predicate_str[start:j-1]
+                    predicates.append(pred_content)
+                    i = j
+                else:
+                    # Unbalanced brackets, skip
+                    break
+            else:
+                i += 1
         
         return name, predicates
+    
+    def _resolve_dynamic_name(self, name: str) -> str:
+        """Resolve dynamic path names like {$nodeName} or $varName.
+        
+        Supports:
+        - {$varName} - Braced variable reference
+        - Direct variable if name starts with $
+        """
+        name = name.strip()
+        
+        # Handle braced variable reference: {$varName}
+        if name.startswith('{$') and name.endswith('}'):
+            var_name = name[2:-1]
+            if self.context_stack.has_variable(var_name):
+                resolved = self.context_stack.get_variable(var_name)
+                if isinstance(resolved, str):
+                    return resolved
+                elif hasattr(resolved, 'short_name'):
+                    return resolved.short_name
+            return name  # Return as-is if variable not found
+        
+        # Handle direct variable reference as name: $varName
+        if name.startswith('$') and not '/' in name:
+            var_name = name[1:]
+            if self.context_stack.has_variable(var_name):
+                resolved = self.context_stack.get_variable(var_name)
+                if isinstance(resolved, str):
+                    return resolved
+                elif hasattr(resolved, 'short_name'):
+                    return resolved.short_name
+        
+        return name
     
     def _navigate_segments(self, node: 'ConfigurationNode', segments: List[dict]) -> Any:
         """Navigate through path segments from a starting node"""
@@ -424,12 +932,58 @@ class XPathEngine:
 
             for n in current:
                 _debug_log(f"DEBUG_XPATH:   Current context node: {n.short_name} (type={n.node_type}, path={n.path}, children={list(n.children.keys())})")
+                
+                # Handle different axes
                 if axis == 'parent':
                     if n.parent:
                         next_nodes.append(n.parent)
+                        
+                elif axis == 'self':
+                    if name == '*' or name == '.' or self._node_matches_name(n, name):
+                        next_nodes.append(n)
+                        
                 elif axis == 'descendant':
                     next_nodes.extend(self._find_descendants(n, name))
-                else:  # child axis
+                    
+                elif axis == 'descendant-or-self':
+                    # Include self if matches
+                    if name == '*' or self._node_matches_name(n, name):
+                        next_nodes.append(n)
+                    # Then find descendants
+                    next_nodes.extend(self._find_descendants(n, name))
+                    
+                elif axis == 'ancestor':
+                    next_nodes.extend(self._find_ancestors(n, name))
+                    
+                elif axis == 'ancestor-or-self':
+                    # Include self if matches
+                    if name == '*' or self._node_matches_name(n, name):
+                        next_nodes.append(n)
+                    # Then find ancestors
+                    next_nodes.extend(self._find_ancestors(n, name))
+                    
+                elif axis == 'following-sibling':
+                    next_nodes.extend(self._find_following_siblings(n, name))
+                    
+                elif axis == 'preceding-sibling':
+                    next_nodes.extend(self._find_preceding_siblings(n, name))
+                    
+                elif axis == 'following':
+                    next_nodes.extend(self._find_following(n, name))
+                    
+                elif axis == 'preceding':
+                    next_nodes.extend(self._find_preceding(n, name))
+                    
+                elif axis == 'attribute':
+                    # In AUTOSAR context, attributes are treated as properties
+                    # @name typically refers to short_name
+                    if name == 'name':
+                        # Return the node's short_name as a value wrapper
+                        next_nodes.append(n)  # The predicate will extract the name
+                    elif hasattr(n, name):
+                        next_nodes.append(n)
+                        
+                else:  # child axis (default)
                     if name == '*':
                         next_nodes.extend(n.get_children_list())
                     elif name == '.':
@@ -515,6 +1069,141 @@ class XPathEngine:
         
         return results
     
+    def _node_matches_name(self, node: 'ConfigurationNode', name: str) -> bool:
+        """Check if a node matches the given name (including definition name)."""
+        if name == '*':
+            return True
+        if node.short_name == name:
+            return True
+        if node.definition_ref:
+            def_name = node.definition_ref.split('/')[-1]
+            if def_name == name:
+                return True
+        # Case-insensitive fallback
+        if node.short_name.lower() == name.lower():
+            return True
+        return False
+    
+    def _find_ancestors(self, node: 'ConfigurationNode', name: str) -> List['ConfigurationNode']:
+        """Find all ancestors matching name (ancestor:: axis)."""
+        results = []
+        current = node.parent
+        while current:
+            if name == '*' or self._node_matches_name(current, name):
+                results.append(current)
+            current = current.parent
+        return results
+    
+    def _find_following_siblings(self, node: 'ConfigurationNode', name: str) -> List['ConfigurationNode']:
+        """Find following siblings matching name (following-sibling:: axis)."""
+        results = []
+        if not node.parent:
+            return results
+        
+        # Get all siblings (children of parent)
+        siblings = list(node.parent.children.values())
+        
+        # Find current node's position
+        try:
+            current_idx = siblings.index(node)
+        except ValueError:
+            return results
+        
+        # Get all siblings after current
+        for sibling in siblings[current_idx + 1:]:
+            if name == '*' or self._node_matches_name(sibling, name):
+                results.append(sibling)
+        
+        return results
+    
+    def _find_preceding_siblings(self, node: 'ConfigurationNode', name: str) -> List['ConfigurationNode']:
+        """Find preceding siblings matching name (preceding-sibling:: axis)."""
+        results = []
+        if not node.parent:
+            return results
+        
+        # Get all siblings (children of parent)
+        siblings = list(node.parent.children.values())
+        
+        # Find current node's position
+        try:
+            current_idx = siblings.index(node)
+        except ValueError:
+            return results
+        
+        # Get all siblings before current (in reverse order for XPath semantics)
+        for sibling in reversed(siblings[:current_idx]):
+            if name == '*' or self._node_matches_name(sibling, name):
+                results.append(sibling)
+        
+        return results
+    
+    def _find_following(self, node: 'ConfigurationNode', name: str) -> List['ConfigurationNode']:
+        """Find all following nodes (following:: axis).
+        
+        Following nodes are nodes that appear after the current node in document order,
+        excluding the current node's descendants.
+        """
+        results = []
+        
+        def collect_following(n, started=False):
+            """Recursively collect following nodes."""
+            if not n.parent:
+                return
+            
+            siblings = list(n.parent.children.values())
+            try:
+                current_idx = siblings.index(n)
+            except ValueError:
+                return
+            
+            # Collect all nodes after current sibling
+            for sibling in siblings[current_idx + 1:]:
+                if name == '*' or self._node_matches_name(sibling, name):
+                    results.append(sibling)
+                # Also collect all descendants of following siblings
+                results.extend(self._find_descendants(sibling, name))
+            
+            # Recurse to parent
+            collect_following(n.parent)
+        
+        collect_following(node)
+        return results
+    
+    def _find_preceding(self, node: 'ConfigurationNode', name: str) -> List['ConfigurationNode']:
+        """Find all preceding nodes (preceding:: axis).
+        
+        Preceding nodes are nodes that appear before the current node in document order,
+        excluding the current node's ancestors.
+        """
+        results = []
+        
+        def collect_preceding(n):
+            """Recursively collect preceding nodes."""
+            if not n.parent:
+                return
+            
+            siblings = list(n.parent.children.values())
+            try:
+                current_idx = siblings.index(n)
+            except ValueError:
+                return
+            
+            # Collect all nodes before current sibling (in reverse document order)
+            for sibling in reversed(siblings[:current_idx]):
+                # First collect all descendants (they come after the sibling itself)
+                for desc in reversed(self._find_descendants(sibling, name)):
+                    results.append(desc)
+                # Then the sibling itself
+                if name == '*' or self._node_matches_name(sibling, name):
+                    results.append(sibling)
+            
+            # Recurse to parent (but don't include parent - it's an ancestor)
+            collect_preceding(n.parent)
+        
+        collect_preceding(node)
+        return results
+    
     def _apply_predicates(self, nodes: List['ConfigurationNode'], predicates: List[str]) -> List['ConfigurationNode']:
         """Apply predicate filters to node list.
 
@@ -584,6 +1273,147 @@ class XPathEngine:
         
         return False
     
+    def _evaluate_predicate_expression(self, expr: str, context_node: 'ConfigurationNode' = None) -> Any:
+        """Evaluate an expression within a predicate context.
+        
+        This method handles complex expressions like:
+        - $Base + 1
+        - num:i($Value) * 2
+        - string-length(Name)
+        - node:value(./Child)
+        
+        Args:
+            expr: Expression string to evaluate
+            context_node: Optional context node for relative paths
+            
+        Returns:
+            Evaluated value (number, string, bool, or node)
+        """
+        import re
+        expr = expr.strip()
+        
+        # Handle quoted strings
+        if (expr.startswith('"') and expr.endswith('"')) or \
+           (expr.startswith("'") and expr.endswith("'")):
+            return expr[1:-1]
+        
+        # Handle pure numbers
+        if expr.lstrip('-').isdigit():
+            return int(expr)
+        
+        if re.match(r'^-?\d+\.\d+$', expr):
+            return float(expr)
+        
+        # Handle variable references
+        if expr.startswith('$'):
+            var_name = expr[1:]
+            # Handle $var/path
+            if '/' in var_name:
+                parts = var_name.split('/', 1)
+                base_var = parts[0]
+                rest_path = parts[1]
+                if self.context_stack.has_variable(base_var):
+                    base_node = self.context_stack.get_variable(base_var)
+                    if hasattr(base_node, 'get_child'):
+                        return self._evaluate_relative(rest_path, base_node)
+            elif self.context_stack.has_variable(var_name):
+                return self.context_stack.get_variable(var_name)
+            return None
+        
+        # Handle function calls
+        if '(' in expr and ')' in expr:
+            if self.function_handler:
+                result = self.evaluate(expr)
+                # Unwrap ConfigurationNode values
+                if hasattr(result, 'get_value'):
+                    return result.get_value()
+                return result
+        
+        # Handle relative paths in context
+        if context_node and hasattr(context_node, 'get_child'):
+            # Check if it's a simple child name
+            if re.match(r'^[A-Za-z_]\w*$', expr):
+                child = context_node.get_child(expr)
+                if child:
+                    return child.get_value()
+            # Handle ./path syntax
+            elif expr.startswith('./'):
+                result = self._evaluate_relative(expr[2:], context_node)
+                if hasattr(result, 'get_value'):
+                    return result.get_value()
+                return result
+        
+        # Handle arithmetic expressions: $a + $b, num:i($x) * 2, etc.
+        # Parse operators: +, -, *, div, mod (process in order of precedence, lowest first)
+        # We need to find operators NOT inside parentheses
+        def find_operator_outside_parens(s, ops):
+            """Find operator position outside of parentheses and quotes."""
+            depth = 0
+            in_quote = None
+            for i in range(len(s) - 1, -1, -1):  # Right to left for left associativity
+                c = s[i]
+                if c in ('"', "'") and (i == 0 or s[i-1] != '\\'):
+                    if in_quote == c:
+                        in_quote = None
+                    elif in_quote is None:
+                        in_quote = c
+                elif in_quote is None:
+                    if c == ')':
+                        depth += 1
+                    elif c == '(':
+                        depth -= 1
+                    elif depth == 0:
+                        for op, py_op in ops:
+                            if op == ' div ':
+                                if s[max(0,i-4):i+1] == ' div ':
+                                    return i-4, 5, py_op
+                            elif op == ' mod ':
+                                if s[max(0,i-4):i+1] == ' mod ':
+                                    return i-4, 5, py_op
+                            elif c == op:
+                                return i, 1, py_op
+            return -1, 0, None
+        
+        # Check for + and - first (lowest precedence)
+        pos, length, py_op = find_operator_outside_parens(expr, [('+', '+'), ('-', '-')])
+        if pos > 0:  # pos > 0 to avoid matching unary minus
+            left = expr[:pos].strip()
+            right = expr[pos + length:].strip()
+            if left and right:
+                left_val = self._evaluate_predicate_expression(left, context_node)
+                right_val = self._evaluate_predicate_expression(right, context_node)
+                try:
+                    left_num = float(left_val) if left_val is not None else 0
+                    right_num = float(right_val) if right_val is not None else 0
+                    if py_op == '+':
+                        return left_num + right_num
+                    elif py_op == '-':
+                        return left_num - right_num
+                except (ValueError, TypeError):
+                    pass
+        
+        # Check for *, div, mod (higher precedence)
+        pos, length, py_op = find_operator_outside_parens(expr, [('*', '*'), (' div ', '/'), (' mod ', '%')])
+        if pos >= 0:
+            left = expr[:pos].strip()
+            right = expr[pos + length:].strip()
+            if left and right:
+                left_val = self._evaluate_predicate_expression(left, context_node)
+                right_val = self._evaluate_predicate_expression(right, context_node)
+                try:
+                    left_num = float(left_val) if left_val is not None else 0
+                    right_num = float(right_val) if right_val is not None else 0
+                    if py_op == '*':
+                        return left_num * right_num
+                    elif py_op == '/':
+                        return left_num / right_num if right_num != 0 else 0
+                    elif py_op == '%':
+                        return left_num % right_num if right_num != 0 else 0
+                except (ValueError, TypeError):
+                    pass
+        
+        return expr  # Return as-is if no pattern matched
+    
     def _evaluate_predicate_condition(self, node: 'ConfigurationNode', condition: str) -> bool:
         """Evaluate a predicate condition in context of a node.
 
@@ -591,7 +1421,8 @@ class XPathEngine:
         - Simple existence check: [ParamName]
         - Equality: [ParamName = 'Value'], [ParamName = 0], [ParamName = num:i($var)]
         - Inequality: [ParamName != 'Value']
-        - Numeric comparisons: [ParamName > 5]
+        - Numeric comparisons: [ParamName > 5], [ParamName > $Base + 1]
+        - Function-based comparisons: [string-length(Name) > 5], [string:length(node:name(.)) > 5]
         """
         import re
 
@@ -610,7 +1441,6 @@ class XPathEngine:
             val = int(pos_match.group(3))
             
             curr_pos = self.context_stack.get_variable('position') if self.context_stack.has_variable('position') else 1
-            # Simple expression evaluation for position
             expr = f"{curr_pos}{offset_str}"
             try:
                 actual = eval(expr)
@@ -632,151 +1462,134 @@ class XPathEngine:
             if s in ('false', '0', 'no', 'off', 'std_off'): return "false"
             return s
 
-        # Check for equality comparison: Name = 'Value' or Name = "Value"
-        # Supports ChildName or . (self)
-        eq_match = re.match(r"""^\s*([\w.]+)\s*=\s*['"]([^'"]*)['"]\s*$""", condition)
-        if eq_match:
-            name = eq_match.group(1)
-            expected_value = eq_match.group(2)
+        # Helper function to get value from expression
+        def get_expr_value(expr_str: str, ctx_node):
+            """Get value from an expression - supports functions, paths, and literals."""
+            return self._evaluate_predicate_expression(expr_str, ctx_node)
 
-            if name == '.':
-                actual_value = node.get_value() if hasattr(node, 'get_value') else node.value
-            else:
-                if is_node:
-                    child = node.get_child(name)
-                    if child:
-                        actual_value = child.get_value()
-                    else:
-                        return False
-                else:
-                    return False
+        # Find comparison operator outside parentheses, brackets, and quotes
+        def find_comparison_op(cond):
+            """Find the comparison operator and split the condition."""
+            ops = ['!=', '<=', '>=', '=', '<', '>']
+            paren_depth = 0
+            bracket_depth = 0
+            in_quote = None
 
-            if expected_value.lower() in ('true', 'false'):
-                return to_bool_str(actual_value) == expected_value.lower()
-
-            return str(actual_value) == expected_value
-
-        # Check for equality with unquoted value or function call: Name = 0, Name = num:i($var)
-        # This handles cases like [McuClockSettingId = num:i($ClockIndex)]
-        # Use negative lookbehind to avoid matching != as =
-        general_eq_match = re.match(r"""^\s*([\w.]+)\s*(?<![!])=\s*(.+)\s*$""", condition)
-        # Also check that the condition doesn't contain != to avoid false matches
-        if general_eq_match and '!=' in condition:
-            general_eq_match = None
-        if general_eq_match:
-            name = general_eq_match.group(1)
-            right_expr = general_eq_match.group(2).strip()
-
-            # Get actual value from node
-            if name == '.':
-                actual_value = node.get_value() if hasattr(node, 'get_value') else node.value
-            else:
-                if is_node:
-                    child = node.get_child(name)
-                    if child:
-                        actual_value = child.get_value()
-                    else:
-                        return False
-                else:
-                    return False
-
-            # Evaluate the right side expression
-            expected_value = None
-
-            # Check if it's a pure number
-            if right_expr.isdigit() or (right_expr.startswith('-') and right_expr[1:].isdigit()):
-                expected_value = int(right_expr)
-            elif re.match(r'^-?\d+\.\d+$', right_expr):
-                expected_value = float(right_expr)
-            # Check if it's a function call like num:i($var)
-            elif '(' in right_expr and ')' in right_expr and self.function_handler:
-                try:
-                    # Use evaluate to handle function calls
-                    expected_value = self.evaluate(right_expr)
-                    # Unwrap if needed
-                    if hasattr(expected_value, 'get_value'):
-                        expected_value = expected_value.get_value()
-                except Exception as e:
-                    _debug_log(f"DEBUG: Failed to evaluate predicate expression '{right_expr}': {e}")
-                    return False
-            # Check if it's a variable reference
-            elif right_expr.startswith('$'):
-                var_name = right_expr[1:]
-                if self.context_stack.has_variable(var_name):
-                    expected_value = self.context_stack.get_variable(var_name)
-
-            if expected_value is not None:
-                # Compare values - try numeric comparison first, then string
-                try:
-                    actual_num = float(actual_value) if actual_value is not None else None
-                    expected_num = float(expected_value) if expected_value is not None else None
-                    if actual_num is not None and expected_num is not None:
-                        result = actual_num == expected_num
-                        _debug_log(f"DEBUG: Predicate [{name} = {right_expr}] => [{actual_value} == {expected_value}] (numeric) = {result}")
-                        return result
-                except (ValueError, TypeError):
-                    pass
-
-                # String comparison fallback
-                result = str(actual_value) == str(expected_value)
-                _debug_log(f"DEBUG: Predicate [{name} = {right_expr}] => [{actual_value} == {expected_value}] (string) = {result}")
+            for i in range(len(cond)):
+                c = cond[i]
+                if c in ('"', "'") and (i == 0 or cond[i-1] != '\\'):
+                    if in_quote == c:
+                        in_quote = None
+                    elif in_quote is None:
+                        in_quote = c
+                elif in_quote is None:
+                    if c == '(':
+                        paren_depth += 1
+                    elif c == ')':
+                        paren_depth -= 1
+                    elif c == '[':
+                        bracket_depth += 1
+                    elif c == ']':
+                        bracket_depth -= 1
+                    elif paren_depth == 0 and bracket_depth == 0:
+                        for op in ops:
+                            if cond[i:i+len(op)] == op:
+                                # Make sure = is not part of !=, <=, >=
+                                if op == '=' and i > 0 and cond[i-1] in ('!', '<', '>'):
+                                    continue
+                                return i, op
+            return -1, None
+        
+        op_pos, op = find_comparison_op(condition)
+        
+        if op_pos != -1 and op:
+            left_expr = condition[:op_pos].strip()
+            right_expr = condition[op_pos + len(op):].strip()
+            
+            # Get values from both sides
+            left_val = get_expr_value(left_expr, node)
+            right_val = get_expr_value(right_expr, node)
+            
+            # Handle None values
+            if left_val is None and right_val is None:
+                return op == '='
+            if left_val is None or right_val is None:
+                return op == '!='
+            
+            # Try numeric comparison first
+            try:
+                left_num = float(left_val) if not isinstance(left_val, bool) else (1 if left_val else 0)
+                right_num = float(right_val) if not isinstance(right_val, bool) else (1 if right_val else 0)
+                
+                if op == '=' or op == '==':
+                    return left_num == right_num
+                elif op == '!=':
+                    return left_num != right_num
+                elif op == '>':
+                    return left_num > right_num
+                elif op == '<':
+                    return left_num < right_num
+                elif op == '>=':
+                    return left_num >= right_num
+                elif op == '<=':
+                    return left_num <= right_num
+            except (ValueError, TypeError):
+                pass
+            
+            # Fall back to string comparison
+            left_str = to_bool_str(left_val) if isinstance(left_val, bool) else str(left_val)
+            right_str = to_bool_str(right_val) if isinstance(right_val, bool) else str(right_val)
+            
+            if op == '=' or op == '==':
+                return left_str == right_str
+            elif op == '!=':
+                return left_str != right_str
+            elif op == '>':
+                return left_str > right_str
+            elif op == '<':
+                return left_str < right_str
+            elif op == '>=':
+                return left_str >= right_str
+            elif op == '<=':
+                return left_str <= right_str
+        
+        # Check for function calls and evaluate as boolean
+        condition_stripped = condition.strip()
+        if '(' in condition_stripped and ')' in condition_stripped:
+            result = self._evaluate_predicate_expression(condition_stripped, node)
+            if isinstance(result, bool):
                 return result
-
-            # If we couldn't evaluate the right side, fall through to other handlers
-
+            if result is None:
+                return False
+            if isinstance(result, (int, float)):
+                return result != 0
+            if isinstance(result, str):
+                return result.lower() not in ('false', '', '0')
+            return bool(result)
         
-        # Check for inequality: ChildName != 'Value'
-        neq_match = re.match(r"""^\s*(\w+)\s*!=\s*['"]([^'"]*)['"]\s*$""", condition)
-        if neq_match:
-            child_name = neq_match.group(1)
-            expected_value = neq_match.group(2)
-            child = node.get_child(child_name)
-            if child:
-                actual_value = child.get_value()
-                return str(actual_value) != expected_value
-            return True  # If child doesn't exist, it's not equal
-        
-        # Check for numeric comparisons: ChildName > 5, ChildName < 10
-        num_match = re.match(r"""^\s*(\w+)\s*([<>]=?)\s*(\d+)\s*$""", condition)
-        if num_match:
-            child_name = num_match.group(1)
-            operator = num_match.group(2)
-            compare_value = int(num_match.group(3))
-            child = node.get_child(child_name)
-            if child:
-                try:
-                    actual_value = int(child.get_value())
-                    if operator == '>':
-                        return actual_value > compare_value
-                    elif operator == '<':
-                        return actual_value < compare_value
-                    elif operator == '>=':
-                        return actual_value >= compare_value
-                    elif operator == '<=':
-                        return actual_value <= compare_value
-                except (ValueError, TypeError):
-                    return False
-            return False
-        
-        # Boolean value check (true/false): ChildName = 'true' or just ChildName
-        bool_match = re.match(r"""^\s*(\w+)\s*=\s*['"]?(true|false)['"]?\s*$""", condition, re.IGNORECASE)
-        if bool_match:
-            child_name = bool_match.group(1)
-            expected = bool_match.group(2).lower() == 'true'
-            child = node.get_child(child_name)
-            if child:
-                val = child.get_value()
-                if isinstance(val, bool):
-                    return val == expected
-                return str(val).lower() == str(expected).lower()
-            return False
+        # Nested XPath predicate: Item[Value > 10] or child[grandchild = 'x']
+        # Check if condition contains a path with predicates
+        if '[' in condition_stripped and ']' in condition_stripped and is_node:
+            # Push the current node as context and evaluate the nested path
+            try:
+                self.context_stack.push(node)
+                result = self.evaluate(condition_stripped)
+                self.context_stack.pop()
+                
+                # If result is non-empty list or non-None, the predicate is true
+                if isinstance(result, list):
+                    return len(result) > 0
+                return result is not None
+            except:
+                self.context_stack.pop()
+                return False
         
         # Simple existence check: [ParamName]
-        if hasattr(node, 'get_child'):
-            child = node.get_child(condition.strip())
+        if is_node:
+            # First check as direct child access
+            child = node.get_child(condition_stripped)
             if child:
                 val = child.get_value()
-                # Return True if value exists and is truthy
                 if val is None:
                     return False
                 if isinstance(val, bool):
@@ -784,5 +1597,20 @@ class XPathEngine:
                 if isinstance(val, str):
                     return val.lower() not in ('false', '', '0')
                 return bool(val)
+            
+            # Try evaluating as a relative XPath from this node
+            if '/' in condition_stripped or condition_stripped.startswith('.'):
+                try:
+                    self.context_stack.push(node)
+                    result = self.evaluate(condition_stripped)
+                    self.context_stack.pop()
+                    
+                    if isinstance(result, list):
+                        return len(result) > 0
+                    return result is not None
+                except:
+                    self.context_stack.pop()
+                    return False
         
         return False
+

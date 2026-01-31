@@ -213,6 +213,7 @@ autosar_configurator/
 - `doc/bsw配置与代码生成原理.md` - BSW 配置原理
 - `doc/EMF.md` - EMF 对象图系统说明
 - `doc/xsd和arxml.md` - XSD 与 ARXML 格式说明
+- `doc/XPath语言参考.md` - **XPath 语言参考** (完整函数库文档)
 
 应用内按 `F1` 可查看完整使用手册。
 
