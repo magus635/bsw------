@@ -46,14 +46,17 @@ class ContextStack:
         # Create root scope
         self._stack.append(Scope(context_node=root_node))
     
-    def push(self, context_node: Optional[ConfigurationNode] = None):
+    def push(self, context_node: Optional[ConfigurationNode] = Ellipsis):
         """Push a new scope onto the stack.
         
         Args:
-            context_node: New context node for this scope (or inherit from parent)
+            context_node: New context node for this scope (provided as None to clear context)
         """
+        if context_node is Ellipsis:
+            context_node = self.current_node()
+            
         new_scope = Scope(
-            context_node=context_node or self.current_node()
+            context_node=context_node
         )
         self._stack.append(new_scope)
     

@@ -307,43 +307,90 @@ class BuiltinFunctions:
     
     def node_exists(self, path_or_node) -> bool:
         """Check if a path or node exists.
-        
+
         Handles:
         1. String: Relative or absolute path check.
-        2. Node: Returns True.
+        2. Node: Returns True (unless it's a reference with no value).
         3. List: Returns True if non-empty.
+
+        Important: For reference type nodes, this function checks whether the
+        reference has a configured value. A reference node that exists in the
+        definition but has no configured value is considered "not exists".
         """
         if path_or_node is None:
             return False
-            
+
         if isinstance(path_or_node, list):
-            return len(path_or_node) > 0
-            
+            # Filter out empty references from the list
+            valid_items = []
+            for item in path_or_node:
+                if self._is_empty_reference(item):
+                    continue
+                valid_items.append(item)
+            return len(valid_items) > 0
+
         if hasattr(path_or_node, 'short_name') or hasattr(path_or_node, 'node_type'):
-            # It's already a node
+            # It's already a node - check if it's an empty reference
+            if self._is_empty_reference(path_or_node):
+                return False
             return True
-            
+
         if isinstance(path_or_node, str):
             if path_or_node.startswith('/'):
-                return self.symbol_table.get_by_path(path_or_node) is not None
+                node = self.symbol_table.get_by_path(path_or_node)
+                if node is None:
+                    return False
+                # Check if it's an empty reference
+                if self._is_empty_reference(node):
+                    return False
+                return True
             else:
                 current = self.context_stack.current_node()
                 if current:
                     # Check if it's a child name
                     child = current.get_child(path_or_node)
-                    if child is not None: return True
+                    if child is not None:
+                        # Check if it's an empty reference
+                        if self._is_empty_reference(child):
+                            return False
+                        return True
                     # Check if it's an XPath from current context
                     try:
                         res = self.renderer._xpath_engine.evaluate(path_or_node)
                         if res is not None:
-                             if isinstance(res, list): return len(res) > 0
-                             return True
+                            if isinstance(res, list):
+                                # Filter out empty references
+                                valid_items = [item for item in res if not self._is_empty_reference(item)]
+                                return len(valid_items) > 0
+                            # Single result - check if it's an empty reference
+                            if self._is_empty_reference(res):
+                                return False
+                            return True
                     except:
                         pass
                 return False
-        
+
         return bool(path_or_node)
-        return True  # Node object exists
+
+    def _is_empty_reference(self, node) -> bool:
+        """Check if a node is a reference type with no configured value.
+
+        Reference nodes that exist in the definition but have no configured
+        value (value is None or empty string) are considered "empty".
+
+        Args:
+            node: A ConfigurationNode or similar object
+
+        Returns:
+            True if node is a reference with no value, False otherwise
+        """
+        if not hasattr(node, 'node_type'):
+            return False
+        if node.node_type != 'reference':
+            return False
+        # Get the value of the reference
+        value = node.get_value() if hasattr(node, 'get_value') else getattr(node, 'value', None)
+        return value is None or value == ''
     
     def node_refexists(self, path_or_node) -> bool:
         """Check if a reference exists and its target exists"""
@@ -670,11 +717,11 @@ class BuiltinFunctions:
             value = value.get_value()
         elif hasattr(value, 'value'):
             value = value.value
-        return str(value)
+        return str(value) if value is not None else ''
     
     def string_concat(self, *args) -> str:
         """Concatenate strings"""
-        return "".join(str(a) for a in args)
+        return "".join(str(a) if a in (False, 0) or a else "" for a in args)
     
     def string_split(self, s: str, delimiter: str = " ") -> List[str]:
         """Split string by delimiter.
@@ -1182,6 +1229,10 @@ class BuiltinFunctions:
         # CAN configuration lists
         'Can.HwUnitId': ['MCAN0', 'MCAN1'],
         'Can.ControllerBaudRateConfig': ['500kbps', '250kbps', '125kbps', '1Mbps'],
+
+        # DSADC configuration lists
+        'Dsadc.HwUnitList': ['DSADC0', 'DSADC1', 'DSADC2', 'DSADC3'],
+        'Dsadc.HwUnitId': ['DSADC0', 'DSADC1', 'DSADC2', 'DSADC3'],
     }
 
     def ecu_list(self, path: str) -> List[Any]:

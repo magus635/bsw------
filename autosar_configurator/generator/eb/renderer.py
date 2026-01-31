@@ -743,7 +743,7 @@ class Renderer:
         if isinstance(node, str):
             node = self._evaluate_xpath(node)
             
-        if node and isinstance(node, list):
+        if isinstance(node, list):
             node = node[0] if node else None
         
         # Always execute the block, even with empty context
@@ -1053,32 +1053,35 @@ class Renderer:
                     return self._evaluate_function_call(expr)
                 elif expr[close_paren_idx + 1] == '[':
                     # Has indexing: func(...)[index]
-                    func_part = expr[:close_paren_idx + 1]
-                    index_part = expr[close_paren_idx + 1:]
+                    # BUT ONLY if it's a simple index and NOTHING ELSE follows
+                    # If it's something like func(...)[index]/Path, let XPath engine handle it
+                    if expr.endswith(']'):
+                        index_part = expr[close_paren_idx + 1:]
+                        # If index_part has multiple brackets or slashes, it's a path, not a simple index
+                        if not ('/' in index_part or index_part.count('[') > 1):
+                            func_part = expr[:close_paren_idx + 1]
+                            # Evaluate the function
+                            result = self._evaluate_function_call(func_part)
 
-                    # Evaluate the function
-                    result = self._evaluate_function_call(func_part)
+                            # Parse and apply index
+                            idx_str = index_part[1:-1]
+                            idx_val = None
+                            if idx_str.isdigit():
+                                idx_val = int(idx_str) - 1  # 1-indexed to 0-indexed
+                            else:
+                                # Evaluate index expression
+                                evaluated = self._evaluate_expression(idx_str)
+                                if evaluated is not None:
+                                    try:
+                                        idx_val = int(evaluated) - 1
+                                    except (TypeError, ValueError):
+                                        pass
 
-                    # Parse and apply index
-                    if index_part.startswith('[') and index_part.endswith(']'):
-                        idx_str = index_part[1:-1]
-                        idx_val = None
-                        if idx_str.isdigit():
-                            idx_val = int(idx_str) - 1  # 1-indexed to 0-indexed
-                        else:
-                            # Evaluate index expression
-                            evaluated = self._evaluate_expression(idx_str)
-                            if evaluated is not None:
-                                try:
-                                    idx_val = int(evaluated) - 1
-                                except (TypeError, ValueError):
-                                    pass
-
-                        if idx_val is not None and isinstance(result, list):
-                            if 0 <= idx_val < len(result):
-                                return result[idx_val]
-                            return None
-                    return result
+                            if idx_val is not None and isinstance(result, list):
+                                if 0 <= idx_val < len(result):
+                                    return result[idx_val]
+                                return None
+                            return result
 
         # 5. XPath or Node Access
         res = self._evaluate_xpath(expr)
@@ -1886,5 +1889,12 @@ class Renderer:
         
         message = "".join(message_parts).strip()
         _debug_log(f"ERROR: {message}")
-        raise TemplateParseError(f"Template Error: {message}")
+        if self.strict:
+            raise TemplateParseError(f"Template Error: {message}")
+        else:
+            # Non-strict: just log warning and continue
+            _debug_log(f"WARNING: Template Error suppressed in non-strict mode: {message}")
+            # Optionally add a comment in output? No, standard behavior is skip/trace
+        
+        return i
 

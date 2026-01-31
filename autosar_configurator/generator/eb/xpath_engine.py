@@ -19,6 +19,7 @@ def _debug_log(msg: str):
     try:
         with open(_DEBUG_LOG_PATH, 'a') as f:
             f.write(msg + '\n')
+        print(f"[DEBUG] {msg}")
     except (IOError, OSError):
         pass  # Silently ignore file write errors in debug logging
 
@@ -108,7 +109,7 @@ class XPathEngine:
             else:
                 _debug_log(f"DEBUG: as:modconf('{module_name}') - Module FOUND")
 
-            
+            result = module
             if rest_path:
                 # Handle predicates on the function result itself
                 if rest_path.startswith('['):
@@ -120,9 +121,12 @@ class XPathEngine:
                             if bracket_depth == 0:
                                 pred_str = rest_path[1:i]
                                 module_list = self._apply_predicates([module], [pred_str])
-                                if not module_list: return None
-                                module = module_list[0]
+                                if not module_list: 
+                                    _debug_log(f"DEBUG_XPATH: predicate [{pred_str}] returned empty result")
+                                    return None
+                                result = module_list[0]
                                 rest_path = rest_path[i+1:]
+                                _debug_log(f"DEBUG_XPATH: applied predicate [{pred_str}], result={result.short_name}, rest_path={rest_path}")
                                 break
                     
                 if rest_path:
@@ -130,7 +134,8 @@ class XPathEngine:
                     rest_path = rest_path.lstrip('/')
                     if rest_path:
                         segments = self._parse_path(rest_path)
-                        return self._navigate_segments(module, segments)
+                        _debug_log(f"DEBUG_XPATH: navigating segments {segments} from {result.short_name}")
+                        return self._navigate_segments(result, segments)
             return module
             
         # count(path)
@@ -346,6 +351,8 @@ class XPathEngine:
         if current:
             parts.append(current)
         
+        _debug_log(f"DEBUG_XPATH: _parse_path('{xpath}') -> parts={parts}")
+        
         for i, part in enumerate(parts):
             axis = first_segment_axis if i == 0 else 'child'
             
@@ -404,7 +411,10 @@ class XPathEngine:
             name = segment['name']
             predicates = segment['predicates']
             
+            _debug_log(f"DEBUG_XPATH: Navigating segment '{name}' (axis={axis}) from {len(current)} nodes")
+
             for n in current:
+                _debug_log(f"DEBUG_XPATH:   Current context node: {n.short_name} (type={n.node_type}, path={n.path}, children={list(n.children.keys())})")
                 if axis == 'parent':
                     if n.parent:
                         next_nodes.append(n.parent)

@@ -6,9 +6,23 @@ Implements the XDM + ARXML Overlay mechanism:
 2. Overlay Layer: Apply user configuration values
 3. Fallback: If config value missing, use definition default
 """
+import os
+import tempfile
 from typing import Optional, Dict, Any
 from .symbol_table import ConfigurationNode, SymbolTable
 from .errors import MultiplicityViolationError
+
+# Debug log file path - cross-platform
+_DEBUG_LOG_PATH = os.path.join(tempfile.gettempdir(), 'bsw_gen.log')
+
+def _debug_log(msg: str):
+    """Helper to write diagnostic logs to a fixed file for worker threads."""
+    try:
+        with open(_DEBUG_LOG_PATH, 'a') as f:
+            f.write(msg + '\n')
+        print(f"[DEBUG] {msg}")
+    except (IOError, OSError):
+        pass
 
 # Import existing project models
 from ...core.model.definition_model import (
@@ -64,15 +78,15 @@ class OverlayEngine:
             definition_ref=module_def.definition_ref
         )
         
-        # Process top-level containers
+        _debug_log(f"DEBUG_OVERLAY: Tree root created: {root.short_name} (path={root.path})")
         for container_name, container_def in module_def.containers.items():
             # Find matching configuration instances
             matching_instances = []
             if configuration:
-                # Match by definition reference (robust matching)
                 matching_instances = [c for c in configuration.containers 
                                       if c.definition_ref == container_name or c.definition_ref.endswith(f"/{container_name}")]
 
+            _debug_log(f"DEBUG_OVERLAY: Processing module container definition: {container_name}, found {len(matching_instances)} instances")
             
             # Create a WRAPPER node for this container definition
             # This allows [!LOOP "as:modconf('Can')/CanConfigSet/*"!]
@@ -196,6 +210,8 @@ class OverlayEngine:
             node = self._create_container_node(container_def, config_instance, instance_path)
             nodes.append(node)
             
+            _debug_log(f"DEBUG_OVERLAY: Processing sub-containers for instance: {instance_name} (path={instance_path})")
+            
             def matches_def(ref, name):
                 if not ref: return False
                 return ref == name or ref.endswith(f"/{name}")
@@ -278,6 +294,7 @@ class OverlayEngine:
                              getattr(s, 'definition_ref', '') == sub_def_name or
                              getattr(s, 'definition_ref', '').endswith(f"/{sub_def_name}")]
 
+            _debug_log(f"DEBUG_OVERLAY:   Checking sub-container def {sub_def_name} for node {node.short_name}, found {len(matching_subs)} matches")
             
             if matching_subs:
                 # ALWAYS create wrapper node for sub-containers
