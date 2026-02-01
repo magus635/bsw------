@@ -86,8 +86,16 @@ class ImpactAnalyzer:
         # Add container as a node
         self.all_nodes.add(full_container_path)
         
-        # Add parameters as nodes (so we can find them)
-        param_names = list(container.parameter_values.keys())
+        # Add parameters as nodes - collect from BOTH config values AND definition
+        # This ensures we capture all parameters including newly added container instances
+        param_names = set(container.parameter_values.keys())
+        
+        # Also add parameters from definition if available
+        if hasattr(container, 'definition') and container.definition:
+            for param_def in container.definition.parameters:
+                param_names.add(param_def.short_name)
+        
+        param_names = list(param_names)
         for param_name in param_names:
             param_path = f"{full_container_path}.{param_name}"
             self.all_nodes.add(param_path)

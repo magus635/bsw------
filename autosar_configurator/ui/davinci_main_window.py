@@ -2939,68 +2939,92 @@ except Exception as e:
 
     def _handle_check_impact(self, container_path: str, param_name: str):
         """Analyze and show impact of changing a parameter using the ImpactView dock"""
-        if not self.config_manager or not self.current_project:
-            self.statusbar.showMessage("⚠️ 请先打开项目", 3000)
-            return
-
-        from ..core.analysis.impact_analyzer import ImpactAnalyzer
-        
-        # Initialize analyzer
-        analyzer = ImpactAnalyzer()
-        
-        # Build structure from all modules in project
-        for module_name, manager in self.current_project.module_managers.items():
-            if manager.configuration:
-                analyzer.build_from_configuration(manager.configuration, module_name)
-                
-        # Load AI rules if available - try auto-loading from file first
-        if not hasattr(self.current_project, 'dependency_rules') or not self.current_project.dependency_rules:
-            # Try to load from dependencies.md file (path is project file path, so use parent for directory)
-            if self.current_project.path:
-                deps_file = self.current_project.path.parent / "dependencies.md"
-                if deps_file.exists():
-                    rules = self._load_dependency_rules_from_file(deps_file)
-                    if rules:
-                        self.current_project.dependency_rules = rules
-                        logger.info(f"Loaded {len(rules)} dependency rules from {deps_file}")
-        
-        if hasattr(self.current_project, 'dependency_rules') and self.current_project.dependency_rules:
-            analyzer.load_dependencies(self.current_project.dependency_rules)
-        
-        # Get graph stats for debugging
-        stats = analyzer.get_graph_stats()
-        logger.info(f"Impact graph: {stats['total_nodes']} nodes, {stats['total_edges']} edges "
-                   f"(structural: {stats['structural_edges']}, inferred: {stats.get('inferred_edges', 0)}, logical: {stats['logical_edges']})")
+        try:
+            logger.info(f"Check Impact requested for: {container_path} / {param_name}")
             
-        # Determine source node path - use dot-separated format
-        module_name = self.config_manager.module_def.short_name
-        # Clean container path: remove leading slashes, convert slashes to dots
-        clean_cont_path = container_path.lstrip('/').replace('/', '.')
-        
-        # Avoid duplicate module name prefix (container_path may already start with module name)
-        if clean_cont_path.startswith(module_name + '.'):
-            source_node = f"{clean_cont_path}.{param_name}"
-        elif clean_cont_path.startswith(module_name):
-            # Container path IS just the module name
-            source_node = f"{clean_cont_path}.{param_name}"
-        else:
-            source_node = f"{module_name}.{clean_cont_path}.{param_name}"
-        
-        logger.debug(f"Analyzing impact for: {source_node}")
-        
-        # Analyze
-        impacts = analyzer.analyze_impact(source_node)
-        
-        # Show in dock with status info
-        self.impact_view.display_impacts(source_node, impacts, stats)
-        self.impact_dock.show()
-        self.impact_dock.raise_()
-        
-        # Status bar message
-        if impacts:
-            self.statusbar.showMessage(f"找到 {len(impacts)} 个受影响的配置项", 3000)
-        else:
-            self.statusbar.showMessage(f"未找到受影响的配置项 (图: {stats['total_nodes']} 节点)", 3000)
+            if not self.config_manager or not self.current_project:
+                self.statusbar.showMessage("⚠️ 请先打开项目", 3000)
+                logger.warning("Check Impact abort: No active project/manager")
+                return
+
+            from ..core.analysis.impact_analyzer import ImpactAnalyzer
+            from datetime import datetime
+            
+            # Initialize a FRESH analyzer each time to capture latest config state
+            analyzer = ImpactAnalyzer()
+            
+            # Build structure from all modules in project (using LIVE configuration objects)
+            total_containers = 0
+            for module_name, manager in self.current_project.module_managers.items():
+                if manager.configuration:
+                    container_count = len(manager.configuration.containers)
+                    total_containers += container_count
+                    analyzer.build_from_configuration(manager.configuration, module_name)
+            
+            logger.debug(f"[{datetime.now().strftime('%H:%M:%S')}] Fresh graph built: {total_containers} top-level containers")
+            
+            # Load AI rules if available - try auto-loading from file first
+            if not hasattr(self.current_project, 'dependency_rules') or not self.current_project.dependency_rules:
+                # Try to load from dependencies.md file (path is project file path, so use parent for directory)
+                if self.current_project.path:
+                    deps_file = self.current_project.path.parent / "dependencies.md"
+                    if deps_file.exists():
+                        rules = self._load_dependency_rules_from_file(deps_file)
+                        if rules:
+                            self.current_project.dependency_rules = rules
+                            logger.info(f"Loaded {len(rules)} dependency rules from {deps_file}")
+            
+            if hasattr(self.current_project, 'dependency_rules') and self.current_project.dependency_rules:
+                analyzer.load_dependencies(self.current_project.dependency_rules)
+            
+            # Get graph stats for debugging
+            stats = analyzer.get_graph_stats()
+            logger.info(f"Impact graph: {stats['total_nodes']} nodes, {stats['total_edges']} edges "
+                       f"(structural: {stats['structural_edges']}, inferred: {stats.get('inferred_edges', 0)}, logical: {stats['logical_edges']})")
+                
+            # Determine source node path - use dot-separated format
+            if hasattr(self.config_manager.module_def, 'short_name'):
+                module_name = self.config_manager.module_def.short_name
+            else:
+                 # Fallback if module_def missing (shouldn't happen)
+                module_name = container_path.split('/')[1] if container_path.startswith('/') else container_path.split('.')[0]
+
+            # Clean container path: remove leading slashes, convert slashes to dots
+            clean_cont_path = container_path.lstrip('/').replace('/', '.')
+            
+            # Avoid duplicate module name prefix (container_path may already start with module name)
+            if clean_cont_path.startswith(module_name + '.'):
+                source_node = f"{clean_cont_path}.{param_name}"
+            elif clean_cont_path.startswith(module_name):
+                # Container path IS just the module name
+                source_node = f"{clean_cont_path}.{param_name}"
+            else:
+                source_node = f"{module_name}.{clean_cont_path}.{param_name}"
+            
+            logger.info(f"Analyzing impact for source node: {source_node}")
+            
+            # Analyze
+            impacts = analyzer.analyze_impact(source_node)
+            logger.info(f"Impact analysis result: Found {len(impacts)} items")
+            
+            # Show in dock with status info
+            self.impact_view.display_impacts(source_node, impacts, stats)
+            self.impact_dock.show()
+            self.impact_dock.raise_()
+            
+            # Status bar message
+            if impacts:
+                self.statusbar.showMessage(f"找到 {len(impacts)} 个受影响的配置项", 3000)
+            else:
+                self.statusbar.showMessage(f"未找到受影响的配置项 (图: {stats['total_nodes']} 节点)", 3000)
+                
+        except Exception as e:
+            import traceback
+            error_msg = f"Check Impact failed: {str(e)}"
+            logger.error(error_msg)
+            logger.error(traceback.format_exc())
+            self.statusbar.showMessage(f"⚠️ {error_msg}", 5000)
+            QMessageBox.critical(self, "Impact Analysis Error", error_msg)
 
     def _show_reverse_references(self, container):
         """Show dialog listing all containers that reference this container

@@ -232,6 +232,9 @@ class DaVinciConfigPanel(QWidget):
             self.parameters_group.hide()
             self.general_group.hide()
             
+            # Hide AI help panel when switching containers (stale context)
+            self.ai_help_group.hide()
+            
             # Reset comparison state only if not in comparison mode
             # (comparison mode preserves results during refresh)
             if hasattr(self, 'compare_btn') and not self.compare_btn.isChecked():
