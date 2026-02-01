@@ -188,9 +188,72 @@ class DependencyAnalyzer:
             params.extend(self._extract_container_parameters(
                 module_name, sub_container, container_path
             ))
-        
+
         return params
-    
+
+    def _find_dev_error_detect_params(self, params_info: Dict[str, List[Dict]]) -> Dict[str, str]:
+        """Find all modules that have DevErrorDetect parameter.
+
+        Returns:
+            Dict mapping module name to the full parameter path (e.g., 'Adc' -> 'Adc.AdcGeneral_0.AdcDevErrorDetect')
+        """
+        dev_error_modules = {}
+
+        for module_name, params in params_info.items():
+            for param in params:
+                param_name = param.get('parameter', '')
+                if 'DevErrorDetect' in param_name:
+                    # Use the full path if available, otherwise construct it
+                    full_path = param.get('full_path', f"{module_name}.{param_name}")
+                    dev_error_modules[module_name] = full_path
+                    break  # Only need one DevErrorDetect per module
+
+        return dev_error_modules
+
+    def _generate_dev_error_consistency_rules(self, dev_error_modules: Dict[str, str]) -> List[Dict]:
+        """Generate consistency rules for DevErrorDetect across modules.
+
+        When one module enables DevErrorDetect, other modules should also enable it
+        for consistent error detection behavior across the BSW.
+
+        Args:
+            dev_error_modules: Dict mapping module name to DevErrorDetect parameter path
+
+        Returns:
+            List of dependency rule dicts
+        """
+        rules = []
+        module_list = list(dev_error_modules.items())
+
+        for i, (source_module, source_path) in enumerate(module_list):
+            for target_module, target_path in module_list[i+1:]:
+                # Create bidirectional rules - if source is enabled, target should be too
+                rules.append({
+                    'source_param': source_path,
+                    'source_condition': '==',
+                    'source_value': 'True',
+                    'target_param': target_path,
+                    'target_condition': '==',
+                    'target_value': 'True',
+                    'reason': f"{source_module}模块启用了开发错误检测，但{target_module}模块禁用了。在开发阶段，通常建议所有模块保持一致的错误检测策略，以便完整捕获和定位问题。",
+                    'status': 'confirmed',  # Auto-confirm: this is a standard AUTOSAR pattern
+                    'origin': '📋 内置规则'  # Built-in rule
+                })
+                # Reverse direction
+                rules.append({
+                    'source_param': target_path,
+                    'source_condition': '==',
+                    'source_value': 'True',
+                    'target_param': source_path,
+                    'target_condition': '==',
+                    'target_value': 'True',
+                    'reason': f"{target_module}模块启用了开发错误检测，但{source_module}模块禁用了。在开发阶段，通常建议所有模块保持一致的错误检测策略，以便完整捕获和定位问题。",
+                    'status': 'confirmed',  # Auto-confirm: this is a standard AUTOSAR pattern
+                    'origin': '📋 内置规则'  # Built-in rule
+                })
+
+        return rules
+
     def analyze_with_ai(self, params_info: Dict[str, List[Dict]]) -> List[Dict]:
         """
         Use AI to analyze parameters and infer potential dependencies.
@@ -204,7 +267,7 @@ class DependencyAnalyzer:
         dependencies = []
         
         # 1. Always include cross-module references from module definitions
-        # (These are factual, not AI-generated)
+        # (These are factual, not AI-generated, so auto-confirm them)
         for ref in getattr(self, 'cross_module_refs', []):
             dependencies.append({
                 'source_param': f"{ref['source_module']}.{ref['reference_name']}",
@@ -214,13 +277,21 @@ class DependencyAnalyzer:
                 'target_condition': 'exists',
                 'target_value': 'true',
                 'reason': f"模块定义引用：{ref['source_module']} 通过 {ref['reference_name']} 引用 {ref['target_module']}",
-                'status': 'pending',
+                'status': 'confirmed',  # Auto-confirm: based on module definition, not AI inference
                 'origin': '📋 定义'  # Source: Module Definition
             })
         
         print(f"[DEBUG] Added {len(dependencies)} definition-based rules from cross_module_refs")
-        
-        # 2. Use AI to find additional parameter dependencies
+
+        # 2. Add built-in DevErrorDetect consistency rules (common AUTOSAR pattern)
+        # When one module enables DevErrorDetect, related modules should also enable it
+        dev_error_modules = self._find_dev_error_detect_params(params_info)
+        if len(dev_error_modules) >= 2:
+            dev_error_rules = self._generate_dev_error_consistency_rules(dev_error_modules)
+            dependencies.extend(dev_error_rules)
+            print(f"[DEBUG] Added {len(dev_error_rules)} DevErrorDetect consistency rules for modules: {list(dev_error_modules.keys())}")
+
+        # 3. Use AI to find additional parameter dependencies
         if self.gemini_client and self.gemini_client.is_ready():
             prompt = self._build_analysis_prompt(params_info)
             
@@ -422,6 +493,7 @@ Adc.AdcClockSource == Mcu.McuClockRef -> Mcu.McuClockFrequency >= 80000000 | ADC
         dependencies = []
         
         # 1. Include cross-module references from module definitions
+        # (These are factual, not AI-generated, so auto-confirm them)
         for ref in getattr(self, 'cross_module_refs', []):
             dependencies.append({
                 'source_param': f"{ref['source_module']}.{ref['reference_name']}",
@@ -431,7 +503,8 @@ Adc.AdcClockSource == Mcu.McuClockRef -> Mcu.McuClockFrequency >= 80000000 | ADC
                 'target_condition': 'exists',
                 'target_value': 'true',
                 'reason': f"模块 {ref['source_module']} 通过 {ref['reference_name']} 引用模块 {ref['target_module']}，目标模块必须存在",
-                'status': 'pending'
+                'status': 'confirmed',  # Auto-confirm: based on module definition
+                'origin': '📋 定义'
             })
         
         # 2. Analyze configuration parameters

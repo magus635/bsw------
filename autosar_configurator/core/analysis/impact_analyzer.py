@@ -162,24 +162,23 @@ class ImpactAnalyzer:
                         base_name = param[:-len(suffix)]
                         break
 
+                if not base_name or len(base_name) < 2:
+                    continue
+
                 enable_path = f"{container_path}.{param}"
 
                 # Record this enable param for sub-container propagation
-                if base_name and len(base_name) >= 2:
-                    found_enable_params.append((enable_path, base_name))
+                found_enable_params.append((enable_path, base_name))
 
-                # Find related parameters that share the base name in current container
-                if base_name and len(base_name) >= 2:
-                    for other_param in param_names:
-                        if other_param != param and (
-                            other_param.startswith(base_name) or
-                            base_name in other_param
-                        ):
-                            other_path = f"{container_path}.{other_param}"
-                            self.add_dependency(
-                                enable_path, other_path, 'inferred',
-                                f"Enable/Config pattern: {param} controls {other_param}"
-                            )
+                # Find Functional parameters that share the base name in current container
+                # Use startswith for precision, avoid 'contains' which is too noisy
+                for other_param in param_names:
+                    if other_param != param and other_param.startswith(base_name):
+                        other_path = f"{container_path}.{other_param}"
+                        self.add_dependency(
+                            enable_path, other_path, 'inferred',
+                            f"控制参数 (Master Control): {param} controls functional param {other_param}"
+                        )
 
         return found_enable_params
     
@@ -209,21 +208,39 @@ class ImpactAnalyzer:
                     prefix_groups[prefix] = []
                 prefix_groups[prefix].append(param)
         
-        # Create bidirectional dependencies within groups
+        # Create dependencies within groups intelligently
+        master_suffixes = ['Activation', 'Enable', 'Support', 'Used', 'Active']
+        
         for prefix, group in prefix_groups.items():
-            if len(group) >= 2 and len(group) <= 8:  # Reasonable group size
-                for i, param1 in enumerate(group):
-                    for param2 in group[i+1:]:
-                        path1 = f"{container_path}.{param1}"
-                        path2 = f"{container_path}.{param2}"
-                        self.add_dependency(
-                            path1, path2, 'inferred',
-                            f"Related parameters (prefix: {prefix})"
-                        )
-                        self.add_dependency(
-                            path2, path1, 'inferred', 
-                            f"Related parameters (prefix: {prefix})"
-                        )
+            if len(group) < 2 or len(group) > 10:
+                continue
+            
+            masters = [p for p in group if any(p.endswith(s) for s in master_suffixes)]
+            slaves = [p for p in group if p not in masters]
+            
+            # 1. Masters affect all Slaves in the same group
+            for m in masters:
+                m_path = f"{container_path}.{m}"
+                for s in slaves:
+                    s_path = f"{container_path}.{s}"
+                    self.add_dependency(
+                        m_path, s_path, 'inferred',
+                        f"主控参数 (Master Group): {m} affects {s}"
+                    )
+            
+            # 2. Sequential/Range parameters (Min/Max, Start/End)
+            for i, p1 in enumerate(group):
+                for p2 in group[i+1:]:
+                    is_range = (
+                        ('Min' in p1 and 'Max' in p2) or 
+                        ('Max' in p1 and 'Min' in p2) or
+                        ('Start' in p1 and 'End' in p2) or
+                        ('End' in p1 and 'Start' in p2)
+                    )
+                    if is_range:
+                        path1, path2 = f"{container_path}.{p1}", f"{container_path}.{p2}"
+                        self.add_dependency(path1, path2, 'inferred', "范围一致性 (Range consistency)")
+                        self.add_dependency(path2, path1, 'inferred', "范围一致性 (Range consistency)")
 
     def load_dependencies(self, dependencies: List[Dict]):
         """Load logical dependencies (e.g. from AI analysis)
