@@ -189,7 +189,7 @@ class AIAssistantWidget(QWidget):
 from PySide6.QtWidgets import (
     QDialog, QFileDialog, QListWidget, QPushButton, 
     QVBoxLayout, QHBoxLayout, QLabel, QGroupBox, 
-    QLineEdit, QFormLayout
+    QLineEdit, QFormLayout, QCheckBox
 )
 from PySide6.QtCore import QSettings, Signal
 
@@ -222,6 +222,19 @@ class KnowledgeBaseDialog(QDialog):
         self.api_key_input.setText(current_key)
         
         config_layout.addRow("API Key:", self.api_key_input)
+        
+        # AI Config Suggestions Toggle (default OFF)
+        self.ai_suggestions_checkbox = QCheckBox("启用参数配置建议 (点击参数名获取 AI 建议)")
+        self.ai_suggestions_checkbox.setToolTip(
+            "启用后，点击参数表中的参数名称或引用名称时，将自动请求 AI 提供配置建议。\n"
+            "该功能需要有效的 API Key，且会产生 API 调用费用。\n"
+            "默认关闭，因为大多数用户可能不需要此功能。"
+        )
+        # Load saved setting (default to False)
+        ai_suggestions_enabled = self.settings.value("ai_suggestions_enabled", False, type=bool)
+        self.ai_suggestions_checkbox.setChecked(ai_suggestions_enabled)
+        config_layout.addRow("", self.ai_suggestions_checkbox)
+        
         config_group.setLayout(config_layout)
         layout.addWidget(config_group)
         
@@ -281,6 +294,9 @@ class KnowledgeBaseDialog(QDialog):
         if new_key != old_key:
             self.settings.setValue("gemini_api_key", new_key)
             self.api_key_changed = True
+        
+        # Save AI suggestions toggle setting
+        self.settings.setValue("ai_suggestions_enabled", self.ai_suggestions_checkbox.isChecked())
         
         # Save knowledge base to disk for persistence
         if self.knowledge_base and self.knowledge_base.documents:

@@ -16,6 +16,7 @@ from typing import Optional, List, Any
 from ...core.model.definition_model import EcucContainerDef, EcucParameterDef, EcucParameterType
 from ...core.model.configuration_model import EcucContainerValue
 from ...core.config_manager import ConfigurationManager
+from PySide6.QtCore import QSettings
 
 
 class DaVinciConfigPanel(QWidget):
@@ -929,6 +930,11 @@ class DaVinciConfigPanel(QWidget):
         if column != 0 or not self.current_def:
             return
         
+        # Check if AI suggestions are enabled in settings
+        settings = QSettings("AUTOSAR", "DaVinciConfigurator")
+        if not settings.value("ai_suggestions_enabled", False, type=bool):
+            return  # AI suggestions disabled
+        
         name_item = self.params_table.item(row, 0)
         if not name_item:
             return
@@ -958,6 +964,11 @@ class DaVinciConfigPanel(QWidget):
         # Only trigger on Reference name column (column 0)
         if column != 0:
             return
+        
+        # Check if AI suggestions are enabled in settings
+        settings = QSettings("AUTOSAR", "DaVinciConfigurator")
+        if not settings.value("ai_suggestions_enabled", False, type=bool):
+            return  # AI suggestions disabled
         
         name_item = self.refs_table.item(row, 0)
         if not name_item:

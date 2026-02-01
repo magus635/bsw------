@@ -2852,20 +2852,95 @@ except Exception as e:
                 break
 
     def _on_impact_item_requested(self, logical_path: str):
-        """Navigate to an item from the impact view"""
+        """Navigate to an item from the impact view
+        
+        logical_path format: Module.Container.SubContainer.Param
+        e.g., Can.CanConfigSet_0.CanController_0.CanControllerBaudrateConfig_0.CanFDBytePayload
+        """
         if '.' not in logical_path:
             return
+        
+        parts = logical_path.split('.')
+        if len(parts) < 2:
+            return
+        
+        # Convert dot-separated path to ARXML path format
+        # e.g., Can.CanConfigSet_0.CanController_0 -> /Can/CanConfigSet_0/CanController_0
+        arxml_path = '/' + '/'.join(parts)
+        
+        # Use tree_view's built-in method to select and navigate
+        param_name = self.tree_view.select_item_by_path(arxml_path)
+        
+        if param_name:
+            self.statusbar.showMessage(f"✅ 已导航到参数: {param_name}", 3000)
+        else:
+            # Check if we found a container
+            selected = self.tree_view.currentItem()
+            if selected:
+                self.statusbar.showMessage(f"✅ 已导航到: {selected.text(0)}", 3000)
+            else:
+                # Fallback: use search
+                search_term = parts[-1]
+                if hasattr(self, 'search_widget'):
+                    self.search_widget.search_input.setText(search_term)
+                    self.toggle_search_action.setChecked(True)
+                    self.search_widget.show()
+                    self.search_widget.focus_search()
+                    self.statusbar.showMessage(f"🔍 搜索: {search_term}", 2000)
+    
+    def _find_container_recursive(self, containers, target_name: str):
+        """Recursively find a container by short_name"""
+        for container in containers:
+            if container.short_name == target_name:
+                return container
+            # Check sub-containers
+            found = self._find_container_recursive(container.sub_containers, target_name)
+            if found:
+                return found
+        return None
+
+    def _load_dependency_rules_from_file(self, file_path: Path) -> List[Dict]:
+        """Parse confirmed dependency rules from a dependencies.md file
+        
+        Returns list of rule dicts with: source_param, condition, condition_value, 
+        target_param, requirement, requirement_value, reason
+        """
+        import re
+        rules = []
+        
+        try:
+            content = file_path.read_text(encoding='utf-8')
             
-        # For now, use search to find it
-        if hasattr(self, 'search_widget'):
-            self.search_widget.search_input.setText(logical_path.split('.')[-1])
-            self.toggle_search_action.setChecked(True)
-            self.search_widget.show()
-            self.search_widget.focus_search()
+            # Parse markdown table rows - look for confirmed rules [x]
+            # Format: | # | [x] | source | source_param | condition | target_param | requirement | reason |
+            table_pattern = r'\|\s*\d+\s*\|\s*\[x\]\s*\|[^|]+\|\s*`([^`]+)`\s*\|[^|]+\|\s*`([^`]+)`\s*\|[^|]+\|\s*([^|]+)\|'
+            
+            for match in re.finditer(table_pattern, content):
+                source_param = match.group(1).strip()
+                target_param = match.group(2).strip()
+                reason = match.group(3).strip()
+                
+                rules.append({
+                    'source_param': source_param,
+                    'target_param': target_param,
+                    'condition': '!= null',
+                    'condition_value': '',
+                    'requirement': 'exists',
+                    'requirement_value': 'true',
+                    'reason': reason
+                })
+                
+            logger.debug(f"Parsed {len(rules)} confirmed rules from {file_path}")
+            
+        except Exception as e:
+            logger.error(f"Error loading dependency rules: {e}")
+            
+        return rules
 
     def _handle_check_impact(self, container_path: str, param_name: str):
         """Analyze and show impact of changing a parameter using the ImpactView dock"""
         if not self.config_manager or not self.current_project:
+            self.statusbar.showMessage("⚠️ 请先打开项目", 3000)
             return
 
         from ..core.analysis.impact_analyzer import ImpactAnalyzer
@@ -2878,22 +2953,54 @@ except Exception as e:
             if manager.configuration:
                 analyzer.build_from_configuration(manager.configuration, module_name)
                 
-        # Load AI rules
+        # Load AI rules if available - try auto-loading from file first
+        if not hasattr(self.current_project, 'dependency_rules') or not self.current_project.dependency_rules:
+            # Try to load from dependencies.md file (path is project file path, so use parent for directory)
+            if self.current_project.path:
+                deps_file = self.current_project.path.parent / "dependencies.md"
+                if deps_file.exists():
+                    rules = self._load_dependency_rules_from_file(deps_file)
+                    if rules:
+                        self.current_project.dependency_rules = rules
+                        logger.info(f"Loaded {len(rules)} dependency rules from {deps_file}")
+        
         if hasattr(self.current_project, 'dependency_rules') and self.current_project.dependency_rules:
             analyzer.load_dependencies(self.current_project.dependency_rules)
+        
+        # Get graph stats for debugging
+        stats = analyzer.get_graph_stats()
+        logger.info(f"Impact graph: {stats['total_nodes']} nodes, {stats['total_edges']} edges "
+                   f"(structural: {stats['structural_edges']}, inferred: {stats.get('inferred_edges', 0)}, logical: {stats['logical_edges']})")
             
-        # Determine source node path
+        # Determine source node path - use dot-separated format
         module_name = self.config_manager.module_def.short_name
-        clean_cont_path = container_path.lstrip('/')
-        source_node = f"{module_name}.{clean_cont_path}.{param_name}"
+        # Clean container path: remove leading slashes, convert slashes to dots
+        clean_cont_path = container_path.lstrip('/').replace('/', '.')
+        
+        # Avoid duplicate module name prefix (container_path may already start with module name)
+        if clean_cont_path.startswith(module_name + '.'):
+            source_node = f"{clean_cont_path}.{param_name}"
+        elif clean_cont_path.startswith(module_name):
+            # Container path IS just the module name
+            source_node = f"{clean_cont_path}.{param_name}"
+        else:
+            source_node = f"{module_name}.{clean_cont_path}.{param_name}"
+        
+        logger.debug(f"Analyzing impact for: {source_node}")
         
         # Analyze
         impacts = analyzer.analyze_impact(source_node)
         
-        # Show in dock
-        self.impact_view.display_impacts(source_node, impacts)
+        # Show in dock with status info
+        self.impact_view.display_impacts(source_node, impacts, stats)
         self.impact_dock.show()
         self.impact_dock.raise_()
+        
+        # Status bar message
+        if impacts:
+            self.statusbar.showMessage(f"找到 {len(impacts)} 个受影响的配置项", 3000)
+        else:
+            self.statusbar.showMessage(f"未找到受影响的配置项 (图: {stats['total_nodes']} 节点)", 3000)
 
     def _show_reverse_references(self, container):
         """Show dialog listing all containers that reference this container
