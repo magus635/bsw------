@@ -2901,25 +2901,25 @@ except Exception as e:
 
     def _load_dependency_rules_from_file(self, file_path: Path) -> List[Dict]:
         """Parse confirmed dependency rules from a dependencies.md file
-        
-        Returns list of rule dicts with: source_param, condition, condition_value, 
+
+        Returns list of rule dicts with: source_param, condition, condition_value,
         target_param, requirement, requirement_value, reason
         """
         import re
         rules = []
-        
+
         try:
             content = file_path.read_text(encoding='utf-8')
-            
-            # Parse markdown table rows - look for confirmed rules [x]
+
+            # Parse markdown table rows - look for confirmed rules [x] (with flexible whitespace)
             # Format: | # | [x] | source | source_param | condition | target_param | requirement | reason |
-            table_pattern = r'\|\s*\d+\s*\|\s*\[x\]\s*\|[^|]+\|\s*`([^`]+)`\s*\|[^|]+\|\s*`([^`]+)`\s*\|[^|]+\|\s*([^|]+)\|'
-            
-            for match in re.finditer(table_pattern, content):
+            table_pattern = r'\|\s*\d+\s*\|\s*\[\s*x\s*\]\s*\|[^|]+\|\s*`([^`]+)`\s*\|[^|]+\|\s*`([^`]+)`\s*\|[^|]+\|\s*([^|]+)\|'
+
+            for match in re.finditer(table_pattern, content, re.IGNORECASE):
                 source_param = match.group(1).strip()
                 target_param = match.group(2).strip()
                 reason = match.group(3).strip()
-                
+
                 rules.append({
                     'source_param': source_param,
                     'target_param': target_param,
@@ -2929,12 +2929,12 @@ except Exception as e:
                     'requirement_value': 'true',
                     'reason': reason
                 })
-                
+
             logger.debug(f"Parsed {len(rules)} confirmed rules from {file_path}")
-            
+
         except Exception as e:
             logger.error(f"Error loading dependency rules: {e}")
-            
+
         return rules
 
     def _handle_check_impact(self, container_path: str, param_name: str):
@@ -3006,7 +3006,7 @@ except Exception as e:
             # Analyze
             impacts = analyzer.analyze_impact(source_node)
             logger.info(f"Impact analysis result: Found {len(impacts)} items")
-            
+
             # Show in dock with status info
             self.impact_view.display_impacts(source_node, impacts, stats)
             self.impact_dock.show()

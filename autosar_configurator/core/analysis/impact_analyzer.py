@@ -136,21 +136,24 @@ class ImpactAnalyzer:
     
     def _detect_enable_config_patterns(self, container_path: str, param_names: List[str]) -> List[tuple]:
         """Detect Enable/Config parameter patterns commonly seen in AUTOSAR
-        
+
         Common patterns:
         - XxxEnable -> affects all Xxx* parameters
-        - XxxSupport -> affects all Xxx* parameters  
-        - DevErrorDetect -> affects error handling parameters
-        
+        - XxxSupport -> affects all Xxx* parameters
+
+        Note: DevErrorDetect is NOT included here because it doesn't control
+        other functional parameters. Cross-module DevErrorDetect consistency
+        should be handled by AI-generated logical dependencies.
+
         Returns:
             List of (enable_path, base_name) tuples for propagation to sub-containers
         """
-        enable_suffixes = ['Enable', 'Support', 'Supported', 'Active', 'Used', 'DevErrorDetect']
+        enable_suffixes = ['Enable', 'Support', 'Supported', 'Active', 'Used']
         found_enable_params = []
-        
+
         for param in param_names:
-            is_enable_param = any(param.endswith(suffix) or param == suffix for suffix in enable_suffixes)
-            
+            is_enable_param = any(param.endswith(suffix) for suffix in enable_suffixes)
+
             if is_enable_param:
                 # Find the base name (e.g., "CanFD" from "CanFDSupport")
                 base_name = param
@@ -158,18 +161,18 @@ class ImpactAnalyzer:
                     if param.endswith(suffix):
                         base_name = param[:-len(suffix)]
                         break
-                
+
                 enable_path = f"{container_path}.{param}"
-                
+
                 # Record this enable param for sub-container propagation
                 if base_name and len(base_name) >= 2:
                     found_enable_params.append((enable_path, base_name))
-                
+
                 # Find related parameters that share the base name in current container
                 if base_name and len(base_name) >= 2:
                     for other_param in param_names:
                         if other_param != param and (
-                            other_param.startswith(base_name) or 
+                            other_param.startswith(base_name) or
                             base_name in other_param
                         ):
                             other_path = f"{container_path}.{other_param}"
@@ -177,7 +180,7 @@ class ImpactAnalyzer:
                                 enable_path, other_path, 'inferred',
                                 f"Enable/Config pattern: {param} controls {other_param}"
                             )
-        
+
         return found_enable_params
     
     def _detect_related_params(self, container_path: str, param_names: List[str]):
