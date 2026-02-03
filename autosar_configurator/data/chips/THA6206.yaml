@@ -1,0 +1,229 @@
+# THA6206 Chip Definition (Generic Format)
+# Automotive MCU with CAN/LIN/SPI
+
+name: "THA6206_LFBGA292"
+family: "THA6"
+package: "LFBGA292"
+description: "Automotive MCU with CAN FD, LIN, SPI, ADC"
+
+resources:
+  # CAN Controllers
+  can_controller:
+    - resource_id: "CAN0"
+      display_name: "CAN Controller 0"
+      properties:
+        controller_id: 0
+        max_baudrate: 1000000
+        supports_fd: true
+        mailbox_count: 64
+
+    - resource_id: "CAN1"
+      display_name: "CAN Controller 1"
+      properties:
+        controller_id: 1
+        max_baudrate: 1000000
+        supports_fd: true
+        mailbox_count: 64
+
+    - resource_id: "CAN2"
+      display_name: "CAN Controller 2"
+      properties:
+        controller_id: 2
+        max_baudrate: 500000
+        supports_fd: false
+        mailbox_count: 32
+
+  # GPIO Ports
+  gpio_port:
+    - resource_id: "PORT_A"
+      display_name: "Port A"
+      properties:
+        port_index: 0
+        pin_count: 16
+
+    - resource_id: "PORT_B"
+      display_name: "Port B"
+      properties:
+        port_index: 1
+        pin_count: 16
+
+    - resource_id: "PORT_C"
+      display_name: "Port C"
+      properties:
+        port_index: 2
+        pin_count: 16
+
+    - resource_id: "PORT_D"
+      display_name: "Port D"
+      properties:
+        port_index: 3
+        pin_count: 16
+
+    - resource_id: "PORT_E"
+      display_name: "Port E"
+      properties:
+        port_index: 4
+        pin_count: 16
+
+    - resource_id: "PORT_F"
+      display_name: "Port F"
+      properties:
+        port_index: 5
+        pin_count: 16
+
+    - resource_id: "PORT_G"
+      display_name: "Port G"
+      properties:
+        port_index: 6
+        pin_count: 16
+
+    - resource_id: "PORT_H"
+      display_name: "Port H"
+      properties:
+        port_index: 7
+        pin_count: 16
+
+  # ADC Units
+  adc_unit:
+    - resource_id: "ADC0"
+      display_name: "ADC Unit 0"
+      properties:
+        unit_id: 0
+        channel_count: 16
+        resolution_bits: 12
+        channels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+    - resource_id: "ADC1"
+      display_name: "ADC Unit 1"
+      properties:
+        unit_id: 1
+        channel_count: 16
+        resolution_bits: 12
+        channels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+  # SPI Units
+  spi_unit:
+    - resource_id: "SPI0"
+      display_name: "SPI Unit 0"
+      properties:
+        unit_id: 0
+        max_baudrate: 20000000
+        supports_dma: true
+
+    - resource_id: "SPI1"
+      display_name: "SPI Unit 1"
+      properties:
+        unit_id: 1
+        max_baudrate: 20000000
+        supports_dma: true
+
+    - resource_id: "SPI2"
+      display_name: "SPI Unit 2"
+      properties:
+        unit_id: 2
+        max_baudrate: 10000000
+        supports_dma: true
+
+  # PWM Channels
+  pwm_channel:
+    - resource_id: "PWM0_CH0"
+      display_name: "PWM0 Channel 0"
+      properties:
+        unit_id: 0
+        channel_id: 0
+
+    - resource_id: "PWM0_CH1"
+      display_name: "PWM0 Channel 1"
+      properties:
+        unit_id: 0
+        channel_id: 1
+
+    - resource_id: "PWM0_CH2"
+      display_name: "PWM0 Channel 2"
+      properties:
+        unit_id: 0
+        channel_id: 2
+
+    - resource_id: "PWM0_CH3"
+      display_name: "PWM0 Channel 3"
+      properties:
+        unit_id: 0
+        channel_id: 3
+
+    - resource_id: "PWM1_CH0"
+      display_name: "PWM1 Channel 0"
+      properties:
+        unit_id: 1
+        channel_id: 0
+
+    - resource_id: "PWM1_CH1"
+      display_name: "PWM1 Channel 1"
+      properties:
+        unit_id: 1
+        channel_id: 1
+
+  # GPT Channels
+  gpt_channel:
+    - resource_id: "GPT0"
+      display_name: "GPT Channel 0"
+      properties:
+        channel_id: 0
+
+    - resource_id: "GPT1"
+      display_name: "GPT Channel 1"
+      properties:
+        channel_id: 1
+
+    - resource_id: "GPT2"
+      display_name: "GPT Channel 2"
+      properties:
+        channel_id: 2
+
+  # Clock Sources
+  clock_source:
+    - resource_id: "PLL0"
+      display_name: "PLL 0"
+      properties:
+        type: "PLL"
+        frequency: 200000000
+        max_frequency: 200000000
+
+    - resource_id: "XTAL"
+      display_name: "Crystal Oscillator"
+      properties:
+        type: "XTAL"
+        frequency: 40000000
+
+    - resource_id: "IRC"
+      display_name: "Internal RC Oscillator"
+      properties:
+        type: "IRC"
+        frequency: 16000000
+
+  # LIN Channels
+  lin_channel:
+    - resource_id: "LIN0"
+      display_name: "LIN Channel 0"
+      properties:
+        channel_id: 0
+        max_baudrate: 20000
+
+    - resource_id: "LIN1"
+      display_name: "LIN Channel 1"
+      properties:
+        channel_id: 1
+        max_baudrate: 20000
+
+  # Watchdog
+  wdg_unit:
+    - resource_id: "WDG0"
+      display_name: "Watchdog 0"
+      properties:
+        unit_id: 0
+        timeout_range: [1, 65535]
+
+metadata:
+  cpu_frequency: 200000000
+  flash_size: 4194304
+  ram_size: 524288
+  vendor: "ChipowerTech"

@@ -1,0 +1,23 @@
+metadata:
+  name: "DIO Input Channel"
+  module: "Dio"
+  category: "IO"
+  description: "Digital I/O input channel for reading pin states"
+  version: "1.0"
+  author: "AUTOSAR Configurator"
+  tags: ["dio", "digital", "input", "channel"]
+
+applicability:
+  container_def: "DioConfig/DioPort/DioChannel"
+
+parameters:
+  adjustable:
+    - name: "DioChannelId"
+      display_name: "Channel ID"
+      type: "integer"
+      default: 0
+      min: 0
+      max: 255
+
+  fixed:
+    DioChannelDirection: "DIO_INPUT"

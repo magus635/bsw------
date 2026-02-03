@@ -1,0 +1,79 @@
+# ADC Module Mapping Rule
+# Maps adc_unit resources to Adc module configuration
+
+module: "Adc"
+resource_type: "adc_unit"
+description: "Map ADC units to Adc module configuration"
+
+containers:
+  - path_template: "AdcConfigSet/AdcHwUnit_{resource.resource_id}"
+    parameters:
+      - name: "AdcHwUnitId"
+        source: "resource.properties.unit_id"
+        ui_type: "readonly"
+
+      - name: "AdcPrescale"
+        default: 4
+        ui_type: "spinbox"
+        ui_options:
+          label: "Prescaler"
+          min: 1
+          max: 256
+
+      - name: "AdcResolution"
+        source: "resource.properties.resolution_bits"
+        ui_type: "readonly"
+        ui_options:
+          label: "Resolution (bits)"
+
+    sub_containers:
+      - path_template: "AdcGroup_Default"
+        parameters:
+          - name: "AdcGroupId"
+            default: 0
+            ui_type: "spinbox"
+
+          - name: "AdcGroupConversionMode"
+            default: "ADC_CONV_MODE_ONESHOT"
+            ui_type: "combo"
+            ui_options:
+              options:
+                - "ADC_CONV_MODE_ONESHOT"
+                - "ADC_CONV_MODE_CONTINUOUS"
+
+        sub_containers:
+          - path_template: "AdcChannel_{channel}"
+            iterate: "resource.properties.channels"
+            iterate_var: "channel"
+            parameters:
+              - name: "AdcChannelId"
+                source: "channel"
+                ui_type: "readonly"
+
+              - name: "AdcChannelSampTime"
+                default: 10
+                ui_type: "spinbox"
+                ui_options:
+                  label: "Sample Time"
+                  min: 1
+                  max: 255
+
+ui_config:
+  title: "ADC Units"
+  layout: "table"
+  columns:
+    - field: "enable"
+      header: "Enable"
+      width: 60
+    - field: "resource.resource_id"
+      header: "Unit"
+      width: 80
+    - field: "resource.properties.channel_count"
+      header: "Channels"
+      width: 80
+    - field: "resource.properties.resolution_bits"
+      header: "Resolution"
+      width: 80
+    - field: "AdcPrescale"
+      header: "Prescaler"
+      width: 80

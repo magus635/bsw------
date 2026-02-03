@@ -1,0 +1,31 @@
+metadata:
+  name: "DIO Output Channel"
+  module: "Dio"
+  category: "IO"
+  description: "Digital I/O output channel for direct port control"
+  version: "1.0"
+  author: "AUTOSAR Configurator"
+  tags: ["dio", "digital", "output", "channel"]
+
+applicability:
+  container_def: "DioConfig/DioPort/DioChannel"
+
+parameters:
+  adjustable:
+    - name: "DioChannelId"
+      display_name: "Channel ID"
+      type: "integer"
+      default: 0
+      min: 0
+      max: 255
+      description: "Unique DIO channel identifier"
+
+    - name: "DioChannelInitValue"
+      display_name: "Initial Value"
+      type: "enumeration"
+      default: "STD_LOW"
+      options: ["STD_LOW", "STD_HIGH"]
+      description: "Initial channel value"
+
+  fixed:
+    DioChannelDirection: "DIO_OUTPUT"

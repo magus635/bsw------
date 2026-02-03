@@ -1,0 +1,47 @@
+metadata:
+  name: "ADC Continuous Group"
+  module: "Adc"
+  category: "Analog"
+  description: "ADC group with continuous conversion mode for periodic sampling"
+  version: "1.0"
+  author: "AUTOSAR Configurator"
+  tags: ["adc", "analog", "continuous", "sampling"]
+
+applicability:
+  container_def: "AdcConfigSet/AdcHwUnit/AdcGroup"
+
+parameters:
+  adjustable:
+    - name: "AdcGroupId"
+      display_name: "Group ID"
+      type: "integer"
+      default: 0
+      min: 0
+      max: 31
+      description: "Unique identifier for this ADC group"
+
+    - name: "AdcGroupConversionMode"
+      display_name: "Conversion Mode"
+      type: "enumeration"
+      default: "ADC_CONV_MODE_CONTINUOUS"
+      options: ["ADC_CONV_MODE_ONESHOT", "ADC_CONV_MODE_CONTINUOUS"]
+      description: "Continuous mode for periodic sampling"
+
+    - name: "AdcGroupTriggSrc"
+      display_name: "Trigger Source"
+      type: "enumeration"
+      default: "ADC_TRIGG_SRC_SW"
+      options: ["ADC_TRIGG_SRC_SW", "ADC_TRIGG_SRC_HW"]
+      description: "Software or hardware trigger"
+
+    - name: "AdcStreamingNumSamples"
+      display_name: "Streaming Samples"
+      type: "integer"
+      default: 8
+      min: 1
+      max: 256
+      description: "Number of samples in streaming buffer"
+
+  fixed:
+    AdcGroupAccessMode: "ADC_ACCESS_MODE_STREAMING"
+    AdcStreamingBufferMode: "ADC_STREAM_BUFFER_LINEAR"

@@ -1,0 +1,47 @@
+metadata:
+  name: "CAN 500kbps Standard"
+  module: "Can"
+  category: "Communication"
+  description: "Standard CAN controller configuration at 500kbps with polling mode"
+  version: "1.0"
+  author: "AUTOSAR Configurator"
+  tags: ["can", "communication", "standard", "polling"]
+
+applicability:
+  container_def: "CanConfigSet/CanController"
+
+parameters:
+  adjustable:
+    - name: "CanControllerDefaultBaudrate"
+      display_name: "Baudrate (bps)"
+      type: "integer"
+      default: 500000
+      min: 10000
+      max: 1000000
+      description: "CAN bus baudrate in bits per second"
+
+    - name: "CanControllerId"
+      display_name: "Controller ID"
+      type: "integer"
+      default: 0
+      min: 0
+      max: 7
+      description: "Hardware controller ID"
+
+    - name: "CanControllerRxProcessing"
+      display_name: "RX Processing"
+      type: "enumeration"
+      default: "POLLING"
+      options: ["POLLING", "INTERRUPT"]
+      description: "Receive message processing mode"
+
+    - name: "CanControllerTxProcessing"
+      display_name: "TX Processing"
+      type: "enumeration"
+      default: "POLLING"
+      options: ["POLLING", "INTERRUPT"]
+      description: "Transmit message processing mode"
+
+  fixed:
+    CanControllerActivation: true
+    CanControllerBusoffProcessing: "POLLING"

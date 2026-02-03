@@ -1,0 +1,62 @@
+# SPI Module Mapping Rule
+# Maps spi_unit resources to Spi module configuration
+
+module: "Spi"
+resource_type: "spi_unit"
+description: "Map SPI units to Spi module configuration"
+
+containers:
+  - path_template: "SpiDriver/SpiHwUnit_{resource.resource_id}"
+    parameters:
+      - name: "SpiHwUnitId"
+        source: "resource.properties.unit_id"
+        ui_type: "readonly"
+
+      - name: "SpiMaxChannel"
+        default: 4
+        ui_type: "spinbox"
+        ui_options:
+          label: "Max Channels"
+          min: 1
+          max: 16
+
+      - name: "SpiDefaultBaudrate"
+        default: 1000000
+        ui_type: "combo"
+        ui_options:
+          label: "Default Baudrate"
+          options:
+            - 100000
+            - 500000
+            - 1000000
+            - 2000000
+            - 4000000
+            - 8000000
+            - 10000000
+
+      - name: "SpiDmaUsed"
+        default: true
+        condition: "resource.properties.supports_dma == True"
+        ui_type: "checkbox"
+        ui_options:
+          label: "Enable DMA"
+
+ui_config:
+  title: "SPI Units"
+  layout: "table"
+  columns:
+    - field: "enable"
+      header: "Enable"
+      width: 60
+    - field: "resource.resource_id"
+      header: "Unit"
+      width: 80
+    - field: "resource.properties.max_baudrate"
+      header: "Max Baudrate"
+      width: 100
+    - field: "SpiDefaultBaudrate"
+      header: "Default Baudrate"
+      width: 120
+    - field: "SpiDmaUsed"
+      header: "DMA"
+      width: 60

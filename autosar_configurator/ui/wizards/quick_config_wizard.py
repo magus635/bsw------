@@ -4,36 +4,74 @@ Helps users quickly configure common container instances
 """
 from PySide6.QtWidgets import (
     QVBoxLayout, QLabel, QComboBox, QLineEdit,
-    QFormLayout, QSpinBox, QCheckBox, QTextEdit
+    QFormLayout, QSpinBox, QDoubleSpinBox, QCheckBox, QTextEdit
 )
 from typing import Dict, Any, Optional
 
 from .wizard_base import ConfigWizard, WizardPage
 from ...core.model.definition_model import EcucModuleDef, EcucContainerDef, EcucParameterType
+from ...core.model.configuration_model import EcucContainerValue
 from ...core.config_manager import ConfigurationManager
 
 
 class ContainerSelectionPage(WizardPage):
     """Page 1: Select container type to configure"""
     
-    def __init__(self, module_def: EcucModuleDef):
+    def __init__(self, module_def: EcucModuleDef, config_manager: ConfigurationManager, parent_instance: Optional[EcucContainerValue] = None):
         self.module_def = module_def
+        self.config_manager = config_manager
+        self.parent_instance = parent_instance
         self.container_combo = QComboBox()
         self.name_edit = QLineEdit()
+        
+        title = "Select Container Type"
+        if parent_instance:
+            title += f" for {parent_instance.short_name}"
+            
         super().__init__(
-            "Select Container Type",
+            title,
             "Choose the type of container you want to configure"
         )
     
     def _setup_ui(self):
         form = QFormLayout()
         
+        # Determine which definitions to show
+        if self.parent_instance:
+            container_def_obj = self.config_manager.get_container_def(self.parent_instance.definition_ref)
+            defs = container_def_obj.sub_containers.values() if container_def_obj else []
+        else:
+            defs = self.module_def.containers.values()
+
         # Populate container types
-        for container_def in self.module_def.containers.values():
-            self.container_combo.addItem(
-                f"{container_def.short_name} ({container_def.multiplicity_str})",
-                container_def
-            )
+        for container_def in defs:
+            # Check if we can add more instances
+            if self.parent_instance:
+                current_count = sum(
+                    1 for c in self.parent_instance.sub_containers
+                    if c.definition_ref == container_def.definition_ref
+                )
+            else:
+                current_count = sum(
+                    1 for c in self.config_manager.configuration.containers
+                    if c.definition_ref == container_def.definition_ref
+                )
+            
+            label = f"{container_def.short_name} ({container_def.multiplicity_str})"
+            limit_reached = container_def.upper_multiplicity != -1 and current_count >= container_def.upper_multiplicity
+            
+            if limit_reached:
+                label += " [ALREADY CONFIGURED]"
+                
+            self.container_combo.addItem(label, container_def)
+            
+            # Disable item if limit reached
+            if limit_reached:
+                from PySide6.QtGui import QStandardItemModel
+                model = self.container_combo.model()
+                if isinstance(model, QStandardItemModel):
+                    item = model.item(self.container_combo.count() - 1)
+                    item.setEnabled(False)
         
         form.addRow("Container Type:", self.container_combo)
         
@@ -44,7 +82,7 @@ class ContainerSelectionPage(WizardPage):
         self.layout.addLayout(form)
         
         # Register fields for wizard
-        self.registerField("container_type*", self.container_combo)
+        self.registerField("container_type", self.container_combo)
         self.registerField("instance_name*", self.name_edit)
     
     def get_data(self) -> Dict[str, Any]:
@@ -52,6 +90,35 @@ class ContainerSelectionPage(WizardPage):
             "container_def": self.container_combo.currentData(),
             "instance_name": self.name_edit.text()
         }
+    
+    def validatePage(self) -> bool:
+        """Prevent proceeding if container limit reached"""
+        container_def = self.container_combo.currentData()
+        if not container_def:
+            return False
+            
+        if self.parent_instance:
+            current_count = sum(
+                1 for c in self.parent_instance.sub_containers
+                if c.definition_ref == container_def.definition_ref
+            )
+        else:
+            current_count = sum(
+                1 for c in self.config_manager.configuration.containers
+                if c.definition_ref == container_def.definition_ref
+            )
+        
+        if container_def.upper_multiplicity != -1 and current_count >= container_def.upper_multiplicity:
+            from PySide6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self, 
+                "Multiplicity Limit", 
+                f"Cannot add more instances of {container_def.short_name}.\n"
+                f"Limit: {container_def.upper_multiplicity}"
+            )
+            return False
+            
+        return True
 
 
 class ParameterConfigPage(WizardPage):
@@ -74,14 +141,21 @@ class ParameterConfigPage(WizardPage):
     
     def initializePage(self):
         """Called when page is shown - populate parameters dynamically"""
+        wizard = self.wizard()
+        
+        # Proactively pull data from selection page to avoid signal timing issues
+        if hasattr(wizard, 'selection_page'):
+            data = wizard.selection_page.get_data()
+            wizard.container_def = data.get("container_def")
+            wizard.instance_name = data.get("instance_name")
+            
         # Clear existing widgets
         while self.form.count():
             self.form.removeRow(0)
         self.param_widgets.clear()
         
-        # Get selected container from previous page
-        wizard = self.wizard()
-        if hasattr(wizard, 'container_def'):
+        # Get selected container
+        if wizard.container_def:
             container_def = wizard.container_def
             
             # Create widgets for each parameter
@@ -97,13 +171,16 @@ class ParameterConfigPage(WizardPage):
     def _create_param_widget(self, param_def):
         """Create appropriate widget for parameter type"""
         if param_def.param_type == EcucParameterType.INTEGER:
-            widget = QSpinBox()
+            widget = QDoubleSpinBox()
+            widget.setDecimals(0)
             if param_def.min_value is not None:
-                widget.setMinimum(int(param_def.min_value))
+                widget.setMinimum(float(param_def.min_value))
             if param_def.max_value is not None:
-                widget.setMaximum(int(param_def.max_value))
+                widget.setMaximum(float(param_def.max_value))
+            else:
+                widget.setMaximum(1e15) # Safety default
             if param_def.default_value is not None:
-                widget.setValue(int(param_def.default_value))
+                widget.setValue(float(param_def.default_value))
             return widget
             
         elif param_def.param_type == EcucParameterType.BOOLEAN:
@@ -132,8 +209,8 @@ class ParameterConfigPage(WizardPage):
         """Get parameter values"""
         params = {}
         for param_name, widget in self.param_widgets.items():
-            if isinstance(widget, QSpinBox):
-                params[param_name] = widget.value()
+            if isinstance(widget, (QSpinBox, QDoubleSpinBox)):
+                params[param_name] = int(widget.value())
             elif isinstance(widget, QCheckBox):
                 params[param_name] = widget.isChecked()
             elif isinstance(widget, QComboBox):
@@ -161,12 +238,22 @@ class ReviewPage(WizardPage):
         """Show summary of configuration"""
         wizard = self.wizard()
         
+        # Ensure latest data is pulled from previous pages
+        if hasattr(wizard, 'selection_page'):
+            sel_data = wizard.selection_page.get_data()
+            wizard.container_def = sel_data.get("container_def")
+            wizard.instance_name = sel_data.get("instance_name")
+            
+        if hasattr(wizard, 'param_page'):
+            param_data = wizard.param_page.get_data()
+            wizard.parameters = param_data.get("parameters", {})
+            
         summary = "Configuration Summary\n"
         summary += "=" * 50 + "\n\n"
         
-        if hasattr(wizard, 'instance_name'):
+        if wizard.instance_name:
             summary += f"Instance Name: {wizard.instance_name}\n"
-        if hasattr(wizard, 'container_def'):
+        if wizard.container_def:
             summary += f"Container Type: {wizard.container_def.short_name}\n\n"
         
         summary += "Parameters:\n"
@@ -185,9 +272,11 @@ class ReviewPage(WizardPage):
 class QuickConfigWizard(ConfigWizard):
     """Quick configuration wizard for creating container instances"""
     
-    def __init__(self, module_def: EcucModuleDef, config_manager: ConfigurationManager, parent=None):
+    def __init__(self, module_def: EcucModuleDef, config_manager: ConfigurationManager, 
+                 parent_instance: Optional[EcucContainerValue] = None, parent=None):
         self.module_def = module_def
         self.config_manager = config_manager
+        self.parent_instance = parent_instance
         
         # Store intermediate data
         self.container_def: Optional[EcucContainerDef] = None
@@ -199,7 +288,7 @@ class QuickConfigWizard(ConfigWizard):
     def _setup_pages(self):
         """Setup wizard pages"""
         # Page 1: Container selection
-        self.selection_page = ContainerSelectionPage(self.module_def)
+        self.selection_page = ContainerSelectionPage(self.module_def, self.config_manager, self.parent_instance)
         self.addPage(self.selection_page)
         
         # Page 2: Parameter configuration
@@ -229,6 +318,7 @@ class QuickConfigWizard(ConfigWizard):
             # Create container instance
             instance = self.config_manager.create_container_instance(
                 self.container_def,
+                parent=self.parent_instance,
                 instance_name=self.instance_name
             )
             

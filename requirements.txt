@@ -21,6 +21,7 @@ Sphinx>=7.0.0
 # Data handling
 dataclasses-json>=0.6.0
 jsonschema>=4.19.0
+openpyxl>=3.0.0  # Excel import support
 
 # Security
 cryptography>=41.0.0

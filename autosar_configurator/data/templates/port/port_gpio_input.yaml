@@ -1,0 +1,34 @@
+metadata:
+  name: "GPIO Input Pin"
+  module: "Port"
+  category: "IO"
+  description: "Configure a GPIO pin as digital input with optional pull-up/down"
+  version: "1.0"
+  author: "AUTOSAR Configurator"
+  tags: ["port", "gpio", "input", "digital"]
+
+applicability:
+  container_def: "PortConfigSet/PortContainer/PortPin"
+
+parameters:
+  adjustable:
+    - name: "PortPinId"
+      display_name: "Pin ID"
+      type: "integer"
+      default: 0
+      min: 0
+      max: 255
+      description: "Hardware pin identifier"
+
+    - name: "PortPinPullUpDown"
+      display_name: "Pull Up/Down"
+      type: "enumeration"
+      default: "PORT_PIN_PULL_NONE"
+      options: ["PORT_PIN_PULL_NONE", "PORT_PIN_PULL_UP", "PORT_PIN_PULL_DOWN"]
+      description: "Internal pull resistor configuration"
+
+  fixed:
+    PortPinDirection: "PORT_PIN_IN"
+    PortPinDirectionChangeable: false
+    PortPinModeChangeable: false
+    PortPinMode: "PORT_PIN_MODE_GPIO"

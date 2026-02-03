@@ -1,0 +1,61 @@
+# CAN Module Mapping Rule
+# Maps can_controller resources to Can module configuration
+
+module: "Can"
+resource_type: "can_controller"
+description: "Map CAN controllers to Can module configuration"
+
+containers:
+  - path_template: "CanConfigSet/CanController_{resource.resource_id}"
+    parameters:
+      - name: "CanControllerId"
+        source: "resource.properties.controller_id"
+        ui_type: "readonly"
+
+      - name: "CanControllerActivation"
+        default: true
+        ui_type: "checkbox"
+        ui_options:
+          label: "Enable Controller"
+
+      - name: "CanControllerBaudRate"
+        default: 500000
+        ui_type: "combo"
+        ui_options:
+          label: "Baudrate (bps)"
+          options: [125000, 250000, 500000, 1000000]
+
+      - name: "CanControllerFdBaudrateConfig"
+        default: false
+        condition: "resource.properties.supports_fd == True"
+        ui_type: "checkbox"
+        ui_options:
+          label: "Enable CAN FD"
+          enabled_when: "resource.properties.supports_fd"
+
+    sub_containers:
+      - path_template: "CanControllerBaudrateConfig/CanControllerBaudrateConfig_Default"
+        parameters:
+          - name: "CanControllerBaudRateConfigID"
+            default: 0
+            ui_type: "spinbox"
+            ui_options:
+              min: 0
+              max: 65535
+
+ui_config:
+  title: "CAN Controllers"
+  layout: "table"
+  columns:
+    - field: "enable"
+      header: "Enable"
+      width: 60
+    - field: "resource.resource_id"
+      header: "Controller"
+      width: 100
+    - field: "CanControllerBaudRate"
+      header: "Baudrate"
+      width: 120
+    - field: "CanControllerFdBaudrateConfig"
+      header: "FD Support"
+      width: 80

@@ -1,0 +1,59 @@
+# WDG (Watchdog) Module Mapping Rule
+# Maps wdg_unit resources to Wdg module configuration
+
+module: "Wdg"
+resource_type: "wdg_unit"
+description: "Map Watchdog units to Wdg module configuration"
+
+containers:
+  - path_template: "WdgSettingsConfig/WdgSettingsConfig_{resource.resource_id}"
+    parameters:
+      - name: "WdgIndex"
+        source: "resource.properties.unit_id"
+        ui_type: "readonly"
+
+      - name: "WdgDefaultMode"
+        default: "WDGIF_SLOW_MODE"
+        ui_type: "combo"
+        ui_options:
+          label: "Default Mode"
+          options:
+            - "WDGIF_OFF_MODE"
+            - "WDGIF_SLOW_MODE"
+            - "WDGIF_FAST_MODE"
+
+      - name: "WdgInitialTimeout"
+        default: 100
+        ui_type: "spinbox"
+        ui_options:
+          label: "Initial Timeout (ms)"
+          min: 1
+          max: 65535
+
+      - name: "WdgMaxTimeout"
+        default: 1000
+        ui_type: "spinbox"
+        ui_options:
+          label: "Max Timeout (ms)"
+          min: 1
+          max: 65535
+
+ui_config:
+  title: "Watchdog Units"
+  layout: "table"
+  columns:
+    - field: "enable"
+      header: "Enable"
+      width: 60
+    - field: "resource.resource_id"
+      header: "Unit"
+      width: 80
+    - field: "WdgDefaultMode"
+      header: "Mode"
+      width: 120
+    - field: "WdgInitialTimeout"
+      header: "Init Timeout"
+      width: 100
+    - field: "WdgMaxTimeout"
+      header: "Max Timeout"
+      width: 100

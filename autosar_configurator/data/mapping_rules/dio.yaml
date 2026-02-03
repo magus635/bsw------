@@ -1,0 +1,30 @@
+# Dio (Digital I/O) Module Mapping Rule
+# Maps gpio_pin resources to Dio module configuration
+
+module: "Dio"
+resource_type: "gpio_pin"
+description: "Map GPIO pins to Dio module configuration"
+
+containers:
+  - path_template: "DioConfig/DioPort_{resource.properties.port}/DioChannel_{resource.resource_id}"
+    parameters:
+      - name: "DioChannelId"
+        transform: "resource.properties.port_index * 16 + resource.properties.pin"
+        ui_type: "readonly"
+
+ui_config:
+  title: "DIO Channels"
+  layout: "table"
+  columns:
+    - field: "enable"
+      header: "Enable"
+      width: 60
+    - field: "resource.resource_id"
+      header: "Pin"
+      width: 80
+    - field: "resource.properties.port"
+      header: "Port"
+      width: 80
+    - field: "resource.properties.pin"
+      header: "Pin #"
+      width: 60

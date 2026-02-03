@@ -18,8 +18,12 @@ import os
 
 logger = logging.getLogger(__name__)
 
-# Debug log file path - cross-platform
-_DEBUG_LOG_PATH = os.path.join(tempfile.gettempdir(), 'bsw_gen.log')
+# Debug log file path - cross-platform with fallback
+try:
+    _DEBUG_LOG_PATH = os.path.join(tempfile.gettempdir(), 'bsw_gen.log')
+except (FileNotFoundError, OSError):
+    # Fallback to current directory if temp is not available
+    _DEBUG_LOG_PATH = os.path.join(os.getcwd(), 'bsw_gen.log')
 
 def _debug_log(msg: str):
     """Helper to write diagnostic logs to a fixed file for worker threads."""
@@ -1114,21 +1118,29 @@ class Renderer:
 
     
     def _unwrap_value(self, val: Any) -> Any:
-        """Unwrap value from ConfigurationNode if needed"""
+        """Unwrap value from ConfigurationNode if needed.
+
+        In scalar context (e.g., [!expr!] output), when XPath returns multiple nodes,
+        we follow XPath string() semantics: return the string value of the FIRST node.
+
+        This prevents outputting Python object representations like:
+        [ConfigurationNode(short_name='...', ...)]
+        """
         if isinstance(val, list):
             if not val:
                 return None
             if len(val) == 1:
                 val = val[0]
-            # If multiple nodes, return list? Or value of first?
-            # Standard XPath string() uses first node.
-            # But for iteration we need list.
-            # Here we assume scalar context if unwrapping is requested?
-            # Let's try unwrapping first item if it's a node
             else:
-                 # If list of nodes, maybe return list of values?
-                 # Or just return list as is.
-                 return val
+                # Multiple nodes in scalar context - follow XPath string() semantics:
+                # Use the first node's value (with debug warning for template authors)
+                first = val[0]
+                if hasattr(first, 'get_value'):
+                    _debug_log(f"WARNING: _unwrap_value() received {len(val)} nodes in scalar context. "
+                               f"Using first node's value. Path hint: {getattr(first, 'path', 'unknown')}")
+                    return first.get_value()
+                # For non-node lists (e.g., from text:split), return first element
+                return first
 
         if hasattr(val, 'get_value'):
             return val.get_value()

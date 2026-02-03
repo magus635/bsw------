@@ -1,0 +1,47 @@
+metadata:
+  name: "SPI Master Basic"
+  module: "Spi"
+  category: "Communication"
+  description: "Basic SPI master channel configuration"
+  version: "1.0"
+  author: "AUTOSAR Configurator"
+  tags: ["spi", "communication", "master"]
+
+applicability:
+  container_def: "SpiDriver/SpiChannel"
+
+parameters:
+  adjustable:
+    - name: "SpiChannelId"
+      display_name: "Channel ID"
+      type: "integer"
+      default: 0
+      min: 0
+      max: 15
+      description: "SPI channel identifier"
+
+    - name: "SpiDefaultData"
+      display_name: "Default Data"
+      type: "integer"
+      default: 255
+      min: 0
+      max: 65535
+      description: "Default data to send when no data available"
+
+    - name: "SpiDataWidth"
+      display_name: "Data Width (bits)"
+      type: "enumeration"
+      default: "8"
+      options: ["8", "16", "32"]
+      description: "Number of bits per transfer"
+
+    - name: "SpiTransferStart"
+      display_name: "Transfer Start"
+      type: "enumeration"
+      default: "SPI_TRANSFER_START_MSB"
+      options: ["SPI_TRANSFER_START_MSB", "SPI_TRANSFER_START_LSB"]
+      description: "Bit order for transfer"
+
+  fixed:
+    SpiChannelType: "IB"
+    SpiIbNBuffers: 1

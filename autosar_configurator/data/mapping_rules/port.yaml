@@ -1,0 +1,69 @@
+# Port Module Mapping Rule
+# Maps gpio_port resources to Port module configuration
+
+module: "Port"
+resource_type: "gpio_port"
+description: "Map GPIO ports to Port module configuration"
+
+containers:
+  - path_template: "PortConfigSet/PortContainer_{resource.resource_id}"
+    parameters:
+      - name: "PortNumberOfPortPins"
+        source: "resource.properties.pin_count"
+        ui_type: "readonly"
+
+    sub_containers:
+      - path_template: "PortPin_{resource.resource_id}{item_index}"
+        iterate: "range(resource.properties.pin_count)"
+        iterate_var: "pin_index"
+        parameters:
+          - name: "PortPinId"
+            transform: "resource.properties.port_index * 16 + item_index"
+            ui_type: "readonly"
+
+          - name: "PortPinDirection"
+            default: "PORT_PIN_IN"
+            ui_type: "combo"
+            ui_options:
+              options:
+                - "PORT_PIN_IN"
+                - "PORT_PIN_OUT"
+                - "PORT_PIN_INOUT"
+
+          - name: "PortPinLevelValue"
+            default: "PORT_PIN_LEVEL_LOW"
+            ui_type: "combo"
+            ui_options:
+              options:
+                - "PORT_PIN_LEVEL_LOW"
+                - "PORT_PIN_LEVEL_HIGH"
+
+          - name: "PortPinMode"
+            default: "PORT_PIN_MODE_GPIO"
+            ui_type: "combo"
+            ui_options:
+              options:
+                - "PORT_PIN_MODE_GPIO"
+                - "PORT_PIN_MODE_ALT1"
+                - "PORT_PIN_MODE_ALT2"
+                - "PORT_PIN_MODE_ALT3"
+
+ui_config:
+  title: "GPIO Ports"
+  layout: "list_with_options"
+  list_field: "resource"
+  options:
+    - name: "default_direction"
+      label: "Default Direction"
+      type: "combo"
+      options:
+        - "PORT_PIN_IN"
+        - "PORT_PIN_OUT"
+      default: "PORT_PIN_IN"
+    - name: "default_mode"
+      label: "Default Mode"
+      type: "combo"
+      options:
+        - "PORT_PIN_MODE_GPIO"
+        - "PORT_PIN_MODE_ALT1"
+      default: "PORT_PIN_MODE_GPIO"

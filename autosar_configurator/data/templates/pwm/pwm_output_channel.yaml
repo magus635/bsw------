@@ -1,0 +1,53 @@
+metadata:
+  name: "PWM Output Channel"
+  module: "Pwm"
+  category: "Motor/Actuator"
+  description: "PWM output channel with configurable frequency and duty cycle"
+  version: "1.0"
+  author: "AUTOSAR Configurator"
+  tags: ["pwm", "motor", "actuator", "output"]
+
+applicability:
+  container_def: "PwmChannelConfigSet/PwmChannel"
+
+parameters:
+  adjustable:
+    - name: "PwmChannelId"
+      display_name: "Channel ID"
+      type: "integer"
+      default: 0
+      min: 0
+      max: 31
+
+    - name: "PwmPeriodDefault"
+      display_name: "Default Period (ticks)"
+      type: "integer"
+      default: 10000
+      min: 100
+      max: 65535
+      description: "Default PWM period in timer ticks"
+
+    - name: "PwmDutycycleDefault"
+      display_name: "Default Duty Cycle (%)"
+      type: "integer"
+      default: 50
+      min: 0
+      max: 100
+      description: "Default duty cycle percentage"
+
+    - name: "PwmPolarity"
+      display_name: "Output Polarity"
+      type: "enumeration"
+      default: "PWM_HIGH"
+      options: ["PWM_HIGH", "PWM_LOW"]
+      description: "Active polarity of PWM output"
+
+    - name: "PwmIdleState"
+      display_name: "Idle State"
+      type: "enumeration"
+      default: "PWM_LOW"
+      options: ["PWM_LOW", "PWM_HIGH"]
+      description: "Output state when PWM is stopped"
+
+  fixed:
+    PwmChannelClass: "PWM_VARIABLE_PERIOD"

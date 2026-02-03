@@ -1,0 +1,75 @@
+# Eth (Ethernet) Module Mapping Rule
+# Maps eth_controller resources to Eth module configuration
+
+module: "Eth"
+resource_type: "eth_controller"
+description: "Map Ethernet controllers to Eth module configuration"
+
+containers:
+  - path_template: "EthConfigSet/EthCtrlConfig_{resource.resource_id}"
+    parameters:
+      - name: "EthCtrlIdx"
+        source: "resource.properties.controller_id"
+        ui_type: "readonly"
+
+      - name: "EthCtrlEnableMii"
+        default: true
+        ui_type: "checkbox"
+        ui_options:
+          label: "Enable MII"
+
+      - name: "EthCtrlEnableRxInterrupt"
+        default: true
+        ui_type: "checkbox"
+        ui_options:
+          label: "Enable RX Interrupt"
+
+      - name: "EthCtrlEnableTxInterrupt"
+        default: true
+        ui_type: "checkbox"
+        ui_options:
+          label: "Enable TX Interrupt"
+
+      - name: "EthCtrlPhyAddress"
+        default: 0
+        ui_type: "spinbox"
+        ui_options:
+          label: "PHY Address"
+          min: 0
+          max: 31
+
+      - name: "EthCtrlMacLayerSpeed"
+        default: "ETH_MAC_LAYER_SPEED_100M"
+        ui_type: "combo"
+        ui_options:
+          label: "MAC Layer Speed"
+          options:
+            - "ETH_MAC_LAYER_SPEED_10M"
+            - "ETH_MAC_LAYER_SPEED_100M"
+            - "ETH_MAC_LAYER_SPEED_1G"
+
+      - name: "EthCtrlMacLayerType"
+        default: "ETH_MAC_LAYER_TYPE_XMII"
+        ui_type: "combo"
+        ui_options:
+          label: "MAC Layer Type"
+          options:
+            - "ETH_MAC_LAYER_TYPE_XMII"
+            - "ETH_MAC_LAYER_TYPE_XGMII"
+
+ui_config:
+  title: "Ethernet Controllers"
+  layout: "table"
+  columns:
+    - field: "enable"
+      header: "Enable"
+      width: 60
+    - field: "resource.resource_id"
+      header: "Controller"
+      width: 100
+    - field: "EthCtrlMacLayerSpeed"
+      header: "Speed"
+      width: 120
+    - field: "EthCtrlPhyAddress"
+      header: "PHY Addr"
+      width: 80

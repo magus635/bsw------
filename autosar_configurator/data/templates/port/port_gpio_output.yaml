@@ -1,0 +1,39 @@
+metadata:
+  name: "GPIO Output Pin"
+  module: "Port"
+  category: "IO"
+  description: "Configure a GPIO pin as digital output"
+  version: "1.0"
+  author: "AUTOSAR Configurator"
+  tags: ["port", "gpio", "output", "digital"]
+
+applicability:
+  container_def: "PortConfigSet/PortContainer/PortPin"
+
+parameters:
+  adjustable:
+    - name: "PortPinId"
+      display_name: "Pin ID"
+      type: "integer"
+      default: 0
+      min: 0
+      max: 255
+      description: "Hardware pin identifier"
+
+    - name: "PortPinLevelValue"
+      display_name: "Initial Level"
+      type: "enumeration"
+      default: "PORT_PIN_LEVEL_LOW"
+      options: ["PORT_PIN_LEVEL_LOW", "PORT_PIN_LEVEL_HIGH"]
+      description: "Initial output level after initialization"
+
+    - name: "PortPinMode"
+      display_name: "Pin Mode"
+      type: "enumeration"
+      default: "PORT_PIN_MODE_GPIO"
+      options: ["PORT_PIN_MODE_GPIO", "PORT_PIN_MODE_ALT1", "PORT_PIN_MODE_ALT2"]
+
+  fixed:
+    PortPinDirection: "PORT_PIN_OUT"
+    PortPinDirectionChangeable: false
+    PortPinModeChangeable: false

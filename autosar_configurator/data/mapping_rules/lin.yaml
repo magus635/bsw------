@@ -1,0 +1,55 @@
+# LIN Module Mapping Rule
+# Maps lin_channel resources to Lin module configuration
+
+module: "Lin"
+resource_type: "lin_channel"
+description: "Map LIN channels to Lin module configuration"
+
+containers:
+  - path_template: "LinGlobalConfig/LinChannel_{resource.resource_id}"
+    parameters:
+      - name: "LinChannelId"
+        source: "resource.properties.channel_id"
+        ui_type: "readonly"
+
+      - name: "LinChannelBaudRate"
+        default: 19200
+        ui_type: "combo"
+        ui_options:
+          label: "Baudrate"
+          options:
+            - 9600
+            - 19200
+            - 20000
+
+      - name: "LinChannelWakeupSupport"
+        default: true
+        ui_type: "checkbox"
+        ui_options:
+          label: "Wakeup Support"
+
+      - name: "LinNodeType"
+        default: "MASTER"
+        ui_type: "combo"
+        ui_options:
+          label: "Node Type"
+          options:
+            - "MASTER"
+            - "SLAVE"
+
+ui_config:
+  title: "LIN Channels"
+  layout: "table"
+  columns:
+    - field: "enable"
+      header: "Enable"
+      width: 60
+    - field: "resource.resource_id"
+      header: "Channel"
+      width: 100
+    - field: "LinChannelBaudRate"
+      header: "Baudrate"
+      width: 100
+    - field: "LinNodeType"
+      header: "Node Type"
+      width: 80

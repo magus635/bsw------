@@ -1,0 +1,127 @@
+name: THA6412_BGA516
+family: THA6
+package: BGA516
+description: "THA6412 Series - High performance automotive MCU"
+
+ports:
+  PORT_A:
+    - { pin: 0, name: PA0, alternate_functions: [GPIO, ADC0_CH0, TIM0_CH0] }
+    - { pin: 1, name: PA1, alternate_functions: [GPIO, ADC0_CH1, TIM0_CH1] }
+    - { pin: 2, name: PA2, alternate_functions: [GPIO, ADC0_CH2, TIM0_CH2] }
+    - { pin: 3, name: PA3, alternate_functions: [GPIO, ADC0_CH3, TIM0_CH3] }
+    - { pin: 4, name: PA4, alternate_functions: [GPIO, SPI0_MOSI] }
+    - { pin: 5, name: PA5, alternate_functions: [GPIO, SPI0_MISO] }
+    - { pin: 6, name: PA6, alternate_functions: [GPIO, SPI0_SCK] }
+    - { pin: 7, name: PA7, alternate_functions: [GPIO, SPI0_CS] }
+    - { pin: 8, name: PA8, alternate_functions: [GPIO, UART0_TX] }
+    - { pin: 9, name: PA9, alternate_functions: [GPIO, UART0_RX] }
+    - { pin: 10, name: PA10, alternate_functions: [GPIO, CAN0_TX] }
+    - { pin: 11, name: PA11, alternate_functions: [GPIO, CAN0_RX] }
+    - { pin: 12, name: PA12, alternate_functions: [GPIO, CAN1_TX] }
+    - { pin: 13, name: PA13, alternate_functions: [GPIO, CAN1_RX] }
+    - { pin: 14, name: PA14, alternate_functions: [GPIO, CAN2_TX] }
+    - { pin: 15, name: PA15, alternate_functions: [GPIO, CAN2_RX] }
+  PORT_B:
+    - { pin: 0, name: PB0, alternate_functions: [GPIO, ADC0_CH4, CAN3_TX] }
+    - { pin: 1, name: PB1, alternate_functions: [GPIO, ADC0_CH5, CAN3_RX] }
+    - { pin: 2, name: PB2, alternate_functions: [GPIO, ADC0_CH6, CAN4_TX] }
+    - { pin: 3, name: PB3, alternate_functions: [GPIO, ADC0_CH7, CAN4_RX] }
+    - { pin: 4, name: PB4, alternate_functions: [GPIO, ADC1_CH0, CAN5_TX] }
+    - { pin: 5, name: PB5, alternate_functions: [GPIO, ADC1_CH1, CAN5_RX] }
+    - { pin: 6, name: PB6, alternate_functions: [GPIO, ADC1_CH2] }
+    - { pin: 7, name: PB7, alternate_functions: [GPIO, ADC1_CH3] }
+    - { pin: 8, name: PB8, alternate_functions: [GPIO, SPI1_MOSI] }
+    - { pin: 9, name: PB9, alternate_functions: [GPIO, SPI1_MISO] }
+    - { pin: 10, name: PB10, alternate_functions: [GPIO, SPI1_SCK] }
+    - { pin: 11, name: PB11, alternate_functions: [GPIO, SPI1_CS] }
+    - { pin: 12, name: PB12, alternate_functions: [GPIO, SPI2_MOSI] }
+    - { pin: 13, name: PB13, alternate_functions: [GPIO, SPI2_MISO] }
+    - { pin: 14, name: PB14, alternate_functions: [GPIO, SPI2_SCK] }
+    - { pin: 15, name: PB15, alternate_functions: [GPIO, SPI2_CS] }
+  PORT_C:
+    - { pin: 0, name: PC0, alternate_functions: [GPIO, TIM1_CH0] }
+    - { pin: 1, name: PC1, alternate_functions: [GPIO, TIM1_CH1] }
+    - { pin: 2, name: PC2, alternate_functions: [GPIO, TIM1_CH2] }
+    - { pin: 3, name: PC3, alternate_functions: [GPIO, TIM1_CH3] }
+    - { pin: 4, name: PC4, alternate_functions: [GPIO, SPI3_MOSI] }
+    - { pin: 5, name: PC5, alternate_functions: [GPIO, SPI3_MISO] }
+    - { pin: 6, name: PC6, alternate_functions: [GPIO, SPI3_SCK] }
+    - { pin: 7, name: PC7, alternate_functions: [GPIO, SPI3_CS] }
+    - { pin: 8, name: PC8, alternate_functions: [GPIO] }
+    - { pin: 9, name: PC9, alternate_functions: [GPIO] }
+    - { pin: 10, name: PC10, alternate_functions: [GPIO] }
+    - { pin: 11, name: PC11, alternate_functions: [GPIO] }
+    - { pin: 12, name: PC12, alternate_functions: [GPIO] }
+    - { pin: 13, name: PC13, alternate_functions: [GPIO] }
+    - { pin: 14, name: PC14, alternate_functions: [GPIO] }
+    - { pin: 15, name: PC15, alternate_functions: [GPIO] }
+  PORT_D:
+    - { pin: 0, name: PD0, alternate_functions: [GPIO, ADC2_CH0] }
+    - { pin: 1, name: PD1, alternate_functions: [GPIO, ADC2_CH1] }
+    - { pin: 2, name: PD2, alternate_functions: [GPIO, ADC2_CH2] }
+    - { pin: 3, name: PD3, alternate_functions: [GPIO, ADC2_CH3] }
+    - { pin: 4, name: PD4, alternate_functions: [GPIO, ADC2_CH4] }
+    - { pin: 5, name: PD5, alternate_functions: [GPIO, ADC2_CH5] }
+    - { pin: 6, name: PD6, alternate_functions: [GPIO, ADC2_CH6] }
+    - { pin: 7, name: PD7, alternate_functions: [GPIO, ADC2_CH7] }
+    - { pin: 8, name: PD8, alternate_functions: [GPIO] }
+    - { pin: 9, name: PD9, alternate_functions: [GPIO] }
+    - { pin: 10, name: PD10, alternate_functions: [GPIO] }
+    - { pin: 11, name: PD11, alternate_functions: [GPIO] }
+    - { pin: 12, name: PD12, alternate_functions: [GPIO] }
+    - { pin: 13, name: PD13, alternate_functions: [GPIO] }
+    - { pin: 14, name: PD14, alternate_functions: [GPIO] }
+    - { pin: 15, name: PD15, alternate_functions: [GPIO] }
+
+can_resources:
+  - { name: CAN0, controller_id: 0, max_baudrate: 1000000, supports_fd: true, mailbox_count: 64 }
+  - { name: CAN1, controller_id: 1, max_baudrate: 1000000, supports_fd: true, mailbox_count: 64 }
+  - { name: CAN2, controller_id: 2, max_baudrate: 1000000, supports_fd: true, mailbox_count: 64 }
+  - { name: CAN3, controller_id: 3, max_baudrate: 1000000, supports_fd: true, mailbox_count: 64 }
+  - { name: CAN4, controller_id: 4, max_baudrate: 1000000, supports_fd: true, mailbox_count: 64 }
+  - { name: CAN5, controller_id: 5, max_baudrate: 1000000, supports_fd: true, mailbox_count: 64 }
+
+adc_resources:
+  - name: ADC0
+    unit_id: 0
+    channel_count: 24
+    resolution_bits: 12
+    channels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+  - name: ADC1
+    unit_id: 1
+    channel_count: 24
+    resolution_bits: 12
+    channels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+  - name: ADC2
+    unit_id: 2
+    channel_count: 24
+    resolution_bits: 12
+    channels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]
+
+spi_resources:
+  - { name: SPI0, unit_id: 0, max_baudrate: 25000000, supports_dma: true }
+  - { name: SPI1, unit_id: 1, max_baudrate: 25000000, supports_dma: true }
+  - { name: SPI2, unit_id: 2, max_baudrate: 25000000, supports_dma: true }
+  - { name: SPI3, unit_id: 3, max_baudrate: 25000000, supports_dma: true }
+
+intc_sources:
+  - { name: CAN0_IRQ, vector_number: 32, priority_bits: 4 }
+  - { name: CAN1_IRQ, vector_number: 33, priority_bits: 4 }
+  - { name: CAN2_IRQ, vector_number: 34, priority_bits: 4 }
+  - { name: CAN3_IRQ, vector_number: 35, priority_bits: 4 }
+  - { name: CAN4_IRQ, vector_number: 36, priority_bits: 4 }
+  - { name: CAN5_IRQ, vector_number: 37, priority_bits: 4 }
+  - { name: ADC0_IRQ, vector_number: 40, priority_bits: 4 }
+  - { name: ADC1_IRQ, vector_number: 41, priority_bits: 4 }
+  - { name: ADC2_IRQ, vector_number: 42, priority_bits: 4 }
+  - { name: SPI0_IRQ, vector_number: 48, priority_bits: 4 }
+  - { name: SPI1_IRQ, vector_number: 49, priority_bits: 4 }
+  - { name: SPI2_IRQ, vector_number: 50, priority_bits: 4 }
+  - { name: SPI3_IRQ, vector_number: 51, priority_bits: 4 }
+  - { name: TIM0_IRQ, vector_number: 56, priority_bits: 4 }
+  - { name: TIM1_IRQ, vector_number: 57, priority_bits: 4 }
+
+metadata:
+  cpu_frequency: 200000000
+  flash_size: 4MB
+  ram_size: 512KB

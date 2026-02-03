@@ -381,7 +381,27 @@ class DaVinciMainWindow(QMainWindow):
         self.quick_config_action.setShortcut(QKeySequence("Ctrl+Q"))
         self.quick_config_action.setEnabled(False)
         self.quick_config_action.triggered.connect(self.launch_quick_config_wizard)
-        
+
+        self.batch_create_action = QAction("Batch Create...", self)
+        self.batch_create_action.setShortcut(QKeySequence("Ctrl+Shift+B"))
+        self.batch_create_action.setEnabled(False)
+        self.batch_create_action.triggered.connect(self.launch_batch_create_wizard)
+
+        self.hardware_mapping_action = QAction("Hardware Mapping...", self)
+        self.hardware_mapping_action.setShortcut(QKeySequence("Ctrl+Shift+H"))
+        self.hardware_mapping_action.setEnabled(False)
+        self.hardware_mapping_action.triggered.connect(self.launch_hardware_mapping_wizard)
+
+        self.template_action = QAction("Apply Template...", self)
+        self.template_action.setShortcut(QKeySequence("Ctrl+T"))
+        self.template_action.setEnabled(False)
+        self.template_action.triggered.connect(self.launch_template_wizard)
+
+        self.import_config_action = QAction("Import Configuration...", self)
+        self.import_config_action.setShortcut(QKeySequence("Ctrl+I"))
+        self.import_config_action.setEnabled(False)
+        self.import_config_action.triggered.connect(self.launch_import_wizard)
+
         # View actions
         self.toggle_search_action = QAction("Search...", self)
         self.toggle_search_action.setShortcut(QKeySequence.Find)  # Ctrl+F
@@ -461,7 +481,13 @@ class DaVinciMainWindow(QMainWindow):
         # Wizards menu
         wizards_menu = menubar.addMenu("Wizards")
         wizards_menu.addAction(self.quick_config_action)
-        
+        wizards_menu.addSeparator()
+        wizards_menu.addAction(self.batch_create_action)
+        wizards_menu.addAction(self.hardware_mapping_action)
+        wizards_menu.addAction(self.template_action)
+        wizards_menu.addSeparator()
+        wizards_menu.addAction(self.import_config_action)
+
         # Help menu
         help_menu = menubar.addMenu("Help")
         
@@ -1875,7 +1901,19 @@ class DaVinciMainWindow(QMainWindow):
             
         from .wizards.quick_config_wizard import QuickConfigWizard
         
-        wizard = QuickConfigWizard(self.module_def, self.config_manager, self)
+        # Determine parent context from tree selection
+        parent_instance = None
+        selected = self.tree_view.selectedItems()
+        if selected:
+            data = selected[0].data(0, Qt.UserRole)
+            if isinstance(data, dict):
+                item_type = data.get("type")
+                if item_type == "VALUE":
+                    parent_instance = data.get("instance")
+                elif item_type in ["DEF", "ADD_PROMPT"]:
+                    parent_instance = data.get("parent_instance")
+        
+        wizard = QuickConfigWizard(self.module_def, self.config_manager, parent_instance, self)
         wizard.wizard_completed.connect(self._on_wizard_completed)
         wizard.exec()
     
@@ -1883,14 +1921,140 @@ class DaVinciMainWindow(QMainWindow):
         """Handle wizard completion"""
         # Refresh tree view to show new instance
         self.tree_view.refresh()
-        
+
         # Select the newly created instance
         instance = data.get("instance")
         if instance:
             self.tree_view._select_instance(instance)
-        
-        self.statusbar.showMessage("Configuration created successfully", 3000)
-    
+
+        # Handle multiple instances (from batch create)
+        instances = data.get("instances")
+        if instances and len(instances) > 0:
+            self.tree_view._select_instance(instances[0])
+            self.statusbar.showMessage(
+                f"Created {len(instances)} instances successfully", 3000
+            )
+        else:
+            self.statusbar.showMessage("Configuration created successfully", 3000)
+
+    def launch_batch_create_wizard(self):
+        """Launch the batch create wizard"""
+        if not self.config_manager or not self.module_def:
+            return
+
+        from .wizards.batch_create_wizard import BatchCreateWizard
+
+        # Determine parent context from tree selection
+        parent_instance = self._get_selected_parent_instance()
+
+        wizard = BatchCreateWizard(
+            self.module_def, self.config_manager, parent_instance, self
+        )
+        wizard.wizard_completed.connect(self._on_wizard_completed)
+        wizard.exec()
+
+    def launch_hardware_mapping_wizard(self):
+        """Launch the hardware mapping wizard"""
+        from .wizards.hardware_mapping_wizard import HardwareMappingWizard
+        from pathlib import Path
+
+        project_path = None
+        if self.current_project:
+            project_path = Path(self.current_project.path)
+
+        wizard = HardwareMappingWizard(
+            config_manager=self.config_manager,
+            project_path=project_path,
+            parent=self
+        )
+        wizard.wizard_completed.connect(self._on_hardware_wizard_completed)
+        wizard.exec()
+
+    def _on_hardware_wizard_completed(self, data: dict):
+        """Handle hardware mapping wizard completion"""
+        chip = data.get("chip", "Unknown")
+        actions = data.get("actions_count", 0)
+        applied = data.get("applied_count", 0)
+
+        self.tree_view.refresh()
+        self.statusbar.showMessage(
+            f"Hardware mapping for {chip}: {applied}/{actions} actions applied", 5000
+        )
+
+    def launch_template_wizard(self):
+        """Launch the template wizard"""
+        if not self.config_manager:
+            return
+
+        from .wizards.template_wizard import TemplateWizard
+        from ..core.template_manager import TemplateManager
+
+        # Get current module filter
+        module_filter = None
+        if self.module_def:
+            module_filter = self.module_def.short_name
+
+        # Determine parent context
+        parent_instance = self._get_selected_parent_instance()
+
+        template_manager = TemplateManager()
+
+        wizard = TemplateWizard(
+            config_manager=self.config_manager,
+            template_manager=template_manager,
+            module_filter=module_filter,
+            parent_instance=parent_instance,
+            parent=self
+        )
+        wizard.wizard_completed.connect(self._on_wizard_completed)
+        wizard.exec()
+
+    def launch_import_wizard(self):
+        """Launch the import wizard"""
+        if not self.config_manager:
+            return
+
+        from .wizards.import_wizard import ImportWizard
+
+        parent_instance = self._get_selected_parent_instance()
+
+        wizard = ImportWizard(
+            config_manager=self.config_manager,
+            parent_instance=parent_instance,
+            parent=self
+        )
+        wizard.wizard_completed.connect(self._on_import_wizard_completed)
+        wizard.exec()
+
+    def _on_import_wizard_completed(self, data: dict):
+        """Handle import wizard completion"""
+        success = data.get("success", False)
+        imported = data.get("records_imported", 0)
+        skipped = data.get("records_skipped", 0)
+
+        self.tree_view.refresh()
+
+        if success:
+            self.statusbar.showMessage(
+                f"Import complete: {imported} records imported, {skipped} skipped", 5000
+            )
+        else:
+            self.statusbar.showMessage("Import failed - see wizard for details", 5000)
+
+    def _get_selected_parent_instance(self):
+        """Get parent instance from tree selection for wizard context"""
+        parent_instance = None
+        selected = self.tree_view.selectedItems()
+        if selected:
+            data = selected[0].data(0, Qt.UserRole)
+            if isinstance(data, dict):
+                item_type = data.get("type")
+                if item_type == "VALUE":
+                    parent_instance = data.get("instance")
+                elif item_type in ["DEF", "ADD_PROMPT"]:
+                    parent_instance = data.get("parent_instance")
+        return parent_instance
+
     def toggle_search(self, checked: bool):
         """Toggle search widget visibility"""
         if checked:
@@ -2375,6 +2539,9 @@ class DaVinciMainWindow(QMainWindow):
             self.load_rules_action.setEnabled(True)
             self.generate_action.setEnabled(True)
             self.quick_config_action.setEnabled(True)
+            self.batch_create_action.setEnabled(True)
+            self.template_action.setEnabled(True)
+            self.import_config_action.setEnabled(True)
             self.show_dep_graph_action.setEnabled(True)
             self.load_recommended_action.setEnabled(True)
             
@@ -2399,6 +2566,9 @@ class DaVinciMainWindow(QMainWindow):
             self.load_rules_action.setEnabled(True)
             self.generate_action.setEnabled(True)
             self.quick_config_action.setEnabled(True)
+            self.batch_create_action.setEnabled(True)
+            self.template_action.setEnabled(True)
+            self.import_config_action.setEnabled(True)
             self.show_dep_graph_action.setEnabled(True)
     
     def _on_parameter_changed(self, instance: EcucContainerValue, param_name: str, value: Any):
@@ -2746,7 +2916,12 @@ except Exception as e:
         self.validate_action.setEnabled(has_config)
         self.generate_action.setEnabled(has_config)
         self.quick_config_action.setEnabled(has_config)
+        self.batch_create_action.setEnabled(has_config)
+        self.template_action.setEnabled(has_config)
+        self.import_config_action.setEnabled(has_config)
         self.load_rules_action.setEnabled(has_config)
+        # Hardware mapping needs a project
+        self.hardware_mapping_action.setEnabled(is_project_mode)
 
     
     def closeEvent(self, event):

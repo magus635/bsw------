@@ -295,10 +295,17 @@ class WorkspaceManager:
             # Save the actual config content
             manager.save_configuration(config_path)
             
+            # Try to make def_path relative to project root for better portability
+            try:
+                # project_dir is already defined as current_project.path.parent
+                save_def_path = str(def_path.relative_to(project_dir))
+            except (ValueError, AttributeError):
+                save_def_path = str(def_path)
+            
             # Record in project file
             data["modules"].append({
                 "name": name,
-                "def_path": str(def_path),
+                "def_path": save_def_path,
                 "config_path": relative_config_path,
                 "variant_overrides": manager.configuration.variant_overrides
             })
@@ -307,6 +314,43 @@ class WorkspaceManager:
         with open(self.current_project.path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2)
             
+    def _resolve_path(self, path_str: str, project_dir: Path) -> Path:
+        """Robustly resolve paths that might be relative or absolute from another platform"""
+        import re
+        
+        # 1. Normalize separators
+        norm_str = path_str.replace('\\', '/')
+        
+        # 2. Check for Windows absolute path (e.g., C:/...) ON NON-WINDOWS
+        # If it's a Windows-style absolute path but we are on a system where it's not absolute
+        if re.match(r'^[a-zA-Z]:/', norm_str):
+            parts = norm_str.split('/')
+            
+            # Try to resolve relative to current project root
+            # Look for common anchor points: project name or standard BSW folders
+            project_name = project_dir.name
+            anchors = [project_name, 'Def', 'plugins', 'ConfigValue', 'autosar']
+            
+            for anchor in anchors:
+                if anchor in parts:
+                    idx = parts.index(anchor)
+                    # For project_name, use everything AFTER it
+                    # For others, use everything FROM it (inclusive)
+                    rel_parts = parts[idx+1:] if anchor == project_name else parts[idx:]
+                    potential_path = project_dir.joinpath(*rel_parts)
+                    if potential_path.exists():
+                        return potential_path
+            
+            # If no anchor found or file doesn't exist, just return it as a Path object
+            # It will likely fail exists() check later, allowing it to be handled gracefully
+            return Path(norm_str)
+            
+        # 3. Handle normal paths (both absolute and relative)
+        p = Path(norm_str)
+        if p.is_absolute():
+            return p
+        return project_dir / p
+
     def load_project(self, project_path: Path) -> tuple[WorkspaceProject, list]:
         """Load project from file
         
@@ -380,12 +424,9 @@ class WorkspaceManager:
             def_path_str = module_data["def_path"]
             config_path_str = module_data["config_path"]
             
-            # Resolve paths (handle relative paths if needed, for now assume absolute or relative to project)
-            def_path = Path(def_path_str)
-            if not def_path.is_absolute():
-                def_path = project_dir / def_path
-                
-            config_path = project_dir / config_path_str
+            # Resolve paths robustly (handles cross-platform absolute paths)
+            def_path = self._resolve_path(def_path_str, project_dir)
+            config_path = self._resolve_path(config_path_str, project_dir)
             
             # Fallback for legacy projects (files in project root)
             # Check for both / and \ for cross-platform compatibility

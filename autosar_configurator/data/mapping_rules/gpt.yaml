@@ -1,0 +1,61 @@
+# GPT (General Purpose Timer) Module Mapping Rule
+# Maps gpt_channel resources to Gpt module configuration
+
+module: "Gpt"
+resource_type: "gpt_channel"
+description: "Map GPT channels to Gpt module configuration"
+
+containers:
+  - path_template: "GptChannelConfigSet/GptChannelConfiguration_{resource.resource_id}"
+    parameters:
+      - name: "GptChannelId"
+        source: "resource.properties.channel_id"
+        ui_type: "readonly"
+
+      - name: "GptChannelMode"
+        default: "GPT_CH_MODE_CONTINUOUS"
+        ui_type: "combo"
+        ui_options:
+          label: "Channel Mode"
+          options:
+            - "GPT_CH_MODE_CONTINUOUS"
+            - "GPT_CH_MODE_ONESHOT"
+
+      - name: "GptChannelTickFrequency"
+        default: 1000000
+        ui_type: "spinbox"
+        ui_options:
+          label: "Tick Frequency (Hz)"
+          min: 1000
+          max: 100000000
+
+      - name: "GptChannelTickValueMax"
+        default: 65535
+        ui_type: "spinbox"
+        ui_options:
+          label: "Max Tick Value"
+          min: 255
+          max: 4294967295
+
+      - name: "GptEnableWakeup"
+        default: false
+        ui_type: "checkbox"
+        ui_options:
+          label: "Enable Wakeup"
+
+ui_config:
+  title: "GPT Channels"
+  layout: "table"
+  columns:
+    - field: "enable"
+      header: "Enable"
+      width: 60
+    - field: "resource.resource_id"
+      header: "Channel"
+      width: 100
+    - field: "GptChannelMode"
+      header: "Mode"
+      width: 120
+    - field: "GptChannelTickFrequency"
+      header: "Tick Freq"
+      width: 100

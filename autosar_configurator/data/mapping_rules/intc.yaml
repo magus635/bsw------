@@ -1,0 +1,57 @@
+# Intc (Interrupt Controller) Module Mapping Rule
+# Maps intc_source resources to Intc module configuration
+
+module: "Intc"
+resource_type: "intc_source"
+description: "Map interrupt sources to Intc module configuration"
+
+containers:
+  - path_template: "IntcConfigSet/IntcSource_{resource.resource_id}"
+    condition: "resource.properties.is_configurable == True"
+    parameters:
+      - name: "IntcVectorNumber"
+        source: "resource.properties.vector_number"
+        ui_type: "readonly"
+
+      - name: "IntcPriority"
+        default: 1
+        ui_type: "spinbox"
+        ui_options:
+          label: "Priority"
+          min: 0
+          max: 15
+
+      - name: "IntcEnabled"
+        default: false
+        ui_type: "checkbox"
+        ui_options:
+          label: "Enable Interrupt"
+
+      - name: "IntcCategory"
+        default: "CAT2"
+        ui_type: "combo"
+        ui_options:
+          label: "Category"
+          options:
+            - "CAT1"
+            - "CAT2"
+
+ui_config:
+  title: "Interrupt Sources"
+  layout: "table"
+  columns:
+    - field: "enable"
+      header: "Enable"
+      width: 60
+    - field: "resource.resource_id"
+      header: "Source"
+      width: 150
+    - field: "resource.properties.vector_number"
+      header: "Vector"
+      width: 80
+    - field: "IntcPriority"
+      header: "Priority"
+      width: 80
+    - field: "IntcCategory"
+      header: "Category"
+      width: 80

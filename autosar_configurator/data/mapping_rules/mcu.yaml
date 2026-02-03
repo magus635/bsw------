@@ -1,0 +1,41 @@
+# MCU Module Mapping Rule
+# Maps clock_source resources to Mcu module configuration
+
+module: "Mcu"
+resource_type: "clock_source"
+description: "Map clock sources to Mcu module configuration"
+
+containers:
+  - path_template: "McuModuleConfiguration/McuClockSettingConfig/McuClockReferencePoint_{resource.resource_id}"
+    parameters:
+      - name: "McuClockReferencePointFrequency"
+        source: "resource.properties.frequency"
+        default: 100000000
+        ui_type: "spinbox"
+        ui_options:
+          label: "Frequency (Hz)"
+          min: 1000000
+          max: 400000000
+
+      - name: "McuClockReferencePointEnabled"
+        default: true
+        ui_type: "checkbox"
+        ui_options:
+          label: "Enable Clock Source"
+
+ui_config:
+  title: "Clock Configuration"
+  layout: "table"
+  columns:
+    - field: "enable"
+      header: "Enable"
+      width: 60
+    - field: "resource.resource_id"
+      header: "Clock Source"
+      width: 120
+    - field: "resource.properties.type"
+      header: "Type"
+      width: 80
+    - field: "McuClockReferencePointFrequency"
+      header: "Frequency"
+      width: 120

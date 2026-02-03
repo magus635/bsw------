@@ -1,0 +1,57 @@
+# ICU (Input Capture Unit) Module Mapping Rule
+# Maps icu_channel resources to Icu module configuration
+
+module: "Icu"
+resource_type: "icu_channel"
+description: "Map ICU channels to Icu module configuration"
+
+containers:
+  - path_template: "IcuConfigSet/IcuChannel_{resource.resource_id}"
+    parameters:
+      - name: "IcuChannelId"
+        source: "resource.properties.channel_id"
+        ui_type: "readonly"
+
+      - name: "IcuDefaultStartEdge"
+        default: "ICU_RISING_EDGE"
+        ui_type: "combo"
+        ui_options:
+          label: "Default Start Edge"
+          options:
+            - "ICU_RISING_EDGE"
+            - "ICU_FALLING_EDGE"
+            - "ICU_BOTH_EDGES"
+
+      - name: "IcuMeasurementMode"
+        default: "ICU_MODE_SIGNAL_EDGE_DETECT"
+        ui_type: "combo"
+        ui_options:
+          label: "Measurement Mode"
+          options:
+            - "ICU_MODE_SIGNAL_EDGE_DETECT"
+            - "ICU_MODE_SIGNAL_MEASUREMENT"
+            - "ICU_MODE_TIMESTAMP"
+            - "ICU_MODE_EDGE_COUNTER"
+
+      - name: "IcuWakeupCapability"
+        default: false
+        ui_type: "checkbox"
+        ui_options:
+          label: "Wakeup Capable"
+
+ui_config:
+  title: "ICU Channels"
+  layout: "table"
+  columns:
+    - field: "enable"
+      header: "Enable"
+      width: 60
+    - field: "resource.resource_id"
+      header: "Channel"
+      width: 100
+    - field: "IcuDefaultStartEdge"
+      header: "Start Edge"
+      width: 120
+    - field: "IcuMeasurementMode"
+      header: "Mode"
+      width: 150

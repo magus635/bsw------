@@ -1,0 +1,77 @@
+# PWM Module Mapping Rule
+# Maps pwm_channel resources to Pwm module configuration
+
+module: "Pwm"
+resource_type: "pwm_channel"
+description: "Map PWM channels to Pwm module configuration"
+
+containers:
+  - path_template: "PwmChannelConfigSet/PwmChannel_{resource.resource_id}"
+    parameters:
+      - name: "PwmChannelId"
+        source: "resource.properties.channel_id"
+        ui_type: "readonly"
+
+      - name: "PwmChannelClass"
+        default: "PWM_VARIABLE_PERIOD"
+        ui_type: "combo"
+        ui_options:
+          label: "Channel Class"
+          options:
+            - "PWM_FIXED_PERIOD"
+            - "PWM_FIXED_PERIOD_SHIFTED"
+            - "PWM_VARIABLE_PERIOD"
+
+      - name: "PwmDutycycleDefault"
+        default: 16384
+        ui_type: "spinbox"
+        ui_options:
+          label: "Default Duty Cycle"
+          min: 0
+          max: 32768
+
+      - name: "PwmPeriodDefault"
+        default: 1000
+        ui_type: "spinbox"
+        ui_options:
+          label: "Default Period (us)"
+          min: 1
+          max: 65535
+
+      - name: "PwmPolarity"
+        default: "PWM_HIGH"
+        ui_type: "combo"
+        ui_options:
+          label: "Polarity"
+          options:
+            - "PWM_HIGH"
+            - "PWM_LOW"
+
+      - name: "PwmIdleState"
+        default: "PWM_LOW"
+        ui_type: "combo"
+        ui_options:
+          label: "Idle State"
+          options:
+            - "PWM_HIGH"
+            - "PWM_LOW"
+
+ui_config:
+  title: "PWM Channels"
+  layout: "table"
+  columns:
+    - field: "enable"
+      header: "Enable"
+      width: 60
+    - field: "resource.resource_id"
+      header: "Channel"
+      width: 100
+    - field: "PwmPeriodDefault"
+      header: "Period (us)"
+      width: 100
+    - field: "PwmDutycycleDefault"
+      header: "Duty Cycle"
+      width: 100
+    - field: "PwmPolarity"
+      header: "Polarity"
+      width: 80
