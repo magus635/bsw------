@@ -109,6 +109,10 @@ class ChipConstraintService(QObject):
         """Get enum constraint values for current chip"""
         return self.current_constraints.get_enum_values(path)
     
+    def get_all_constraints(self) -> Dict[str, Any]:
+        """Get all constraints for current chip as a dictionary"""
+        return self.current_constraints.constraints
+    
     def _discover_chips(self):
         """Discover available chip variants from .properties files"""
         if not self._project_path:

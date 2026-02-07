@@ -142,6 +142,7 @@ class DaVinciMainWindow(QMainWindow):
         
         # Left: Tree view
         self.tree_view = DaVinciTreeView()
+        self.tree_view.chip_constraint_service = self.chip_constraint_service
         self.tree_view.instance_selected.connect(self._on_instance_selected)
         self.tree_view.def_selected.connect(self._on_def_selected)
         self.tree_view.module_selected.connect(self._on_module_selected)
@@ -156,6 +157,7 @@ class DaVinciMainWindow(QMainWindow):
         
         # Right: Config panel
         self.config_panel = DaVinciConfigPanel()
+        self.config_panel.chip_constraint_service = self.chip_constraint_service
         self.config_panel.parameter_changed.connect(self._on_parameter_changed)
         self.config_panel.ai_help_requested.connect(self._on_ai_help_requested)
         self.config_panel.check_impact_requested.connect(self._handle_check_impact)
@@ -934,6 +936,9 @@ class DaVinciMainWindow(QMainWindow):
                 if initial_chip:
                     self.chip_constraint_service.set_chip(initial_chip)
                     logger.info(f"Chip constraint service initialized with chip: {initial_chip}")
+                
+                # Update window title after project load
+                self._update_window_title()
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load project:\n{str(e)}")
@@ -2547,7 +2552,9 @@ class DaVinciMainWindow(QMainWindow):
         # Update active context if manager provided (Project Mode)
         if manager:
             self._update_active_context(manager)
-            
+        
+        # Pass chip constraint service to config panel for dynamic constraints
+        self.config_panel.chip_constraint_service = self.chip_constraint_service
         self.config_panel.show_instance(instance, container_def, self.config_manager, self.current_project)
     
     def _on_def_selected(self, container_def: EcucContainerDef, manager=None):
@@ -2617,8 +2624,19 @@ class DaVinciMainWindow(QMainWindow):
         """Handle chip constraints change - refresh UI to show new constraints"""
         logger.info(f"Chip constraints reloaded for: {chip_name}")
         
+        # Update window title to show current chip
+        self._update_window_title()
+        
+        # Show prominent status bar message
+        self.statusbar.showMessage(f"🔧 芯片型号: {chip_name} | 约束已加载", 10000)
+        
+        # Refresh tree view for instance counts
+        self.tree_view.refresh()
+        
         # Refresh config panel if showing a container instance
         if hasattr(self.config_panel, 'current_instance') and self.config_panel.current_instance:
+            # Update chip constraint service reference first
+            self.config_panel.chip_constraint_service = self.chip_constraint_service
             # Re-display current instance to update constraint column
             self.config_panel.show_instance(
                 self.config_panel.current_instance,
@@ -2652,6 +2670,26 @@ class DaVinciMainWindow(QMainWindow):
         
         return None
 
+    
+    def _update_window_title(self):
+        """Update window title to show project name and chip variant"""
+        base_title = "AUTOSAR DaVinci Configurator"
+        
+        parts = [base_title]
+        
+        # Add project name if loaded
+        if self.current_project:
+            parts.append(f"- {self.current_project.name}")
+        
+        # Add chip variant if set
+        chip_name = None
+        if hasattr(self, 'chip_constraint_service') and self.chip_constraint_service:
+            chip_name = self.chip_constraint_service.current_chip
+        
+        if chip_name:
+            parts.append(f"[{chip_name}]")
+        
+        self.setWindowTitle(" ".join(parts))
     
     def _on_instance_variant_changed(self, instance: EcucContainerValue):
         """Handle when an instance's assigned variant changes - refresh tree to update filtering"""

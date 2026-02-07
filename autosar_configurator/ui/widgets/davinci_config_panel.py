@@ -35,6 +35,7 @@ class DaVinciConfigPanel(QWidget):
         self.current_instance: Optional[EcucContainerValue] = None
         self.current_def: Optional[EcucContainerDef] = None
         self.config_manager: Optional[ConfigurationManager] = None
+        self.chip_constraint_service = None  # Will be set from main window
         self.ai_help_cache: dict = {}  # Cache AI help responses
         self.reference_variant: Optional[str] = None  # Reference variant for comparison (None = Base)
         
@@ -139,9 +140,9 @@ class DaVinciConfigPanel(QWidget):
         
         # Parameters table
         self.params_table = QTableWidget()
-        self.params_table.setColumnCount(5)
+        self.params_table.setColumnCount(6)
         self.params_table.setHorizontalHeaderLabels([
-            "Parameter", "Value", "Type", "Constraint", "Required"
+            "Parameter", "Value", "Chip", "Constraint", "Type", "Required"
         ])
         self.params_table.horizontalHeader().setStretchLastSection(True)
         self.params_table.setAlternatingRowColors(True)
@@ -491,20 +492,27 @@ class DaVinciConfigPanel(QWidget):
                 error_item.setForeground(Qt.red)
                 self.params_table.setItem(row, 1, error_item)
 
-            # Column 2: Type
-            type_item = QTableWidgetItem(param_def.param_type.name)
-            self.params_table.setItem(row, 2, type_item)
+            # Column 2: Chip Constraint (from chip constraint service)
+            chip_constraint = self._get_chip_constraint_text(param_name, container_def)
+            chip_item = QTableWidgetItem(chip_constraint)
+            if chip_constraint and chip_constraint != "-":
+                chip_item.setToolTip(f"芯片约束: {chip_constraint}")
+            self.params_table.setItem(row, 2, chip_item)
 
-            # Column 3: Constraint
+            # Column 3: Constraint (from param def)
             constraint = self._get_constraint_text(param_def)
             constraint_item = QTableWidgetItem(constraint)
             constraint_item.setToolTip(constraint)
             self.params_table.setItem(row, 3, constraint_item)
 
-            # Column 4: Required
+            # Column 4: Type
+            type_item = QTableWidgetItem(param_def.param_type.name)
+            self.params_table.setItem(row, 4, type_item)
+
+            # Column 5: Required
             req_item = QTableWidgetItem("*" if param_def.is_required else "")
             req_item.setTextAlignment(Qt.AlignCenter)
-            self.params_table.setItem(row, 4, req_item)
+            self.params_table.setItem(row, 5, req_item)
 
             # Apply gray styling for deprecated parameters
             if is_deprecated:
@@ -609,7 +617,6 @@ class DaVinciConfigPanel(QWidget):
         Returns:
             (widget, value_getter_func, changed_signal)
         """
-        
         if param_def.param_type == EcucParameterType.ENUMERATION:
             # ComboBox for enumerations
             combo = QComboBox()
@@ -618,7 +625,17 @@ class DaVinciConfigPanel(QWidget):
             if not param_def.is_required:
                 combo.addItem("(未配置)")
 
-            combo.addItems(param_def.literals or [])
+            # Get allowed literals from chip constraints
+            literals = param_def.literals or []
+            if self.chip_constraint_service:
+                allowed_values = self._get_allowed_literals(param_name, self.current_def)
+                if allowed_values:
+                    # Filter: only keep literals that are in the allowed list
+                    # Case-insensitive comparison often needed for AUTOSAR vs Chip Properties
+                    allowed_values_upper = [av.upper() for av in allowed_values]
+                    literals = [lit for lit in literals if lit in allowed_values or lit.upper() in allowed_values_upper]
+
+            combo.addItems(literals)
 
             # Set current value
             if current_value is not None:
@@ -657,6 +674,48 @@ class DaVinciConfigPanel(QWidget):
             # Handle integers, using QLineEdit for large ranges
             min_val = param_def.min_value if param_def.min_value is not None else -2147483648
             max_val = param_def.max_value if param_def.max_value is not None else 2147483647
+            
+            # Special handling for CanControllerBaseAddress - show chip-based options (PRIORITY)
+            if param_name == 'CanControllerBaseAddress' and self.chip_constraint_service:
+                chip_addresses = self._get_chip_can_base_addresses()
+                if chip_addresses:
+                    combo = QComboBox()
+                    combo.setEditable(True)  # Allow custom input as fallback
+                    
+                    # Add "未配置" option
+                    combo.addItem("(未配置)", None)
+                    
+                    # Add chip-specific addresses
+                    for addr_name, addr_val in chip_addresses:
+                        # Display as hex if value is integer
+                        if isinstance(addr_val, int):
+                            display_val = f"0x{addr_val:08X}"
+                        else:
+                            display_val = str(addr_val)
+                        combo.addItem(f"{addr_name}: {display_val}", addr_val)
+                    
+                    # Set current value
+                    current_hex = hex(current_value) if current_value else None
+                    idx = 0
+                    for i in range(combo.count()):
+                        if combo.itemData(i) == current_hex:
+                            idx = i
+                            break
+                    combo.setCurrentIndex(idx)
+                    
+                    def get_combo_value():
+                        data = combo.currentData()
+                        if data is None:
+                            # Try parsing custom input
+                            text = combo.currentText()
+                            try:
+                                return int(text, 16) if text.startswith('0x') else int(text)
+                            except:
+                                return None
+                        # Convert hex string to int
+                        return int(data, 16) if isinstance(data, str) else data
+                    
+                    return combo, get_combo_value, combo.currentIndexChanged
             
             # Use QLineEdit for values exceeding 32-bit signed limits (e.g. 0..4294967295)
             if min_val < -2147483648 or max_val > 2147483647:
@@ -848,6 +907,129 @@ class DaVinciConfigPanel(QWidget):
             return "-"
         
         return "-"
+    
+    def _get_chip_constraint_text(self, param_name: str, container_def: EcucContainerDef) -> str:
+        """Get chip-specific constraint for a parameter from ChipConstraintService.
+        
+        Tries multiple path patterns:
+        - {ModuleName}.{ParamName} (e.g., Can.MaxNodes)
+        - {ModuleName}.{ContainerName}.{ParamName} (e.g., Can.CanGeneral.MaxNodes)
+        """
+        if not self.chip_constraint_service:
+            return "-"
+        
+        # Get module name from container definition path or current instance
+        module_name = None
+        if self.current_instance and hasattr(self.current_instance, 'module_config'):
+            module_config = self.current_instance.module_config
+            if module_config and hasattr(module_config, 'module_name'):
+                module_name = module_config.module_name
+        
+        # Fallback: extract from container def short_name pattern or any path-like attribute
+        if not module_name and hasattr(container_def, 'path') and container_def.path:
+            # Path like "/AUTOSAR/Can/CanGeneral" -> "Can"
+            parts = container_def.path.strip('/').split('/')
+            if len(parts) >= 2:
+                module_name = parts[1] if parts[0] == 'AUTOSAR' else parts[0]
+        
+        # Last fallback: try to infer from instance path
+        if not module_name and self.current_instance:
+            instance_path = self.current_instance.get_path() if hasattr(self.current_instance, 'get_path') else ""
+            if instance_path:
+                # Path like "/Can/CanGeneral/CanGeneral" -> "Can"
+                parts = instance_path.strip('/').split('/')
+                if parts:
+                    module_name = parts[0]
+        
+        if not module_name:
+            return "-"
+        
+        # Special case: CanControllerBaseAddress - display that it's chip-constrained
+        if param_name == 'CanControllerBaseAddress' and module_name == 'Can':
+            chip_addrs = self._get_chip_can_base_addresses()
+            if chip_addrs:
+                return f"Chip Nodes ({len(chip_addrs)})"
+        
+        # Special case: CanHardwareChannel - mapping to Can.HwUnitNode
+        if param_name == 'CanHardwareChannel' and module_name == 'Can':
+            allowed = self.chip_constraint_service.get_enum_constraint(f"{module_name}.HwUnitNode")
+            if allowed:
+                return f"Allowed: {', '.join(allowed[:2])}..."
+        
+        # Try looking up constraint with various path patterns
+        paths_to_try = [
+            f"{module_name}.{param_name}",  # e.g., Can.MaxNodes
+            f"{module_name}.{container_def.short_name}.{param_name}",  # e.g., Can.CanGeneral.MaxNodes
+        ]
+        
+        for path in paths_to_try:
+            constraint_val = self.chip_constraint_service.get_constraint(path)
+            if constraint_val is not None:
+                return str(constraint_val)
+        
+        return "-"
+
+    def _get_allowed_literals(self, param_name: str, container_def: EcucContainerDef) -> List[str]:
+        """Get allowed enum values for a parameter from chip constraints.
+        
+        Tries multiple path patterns to find a matching constraint list.
+        """
+        if not self.chip_constraint_service:
+            return []
+        
+        # Get module name (reuse same resolution logic)
+        module_name = None
+        if self.current_instance and hasattr(self.current_instance, 'module_config'):
+            module_config = self.current_instance.module_config
+            if module_config and hasattr(module_config, 'module_name'):
+                module_name = module_config.module_name
+        
+        if not module_name and hasattr(container_def, 'path') and container_def.path:
+            parts = container_def.path.strip('/').split('/')
+            if len(parts) >= 2:
+                module_name = parts[1] if parts[0] == 'AUTOSAR' else parts[0]
+        
+        if not module_name:
+            return []
+            
+        # Try various patterns
+        paths_to_try = [
+            f"{module_name}.{param_name}",
+            f"{module_name}.{container_def.short_name}.{param_name}",
+        ]
+        
+        for path in paths_to_try:
+            allowed = self.chip_constraint_service.get_enum_constraint(path)
+            if allowed:
+                return allowed
+                
+        return []
+    
+    def _get_chip_can_base_addresses(self) -> list:
+        """Get list of CAN node base addresses from chip constraints.
+        
+        Returns:
+            List of tuples: [(node_name, hex_address), ...]
+            e.g., [('Node00', '0xC0090000'), ('Node01', '0xC0091800'), ...]
+        """
+        if not self.chip_constraint_service:
+            return []
+        
+        addresses = []
+        
+        # Get all constraints that match Can.NodeXXBaseAddress pattern
+        all_constraints = self.chip_constraint_service.get_all_constraints()
+        
+        for key, value in all_constraints.items():
+            if key.startswith('Can.Node') and 'BaseAddress' in key:
+                # Extract node name from key like "Can.Node00BaseAddress"
+                node_name = key.replace('Can.', '').replace('BaseAddress', '')
+                addresses.append((node_name, value))
+        
+        # Sort by node name (Node00, Node01, Node10, Node11, etc.)
+        addresses.sort(key=lambda x: x[0])
+        
+        return addresses
     
     def _get_parameter_tooltip(self, param_def: EcucParameterDef) -> str:
         """Generate rich tooltip content for a parameter"""

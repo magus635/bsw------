@@ -39,6 +39,7 @@ class DaVinciTreeView(QTreeWidget):
         self.config_manager: Optional[ConfigurationManager] = None
         self.project: Optional[WorkspaceProject] = None
         self.active_variant: Optional[str] = None
+        self.chip_constraint_service = None  # Service for chip-specific constraints
         
         # Mappings
         self.def_to_item: Dict[str, QTreeWidgetItem] = {}
@@ -486,6 +487,21 @@ class DaVinciTreeView(QTreeWidget):
                 QMessageBox.Ok
             )
             return
+
+        # Chip-specific constraint validation
+        if self.chip_constraint_service:
+            chip_limit = self._get_chip_max_instances(container_def)
+            if chip_limit is not None and current_count >= chip_limit:
+                QMessageBox.warning(
+                    self,
+                    "芯片约束限制",
+                    f"当前芯片型号不支持添加更多 {container_def.short_name} 实例。\n\n"
+                    f"芯片最大限制: {chip_limit}\n"
+                    f"当前数量: {current_count}\n\n"
+                    f"请更换芯片型号或删除现有实例。",
+                    QMessageBox.Ok
+                )
+                return
 
         # Ask for instance name
         default_name = manager._generate_instance_name(container_def, parent_instance)
@@ -1016,6 +1032,56 @@ class DaVinciTreeView(QTreeWidget):
             self.move_instance_requested.emit(instance, new_parent, new_index)
             event.setDropAction(Qt.MoveAction)
             event.accept()
+
+    def _get_chip_max_instances(self, container_def: EcucContainerDef) -> Optional[int]:
+        """Get max instances for a container type from chip constraints"""
+        if not self.chip_constraint_service:
+            return None
+        
+        # Get module name from container definition path
+        module_name = None
+        if container_def.path:
+            parts = container_def.path.strip('/').split('/')
+            if len(parts) >= 2:
+                module_name = parts[1] if parts[0] == 'AUTOSAR' else parts[0]
+        
+        if not module_name:
+            # Try to get from active config manager if available
+            if self.config_manager and self.config_manager.module_def:
+                module_name = self.config_manager.module_def.short_name
+        
+        if not module_name:
+            return None
+            
+        # Mapping table for common constraints
+        # Key: (Module, ContainerShortName) -> Constraint Path
+        mapping = {
+            ('Can', 'CanController'): f"{module_name}.MaxNodes",
+            ('Resource', 'ResourceCoreConfig'): f"{module_name}.NumOfCores",
+            ('Resource', 'ResourceCoreConfigSet'): f"{module_name}.NumOfCores",
+            # Add more mappings as needed
+        }
+        
+        # Try specific mapping
+        constraint_path = mapping.get((module_name, container_def.short_name))
+        if constraint_path:
+            val = self.chip_constraint_service.get_constraint(constraint_path)
+            if val is not None:
+                try:
+                    return int(val)
+                except (ValueError, TypeError):
+                    return None
+        
+        # General mapping: {Module}.Max{ContainerName}s
+        general_path = f"{module_name}.Max{container_def.short_name}s"
+        val = self.chip_constraint_service.get_constraint(general_path)
+        if val is not None:
+            try:
+                return int(val)
+            except (ValueError, TypeError):
+                pass
+                
+        return None
 
     def _get_italic_font(self) -> QFont:
         """Get italic font"""
