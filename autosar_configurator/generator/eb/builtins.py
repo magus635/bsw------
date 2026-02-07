@@ -32,6 +32,7 @@ class BuiltinFunctions:
 
         # Variant name (will be set by renderer)
         self._variant_name = ""
+        self.renderer = None
 
         # Build function registry
         self._functions = {
@@ -104,6 +105,10 @@ class BuiltinFunctions:
             
             # Count function
             'count': self.count,
+
+            # XPath position functions
+            'position': self.xpath_position,
+            'last': self.xpath_last,
 
             # Aggregate functions (XPath 2.0 / common extensions)
             'sum': self.xpath_sum,
@@ -184,9 +189,29 @@ class BuiltinFunctions:
         """
         node = node_or_path
         path = None
-        
+
         # Auto-resolve string paths
         if isinstance(node, str):
+            # If the value is already a primitive (not a path-like string),
+            # return it directly. This handles the case where the implicit VALUE
+            # rule already extracted the scalar from a parameter node before
+            # node:value() is called.
+            # Path-like strings contain '/' or start with '.' or are a known child name.
+            stripped = node.strip()
+            if '/' not in stripped and not stripped.startswith('.'):
+                current = self.context_stack.current_node()
+                if current and current.get_child(stripped) is not None:
+                    # It's a child name — resolve it
+                    path = node
+                    child = current.get_child(stripped)
+                    resolved_val = child.get_value() if hasattr(child, 'get_value') else child
+                    return resolved_val
+                elif stripped.startswith('/'):
+                    pass  # absolute path, proceed with resolution below
+                else:
+                    # Not a child name and not a path — it's already a value
+                    return node
+
             path = node
             if path.startswith('/'):
                 # Absolute path
@@ -242,34 +267,25 @@ class BuiltinFunctions:
             return node
 
         value = node.get_value() if hasattr(node, 'get_value') else node.value
-        
+
         param_type = getattr(node, 'param_type', None)
         if param_type:
             param_type = param_type.upper()
-            
-            # Boolean -> AUTOSAR semantic mapping
-            if 'BOOLEAN' in param_type:
-                bool_val = self._parse_boolean(value)
-                
-                # Determine if feature or runtime boolean
-                # Feature booleans typically have names ending with Enable/Disable/Dev/Support
-                is_feature = any(kw in node.short_name.upper() for kw in 
-                    ['ENABLE', 'DISABLE', 'DEV', 'SUPPORT', 'AVAILABLE', 'PRESENT'])
-                
-                if is_feature:
-                    # Feature flag: STD_ON / STD_OFF
-                    return 'STD_ON' if bool_val else 'STD_OFF'
-                else:
-                    # Runtime boolean: TRUE / FALSE
-                    return 'TRUE' if bool_val else 'FALSE'
-            
-            # Enum -> ShortName (already string)
+
+            # Note: Per EB Tresos spec, node:value() should return the RAW value.
+            # Boolean formatting (STD_ON/STD_OFF, TRUE/FALSE) is the template's
+            # responsibility. Returning raw values allows templates to do their
+            # own comparisons and formatting.
+            #
+            # Example template pattern:
+            #   [!IF "node:value(./Enable) = 'true'"!]STD_ON[!ELSE!]STD_OFF[!ENDIF!]
+
             # Reference -> Resolve
             if 'REFERENCE' in param_type or node.node_type == 'reference':
                 # Return the target path (string) or object?
                 # Spec says "Reference: resolved target object"
                 # But typically node:value returns the value stored in the node.
-                # For ref, value is the path string. 
+                # For ref, value is the path string.
                 # node:ref() function is used to get the object.
                 # EB Spec 8.1 "ecuC.getReference -> TargetObject".
                 # node:value() usually returns the string path.
@@ -372,76 +388,107 @@ class BuiltinFunctions:
             return False
 
         if isinstance(path_or_node, list):
-            # Filter out empty references from the list
-            valid_items = []
-            for item in path_or_node:
-                if self._is_empty_reference(item):
-                    continue
-                valid_items.append(item)
+            # Handle node lists: check if any node is non-empty
+            valid_items = [item for item in path_or_node if not self._is_node_empty(item)]
+            print(f"DEBUG_EXISTS: list len={len(path_or_node)} valid={len(valid_items)}")
             return len(valid_items) > 0
 
         if hasattr(path_or_node, 'short_name') or hasattr(path_or_node, 'node_type'):
-            # It's already a node - check if it's an empty reference
-            if self._is_empty_reference(path_or_node):
+            # It's already a node - check if it's "empty" (param with no value or empty ref)
+            if self._is_node_empty(path_or_node):
+                print("DEBUG_EXISTS: Node is empty")
                 return False
+            print("DEBUG_EXISTS: Node found and not empty")
             return True
 
         if isinstance(path_or_node, str):
-            if path_or_node.startswith('/'):
+            print(f"DEBUG_EXISTS: evaluating string '{path_or_node}'")
+            # Handle XPath descendant syntax // which starts with / but is not a simple absolute path
+            if path_or_node.startswith('//'):
+                # Treat as XPath expression - fall through to XPath evaluation
+                pass
+            elif path_or_node.startswith('/'):
                 node = self.symbol_table.get_by_path(path_or_node)
                 if node is None:
+                    print(f"DEBUG_EXISTS: absolute path '{path_or_node}' not found")
                     return False
-                # Check if it's an empty reference
-                if self._is_empty_reference(node):
+                # Check if it's an empty node
+                if self._is_node_empty(node):
+                    print("DEBUG_EXISTS: absolute path found empty node")
                     return False
                 return True
-            else:
-                current = self.context_stack.current_node()
-                if current:
-                    # Check if it's a child name
-                    child = current.get_child(path_or_node)
-                    if child is not None:
-                        # Check if it's an empty reference
-                        if self._is_empty_reference(child):
-                            return False
-                        return True
-                    # Check if it's an XPath from current context
-                    try:
-                        res = self.renderer._xpath_engine.evaluate(path_or_node)
-                        if res is not None:
-                            if isinstance(res, list):
-                                # Filter out empty references
-                                valid_items = [item for item in res if not self._is_empty_reference(item)]
-                                return len(valid_items) > 0
-                            # Single result - check if it's an empty reference
-                            if self._is_empty_reference(res):
-                                return False
-                            return True
-                    except:
-                        pass
-                return False
+            
+            # Relative path or XPath expression
+            current = self.context_stack.current_node()
+            # Even if current is None, we might be able to evaluate absolute XPath like //Node
+            
+            # Check if it's a child name (only for simple relative names)
+            if current and not '/' in path_or_node and not '[' in path_or_node:
+                child = current.get_child(path_or_node)
+                if child is not None:
+                    # Check if it's an empty node
+                    if self._is_node_empty(child):
+                        print("DEBUG_EXISTS: child found empty")
+                        return False
+                    return True
+            
+            # Check if it's an XPath
+            try:
+                # Use renderer's xpath engine if available
+                engine = getattr(self.renderer, '_xpath_engine', None)
+                if not engine:
+                    # Fallback if renderer not linked
+                    from .xpath_engine import XPathEngine
+                    engine = XPathEngine(self.symbol_table, self.context_stack, self)
+                
+                # For node:exists, we want the NODE, not the value.
+                # So we must instruct evaluate() to return the node.
+                # But XPathEngine.evaluate() signature varies. 
+                # Let's check if we can pass return_node=True or use a specific method.
+                # The current implementation of evaluate in xpath_engine.py supports return_node arg.
+                res = engine.evaluate(path_or_node, return_node=True)
+                
+                print(f"DEBUG_EXISTS: eval result type={type(res)} val={res}")
+                if res is not None:
+                    if isinstance(res, list):
+                        # Filter out empty nodes
+                        valid_items = [item for item in res if not self._is_node_empty(item)]
+                        return len(valid_items) > 0
+                    # Single result - check if it's empty
+                    if self._is_node_empty(res):
+                        return False
+                    return True
+            except Exception as e:
+                print(f"DEBUG_EXISTS: Exception {e}")
+                pass
+                
+            return False
 
+        print(f"DEBUG_EXISTS: Fallback bool({path_or_node})")
         return bool(path_or_node)
 
-    def _is_empty_reference(self, node) -> bool:
-        """Check if a node is a reference type with no configured value.
-
-        Reference nodes that exist in the definition but have no configured
-        value (value is None or empty string) are considered "empty".
-
-        Args:
-            node: A ConfigurationNode or similar object
-
-        Returns:
-            True if node is a reference with no value, False otherwise
+    def _is_node_empty(self, node) -> bool:
+        """Check if a node represents a missing configuration.
+        
+        A node is "empty" if:
+        1. It's a parameter with no configured value (value is None).
+        2. It's a reference with no target (value is None or empty string).
         """
         if not hasattr(node, 'node_type'):
             return False
-        if node.node_type != 'reference':
-            return False
-        # Get the value of the reference
-        value = node.get_value() if hasattr(node, 'get_value') else getattr(node, 'value', None)
-        return value is None or value == ''
+            
+        # Get the value
+        value = node.value if hasattr(node, 'value') else getattr(node, 'value', None)
+        
+        if node.node_type == 'parameter':
+            # Parameters with no value (None) are considered non-existent
+            return value is None
+            
+        if node.node_type == 'reference':
+            # References with no value are empty
+            return value is None or str(value).strip() == ''
+            
+        return False
     
     def node_refexists(self, path_or_node) -> bool:
         """Check if a reference exists and its target exists"""
@@ -525,11 +572,16 @@ class BuiltinFunctions:
             # Temporarily push node to context for evaluation
             self.context_stack.push(node)
             try:
-                # Handle common case: node:value(ParamName) or just ParamName
                 inner_expr = sort_expr
                 if inner_expr.startswith('node:value(') and inner_expr.endswith(')'):
                     inner_expr = inner_expr[11:-1].strip().strip("'\"")
                 
+                # Strip leading ./ if present
+                if inner_expr.startswith('./'):
+                    inner_expr = inner_expr[2:]
+
+                # Handle common case: node:value(ParamName) or just ParamName
+                inner_expr_orig = inner_expr
                 val = None
                 if '/' not in inner_expr and not '(' in inner_expr:
                     child = node.get_child(inner_expr)
@@ -542,28 +594,43 @@ class BuiltinFunctions:
                         val = node.short_name
                     else:
                         # Path traversal logic for complex expressions relative to node
-                        # Simple implementation: check if it's a path
                         if '/' in inner_expr:
-                            # Try to descend
                             current = node
-                            parts = inner_expr.split('/')
+                            parts = [p for p in inner_expr.split('/') if p and p != '.']
                             for part in parts:
                                 if current:
                                     current = current.get_child(part)
                             if current:
                                 val = current.get_value()
 
-                # Convert all values to strings for consistent comparison
-
-                # This fixes "TypeError: '<' not supported between instances of 'str' and 'int'"
-                res_str = str(val) if val is not None else ""
+                # Robust sorting key generation
+                if val is None:
+                    return (2, "", node.short_name)
                 
-                # Return tuple for stability: (primary_key, short_name)
-                return (res_str, node.short_name)
+                # If it's numeric, use numeric sort
+                try:
+                    if isinstance(val, (int, float)):
+                        return (0, float(val), node.short_name)
+                    if isinstance(val, str) and val.strip():
+                        s = val.strip()
+                        # Handle hex
+                        if s.startswith('0x') or s.startswith('0X'):
+                            return (0, float(int(s, 16)), node.short_name)
+                        # Handle decimal
+                        if all(c.isdigit() or c in '.-' for c in s):
+                            return (0, float(s), node.short_name)
+                except:
+                    pass
+
+                # Fallback to string sort
+                sort_key = (1, str(val), node.short_name)
+                return sort_key
             finally:
                 self.context_stack.pop()
         
-        return sorted(nodes, key=get_sort_key)
+        result = sorted(nodes, key=get_sort_key)
+        
+        return result
 
     
     # ========== Model Functions ==========
@@ -646,7 +713,12 @@ class BuiltinFunctions:
 
         # If it's a node, get its value
         if hasattr(value, 'get_value'):
-            return self.num_i(value.get_value())
+            res = value.get_value()
+            if res is None:
+                return 0
+            return self.num_i(res)
+            
+        return 0
         if hasattr(value, 'value'):
             return self.num_i(value.value)
         return 0
@@ -803,7 +875,18 @@ class BuiltinFunctions:
         return s.upper()
     
     def string_lower(self, s: str) -> str:
-        """Convert string to lowercase"""
+        """Convert string to lowercase.
+        
+        Special handling for integers: if the value is a large integer 
+        (likely a memory address from ECU resources), convert it to 
+        lowercase hex string with 0x prefix.
+        """
+        if isinstance(s, int):
+            # Large integers (> 0xFFFF) are likely memory addresses
+            # Convert to hex string for proper template processing
+            if s > 0xFFFF:
+                return hex(s).lower()
+            return str(s).lower()
         if not isinstance(s, str):
             s = str(s)
         return s.lower()
@@ -908,6 +991,9 @@ class BuiltinFunctions:
 
     def variant_name(self) -> str:
         """Get the current variant name"""
+        # "Default" is our internal placeholder for base configuration without variants
+        if self._variant_name == "Default":
+            return ""
         return self._variant_name
     
     def count(self, items) -> int:
@@ -939,6 +1025,28 @@ class BuiltinFunctions:
                 
         # Default truthiness count
         return 1 if items else 0
+
+    def xpath_position(self) -> int:
+        """XPath position() function - returns current context position.
+
+        In a LOOP or predicate, this returns the 1-based position of the current item.
+        The position is set by the XPath engine during iteration.
+        """
+        if hasattr(self, 'context_stack') and self.context_stack.has_variable('position'):
+            return self.context_stack.get_variable('position')
+        # Default to 1 if position not set
+        return 1
+
+    def xpath_last(self) -> int:
+        """XPath last() function - returns the total count of items in current context.
+
+        In a LOOP or predicate, this returns the total number of items being iterated.
+        The last value is set by the XPath engine during iteration.
+        """
+        if hasattr(self, 'context_stack') and self.context_stack.has_variable('last'):
+            return self.context_stack.get_variable('last')
+        # Default to 1 if last not set
+        return 1
 
     # ========== Aggregate Functions (XPath 2.0 / Extensions) ==========
 

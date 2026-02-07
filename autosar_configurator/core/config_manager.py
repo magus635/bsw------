@@ -406,30 +406,45 @@ class ConfigurationManager:
     
     def get_container_def(self, definition_ref: str) -> Optional[EcucContainerDef]:
         """Get container definition by reference path
-        
+
         Args:
             definition_ref: Definition reference path (absolute or relative)
-            
+
         Returns:
             EcucContainerDef or None
         """
+        if not definition_ref:
+            return None
+
         # Check if it's a relative path (doesn't start with /)
         if not definition_ref.startswith('/'):
             return self.module_def.get_container_def(definition_ref)
-            
-        # Parse absolute path: /AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit
+
+        # Parse absolute path: /PackageName/ModuleName/ContainerPath...
         parts = definition_ref.split('/')
-        if len(parts) < 4:  # Minimum: ['', 'AUTOSAR', 'EcucDefs', 'Module']
+        if len(parts) < 3:  # Minimum: ['', 'Package', 'Module']
             return None
-        
-        # Remove prefix and get relative path
-        # Example: AdcConfigSet or AdcConfigSet/AdcHwUnit
-        relative_path = '/'.join(parts[4:])  # Skip '', 'AUTOSAR', 'EcucDefs', 'ModuleName'
-        
-        if not relative_path:
-            return None
-        
-        return self.module_def.get_container_def(relative_path)
+
+        # Try to find module name in path and extract container path
+        module_name = self.module_def.short_name
+        try:
+            module_idx = parts.index(module_name)
+            # Container path is everything after module name
+            relative_path = '/'.join(parts[module_idx + 1:])
+            if relative_path:
+                return self.module_def.get_container_def(relative_path)
+        except ValueError:
+            # Module name not found in path
+            pass
+
+        # Fallback: assume format /Package/Module/Container...
+        # Take parts after position 2 (skip '', PackageName, ModuleName)
+        if len(parts) >= 4:
+            relative_path = '/'.join(parts[3:])
+            if relative_path:
+                return self.module_def.get_container_def(relative_path)
+
+        return None
     
     def _get_parameter_def(self, container: EcucContainerValue, param_name: str) -> Optional[EcucParameterDef]:
         """Get parameter definition from container's definition"""

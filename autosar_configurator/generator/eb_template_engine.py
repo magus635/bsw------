@@ -43,7 +43,7 @@ class EBTemplateEngine:
 
 
 
-    def render(self, template: str, context: Dict[str, Any]) -> str:
+    def render(self, template: str, context: Dict[str, Any], ecu_resources: Optional[Dict[str, Any]] = None) -> str:
         """Render template with given context.
         
         Args:
@@ -53,6 +53,7 @@ class EBTemplateEngine:
                      - 'configuration': EcucModuleConfiguration
                      - 'module_name': optional str
                      - 'all_modules': Optional[Dict[str, Tuple[EcucModuleDef, EcucModuleConfiguration]]]
+            ecu_resources: Optional ECU resources dictionary
                      
         Returns:
             Rendered string
@@ -91,11 +92,11 @@ class EBTemplateEngine:
             if hasattr(self.renderer, '_builtins') and self.renderer._builtins:
                 self.renderer._builtins.set_variant(active_variant)
 
-        return self.renderer.render(template, module_name=module_name, initial_variables=extra_vars)
+        return self.renderer.render(template, module_name=module_name, initial_variables=extra_vars, ecu_resources=ecu_resources)
 
-    def render_file(self, template_path: str, context: Dict[str, Any]) -> str:
+    def render_file(self, template_path: str, context: Dict[str, Any], ecu_resources: Optional[Dict[str, Any]] = None) -> str:
         """Render template from file"""
         with open(template_path, 'r', encoding='utf-8') as f:
             template = f.read()
-        return self.render(template, context)
+        return self.render(template, context, ecu_resources=ecu_resources)
 

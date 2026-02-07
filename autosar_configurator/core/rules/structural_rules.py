@@ -37,10 +37,10 @@ class MultiplicityValidationRule(ValidationRule):
                                          configuration: EcucModuleConfiguration,
                                          result: ValidationResult):
         """Validate multiplicity of top-level containers"""
-        # Count instances
+        # Count instances (using short_name matching for EB Tresos compatibility)
         count = sum(
             1 for c in configuration.containers
-            if c.definition_ref == container_def.definition_ref
+            if self._definition_refs_match(c.definition_ref, container_def.definition_ref, container_def.short_name)
         )
         
         # Check lower bound
@@ -77,7 +77,11 @@ class MultiplicityValidationRule(ValidationRule):
         
         # Validate each sub-container definition's multiplicity
         for sub_name, sub_def in container_def.sub_containers.items():
-            count = sub_container_counts.get(sub_def.definition_ref, 0)
+            # Count matching sub-containers using short_name matching
+            count = sum(
+                1 for sc in container.sub_containers
+                if self._definition_refs_match(sc.definition_ref, sub_def.definition_ref, sub_def.short_name)
+            )
             
             # Check lower bound
             if count < sub_def.lower_multiplicity:
@@ -105,10 +109,45 @@ class MultiplicityValidationRule(ValidationRule):
     
     def _get_container_def(self, definition_ref: str, module_def: EcucModuleDef) -> Optional[EcucContainerDef]:
         """Get container definition from reference path"""
+        if not definition_ref:
+            return None
+
         parts = definition_ref.split('/')
-        if len(parts) < 4:
-            return None
-        relative_path = '/'.join(parts[4:])
-        if not relative_path:
-            return None
-        return module_def.get_container_def(relative_path)
+
+        # Handle absolute paths (starts with /)
+        if parts[0] == '' and len(parts) >= 3:
+            # Try to find module name in path
+            module_name = module_def.short_name
+            try:
+                module_idx = parts.index(module_name)
+                relative_path = '/'.join(parts[module_idx + 1:])
+                if relative_path:
+                    return module_def.get_container_def(relative_path)
+            except ValueError:
+                pass
+
+            # Fallback: assume format /Package/Module/Container...
+            if len(parts) >= 4:
+                relative_path = '/'.join(parts[3:])
+                if relative_path:
+                    return module_def.get_container_def(relative_path)
+
+        # Handle relative paths
+        if not definition_ref.startswith('/'):
+            return module_def.get_container_def(definition_ref)
+
+        return None
+    
+    def _definition_refs_match(self, config_ref: str, def_ref: str, short_name: str) -> bool:
+        """Check if a config definition_ref matches a module definition's definition_ref.
+        
+        First tries exact match, then falls back to matching by container short_name
+        (last path segment), to handle EB Tresos projects with vendor-specific paths.
+        """
+        # Try exact match first
+        if config_ref == def_ref:
+            return True
+        
+        # Fall back to matching by short_name (last segment of path)
+        config_short_name = config_ref.rstrip('/').split('/')[-1] if config_ref else ""
+        return config_short_name == short_name

@@ -15,7 +15,14 @@ import sys
 from pathlib import Path
 
 # Add project path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Mock yaml module if missing to allow imports
+try:
+    import yaml
+except ImportError:
+    from unittest.mock import MagicMock
+    sys.modules['yaml'] = MagicMock()
 
 from autosar_configurator.generator.eb.xpath_engine import XPathEngine
 from autosar_configurator.generator.eb.symbol_table import SymbolTable, ConfigurationNode

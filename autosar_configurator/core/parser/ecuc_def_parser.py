@@ -22,7 +22,10 @@ class EcucDefParser:
     # AUTOSAR XML namespaces
     NAMESPACES = {
         'ar': 'http://autosar.org/schema/r4.0',
-        'xsi': 'http://www.w3.org/2001/XMLSchema-instance'
+        'xsi': 'http://www.w3.org/2001/XMLSchema-instance',
+        'd': 'http://www.tresos.de/_projects/DataModel2/06/data.xsd',
+        'v': 'http://www.tresos.de/_projects/DataModel2/06/schema.xsd',
+        'a': 'http://www.tresos.de/_projects/DataModel2/16/attribute.xsd'
     }
     
     def __init__(self):
@@ -48,6 +51,19 @@ class EcucDefParser:
             # Find ECUC-MODULE-DEF element using permissive search
             module_def_elem = self._find_descendant(root, 'ECUC-MODULE-DEF')
             
+            if module_def_elem is None:
+                # Try XDM format: <d:chc type="AR-ELEMENT" value="MODULE-DEF">
+                module_def_elem = root.xpath(".//d:chc[@value='MODULE-DEF']", namespaces=self.NAMESPACES)
+                if module_def_elem:
+                    module_def_elem = module_def_elem[0]
+                else:
+                    # Also try direct <v:ctr type="MODULE-DEF">
+                    module_def_elem = root.xpath(".//v:ctr[@type='MODULE-DEF']", namespaces=self.NAMESPACES)
+                    if module_def_elem:
+                        module_def_elem = module_def_elem[0]
+                    else:
+                        module_def_elem = None
+
             if module_def_elem is None:
                 # Check if it's a configuration file to give a better error message
                 config_elem = self._find_descendant(root, 'ECUC-MODULE-CONFIGURATION-VALUES')
@@ -93,6 +109,28 @@ class EcucDefParser:
                     # Set full definition reference path
                     container_def.definition_ref = f"/AUTOSAR/EcucDefs/{module_def.short_name}/{container_def.short_name}"
                     module_def.add_container(container_def)
+        else:
+            # XDM support: Containers might be direct children or in a nested v:ctr
+            # If element is d:chc, the nested v:ctr is the one with containers
+            target_container_root = element
+            if etree.QName(element).localname == 'chc':
+                inner_ctr = element.xpath("v:ctr", namespaces=self.NAMESPACES)
+                if inner_ctr:
+                    target_container_root = inner_ctr[0]
+            
+            # Find top-level containers in the target_container_root
+            for container_elem in target_container_root.xpath("./v:lst | ./v:ctr", namespaces=self.NAMESPACES):
+                tag_local = etree.QName(container_elem).localname
+                # If lst, the actual ctr is inside
+                target_elems = [container_elem] if tag_local == 'ctr' else container_elem.xpath("v:ctr", namespaces=self.NAMESPACES)
+                for target in target_elems:
+                    container_def = self._parse_container_def(target)
+                    if container_def:
+                        # Set full definition reference path
+                        container_def.definition_ref = f"/AUTOSAR/EcucDefs/{module_def.short_name}/{container_def.short_name}"
+                        # Avoid duplicates if already added
+                        if container_def.short_name not in module_def.containers:
+                            module_def.add_container(container_def)
         
         # Set module definition reference
         module_def.definition_ref = f"/AUTOSAR/EcucDefs/{module_def.short_name}"
@@ -134,16 +172,28 @@ class EcucDefParser:
         current_path = f"{parent_path}/{short_name}" if parent_path else short_name
         container_def.definition_ref = current_path
         
-        # Parse PARAMETERS (only direct children)
+        # Parse PARAMETERS (ARXML uses <PARAMETERS>, XDM uses direct children)
         params_elem = self._find_child(element, 'PARAMETERS')
         if params_elem is not None:
-            # Iterate over children directly to catch different parameter types
-            # Note: Skip non-element nodes (comments, PIs) where .tag is not a string
-            for param_elem in params_elem:
-                if isinstance(param_elem.tag, str) and 'PARAM-DEF' in param_elem.tag:
-                    param_def = self._parse_parameter_def(param_elem, current_path)
-                    if param_def:
-                        container_def.add_parameter(param_def)
+            # ARXML: parameters are children of PARAMETERS
+            params_to_parse = params_elem.xpath("*")
+        else:
+            # XDM: parameters are direct children
+            params_to_parse = element.xpath("*")
+            
+        for child in params_to_parse:
+            tag_local = etree.QName(child).localname
+            # Supports ARXML (ECUC-*-PARAM-DEF) and XDM (var)
+            if 'PARAM-DEF' in tag_local.upper() or tag_local == 'var':
+                param_def = self._parse_parameter_def(child, current_path)
+                if param_def:
+                    container_def.add_parameter(param_def)
+            # Supports ARXML (ECUC-*-REFERENCE-DEF) and XDM (ref)
+            # (Note: In ARXML, these are usually in REFERENCES element, handled separately below)
+            elif tag_local == 'ref':
+                ref_def = self._parse_reference_def(child, current_path)
+                if ref_def:
+                    container_def.add_reference(ref_def)
         
         # Parse REFERENCES (only direct children, not descendants)
         refs_elem = self._find_child(element, 'REFERENCES')
@@ -168,6 +218,19 @@ class EcucDefParser:
                 if sub_container_def:
                     container_def.add_sub_container(sub_container_def)
         
+        # XDM support: Parse sub-containers from v:lst/v:ctr
+        for sub_elem in element.xpath("v:lst | v:ctr", namespaces={'v': 'http://www.tresos.de/_projects/DataModel2/06/schema.xsd'}):
+            tag_local = etree.QName(sub_elem).localname
+            if tag_local == 'ctr' or tag_local == 'lst':
+                 # If lst, the actual ctr is inside
+                 target_elems = [sub_elem] if tag_local == 'ctr' else sub_elem.xpath("v:ctr", namespaces={'v': 'http://www.tresos.de/_projects/DataModel2/06/schema.xsd'})
+                 for target in target_elems:
+                     sub_container_def = self._parse_container_def(target, current_path)
+                     if sub_container_def:
+                         # Avoid duplicates if already added via standard ARXML path
+                         if sub_container_def.short_name not in container_def.sub_containers:
+                             container_def.add_sub_container(sub_container_def)
+        
         return container_def
     
     def _parse_parameter_def(self, element: etree._Element, parent_path:str = "") -> Optional[EcucParameterDef]:
@@ -181,7 +244,17 @@ class EcucDefParser:
         tag_name = etree.QName(element).localname
         
         try:
-            param_type = EcucParameterType(tag_name)
+            # Map XDM 'var' to BOOLEAN as a guess, or better, look at type attribute
+            if tag_name == 'var':
+                xdm_type = element.get('type', '').upper()
+                if xdm_type == 'ENUMERATION': param_type = EcucParameterType.ENUMERATION
+                elif xdm_type == 'INTEGER': param_type = EcucParameterType.INTEGER
+                elif xdm_type == 'FLOAT': param_type = EcucParameterType.FLOAT
+                elif xdm_type == 'BOOLEAN': param_type = EcucParameterType.BOOLEAN
+                elif xdm_type == 'STRING': param_type = EcucParameterType.STRING
+                else: param_type = EcucParameterType.STRING # Default
+            else:
+                param_type = EcucParameterType(tag_name)
         except ValueError:
             # Unknown type, skip
             return None
@@ -239,12 +312,14 @@ class EcucDefParser:
         #         </ECUC-IMPLEMENTATION-CONFIGURATION-CLASS>
         #       </IMPLEMENTATION-CONFIG-CLASSES>
         
-        impl_configs = self._find_descendant(element, 'IMPLEMENTATION-CONFIG-CLASSES')
-        if impl_configs is not None:
-            # We take the first valid config class found, or specific logic if needed.
-            # Usually there's one per variant, or one general.
-            # Simplified: Find the first one.
-            icc_elem = self._find_descendant(impl_configs, 'ECUC-IMPLEMENTATION-CONFIGURATION-CLASS')
+        # Look for IMPLEMENTATION-CONFIG-CLASSES or VALUE-CONFIG-CLASSES
+        config_container = self._find_descendant(element, 'IMPLEMENTATION-CONFIG-CLASSES') or \
+                           self._find_descendant(element, 'VALUE-CONFIG-CLASSES')
+        
+        if config_container is not None:
+            # ARXML structure
+            icc_elem = self._find_descendant(config_container, 'ECUC-IMPLEMENTATION-CONFIGURATION-CLASS') or \
+                       self._find_descendant(config_container, 'ECUC-VALUE-CONFIGURATION-CLASS')
             if icc_elem is not None:
                 config_class = self._get_text_value(icc_elem, 'CONFIG-CLASS')
                 config_variant = self._get_text_value(icc_elem, 'CONFIG-VARIANT')
@@ -253,6 +328,13 @@ class EcucDefParser:
                     param_def.config_class = config_class
                 if config_variant:
                     param_def.config_variant = config_variant
+        
+        # XDM support: Variability in XDM uses different attributes/elements
+        if not param_def.config_class:
+            # Look for icc:v elements (simplified)
+            icc_v = element.xpath(".//icc:v", namespaces={'icc': 'http://www.tresos.de/_projects/DataModel2/08/implconfigclass.xsd'})
+            if icc_v:
+                param_def.config_class = icc_v[0].get('vclass', '')
         
         # Set definition reference path
         param_def.definition_ref = f"{parent_path}/{short_name}"
@@ -394,21 +476,31 @@ class EcucDefParser:
         return children[0] if children else None
 
     def _get_short_name(self, element: etree._Element) -> Optional[str]:
-        """Extract SHORT-NAME from element (direct child)"""
-        # SHORT-NAME is usually a direct child
+        """Extract SHORT-NAME from element (direct child) or 'name' attribute (XDM)"""
+        # 1. Try 'name' attribute (XDM format)
+        name_attr = element.get('name')
+        if name_attr:
+            return name_attr
+            
+        # 2. Try SHORT-NAME element (ARXML format)
         for child in element:
             if etree.QName(child).localname == 'SHORT-NAME':
                 return child.text
         return None
     
     def _get_description(self, element: etree._Element) -> str:
-        """Extract DESC/L-2 from element"""
-        # Try finding L-2 anywhere
+        """Extract DESC/L-2 from element (ARXML) or a:a/DESC attribute (XDM)"""
+        # 1. Try XDM format: <a:a name="DESC" value="..." />
+        desc_attr = element.xpath("./a:a[@name='DESC']/@value", namespaces={'a': 'http://www.tresos.de/_projects/DataModel2/16/attribute.xsd'})
+        if desc_attr:
+            return desc_attr[0]
+            
+        # 2. Try ARXML format: L-2 element
         l2_elem = self._find_descendant(element, 'L-2')
         if l2_elem is not None and l2_elem.text:
             return l2_elem.text
             
-        # Fallback to DESC
+        # 3. Fallback to DESC element
         desc_elem = self._find_descendant(element, 'DESC')
         if desc_elem is not None and desc_elem.text:
             return desc_elem.text

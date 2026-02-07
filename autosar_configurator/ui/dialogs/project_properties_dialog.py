@@ -5,7 +5,7 @@ Allows editing project metadata
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
     QLineEdit, QTextEdit, QDialogButtonBox, QLabel, QGroupBox,
-    QWidget
+    QWidget, QComboBox, QPushButton
 )
 from PySide6.QtCore import Qt
 
@@ -75,6 +75,23 @@ class ProjectPropertiesDialog(QDialog):
         meta_layout.addRow("Location:", self.path_label)
         
         general_tab_layout.addWidget(meta_group)
+        
+        # Chip Selection group
+        chip_group = QGroupBox("ECU/Chip Selection")
+        chip_layout = QHBoxLayout(chip_group)
+        
+        self.chip_combo = QComboBox()
+        self.chip_combo.setMinimumWidth(200)
+        chip_layout.addWidget(self.chip_combo)
+        
+        self.refresh_chips_btn = QPushButton("Refresh")
+        self.refresh_chips_btn.clicked.connect(self._refresh_chips)
+        chip_layout.addWidget(self.refresh_chips_btn)
+        
+        chip_layout.addStretch()
+        
+        general_tab_layout.addWidget(chip_group)
+        
         self.tabs.addTab(general_tab, "General")
         
         # --- Templates Tab ---
@@ -120,6 +137,9 @@ class ProjectPropertiesDialog(QDialog):
             self.path_label.setText(str(self.project.path.parent))
         else:
             self.path_label.setText("Not saved")
+        
+        # Load chip selection
+        self._populate_chip_combo()
             
         # --- Populate Templates Table ---
         from ...generator.generator import CodeGenerator
@@ -162,11 +182,34 @@ class ProjectPropertiesDialog(QDialog):
                     source_item.setForeground(QColor("#888888"))
                 self.templates_table.setItem(row, 3, source_item)
     
+    def _populate_chip_combo(self):
+        """Populate chip selection combo box"""
+        self.chip_combo.clear()
+        self.chip_combo.addItem("(Auto-detect / All)", None)
+        
+        # Read available chips from project
+        available = self.project.available_chips or []
+        for chip in available:
+            self.chip_combo.addItem(chip, chip)
+        
+        # Set current selection
+        current = self.project.selected_chip
+        if current:
+            idx = self.chip_combo.findData(current)
+            if idx >= 0:
+                self.chip_combo.setCurrentIndex(idx)
+    
+    def _refresh_chips(self):
+        """Refresh available chips from project"""
+        self.project.discover_available_chips()
+        self._populate_chip_combo()
+    
     def get_data(self):
         """Get updated project data"""
         return {
             'name': self.name_edit.text(),
             'version': self.version_edit.text(),
             'author': self.author_edit.text(),
-            'description': self.description_edit.toPlainText()
+            'description': self.description_edit.toPlainText(),
+            'selected_chip': self.chip_combo.currentData()
         }

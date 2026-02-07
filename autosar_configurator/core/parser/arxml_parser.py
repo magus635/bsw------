@@ -420,11 +420,12 @@ class ArxmlParser:
         # Parse REFERENCES
         refs_elem = self._find_descendant(element, 'REFERENCES')
         if refs_elem is not None:
-            # Find only immediate reference defs
-            for ref_def in self._findall_children(refs_elem, 'ECUC-REFERENCE-DEF'):
-                ref = self._parse_ecuc_reference_def(ref_def)
-                if ref:
-                    container.add_reference_def(ref)
+            # Find all reference defs (support CHOICE, INSTANCE, FOREIGN, etc.)
+            for ref_def in refs_elem:
+                if isinstance(ref_def.tag, str) and ref_def.tag.split('}')[-1].endswith('REFERENCE-DEF'):
+                    ref = self._parse_ecuc_reference_def(ref_def)
+                    if ref:
+                        container.add_reference_def(ref)
         
         # Parse SUB-CONTAINERS recursively
         sub_conts_elem = self._find_descendant(element, 'SUB-CONTAINERS')
@@ -551,10 +552,17 @@ class ArxmlParser:
         # Parse containers
         containers_elem = self._find_descendant(element, 'CONTAINERS')
         if containers_elem is not None:
+            # Auto-indexing per definition
+            def_counts = {}
             # Find only immediate container values
             for container_elem in self._findall_children(containers_elem, 'ECUC-CONTAINER-VALUE'):
                 container = self._parse_ecuc_container_value(container_elem)
                 if container:
+                    # Assign index if not explicitly set in the container
+                    if not getattr(container, '_has_explicit_index', False):
+                        d_ref = container.definition_ref
+                        container.index = def_counts.get(d_ref, 0)
+                        def_counts[d_ref] = container.index + 1
                     config.add_container(container)
                     
         return config
@@ -573,30 +581,46 @@ class ArxmlParser:
             definition_ref=definition_ref
         )
         
-        # Parse parameters
+        # Parse INDEX if present
+        index_elem = self._find_descendant(element, 'INDEX')
+        if index_elem is not None:
+            try:
+                container.index = int(index_elem.text)
+                container._has_explicit_index = True
+            except (ValueError, TypeError):
+                pass
+        
+        # Parse parameters (all types: numerical, textual, enumeration, etc.)
         param_values_elem = self._find_descendant(element, 'PARAMETER-VALUES')
         if param_values_elem is not None:
-            # Parse numerical values
-            for param_elem in self._findall_children(param_values_elem, 'ECUC-NUMERICAL-PARAM-VALUE'):
-                self._parse_ecuc_parameter_value(param_elem, container)
-                
-            # Parse textual values
-            for param_elem in self._findall_children(param_values_elem, 'ECUC-TEXTUAL-PARAM-VALUE'):
-                self._parse_ecuc_parameter_value(param_elem, container)
+            for param_elem in param_values_elem:
+                # Check for any tag ending with -PARAM-VALUE
+                tag_local = etree.QName(param_elem).localname
+                if 'PARAM-VALUE' in tag_local:
+                    self._parse_ecuc_parameter_value(param_elem, container)
                 
         # Parse references
         ref_values_elem = self._find_descendant(element, 'REFERENCE-VALUES')
         if ref_values_elem is not None:
-            for ref_elem in self._findall_children(ref_values_elem, 'ECUC-REFERENCE-VALUE'):
-                self._parse_ecuc_reference_value(ref_elem, container)
+            for ref_elem in ref_values_elem:
+                if isinstance(ref_elem.tag, str) and ref_elem.tag.split('}')[-1].endswith('REFERENCE-VALUE'):
+                    self._parse_ecuc_reference_value(ref_elem, container)
                 
         # Parse sub-containers
         sub_containers_elem = self._find_descendant(element, 'SUB-CONTAINERS')
         if sub_containers_elem is not None:
+            # Auto-indexing per definition
+            sub_def_counts = {}
             # Find only immediate sub-container values
             for sub_elem in self._findall_children(sub_containers_elem, 'ECUC-CONTAINER-VALUE'):
                 sub_container = self._parse_ecuc_container_value(sub_elem)
                 if sub_container:
+                    # Assign index if not explicitly set
+                    if not getattr(sub_container, '_has_explicit_index', False):
+                        sd_ref = sub_container.definition_ref
+                        sub_container.index = sub_def_counts.get(sd_ref, 0)
+                        sub_def_counts[sd_ref] = sub_container.index + 1
+                    
                     sub_container.parent = container
                     container.add_sub_container(sub_container)
                     
@@ -634,8 +658,8 @@ class ArxmlParser:
                     value = int(value)
             except (ValueError, TypeError):
                 pass
-        elif 'TEXTUAL-PARAM-VALUE' in element.tag:
-            # Also try numeric conversion for textual values in case they are misused
+        elif 'TEXTUAL-PARAM-VALUE' in element.tag or 'ENUMERATION-PARAM-VALUE' in element.tag:
+            # Also try numeric conversion for textual/enum values in case they are misused
             try:
                 if value is not None:
                     if '.' in str(value):
@@ -657,7 +681,21 @@ class ArxmlParser:
         ref_name = definition_ref.split('/')[-1]
         
         # Get target reference
-        target_ref = self._get_text_value(element, 'VALUE-REF') or ""
+        # Standard: VALUE-REF
+        target_ref = self._get_text_value(element, 'VALUE-REF')
+        
+        # Instance Reference: TARGET-REF inside VALUE-IREF or directly
+        if target_ref is None:
+            target_ref = self._get_text_value(element, 'TARGET-REF')
+            
+        if target_ref is None:
+            # Try finding descendant TARGET-REF (for IREF structure)
+            iref_target = self._find_descendant(element, 'TARGET-REF')
+            if iref_target is not None:
+                target_ref = iref_target.text
+                
+        if target_ref is None:
+            target_ref = ""
         
         container.set_reference_value(ref_name, target_ref, definition_ref)
 

@@ -710,12 +710,15 @@ CanController[CanControllerId = num:i($TargetId)]
 
 `Module.Container.Parameter` 或 `Module.Parameter`
 
-#### 查找顺序
+#### 查找逻辑与软硬件解耦
 
-1. 用户提供的 `ecu_resources` 字典
-2. 已加载模块配置
-3. 模块定义默认值
-4. Resource 模块 (回退)
+`ecu:get` 是实现**软硬件解耦**的关键。逻辑定义 (.arxml) 描述了通用的规则（如引脚 ID 的上限），而 `ecu:get` 则从具体的硬件资源文件 (.properties) 中提取该型号芯片的实际物理限制（如 `63`）。
+
+**查找顺序：**
+1. **Properties 文件**：优先从项目中的 `.properties` 文件加载。
+2. **已加载模块配置**：从当前已解析的 BSW 模块配置中查找。
+3. **模块定义默认值**：回退到 ARXML 定义中的默认值。
+4. **Resource 模块**：最后尝试查找专门的资源描述模块。
 
 #### 示例
 

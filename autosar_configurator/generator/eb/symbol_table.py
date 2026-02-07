@@ -34,6 +34,9 @@ class ConfigurationNode:
     upper_multiplicity: int = 1
     param_type: str = ""  # For parameters
     
+    # Instance index
+    index: int = 0
+    
     def get_value(self) -> Any:
         """Get value with fallback to default"""
         if self.value is not None:
@@ -127,70 +130,73 @@ class SymbolTable:
         """
         from .renderer import _debug_log
         _debug_log(f"resolve_reference: Resolving '{ref_path}'")
-        _debug_log(f"resolve_reference: Available modules: {list(self._modules.keys())}")
 
         # Try direct path lookup first
         if ref_path in self._path_index:
-            _debug_log(f"resolve_reference: Found in path_index")
+            _debug_log(f"resolve_reference: Found exact match in path_index")
             return self._path_index[ref_path]
 
-
-
-        # Try to parse and resolve
+        # Cleanup path
         parts = [p for p in ref_path.split('/') if p]
         if not parts:
             return None
 
+        # Identify candidate modules.
+        # ARXML references often wrap the module name multiple times or use /AUTOSAR prefix.
+        # We look for ANY part that matches a registered module name.
+        candidates = []
+        for i, part in enumerate(parts):
+            mod = self.get_module(part)
+            if mod:
+                candidates.append((mod, i))
+        
+        if not candidates:
+            _debug_log(f"resolve_reference: No candidate modules found for parts: {parts}")
+            return None
 
-        # Check if it starts with a known module
+        # Successively try to resolve starting from each candidate module
+        for root, start_idx in candidates:
+            _debug_log(f"resolve_reference: Attempting resolution from module '{root.short_name}' (start_idx={start_idx})")
+            
+            # Recursive search function to skip wrappers and handle structural mismatches
+            def navigate(current: ConfigurationNode, parts_to_find: list) -> Optional[ConfigurationNode]:
+                if not parts_to_find:
+                    return current
+                
+                target = parts_to_find[0]
+                remaining = parts_to_find[1:]
+                
+                # Try direct child
+                child = current.get_child(target)
+                if child:
+                    return navigate(child, remaining)
+                
+                # CASE 1: Skip "structural" wrapper nodes in the tree
+                # If current has children that are wrappers or have the same name as current,
+                # explore them if they might contain our target.
+                for child_name, child_node in current.children.items():
+                    # If the child looks like a structural node (wrapper or same name alias),
+                    # try to see if it contains the target.
+                    if child_node.node_type == 'container':
+                        # OPTION A: The child IS the target (but maybe its name is slightly different, dealt with above)
+                        # OPTION B: The child is a wrapper node - try to look INSIDE it for 'target'
+                        res = navigate(child_node, parts_to_find)
+                        if res: return res
+                
+                # CASE 2: The ARXML path might have redundant segments (like /Can/Can/...)
+                # If the current node's name matches the target, skip this segment and continue from here
+                if current.short_name.lower() == target.lower():
+                    return navigate(current, remaining)
+                
+                return None
 
-        for module_name, root in self._modules.items():
-            # Module names are stored in lowercase, so compare case-insensitively
-            p0_lower = parts[0].lower()
-            p1_lower = parts[1].lower() if len(parts) > 1 else ""
-            module_name_lower = module_name.lower()
+            # Start navigation skipping the module name part itself
+            result = navigate(root, parts[start_idx + 1:])
+            if result:
+                _debug_log(f"resolve_reference: Successfully resolved to '{result.path}'")
+                return result
 
-            is_match = False
-            start_idx = 0
-
-            if p0_lower == module_name_lower:
-                is_match = True
-                start_idx = 1
-            elif p1_lower == module_name_lower:
-                # Handle /AUTOSAR/EcucDefs/Mcu or similar prefixes where module is second
-                is_match = True
-                start_idx = 2
-
-            if is_match:
-                _debug_log(f"resolve_reference: Matched module '{module_name}', navigating from index {start_idx}")
-                # Navigate from module root
-                current = root
-                for part in parts[start_idx:]:
-                    _debug_log(f"resolve_reference: Looking for child '{part}' in '{current.short_name}' (children: {list(current.children.keys())})")
-                    child = current.get_child(part)
-                    if child is None:
-                        # Fallback: check for wrapper containers (EB Tresos structural mismatch)
-                        # If 'part' is not found directly, check if it exists inside any child container
-                        # (skipping one level of hierarchy often introduced by container definition wrappers)
-                        found_in_wrapper = False
-                        for wrapper in current.children.values():
-                            if wrapper.node_type == 'container':
-                                inner = wrapper.get_child(part)
-                                if inner:
-                                    child = inner
-                                    found_in_wrapper = True
-                                    _debug_log(f"resolve_reference: Found '{part}' in wrapper '{wrapper.short_name}'")
-                                    break
-
-                        if not found_in_wrapper:
-                            _debug_log(f"resolve_reference: Child '{part}' NOT FOUND")
-                            return None
-
-                    current = child
-                _debug_log(f"resolve_reference: Successfully resolved to '{current.path}'")
-                return current
-
-        _debug_log(f"resolve_reference: No matching module found for path '{ref_path}'")
+        _debug_log(f"resolve_reference: Resolution FAILED for '{ref_path}'")
         return None
     
     def get_all_modules(self) -> List[str]:

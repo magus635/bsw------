@@ -118,6 +118,11 @@ class EcucValueSerializer:
         def_ref = etree.SubElement(container_elem, 'DEFINITION-REF', DEST='ECUC-PARAM-CONF-CONTAINER-DEF')
         def_ref.text = container.definition_ref
         
+        # INDEX - only serialize if explicitly set (from original EB file)
+        if getattr(container, '_has_explicit_index', False) and container.index is not None:
+            index_elem = etree.SubElement(container_elem, 'INDEX')
+            index_elem.text = str(container.index)
+        
         # Parameters - create wrapper once
         if container.parameter_values:
             param_values_elem = etree.SubElement(container_elem, 'PARAMETER-VALUES')

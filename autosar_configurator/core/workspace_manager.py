@@ -41,6 +41,45 @@ class WorkspaceProject:
         
         # Cross-module dependency rules (cached results from analysis)
         self.dependency_rules: List[Dict] = []
+        
+        # Chip/Variant Selection (for projects with multiple chip .properties files)
+        self.available_chips: List[str] = []  # Discovered chip variants from .properties
+        self.selected_chip: Optional[str] = None  # User's selected chip
+    
+    def discover_available_chips(self) -> List[str]:
+        """Scan project for available chip .properties files.
+        
+        Looks in Def/plugins/*/resource/*.properties for chip definition files.
+        Returns list of chip names (derived from filename).
+        """
+        if not self.path:
+            return []
+        
+        # self.path is the .dpa file path, so project_dir is its parent
+        project_dir = self.path.parent if self.path.is_file() else self.path
+        
+        chips = []
+        def_dir = project_dir / "Def" / "plugins"
+        if def_dir.exists():
+            # Look for resource/*.properties files
+            for props_file in def_dir.rglob("resource/*.properties"):
+                # Extract chip name from filename (e.g., CotexR52_THA6206_LFBGA292.properties -> THA6206_LFBGA292)
+                name = props_file.stem
+                # Try to extract chip identifier (THAxxxx pattern)
+                parts = name.split('_')
+                for i, part in enumerate(parts):
+                    if part.startswith('THA') or part.startswith('tha'):
+                        chip_name = '_'.join(parts[i:])
+                        chips.append(chip_name)
+                        break
+                else:
+                    # If no THA pattern, use the full stem
+                    chips.append(name)
+        
+        self.available_chips = sorted(set(chips))
+        return self.available_chips
+
+
     
     def ensure_default_variant(self):
         """Ensure Default variant exists for all modules
@@ -96,8 +135,10 @@ class WorkspaceProject:
         """Get container instance by its full path from any module
         
         EMF-style global resolver: enables cross-module reference resolution.
-        Supports both new module-aware paths (e.g., /Adc/AdcConfigSet)
-        and legacy /Config paths (e.g., /Config/AdcConfigSet) for backward compatibility.
+        Supports multiple path formats:
+        - Module-aware paths: /Adc/AdcConfigSet
+        - Legacy /Config paths: /Config/AdcConfigSet
+        - EB Tresos paths: /Adc_Config/Adc/AdcConfigSet (config file prefix)
         """
         from .model.configuration_model import EcucContainerValue
         
@@ -117,7 +158,33 @@ class WorkspaceProject:
                 if instance is not None:
                     return instance
         
+        # 3. Fallback for EB Tresos paths: /ModuleName_Config/ModuleName/Container...
+        # Pattern: /{prefix}/{module_name}/... where prefix ends with _Config
+        parts = path.split('/')
+        if len(parts) >= 3 and parts[0] == '':
+            prefix = parts[1]  # e.g., "I2c_Config"
+            module_name = parts[2]  # e.g., "I2c"
+            
+            # Check if it matches the EB pattern (prefix_Config/prefix/...)
+            if prefix.endswith('_Config') or prefix.endswith('_Values'):
+                # Try stripping the config file prefix
+                suffix = '/'.join(parts[2:])  # e.g., "I2c/I2cGlobalConfig/I2cChannel_0"
+                for mgr_name, manager in self.module_managers.items():
+                    alt_path = f"/{suffix}"
+                    instance = manager.configuration.get_instance_by_path(alt_path)
+                    if instance is not None:
+                        return instance
+            
+            # Also try if module_name matches a loaded module, search with remaining path
+            if module_name in self.module_managers:
+                # Try with just module_name + rest of path
+                rest_path = '/' + '/'.join(parts[2:])  # e.g., "/I2c/I2cGlobalConfig/I2cChannel_0"
+                instance = self.module_managers[module_name].configuration.get_instance_by_path(rest_path)
+                if instance is not None:
+                    return instance
+        
         return None
+
     
     def resolve_all_references(self) -> tuple:
         """Resolve all cross-module references in all loaded configurations
@@ -274,6 +341,8 @@ class WorkspaceManager:
             "variants": self.current_project.variants,
             "active_variant": self.current_project.active_variant,
             "dependency_rules": self.current_project.dependency_rules,
+            "available_chips": self.current_project.available_chips,
+            "selected_chip": self.current_project.selected_chip,
             "modules": []
         }
         
@@ -415,6 +484,16 @@ class WorkspaceManager:
         project.dependency_rules = data.get("dependency_rules", [])
         if project.dependency_rules:
             print(f"Loaded {len(project.dependency_rules)} confirmed dependency rules")
+        
+        # Load chip selection (new in format v7)
+        project.available_chips = data.get("available_chips", [])
+        project.selected_chip = data.get("selected_chip", None)
+        
+        # If no available chips in file, try to discover them
+        if not project.available_chips:
+            project.path = project_path  # Ensure path is set before discovery
+            project.discover_available_chips()
+
         
         project_dir = project_path.parent
         failed_modules = []

@@ -11,6 +11,7 @@ sys.path.insert(0, '/Users/qlwang/Desktop/bsw图形配置工具')
 from autosar_configurator.generator.eb_template_engine import EBTemplateEngine
 from autosar_configurator.core.parser.ecuc_def_parser import EcucDefParser
 from autosar_configurator.core.parser.arxml_parser import ArxmlParser
+from autosar_configurator.core.hardware.tresos_properties_parser import TresosPropertiesParser
 from lxml import etree
 
 def main():
@@ -23,13 +24,17 @@ def main():
     # Resource module for cross-module lookup
     resource_def_file = "/Users/qlwang/Desktop/eclipse/Resource_THA6_AS440/autosar/Resource_THA6206_LFBGA292.arxml"
     resource_cfg_file = "/Users/qlwang/Desktop/project/t5/ConfigValue/Resource_Config.arxml"
+    
+    # ECU Resource Properties
+    properties_file = "/Users/qlwang/Desktop/t1/Def/plugins/Resource_THA6_AS440/resource/CotexR52_THA6206_LFBGA292.properties"
 
     print(f"--- Running generation for {module_name} ---")
     print(f"Template dir: {template_dir}")
     print(f"Include search paths will be: [{template_dir}, {template_dir.parent}]")
 
     # Create engine with template_dir for INCLUDE resolution
-    eb_engine = EBTemplateEngine(strict=False, template_dir=template_dir)
+    # Using strict=True to catch rendering errors!
+    eb_engine = EBTemplateEngine(strict=True, template_dir=template_dir)
 
     # Load module definition
     def_parser = EcucDefParser()
@@ -52,6 +57,17 @@ def main():
     eb_engine.add_module(module_def, module_cfg, variant=variant)
     eb_engine.add_module(res_def, res_cfg, variant=variant)
 
+    # Load ECU resources
+    ecu_resources = {}
+    if os.path.exists(properties_file):
+        print(f"Loading ECU resources from {properties_file}...")
+        parser = TresosPropertiesParser()
+        parser.parse_file(Path(properties_file))
+        ecu_resources = parser.get_ecu_resources_dict()
+        print(f"  Loaded {len(ecu_resources)} properties")
+    else:
+        print(f"WARNING: Properties file not found: {properties_file}")
+
     # Template files to generate
     templates = [
         ("include/Sent_Cfg.h", "v/include/Sent_Cfg.h"),
@@ -63,7 +79,11 @@ def main():
         'module_def': module_def,
         'configuration': module_cfg,
         'active_variant': variant,
-        'module_name': module_name
+        'module_name': module_name,
+        'all_modules': {
+            'Sent': (module_def, module_cfg),
+            'Resource': (res_def, res_cfg)
+        }
     }
 
     for tpl_rel, out_rel in templates:
@@ -78,7 +98,7 @@ def main():
         print(f"\nGenerating {out_path} from {tpl_path}...")
 
         try:
-            content = eb_engine.render_file(str(tpl_path), context)
+            content = eb_engine.render_file(str(tpl_path), context, ecu_resources=ecu_resources)
             with open(out_path, 'w') as f:
                 f.write(content)
             print(f"  Success! ({len(content)} bytes)")

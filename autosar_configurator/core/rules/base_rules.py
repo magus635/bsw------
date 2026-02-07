@@ -20,6 +20,44 @@ from ..model.configuration_model import (
 )
 
 
+def _resolve_container_def(definition_ref: str, module_def: EcucModuleDef) -> Optional[EcucContainerDef]:
+    """Common helper to resolve container definition from reference path.
+
+    Handles various path formats:
+    - /AUTOSAR/EcucDefs/Module/Container (standard AUTOSAR)
+    - /PackageName/Module/Container (custom package like THA6_AS440_FuSa)
+    - Container/SubContainer (relative paths)
+    """
+    if not definition_ref:
+        return None
+
+    parts = definition_ref.split('/')
+
+    # Handle absolute paths (starts with /)
+    if parts[0] == '' and len(parts) >= 3:
+        # Try to find module name in path
+        module_name = module_def.short_name
+        try:
+            module_idx = parts.index(module_name)
+            relative_path = '/'.join(parts[module_idx + 1:])
+            if relative_path:
+                return module_def.get_container_def(relative_path)
+        except ValueError:
+            pass
+
+        # Fallback: assume format /Package/Module/Container...
+        if len(parts) >= 4:
+            relative_path = '/'.join(parts[3:])
+            if relative_path:
+                return module_def.get_container_def(relative_path)
+
+    # Handle relative paths
+    if not definition_ref.startswith('/'):
+        return module_def.get_container_def(definition_ref)
+
+    return None
+
+
 class TypeValidationRule(ValidationRule):
     """Validate parameter types match their definitions"""
     
@@ -141,20 +179,44 @@ class TypeValidationRule(ValidationRule):
     
     def _get_container_def(self, definition_ref: str, module_def: EcucModuleDef) -> Optional[EcucContainerDef]:
         """Get container definition from reference path
-        
-        Handles both absolute (/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcHwUnit)
-        and relative (AdcConfigSet/AdcHwUnit) paths
+
+        Handles various path formats:
+        - /AUTOSAR/EcucDefs/Module/Container (standard AUTOSAR)
+        - /PackageName/Module/Container (custom package like THA6_AS440_FuSa)
+        - Container/SubContainer (relative paths)
         """
+        if not definition_ref:
+            return None
+
         parts = definition_ref.split('/')
-        
-        # Handle absolute AUTOSAR paths
-        if len(parts) >= 4 and parts[0] == '' and parts[1] == 'AUTOSAR':
-            relative_path = '/'.join(parts[4:])
-            if relative_path:
-                return module_def.get_container_def(relative_path)
-        
+
+        # Handle absolute paths (starts with /)
+        if parts[0] == '' and len(parts) >= 3:
+            # Format: /PackageName/ModuleName/ContainerPath...
+            # Extract container path after module name (parts[2] is module name)
+            # Try to match module name with module_def
+            module_name = module_def.short_name
+
+            # Find module name position in path
+            try:
+                module_idx = parts.index(module_name)
+                # Container path is everything after module name
+                container_path = '/'.join(parts[module_idx + 1:])
+                if container_path:
+                    return module_def.get_container_def(container_path)
+            except ValueError:
+                # Module name not found in path, try fallback
+                pass
+
+            # Fallback: assume format /Package/Module/Container...
+            # Take parts after position 2 (skip '', PackageName, ModuleName)
+            if len(parts) >= 4:
+                container_path = '/'.join(parts[3:])
+                if container_path:
+                    return module_def.get_container_def(container_path)
+
         # Handle relative paths
-        if definition_ref and not definition_ref.startswith('/'):
+        if not definition_ref.startswith('/'):
             return module_def.get_container_def(definition_ref)
 
         return None
@@ -255,21 +317,14 @@ class RangeValidationRule(ValidationRule):
                         parameter_name=param_name,
                         suggested_fix=f"Set value to at most {param_def.max_value}"
                     ))
-        
+
         # Recursively validate sub-containers
         for sub_container in container.sub_containers:
             self._validate_container(sub_container, module_def, result)
-    
+
     def _get_container_def(self, definition_ref: str, module_def: EcucModuleDef) -> Optional[EcucContainerDef]:
         """Get container definition from reference path"""
-        parts = definition_ref.split('/')
-        if len(parts) >= 4 and parts[0] == '' and parts[1] == 'AUTOSAR':
-            relative_path = '/'.join(parts[4:])
-            if relative_path:
-                return module_def.get_container_def(relative_path)
-        if definition_ref and not definition_ref.startswith('/'):
-            return module_def.get_container_def(definition_ref)
-        return None
+        return _resolve_container_def(definition_ref, module_def)
 
 
 class EnumerationValidationRule(ValidationRule):
@@ -311,21 +366,14 @@ class EnumerationValidationRule(ValidationRule):
                         parameter_name=param_name,
                         suggested_fix=f"Choose from: {', '.join(param_def.literals)}"
                     ))
-        
+
         # Recursively validate sub-containers
         for sub_container in container.sub_containers:
             self._validate_container(sub_container, module_def, result)
-    
+
     def _get_container_def(self, definition_ref: str, module_def: EcucModuleDef) -> Optional[EcucContainerDef]:
         """Get container definition from reference path"""
-        parts = definition_ref.split('/')
-        if len(parts) >= 4 and parts[0] == '' and parts[1] == 'AUTOSAR':
-            relative_path = '/'.join(parts[4:])
-            if relative_path:
-                return module_def.get_container_def(relative_path)
-        if definition_ref and not definition_ref.startswith('/'):
-            return module_def.get_container_def(definition_ref)
-        return None
+        return _resolve_container_def(definition_ref, module_def)
 
 
 class RequiredParameterRule(ValidationRule):
@@ -361,18 +409,11 @@ class RequiredParameterRule(ValidationRule):
                         parameter_name=param_name,
                         suggested_fix=f"Add parameter '{param_name}'"
                     ))
-        
+
         # Recursively validate sub-containers
         for sub_container in container.sub_containers:
             self._validate_container(sub_container, module_def, result)
-    
+
     def _get_container_def(self, definition_ref: str, module_def: EcucModuleDef) -> Optional[EcucContainerDef]:
         """Get container definition from reference path"""
-        parts = definition_ref.split('/')
-        if len(parts) >= 4 and parts[0] == '' and parts[1] == 'AUTOSAR':
-            relative_path = '/'.join(parts[4:])
-            if relative_path:
-                return module_def.get_container_def(relative_path)
-        if definition_ref and not definition_ref.startswith('/'):
-            return module_def.get_container_def(definition_ref)
-        return None
+        return _resolve_container_def(definition_ref, module_def)

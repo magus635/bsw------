@@ -82,7 +82,7 @@ class Renderer:
         
         # Execution context per spec Section 3
         self._module_name: str = ""
-        self._variant: str = "PRE_COMPILE"  # Default variant
+        self._variant: str = ""  # Default variant (no variant)
         self._generation_target: str = ""
         self._template_file: str = ""
         
@@ -155,7 +155,8 @@ class Renderer:
         template: str, 
         module_name: Optional[str] = None,
         context_path: Optional[str] = None,
-        initial_variables: Optional[Dict[str, Any]] = None
+        initial_variables: Optional[Dict[str, Any]] = None,
+        ecu_resources: Optional[Dict[str, Any]] = None
     ) -> str:
         """Render a template string.
         
@@ -204,6 +205,7 @@ class Renderer:
         self._in_code_block = False
         self._break_requested = False
         self._suppress_next_newline = False
+        self._autospacing_active = False
         self._recursion_depth = 0
         
         # Add initial variables
@@ -213,11 +215,15 @@ class Renderer:
         
         # Initialize engines - preserve existing ecu_resources if set
         if self._builtins is None:
-            self._builtins = BuiltinFunctions(self.symbol_table, self._context_stack)
+            self._builtins = BuiltinFunctions(self.symbol_table, self._context_stack, ecu_resources=ecu_resources)
+            self._builtins.renderer = self
         else:
             # Update references for existing builtins
             self._builtins.symbol_table = self.symbol_table
             self._builtins.context_stack = self._context_stack
+            self._builtins.renderer = self
+            if ecu_resources:
+                self._builtins.ecu_resources = ecu_resources
 
         # Set variant for builtins
         if self._variant:
@@ -271,12 +277,10 @@ class Renderer:
         content = content.strip()
         if (content.startswith('"') and content.endswith('"')) or \
            (content.startswith("'") and content.endswith("'")):
-            # Check if there are internal quotes that make this NOT a single quoted block
-            # (e.g. "a" + "b"). If the first quote closes before the end, don't strip.
-            quote_char = content[0]
-            internal_block = content[1:-1]
-            if quote_char not in internal_block:
-                return internal_block
+            # EB Tresos behavior: Quoted content inside tags [! "..." !] 
+            # is stripped of its outer quotes and evaluated as an expression.
+            # We strip them regardless of internal content to support nested quotes.
+            return content[1:-1].strip()
         return content
 
     def _execute_tokens(self, tokens: List[Token], start: int, end: int) -> int:
@@ -304,16 +308,23 @@ class Renderer:
                 if self._nocode_depth > 0 and not self._in_code_block:
                     i += 1
                     continue
-                    
+
                 # Apply smart trimming
                 content = token.content
+
+                # AUTOSPACING: if active, strip leading whitespace/newlines to continue on same line
+                if self._autospacing_active:
+                    content = content.lstrip('\n\r \t')
+                    self._autospacing_active = False  # One-shot: reset after use
+
                 if token.directive_only_line:
                     # Remove trailing newline from directive-only lines
+                    # This prevents blank lines from directive-only template lines
                     content = content.rstrip('\n\r')
                     # Also remove leading whitespace if it's just indentation
                     if content.strip() == '':
                         content = ''  # Skip pure whitespace on directive lines
-                
+
                 # Apply indentation
                 content = self._apply_indent(content)
                 self._output_buffer.append(content)
@@ -324,14 +335,12 @@ class Renderer:
                 if self._nocode_depth > 0 and not self._in_code_block:
                     i += 1
                     continue
-                    
+
                 # Strip outer quotes from the tag content before evaluating
                 expr = self._strip_tag_quotes(token.content)
                 value = self._evaluate_expression(expr)
-                
-                # Ensure value is unwrapped (get parameter value instead of node)
-                value = self._unwrap_value(value)
-                
+
+                # Ensure value is fully unwrapped (handles nested lists and ConfigurationNodes)
                 value = self._unwrap_value(value)
 
                 output_str = self._builtins.to_string(value)
@@ -394,33 +403,45 @@ class Renderer:
                 i += 1
             
             elif token.type == TokenType.INDENT:
-                # [!INDENT "n"!] - push indentation level onto stack
+                # [!INDENT "n"!] - push absolute indentation level onto stack
                 try:
-                    n = int(token.content.strip().strip('"').strip("'"))
+                    raw_content = token.content
+                    stripped = raw_content.strip().strip('"').strip("'")
+                    n = int(stripped)
+                    # INDENT specifies absolute indentation level, not delta
+                    _debug_log(f"INDENT {n}: raw='{raw_content}' stripped='{stripped}' stack {self._indent_stack} -> {self._indent_stack + [n]}")
                     self._indent_stack.append(n)
-                except (ValueError, TypeError):
+                except (ValueError, TypeError) as e:
+                    _debug_log(f"INDENT ERROR: raw='{token.content}' exception={e}")
                     pass  # Invalid indent, skip
                 i += 1
-            
+
             elif token.type == TokenType.ENDINDENT:
                 # [!ENDINDENT!] - pop indentation level from stack
+                before = list(self._indent_stack)
                 if len(self._indent_stack) > 1:
                     self._indent_stack.pop()
+                _debug_log(f"ENDINDENT: stack {before} -> {self._indent_stack}")
                 i += 1
             
             elif token.type == TokenType.WS:
                 # [!WS "n"!] - output n whitespace characters
+                # Does NOT reset _at_line_start to allow explicit column positioning
                 try:
                     n = int(token.content.strip().strip('"').strip("'"))
                     if n > 0:
                         self._output_buffer.append(' ' * n)
-                        self._at_line_start = False
+                        # Keep _at_line_start as-is: WS is explicit spacing, not content
+                        # This allows [!WS "4"!]Content to work as expected
                 except (ValueError, TypeError):
                     pass  # Invalid WS count, skip
                 i += 1
             
             elif token.type == TokenType.AUTOSPACING:
-                # [!AUTOSPACING!] - auto spacing control (skip, just cosmetic)
+                # [!AUTOSPACING!] - suppress preceding whitespace for next TEXT output
+                # When set, the next TEXT content will not have leading whitespace stripped
+                # and will continue on the same line as previous content
+                self._autospacing_active = True
                 i += 1
             
             elif token.type == TokenType.CR:
@@ -450,14 +471,14 @@ class Renderer:
     
     def _apply_indent(self, text: str) -> str:
         """Apply current indentation to text.
-        
+
         Adds spaces at the start of each new line based on current indent level.
-        It "neutralizes" template indentation by skipping all leading whitespace 
-        from the template until content or a newline is reached.
+        ALWAYS strips template's leading whitespace and replaces with INDENT-controlled spacing.
+        This is standard EB engine behavior.
         """
         if not text:
             return text
-        
+
         # Get current indent level (absolute level from top of stack)
         indent_level = self._indent_stack[-1] if self._indent_stack else 0
         indent_str = ' ' * indent_level
@@ -475,15 +496,12 @@ class Renderer:
                     # Stay at line start, reset indent flag for NEW line
                     self._indent_added_on_this_line = False
                 elif char in (' ', '\t'):
-                    # leading whitespace in template
-                    if not self._indent_added_on_this_line:
-                        result.append(indent_str)
-                        self._indent_added_on_this_line = True
-                    # Skip this template whitespace
+                    # leading whitespace in template - ALWAYS skip it
+                    # Do NOT add indent here - only add when we hit actual content
                     i += 1
                 else:
                     # Hit first content character
-                    if not self._indent_added_on_this_line:
+                    if not self._indent_added_on_this_line and indent_level > 0:
                         result.append(indent_str)
                         self._indent_added_on_this_line = True
                     result.append(char)
@@ -693,6 +711,7 @@ class Renderer:
         elif not isinstance(items, list):
             items = [items]
         
+        # DEBUG
         # Execute loop body for each item
         for idx, item in enumerate(items):
             self._context_stack.push(item)
@@ -820,16 +839,8 @@ class Renderer:
         if (expr.startswith("'") and expr.endswith("'")) or \
            (expr.startswith('"') and expr.endswith('"')):
             inner = expr[1:-1]
-            # Check if the string content looks like a function call or expression
-            # that should be evaluated (e.g., "node:name(.)", "num:i(5)")
-            # Functions have format: namespace:function(...)
-            if ':' in inner and '(' in inner and ')' in inner:
-                # This looks like a function call, evaluate it
-                return self._evaluate_expression(inner)
             # Check if the string content is a variable reference (starts with $)
             # EB Tresos treats "$var" as a variable reference, not a literal
-            if inner.startswith('$'):
-                return self._evaluate_expression(inner)
             return inner
         
         # Handle numeric literals explicitly
@@ -1074,6 +1085,10 @@ class Renderer:
                             idx_val = None
                             if idx_str.isdigit():
                                 idx_val = int(idx_str) - 1  # 1-indexed to 0-indexed
+                            elif idx_str == 'last()':
+                                # XPath last() function - return the last element
+                                if isinstance(result, list) and result:
+                                    idx_val = len(result) - 1
                             else:
                                 # Evaluate index expression
                                 evaluated = self._evaluate_expression(idx_str)
@@ -1101,11 +1116,11 @@ class Renderer:
         if expr.lower() == 'false': return False
         
         # 7. Fallback for undefined identifiers
-        if self.strict:
-            raise UndefinedVariableError(expr)
-            
         if '/' in expr or expr.startswith('.') or '[' in expr:
             return None
+            
+        if self.strict:
+            raise UndefinedVariableError(expr)
             
         if expr.isupper() and len(expr) > 1:
             return expr
@@ -1151,67 +1166,74 @@ class Renderer:
         """Evaluate a condition string (used in IF, WHILE)."""
         if condition is None: return False
         if isinstance(condition, bool): return condition
-        
+
         condition = self._strip_tag_quotes(condition)
         _debug_log(f"DEBUG: Evaluating condition: {condition}")
 
-        
-        # Handle 'not' operator
-        if condition.lower().startswith('not '):
-            res = not self._evaluate_condition(condition[4:].strip())
-            _debug_log(f"DEBUG: Condition 'not' result: {res}")
-            return res
-        if condition.startswith('!(') and condition.endswith(')'):
-             res = not self._evaluate_condition(condition[2:-1].strip())
-             _debug_log(f"DEBUG: Condition '!()' result: {res}")
-             return res
-        if condition.startswith('!') and not condition.startswith('!='):
-             res = not self._evaluate_condition(condition[1:].strip())
-             _debug_log(f"DEBUG: Condition '!' result: {res}")
-             return res
-        
         # Strip outer quotes if present (common in EB syntax [!IF "expr"!])
         if (condition.startswith('"') and condition.endswith('"')) or \
            (condition.startswith("'") and condition.endswith("'")):
             condition = condition[1:-1].strip()
-        
-        # Strip outer parentheses if present (e.g., "(expr = 'value')")
+
+        # Strip balanced outer parentheses (e.g., "(expr = 'value')")
         if condition.startswith('(') and condition.endswith(')'):
-            # Make sure they are matching (not like "(a) and (b)")
             depth = 0
             all_nested = True
             for i, c in enumerate(condition):
                 if c == '(': depth += 1
                 elif c == ')': depth -= 1
-                # If depth hits 0 before the end, they're not matching outer parens
                 if depth == 0 and i < len(condition) - 1:
                     all_nested = False
                     break
             if all_nested:
                 condition = condition[1:-1].strip()
-        
-        # Handle negation
-        if condition.startswith('!') or condition.startswith('not '):
-            inner = condition[1:].strip() if condition.startswith('!') else condition[4:].strip()
-            return not self._evaluate_condition(inner)
+
+        # Handle negation operators (single pass)
+        if condition.startswith('!(') and condition.endswith(')'):
+            # Check if the parens after ! are balanced
+            inner = condition[1:]
+            depth = 0
+            balanced = True
+            for i, c in enumerate(inner):
+                if c == '(': depth += 1
+                elif c == ')': depth -= 1
+                if depth == 0 and i < len(inner) - 1:
+                    balanced = False
+                    break
+            if balanced:
+                res = not self._evaluate_condition(inner[1:-1].strip())
+                _debug_log(f"DEBUG: Condition '!()' result: {res}")
+                return res
+        if condition.startswith('!') and not condition.startswith('!='):
+            res = not self._evaluate_condition(condition[1:].strip())
+            _debug_log(f"DEBUG: Condition '!' result: {res}")
+            return res
+        if condition.lower().startswith('not '):
+            res = not self._evaluate_condition(condition[4:].strip())
+            _debug_log(f"DEBUG: Condition 'not' result: {res}")
+            return res
         
         # Handle 'and' / 'or' with unified parenthesis-aware splitting
         # (Logical operators have lower precedence than comparisons)
-        and_parts = self._split_top_level(condition, [' and '])
+        and_parts = self._split_top_level(condition, ['and'])
         if and_parts:
             return all(self._evaluate_condition(p) for p in and_parts)
         
-        or_parts = self._split_top_level(condition, [' or '])
+        or_parts = self._split_top_level(condition, ['or'])
         if or_parts:
             return any(self._evaluate_condition(p) for p in or_parts)
         
         # Handle comparison operators (after logical operators)
-        for op in [' == ', ' != ', ' > ', ' < ', ' >= ', ' <= ', ' = ']:
-            check_op = op.strip()
-            if op in condition:
-                left, right = condition.split(op, 1)
-                left_val = self._evaluate_expression(left.strip())
-                right_val = self._evaluate_expression(right.strip())
+        # Use a single pass with robust splitting for all comparison types
+        for op_raw in ['==', '!=', '>=', '<=', '>', '<', '=']:
+            parts = self._split_top_level(condition, [op_raw])
+            if parts:
+                left = parts[0]
+                right = parts[1]
+                check_op = op_raw
+                
+                left_val = self._evaluate_expression(left)
+                right_val = self._evaluate_expression(right)
                 
                 left_val = self._unwrap_value(left_val)
                 right_val = self._unwrap_value(right_val)
@@ -1223,7 +1245,6 @@ class Renderer:
                     left_val = left_val.lower() in ('true', '1', 'yes', 'on')
                 
                 # Handle int/bool compared with boolean string ('true'/'false')
-                # e.g., 1 = 'true' should be True, 0 = 'true' should be False
                 if isinstance(left_val, (int, bool)) and isinstance(right_val, str):
                     if right_val.lower() in ('true', 'false'):
                         left_is_truthy = str(left_val).lower() in ('true', '1', 'yes', 'on')
@@ -1238,7 +1259,7 @@ class Renderer:
                         left_val = left_is_truthy
                         right_val = right_is_truthy
                 
-                # Numeric normalization (only if not already processed as booleans)
+                # Numeric normalization
                 if isinstance(left_val, (int, float)) and isinstance(right_val, str):
                     if right_val.lower() not in ('true', 'false'):
                         try: right_val = float(right_val)
@@ -1248,41 +1269,29 @@ class Renderer:
                         try: left_val = float(left_val)
                         except: pass
 
-                # Special handling for None/empty values:
-                # When comparing None or empty string with a non-empty string,
-                # they should NOT be considered equal (to avoid false positives in validation)
-                if check_op in ('==', '='):
-                    # None vs non-empty string -> False
-                    if left_val is None and isinstance(right_val, str) and right_val:
-                        _debug_log(f"DEBUG: Comparison [{left} {check_op} {right}] => [None vs non-empty '{right_val}'] Result: False")
-                        return False
-                    if right_val is None and isinstance(left_val, str) and left_val:
-                        _debug_log(f"DEBUG: Comparison [{left} {check_op} {right}] => [non-empty '{left_val}' vs None] Result: False")
-                        return False
-                    # Empty string vs non-empty string -> False
-                    if left_val == '' and isinstance(right_val, str) and right_val and right_val != '':
-                        _debug_log(f"DEBUG: Comparison [{left} {check_op} {right}] => [empty '' vs non-empty '{right_val}'] Result: False")
-                        return False
-                    if right_val == '' and isinstance(left_val, str) and left_val and left_val != '':
-                        _debug_log(f"DEBUG: Comparison [{left} {check_op} {right}] => [non-empty '{left_val}' vs empty ''] Result: False")
-                        return False
-                    # Both empty strings -> False (to avoid false positives in "duplicate" validation)
-                    if left_val == '' and right_val == '':
-                        _debug_log(f"DEBUG: Comparison [{left} {check_op} {right}] => [both empty ''] Result: False")
-                        return False
+                # Normalize None to empty string
+                if left_val is None: left_val = ''
+                if right_val is None: right_val = ''
 
-                # Special handling for != with None values only:
-                # When comparing None with a non-empty string using !=,
-                # return False to avoid triggering validation errors for unconfigured items
-                # NOTE: Do NOT apply this to empty string comparisons - "v" != "" should be True
-                if check_op == '!=':
-                    # None vs non-empty string with != -> False (treat as "equal" to skip validation)
-                    if left_val is None and isinstance(right_val, str) and right_val:
-                        _debug_log(f"DEBUG: Comparison [{left} {check_op} {right}] => [None != non-empty] Result: False (skip validation)")
-                        return False
-                    if right_val is None and isinstance(left_val, str) and left_val:
-                        _debug_log(f"DEBUG: Comparison [{left} {check_op} {right}] => [non-empty != None] Result: False (skip validation)")
-                        return False
+                # Type coercion for comparisons
+                def try_numeric(v):
+                    """Try to convert value to numeric for comparison."""
+                    if isinstance(v, (int, float)):
+                        return v
+                    if isinstance(v, str):
+                        s = v.strip().strip('"').strip("'")
+                        try: return int(s)
+                        except ValueError: pass
+                        try: return float(s)
+                        except ValueError: pass
+                    return v
+
+                if check_op in ('>', '<', '>=', '<='):
+                    left_num = try_numeric(left_val)
+                    right_num = try_numeric(right_val)
+                    if isinstance(left_num, (int, float)) and isinstance(right_num, (int, float)):
+                        left_val = left_num
+                        right_val = right_num
 
                 if check_op in ('==', '='):
                     res = left_val == right_val
@@ -1300,16 +1309,26 @@ class Renderer:
                 elif check_op == '<=':
                     try: res = left_val <= right_val
                     except: res = False
+                else:
+                    res = False
                 
                 _debug_log(f"DEBUG: Comparison [{left} {check_op} {right}] => [{left_val} {check_op} {right_val}] Result: {res}")
                 return res
         
-        # Simple truthiness check
-        value = self._evaluate_expression(condition)
-        if value is None:
-            return False
-            
-        return bool(value)
+        # Atomic manifestation check (truthiness of single value)
+        val = self._evaluate_expression(condition)
+        val = self._unwrap_value(val)
+        
+        # EB sematics: empty strings, 0, false, None are all False
+        if val is None: return False
+        if isinstance(val, bool): return val
+        if isinstance(val, (int, float)): return bool(val)
+        if isinstance(val, str):
+            if not val: return False
+            if val.lower() in ('false', 'off', 'no'): return False
+            return True
+        
+        return bool(val)
     
     def _split_top_level(self, s: str, ops: List[str]) -> List[str]:
         """Split a string by operators NOT inside parentheses or brackets."""
@@ -1332,21 +1351,23 @@ class Renderer:
                 elif depth == 0:
                     # Check for operators
                     found_op = None
-                    for op in ops:
+                    for op_raw in ops:
+                        op = op_raw.strip()
+                        if not op: continue
+                        
                         if s[i:].lower().startswith(op.lower()):
-                            # Special case for word operators: check boundaries
-                            # If the operator already has spaces (like ' and '), we don't need extra boundary checks
-                            if op.strip().isalpha():
-                                if op.startswith(' ') or op.endswith(' '):
-                                    found_op = op
-                                    break
+                            # Boundary check for word operators (and, or)
+                            if op.isalpha():
                                 before = s[i-1] if i > 0 else ' '
                                 after = s[i+len(op)] if i+len(op) < len(s) else ' '
+                                
+                                # A boundary is any non-alphanumeric character (including whitespace/newline)
                                 if not (before.isalnum() or before == '_') and \
                                    not (after.isalnum() or after == '_'):
                                     found_op = op
                                     break
                             else:
+                                # For symbols like !=, == etc.
                                 found_op = op
                                 break
                     
@@ -1371,7 +1392,7 @@ class Renderer:
         if paren_idx == -1: return None
         func_name = expr[:paren_idx].strip()
         args_str = expr[paren_idx + 1:-1].strip()
-        
+
         # Parse arguments (supports nested parens and quotes)
         args = []
         if args_str:
@@ -1382,7 +1403,7 @@ class Renderer:
                 if char in ('"', "'"):
                     if in_quote == char: in_quote = None
                     elif in_quote is None: in_quote = char
-                
+
                 if in_quote is None:
                     if char == '(':
                         depth += 1
@@ -1392,11 +1413,36 @@ class Renderer:
                         args.append(''.join(current_arg).strip())
                         current_arg = []
                         continue
-                
+
                 current_arg.append(char)
             if current_arg:
                 args.append(''.join(current_arg).strip())
-        
+
+        # Special handling for node:exists - it needs the NODE, not the VALUE
+        # node:exists semantics: "does this path point to an existing node?"
+        # NOT: "is the value at this path truthy?"
+        if func_name == 'node:exists' and len(args) == 1:
+            arg = args[0].strip()
+            # Strip quotes if present
+            if (arg.startswith('"') and arg.endswith('"')) or \
+               (arg.startswith("'") and arg.endswith("'")):
+                arg = arg[1:-1]
+            # Resolve to node, NOT to value
+            if arg.startswith('/'):
+                node = self.symbol_table.get_by_path(arg)
+            else:
+                # Relative path - get from current context without implicit value
+                current = self._context_stack.current_node()
+                if current:
+                    # Use XPath engine with special flag to get node, not value
+                    node = self._xpath_engine.evaluate(arg, return_node=True) if self._xpath_engine else None
+                    if node is None:
+                        # Fallback: direct child lookup
+                        node = current.get_child(arg)
+                else:
+                    node = None
+            return self._builtins.node_exists(node)
+
         # Evaluate each argument
         evaluated_args = [self._evaluate_expression(arg) for arg in args]
         
@@ -1574,16 +1620,95 @@ class Renderer:
         
         # Execute loop body
         self._break_requested = False
+        
+        # EB Tresos "Hidden Semantic": FOR loops often implicitly switch context
+        # if they are iterating over a node set (e.g., [!FOR "i" = "0" TO "count(./*) - 1"!])
+        # We detect the nodeset being iterated using balanced parenthesis parsing.
+        loop_nodes = None
+        loop_nodes = self._extract_for_loop_nodeset(end_expr)
+
         for val in range(start_val, end_val + 1):
             if self._break_requested:
                 self._break_requested = False
                 break
+            
             self._context_stack.set_variable(var_name, val)
-            self._execute_tokens(tokens, start + 1, for_end)
+            
+            # Push context if we have matching nodes
+            pushed = False
+            if loop_nodes and 0 <= val < len(loop_nodes):
+                self._context_stack.push(loop_nodes[val])
+                pushed = True
+            
+            try:
+                self._execute_tokens(tokens, start + 1, for_end)
+            finally:
+                if pushed:
+                    self._context_stack.pop()
         
         self._break_requested = False
         return i  # After ENDFOR
-    
+
+    def _extract_for_loop_nodeset(self, end_expr: str) -> Optional[List]:
+        """Extract the nodeset for FOR loop implicit context switching.
+
+        EB Tresos "Hidden Semantic": FOR loops implicitly switch context when
+        iterating over a node set. We detect this by finding count(...) in the
+        end expression and extracting the path argument using balanced parenthesis
+        parsing (not regex, which fails on nested parens).
+
+        Also handles the case where the end expression is a variable that was
+        previously set from a count() expression — in that case we attempt to
+        evaluate ./* from current context as a fallback.
+
+        Args:
+            end_expr: The end expression string from the FOR statement
+
+        Returns:
+            List of nodes for context switching, or None if not applicable
+        """
+        # Strategy 1: Find count(...) with balanced parenthesis parsing
+        count_pos = end_expr.find('count(')
+        if count_pos != -1:
+            # Find the matching closing paren for count(
+            open_paren = count_pos + 5  # position of '(' after 'count'
+            depth = 1
+            i = open_paren + 1
+            while i < len(end_expr) and depth > 0:
+                if end_expr[i] == '(':
+                    depth += 1
+                elif end_expr[i] == ')':
+                    depth -= 1
+                i += 1
+
+            if depth == 0:
+                # Extract the path inside count(...)
+                path = end_expr[open_paren + 1:i - 1].strip()
+                if path:
+                    loop_nodes = self._evaluate_xpath(path)
+                    if not isinstance(loop_nodes, list):
+                        loop_nodes = [loop_nodes] if loop_nodes else []
+                    return loop_nodes if loop_nodes else None
+
+        # Strategy 2: If the end expression is a variable or doesn't contain count(),
+        # check if it looks like it could be iterating over current node's children.
+        # Evaluate ./* from current context as a heuristic fallback.
+        # This handles: [!VAR "total" = "count(./*) - 1"!] ... [!FOR "i" = "0" TO "$total"!]
+        if end_expr.strip().startswith('$'):
+            try:
+                children = self._evaluate_xpath('./*')
+                if isinstance(children, list) and children:
+                    # Verify the loop range matches children count
+                    end_val = self._evaluate_expression(end_expr)
+                    if end_val is not None:
+                        end_int = int(self._builtins.num_i(end_val))
+                        if end_int == len(children) - 1:
+                            return children
+            except Exception:
+                pass
+
+        return None
+
     def _handle_nocode(self, tokens: List[Token], start: int, end: int) -> int:
         """Handle NOCODE/ENDNOCODE block.
         
@@ -1767,6 +1892,13 @@ class Renderer:
                 if name_match:
                     arg_name = name_match.group(1).strip()
                     arg_val_expr = name_match.group(2).strip()
+                    # EB Tresos syntax: "ParamName"="expression" - the outer value quotes are
+                    # part of the syntax and should be stripped so the inner expression is evaluated.
+                    # This allows expressions like node:name(.) to be evaluated rather than
+                    # treated as literal strings. Inner quotes for literals are preserved.
+                    if (arg_val_expr.startswith('"') and arg_val_expr.endswith('"')) or \
+                       (arg_val_expr.startswith("'") and arg_val_expr.endswith("'")):
+                        arg_val_expr = arg_val_expr[1:-1]
                     val = self._evaluate_expression(arg_val_expr)
                     # EB Tresos behavior: If the value looks like an XPath path (contains / but not URL-like),
                     # try to evaluate it as XPath to get the actual value at that path

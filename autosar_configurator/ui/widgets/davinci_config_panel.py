@@ -579,18 +579,10 @@ class DaVinciConfigPanel(QWidget):
         # Single value editor
         widget, value_getter, signal = self._create_single_value_editor(param_name, param_def, current_value)
         
-        # Initial setting if needed
-        # Note: We rely on the caller/instance to have the value, 
-        # but if we generated a default, we might want to save it?
-        # For now, let's just assume the UI shows what we have.
-        
-        # Initialize value in instance if missing and we have a default/valid value
-        if param_name not in instance.parameter_values and current_value is None:
-             # Get initial value from widget
-             initial_val = value_getter()
-             # Only set if it's not None/Empty (handling defaults)
-             if initial_val is not None:
-                 instance.set_parameter_value(param_name, initial_val, param_def.definition_ref)
+        # Note: We intentionally do NOT auto-create parameters here.
+        # Parameters should only be added when the user explicitly changes them.
+        # The UI widget may show a default/placeholder value, but it is NOT written
+        # to the instance until the user actually modifies it via the signal handler.
 
         # Connect signal
         # Use nested function for reliable closure capture
@@ -643,7 +635,16 @@ class DaVinciConfigPanel(QWidget):
             layout.setContentsMargins(0, 0, 0, 0)
             layout.setAlignment(Qt.AlignCenter)
             checkbox = QCheckBox()
-            checkbox.setChecked(str(current_value).upper() == 'TRUE')
+            # Robust boolean check
+            is_checked = False
+            if isinstance(current_value, bool):
+                is_checked = current_value
+            elif isinstance(current_value, (int, float)):
+                is_checked = (current_value != 0)
+            elif isinstance(current_value, str):
+                is_checked = current_value.upper() in ('TRUE', '1', 'YES', 'ON')
+                
+            checkbox.setChecked(is_checked)
             layout.addWidget(checkbox)
             
             # Helper to return bool instead of Qt.CheckState

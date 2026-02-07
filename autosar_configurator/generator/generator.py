@@ -19,6 +19,7 @@ from pathlib import Path
 from ..core.model.configuration_model import EcucModuleConfiguration, EcucContainerValue
 from ..core.model.definition_model import EcucModuleDef, EcucContainerDef, EcucParameterDef, EcucParameterType, ConfigClass
 from .eb_template_engine import EBTemplateEngine
+from ..core.hardware.tresos_properties_parser import TresosPropertiesParser
 
 # Setup logger
 logger = logging.getLogger(__name__)
@@ -37,7 +38,8 @@ class CodeGenerator:
                  user_template_dir: Optional[Path] = None, 
                  variant_overrides: Optional[Dict[str, Any]] = None,
                  variant_name: Optional[str] = None,
-                 all_configurations: Optional[Dict[str, Any]] = None):
+                 all_configurations: Optional[Dict[str, Any]] = None,
+                 selected_chip: Optional[str] = None):
         """Initialize generator
         
         Args:
@@ -48,6 +50,7 @@ class CodeGenerator:
             variant_overrides: Optional dict of param_path -> value for variant-specific values
             variant_name: Optional name of the active variant
             all_configurations: Optional dict of module_name -> (module_def, configuration)
+            selected_chip: Optional name of the selected chip variant (filters .properties files)
         """
         self.module_def = module_def
         self.configuration = configuration
@@ -56,6 +59,10 @@ class CodeGenerator:
         self.variant_overrides = variant_overrides or {}
         self.variant_name = variant_name
         self.all_configurations = all_configurations or {}
+        self.selected_chip = selected_chip
+        
+        # Load ECU resources from .properties files in the project
+        self.ecu_resources = self._load_ecu_resources()
         
         # Initialize EB Engine
         self.template_engine = EBTemplateEngine(strict=False)
@@ -71,7 +78,71 @@ class CodeGenerator:
             logger.info(f"User template directory: {user_template_dir}")
         if variant_overrides:
             logger.info(f"Variant overrides: {len(variant_overrides)} parameters")
-    
+
+    def _load_ecu_resources(self) -> Dict[str, Any]:
+        """Find and load ECU resources from .properties files in the project directory.
+        
+        If selected_chip is set, only load the matching chip's .properties file.
+        """
+        ecu_resources = {}
+        if not self.project_template_dir:
+            return ecu_resources
+
+        # Heuristic: Find .properties files in the project root (parent of templates/ or child of Def/)
+        project_root = self.project_template_dir.parent
+        logger.info(f"Scanning for ECU resources in: {project_root}")
+        
+        parser = TresosPropertiesParser()
+        props_files = []
+        
+        # Search recursively for .properties files
+        try:
+            # common location: project_root/Def/plugins/.../resource/*.properties
+            def_dir = project_root / "Def"
+            if def_dir.exists():
+                all_props = list(def_dir.glob("**/*.properties"))
+                
+                # Filter by selected chip if specified
+                if self.selected_chip:
+                    # Keep only files that match the selected chip name pattern
+                    filtered = []
+                    for pf in all_props:
+                        # Check if this is a chip resource file (in resource/ directory)
+                        if "resource" in str(pf.parent).lower():
+                            # Check if filename contains the selected chip identifier
+                            if self.selected_chip in pf.stem:
+                                filtered.append(pf)
+                                logger.info(f"Selected chip file: {pf.name}")
+                        else:
+                            # Non-resource properties files (like build.properties) are always loaded
+                            filtered.append(pf)
+                    props_files.extend(filtered)
+                else:
+                    props_files.extend(all_props)
+            
+            # also check templates for any embedded properties
+            props_files.extend(list(self.project_template_dir.glob("**/*.properties")))
+        except Exception as e:
+            logger.warning(f"Error scanning for properties files: {e}")
+
+        if not props_files:
+            logger.info("No .properties files found for ECU resources.")
+            return ecu_resources
+
+        for props_file in props_files:
+            try:
+                logger.debug(f"Parsing ECU resources from: {props_file}")
+                parser.parse_file(props_file)
+            except Exception as e:
+                logger.warning(f"Failed to parse {props_file}: {e}")
+
+        ecu_resources = parser.get_ecu_resources_dict()
+        if ecu_resources:
+            logger.info(f"Loaded {len(ecu_resources)} ECU resources from {len(props_files)} files.")
+            print(f"DEBUG_ECU_RESOURCES: {ecu_resources}")
+        
+        return ecu_resources
+
     def _load_template(self, template_name: str, module_name: str = None) -> Optional[str]:
         """Load template content, searching across project, user, and default directories.
         
@@ -412,7 +483,7 @@ class CodeGenerator:
                 context['all_modules'] = self.all_configurations
                 
                 try:
-                    rendered = eb_engine.render(template_content, context)
+                    rendered = eb_engine.render(template_content, context, ecu_resources=self.ecu_resources)
                 except Exception as e:
                     logger.error(f"CRITICAL ERROR rendering {template_name}: {e}", exc_info=True)
                     return False
@@ -761,7 +832,7 @@ class CodeGenerator:
 
 /* --- Pre-Compile Parameters --- */
 {{% for path_name_value in precompile_params %}}
-#define {{{{ module_name.upper() }}}}_{{{{ path_name_value.1.upper() }}}}    ({{{{ path_name_value.2 }}}}) /* {{{{ path_name_value.1 }}}} */
+#define {{{{ module_name.upper() }}}}_{{{{ path_name_value.0.upper() }}}}_{{{{ path_name_value.1.upper() }}}}    ({{{{ path_name_value.2 }}}}) /* {{{{ path_name_value.1 }}}} */
 {{% endfor %}}
 
 /* --- Pre-Compile References --- */
@@ -789,7 +860,7 @@ class CodeGenerator:
 /* Link-Time Parameters Configuration */
 CONST({module_name}_ConfigType, {module_name.upper()}_CONST) {module_name}_Config = {{
 {{% for path_name_value in linktime_params %}}
-    ./* {{ path_name_value.0 }} */{{ path_name_value.1 }} = {{ path_name_value.2 }},
+    ./* {{{{ path_name_value.0 }}}} */{{{{ path_name_value.1 }}}} = {{{{ path_name_value.2 }}}},
 {{% endfor %}}
 }};
 
@@ -813,7 +884,7 @@ CONST({module_name}_ConfigType, {module_name.upper()}_CONST) {module_name}_Confi
 /* Post-Build Parameters Configuration */
 CONST({module_name}_ConfigType, {module_name.upper()}_CONST) {module_name}_PBConfig = {{
 {{% for path_name_value in postbuild_params %}}
-    ./* {{ path_name_value.0 }} */{{ path_name_value.1 }} = {{ path_name_value.2 }},
+    ./* {{{{ path_name_value.0 }}}} */{{{{ path_name_value.1 }}}} = {{{{ path_name_value.2 }}}},
 {{% endfor %}}
 {{% for container in containers %}}
     /* Container: {{{{ container.short_name }}}} */

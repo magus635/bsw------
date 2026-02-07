@@ -73,12 +73,14 @@ class Lexer:
     """Tokenizer for EB Tresos template files"""
     
     # Pattern for line continuation [!//!] - removes the marker and following newline
-    LINE_CONTINUATION_PATTERN = re.compile(r'\[!//!?\]\s*\n?')
+    # Also consumes leading whitespace (indentation) of the following line
+    LINE_CONTINUATION_PATTERN = re.compile(r'\[!//!?\]\s*\n?[\t ]*')
 
     # Pattern for line comments [!// ... (to end of line, no !] needed)
     # This must not match [!//!] which is line continuation
-    # IMPORTANT: Also removes the trailing newline to achieve line continuation effect
-    LINE_COMMENT_PATTERN = re.compile(r'\[!//(?!!])(?!\])[^\n]*\n?')
+    # IMPORTANT: Also removes the trailing newline and subsequent leading whitespace
+    # to achieve proper line continuation effect
+    LINE_COMMENT_PATTERN = re.compile(r'\[!//(?!!])(?!\])[^\n]*\n?[\t ]*')
     
     # Pattern to find [! ... !] blocks (standard tags)
     TAG_PATTERN = re.compile(r'\[!(.*?)!]', re.DOTALL)

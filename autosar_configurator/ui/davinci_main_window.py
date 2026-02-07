@@ -34,6 +34,7 @@ from .widgets.smart_search import SmartSearchWidget
 from .widgets.dependency_graph import DependencyGraphWidget
 from .widgets.ai_assistant import AIAssistantWidget
 from ..core.ai.nlp_processor import NaturalLanguageProcessor
+from ..core.chip_constraint_service import ChipConstraintService
 from ..generator.generator import CodeGenerator
 
 
@@ -99,6 +100,10 @@ class DaVinciMainWindow(QMainWindow):
 
         # Internal Clipboard
         self.clipboard_instance: Optional[EcucContainerValue] = None
+        
+        # Chip Constraint Service - manages chip-specific ECU constraints
+        self.chip_constraint_service = ChipConstraintService(parent=self)
+        self.chip_constraint_service.constraints_changed.connect(self._on_chip_constraints_changed)
         
         self._setup_ui()
         self._create_actions()
@@ -915,6 +920,21 @@ class DaVinciMainWindow(QMainWindow):
             # Add to recent files
             self._add_to_recent_files(str(self.current_project_file))
             
+            # Initialize chip constraint service with project path
+            if self.current_project:
+                project_dir = self.current_project_file.parent if self.current_project_file else project_root
+                self.chip_constraint_service.set_project_path(project_dir)
+                
+                # Read current chip from project settings or ResourceSubderivative parameter
+                initial_chip = self.current_project.selected_chip
+                if not initial_chip:
+                    # Try to read from ResourceSubderivative parameter
+                    initial_chip = self._get_resource_subderivative()
+                
+                if initial_chip:
+                    self.chip_constraint_service.set_chip(initial_chip)
+                    logger.info(f"Chip constraint service initialized with chip: {initial_chip}")
+            
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load project:\n{str(e)}")
             
@@ -958,11 +978,13 @@ class DaVinciMainWindow(QMainWindow):
             self.current_project.version = data['version']
             self.current_project.author = data['author']
             self.current_project.description = data['description']
+            self.current_project.selected_chip = data.get('selected_chip')
             
             # Update tree header
             self.tree_view.setHeaderLabel(f"Project: {self.current_project.name}")
             
             self.statusbar.showMessage("Project properties updated", 3000)
+
     
     def manage_variants(self):
         """Show improved dialog to manage project variants"""
@@ -1167,7 +1189,13 @@ class DaVinciMainWindow(QMainWindow):
         """Handle container creation request via command"""
         if not self.config_manager:
             return
-            
+
+        # Pre-validate: check if instance with this name already exists
+        if self.config_manager._instance_exists(name, container_def, parent_instance):
+            QMessageBox.warning(self, "创建失败", f"名称 '{name}' 已存在，请使用其他名称")
+            self.statusbar.showMessage(f"创建失败: 名称已存在", 3000)
+            return
+
         command = CreateContainerCommand(self.config_manager, container_def, parent_instance, name)
         self.undo_stack.push(command)
         
@@ -1716,7 +1744,7 @@ class DaVinciMainWindow(QMainWindow):
             finished = Signal(str, str, str) # module_name, status (GEN/SKIP/FAIL), message
 
         class GenWorker(QRunnable):
-            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None, project_template_dir=None, all_configs=None):
+            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None, project_template_dir=None, all_configs=None, selected_chip=None):
                 super().__init__()
                 self.name = name
                 self.manager = manager
@@ -1725,6 +1753,7 @@ class DaVinciMainWindow(QMainWindow):
                 self.variant_overrides = variant_overrides or {}
                 self.project_template_dir = project_template_dir
                 self.all_configs = all_configs
+                self.selected_chip = selected_chip
                 self.signals = GenSignals()
                 
             @Slot()
@@ -1741,7 +1770,8 @@ class DaVinciMainWindow(QMainWindow):
                         project_template_dir=self.project_template_dir,
                         variant_overrides=self.variant_overrides,
                         variant_name=self.variant_name,
-                        all_configurations=self.all_configs
+                        all_configurations=self.all_configs,
+                        selected_chip=self.selected_chip
                     )
                     # Pass parent output path; generator.generate_all() will handle the ModuleName/ subdirectory
                     variant_to_use = self.variant_name if self.variant_name else "Default"
@@ -1886,7 +1916,8 @@ class DaVinciMainWindow(QMainWindow):
                 variant_name=variant_name, 
                 variant_overrides=mod_variant_overrides,
                 project_template_dir=project_template_dir,
-                all_configs=all_configs
+                all_configs=all_configs,
+                selected_chip=self.current_project.selected_chip if self.current_project else None
             )
             worker.setAutoDelete(False)  # Prevent automatic deletion
             # Use QueuedConnection for cross-thread signal delivery
@@ -2575,6 +2606,52 @@ class DaVinciMainWindow(QMainWindow):
         """Handle parameter value change"""
         # Delegate to command handler
         self.handle_parameter_change(instance, param_name, value)
+        
+        # Detect chip variant change (ResourceSubderivative in Resource module)
+        if param_name == "ResourceSubderivative" and value:
+            logger.info(f"Chip variant changed to: {value}")
+            self.chip_constraint_service.set_chip(str(value))
+            self.statusbar.showMessage(f"芯片型号已切换为: {value}，约束已重新加载", 5000)
+    
+    def _on_chip_constraints_changed(self, chip_name: str):
+        """Handle chip constraints change - refresh UI to show new constraints"""
+        logger.info(f"Chip constraints reloaded for: {chip_name}")
+        
+        # Refresh config panel if showing a container instance
+        if hasattr(self.config_panel, 'current_instance') and self.config_panel.current_instance:
+            # Re-display current instance to update constraint column
+            self.config_panel.show_instance(
+                self.config_panel.current_instance,
+                self.config_panel.current_def,
+                self.config_manager,
+                self.current_project
+            )
+        
+        # Update project's selected_chip field
+        if self.current_project and chip_name:
+            self.current_project.selected_chip = chip_name
+            self._has_unsaved_changes = True
+
+    
+    def _get_resource_subderivative(self) -> Optional[str]:
+        """Get the ResourceSubderivative parameter value from Resource module"""
+        if not self.current_project:
+            return None
+        
+        resource_manager = self.current_project.module_managers.get('Resource')
+        if not resource_manager:
+            return None
+        
+        # Look for ResourceGeneral container
+        for container in resource_manager.configuration.containers:
+            if container.short_name == 'ResourceGeneral' or 'General' in container.short_name:
+                # Get ResourceSubderivative parameter
+                param = container.parameter_values.get('ResourceSubderivative')
+                if param and param.value:
+                    return str(param.value)
+        
+        return None
+
     
     def _on_instance_variant_changed(self, instance: EcucContainerValue):
         """Handle when an instance's assigned variant changes - refresh tree to update filtering"""

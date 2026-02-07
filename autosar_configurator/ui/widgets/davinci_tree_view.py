@@ -301,8 +301,9 @@ class DaVinciTreeView(QTreeWidget):
         
         # Add existing sub-instances (Filtered by active variant)
         sub_instances = []
+        container_short_name = container_def.short_name
         for sc in parent_instance.sub_containers:
-            if sc.definition_ref == container_def.definition_ref:
+            if self._definition_refs_match(sc.definition_ref, container_def.definition_ref, container_short_name):
                 # Filter by active variant:
                 # 1. Match active variant
                 # 2. Or instance has no variant (global)
@@ -310,6 +311,7 @@ class DaVinciTreeView(QTreeWidget):
                 #    Actually, standard DaVinci behavior is to show what matches the variant.
                 if self.active_variant is None or sc.variant is None or sc.variant == self.active_variant:
                     sub_instances.append(sc)
+
         
         for sub_instance in sub_instances:
             sub_instance_item = self._create_instance_node(sub_instance, container_def, config_manager, parent_instance)
@@ -332,16 +334,39 @@ class DaVinciTreeView(QTreeWidget):
         return item
     
     def _get_instances_for_def(self, container_def: EcucContainerDef, config_manager: ConfigurationManager) -> list:
-        """Get all instances of a container definition at top level"""
+        """Get all instances of a container definition at top level
+        
+        Note: For EB Tresos projects, definition_ref paths may differ between module definition
+        (e.g., /AUTOSAR/EcucDefs/Module/Container) and configuration values 
+        (e.g., /Vendor/Module/Container). We match by container short_name instead.
+        """
         if not config_manager:
             return []
         
+        # Extract container short_name from definition_ref (last part of path)
+        container_short_name = container_def.short_name
+        
         return [
             c for c in config_manager.configuration.containers
-            if c.definition_ref == container_def.definition_ref and (
+            if self._definition_refs_match(c.definition_ref, container_def.definition_ref, container_short_name) and (
                 self.active_variant is None or c.variant is None or c.variant == self.active_variant
             )
         ]
+    
+    def _definition_refs_match(self, config_ref: str, def_ref: str, short_name: str) -> bool:
+        """Check if a config definition_ref matches a module definition's definition_ref.
+        
+        First tries exact match, then falls back to matching by container short_name
+        (last path segment), to handle EB Tresos projects with vendor-specific paths.
+        """
+        # Try exact match first
+        if config_ref == def_ref:
+            return True
+        
+        # Fall back to matching by short_name (last segment of path)
+        config_short_name = config_ref.rstrip('/').split('/')[-1] if config_ref else ""
+        return config_short_name == short_name
+
     
     # Event handlers
     

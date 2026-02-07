@@ -248,10 +248,31 @@ class RequiredReferenceRule(ValidationRule):
     
     def _get_container_def(self, definition_ref: str, module_def: EcucModuleDef) -> Optional[EcucContainerDef]:
         """Get container definition from reference path"""
+        if not definition_ref:
+            return None
+
         parts = definition_ref.split('/')
-        if len(parts) < 4:
-            return None
-        relative_path = '/'.join(parts[4:])
-        if not relative_path:
-            return None
-        return module_def.get_container_def(relative_path)
+
+        # Handle absolute paths (starts with /)
+        if parts[0] == '' and len(parts) >= 3:
+            # Try to find module name in path
+            module_name = module_def.short_name
+            try:
+                module_idx = parts.index(module_name)
+                relative_path = '/'.join(parts[module_idx + 1:])
+                if relative_path:
+                    return module_def.get_container_def(relative_path)
+            except ValueError:
+                pass
+
+            # Fallback: assume format /Package/Module/Container...
+            if len(parts) >= 4:
+                relative_path = '/'.join(parts[3:])
+                if relative_path:
+                    return module_def.get_container_def(relative_path)
+
+        # Handle relative paths
+        if not definition_ref.startswith('/'):
+            return module_def.get_container_def(definition_ref)
+
+        return None
