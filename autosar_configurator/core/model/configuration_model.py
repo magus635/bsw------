@@ -256,7 +256,6 @@ class EcucContainerValue:
     variant: Optional[str] = None
     
     def get_path(self) -> str:
-
         """Get full path of this container instance"""
         if self.parent:
             return f"{self.parent.get_path()}/{self.short_name}"
@@ -264,6 +263,11 @@ class EcucContainerValue:
         # Use module name if available to avoid cross-module clashing
         root = f"/{self.module_name}" if self.module_name else "/Config"
         return f"{root}/{self.short_name}"
+    
+    @property
+    def path(self) -> str:
+        """Compatibility property for get_path()"""
+        return self.get_path()
     
     def set_parameter_value(self, param_name: str, value: Any, definition_ref: str):
         """Set or update a parameter value"""

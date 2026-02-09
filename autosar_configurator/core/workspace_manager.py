@@ -109,12 +109,12 @@ class WorkspaceProject:
         for sub in container.sub_containers:
             self._copy_container_to_base(sub, base_dict)
         
-    def add_module(self, module_def: EcucModuleDef, def_path: Path) -> ConfigurationManager:
+    def add_module(self, module_def: EcucModuleDef, def_path: Path, def_missing: bool = False) -> ConfigurationManager:
         """Add a new module to the project"""
         if module_def.short_name in self.module_managers:
             raise ValueError(f"Module {module_def.short_name} already exists in project")
             
-        manager = ConfigurationManager(module_def, project_context=self)
+        manager = ConfigurationManager(module_def, project_context=self, def_missing=def_missing)
         self.module_managers[module_def.short_name] = manager
         self.module_defs[module_def.short_name] = def_path
         return manager
@@ -544,9 +544,32 @@ class WorkspaceManager:
                     failed_modules.append((name, error_msg))
                     print(f"Failed to load module {name}: {e}")
             else:
-                error_msg = f"DEF file not found: {def_path}"
-                failed_modules.append((name, error_msg))
-                print(f"Definition file not found for {name}: {def_path}")
+                # Stub load: Create a surrogate module definition so we can still see the values
+                try:
+                    from .model.definition_model import EcucModuleDef
+                    # Try to infer correct definition_ref if possible, or use standard pattern
+                    module_def = EcucModuleDef(
+                        short_name=name, 
+                        definition_ref=f"/AUTOSAR/EcucDefs/{name}"
+                    )
+                    
+                    # Create manager with def_missing=True
+                    manager = project.add_module(module_def, def_path, def_missing=True)
+                    
+                    # Load configuration if exists (skip cleanup since def is a stub)
+                    if config_path.exists():
+                        manager.load_configuration(config_path, skip_cleanup=True)
+                    
+                    # Restore variant overrides if saved
+                    if "variant_overrides" in module_data:
+                        manager.configuration.variant_overrides = module_data["variant_overrides"]
+                    
+                    print(f"Loaded module {name} with stub definition (DEF file missing)")
+                    
+                except Exception as e:
+                    error_msg = f"Failed to load stub: {str(e)}"
+                    failed_modules.append((name, error_msg))
+                    print(f"Failed to load stub module {name}: {e}")
         
         # EMF-style reference resolution: resolve cross-module references
         try:

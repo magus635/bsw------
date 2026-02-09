@@ -79,6 +79,11 @@ class EcucParameterDef:
         """Check if this parameter is mandatory"""
         return self.lower_multiplicity >= 1
 
+    @property
+    def path(self) -> str:
+        """Compatibility property for definition_ref"""
+        return self.definition_ref
+
 
 @dataclass
 class EcucReferenceDef:
@@ -121,6 +126,11 @@ class EcucReferenceDef:
     def is_required(self) -> bool:
         """Check if this reference is mandatory"""
         return self.lower_multiplicity >= 1
+
+    @property
+    def path(self) -> str:
+        """Compatibility property for definition_ref"""
+        return self.definition_ref
 
 
 @dataclass
@@ -168,6 +178,11 @@ class EcucContainerDef:
         """Get multiplicity as string (e.g., '1..6', '0..*')"""
         upper = "*" if self.upper_multiplicity == -1 else str(self.upper_multiplicity)
         return f"{self.lower_multiplicity}..{upper}"
+
+    @property
+    def path(self) -> str:
+        """Compatibility property for definition_ref"""
+        return self.definition_ref
     
     def add_parameter(self, param_def: EcucParameterDef):
         """Add a parameter definition"""
@@ -206,6 +221,11 @@ class EcucModuleDef:
     
     # Default variant for this module
     default_variant: VariantType = VariantType.POSTBUILD
+
+    @property
+    def path(self) -> str:
+        """Compatibility property for definition_ref"""
+        return self.definition_ref
     
     def add_container(self, container_def: EcucContainerDef):
         """Add a top-level container definition"""

@@ -119,6 +119,10 @@ class DaVinciTreeView(QTreeWidget):
             
     def _create_module_node(self, module_def: EcucModuleDef, config_manager: ConfigurationManager):
         """Create a top-level module node"""
+        # Silent fail-safe: hide modules with missing definitions from UI
+        if getattr(config_manager, 'def_missing', False):
+            return
+
         # Detect template engine for this module
         from ...generator.generator import CodeGenerator
         from pathlib import Path
@@ -1040,10 +1044,21 @@ class DaVinciTreeView(QTreeWidget):
         
         # Get module name from container definition path
         module_name = None
-        if container_def.path:
-            parts = container_def.path.strip('/').split('/')
-            if len(parts) >= 2:
-                module_name = parts[1] if parts[0] == 'AUTOSAR' else parts[0]
+        # Use definition_ref (EcucContainerDef doesn't have a .path attribute)
+        ref = getattr(container_def, 'definition_ref', None)
+        if ref:
+            parts = ref.strip('/').split('/')
+            if len(parts) >= 1:
+                # Handle /AUTOSAR/EcucDefs/ModuleName/...
+                if parts[0] == 'AUTOSAR' and len(parts) >= 3 and parts[1] == 'EcucDefs':
+                    module_name = parts[2]
+                # Handle /AUTOSAR/ModuleName/...
+                elif parts[0] == 'AUTOSAR' and len(parts) >= 2:
+                    module_name = parts[1]
+                # Handle /ModuleName/...
+                else:
+                    module_name = parts[0]
+
         
         if not module_name:
             # Try to get from active config manager if available

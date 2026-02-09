@@ -172,15 +172,17 @@ class DefFileScanner:
 class ConfigurationManager:
     """Manages ECUC configuration instances based on definitions"""
     
-    def __init__(self, module_def: EcucModuleDef, project_context=None):
+    def __init__(self, module_def: EcucModuleDef, project_context=None, def_missing: bool = False):
         """Initialize configuration manager
         
         Args:
             module_def: Module definition (template)
             project_context: Optional reference to WorkspaceProject
+            def_missing: True if the definition file was missing and this is a stub
         """
         self.module_def = module_def
         self.project_context = project_context
+        self.def_missing = def_missing
         
         # Create empty configuration
         self.configuration = EcucModuleConfiguration(
@@ -590,11 +592,13 @@ class ConfigurationManager:
         # Mark as saved to reset is_modified flag
         self.configuration.mark_saved()
         
-    def load_configuration(self, file_path: Path):
+    def load_configuration(self, file_path: Path, skip_cleanup: bool = False):
         """Load configuration from ARXML file
         
         Args:
             file_path: Input file path
+            skip_cleanup: If True, skip cleaning up parameters that don't match the definition
+                          (useful when the definition file is missing or a stub)
         """
         from .parser.arxml_parser import ArxmlParser
         
@@ -630,7 +634,8 @@ class ConfigurationManager:
                     self._update_counters_recursive(container)
 
                 # Clean up invalid parameters (parameters in wrong container level)
-                if self.module_def:
+                # Skip if requested (e.g. for stub modules where definition is empty)
+                if self.module_def and not skip_cleanup:
                     cleanup_count = self._cleanup_invalid_parameters()
                     if cleanup_count > 0:
                         print(f"[ConfigManager] Cleaned up {cleanup_count} invalid parameter(s) from wrong container levels")
