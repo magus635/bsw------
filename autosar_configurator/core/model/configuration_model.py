@@ -201,9 +201,12 @@ class EcucReferenceValue:
     # Resolution error (if resolution failed)
     resolution_error: Optional[ResolutionError] = field(default=None, repr=False)
     
+    # Index for multi-valued references
+    index: Optional[int] = None
+
     # Metadata
     is_modified: bool = False
-    
+
     @property
     def is_resolved(self) -> bool:
         """Check if this reference has been resolved to an object"""
@@ -229,7 +232,10 @@ class EcucContainerValue:
     
     # Configured reference values
     reference_values: Dict[str, EcucReferenceValue] = field(default_factory=dict)
-    
+
+    # Multi-valued reference values (for UPPER-MULTIPLICITY > 1 or INFINITE)
+    multi_reference_values: Dict[str, List[EcucReferenceValue]] = field(default_factory=dict)
+
     # Sub-container instances
     sub_containers: List['EcucContainerValue'] = field(default_factory=list)
     
@@ -321,7 +327,19 @@ class EcucContainerValue:
             is_modified=True
         )
         self.mark_modified()
-    
+
+    def add_multi_reference_value(self, ref_name: str, value_ref: str, definition_ref: str, index: int):
+        """Add an indexed reference value for multi-valued references (UPPER-MULTIPLICITY > 1)"""
+        if ref_name not in self.multi_reference_values:
+            self.multi_reference_values[ref_name] = []
+        self.multi_reference_values[ref_name].append(EcucReferenceValue(
+            definition_ref=definition_ref,
+            value_ref=value_ref,
+            index=index,
+            is_modified=True
+        ))
+        self.mark_modified()
+
     def add_sub_container(self, sub_container: 'EcucContainerValue'):
         """Add a sub-container instance"""
         sub_container.parent = self
@@ -377,7 +395,18 @@ class EcucContainerValue:
                 value_ref=ref.value_ref,
                 is_modified=True
             )
-            
+
+        # Clone multi-valued references
+        for name, ref_list in self.multi_reference_values.items():
+            new_instance.multi_reference_values[name] = [
+                EcucReferenceValue(
+                    definition_ref=ref.definition_ref,
+                    value_ref=ref.value_ref,
+                    index=ref.index,
+                    is_modified=True
+                ) for ref in ref_list
+            ]
+
         # Clone sub-containers
         for sub in self.sub_containers:
             new_sub = sub.clone()

@@ -353,13 +353,40 @@ class OverlayEngine:
         # Add references
         refs_source = getattr(config_instance, 'reference_values', {}) or \
                       {k: v for k, v in getattr(config_instance, 'children', {}).items() if hasattr(v, 'value_ref')}
+        multi_refs_source = getattr(config_instance, 'multi_reference_values', {}) or {}
         for ref_name, ref_def in container_def.references.items():
-            ref_node = self._create_reference_node(
-                ref_def,
-                refs_source.get(ref_name),
-                f"{path}/{ref_name}"
-            )
-            node.add_child(ref_node)
+            is_multi = ref_def.upper_multiplicity == -1 or ref_def.upper_multiplicity > 1
+            multi_ref_list = multi_refs_source.get(ref_name, [])
+            if is_multi and multi_ref_list:
+                # Multi-valued reference: create wrapper node with indexed children
+                wrapper_node = ConfigurationNode(
+                    short_name=ref_name,
+                    node_type='reference',
+                    path=f"{path}/{ref_name}",
+                    definition_ref=ref_def.definition_ref,
+                    lower_multiplicity=ref_def.lower_multiplicity,
+                    upper_multiplicity=ref_def.upper_multiplicity
+                )
+                for ref_val in sorted(multi_ref_list, key=lambda r: r.index if r.index is not None else 0):
+                    idx = ref_val.index if ref_val.index is not None else 0
+                    child_node = ConfigurationNode(
+                        short_name=str(idx),
+                        node_type='reference',
+                        path=f"{path}/{ref_name}/{idx}",
+                        value=ref_val.value_ref,
+                        definition_ref=ref_def.definition_ref,
+                        index=idx
+                    )
+                    wrapper_node.add_child(child_node)
+                node.add_child(wrapper_node)
+            else:
+                # Single-valued reference
+                ref_node = self._create_reference_node(
+                    ref_def,
+                    refs_source.get(ref_name),
+                    f"{path}/{ref_name}"
+                )
+                node.add_child(ref_node)
         
         return node
     
@@ -395,14 +422,28 @@ class OverlayEngine:
         
         # Add references (no value, just structure)
         for ref_name, ref_def in container_def.references.items():
-            ref_node = ConfigurationNode(
-                short_name=ref_name,
-                node_type='reference',
-                path=f"{path}/{ref_name}",
-                value=None,
-                definition_ref=ref_def.definition_ref
-            )
-            node.add_child(ref_node)
+            is_multi = ref_def.upper_multiplicity == -1 or ref_def.upper_multiplicity > 1
+            if is_multi:
+                # Multi-valued reference: create empty wrapper node
+                wrapper_node = ConfigurationNode(
+                    short_name=ref_name,
+                    node_type='reference',
+                    path=f"{path}/{ref_name}",
+                    value=None,
+                    definition_ref=ref_def.definition_ref,
+                    lower_multiplicity=ref_def.lower_multiplicity,
+                    upper_multiplicity=ref_def.upper_multiplicity
+                )
+                node.add_child(wrapper_node)
+            else:
+                ref_node = ConfigurationNode(
+                    short_name=ref_name,
+                    node_type='reference',
+                    path=f"{path}/{ref_name}",
+                    value=None,
+                    definition_ref=ref_def.definition_ref
+                )
+                node.add_child(ref_node)
         
         # Recursively add required sub-containers
         for sub_name, sub_def in container_def.sub_containers.items():

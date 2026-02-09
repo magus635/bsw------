@@ -677,27 +677,38 @@ class ArxmlParser:
         definition_ref = self._get_text_value(element, 'DEFINITION-REF') or ""
         if not definition_ref:
             return
-            
+
         ref_name = definition_ref.split('/')[-1]
-        
+
+        # Check for INDEX (multi-valued references)
+        index_text = self._get_text_value(element, 'INDEX')
+
         # Get target reference
         # Standard: VALUE-REF
         target_ref = self._get_text_value(element, 'VALUE-REF')
-        
+
         # Instance Reference: TARGET-REF inside VALUE-IREF or directly
         if target_ref is None:
             target_ref = self._get_text_value(element, 'TARGET-REF')
-            
+
         if target_ref is None:
             # Try finding descendant TARGET-REF (for IREF structure)
             iref_target = self._find_descendant(element, 'TARGET-REF')
             if iref_target is not None:
                 target_ref = iref_target.text
-                
+
         if target_ref is None:
             target_ref = ""
-        
-        container.set_reference_value(ref_name, target_ref, definition_ref)
+
+        # Route to multi-valued or single-valued storage
+        if index_text is not None:
+            try:
+                index_val = int(index_text)
+            except (ValueError, TypeError):
+                index_val = 0
+            container.add_multi_reference_value(ref_name, target_ref, definition_ref, index_val)
+        else:
+            container.set_reference_value(ref_name, target_ref, definition_ref)
 
     # Helper methods for Permissive Parsing
     

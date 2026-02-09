@@ -183,8 +183,8 @@ class EcucDefParser:
             
         for child in params_to_parse:
             tag_local = etree.QName(child).localname
-            # Supports ARXML (ECUC-*-PARAM-DEF) and XDM (var)
-            if 'PARAM-DEF' in tag_local.upper() or tag_local == 'var':
+            # Supports ARXML (ECUC-*-PARAM-DEF, ECUC-FUNCTION-NAME-DEF, ECUC-LINKER-SYMBOL-DEF) and XDM (var)
+            if 'PARAM-DEF' in tag_local.upper() or 'FUNCTION-NAME-DEF' in tag_local.upper() or 'LINKER-SYMBOL-DEF' in tag_local.upper() or tag_local == 'var':
                 param_def = self._parse_parameter_def(child, current_path)
                 if param_def:
                     container_def.add_parameter(param_def)
@@ -361,7 +361,12 @@ class EcucDefParser:
         # Parse multiplicity (use direct child lookup)
         ref_def.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)
         ref_def.upper_multiplicity = self._get_child_int_value(element, 'UPPER-MULTIPLICITY', 1)
-        
+
+        # Check UPPER-MULTIPLICITY-INFINITE
+        infinite_val = self._get_child_text_value(element, 'UPPER-MULTIPLICITY-INFINITE')
+        if infinite_val is not None and infinite_val.strip() == '1':
+            ref_def.upper_multiplicity = -1  # -1 means infinite
+
         # Set definition reference path
         ref_def.definition_ref = f"{parent_path}/{short_name}"
 
@@ -402,6 +407,11 @@ class EcucDefParser:
         # Parse multiplicity (use direct child lookup)
         ref_def.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)
         ref_def.upper_multiplicity = self._get_child_int_value(element, 'UPPER-MULTIPLICITY', 1)
+
+        # Check UPPER-MULTIPLICITY-INFINITE
+        infinite_val = self._get_child_text_value(element, 'UPPER-MULTIPLICITY-INFINITE')
+        if infinite_val is not None and infinite_val.strip() == '1':
+            ref_def.upper_multiplicity = -1  # -1 means infinite
 
         # Set definition reference path
         ref_def.definition_ref = f"{parent_path}/{short_name}"

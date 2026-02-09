@@ -130,11 +130,28 @@ class EcucValueSerializer:
                 self._serialize_parameter(param, param_values_elem)
                 
         # References - create wrapper once
+        ref_values_elem = None
         if container.reference_values:
             ref_values_elem = etree.SubElement(container_elem, 'REFERENCE-VALUES')
             for ref in container.reference_values.values():
                 self._serialize_reference(ref, ref_values_elem)
-                
+
+        # Multi-valued references (with INDEX)
+        multi_refs = getattr(container, 'multi_reference_values', None)
+        if multi_refs:
+            if ref_values_elem is None:
+                ref_values_elem = etree.SubElement(container_elem, 'REFERENCE-VALUES')
+            for ref_name, ref_list in multi_refs.items():
+                for ref_val in sorted(ref_list, key=lambda r: r.index if r.index is not None else 0):
+                    ref_elem = etree.SubElement(ref_values_elem, 'ECUC-REFERENCE-VALUE')
+                    if ref_val.index is not None:
+                        index_elem = etree.SubElement(ref_elem, 'INDEX')
+                        index_elem.text = str(ref_val.index)
+                    def_ref = etree.SubElement(ref_elem, 'DEFINITION-REF', DEST='ECUC-REFERENCE-DEF')
+                    def_ref.text = ref_val.definition_ref
+                    value_elem = etree.SubElement(ref_elem, 'VALUE-REF', DEST='ECUC-CONTAINER-VALUE')
+                    value_elem.text = ref_val.value_ref
+
         # Sub-containers
         if container.sub_containers:
             sub_containers_elem = etree.SubElement(container_elem, 'SUB-CONTAINERS')

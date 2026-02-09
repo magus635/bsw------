@@ -1163,13 +1163,12 @@ class XPathEngine:
                     # In AUTOSAR context, attributes are treated as properties
                     # @name typically refers to short_name
                     if name == 'name':
-                        # Return the node's short_name as a value wrapper
-                        next_nodes.append(n)  # The predicate will extract the name
+                        next_nodes.append(n.short_name)
                     elif name == 'index':
                         # Return the node's index
                         next_nodes.append(getattr(n, 'index', 0))
                     elif hasattr(n, name):
-                        next_nodes.append(n)
+                        next_nodes.append(getattr(n, name))
                         
                 else:  # child axis (default)
                     if name == '*':
@@ -1504,10 +1503,17 @@ class XPathEngine:
         # Handle pure numbers
         if expr.lstrip('-').isdigit():
             return int(expr)
-        
+
         if re.match(r'^-?\d+\.\d+$', expr):
             return float(expr)
-        
+
+        # Handle @attribute expressions (XPath node attributes like @index)
+        if expr.startswith('@'):
+            attr_name = expr[1:]
+            if context_node is not None and hasattr(context_node, attr_name):
+                return getattr(context_node, attr_name)
+            return None
+
         # Handle variable references
         if expr.startswith('$'):
             var_name = expr[1:]
