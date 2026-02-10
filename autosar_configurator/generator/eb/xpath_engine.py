@@ -661,14 +661,18 @@ class XPathEngine:
                 # Parse arguments properly (comma separated, respecting parens and quotes)
                 args = []
                 if args_str:
+                    # Handle XML entity escapes first (e.g., &apos; -> ')
+                    # This is needed for EB Tresos template compatibility
+                    args_str_unescaped = args_str.replace('&apos;', "'").replace('&quot;', '"').replace('&amp;', '&')
+
                     arg_depth = 0
                     arg_in_quote = None
                     current_arg = []
-                    for char in args_str:
+                    for char in args_str_unescaped:
                         if char in ('"', "'"):
                             if arg_in_quote == char: arg_in_quote = None
                             elif arg_in_quote is None: arg_in_quote = char
-                        
+
                         if arg_in_quote is None:
                             if char == '(': arg_depth += 1
                             elif char == ')': arg_depth -= 1

@@ -529,27 +529,27 @@ class BuiltinFunctions:
     
     def node_order(self, nodes: Any, sort_expr: Optional[str] = None) -> List['ConfigurationNode']:
         """Sort nodes by a property or expression.
-        
+
         Args:
             nodes: List of nodes to sort
             sort_expr: XPath expression to evaluate for each node as sort key
         """
         if nodes is None:
             return []
-        
+
         # If it's a single node, wrap it in a list
         if hasattr(nodes, 'short_name') and not isinstance(nodes, list):
             nodes = [nodes]
-        
+
         if not isinstance(nodes, (list, tuple)):
             try:
                 nodes = list(nodes)
             except TypeError:
                 return []
-        
+
         if not nodes:
             return []
-        
+
         if sort_expr is None:
             # Default sort by short_name
             return sorted(nodes, key=lambda n: n.short_name if hasattr(n, 'short_name') else '')
@@ -559,7 +559,7 @@ class BuiltinFunctions:
         if hasattr(sort_expr, 'short_name'):
             # sort_expr is actually a ConfigurationNode, not a string expression
             return sorted(nodes, key=lambda n: n.short_name if hasattr(n, 'short_name') else '')
-        
+
         # Ensure sort_expr is a string
         if not isinstance(sort_expr, str):
             return sorted(nodes, key=lambda n: n.short_name if hasattr(n, 'short_name') else '')
@@ -575,7 +575,7 @@ class BuiltinFunctions:
                 inner_expr = sort_expr
                 if inner_expr.startswith('node:value(') and inner_expr.endswith(')'):
                     inner_expr = inner_expr[11:-1].strip().strip("'\"")
-                
+
                 # Strip leading ./ if present
                 if inner_expr.startswith('./'):
                     inner_expr = inner_expr[2:]
@@ -583,18 +583,26 @@ class BuiltinFunctions:
                 # Handle common case: node:value(ParamName) or just ParamName
                 inner_expr_orig = inner_expr
                 val = None
-                if '/' not in inner_expr and not '(' in inner_expr:
+
+                # Check if this is a complex expression (contains function calls or operators)
+                has_functions = '(' in inner_expr or 'num:' in inner_expr or 'text:' in inner_expr or 'string:' in inner_expr
+
+                if has_functions and self.renderer:
+                    # For complex expressions, use renderer's expression evaluator
+                    val = self.renderer._evaluate_expression(inner_expr)
+                elif '/' not in inner_expr and not '(' in inner_expr:
+                    # Simple attribute lookup
                     child = node.get_child(inner_expr)
                     if child:
                         val = child.get_value()
-                
+
                 if val is None:
                     # Fallback to short_name if value not found, or empty string
                     if inner_expr == 'short_name':
                         val = node.short_name
                     else:
                         # Path traversal logic for complex expressions relative to node
-                        if '/' in inner_expr:
+                        if '/' in inner_expr and not has_functions:
                             current = node
                             parts = [p for p in inner_expr.split('/') if p and p != '.']
                             for part in parts:
@@ -606,7 +614,7 @@ class BuiltinFunctions:
                 # Robust sorting key generation
                 if val is None:
                     return (2, "", node.short_name)
-                
+
                 # If it's numeric, use numeric sort
                 try:
                     if isinstance(val, (int, float)):

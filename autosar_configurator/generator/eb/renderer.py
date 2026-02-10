@@ -1393,6 +1393,10 @@ class Renderer:
         func_name = expr[:paren_idx].strip()
         args_str = expr[paren_idx + 1:-1].strip()
 
+        # Handle XML entity escapes in args_str (e.g., &apos; -> ')
+        # This is needed for EB Tresos template compatibility
+        args_str = args_str.replace('&apos;', "'").replace('&quot;', '"').replace('&amp;', '&')
+
         # Parse arguments (supports nested parens and quotes)
         args = []
         if args_str:
