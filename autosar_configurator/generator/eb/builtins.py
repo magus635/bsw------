@@ -369,8 +369,61 @@ class BuiltinFunctions:
         if not target_path:
              return None
 
-        res = self.symbol_table.resolve_reference(str(target_path))
-        return res
+        target_path_str = str(target_path).strip()
+        _debug_log(f"node_ref: Resolving reference node value: {target_path_str}")
+
+        # Try symbol table first
+        res = self.symbol_table.resolve_reference(target_path_str)
+        if res:
+            _debug_log(f"node_ref: Symbol table resolved to {res.short_name}")
+            return res
+
+        # Fallback: If symbol table resolution failed, try to navigate from current context
+        # This handles cases where references point to configuration instances not yet fully indexed
+        current = self.context_stack.current_node()
+        if current:
+            # Try to find the target by walking up and then down the tree
+            # Pattern: /ModuleName/ModuleName/Container/Instance/Channel
+            # We need to find the Instance/Channel part in the actual tree
+
+            # Extract path segments
+            parts = [p for p in target_path_str.split('/') if p]
+            if len(parts) >= 2:
+                # Skip module name prefix (appears twice: /Adc/Adc)
+                # Look for the actual container path starting with the second occurrence
+                # Try from the end: walk up to root, then navigate down the target path
+                root = current
+                while root.parent:
+                    root = root.parent
+
+                # Now try to navigate from root
+                _debug_log(f"node_ref fallback: Navigating from root with parts: {parts}")
+                nav_current = root
+                for part in parts[1:]:  # Skip module name
+                    if nav_current:
+                        child = nav_current.get_child(part)
+                        if child:
+                            nav_current = child
+                        else:
+                            _debug_log(f"node_ref fallback: Cannot find '{part}' in {nav_current.short_name}")
+                            # Try to find by definition name
+                            found = False
+                            for c_node in nav_current.children.values():
+                                if c_node.short_name == part or \
+                                   (c_node.definition_ref and c_node.definition_ref.split('/')[-1] == part):
+                                    nav_current = c_node
+                                    found = True
+                                    break
+                            if not found:
+                                nav_current = None
+                                break
+
+                if nav_current and nav_current != root:
+                    _debug_log(f"node_ref fallback: Successfully resolved to {nav_current.short_name}")
+                    return nav_current
+
+        _debug_log(f"node_ref: Could not resolve reference path {target_path_str}")
+        return None
     
     def node_exists(self, path_or_node) -> bool:
         """Check if a path or node exists.
