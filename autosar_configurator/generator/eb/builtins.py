@@ -358,9 +358,26 @@ class BuiltinFunctions:
                             return child_node
 
             # Try absolute path resolution via symbol table
-            res = self.symbol_table.resolve_reference(path_str)
-            if res:
-                return res
+            if self.symbol_table:
+                res = self.symbol_table.resolve_reference(path_str)
+                if res:
+                    return res
+            else:
+                # If no symbol table, try fallback navigation from context
+                current = self.context_stack.current_node()
+                if current:
+                    # For relative paths, try to navigate relative to current
+                    parts = path_str.strip('/').split('/')
+                    nav_current = current
+                    for part in parts:
+                        child = nav_current.get_child(part)
+                        if child:
+                            nav_current = child
+                        else:
+                            nav_current = None
+                            break
+                    if nav_current:
+                        return nav_current
 
             return None
 
@@ -369,58 +386,75 @@ class BuiltinFunctions:
         if not target_path:
              return None
 
+        from .renderer import _debug_log
         target_path_str = str(target_path).strip()
         _debug_log(f"node_ref: Resolving reference node value: {target_path_str}")
 
         # Try symbol table first
-        res = self.symbol_table.resolve_reference(target_path_str)
-        if res:
-            _debug_log(f"node_ref: Symbol table resolved to {res.short_name}")
-            return res
+        if self.symbol_table:
+            res = self.symbol_table.resolve_reference(target_path_str)
+            if res:
+                _debug_log(f"node_ref: Symbol table resolved to {res.short_name}")
+                return res
 
-        # Fallback: If symbol table resolution failed, try to navigate from current context
-        # This handles cases where references point to configuration instances not yet fully indexed
+        # Fallback: Navigate from root to find the target node
+        # Path format: /Adc/Adc/AdcConfigSet/HWTrigDemo/AN0
+        # We need to find AdcConfigSet → HWTrigDemo → AN0 in the tree
         current = self.context_stack.current_node()
         if current:
-            # Try to find the target by walking up and then down the tree
-            # Pattern: /ModuleName/ModuleName/Container/Instance/Channel
-            # We need to find the Instance/Channel part in the actual tree
+            # Walk up to root
+            root = current
+            while root.parent:
+                root = root.parent
 
-            # Extract path segments
+            _debug_log(f"node_ref fallback: Resolving '{target_path_str}' from root '{root.short_name}'")
+
+            # Extract path parts and remove leading empty string and duplicates
             parts = [p for p in target_path_str.split('/') if p]
-            if len(parts) >= 2:
-                # Skip module name prefix (appears twice: /Adc/Adc)
-                # Look for the actual container path starting with the second occurrence
-                # Try from the end: walk up to root, then navigate down the target path
-                root = current
-                while root.parent:
-                    root = root.parent
+            if not parts:
+                return None
 
-                # Now try to navigate from root
-                _debug_log(f"node_ref fallback: Navigating from root with parts: {parts}")
-                nav_current = root
-                for part in parts[1:]:  # Skip module name
-                    if nav_current:
-                        child = nav_current.get_child(part)
-                        if child:
-                            nav_current = child
-                        else:
-                            _debug_log(f"node_ref fallback: Cannot find '{part}' in {nav_current.short_name}")
-                            # Try to find by definition name
-                            found = False
-                            for c_node in nav_current.children.values():
-                                if c_node.short_name == part or \
-                                   (c_node.definition_ref and c_node.definition_ref.split('/')[-1] == part):
-                                    nav_current = c_node
-                                    found = True
-                                    break
-                            if not found:
-                                nav_current = None
+            # The path format is typically: Adc, Adc, AdcConfigSet, HWTrigDemo, AN0
+            # Skip the redundant Adc (appears twice) and start from AdcConfigSet
+            start_idx = 1
+            if len(parts) > 2 and parts[0] == parts[1]:
+                # Skip both Adc entries and start from the third
+                start_idx = 2
+
+            # Navigate from root
+            nav_current = root
+            for i in range(start_idx, len(parts)):
+                part = parts[i]
+                child = nav_current.get_child(part)
+                if child:
+                    nav_current = child
+                    _debug_log(f"node_ref fallback: Found '{part}', now at '{nav_current.short_name}'")
+                else:
+                    # If direct child not found, search recursively in instance wrappers
+                    found = False
+                    for c_node in nav_current.children.values():
+                        if c_node.short_name == part:
+                            nav_current = c_node
+                            found = True
+                            _debug_log(f"node_ref fallback: Found '{part}' by name")
+                            break
+                        # Check if this is an instance wrapper (e.g., AdcConfigSet) and the target is inside
+                        if c_node.node_type == 'container' and c_node.short_name != part:
+                            # Try to find the part inside this container
+                            inner = c_node.get_child(part)
+                            if inner:
+                                nav_current = inner
+                                found = True
+                                _debug_log(f"node_ref fallback: Found '{part}' inside '{c_node.short_name}'")
                                 break
 
-                if nav_current and nav_current != root:
-                    _debug_log(f"node_ref fallback: Successfully resolved to {nav_current.short_name}")
-                    return nav_current
+                    if not found:
+                        _debug_log(f"node_ref fallback: Could not find '{part}'")
+                        return None
+
+            if nav_current and nav_current != root:
+                _debug_log(f"node_ref fallback: Successfully resolved to '{nav_current.short_name}'")
+                return nav_current
 
         _debug_log(f"node_ref: Could not resolve reference path {target_path_str}")
         return None
