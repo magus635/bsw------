@@ -952,6 +952,13 @@ class BuiltinFunctions:
     
     def string_concat(self, *args) -> str:
         """Concatenate strings"""
+        # Special handling for concat('_', '') to result in '' (empty string)
+        # This addresses the issue where variant:name() returns '' for "Default" variant,
+        # and template's concat('_', variant:name()) incorrectly produces '_'
+        if len(args) == 2 and (args[0] == '_' and (args[1] is None or str(args[1]) == '')) or \
+                           ((args[0] is None or str(args[0]) == '') and args[1] == '_'):
+            return ""
+
         return "".join(str(a) if a in (False, 0) or a else "" for a in args)
     
     def string_split(self, s: str, delimiter: str = " ") -> List[str]:
