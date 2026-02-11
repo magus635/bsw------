@@ -159,6 +159,7 @@ class BuiltinFunctions:
             'bit:not': self.bit_not,
             'bit:shr': self.bit_shr,
             'bit:getbit': self.bit_getbit,
+            'bit:bitset': self.bit_bitset,
 
             # Additional node functions
             'node:refvalid': self.node_refvalid,
@@ -2104,6 +2105,21 @@ class BuiltinFunctions:
             return 'true'
         else:
             return 'false'
+
+    def bit_bitset(self, value: Any, bit_pos: Any) -> int:
+        """Sets a specific bit in an integer value.
+        
+        Args:
+            value: The integer value to modify.
+            bit_pos: The bit position to set (0-indexed).
+            
+        Returns:
+            The integer with the specified bit set to 1.
+        """
+        int_val = self.num_i(value)
+        bit_pos_val = self.num_i(bit_pos)
+        
+        return int_val | (1 << bit_pos_val)
 
     def bit_not(self, value: Any, width: int = 32) -> int:
         """Bitwise NOT operation.
