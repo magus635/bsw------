@@ -1362,7 +1362,8 @@ class Renderer:
                                 after = s[i+len(op)] if i+len(op) < len(s) else ' '
                                 
                                 # A boundary is any non-alphanumeric character (including whitespace/newline)
-                                if not (before.isalnum() or before == '_') and \
+                                # FIX: Also ensure 'before' is not ':' to prevent splitting namespaced functions like bit:or
+                                if not (before.isalnum() or before == '_' or before == ':') and \
                                    not (after.isalnum() or after == '_'):
                                     found_op = op
                                     break

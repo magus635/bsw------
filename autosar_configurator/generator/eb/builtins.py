@@ -381,7 +381,17 @@ class BuiltinFunctions:
 
             return None
 
-        # If it's a node, it must be of type 'reference'
+        # If it's a node, check if it's a reference type
+        # EB Tresos behavior: If called on a non-reference node, usually returns the node itself
+        # unless it strictly requires a reference. Given the template usage on containers,
+        # we should pass through non-reference nodes.
+        if hasattr(path_or_node, 'node_type') and path_or_node.node_type != 'reference':
+            # Also check param_type just in case
+            param_type = getattr(path_or_node, 'param_type', '')
+            if 'REFERENCE' not in str(param_type).upper():
+                return path_or_node
+
+        # It is a reference node (or we treat it as one)
         target_path = path_or_node.get_value()
         if not target_path:
              return None
