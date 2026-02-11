@@ -158,6 +158,7 @@ class BuiltinFunctions:
             'bit:xor': self.bit_xor,
             'bit:not': self.bit_not,
             'bit:shr': self.bit_shr,
+            'bit:getbit': self.bit_getbit,
 
             # Additional node functions
             'node:refvalid': self.node_refvalid,
@@ -2085,6 +2086,24 @@ class BuiltinFunctions:
         int_val1 = self.num_i(value1)
         int_val2 = self.num_i(value2)
         return int_val1 ^ int_val2
+
+    def bit_getbit(self, value: Any, bit_pos: Any) -> str:
+        """Get the value of a specific bit.
+        
+        Args:
+            value: The integer value to check
+            bit_pos: The bit position (0-indexed)
+            
+        Returns:
+            'true' if the bit is set, 'false' otherwise
+        """
+        int_val = self.num_i(value)
+        bit_pos_val = self.num_i(bit_pos)
+        
+        if (int_val >> bit_pos_val) & 1:
+            return 'true'
+        else:
+            return 'false'
 
     def bit_not(self, value: Any, width: int = 32) -> int:
         """Bitwise NOT operation.

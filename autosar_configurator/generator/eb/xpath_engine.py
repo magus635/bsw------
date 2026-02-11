@@ -1186,10 +1186,11 @@ class XPathEngine:
                         # (Iterate to find ALL matching instances for multiple-multiplicity containers)
                         for c_node in n.children.values():
                             def_name = c_node.definition_ref.split('/')[-1] if c_node.definition_ref else ""
+                            # Match by ShortName OR DefinitionName (Virtual Tree Logic)
                             if c_node.short_name == name or def_name == name:
                                 next_nodes.append(c_node)
                                 found_current_node = True
-                        
+                                
                         # 2. Case-insensitive fallback (if nothing found yet)
                         if not found_current_node:
                             for c_node in n.children.values():
@@ -1441,7 +1442,13 @@ class XPathEngine:
                 try:
                     # Evaluate the predicate expression
                     eval_result = self.evaluate(pred)
-                    if isinstance(eval_result, (int, float)):
+                    
+                    # Fix: Ensure boolean results are NOT treated as numeric indices
+                    if isinstance(eval_result, bool):
+                         # If it evaluates to boolean (e.g. dynamic == 'value'), 
+                         # fall through to normal filtering below
+                         pass
+                    elif isinstance(eval_result, (int, float)):
                         idx = int(eval_result) - 1  # XPath is 1-indexed
                         if 0 <= idx < len(result):
                             result = [result[idx]]
