@@ -135,8 +135,9 @@ class TresosPropertiesParser:
 
         # Check for underscore-wrapped list format: _0_ _1_ _2_
         if re.match(r'^_[^_]+_(\s+_[^_]+_)*$', value):
-            items = re.findall(r'_([^_]+)_', value)
-            return self._convert_list_items(items)
+            # For EB Tresos compatibility, these "lists" are often used with contains()
+            # in templates. We keep them as strings here.
+            return value
 
         # Check for comma-separated list
         if ',' in value:
@@ -353,7 +354,12 @@ def _extract_port_resources(props: TresosPropertiesFile) -> Dict[str, List['Port
     # Get available port IDs (format: _0_ _1_ _2_ _10_ etc.)
     port_ids = port_props.get('AvailablePortsID', [])
     if isinstance(port_ids, str):
-        port_ids = [port_ids]
+        if re.match(r'^_[^_]+_(\s+_[^_]+_)*$', port_ids):
+            port_ids = re.findall(r'_([^_]+)_', port_ids)
+            # Re-convert extracted items to their proper types
+            port_ids = parser._convert_list_items(port_ids)
+        else:
+            port_ids = [port_ids]
 
     # Get pins per port
     pins_per_port = port_props.get('PinsPerPort', [])
@@ -409,7 +415,10 @@ def _extract_adc_resources(props: TresosPropertiesFile) -> List['AdcResourceDef'
     # Get hardware unit IDs (format: SARADC0, SARADC1, ...)
     hw_unit_ids = adc_props.get('HwUnitId', [])
     if isinstance(hw_unit_ids, str):
-        hw_unit_ids = [hw_unit_ids]
+        if re.match(r'^_[^_]+_(\s+_[^_]+_)*$', hw_unit_ids):
+            hw_unit_ids = re.findall(r'_([^_]+)_', hw_unit_ids)
+        else:
+            hw_unit_ids = [hw_unit_ids]
 
     # Get channels per unit - check for unit-specific channels first
     default_channels = 16
