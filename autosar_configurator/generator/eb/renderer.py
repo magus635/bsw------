@@ -1295,6 +1295,12 @@ class Renderer:
 
                 if check_op in ('==', '='):
                     res = left_val == right_val
+                    # Special compatibility for '1' == 'true' (common in ARXML vs Template)
+                    if not res:
+                        l_s = str(left_val).lower()
+                        r_s = str(right_val).lower()
+                        if (l_s == '1' and r_s == 'true') or (l_s == 'true' and r_s == '1'):
+                            res = True
                 elif check_op == '!=':
                     res = left_val != right_val
                 elif check_op == '>':

@@ -864,9 +864,9 @@ class BuiltinFunctions:
 
 
         if width > 0:
-            hex_str = format(int_val, f'0{width}X')
+            hex_str = format(int_val, f'0{width}x')
         else:
-            hex_str = format(int_val, 'X')
+            hex_str = format(int_val, 'x')
         return f"0x{hex_str}"
     
     def num_hextoint(self, value: Any) -> int:
