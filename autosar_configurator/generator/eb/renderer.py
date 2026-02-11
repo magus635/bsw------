@@ -113,6 +113,7 @@ class Renderer:
         self._at_line_start: bool = True  # Track if we're at start of a new line
         self._indent_added_on_this_line: bool = False  # Track if indent_str was already added
         self._spaces_to_skip: int = 0  # Number of spaces to skip from template
+        self._just_ended_indent: bool = False # Track if we just popped an indent level
         
         # Output suppression state for NOCODE/CODE
         self._nocode_depth: int = 0
@@ -309,8 +310,29 @@ class Renderer:
                     i += 1
                     continue
 
-                # Apply smart trimming
                 content = token.content
+
+                # FIX: Special handling for text immediately following ENDINDENT
+                # If ENDINDENT was used (e.g. to close a block), and the next text is
+                # a closing brace '}' or bracket ']', or starts with whitespace (e.g. "    },"),
+                # it implies a new line indentation that was eaten by [!//.
+                # We force a newline here to restore standard C style formatting.
+                if self._just_ended_indent and not self._at_line_start:
+                    # Check for closing braces/brackets first, even if no leading whitespace
+                    if content and (content.lstrip().startswith('}') or content.lstrip().startswith(']')):
+                        if self._output_buffer and not self._output_buffer[-1].endswith('\n'):
+                            self._output_buffer.append('\n')
+                            self._at_line_start = True
+                            self._indent_added_on_this_line = False
+                    # Otherwise, check for leading whitespace
+                    elif content and (content[0] == ' ' or content[0] == '\t'):
+                         if self._output_buffer and not self._output_buffer[-1].endswith('\n'):
+                            self._output_buffer.append('\n')
+                            self._at_line_start = True
+                            self._indent_added_on_this_line = False
+                
+                # Reset flag after checking
+                self._just_ended_indent = False
 
                 # AUTOSPACING: if active, strip leading whitespace/newlines to continue on same line
                 if self._autospacing_active:
@@ -335,6 +357,9 @@ class Renderer:
                 if self._nocode_depth > 0 and not self._in_code_block:
                     i += 1
                     continue
+                
+                # Reset flag
+                self._just_ended_indent = False
 
                 # Strip outer quotes from the tag content before evaluating
                 expr = self._strip_tag_quotes(token.content)
@@ -349,7 +374,6 @@ class Renderer:
                 self._output_buffer.append(output_str)
                 i += 1
 
-                
             elif token.type == TokenType.COMMENT:
                 # Skip comments entirely
                 i += 1
@@ -423,6 +447,14 @@ class Renderer:
                     self._indent_stack.pop()
                 _debug_log(f"ENDINDENT: stack {before} -> {self._indent_stack}")
                 i += 1
+                
+                # Set flag so next TEXT token can decide whether to newline
+                self._just_ended_indent = True
+                
+                # After ENDINDENT, we are technically at the same line position as before,
+                # unless we force a newline later.
+                # self._at_line_start = True # DO NOT RESET THIS HERE
+                self._indent_added_on_this_line = False
             
             elif token.type == TokenType.WS:
                 # [!WS "n"!] - output n whitespace characters
