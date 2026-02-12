@@ -103,10 +103,12 @@ class OverlayEngine:
             if matching_instances:
                 for inst in matching_instances:
                     # Build instances as children of the wrapper
+                    # FIX: Pass root.path as parent_path so instances are /Adc/AdcConfigSet
+                    # NOT /Adc/AdcConfigSet/AdcConfigSet
                     nodes = self._build_container_nodes(
                         container_def,
                         inst,
-                        parent_path=wrapper_path
+                        parent_path=root.path
                     )
                     for node in nodes:
                         wrapper_node.add_child(node)
@@ -153,7 +155,7 @@ class OverlayEngine:
                 nodes = self._build_container_nodes(
                     container_def,
                     None,
-                    parent_path=wrapper_path
+                    parent_path=root.path
                 )
                 for node in nodes:
                     wrapper_node.add_child(node)
@@ -251,7 +253,8 @@ class OverlayEngine:
                     # Add each instance as a child of the wrapper
                     for sub_config_raw in matching_subs:
                         sub_instance_name = sub_config_raw.short_name
-                        sub_instance_path = f"{wrapper_path}/{sub_instance_name}"
+                        # FIX: Child instances are relative to the PARENT INSTANCE, not the WRAPPER
+                        sub_instance_path = f"{instance_path}/{sub_instance_name}"
                         sub_node = self._create_container_node(sub_def, sub_config_raw, sub_instance_path)
                         
                         # Recursively process sub-sub-containers
@@ -262,6 +265,7 @@ class OverlayEngine:
                     node.add_child(wrapper_node)
                 elif sub_def.is_required:
                     # Create from defaults if required
+                    # FIX: Use instance_path as parent, not wrapper_path
                     default_node = self._create_default_container_node(sub_def, instance_path)
                     node.add_child(default_node)
         else:
@@ -310,13 +314,15 @@ class OverlayEngine:
                 
                 for sub_config_raw in matching_subs:
                     sub_instance_name = sub_config_raw.short_name
-                    sub_instance_path = f"{wrapper_path}/{sub_instance_name}"
+                    # FIX: Child instances are relative to the PARENT INSTANCE, not the WRAPPER
+                    sub_instance_path = f"{instance_path}/{sub_instance_name}"
                     sub_node = self._create_container_node(sub_def, sub_config_raw, sub_instance_path)
                     self._process_sub_containers(sub_def, sub_config_raw, sub_node, sub_instance_path)
                     wrapper_node.add_child(sub_node)
                 
                 node.add_child(wrapper_node)
             elif sub_def.is_required:
+                # FIX: Use instance_path as parent
                 default_node = self._create_default_container_node(sub_def, instance_path)
                 node.add_child(default_node)
     
