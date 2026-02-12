@@ -2,6 +2,7 @@
 ECUC Definition Parser - Specialized parser for ECUC-DEF ARXML files
 Parses module/container/parameter definitions (the "blueprint")
 """
+import re
 from lxml import etree
 from typing import Optional, List, Any
 from pathlib import Path
@@ -28,9 +29,10 @@ class EcucDefParser:
         'a': 'http://www.tresos.de/_projects/DataModel2/16/attribute.xsd'
     }
     
-    def __init__(self):
-        """Initialize parser"""
-        pass
+    def __init__(self, constraints=None):
+        """Initialize parser with optional chip constraints for resolving XDM expressions."""
+        from .xdm_expression_resolver import XdmExpressionResolver
+        self._resolver = XdmExpressionResolver(constraints or {})
     
     def parse_module_def_file(self, file_path: Path) -> Optional[EcucModuleDef]:
         """Parse ECUC-MODULE-DEF from ARXML file
@@ -163,6 +165,25 @@ class EcucDefParser:
         else:
             container_def.upper_multiplicity = int(upper_mult_text) if upper_mult_text else 1
 
+        # XDM: multiplicity from a:a attributes (override defaults if present)
+        ns_a = self.NAMESPACES['a']
+        lower_mult_attr = element.xpath("a:a[@name='LOWER-MULTIPLICITY']/@value", namespaces={'a': ns_a})
+        upper_mult_attr = element.xpath("a:a[@name='UPPER-MULTIPLICITY']/@value", namespaces={'a': ns_a})
+        if lower_mult_attr:
+            try:
+                container_def.lower_multiplicity = int(lower_mult_attr[0])
+            except ValueError:
+                pass
+        if upper_mult_attr:
+            val = upper_mult_attr[0]
+            if val == '*':
+                container_def.upper_multiplicity = -1
+            else:
+                try:
+                    container_def.upper_multiplicity = int(val)
+                except ValueError:
+                    pass
+
         # Parse Post-Build Variant Multiplicity
         pb_mult = self._get_child_text_value(element, 'POST-BUILD-VARIANT-MULTIPLICITY')
         if pb_mult:
@@ -218,18 +239,69 @@ class EcucDefParser:
                 if sub_container_def:
                     container_def.add_sub_container(sub_container_def)
         
-        # XDM support: Parse sub-containers from v:lst/v:ctr
-        for sub_elem in element.xpath("v:lst | v:ctr", namespaces={'v': 'http://www.tresos.de/_projects/DataModel2/06/schema.xsd'}):
+        # XDM support: Parse sub-containers and multi-references from v:lst/v:ctr
+        ns_v = self.NAMESPACES['v']
+        ns_a = self.NAMESPACES['a']
+        for sub_elem in element.xpath("v:lst | v:ctr", namespaces={'v': ns_v}):
             tag_local = etree.QName(sub_elem).localname
-            if tag_local == 'ctr' or tag_local == 'lst':
-                 # If lst, the actual ctr is inside
-                 target_elems = [sub_elem] if tag_local == 'ctr' else sub_elem.xpath("v:ctr", namespaces={'v': 'http://www.tresos.de/_projects/DataModel2/06/schema.xsd'})
-                 for target in target_elems:
-                     sub_container_def = self._parse_container_def(target, current_path)
-                     if sub_container_def:
-                         # Avoid duplicates if already added via standard ARXML path
-                         if sub_container_def.short_name not in container_def.sub_containers:
-                             container_def.add_sub_container(sub_container_def)
+            if tag_local == 'lst':
+                # Extract multiplicity from v:lst's a:da MIN/MAX
+                min_da = sub_elem.xpath("a:da[@name='MIN']/@value", namespaces={'a': ns_a})
+                max_da = sub_elem.xpath("a:da[@name='MAX']/@value", namespaces={'a': ns_a})
+                max_da_elems = sub_elem.xpath("a:da[@name='MAX']", namespaces={'a': ns_a})
+
+                lst_lower = None
+                lst_upper = None
+                lst_upper_expr = None
+                if min_da:
+                    try: lst_lower = int(min_da[0])
+                    except ValueError: pass
+                if max_da:
+                    try: lst_upper = int(max_da[0])
+                    except ValueError: pass
+                elif max_da_elems:
+                    da_type = max_da_elems[0].get('type', '')
+                    da_expr = max_da_elems[0].get('expr', '')
+                    if da_type == 'XPath' and da_expr:
+                        lst_upper_expr = da_expr
+                        resolved = self._resolver.resolve_expression(da_expr)
+                        if isinstance(resolved, int) and resolved > 0:
+                            lst_upper = resolved
+                        else:
+                            lst_upper = -1  # unresolvable or 0 -> treat as unbounded
+
+                # Handle v:ref inside v:lst (multi-references)
+                ref_children = sub_elem.xpath("v:ref", namespaces={'v': ns_v})
+                for ref_child in ref_children:
+                    ref_def = self._parse_reference_def(ref_child, current_path)
+                    if ref_def:
+                        if lst_lower is not None:
+                            ref_def.lower_multiplicity = lst_lower
+                        if lst_upper is not None:
+                            ref_def.upper_multiplicity = lst_upper
+                        elif not max_da and not max_da_elems:
+                            ref_def.upper_multiplicity = -1  # no MAX specified -> unbounded
+                        if ref_def.short_name not in container_def.references:
+                            container_def.add_reference(ref_def)
+
+                # Handle v:ctr inside v:lst (sub-containers with list multiplicity)
+                target_elems = sub_elem.xpath("v:ctr", namespaces={'v': ns_v})
+                for target in target_elems:
+                    sub_container_def = self._parse_container_def(target, current_path)
+                    if sub_container_def:
+                        if lst_lower is not None:
+                            sub_container_def.lower_multiplicity = lst_lower
+                        if lst_upper is not None:
+                            sub_container_def.upper_multiplicity = lst_upper
+                        if lst_upper_expr:
+                            sub_container_def.upper_multiplicity_expr = lst_upper_expr
+                        if sub_container_def.short_name not in container_def.sub_containers:
+                            container_def.add_sub_container(sub_container_def)
+            elif tag_local == 'ctr':
+                sub_container_def = self._parse_container_def(sub_elem, current_path)
+                if sub_container_def:
+                    if sub_container_def.short_name not in container_def.sub_containers:
+                        container_def.add_sub_container(sub_container_def)
         
         return container_def
     
@@ -252,6 +324,7 @@ class EcucDefParser:
                 elif xdm_type == 'FLOAT': param_type = EcucParameterType.FLOAT
                 elif xdm_type == 'BOOLEAN': param_type = EcucParameterType.BOOLEAN
                 elif xdm_type == 'STRING': param_type = EcucParameterType.STRING
+                elif xdm_type == 'FUNCTION-NAME': param_type = EcucParameterType.FUNCTION
                 else: param_type = EcucParameterType.STRING # Default
             else:
                 param_type = EcucParameterType(tag_name)
@@ -335,7 +408,11 @@ class EcucDefParser:
             icc_v = element.xpath(".//icc:v", namespaces={'icc': 'http://www.tresos.de/_projects/DataModel2/08/implconfigclass.xsd'})
             if icc_v:
                 param_def.config_class = icc_v[0].get('vclass', '')
-        
+
+        # --- XDM: Parse a:a attributes and a:da data attributes ---
+        self._parse_xdm_attributes(element, param_def)
+        self._parse_xdm_data_attributes(element, param_def, param_type)
+
         # Set definition reference path
         param_def.definition_ref = f"{parent_path}/{short_name}"
         
@@ -357,7 +434,21 @@ class EcucDefParser:
         if dest_ref_elem is not None:
             ref_def.destination_ref = dest_ref_elem.text or ""
             ref_def.destination_type = dest_ref_elem.get('DEST', 'ECUC-PARAM-CONF-CONTAINER-DEF')
-        
+
+        # XDM: destination from <a:da name="REF" value="ASPathDataOfSchema:/.../path"/>
+        if not ref_def.destination_ref:
+            ns_a = self.NAMESPACES['a']
+            ref_da = element.xpath("a:da[@name='REF']/@value", namespaces={'a': ns_a})
+            if ref_da:
+                raw_ref = ref_da[0]
+                if raw_ref.startswith('ASPathDataOfSchema:'):
+                    raw_ref = raw_ref[len('ASPathDataOfSchema:'):]
+                ref_def.destination_ref = raw_ref
+                ref_def.destination_type = 'ECUC-PARAM-CONF-CONTAINER-DEF'
+
+        # XDM: extract a:a attributes for multiplicity, scope, origin
+        self._parse_xdm_attributes(element, ref_def)
+
         # Parse multiplicity (use direct child lookup)
         ref_def.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)
         ref_def.upper_multiplicity = self._get_child_int_value(element, 'UPPER-MULTIPLICITY', 1)
@@ -417,6 +508,129 @@ class EcucDefParser:
         ref_def.definition_ref = f"{parent_path}/{short_name}"
 
         return ref_def
+
+    def _parse_xdm_attributes(self, element, target_def):
+        """Parse a:a attribute elements for SCOPE, ORIGIN, SYMBOLICNAMEVALUE, multiplicity.
+
+        XDM stores these as: <a:a name="SCOPE" value="LOCAL"/>
+        """
+        ns_a = self.NAMESPACES['a']
+        for attr_elem in element.xpath("a:a", namespaces={'a': ns_a}):
+            name = attr_elem.get('name', '')
+            value = attr_elem.get('value', '')
+            if not name:
+                continue
+            # Some attributes like RANGE/DEFAULT might use 'expr' instead of 'value'
+            if not value and not attr_elem.get('expr'):
+                # Multiplicity or other simple attributes MUST have value
+                if name in ('SCOPE', 'ORIGIN', 'LOWER-MULTIPLICITY', 'UPPER-MULTIPLICITY'):
+                    continue
+            if name == 'SCOPE':
+                target_def.scope = value
+            elif name == 'ORIGIN':
+                target_def.origin = value
+            elif name == 'SYMBOLICNAMEVALUE' and hasattr(target_def, 'symbolic_name_value'):
+                target_def.symbolic_name_value = (value.lower() == 'true')
+            elif name == 'LOWER-MULTIPLICITY':
+                try:
+                    target_def.lower_multiplicity = int(value)
+                except ValueError:
+                    pass
+            elif name == 'UPPER-MULTIPLICITY':
+                if value == '*':
+                    target_def.upper_multiplicity = -1
+                else:
+                    try:
+                        target_def.upper_multiplicity = int(value)
+                    except ValueError:
+                        pass
+            elif name == 'DEFAULT' and isinstance(target_def, EcucParameterDef):
+                da_type = attr_elem.get('type', '')
+                da_expr = attr_elem.get('expr', '')
+                self._parse_xdm_default(attr_elem, target_def, target_def.param_type, da_type, value, da_expr)
+            elif name == 'RANGE' and isinstance(target_def, EcucParameterDef):
+                da_type = attr_elem.get('type', '')
+                da_expr = attr_elem.get('expr', '')
+                self._parse_xdm_range(attr_elem, target_def, target_def.param_type, da_type, da_expr)
+
+    def _parse_xdm_data_attributes(self, element, param_def, param_type):
+        """Parse a:da data attribute elements for DEFAULT, RANGE, INVALID."""
+        ns_a = self.NAMESPACES['a']
+        for da_elem in element.xpath("a:da", namespaces={'a': ns_a}):
+            da_name = da_elem.get('name', '')
+            da_type = da_elem.get('type', '')
+            da_value = da_elem.get('value', '')
+            da_expr = da_elem.get('expr', '')
+
+            if da_name == 'DEFAULT':
+                self._parse_xdm_default(da_elem, param_def, param_type, da_type, da_value, da_expr)
+            elif da_name == 'RANGE':
+                self._parse_xdm_range(da_elem, param_def, param_type, da_type, da_expr)
+            elif da_name == 'INVALID':
+                self._parse_xdm_invalid(da_elem, param_def, param_type, da_type)
+
+    def _parse_xdm_default(self, da_elem, param_def, param_type, da_type, da_value, da_expr):
+        """Parse DEFAULT a:da element."""
+        if da_type == 'XPath' or da_expr:
+            expr = da_expr
+            if not expr:
+                ns_a = self.NAMESPACES['a']
+                tst = da_elem.xpath("a:tst/@expr", namespaces={'a': ns_a})
+                if tst:
+                    expr = tst[0]
+            if expr:
+                param_def.default_expr = expr
+                resolved = self._resolver.resolve_expression(expr)
+                if resolved is not None:
+                    param_def.default_value = resolved
+        elif da_value and param_def.default_value is None:
+            # Static default - only set if not already set by ARXML path
+            param_def.default_value = self._convert_value(da_value, param_type)
+
+    def _parse_xdm_range(self, da_elem, param_def, param_type, da_type, da_expr):
+        """Parse RANGE a:da element for enumeration literals."""
+        ns_a = self.NAMESPACES['a']
+
+        if da_type == 'XPath' or da_expr:
+            expr = da_expr or ''
+            if not expr:
+                tst_elems = da_elem.xpath("a:tst/@expr", namespaces={'a': ns_a})
+                if tst_elems:
+                    expr = tst_elems[0]
+            if expr:
+                param_def.range_expr = expr
+                resolved = self._resolver.resolve_expression(expr)
+                if isinstance(resolved, list) and len(resolved) > 0 and param_type == EcucParameterType.ENUMERATION:
+                    param_def.literals = resolved
+        else:
+            # Static inline: <a:v>VAL1</a:v><a:v>VAL2</a:v>
+            values = da_elem.xpath("a:v/text()", namespaces={'a': ns_a})
+            if values and param_type == EcucParameterType.ENUMERATION:
+                param_def.literals = [v.strip() for v in values if v.strip()]
+
+    def _parse_xdm_invalid(self, da_elem, param_def, param_type, da_type):
+        """Parse INVALID a:da element for min/max range constraints."""
+        if da_type != 'Range':
+            return
+        ns_a = self.NAMESPACES['a']
+        for tst in da_elem.xpath("a:tst", namespaces={'a': ns_a}):
+            expr = tst.get('expr', '')
+            if not expr:
+                continue
+            m_le = re.match(r'<=\s*(-?\d+\.?\d*)', expr)
+            m_ge = re.match(r'>=\s*(-?\d+\.?\d*)', expr)
+            if m_le:
+                val_str = m_le.group(1)
+                if param_type == EcucParameterType.FLOAT:
+                    param_def.max_value = float(val_str)
+                else:
+                    param_def.max_value = int(float(val_str))
+            elif m_ge:
+                val_str = m_ge.group(1)
+                if param_type == EcucParameterType.FLOAT:
+                    param_def.min_value = float(val_str)
+                else:
+                    param_def.min_value = int(float(val_str))
 
     def _parse_literals(self, element: etree._Element) -> List[str]:
         """Parse enumeration literals"""

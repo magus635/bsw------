@@ -73,6 +73,10 @@ class EcucParameterDef:
     # Logic Loop attributes (Pre-compile/Link-time/Post-build)
     config_class: Optional[str] = None  # e.g., "PRE-COMPILE"
     config_variant: Optional[str] = None # e.g., "VARIANT-PRE-COMPILE"
+
+    # XDM dynamic expressions (stored for UI tooltip/debug, resolved via .properties)
+    default_expr: Optional[str] = None   # e.g., "ecu:list('Adc.RequestSrcPrio')[1]"
+    range_expr: Optional[str] = None     # e.g., "ecu:list('Adc.HwUnitId')"
     
     @property
     def is_required(self) -> bool:
@@ -159,9 +163,12 @@ class EcucContainerDef:
     scope: str = "LOCAL"
     origin: str = "AUTOSAR_ECUC"
     post_build_variant_multiplicity: bool = False
-    
+
     # Full path for reference
     definition_ref: str = ""
+
+    # XDM dynamic expression for upper multiplicity
+    upper_multiplicity_expr: Optional[str] = None  # e.g., "num:i(count(ecu:list('Adc.HwUnitId')))"
     
     @property
     def is_required(self) -> bool:

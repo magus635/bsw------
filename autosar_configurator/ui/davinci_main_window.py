@@ -1020,6 +1020,10 @@ class DaVinciMainWindow(QMainWindow):
             return
             
         try:
+            # Ensure parser has latest chip constraints before parsing
+            constraints = self.chip_constraint_service.get_all_constraints()
+            if constraints:
+                self.def_parser._resolver.set_constraints(constraints)
             module_def = self.def_parser.parse_module_def_file(Path(file_path))
             self.current_project.add_module(module_def, Path(file_path))
             self.tree_view.set_project(self.current_project)
@@ -2623,7 +2627,11 @@ class DaVinciMainWindow(QMainWindow):
     def _on_chip_constraints_changed(self, chip_name: str):
         """Handle chip constraints change - refresh UI to show new constraints"""
         logger.info(f"Chip constraints reloaded for: {chip_name}")
-        
+
+        # Update parser's expression resolver with new constraints
+        constraints = self.chip_constraint_service.get_all_constraints()
+        self.def_parser._resolver.set_constraints(constraints)
+
         # Update window title to show current chip
         self._update_window_title()
         
@@ -2931,7 +2939,10 @@ except Exception as e:
             QApplication.setOverrideCursor(QtCore_Qt.WaitCursor)
             self.statusbar.showMessage("Loading DEF file...")
 
-            # Parse DEF file
+            # Parse DEF file (ensure parser has latest chip constraints)
+            constraints = self.chip_constraint_service.get_all_constraints()
+            if constraints:
+                self.def_parser._resolver.set_constraints(constraints)
             self.module_def = self.def_parser.parse_module_def_file(path)
             self.current_def_file = path
 

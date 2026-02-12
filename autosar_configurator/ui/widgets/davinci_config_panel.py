@@ -628,12 +628,22 @@ class DaVinciConfigPanel(QWidget):
             # Get allowed literals from chip constraints
             literals = param_def.literals or []
             if self.chip_constraint_service:
-                allowed_values = self._get_allowed_literals(param_name, self.current_def)
+                allowed_values = self._get_allowed_literals(param_name, self.current_def, param_def)
                 if allowed_values:
-                    # Filter: only keep literals that are in the allowed list
-                    # Case-insensitive comparison often needed for AUTOSAR vs Chip Properties
-                    allowed_values_upper = [av.upper() for av in allowed_values]
-                    literals = [lit for lit in literals if lit in allowed_values or lit.upper() in allowed_values_upper]
+                    # DEBUG
+                    if "Resolution" in param_name or "ChannelNum" in param_name or "RefVoltsrc" in param_name:
+                        print(f"DEBUG Filter [{param_name}]: allowed={allowed_values}, ARXML_literals={literals}")
+                    
+                    if literals:
+                        # Filter: only keep literals that are in the allowed list
+                        allowed_values_upper = [av.upper() for av in allowed_values]
+                        literals = [lit for lit in literals if lit in allowed_values or lit.upper() in allowed_values_upper]
+                    else:
+                        # No static literals — use chip constraints
+                        literals = allowed_values
+                    
+                    if "Resolution" in param_name or "ChannelNum" in param_name or "RefVoltsrc" in param_name:
+                        print(f"DEBUG Result [{param_name}]: {literals}")
 
             combo.addItems(literals)
 
@@ -969,40 +979,102 @@ class DaVinciConfigPanel(QWidget):
         
         return "-"
 
-    def _get_allowed_literals(self, param_name: str, container_def: EcucContainerDef) -> List[str]:
+    def _get_allowed_literals(self, param_name: str, container_def: EcucContainerDef,
+                              param_def=None) -> List[str]:
         """Get allowed enum values for a parameter from chip constraints.
-        
+
         Tries multiple path patterns to find a matching constraint list.
+        If param_def has a range_expr (from XDM), uses it for precise lookup.
         """
         if not self.chip_constraint_service:
             return []
-        
+
+        # Fast path: if param_def carries a range_expr, extract the ecu:list path directly
+        if param_def and getattr(param_def, 'range_expr', None):
+            from autosar_configurator.core.parser.xdm_expression_resolver import XdmExpressionResolver
+            ecu_path = XdmExpressionResolver().extract_ecu_path(param_def.range_expr)
+            if ecu_path:
+                allowed = self.chip_constraint_service.get_enum_constraint(ecu_path)
+                if allowed:
+                    return allowed
+
+            # Complex expression: try to extract string prefix from text:concat patterns
+            # e.g., text:concat('Adc.AdcChannels_Adc', ...) -> search keys starting with 'Adc.AdcChannels_Adc'
+            import re
+            concat_strings = re.findall(r"text:concat\s*\(\s*'([^']+)'", param_def.range_expr)
+            if concat_strings:
+                all_constraints = self.chip_constraint_service.get_all_constraints()
+                for prefix in concat_strings:
+                    # Collect all matching lists, pick the most comprehensive (largest)
+                    best = None
+                    for key, val in all_constraints.items():
+                        if key.startswith(prefix) and isinstance(val, list):
+                            if best is None or len(val) > len(best):
+                                best = val
+                    if best:
+                        return best
+
         # Get module name (reuse same resolution logic)
         module_name = None
         if self.current_instance and hasattr(self.current_instance, 'module_config'):
             module_config = self.current_instance.module_config
             if module_config and hasattr(module_config, 'module_name'):
                 module_name = module_config.module_name
-        
+
         if not module_name and hasattr(container_def, 'path') and container_def.path:
             parts = container_def.path.strip('/').split('/')
             if len(parts) >= 2:
                 module_name = parts[1] if parts[0] == 'AUTOSAR' else parts[0]
-        
+
         if not module_name:
             return []
-            
+
         # Try various patterns
         paths_to_try = [
             f"{module_name}.{param_name}",
             f"{module_name}.{container_def.short_name}.{param_name}",
         ]
-        
+
+        # Also try stripping module name prefix from param name
+        # e.g., "AdcResolution" with module "Adc" -> try "Adc.Resolution"
+        stripped = param_name
+        if param_name.lower().startswith(module_name.lower()):
+            stripped = param_name[len(module_name):]
+            if stripped:
+                paths_to_try.append(f"{module_name}.{stripped}")
+
+        # Also try stripping container-level prefixes from the param name
+        # Derive prefixes dynamically from the actual container hierarchy path
+        # e.g., container path ".../AdcHwUnit/AdcChannel" -> prefixes ["Channel", "HwUnit"]
+        # so "AdcChannelRefVoltsrcLow" -> stripped="ChannelRefVoltsrcLow" -> try "Adc.RefVoltsrcLow"
+        if hasattr(container_def, 'definition_ref') and container_def.definition_ref:
+            ref_parts = container_def.definition_ref.strip('/').split('/')
+            for part in ref_parts:
+                # Strip module prefix from container name to get the container-level prefix
+                ctr_prefix = part
+                if ctr_prefix.lower().startswith(module_name.lower()):
+                    ctr_prefix = ctr_prefix[len(module_name):]
+                if ctr_prefix and stripped.startswith(ctr_prefix):
+                    further = stripped[len(ctr_prefix):]
+                    if further:
+                        paths_to_try.append(f"{module_name}.{further}")
+
         for path in paths_to_try:
             allowed = self.chip_constraint_service.get_enum_constraint(path)
             if allowed:
                 return allowed
-                
+
+        # Fallback: case-insensitive search across all constraints
+        all_constraints = self.chip_constraint_service.get_all_constraints()
+        for path in paths_to_try:
+            path_lower = path.lower()
+            for key, val in all_constraints.items():
+                if key.lower() == path_lower:
+                    if isinstance(val, list):
+                        return val
+                    if isinstance(val, str) and val:
+                        return [val]
+
         return []
     
     def _get_chip_can_base_addresses(self) -> list:

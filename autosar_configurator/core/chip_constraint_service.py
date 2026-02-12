@@ -23,14 +23,28 @@ class ChipConstraints:
     constraints: Dict[str, Any] = field(default_factory=dict)
     
     def get(self, path: str, default: Any = None) -> Any:
-        """Get constraint value by path (e.g., 'I2c.MaxChannels')"""
-        return self.constraints.get(path, default)
+        """Get constraint value by path (e.g., 'I2c.MaxChannels') (Case-insensitive)"""
+        if path in self.constraints:
+            return self.constraints[path]
+        
+        # Try case-insensitive lookup
+        path_lower = path.lower().strip()
+        for k, v in self.constraints.items():
+            if k.lower().strip() == path_lower:
+                return v
+                
+        return default
     
     def get_enum_values(self, path: str) -> List[str]:
         """Get list of allowed enum values for a path"""
-        value = self.constraints.get(path)
+        value = self.get(path)
+        if "Resolution" in path or "ChannelNum" in path or "RefVolt" in path:
+            print(f"DEBUG ChipService.get_enum_values({path}) -> {value}")
+        
         if isinstance(value, list):
             return value
+        if isinstance(value, str) and value:
+            return [value]
         return []
     
     def get_max_instances(self, path: str) -> Optional[int]:
