@@ -567,12 +567,17 @@ class OverlayEngine:
                     best_node = child
             active_instance_node = best_node if best_node else wrapper_node.children[0]
 
-        # 3. Perform Aliasing
+        # 3. Perform Aliasing - only alias sub-containers, NOT parameters/references
+        # This prevents parameter nodes from appearing as siblings of container
+        # instances when iterating with wildcards (e.g., AdcGroup/*).
         if active_instance_node:
             print(f"DEBUG_OVERLAY: Aliasing from {active_instance_node.short_name} to wrapper {wrapper_node.short_name}")
             print(f"DEBUG_OVERLAY:   Found {len(active_instance_node.children)} children in active instance node")
             for sub_node in active_instance_node.children:
                 print(f"DEBUG_OVERLAY:   Candidate child {sub_node.short_name} (type={sub_node.node_type})")
+                if sub_node.node_type != 'container':
+                    print(f"DEBUG_OVERLAY:     -> Skipped (not a container, type={sub_node.node_type})")
+                    continue
                 if not wrapper_node.get_child(sub_node.short_name):
                     wrapper_node.add_child(sub_node)
                     print(f"DEBUG_OVERLAY:     -> Added alias for {sub_node.short_name}")
