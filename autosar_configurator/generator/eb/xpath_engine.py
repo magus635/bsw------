@@ -628,7 +628,7 @@ class XPathEngine:
         # count(path)
         if expr.startswith('count(') and expr.endswith(')'):
             inner = expr[6:-1].strip()
-            res = self.evaluate(inner)
+            res = self.evaluate(inner, return_node=True)
             if res is None:
                 return 0
             if isinstance(res, list):
@@ -819,8 +819,19 @@ class XPathEngine:
         
         return None
     
+    # ARXML structural element names that should be skipped during path resolution
+    _ARXML_STRUCTURAL = frozenset({
+        'autosar', 'top-level-packages', 'elements',
+        'ar-packages', 'ar-package',
+    })
+
     def _evaluate_absolute(self, xpath: str) -> Any:
-        """Evaluate absolute path like /Mcu/McuConfig or //DescendantName"""
+        """Evaluate absolute path like /Mcu/McuConfig or //DescendantName
+
+        Also handles ARXML-style absolute paths such as:
+        /AUTOSAR/TOP-LEVEL-PACKAGES/Msc/ELEMENTS/Msc/MscConfigSet/...
+        by stripping structural wrappers and resolving from the module root.
+        """
 
         # Handle descendant-or-self axis from document root: //Name
         if xpath.startswith('//'):
@@ -880,17 +891,55 @@ class XPathEngine:
         node = self.symbol_table.get_by_path(xpath)
         if node:
             return node
-        
+
         # Try parsing as module/path
         parts = [p for p in xpath.split('/') if p]
         if not parts:
             return None
-        
+
         # First part might be module name
         module = self.symbol_table.get_module(parts[0])
         if module:
-            return self._navigate_path(module, parts[1:])
-        
+            if len(parts) > 1:
+                rest_xpath = '/'.join(parts[1:])
+                segments = self._parse_path(rest_xpath)
+                return self._navigate_segments(module, segments)
+            return module
+
+        # Handle ARXML-style absolute paths:
+        #   /AUTOSAR/TOP-LEVEL-PACKAGES/{Package}/ELEMENTS/{Module}/rest/of/path
+        # Strategy: scan path parts for a registered module name (skipping structural
+        # ARXML wrapper elements), then navigate the remaining configuration path.
+        for i, part in enumerate(parts):
+            if part.lower() in self._ARXML_STRUCTURAL:
+                continue
+            module = self.symbol_table.get_module(part)
+            if module:
+                # Collect remaining path parts after the module name,
+                # filtering out structural elements and the duplicated module
+                # name that typically follows ELEMENTS in ARXML paths.
+                rest_parts = parts[i + 1:]
+                filtered = []
+                skip_next_module_name = False
+                for rp in rest_parts:
+                    rp_lower = rp.lower()
+                    if rp_lower in self._ARXML_STRUCTURAL:
+                        if rp_lower == 'elements':
+                            skip_next_module_name = True
+                        continue
+                    if skip_next_module_name and rp_lower == part.lower():
+                        skip_next_module_name = False
+                        continue
+                    skip_next_module_name = False
+                    filtered.append(rp)
+
+                if not filtered:
+                    return module
+
+                rest_xpath = '/'.join(filtered)
+                segments = self._parse_path(rest_xpath)
+                return self._navigate_segments(module, segments)
+
         return None
     
     def _evaluate_relative(self, xpath: str, context_node: Optional['ConfigurationNode'] = None) -> Any:
@@ -1112,8 +1161,10 @@ class XPathEngine:
 
         for segment in segments:
             if not current:
+                print(f"DEBUG_XPATH: Navigation failed at segment: {segment['name']} (current is empty)")
                 return None
             
+            print(f"DEBUG_XPATH: segment={segment['name']} axis={segment['axis']} current_count={len(current)}")
             next_nodes = []
             axis = segment['axis']
             name = segment['name']
@@ -1179,21 +1230,32 @@ class XPathEngine:
                         next_nodes.extend(n.get_children_list())
                     elif name == '.':
                         next_nodes.append(n)
+                    elif name in ('SHORT-NAME', 'NAME', '@name'):
+                        if hasattr(n, 'short_name'):
+                            next_nodes.append(n.short_name)
+                    elif name == 'DEFINITION-NAME':
+                        if hasattr(n, 'definition_ref') and n.definition_ref:
+                            next_nodes.append(n.definition_ref.split('/')[-1])
+                    elif name == 'DEFINITION-REF':
+                        if hasattr(n, 'definition_ref') and n.definition_ref:
+                            next_nodes.append(n.definition_ref)
                     else:
                         found_current_node = False
                         
                         # 1. Primary Match: Match children by short_name OR definition name
                         # (Iterate to find ALL matching instances for multiple-multiplicity containers)
-                        for c_node in n.children.values():
+                        for c_node in n.children:
                             def_name = c_node.definition_ref.split('/')[-1] if c_node.definition_ref else ""
+                            print(f"DEBUG_XPATH: checking child short_name={c_node.short_name} def_name={def_name} vs name={name}")
                             # Match by ShortName OR DefinitionName (Virtual Tree Logic)
                             if c_node.short_name == name or def_name == name:
+                                print(f"DEBUG_XPATH:   Matched! added {c_node.short_name}")
                                 next_nodes.append(c_node)
                                 found_current_node = True
                                 
                         # 2. Case-insensitive fallback (if nothing found yet)
                         if not found_current_node:
-                            for c_node in n.children.values():
+                            for c_node in n.children:
                                 def_name = c_node.definition_ref.split('/')[-1] if c_node.definition_ref else ""
                                 if c_node.short_name.lower() == name.lower() or def_name.lower() == name.lower():
                                     next_nodes.append(c_node)
@@ -1203,7 +1265,7 @@ class XPathEngine:
                         # If we're at a container definition and can't find the child directly, 
                         # look inside all instance children (e.g., AdcConfigSet -> AdcConfigSet_0 -> AdcHwUnit)
                         if not found_current_node:
-                            for c_node in n.children.values():
+                            for c_node in n.children:
                                 if c_node.node_type == 'container':
                                     # Try to get child by name inside this instance
                                     instance_child = c_node.get_child(name)
@@ -1212,7 +1274,7 @@ class XPathEngine:
                                         found_current_node = True
                                     else:
                                         # Also match grandchild by definition
-                                        for gc in c_node.children.values():
+                                        for gc in c_node.children:
                                             gc_def = gc.definition_ref.split('/')[-1] if gc.definition_ref else ""
                                             if gc_def == name:
                                                 next_nodes.append(gc)
@@ -1220,7 +1282,7 @@ class XPathEngine:
 
                         # 4. Fallback for nested/transparent containers (e.g., CanHwFilter/CanHwFilter/...)
                         if not found_current_node:
-                            if name in n.children:
+                            if n.get_child(name):
                                 sub = n.get_child(name)
                                 deep_child = sub.get_child(name)
                                 if deep_child:
@@ -1270,8 +1332,8 @@ class XPathEngine:
         """Find all descendants matching name (// axis)"""
         results = []
         
-        for child in node.children.values():
-            if name == '*' or child.short_name == name:
+        for child in node.children:
+            if name == '*' or self._node_matches_name(child, name):
                 results.append(child)
             results.extend(self._find_descendants(child, name))
         
@@ -1309,7 +1371,7 @@ class XPathEngine:
             return results
         
         # Get all siblings (children of parent)
-        siblings = list(node.parent.children.values())
+        siblings = list(node.parent.children)
         
         # Find current node's position
         try:
@@ -1331,7 +1393,7 @@ class XPathEngine:
             return results
         
         # Get all siblings (children of parent)
-        siblings = list(node.parent.children.values())
+        siblings = list(node.parent.children)
         
         # Find current node's position
         try:
@@ -1359,7 +1421,7 @@ class XPathEngine:
             if not n.parent:
                 return
             
-            siblings = list(n.parent.children.values())
+            siblings = list(n.parent.children)
             try:
                 current_idx = siblings.index(n)
             except ValueError:
@@ -1391,7 +1453,7 @@ class XPathEngine:
             if not n.parent:
                 return
             
-            siblings = list(n.parent.children.values())
+            siblings = list(n.parent.children)
             try:
                 current_idx = siblings.index(n)
             except ValueError:

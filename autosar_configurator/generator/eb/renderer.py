@@ -146,7 +146,7 @@ class Renderer:
         # Verify the module was registered
         loaded = self.symbol_table.get_module(module_name)
         if loaded:
-            _debug_log(f"load_module: Module '{module_name}' registered successfully, children: {list(loaded.children.keys())}")
+            _debug_log(f"load_module: Module '{module_name}' registered successfully, children: {[c.short_name for c in loaded.children]}")
         else:
             _debug_log(f"load_module: WARNING - Module '{module_name}' was NOT registered!")
 
@@ -1563,7 +1563,7 @@ class Renderer:
                 elif hasattr(node, 'sub_containers'):
                     return node.sub_containers
                 elif hasattr(node, 'children'):
-                    return list(node.children.values())
+                    return node.children
                 return []
             elif node:
                 # Handle indexing like [1] or [num:i(1)] or [$var]
@@ -1589,7 +1589,7 @@ class Renderer:
                 
                 if child is None and hasattr(node, 'children'):
                     # Try to find in children as list
-                    matches = [c for c in node.children.values() if c.short_name == part]
+                    matches = [c for c in node.children if c.short_name == part]
                     if matches:
                         child = matches
                 

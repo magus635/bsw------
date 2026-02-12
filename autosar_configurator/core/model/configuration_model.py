@@ -236,6 +236,9 @@ class EcucContainerValue:
     # Multi-valued reference values (for UPPER-MULTIPLICITY > 1 or INFINITE)
     multi_reference_values: Dict[str, List[EcucReferenceValue]] = field(default_factory=dict)
 
+    # Multi-valued parameter values
+    multi_parameter_values: Dict[str, List[EcucParameterValue]] = field(default_factory=dict)
+
     # Sub-container instances
     sub_containers: List['EcucContainerValue'] = field(default_factory=list)
     
@@ -290,6 +293,25 @@ class EcucContainerValue:
             )
         self.mark_modified()
 
+    def add_multi_parameter_value(self, param_name: str, value: Any, definition_ref: str, index: int):
+        """Add an indexed parameter value for multi-valued parameters"""
+        if param_name not in self.multi_parameter_values:
+            self.multi_parameter_values[param_name] = []
+        
+        param_value = EcucParameterValue(
+            definition_ref=definition_ref,
+            value=value,
+            is_modified=True,
+            last_modified=datetime.now()
+        )
+        # Use index if possible to maintain order
+        if index < len(self.multi_parameter_values[param_name]):
+            self.multi_parameter_values[param_name][index] = param_value
+        else:
+            self.multi_parameter_values[param_name].append(param_value)
+            
+        self.mark_modified()
+
     def remove_parameter_value(self, param_name: str) -> bool:
         """Remove a parameter value (revert to unconfigured state)
 
@@ -315,9 +337,9 @@ class EcucContainerValue:
             param_name: Name of the parameter to check
 
         Returns:
-            True if parameter has a configured value, False if using default
+            True if parameter has a configured value (single or multi), False if using default
         """
-        return param_name in self.parameter_values
+        return param_name in self.parameter_values or param_name in self.multi_parameter_values
 
     def set_reference_value(self, ref_name: str, value_ref: str, definition_ref: str):
         """Set or update a reference value"""
@@ -379,7 +401,7 @@ class EcucContainerValue:
         )
 
         
-        # Clone parameters
+        # Clone parameters (single)
         for name, param in self.parameter_values.items():
             new_instance.parameter_values[name] = EcucParameterValue(
                 definition_ref=param.definition_ref,
@@ -387,6 +409,17 @@ class EcucContainerValue:
                 is_modified=True,
                 last_modified=datetime.now()
             )
+        
+        # Clone plural parameters
+        for name, param_list in self.multi_parameter_values.items():
+            new_instance.multi_parameter_values[name] = [
+                EcucParameterValue(
+                    definition_ref=p.definition_ref,
+                    value=p.value[:] if isinstance(p.value, list) else p.value,
+                    is_modified=True,
+                    last_modified=datetime.now()
+                ) for p in param_list
+            ]
             
         # Clone references
         for name, ref in self.reference_values.items():

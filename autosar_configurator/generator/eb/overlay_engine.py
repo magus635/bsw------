@@ -116,37 +116,7 @@ class OverlayEngine:
                         if variant and getattr(inst, 'variant', None) == variant:
                             active_instance_node = node
                 
-                # If no variant match, select the instance with the MOST sub-containers
-                # This ensures CanConfigSet_1 (with 3 controllers) is preferred over 
-                # CanConfigSet (with 1 controller)
-                if not active_instance_node and wrapper_node.get_children_list():
-                    children_list = wrapper_node.get_children_list()
-                    # Find the child with most nested sub-container INSTANCES
-                    # Structure: CanConfigSet_1 -> CanController (wrapper) -> [CanController_0, CanController_1, ...]
-                    best_node = None
-                    max_total_instances = -1
-                    for child in children_list:
-                        total_instances = 0
-                        # Count all instances inside container-type children (wrappers)
-                        for child_name, child_node in child.children.items():
-                            if hasattr(child_node, 'node_type') and child_node.node_type == 'container':
-                                # This is a wrapper node (like CanController)
-                                # Count its children (the actual instances)
-                                wrapper_children = child_node.get_children_list() if hasattr(child_node, 'get_children_list') else []
-                                total_instances += len(wrapper_children)
-                        if total_instances > max_total_instances:
-                            max_total_instances = total_instances
-                            best_node = child
-                    active_instance_node = best_node if best_node else children_list[0]
-                
-                # ALIASING: Make the wrapper node also behave like the active instance.
-                # This allows as:modconf('Can')/CanConfigSet/CanController to work.
-                if active_instance_node:
-                    for sub_name, sub_node in active_instance_node.children.items():
-                        # Alias parameters and sub-container WRAPPERS to the parent wrapper
-                        # This allows paths like /Can/CanConfigSet/CanController to work
-                        if sub_name not in wrapper_node.children:
-                             wrapper_node.children[sub_name] = sub_node
+                self._alias_active_instance(wrapper_node, variant)
 
 
             elif container_def.is_required:
@@ -320,6 +290,7 @@ class OverlayEngine:
                     self._process_sub_containers(sub_def, sub_config_raw, sub_node, sub_instance_path)
                     wrapper_node.add_child(sub_node)
                 
+                self._alias_active_instance(wrapper_node)
                 node.add_child(wrapper_node)
             elif sub_def.is_required:
                 # FIX: Use instance_path as parent
@@ -346,14 +317,45 @@ class OverlayEngine:
         # Add parameters
         params_source = getattr(config_instance, 'parameter_values', {}) or \
                         {k: v for k, v in getattr(config_instance, 'children', {}).items() if hasattr(v, 'value') and not hasattr(v, 'value_ref')}
+        multi_params_source = getattr(config_instance, 'multi_parameter_values', {}) or {}
 
         for param_name, param_def in container_def.parameters.items():
-            param_node = self._create_parameter_node(
-                param_def,
-                params_source.get(param_name),
-                f"{path}/{param_name}"
-            )
-            node.add_child(param_node)
+            is_multi = param_def.upper_multiplicity == -1 or param_def.upper_multiplicity > 1
+            multi_param_list = multi_params_source.get(param_name, [])
+            
+            if param_name == 'AdcResultRegisterDefinition':
+                print(f"DEBUG_OVERLAY: AdcResultRegisterDefinition is_multi={is_multi} count={len(multi_param_list)}")
+            
+            if is_multi and multi_param_list:
+                # Multi-valued parameter: create wrapper node with indexed children
+                # This allows [!LOOP "AdcResultRegisterDefinition/*"!] to work
+                wrapper_node = ConfigurationNode(
+                    short_name=param_name,
+                    node_type='parameter',
+                    path=f"{path}/{param_name}",
+                    definition_ref=param_def.definition_ref,
+                    lower_multiplicity=param_def.lower_multiplicity,
+                    upper_multiplicity=param_def.upper_multiplicity
+                )
+                for idx, param_val in enumerate(multi_param_list):
+                    child_node = ConfigurationNode(
+                        short_name=str(idx),
+                        node_type='parameter',
+                        path=f"{path}/{param_name}/{idx}",
+                        value=param_val.value,
+                        definition_ref=param_def.definition_ref,
+                        index=idx,
+                        param_type=param_def.param_type.value if param_def.param_type else ""
+                    )
+                    wrapper_node.add_child(child_node)
+                node.add_child(wrapper_node)
+            else:
+                param_node = self._create_parameter_node(
+                    param_def,
+                    params_source.get(param_name),
+                    f"{path}/{param_name}"
+                )
+                node.add_child(param_node)
 
         
         # Add references
@@ -516,13 +518,13 @@ class OverlayEngine:
         if node.node_type == 'container':
             # Count children by definition ref
             child_counts: Dict[str, int] = {}
-            for child in node.children.values():
+            for child in node.children:
                 if child.node_type == 'container':
                     ref = child.definition_ref
                     child_counts[ref] = child_counts.get(ref, 0) + 1
             
             # Validate against constraints (simplified - would need def lookup)
-            for child in node.children.values():
+            for child in node.children:
                 if child.node_type == 'container':
                     count = child_counts.get(child.definition_ref, 0)
                     if count < child.lower_multiplicity:
@@ -537,5 +539,42 @@ class OverlayEngine:
                         )
         
         # Recurse
-        for child in node.children.values():
+        for child in node.children:
             self._validate_node_multiplicity(child, errors)
+
+    def _alias_active_instance(self, wrapper_node: ConfigurationNode, variant: Optional[str] = None):
+        """Pick the best instance child and alias its sub-features to the wrapper."""
+        if not wrapper_node.children:
+            return
+
+        active_instance_node = None
+        
+        # 1. Try variant match if provided (placeholder)
+        if variant:
+            pass
+
+        # 2. Heuristic: Pick the instance with the MOST sub-container instances
+        if not active_instance_node:
+            best_node = None
+            max_instances = -1
+            for child in wrapper_node.children:
+                total_instances = 0
+                for sub in child.children:
+                    if hasattr(sub, 'node_type') and sub.node_type == 'container':
+                        total_instances += len(sub.children)
+                if total_instances > max_instances:
+                    max_instances = total_instances
+                    best_node = child
+            active_instance_node = best_node if best_node else wrapper_node.children[0]
+
+        # 3. Perform Aliasing
+        if active_instance_node:
+            print(f"DEBUG_OVERLAY: Aliasing from {active_instance_node.short_name} to wrapper {wrapper_node.short_name}")
+            print(f"DEBUG_OVERLAY:   Found {len(active_instance_node.children)} children in active instance node")
+            for sub_node in active_instance_node.children:
+                print(f"DEBUG_OVERLAY:   Candidate child {sub_node.short_name} (type={sub_node.node_type})")
+                if not wrapper_node.get_child(sub_node.short_name):
+                    wrapper_node.add_child(sub_node)
+                    print(f"DEBUG_OVERLAY:     -> Added alias for {sub_node.short_name}")
+                else:
+                    print(f"DEBUG_OVERLAY:     -> Skipped (already exists)")

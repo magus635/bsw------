@@ -145,6 +145,8 @@ class EcucDefParser:
         if not short_name:
             return None
         
+        print(f"DEBUG_DEF_ENTRY: Parsing container def '{short_name}'")
+
         container_def = EcucContainerDef(
             short_name=short_name,
             description=self._get_description(element)
@@ -247,6 +249,7 @@ class EcucDefParser:
             if tag_local == 'lst':
                 # Extract multiplicity from v:lst's a:da MIN/MAX
                 min_da = sub_elem.xpath("a:da[@name='MIN']/@value", namespaces={'a': ns_a})
+                print(f"DEBUG_DEF: Found v:lst name={sub_elem.get('name')}")
                 max_da = sub_elem.xpath("a:da[@name='MAX']/@value", namespaces={'a': ns_a})
                 max_da_elems = sub_elem.xpath("a:da[@name='MAX']", namespaces={'a': ns_a})
 
@@ -269,6 +272,38 @@ class EcucDefParser:
                             lst_upper = resolved
                         else:
                             lst_upper = -1  # unresolvable or 0 -> treat as unbounded
+
+                # Handle v:ctr inside v:lst (multi-container / sub-container)
+                ctr_children = sub_elem.xpath("v:ctr", namespaces={'v': ns_v})
+                for ctr_child in ctr_children:
+                    sub_container_def = self._parse_container_def(ctr_child, current_path)
+                    if sub_container_def:
+                        # Apply v:lst multiplicity to the container def
+                        if lst_lower is not None:
+                            sub_container_def.lower_multiplicity = lst_lower
+                        if lst_upper is not None:
+                            sub_container_def.upper_multiplicity = lst_upper
+                        elif not max_da and not max_da_elems:
+                             sub_container_def.upper_multiplicity = -1
+                        
+                        container_def.add_sub_container(sub_container_def)
+                        print(f"DEBUG_DEF_ADD: Added sub-container '{sub_container_def.short_name}' to '{container_def.short_name}'")
+
+                # Handle v:var inside v:lst (multi-parameters)
+                var_children = sub_elem.xpath("v:var", namespaces={'v': ns_v})
+                for var_child in var_children:
+                    param_def = self._parse_parameter_def(var_child, current_path)
+                    if param_def:
+                        if lst_lower is not None:
+                            param_def.lower_multiplicity = lst_lower
+                        if lst_upper is not None:
+                            param_def.upper_multiplicity = lst_upper
+                        elif not max_da and not max_da_elems:
+                            param_def.upper_multiplicity = -1
+                        if param_def.short_name == 'AdcResultRegisterDefinition':
+                            print(f"DEBUG_DEF: AdcResultRegisterDefinition multiplicity: {param_def.lower_multiplicity} .. {param_def.upper_multiplicity}")
+                        if param_def.short_name not in container_def.parameters:
+                            container_def.add_parameter(param_def)
 
                 # Handle v:ref inside v:lst (multi-references)
                 ref_children = sub_elem.xpath("v:ref", namespaces={'v': ns_v})
@@ -371,6 +406,10 @@ class EcucDefParser:
         origin = self._get_text_value(element, 'ORIGIN')
         if origin:
             param_def.origin = origin
+            
+        # Parse XDM attributes and data attributes (DEFAULT, RANGE, etc.)
+        self._parse_xdm_attributes(element, param_def)
+        self._parse_xdm_data_attributes(element, param_def, param_type)
             
         # --- NEW: Logic Loop Attributes (Pre/Link/Post) ---
         # Look for IMPLEMENTATION-CONFIG-CLASSES

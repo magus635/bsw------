@@ -637,6 +637,9 @@ class ArxmlParser:
         
         # Get value
         value = self._get_text_value(element, 'VALUE')
+
+        # Check for INDEX (multi-valued parameters)
+        index_text = self._get_text_value(element, 'INDEX')
         
         # Determine if it's numerical (try to convert) if tag implies it
         # Or just try smart conversion based on content?
@@ -669,7 +672,14 @@ class ArxmlParser:
             except (ValueError, TypeError):
                 pass # Keep as string if not a number
                 
-        container.set_parameter_value(param_name, value, definition_ref)
+        if index_text is not None:
+            try:
+                index_val = int(index_text)
+            except (ValueError, TypeError):
+                index_val = 0
+            container.add_multi_parameter_value(param_name, value, definition_ref, index_val)
+        else:
+            container.set_parameter_value(param_name, value, definition_ref)
 
     def _parse_ecuc_reference_value(self, element: etree._Element, container: EcucContainerValue):
         """Parse reference value and add to container"""

@@ -348,7 +348,7 @@ class BuiltinFunctions:
                     # EB Tresos behavior: If not found by exact name, try to find by definition name
                     # e.g., looking for 'McuModuleConfiguration' might match 'McuModuleConfiguration_0'
                     # if its definition ends with '/McuModuleConfiguration'
-                    for child_name, child_node in current.children.items():
+                    for child_node in current.children:
                         # Check if child's definition_ref matches the search term
                         if child_node.definition_ref:
                             def_name = child_node.definition_ref.split('/')[-1]
@@ -356,7 +356,7 @@ class BuiltinFunctions:
                                 return child_node
                         # Also check if child's short_name starts with the search term
                         # (handles cases like McuModuleConfiguration_0 for McuModuleConfiguration)
-                        if child_name.startswith(path_str + '_') or child_name == path_str:
+                        if child_node.short_name.startswith(path_str + '_') or child_node.short_name == path_str:
                             return child_node
 
             # Try absolute path resolution via symbol table
@@ -444,7 +444,7 @@ class BuiltinFunctions:
                 else:
                     # If direct child not found, search recursively in instance wrappers
                     found = False
-                    for c_node in nav_current.children.values():
+                    for c_node in nav_current.children:
                         if c_node.short_name == part:
                             nav_current = c_node
                             found = True
@@ -758,7 +758,7 @@ class BuiltinFunctions:
 
         result = self.symbol_table.get_module(module_name)
         if result:
-            _debug_log(f"as_modconf: Found module '{module_name}' with children: {list(result.children.keys())}")
+            _debug_log(f"as_modconf: Found module '{module_name}' with children: {[c.short_name for c in result.children]}")
         else:
             _debug_log(f"WARNING: Module '{module_name}' not loaded")
         return result
@@ -1852,7 +1852,7 @@ class BuiltinFunctions:
         # Get all children matching the container name
         target_name = parts[-1] if parts else ""
         containers = []
-        for child in node.children.values():
+        for child in node.children:
             if child.short_name.startswith(target_name) or target_name == "*":
                 containers.append(child)
         
@@ -1932,7 +1932,7 @@ class BuiltinFunctions:
             current = module
             for part in param_parts[:-1]:
                 found = False
-                for child in current.children.values():
+                for child in current.children:
                     if child.short_name == part:
                         current = child
                         found = True
@@ -1941,7 +1941,7 @@ class BuiltinFunctions:
                     break
             else:
                 # Exact path traversal succeeded, look for param in this container
-                for child in current.children.values():
+                for child in current.children:
                     if child.short_name == param_name:
                         val = child.get_value()
                         if val is not None:

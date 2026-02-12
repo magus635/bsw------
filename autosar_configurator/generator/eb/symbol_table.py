@@ -23,8 +23,11 @@ class ConfigurationNode:
     # Definition reference
     definition_ref: str = ""
     
-    # Children (for containers)
-    children: Dict[str, 'ConfigurationNode'] = field(default_factory=dict)
+    # Children (for containers) - now a list to support multiple nodes with same name
+    children: List['ConfigurationNode'] = field(default_factory=list)
+    
+    # Lookup map for fast name-based access (returns the latest added child if name conflicts)
+    _children_by_name: Dict[str, 'ConfigurationNode'] = field(default_factory=dict, repr=False)
     
     # Parent reference
     parent: Optional['ConfigurationNode'] = field(default=None, repr=False)
@@ -45,16 +48,16 @@ class ConfigurationNode:
     
     def get_child(self, name: str) -> Optional['ConfigurationNode']:
         """Get child node by name"""
-        return self.children.get(name)
+        return self._children_by_name.get(name)
     
     def get_children_list(self) -> List['ConfigurationNode']:
         """Get all children as a list"""
-        return list(self.children.values())
+        return self.children
     
     def get_children_recursive(self) -> List['ConfigurationNode']:
         """Recursively get all children/descendants"""
         results = []
-        for child in self.children.values():
+        for child in self.children:
             results.append(child)
             results.extend(child.get_children_recursive())
         return results
@@ -62,7 +65,22 @@ class ConfigurationNode:
     def add_child(self, node: 'ConfigurationNode'):
         """Add a child node"""
         node.parent = self
-        self.children[node.short_name] = node
+        self.children.append(node)
+        self._children_by_name[node.short_name] = node
+
+    def __post_init__(self):
+        # If children were passed as a dict during construction (for legacy reasons), 
+        # convert them to list and populate lookup
+        if isinstance(self.children, dict):
+            legacy_dict = self.children
+            self.children = []
+            self._children_by_name = {}
+            for name, node in legacy_dict.items():
+                self.add_child(node)
+        elif not hasattr(self, '_children_by_name') or self._children_by_name is None:
+            self._children_by_name = {}
+            for node in self.children:
+                self._children_by_name[node.short_name] = node
 
     def __str__(self):
         """String representation showing value or short name"""
@@ -93,7 +111,7 @@ class SymbolTable:
     def _index_node(self, node: ConfigurationNode):
         """Recursively index all nodes by their path"""
         self._path_index[node.path] = node
-        for child in node.children.values():
+        for child in node.children:
             self._index_node(child)
     
     def get_module(self, module_name: str) -> Optional[ConfigurationNode]:
@@ -174,7 +192,7 @@ class SymbolTable:
                 # CASE 1: Skip "structural" wrapper nodes in the tree
                 # If current has children that are wrappers or have the same name as current,
                 # explore them if they might contain our target.
-                for child_name, child_node in current.children.items():
+                for child_node in current.children:
                     # If the child looks like a structural node (wrapper or same name alias),
                     # try to see if it contains the target.
                     if child_node.node_type == 'container':
