@@ -124,10 +124,32 @@ class EcucValueSerializer:
             index_elem.text = str(container.index)
         
         # Parameters - create wrapper once
+        param_values_elem = None
         if container.parameter_values:
             param_values_elem = etree.SubElement(container_elem, 'PARAMETER-VALUES')
             for param in container.parameter_values.values():
                 self._serialize_parameter(param, param_values_elem)
+
+        # Multi-valued parameters (with INDEX)
+        multi_params = getattr(container, 'multi_parameter_values', None)
+        if multi_params:
+            if param_values_elem is None:
+                param_values_elem = etree.SubElement(container_elem, 'PARAMETER-VALUES')
+            for param_name, param_list in multi_params.items():
+                for param_val in sorted(param_list, key=lambda p: p.index if p.index is not None else 0):
+                    is_numerical = isinstance(param_val.value, (int, float, bool))
+                    tag_name = 'ECUC-NUMERICAL-PARAM-VALUE' if is_numerical else 'ECUC-TEXTUAL-PARAM-VALUE'
+                    param_elem = etree.SubElement(param_values_elem, tag_name)
+                    if param_val.index is not None:
+                        index_elem = etree.SubElement(param_elem, 'INDEX')
+                        index_elem.text = str(param_val.index)
+                    def_ref = etree.SubElement(param_elem, 'DEFINITION-REF', DEST='ECUC-PARAMETER-DEF')
+                    def_ref.text = param_val.definition_ref
+                    value_elem = etree.SubElement(param_elem, 'VALUE')
+                    if isinstance(param_val.value, bool):
+                        value_elem.text = 'true' if param_val.value else 'false'
+                    else:
+                        value_elem.text = str(param_val.value)
                 
         # References - create wrapper once
         ref_values_elem = None

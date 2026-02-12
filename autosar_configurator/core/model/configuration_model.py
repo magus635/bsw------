@@ -17,7 +17,10 @@ class EcucParameterValue:
     """
     definition_ref: str  # Path to EcucParameterDef, e.g., "/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcPrescale"
     value: Any  # Actual value: "SARADC0", 14, True, etc.
-    
+
+    # Index for multi-valued parameters
+    index: Optional[int] = None
+
     # Metadata
     is_modified: bool = False
     last_modified: Optional[datetime] = None
@@ -301,6 +304,7 @@ class EcucContainerValue:
         param_value = EcucParameterValue(
             definition_ref=definition_ref,
             value=value,
+            index=index,
             is_modified=True,
             last_modified=datetime.now()
         )
