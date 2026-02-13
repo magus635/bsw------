@@ -371,7 +371,7 @@ class CodeGenerator:
         """Prepare the complete generation context for template engines"""
         module_name = self.configuration.short_name if self.configuration else "Unknown"
         
-        return {
+        context = {
             'module_def': self.module_def,
             'configuration': self.configuration,
             'containers': self.configuration.containers if self.configuration else [],
@@ -383,7 +383,8 @@ class CodeGenerator:
             'linktime_params': self._get_params_by_config_class(ConfigClass.LINK_TIME) if self.configuration else [],
             'postbuild_params': self._get_params_by_config_class(ConfigClass.POST_BUILD) if self.configuration else [],
             'references': self._get_references() if self.configuration else [],
-            'header_guard': f"{module_name.upper()}_CFG_H"
+            'header_guard': f"{module_name.upper()}_CFG_H",
+            'all_modules': self.all_configurations  # Corrected: Include for cross-module access
         }
         
         # Inject standard EB Tresos version variables
@@ -399,16 +400,29 @@ class CodeGenerator:
             pub_info = next((c for c in self.configuration.containers if c.short_name == 'CommonPublishedInformation'), None)
             if pub_info:
                 # helper to get param value
-                def get_val(name, default):
-                    p = pub_info.parameters.get(name)
-                    return str(p.value) if p and p.value is not None else default
+                def get_val(item, name, default):
+                    # EcucContainerValue uses get_parameter_value or parameter_values
+                    try:
+                        if hasattr(item, 'get_parameter_value'):
+                            val = item.get_parameter_value(name)
+                            return str(val) if val is not None else default
+                        elif hasattr(item, 'parameter_values') and name in item.parameter_values:
+                            val = item.parameter_values[name].value
+                            return str(val) if val is not None else default
+                        # Also check children dict if present
+                        elif hasattr(item, 'children') and name in item.children:
+                            val = item.children[name].value
+                            return str(val) if val is not None else default
+                    except:
+                        pass
+                    return default
                 
-                rel_major = get_val('ArMajorVersion', rel_major)
-                rel_minor = get_val('ArMinorVersion', rel_minor)
-                rel_patch = get_val('ArPatchVersion', rel_patch)
-                sw_major = get_val('SwMajorVersion', sw_major)
-                sw_minor = get_val('SwMinorVersion', sw_minor)
-                sw_patch = get_val('SwPatchVersion', sw_patch)
+                rel_major = get_val(pub_info, 'ArMajorVersion', rel_major)
+                rel_minor = get_val(pub_info, 'ArMinorVersion', rel_minor)
+                rel_patch = get_val(pub_info, 'ArPatchVersion', rel_patch)
+                sw_major = get_val(pub_info, 'SwMajorVersion', sw_major)
+                sw_minor = get_val(pub_info, 'SwMinorVersion', sw_minor)
+                sw_patch = get_val(pub_info, 'SwPatchVersion', sw_patch)
             
             context['moduleReleaseVer'] = f"{rel_major}.{rel_minor}.{rel_patch}"
             context['moduleSoftwareVer'] = f"{sw_major}.{sw_minor}.{sw_patch}"

@@ -1239,7 +1239,15 @@ class XPathEngine:
                         
                 else:  # child axis (default)
                     if name == '*':
-                        next_nodes.extend(n.get_children_list())
+                        children = n.get_children_list()
+                        if children:
+                            next_nodes.extend(children)
+                        elif hasattr(n, 'node_type') and n.node_type == 'parameter':
+                            # EB Tresos compatibility: param/*[1] on a simple parameter
+                            # (leaf node with no children) returns the parameter itself.
+                            # This allows patterns like GptNotification/*[1] to retrieve
+                            # the parameter value.
+                            next_nodes.append(n)
                     elif name == '.':
                         next_nodes.append(n)
                     elif name in ('SHORT-NAME', 'NAME', '@name'):
