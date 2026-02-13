@@ -91,6 +91,7 @@ class BuiltinFunctions:
             'text:tolower': self.string_lower,
             'text:toupper': self.string_upper,
             'text:replace': self.string_replace,
+            'text:contains': self.string_contains,
             
             # XPath standard function aliases (for compatibility)
             'string': self.to_string,  # XPath string() type conversion
@@ -1013,11 +1014,18 @@ class BuiltinFunctions:
             s = str(s)
         return len(s)
     
-    def string_contains(self, s: str, substring: str) -> bool:
-        """Check if string contains substring"""
+    def string_contains(self, s, substring: str) -> bool:
+        """Check if string contains substring, or if list contains element.
+
+        In EB Tresos, text:contains(list, value) checks list membership.
+        Standard XPath contains(string, substring) checks string containment.
+        """
+        if isinstance(s, list):
+            # EB Tresos text:contains(ecu:list(...), value): list membership
+            return any(str(item) == str(substring) for item in s)
         if not isinstance(s, str):
             s = str(s)
-        return substring in s
+        return str(substring) in s
     
     def string_substring(self, s: str, start: Any, length: Any = None) -> str:
         """Extract substring from string."""
