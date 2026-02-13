@@ -945,6 +945,10 @@ class Renderer:
                                 prev_char = s[i-1] if i > 0 else None
                                 if prev_char == '/':
                                     continue # Skip '/' followed by '*' as it's XPath
+                                # '*' at start of expression is XPath wildcard, not multiplication
+                                # (multiplication requires a left operand)
+                                if i == 0:
+                                    continue
 
                             # Ensure it's not a substring of a larger identifier
                             # if it's a word operator like 'div'
@@ -1486,13 +1490,55 @@ class Renderer:
                     node = None
             return self._builtins.node_exists(node)
 
+        # Special handling for count() - argument is an XPath node-set expression.
+        # The wildcard '*' must be evaluated via XPath engine (as "all children"),
+        # NOT via _evaluate_expression which misinterprets '*' as multiplication.
+        if func_name == 'count' and len(args) == 1 and self._xpath_engine:
+            arg = args[0].strip()
+            if (arg.startswith('"') and arg.endswith('"')) or \
+               (arg.startswith("'") and arg.endswith("'")):
+                arg = arg[1:-1]
+            result = self._xpath_engine.evaluate(arg, return_node=True)
+            ctx = self._context_stack.current_node()
+            ctx_name = ctx.short_name if ctx and hasattr(ctx, 'short_name') else str(ctx)
+            if result is None:
+                print(f"DEBUG_COUNT: count({arg}) = 0 [None], context={ctx_name}")
+                return 0
+            if isinstance(result, list):
+                # Log children names for debugging
+                child_names = [getattr(n, 'short_name', str(n)) for n in result[:5]]
+                print(f"DEBUG_COUNT: count({arg}) = {len(result)}, context={ctx_name}, first_children={child_names}")
+                return len(result)
+            print(f"DEBUG_COUNT: count({arg}) = 1 [single], context={ctx_name}, node={getattr(result, 'short_name', str(result))}")
+            return 1
+
         # Evaluate each argument
-        evaluated_args = [self._evaluate_expression(arg) for arg in args]
+        # For node:* / ecuC:* functions, arguments should be resolved as NODES
+        # (not unwrapped to scalar values) so that node:name() can get .short_name
+        # and node:value() can get .get_value() properly.
+        is_node_func = func_name.startswith('node:') or func_name.startswith('ecuC:')
+        if is_node_func and self._xpath_engine:
+            evaluated_args = []
+            for arg in args:
+                arg = arg.strip()
+                # String literals stay as strings
+                if (arg.startswith('"') and arg.endswith('"')) or \
+                   (arg.startswith("'") and arg.endswith("'")):
+                    evaluated_args.append(arg[1:-1])
+                else:
+                    val = self._xpath_engine.evaluate(arg, return_node=True)
+                    evaluated_args.append(val)
+        else:
+            evaluated_args = [self._evaluate_expression(arg) for arg in args]
         
         # Call built-in function
         if self._builtins.has(func_name):
             try:
                 res = self._builtins.call(func_name, *evaluated_args)
+                # Debug: trace node:name and node:value calls
+                if func_name in ('node:name', 'node:value'):
+                    arg_info = evaluated_args[0].short_name if evaluated_args and hasattr(evaluated_args[0], 'short_name') else str(evaluated_args[0]) if evaluated_args else 'no-arg'
+                    print(f"DEBUG_NODE_FUNC: {func_name}({arg_info}) = {res}")
                 return res
             except Exception as e:
                 logger.error(f"Error calling function {func_name}: {e}")
@@ -1711,27 +1757,41 @@ class Renderer:
             List of nodes for context switching, or None if not applicable
         """
         # Strategy 1: Find count(...) with balanced parenthesis parsing
+        # BUT only if count() is at the TOP LEVEL of the expression,
+        # not nested inside another function like num:i(count(*)).
+        # When nested, the FOR loop uses count() purely for its numeric
+        # value and does NOT want implicit context switching.
         count_pos = end_expr.find('count(')
         if count_pos != -1:
-            # Find the matching closing paren for count(
-            open_paren = count_pos + 5  # position of '(' after 'count'
-            depth = 1
-            i = open_paren + 1
-            while i < len(end_expr) and depth > 0:
-                if end_expr[i] == '(':
-                    depth += 1
-                elif end_expr[i] == ')':
-                    depth -= 1
-                i += 1
+            # Check nesting: count how many unmatched '(' appear before count_pos
+            nesting = 0
+            for ch in end_expr[:count_pos]:
+                if ch == '(':
+                    nesting += 1
+                elif ch == ')':
+                    nesting -= 1
 
-            if depth == 0:
-                # Extract the path inside count(...)
-                path = end_expr[open_paren + 1:i - 1].strip()
-                if path:
-                    loop_nodes = self._evaluate_xpath(path)
-                    if not isinstance(loop_nodes, list):
-                        loop_nodes = [loop_nodes] if loop_nodes else []
-                    return loop_nodes if loop_nodes else None
+            # Only trigger implicit context switching when count() is at top level
+            if nesting == 0:
+                # Find the matching closing paren for count(
+                open_paren = count_pos + 5  # position of '(' after 'count'
+                depth = 1
+                i = open_paren + 1
+                while i < len(end_expr) and depth > 0:
+                    if end_expr[i] == '(':
+                        depth += 1
+                    elif end_expr[i] == ')':
+                        depth -= 1
+                    i += 1
+
+                if depth == 0:
+                    # Extract the path inside count(...)
+                    path = end_expr[open_paren + 1:i - 1].strip()
+                    if path:
+                        loop_nodes = self._evaluate_xpath(path)
+                        if not isinstance(loop_nodes, list):
+                            loop_nodes = [loop_nodes] if loop_nodes else []
+                        return loop_nodes if loop_nodes else None
 
         # Strategy 2: If the end expression is a variable or doesn't contain count(),
         # check if it looks like it could be iterating over current node's children.

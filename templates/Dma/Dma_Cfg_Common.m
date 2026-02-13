@@ -21,7 +21,7 @@
 
 [!IF "not(var:defined('DMA_CFG_COMMON_M'))"!][!//
 [!VAR "DMA_CFG_COMMON_M" = "'true'"!][!//
-
+[!TRACE "DMA_CFG_COMMON_M = " + $DMA_CFG_COMMON_M!][!//
 [!/* Macro to find the core to which the DMA channel is mapped */!][!//
 [!INDENT "0"!][!//
 [!MACRO "CG_FindDmaChannelMappedCoreId", "DmaChannelName" = ""!][!//
@@ -88,7 +88,8 @@
 [!INDENT "0"!][!//
 [!MACRO "CG_FindDmaChannelMacroStatus",  "NodeName" = ""!][!//
     [!SELECT "as:modconf('Dma')[1]/DmaConfigSet"!][!//
-        [!VAR "Var_NodeCfgEnableStatus" = "'false'"!][!//
+        [!VAR "Var_NodeCfgEnableStatus" = "'true'"!][!//
+        [!TRACE "DmaChannelNum = " + num:i(count(*))!][!//
         [!LOOP "DmaChannel/*"!][!//
             [!/* For loop all node in current channel */!][!//
             [!FOR "VAR_NodeNum" = "num:i(1)" TO "num:i(count(*))"!][!//

@@ -274,25 +274,16 @@ class BuiltinFunctions:
         if param_type:
             param_type = param_type.upper()
 
-            # Note: Per EB Tresos spec, node:value() should return the RAW value.
-            # Boolean formatting (STD_ON/STD_OFF, TRUE/FALSE) is the template's
-            # responsibility. Returning raw values allows templates to do their
-            # own comparisons and formatting.
-            #
-            # Example template pattern:
-            #   [!IF "node:value(./Enable) = 'true'"!]STD_ON[!ELSE!]STD_OFF[!ENDIF!]
+            # EB Tresos node:value() converts boolean parameters to "true"/"false"
+            # strings so that templates can compare: node:value(./Enable) = 'true'
+            # EPC files store booleans as integers (1/0), so we must convert here.
+            if 'BOOLEAN' in param_type:
+                return 'true' if self._parse_boolean(value) else 'false'
 
             # Reference -> Resolve
             if 'REFERENCE' in param_type or node.node_type == 'reference':
-                # Return the target path (string) or object?
-                # Spec says "Reference: resolved target object"
-                # But typically node:value returns the value stored in the node.
-                # For ref, value is the path string.
-                # node:ref() function is used to get the object.
-                # EB Spec 8.1 "ecuC.getReference -> TargetObject".
-                # node:value() usually returns the string path.
                 return value
-        
+
         return value
     
     def _parse_boolean(self, value: Any) -> bool:

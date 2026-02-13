@@ -62,8 +62,20 @@ class XPathEngine:
             Single node, list of nodes, or None
         """
         xpath = xpath.strip()
+        # Save and restore _return_node to prevent recursive evaluate() calls
+        # (e.g. from _apply_predicates) from corrupting the outer caller's flag.
+        saved_return_node = self._return_node
         self._return_node = return_node
-        
+        try:
+            return self._evaluate_impl(xpath)
+        finally:
+            self._return_node = saved_return_node
+
+    def _evaluate_impl(self, xpath: str) -> Any:
+        """Internal implementation of evaluate(). Separated to allow
+        save/restore of _return_node across recursive calls."""
+        return_node = self._return_node
+
         # Check for parenthesized condition (e.g. "(A) or (B)")
         if xpath.startswith('(') and self._is_condition(xpath):
              return self._evaluate_condition(xpath)
@@ -1528,8 +1540,19 @@ class XPathEngine:
                 result = [n for n in result if self._check_attribute(n, attr_name, attr_value)]
                 continue
 
-            # General condition - evaluate as boolean
-            result = [n for n in result if self._evaluate_predicate_condition(n, pred)]
+            # General condition - evaluate as boolean per-node
+            # Must set position/last context variables so position() works in predicates
+            new_result = []
+            for idx, n in enumerate(result, 1):
+                self.context_stack.push(n)
+                self.context_stack.set_variable('position', idx)
+                self.context_stack.set_variable('last', len(result))
+                try:
+                    if self._evaluate_predicate_condition(n, pred):
+                        new_result.append(n)
+                finally:
+                    self.context_stack.pop()
+            result = new_result
 
         return result
     
