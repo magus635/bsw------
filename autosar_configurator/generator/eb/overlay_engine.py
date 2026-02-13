@@ -579,7 +579,9 @@ class OverlayEngine:
                     print(f"DEBUG_OVERLAY:     -> Skipped (not a container, type={sub_node.node_type})")
                     continue
                 if not wrapper_node.get_child(sub_node.short_name):
-                    wrapper_node.add_child(sub_node)
+                    wrapper_node.add_alias(sub_node)
                     print(f"DEBUG_OVERLAY:     -> Added alias for {sub_node.short_name}")
                 else:
                     print(f"DEBUG_OVERLAY:     -> Skipped (already exists)")
+
+

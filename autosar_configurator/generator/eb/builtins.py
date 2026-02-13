@@ -1022,7 +1022,25 @@ class BuiltinFunctions:
         """
         if isinstance(s, list):
             # EB Tresos text:contains(ecu:list(...), value): list membership
-            return any(str(item) == str(substring) for item in s)
+            # Unwrap ConfigurationNode to value if needed
+            items_str = []
+            for item in s:
+                if hasattr(item, 'get_value'):
+                    items_str.append(str(item.get_value()))
+                else:
+                    items_str.append(str(item))
+            # Also unwrap substring (may be a ConfigurationNode or list of nodes)
+            sub_str = str(substring)
+            if hasattr(substring, 'get_value'):
+                sub_str = str(substring.get_value())
+            elif isinstance(substring, list):
+                if len(substring) >= 1:
+                    # Use the first value - in correct parent navigation,
+                    # ../../../../IntcIntSrcClass should return a single node.
+                    # If multiple are returned, use the first (closest match).
+                    v = substring[0]
+                    sub_str = str(v.get_value()) if hasattr(v, 'get_value') else str(v)
+            return sub_str in items_str
         if not isinstance(s, str):
             s = str(s)
         return str(substring) in s

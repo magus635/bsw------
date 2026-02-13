@@ -68,6 +68,16 @@ class ConfigurationNode:
         self.children.append(node)
         self._children_by_name[node.short_name] = node
 
+    def add_alias(self, node: 'ConfigurationNode'):
+        """Add a child reference WITHOUT changing the node's parent pointer.
+
+        Used by _alias_active_instance to make sub-containers accessible
+        from the wrapper node while preserving the original parent chain
+        needed for correct '..' (parent axis) XPath navigation.
+        """
+        self.children.append(node)
+        self._children_by_name[node.short_name] = node
+
     def __post_init__(self):
         # If children were passed as a dict during construction (for legacy reasons), 
         # convert them to list and populate lookup
