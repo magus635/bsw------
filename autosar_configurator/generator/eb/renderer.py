@@ -505,13 +505,14 @@ class Renderer:
         """Apply current indentation to text.
 
         Adds spaces at the start of each new line based on current indent level.
-        ALWAYS strips template's leading whitespace and replaces with INDENT-controlled spacing.
-        This is standard EB engine behavior.
+        By default, if explicit INDENT tags are used, it strips template's leading whitespace.
+        If no explicit INDENT is active (stack len == 1), it preserves template whitespace.
         """
         if not text:
             return text
 
         # Get current indent level (absolute level from top of stack)
+        has_explicit_indent = len(self._indent_stack) > 1
         indent_level = self._indent_stack[-1] if self._indent_stack else 0
         indent_str = ' ' * indent_level
         
@@ -528,12 +529,18 @@ class Renderer:
                     # Stay at line start, reset indent flag for NEW line
                     self._indent_added_on_this_line = False
                 elif char in (' ', '\t'):
-                    # leading whitespace in template - ALWAYS skip it
-                    # Do NOT add indent here - only add when we hit actual content
-                    i += 1
+                    if has_explicit_indent:
+                        # leading whitespace in template - ALWAYS skip it when automatic indent is on
+                        i += 1
+                    else:
+                        # Manual mode: preserve template whitespace
+                        result.append(char)
+                        i += 1
+                        # If we have actual whitespace, we are no longer at the very start of line content
+                        # but we still haven't added "automatic" indent.
                 else:
                     # Hit first content character
-                    if not self._indent_added_on_this_line and indent_level > 0:
+                    if has_explicit_indent and not self._indent_added_on_this_line and indent_level > 0:
                         result.append(indent_str)
                         self._indent_added_on_this_line = True
                     result.append(char)
