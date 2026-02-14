@@ -226,11 +226,11 @@ class Lexer:
     
     def _parse_tag(self, content: str, raw: str) -> Token:
         """Parse a [! ... !] tag into appropriate token type.
-        
+
         Args:
             content: Content inside [! and !]
             raw: Full raw tag including delimiters
-            
+
         Returns:
             Token object
         """

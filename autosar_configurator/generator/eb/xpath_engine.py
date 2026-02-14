@@ -969,11 +969,28 @@ class XPathEngine:
         current = context_node or self.context_stack.current_node()
         if not current:
             return None
-        
+
         # Strip leading ./
         if xpath.startswith('./'):
             xpath = xpath[2:]
-        
+
+        # Handle EB Tresos 'node:' prefix for child element navigation
+        # Example: node:SentChannelConfigSet/*[1] → child::SentChannelConfigSet/*[1]
+        if xpath.startswith('node:'):
+            # Extract element name after 'node:'
+            # Stop at '/' or '[' to handle predicates and following paths
+            remaining = xpath[5:]  # Remove 'node:' prefix
+            match = re.match(r'^([a-zA-Z_][a-zA-Z0-9_]*)', remaining)
+            if match:
+                element_name = match.group(1)
+                # Get the rest of the path after the element name
+                rest_path = remaining[len(element_name):]
+                # Reconstruct as standard child navigation
+                if rest_path:
+                    xpath = element_name + rest_path
+                else:
+                    xpath = element_name
+
         # Parse path segments with predicates
         segments = self._parse_path(xpath)
         return self._navigate_segments(current, segments)

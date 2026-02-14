@@ -677,12 +677,6 @@ class Renderer:
         if_token = tokens[start]
         condition = if_token.content
 
-        # DEBUG: Log IF entry
-        _debug_log(f"[IF] Starting IF with condition: {condition[:80]}...")
-        if self._context_stack.has_variable('MaxChannelsCore'):
-            max_channels = self._context_stack.get_variable('MaxChannelsCore')
-            _debug_log(f"[IF] Current MaxChannelsCore = {max_channels}")
-
         # Find block structure
         blocks = []  # [(condition, start_idx, end_idx), ...]
         current_start = start + 1
@@ -711,9 +705,7 @@ class Renderer:
 
         # Execute first matching block
         for cond, block_start, block_end in blocks:
-            cond_result = cond is True or self._evaluate_condition(cond)
-            _debug_log(f"[IF] Condition result: {cond_result} - {'EXECUTING BLOCK' if cond_result else 'SKIPPING BLOCK'}")
-            if cond_result:
+            if cond is True or self._evaluate_condition(cond):
                 self._execute_tokens(tokens, block_start, block_end)
                 break
 
@@ -792,9 +784,6 @@ class Renderer:
         select_token = tokens[start]
         xpath_expr = select_token.content
 
-        # DEBUG: Log SELECT entry
-        _debug_log(f"[SELECT] Starting SELECT with xpath: {xpath_expr[:60]}...")
-
         # Find matching ENDSELECT
         depth = 1
         i = start + 1
@@ -813,52 +802,23 @@ class Renderer:
         # Get target node - may be None/empty, which is allowed per spec
         node = self._evaluate_expression(xpath_expr)
 
-        # DEBUG: Log expression result
-        _debug_log(f"[SELECT] After _evaluate_expression: node type={type(node).__name__}, value={str(node)[:40] if node else 'None'}")
-
         # If result is a string, evaluate as XPath
         if isinstance(node, str):
             node = self._evaluate_xpath(node)
-            _debug_log(f"[SELECT] After _evaluate_xpath: node type={type(node).__name__}, value={str(node)[:40] if node else 'None'}")
 
         if isinstance(node, list):
             node = node[0] if node else None
-            _debug_log(f"[SELECT] Unwrapped list: node type={type(node).__name__}, value={str(node)[:40] if node else 'None'}")
-
-        # DEBUG: Log variables before SELECT body
-        _debug_log(f"[SELECT] Variables BEFORE execute_tokens:")
-        if self._context_stack.has_variable('MaxChannelsCore'):
-            max_channels = self._context_stack.get_variable('MaxChannelsCore')
-            _debug_log(f"  MaxChannelsCore = {max_channels}")
-        if self._context_stack.has_variable('ChannelNo'):
-            channel_no = self._context_stack.get_variable('ChannelNo')
-            _debug_log(f"  ChannelNo = {channel_no}")
-        if self._context_stack.has_variable('NodeName'):
-            node_name = self._context_stack.get_variable('NodeName')
-            _debug_log(f"  NodeName = {node_name}")
 
         # Always execute the block, even with empty context
         # node:* functions will check for None and raise appropriate errors
         self._context_stack.push(node)
-        _debug_log(f"[SELECT] Pushed node to context stack (is_none={node is None})")
 
         self._execute_tokens(tokens, start + 1, select_end)
 
-        # DEBUG: Log variables after SELECT body
-        _debug_log(f"[SELECT] Variables AFTER execute_tokens:")
-        if self._context_stack.has_variable('MaxChannelsCore'):
-            max_channels = self._context_stack.get_variable('MaxChannelsCore')
-            _debug_log(f"  MaxChannelsCore = {max_channels}")
-        if self._context_stack.has_variable('NodeName'):
-            node_name = self._context_stack.get_variable('NodeName')
-            _debug_log(f"  NodeName = {node_name}")
-
         # Propagate variables set in select body to parent scope
         current_vars = self._context_stack.current_scope_variables()
-        _debug_log(f"[SELECT] Variables to propagate: {list(current_vars.keys())}")
         for name, value in current_vars.items():
             self._context_stack.set_variable_in_parent(name, value)
-            _debug_log(f"[SELECT] Propagated {name} = {str(value)[:40]}")
 
         self._context_stack.pop()
 
@@ -1253,16 +1213,6 @@ class Renderer:
         if isinstance(condition, bool): return condition
 
         condition = self._strip_tag_quotes(condition)
-        _debug_log(f"DEBUG: Evaluating condition: {condition}")
-
-        # DEBUG: Log all variables at condition evaluation time
-        if self._context_stack:
-            all_vars = {}
-            for scope in self._context_stack._stack:
-                all_vars.update(scope.variables)
-            if all_vars:
-                vars_str = ", ".join([f"{k}={str(v)[:30]}" for k, v in list(all_vars.items())[:10]])
-                _debug_log(f"DEBUG: Current variables: {vars_str}")
 
         # Strip outer quotes if present (common in EB syntax [!IF "expr"!])
         if (condition.startswith('"') and condition.endswith('"')) or \
@@ -1296,15 +1246,12 @@ class Renderer:
                     break
             if balanced:
                 res = not self._evaluate_condition(inner[1:-1].strip())
-                _debug_log(f"DEBUG: Condition '!()' result: {res}")
                 return res
         if condition.startswith('!') and not condition.startswith('!='):
             res = not self._evaluate_condition(condition[1:].strip())
-            _debug_log(f"DEBUG: Condition '!' result: {res}")
             return res
         if condition.lower().startswith('not '):
             res = not self._evaluate_condition(condition[4:].strip())
-            _debug_log(f"DEBUG: Condition 'not' result: {res}")
             return res
 
         # Handle 'and' / 'or' with unified parenthesis-aware splitting
@@ -1328,10 +1275,6 @@ class Renderer:
 
                 left_val = self._evaluate_expression(left)
                 right_val = self._evaluate_expression(right)
-
-                # DEBUG: Log variable resolution
-                _debug_log(f"DEBUG: Resolving left side '{left}' => {repr(left_val)}")
-                _debug_log(f"DEBUG: Resolving right side '{right}' => {repr(right_val)}")
 
                 left_val = self._unwrap_value(left_val)
                 right_val = self._unwrap_value(right_val)
@@ -1416,7 +1359,6 @@ class Renderer:
                 else:
                     res = False
 
-                _debug_log(f"DEBUG: Comparison [{left} {check_op} {right}] => [{left_val} {check_op} {right_val}] Result: {res}")
                 return res
 
         # Atomic manifestation check (truthiness of single value)

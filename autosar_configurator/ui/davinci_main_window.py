@@ -1902,7 +1902,8 @@ class DaVinciMainWindow(QMainWindow):
                 self.config_manager.configuration,
                 project_template_dir=project_template_dir,
                 variant_overrides=variant_overrides,
-                all_configurations=self._get_all_project_configurations()
+                all_configurations=self._get_all_project_configurations(),
+                selected_chip=self.current_project.selected_chip if hasattr(self, 'current_project') and self.current_project else None
             )
             
             # Pass parent output directory; generator.generate_all() will handle the ModuleName/ subdirectory
