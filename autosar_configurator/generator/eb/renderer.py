@@ -1031,11 +1031,11 @@ class Renderer:
 
         # 3. Logical Operators (Top-level only, lowest precedence)
         and_parts = self._split_top_level(expr, [' and '])
-        if and_parts:
+        if len(and_parts) > 1:  # Only if we actually split on 'and'
             return all(self._evaluate_condition(p) for p in and_parts)
-            
+
         or_parts = self._split_top_level(expr, [' or '])
-        if or_parts:
+        if len(or_parts) > 1:  # Only if we actually split on 'or'
             return any(self._evaluate_condition(p) for p in or_parts)
 
         # 4. Arithmetic and Comparison Operations (Top-level only)
