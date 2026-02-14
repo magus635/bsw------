@@ -12,7 +12,7 @@ from .definition_model import VariantType
 @dataclass
 class EcucParameterValue:
     """ECUC Parameter Value (ECUC-TEXTUAL-PARAM-VALUE / ECUC-NUMERICAL-PARAM-VALUE)
-    
+
     Stores the actual configured value for a parameter
     """
     definition_ref: str  # Path to EcucParameterDef, e.g., "/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcPrescale"
@@ -20,6 +20,9 @@ class EcucParameterValue:
 
     # Index for multi-valued parameters
     index: Optional[int] = None
+
+    # DEST attribute from DEFINITION-REF (e.g., ECUC-INTEGER-PARAM-DEF, ECUC-ENUMERATION-PARAM-DEF)
+    dest_type: Optional[str] = None
 
     # Metadata
     is_modified: bool = False
@@ -197,6 +200,9 @@ class EcucReferenceValue:
     """
     definition_ref: str  # Path to EcucReferenceDef
     value_ref: str  # Path to target container instance
+
+    # DEST attribute from DEFINITION-REF (e.g., ECUC-REFERENCE-DEF, ECUC-FOREIGN-REFERENCE-DEF)
+    dest_type: Optional[str] = None
     
     # EMF-style resolved target object (populated after resolve_references() is called)
     target: Optional['EcucContainerValue'] = None
@@ -229,6 +235,9 @@ class EcucContainerValue:
     """
     short_name: str  # User-defined instance name, e.g., "AdcHwUnit_0", "AdcConfigSet"
     definition_ref: str  # Path to EcucContainerDef, e.g., "/AUTOSAR/EcucDefs/Adc/AdcHwUnit"
+
+    # DEST attribute from DEFINITION-REF (e.g., ECUC-PARAM-CONF-CONTAINER-DEF, ECUC-CHOICE-CONTAINER-DEF)
+    def_dest_type: Optional[str] = None
     
     # Configured parameter values
     parameter_values: Dict[str, EcucParameterValue] = field(default_factory=dict)
@@ -260,6 +269,7 @@ class EcucContainerValue:
     index: int = 0  # Instance index (for sorting)
     is_modified: bool = False
     last_modified: Optional[datetime] = None
+    uuid: Optional[str] = None  # UUID from original ARXML (preserved for round-trip fidelity)
     
     # Validation state
     validation_errors: List[str] = field(default_factory=list)
@@ -460,12 +470,13 @@ class EcucModuleConfiguration:
     """
     short_name: str  # e.g., "Adc"
     definition_ref: str  # Path to EcucModuleDef, e.g., "/AUTOSAR/EcucDefs/Adc"
-    
+
     # Top-level container instances
     containers: List[EcucContainerValue] = field(default_factory=list)
-    
+
     # Metadata
     implementation_config_variant: str = "VariantPostBuild"
+    package_name: Optional[str] = None  # AR-PACKAGE SHORT-NAME (preserved from original)
     is_modified: bool = False
     last_saved: Optional[datetime] = None
     

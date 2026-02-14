@@ -2105,7 +2105,10 @@ class Renderer:
                     message_parts.append(self._builtins.to_string(val))
             
             message = "".join(message_parts).strip()
-            raise TemplateParseError(f"Assertion failed: {message}")
+            if self.strict:
+                raise TemplateParseError(f"Assertion failed: {message}")
+            else:
+                _debug_log(f"ASSERT WARNING (non-strict): {message}")
         
         return i  # After ENDASSERT
     

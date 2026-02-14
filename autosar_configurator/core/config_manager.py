@@ -169,6 +169,63 @@ class DefFileScanner:
         return def_files
 
 
+class EpcFileScanner:
+    """Scanner for EPC configuration files (*.epc) in EB Tresos output directories"""
+
+    @staticmethod
+    def find_epc_files(project_root: Path, chip_name: Optional[str] = None) -> Dict[str, Path]:
+        """Find all .epc files, return dict: module_name -> epc_path
+
+        Search order:
+        1. Config/{chip_name}/output/*.epc (if chip_name given)
+        2. Config/*/output/*.epc (auto-detect)
+        3. project_root/**/*.epc (fallback)
+        """
+        epc_files = {}
+
+        # Strategy 1: specific chip directory
+        if chip_name:
+            chip_output = project_root / "Config" / chip_name / "output"
+            if chip_output.exists():
+                for epc_path in chip_output.glob("*.epc"):
+                    module_name = epc_path.stem
+                    epc_files[module_name] = epc_path
+                if epc_files:
+                    return epc_files
+
+        # Strategy 2: auto-detect from Config/*/output/
+        config_dir = project_root / "Config"
+        if config_dir.exists():
+            for chip_dir in sorted(config_dir.iterdir()):
+                output_dir = chip_dir / "output"
+                if output_dir.exists():
+                    for epc_path in output_dir.glob("*.epc"):
+                        module_name = epc_path.stem
+                        if module_name not in epc_files:
+                            epc_files[module_name] = epc_path
+            if epc_files:
+                return epc_files
+
+        # Strategy 3: fallback recursive search
+        for epc_path in project_root.rglob("*.epc"):
+            module_name = epc_path.stem
+            if module_name not in epc_files:
+                epc_files[module_name] = epc_path
+
+        return epc_files
+
+    @staticmethod
+    def detect_available_chips(project_root: Path) -> List[str]:
+        """Detect available chips from Config/ subdirectories"""
+        chips = []
+        config_dir = project_root / "Config"
+        if config_dir.exists():
+            for chip_dir in sorted(config_dir.iterdir()):
+                if chip_dir.is_dir() and (chip_dir / "output").exists():
+                    chips.append(chip_dir.name)
+        return chips
+
+
 class ConfigurationManager:
     """Manages ECUC configuration instances based on definitions"""
     
@@ -626,6 +683,18 @@ class ConfigurationManager:
                 
             new_config = parser.parse_ecuc_configuration_values(config_elem)
             if new_config:
+                # Extract AR-PACKAGE SHORT-NAME from parent context
+                # Navigate: config_elem -> parent (ELEMENTS) -> parent (AR-PACKAGE)
+                ar_package = config_elem.getparent()
+                if ar_package is not None:
+                    ar_package = ar_package.getparent()
+                if ar_package is not None:
+                    pkg_sn = ar_package.find('{http://autosar.org/schema/r4.0}SHORT-NAME')
+                    if pkg_sn is None:
+                        pkg_sn = ar_package.find('SHORT-NAME')
+                    if pkg_sn is not None and pkg_sn.text:
+                        new_config.package_name = pkg_sn.text
+
                 self.configuration = new_config
                 # Reset counters
                 self._instance_counters.clear()

@@ -21,3 +21,10 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# Debug & Temporary Files
+*.log
+run_*.py
+generateCode_debug/
+debug_*.txt
+

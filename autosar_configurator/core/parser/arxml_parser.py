@@ -548,6 +548,11 @@ class ArxmlParser:
             short_name=short_name,
             definition_ref=definition_ref
         )
+
+        # Parse IMPLEMENTATION-CONFIG-VARIANT
+        variant_text = self._get_text_value(element, 'IMPLEMENTATION-CONFIG-VARIANT')
+        if variant_text:
+            config.implementation_config_variant = variant_text
         
         # Parse containers
         containers_elem = self._find_descendant(element, 'CONTAINERS')
@@ -580,6 +585,16 @@ class ArxmlParser:
             short_name=short_name,
             definition_ref=definition_ref
         )
+
+        # Parse UUID attribute if present
+        uuid_val = element.get('UUID') or element.get('uuid')
+        if uuid_val:
+            container.uuid = uuid_val
+
+        # Parse DEFINITION-REF DEST attribute
+        def_dest = self._get_def_ref_dest(element)
+        if def_dest:
+            container.def_dest_type = def_dest
         
         # Parse INDEX if present
         index_elem = self._find_descendant(element, 'INDEX')
@@ -591,23 +606,23 @@ class ArxmlParser:
                 pass
         
         # Parse parameters (all types: numerical, textual, enumeration, etc.)
-        param_values_elem = self._find_descendant(element, 'PARAMETER-VALUES')
+        param_values_elem = self._find_child(element, 'PARAMETER-VALUES')
         if param_values_elem is not None:
             for param_elem in param_values_elem:
                 # Check for any tag ending with -PARAM-VALUE
                 tag_local = etree.QName(param_elem).localname
                 if 'PARAM-VALUE' in tag_local:
                     self._parse_ecuc_parameter_value(param_elem, container)
-                
+
         # Parse references
-        ref_values_elem = self._find_descendant(element, 'REFERENCE-VALUES')
+        ref_values_elem = self._find_child(element, 'REFERENCE-VALUES')
         if ref_values_elem is not None:
             for ref_elem in ref_values_elem:
                 if isinstance(ref_elem.tag, str) and ref_elem.tag.split('}')[-1].endswith('REFERENCE-VALUE'):
                     self._parse_ecuc_reference_value(ref_elem, container)
-                
+
         # Parse sub-containers
-        sub_containers_elem = self._find_descendant(element, 'SUB-CONTAINERS')
+        sub_containers_elem = self._find_child(element, 'SUB-CONTAINERS')
         if sub_containers_elem is not None:
             # Auto-indexing per definition
             sub_def_counts = {}
@@ -632,8 +647,11 @@ class ArxmlParser:
         definition_ref = self._get_text_value(element, 'DEFINITION-REF') or ""
         if not definition_ref:
             return
-            
+
         param_name = definition_ref.split('/')[-1]
+
+        # Get DEST attribute from DEFINITION-REF
+        dest_type = self._get_def_ref_dest(element)
         
         # Get value
         value = self._get_text_value(element, 'VALUE')
@@ -678,8 +696,14 @@ class ArxmlParser:
             except (ValueError, TypeError):
                 index_val = 0
             container.add_multi_parameter_value(param_name, value, definition_ref, index_val)
+            # Set dest_type on the newly added multi-param
+            if dest_type and param_name in container.multi_parameter_values:
+                container.multi_parameter_values[param_name][-1].dest_type = dest_type
         else:
             container.set_parameter_value(param_name, value, definition_ref)
+            # Set dest_type on the parameter
+            if dest_type and param_name in container.parameter_values:
+                container.parameter_values[param_name].dest_type = dest_type
 
     def _parse_ecuc_reference_value(self, element: etree._Element, container: EcucContainerValue):
         """Parse reference value and add to container"""
@@ -689,6 +713,9 @@ class ArxmlParser:
             return
 
         ref_name = definition_ref.split('/')[-1]
+
+        # Get DEST attribute from DEFINITION-REF
+        dest_type = self._get_def_ref_dest(element)
 
         # Check for INDEX (multi-valued references)
         index_text = self._get_text_value(element, 'INDEX')
@@ -717,11 +744,30 @@ class ArxmlParser:
             except (ValueError, TypeError):
                 index_val = 0
             container.add_multi_reference_value(ref_name, target_ref, definition_ref, index_val)
+            # Set dest_type on the newly added ref
+            if dest_type and ref_name in container.multi_reference_values:
+                container.multi_reference_values[ref_name][-1].dest_type = dest_type
         else:
             container.set_reference_value(ref_name, target_ref, definition_ref)
+            # Set dest_type on the reference
+            if dest_type and ref_name in container.reference_values:
+                container.reference_values[ref_name].dest_type = dest_type
 
     # Helper methods for Permissive Parsing
-    
+
+    def _find_child(self, element: etree._Element, tag_name: str) -> Optional[etree._Element]:
+        """Find first DIRECT child with tag_name, ignoring namespace.
+
+        Unlike _find_descendant, this only searches immediate children,
+        preventing accidental matches in nested sub-containers.
+        """
+        for child in element:
+            if isinstance(child.tag, str):
+                local_name = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+                if local_name == tag_name:
+                    return child
+        return None
+
     def _find_descendant(self, element: etree._Element, tag_name: str) -> Optional[etree._Element]:
         """Find first descendant with tag_name, ignoring namespace"""
         # 1. Try direct find with namespace (fastest) - Assumes AR namespace
@@ -785,6 +831,13 @@ class ArxmlParser:
         """Get text value of a descendant"""
         elem = self._find_descendant(element, tag_name)
         return elem.text if elem is not None else None
+
+    def _get_def_ref_dest(self, element: etree._Element) -> Optional[str]:
+        """Get the DEST attribute from DEFINITION-REF element"""
+        def_ref_elem = self._find_descendant(element, 'DEFINITION-REF')
+        if def_ref_elem is not None:
+            return def_ref_elem.get('DEST')
+        return None
 
     def _find_child(self, element: etree._Element, tag_name: str) -> Optional[etree._Element]:
         """Find first immediate child with tag_name, ignoring namespace"""

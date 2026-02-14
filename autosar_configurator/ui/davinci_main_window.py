@@ -330,7 +330,11 @@ class DaVinciMainWindow(QMainWindow):
         self.load_recommended_action = QAction("Load Recommended Values...", self)
         self.load_recommended_action.setEnabled(False)
         self.load_recommended_action.triggered.connect(self.load_recommended_values)
-        
+
+        self.import_eb_project_action = QAction("Import EB Tresos Project...", self)
+        self.import_eb_project_action.setStatusTip("Batch import an EB Tresos project (auto-discover defines + EPC configs)")
+        self.import_eb_project_action.triggered.connect(self.import_eb_project)
+
         # File actions
         # Open DEF removed - use Add Module within a project instead
         # self.open_def_action removed
@@ -440,6 +444,7 @@ class DaVinciMainWindow(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction(self.add_module_action)
         file_menu.addAction(self.load_recommended_action)
+        file_menu.addAction(self.import_eb_project_action)
         # Open DEF removed - use Add Module
         file_menu.addSeparator()
         # Recent Files submenu
@@ -855,27 +860,67 @@ class DaVinciMainWindow(QMainWindow):
                 self.current_project, failed_modules = self.workspace_manager.load_project(load_path)
                 self.current_project_file = load_path
             else:
-                # EB project: Create a new project from folder
-                # For now, we just set up the search paths and let user add modules manually
-                # A more advanced implementation would scan for .xdm files
-                project_name = project_root.name
-                self.current_project = self.workspace_manager.create_project(
-                    project_name,
-                    project_root / f"{project_name}.dpa"  # Virtual path
-                )
-                self.current_project_file = project_root
-                failed_modules = []
-                
-                # Store search paths for later use when adding modules
-                self.current_project.def_search_paths = def_search_paths
-                
-                QMessageBox.information(
+                # EB project: auto-import all defines + EPC configs
+                from ..core.config_manager import EpcFileScanner
+
+                # Check for available chips
+                chips = EpcFileScanner.detect_available_chips(project_root)
+                chip_name = None
+
+                if len(chips) > 1:
+                    # Let user select which chip variant
+                    chip_name, ok = QInputDialog.getItem(
+                        self, "Select Chip Variant",
+                        "Multiple chip variants detected.\nSelect one:",
+                        chips, 0, False
+                    )
+                    if not ok:
+                        return
+                elif len(chips) == 1:
+                    chip_name = chips[0]
+
+                # Ask user where to save the imported project
+                target_dir_str = QFileDialog.getExistingDirectory(
                     self,
-                    "EB Project Loaded",
-                    f"EB Tresos project detected.\n\n"
-                    f"Definition search paths:\n" + "\n".join([f"• {p}" for p in def_search_paths]) +
-                    f"\n\nUse 'Add Module to Project' to add modules."
+                    "Select Target Directory for Imported Project",
+                    str(Path.home()),
+                    QFileDialog.ShowDirsOnly
                 )
+                if not target_dir_str:
+                    return
+                target_dir = Path(target_dir_str) / project_root.name
+                target_dir.mkdir(parents=True, exist_ok=True)
+
+                # Batch import with progress
+                self.statusbar.showMessage("Importing EB project...")
+                from PySide6.QtWidgets import QApplication
+                QApplication.processEvents()
+
+                self.current_project, loaded_modules, failed_modules = \
+                    self.workspace_manager.import_eb_project(
+                        project_root, chip_name=chip_name,
+                        target_dir=target_dir,
+                        progress_callback=lambda msg: self.statusbar.showMessage(msg)
+                    )
+                self.current_project_file = target_dir
+
+                # Store search paths
+                self.current_project.def_search_paths = def_search_paths
+
+                # Show summary
+                summary = (
+                    f"EB Tresos project imported.\n\n"
+                    f"Source: {project_root}\n"
+                    f"Target: {target_dir}\n\n"
+                    f"Loaded: {len(loaded_modules)} module(s)\n"
+                    f"Failed: {len(failed_modules)} module(s)"
+                )
+                if chip_name:
+                    summary += f"\nChip: {chip_name}"
+                if loaded_modules:
+                    summary += f"\n\nModules: {', '.join(sorted(loaded_modules))}"
+
+                QMessageBox.information(self, "EB Project Imported", summary)
             
             self.tree_view.set_project(self.current_project)
             
@@ -947,24 +992,57 @@ class DaVinciMainWindow(QMainWindow):
         """Save current project and all modified modules"""
         if not self.current_project:
             return
-        
+
         try:
+            # For EB-imported projects: first save needs a separate working directory
+            # The original EB project directory should remain untouched
+            if self.current_project.eb_source_root:
+                project_dir = self.current_project.path.parent
+                eb_root = self.current_project.eb_source_root
+
+                # Check if project path is still inside the EB source root (not yet saved elsewhere)
+                try:
+                    project_dir.relative_to(eb_root)
+                    needs_save_as = True
+                except ValueError:
+                    needs_save_as = False
+
+                if needs_save_as:
+                    # Prompt user to select a working directory
+                    save_dir = QFileDialog.getExistingDirectory(
+                        self, "Select Save Directory for Project",
+                        str(Path.home() / "Desktop"),
+                        QFileDialog.ShowDirsOnly
+                    )
+                    if not save_dir:
+                        return
+
+                    save_dir = Path(save_dir)
+                    new_dpa_path = save_dir / f"{self.current_project.name}.dpa"
+
+                    # Update project path to the new location
+                    self.current_project.path = new_dpa_path
+                    self.current_project_file = new_dpa_path
+
+                    # Update window title
+                    self._update_window_title()
+
             # Count modified modules for status message
             modified_count = sum(
-                1 for manager in self.current_project.module_managers.values() 
+                1 for manager in self.current_project.module_managers.values()
                 if manager.configuration.is_modified
             )
-            
+
             # Save project metadata file (.dpa) and all module configurations
             # workspace_manager.save_project() handles saving to ConfigValue/ directory
             self.workspace_manager.save_project()
-            
+
             # Show result
             if modified_count > 0:
                 self.statusbar.showMessage(f"Project saved: {modified_count} module(s) updated", 3000)
             else:
                 self.statusbar.showMessage(f"Project saved (no changes)", 3000)
-                    
+
         except Exception as e:
             QMessageBox.critical(self, "Save Error", f"Failed to save project:\n{str(e)}")
     
@@ -1030,7 +1108,131 @@ class DaVinciMainWindow(QMainWindow):
             self.statusbar.showMessage(f"Added module: {module_def.short_name}", 3000)
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to add module:\n{str(e)}")
-    
+
+    def import_eb_project(self):
+        """Import an EB Tresos project by selecting its root directory"""
+        from ..core.config_manager import EpcFileScanner
+
+        # Select project root directory
+        project_root = QFileDialog.getExistingDirectory(
+            self, "Select EB Tresos Project Root Directory",
+            str(Path.home()),
+            QFileDialog.ShowDirsOnly
+        )
+        if not project_root:
+            return
+
+        project_root = Path(project_root)
+
+        # Detect available chips
+        chips = EpcFileScanner.detect_available_chips(project_root)
+        chip_name = None
+
+        if len(chips) > 1:
+            chip_name, ok = QInputDialog.getItem(
+                self, "Select Chip Variant",
+                "Multiple chip variants detected.\nSelect one:",
+                chips, 0, False
+            )
+            if not ok:
+                return
+        elif len(chips) == 1:
+            chip_name = chips[0]
+
+        # Select target directory for the imported project
+        target_dir_str = QFileDialog.getExistingDirectory(
+            self,
+            "Select Target Directory for Imported Project",
+            str(Path.home()),
+            QFileDialog.ShowDirsOnly
+        )
+        if not target_dir_str:
+            return
+
+        # Create a project subdirectory inside the chosen target
+        target_dir = Path(target_dir_str) / project_root.name
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        # Show wait cursor and perform import
+        from PySide6.QtWidgets import QApplication
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        self.statusbar.showMessage("Importing EB project...")
+        QApplication.processEvents()
+
+        try:
+            project, loaded_modules, failed_modules = \
+                self.workspace_manager.import_eb_project(
+                    project_root, chip_name=chip_name,
+                    target_dir=target_dir,
+                    progress_callback=lambda msg: (
+                        self.statusbar.showMessage(msg),
+                        QApplication.processEvents()
+                    )
+                )
+
+            self.current_project = project
+            self.current_project_file = target_dir
+
+            # Set up UI
+            self.tree_view.set_project(self.current_project)
+
+            # Enable project actions
+            self.save_project_action.setEnabled(True)
+            self.project_properties_action.setEnabled(True)
+            self.manage_variants_action.setEnabled(True)
+            self.manage_variants_btn.setEnabled(True)
+            self.add_module_action.setEnabled(True)
+
+            # Update variant selector
+            self._update_variant_selector()
+
+            # Update mode label
+            from ..core.config_manager import ProjectType
+            self.current_project.project_type = ProjectType.EB_TRESOS
+            self.mode_label.setText(f"Project: EB Tresos")
+            self._update_mode_actions()
+
+            # Auto-select first module
+            self.tree_view.select_first_module()
+
+            # Save as last project (use target_dir, not source)
+            self.settings.setValue("last_project_path", str(target_dir))
+            self._add_to_recent_files(str(target_dir))
+
+            # Update window title
+            self._update_window_title()
+
+            # Show summary
+            summary = (
+                f"EB Tresos project imported.\n\n"
+                f"Source: {project_root}\n"
+                f"Target: {target_dir}\n\n"
+                f"Loaded: {len(loaded_modules)} module(s)\n"
+                f"Failed: {len(failed_modules)} module(s)"
+            )
+            if chip_name:
+                summary += f"\nChip: {chip_name}"
+            if project.ecu_resources:
+                summary += f"\nECU Resources: {len(project.ecu_resources)} properties loaded"
+            if loaded_modules:
+                summary += f"\n\nModules: {', '.join(sorted(loaded_modules))}"
+            if failed_modules:
+                summary += f"\n\nFailed:"
+                for name, error in failed_modules[:10]:
+                    summary += f"\n  {name}: {error}"
+                if len(failed_modules) > 10:
+                    summary += f"\n  ... and {len(failed_modules) - 10} more"
+
+            QMessageBox.information(self, "EB Project Imported", summary)
+            self.statusbar.showMessage(
+                f"Imported: {len(loaded_modules)} modules to {target_dir.name}", 5000
+            )
+
+        except Exception as e:
+            QMessageBox.critical(self, "Import Error", f"Failed to import EB project:\n{str(e)}")
+        finally:
+            QApplication.restoreOverrideCursor()
+
     def load_recommended_values(self):
         """Load and apply recommended values from _rec.arxml file"""
         from ..core.config_manager import RecFileScanner
@@ -1053,7 +1255,7 @@ class DaVinciMainWindow(QMainWindow):
             self,
             "Select Recommended Values File",
             str(project_root),
-            "Rec Files (*_rec.arxml *.xdm);;ARXML Files (*.arxml);;EB Tresos Files (*.xdm);;All Files (*)"
+            "Rec Files (*_rec.arxml *.xdm *.epc);;ARXML Files (*.arxml);;EB Tresos Files (*.xdm);;EPC Files (*.epc);;All Files (*)"
         )
         
         if not file_path:
@@ -2904,6 +3106,19 @@ except Exception as e:
         # Determine file type and open accordingly
         if path.suffix.lower() == '.dpa':
             self._load_project_at_path(path)
+        elif path.suffix.lower() == '.epc':
+            # EPC file: try to load as project from parent directory structure
+            # Look for EB project root (parent of Config/)
+            candidate = path.parent  # output/
+            if candidate.name == 'output':
+                candidate = candidate.parent  # chip_name/
+                candidate = candidate.parent  # Config/
+                if candidate.name == 'Config':
+                    candidate = candidate.parent  # project root
+                    self._load_project_at_path(candidate)
+                    return
+            # Fallback: treat as arxml
+            self._load_def_file_at_path(path)
         elif path.suffix.lower() in ('.arxml', '.xdm'):
             self._load_def_file_at_path(path)
 

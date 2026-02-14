@@ -74,9 +74,9 @@ class EcucValueSerializer:
         # Usually configuration is stored in a separate package
         ar_package = etree.SubElement(ar_packages, 'AR-PACKAGE')
         
-        # Package name (derived from module name + _Config)
+        # Package name (preserved from original, or derived from module name)
         short_name = etree.SubElement(ar_package, 'SHORT-NAME')
-        short_name.text = f"{configuration.short_name}_Config"
+        short_name.text = configuration.package_name or f"{configuration.short_name}_Config"
         
         # Elements
         elements = etree.SubElement(ar_package, 'ELEMENTS')
@@ -94,7 +94,7 @@ class EcucValueSerializer:
         
         # Implementation config variant
         variant = etree.SubElement(module_config, 'IMPLEMENTATION-CONFIG-VARIANT')
-        variant.text = 'VARIANT-PRE-COMPILE'
+        variant.text = configuration.implementation_config_variant
         
         # Containers
         containers_elem = etree.SubElement(module_config, 'CONTAINERS')
@@ -109,13 +109,18 @@ class EcucValueSerializer:
     def _serialize_container(self, container: EcucContainerValue, parent_elem: etree._Element):
         """Serialize container value"""
         container_elem = etree.SubElement(parent_elem, 'ECUC-CONTAINER-VALUE')
+
+        # UUID attribute (preserve from original if present)
+        if container.uuid:
+            container_elem.set('UUID', container.uuid)
         
         # Short name
         short_name = etree.SubElement(container_elem, 'SHORT-NAME')
         short_name.text = container.short_name
         
         # Definition reference
-        def_ref = etree.SubElement(container_elem, 'DEFINITION-REF', DEST='ECUC-PARAM-CONF-CONTAINER-DEF')
+        container_dest = getattr(container, 'def_dest_type', None) or 'ECUC-PARAM-CONF-CONTAINER-DEF'
+        def_ref = etree.SubElement(container_elem, 'DEFINITION-REF', DEST=container_dest)
         def_ref.text = container.definition_ref
         
         # INDEX - only serialize if explicitly set (from original EB file)
@@ -143,7 +148,8 @@ class EcucValueSerializer:
                     if param_val.index is not None:
                         index_elem = etree.SubElement(param_elem, 'INDEX')
                         index_elem.text = str(param_val.index)
-                    def_ref = etree.SubElement(param_elem, 'DEFINITION-REF', DEST='ECUC-PARAMETER-DEF')
+                    multi_param_dest = getattr(param_val, 'dest_type', None) or 'ECUC-PARAMETER-DEF'
+                    def_ref = etree.SubElement(param_elem, 'DEFINITION-REF', DEST=multi_param_dest)
                     def_ref.text = param_val.definition_ref
                     value_elem = etree.SubElement(param_elem, 'VALUE')
                     if isinstance(param_val.value, bool):
@@ -169,7 +175,8 @@ class EcucValueSerializer:
                     if ref_val.index is not None:
                         index_elem = etree.SubElement(ref_elem, 'INDEX')
                         index_elem.text = str(ref_val.index)
-                    def_ref = etree.SubElement(ref_elem, 'DEFINITION-REF', DEST='ECUC-REFERENCE-DEF')
+                    multi_ref_dest = getattr(ref_val, 'dest_type', None) or 'ECUC-REFERENCE-DEF'
+                    def_ref = etree.SubElement(ref_elem, 'DEFINITION-REF', DEST=multi_ref_dest)
                     def_ref.text = ref_val.definition_ref
                     value_elem = etree.SubElement(ref_elem, 'VALUE-REF', DEST='ECUC-CONTAINER-VALUE')
                     value_elem.text = ref_val.value_ref
@@ -194,7 +201,8 @@ class EcucValueSerializer:
         param_elem = etree.SubElement(param_values_elem, tag_name)
         
         # Definition reference
-        def_ref = etree.SubElement(param_elem, 'DEFINITION-REF', DEST='ECUC-PARAMETER-DEF')
+        param_dest = getattr(param, 'dest_type', None) or 'ECUC-PARAMETER-DEF'
+        def_ref = etree.SubElement(param_elem, 'DEFINITION-REF', DEST=param_dest)
         def_ref.text = param.definition_ref
         
         # Value
@@ -215,9 +223,10 @@ class EcucValueSerializer:
         ref_elem = etree.SubElement(ref_values_elem, 'ECUC-REFERENCE-VALUE')
         
         # Definition reference
-        def_ref = etree.SubElement(ref_elem, 'DEFINITION-REF', DEST='ECUC-REFERENCE-DEF')
+        ref_dest = getattr(ref, 'dest_type', None) or 'ECUC-REFERENCE-DEF'
+        def_ref = etree.SubElement(ref_elem, 'DEFINITION-REF', DEST=ref_dest)
         def_ref.text = ref.definition_ref
-        
+
         # Value (Target reference)
         value_elem = etree.SubElement(ref_elem, 'VALUE-REF', DEST='ECUC-CONTAINER-VALUE')
         value_elem.text = ref.value_ref

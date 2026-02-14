@@ -3,7 +3,8 @@ Workspace Manager
 Manages the overall project workspace, including multiple BSW module configurations.
 """
 import json
-from typing import Dict, List, Optional
+import shutil
+from typing import Any, Dict, List, Optional
 from pathlib import Path
 
 from .config_manager import ConfigurationManager
@@ -45,6 +46,12 @@ class WorkspaceProject:
         # Chip/Variant Selection (for projects with multiple chip .properties files)
         self.available_chips: List[str] = []  # Discovered chip variants from .properties
         self.selected_chip: Optional[str] = None  # User's selected chip
+
+        # EB project import: original source root (kept read-only, separate from save location)
+        self.eb_source_root: Optional[Path] = None
+
+        # ECU resources from .properties files (for ecu:get/ecu:list during UI and generation)
+        self.ecu_resources: Dict[str, Any] = {}
     
     def discover_available_chips(self) -> List[str]:
         """Scan project for available chip .properties files.
@@ -79,11 +86,80 @@ class WorkspaceProject:
         self.available_chips = sorted(set(chips))
         return self.available_chips
 
+    def load_ecu_resources(self) -> Dict[str, Any]:
+        """Scan project Def/plugins/ for .properties files and load ECU resources.
 
-    
+        This makes ecu:get() / ecu:list() data available during UI browsing
+        (not only during code generation).  The result is stored in
+        ``self.ecu_resources`` so that the generator and chip-constraint
+        service can share the same data.
+
+        Returns:
+            Flat dict mapping property keys (e.g. 'Adc.HwUnitId') to values.
+        """
+        from .hardware.tresos_properties_parser import TresosPropertiesParser
+        import logging
+        logger = logging.getLogger(__name__)
+
+        self.ecu_resources = {}
+        if not self.path:
+            return self.ecu_resources
+
+        project_dir = self.path.parent if self.path.suffix == '.dpa' else self.path
+
+        # Primary: Def/plugins/  (created during EB import)
+        # Fallback: Def/         (legacy layout)
+        search_dirs: list[Path] = []
+        def_plugins = project_dir / "Def" / "plugins"
+        if def_plugins.exists():
+            search_dirs.append(def_plugins)
+        def_dir = project_dir / "Def"
+        if def_dir.exists() and def_dir != def_plugins:
+            search_dirs.append(def_dir)
+
+        if not search_dirs:
+            return self.ecu_resources
+
+        parser = TresosPropertiesParser()
+        all_props: list[Path] = []
+        seen: set[Path] = set()
+        for d in search_dirs:
+            for pf in d.rglob("*.properties"):
+                resolved = pf.resolve()
+                if resolved not in seen:
+                    seen.add(resolved)
+                    all_props.append(pf)
+
+        # Filter by selected chip if applicable
+        if self.selected_chip:
+            filtered = []
+            for pf in all_props:
+                if "resource" in str(pf.parent).lower():
+                    # Only keep chip-specific resource files
+                    if self.selected_chip in pf.stem:
+                        filtered.append(pf)
+                else:
+                    # Non-resource .properties (build, etc.) always loaded
+                    filtered.append(pf)
+            all_props = filtered
+
+        for pf in all_props:
+            try:
+                parser.parse_file(pf)
+            except Exception as e:
+                logger.warning(f"Failed to parse properties file {pf}: {e}")
+
+        self.ecu_resources = parser.get_ecu_resources_dict()
+        if self.ecu_resources:
+            logger.info(
+                f"Loaded {len(self.ecu_resources)} ECU resource(s) "
+                f"from {len(all_props)} .properties file(s)"
+            )
+        return self.ecu_resources
+
     def ensure_default_variant(self):
         """Ensure Default variant exists for all modules
-        
+
         Called when loading projects or adding modules to ensure
         the Default variant is properly initialized.
         """
@@ -343,6 +419,7 @@ class WorkspaceManager:
             "dependency_rules": self.current_project.dependency_rules,
             "available_chips": self.current_project.available_chips,
             "selected_chip": self.current_project.selected_chip,
+            "eb_source_root": str(self.current_project.eb_source_root) if self.current_project.eb_source_root else None,
             "modules": []
         }
         
@@ -382,6 +459,47 @@ class WorkspaceManager:
         # Write project file
         with open(self.current_project.path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2)
+
+        # Copy EB templates (generate_PB) to project save directory
+        if self.current_project.eb_source_root:
+            self._copy_eb_templates(project_dir)
+
+    def _copy_eb_templates(self, project_dir: Path):
+        """Copy EB Tresos generate_PB templates to project save directory
+
+        For each loaded module, find the generate_PB directory from the EB plugin
+        (derived from the module's def_path) and copy its contents to:
+            {project_dir}/templates/{ModuleName}/
+
+        The generator searches project_template_dir/{ModuleName}/ for templates,
+        so this makes the EB templates available for code generation.
+        """
+        templates_dir = project_dir / "templates"
+        copied_count = 0
+
+        for name, def_path in self.current_project.module_defs.items():
+            # Derive EB plugin directory from def_path
+            # def_path = .../Adc_THA6_AS440/config/Adc.xdm → plugin_dir = .../Adc_THA6_AS440
+            plugin_dir = def_path.parent.parent
+
+            # Look for generate_PB directory
+            generate_pb_dir = plugin_dir / "generate_PB"
+            if not generate_pb_dir.exists():
+                continue
+
+            # Target: templates/{ModuleName}/
+            target_dir = templates_dir / name
+
+            # Copy entire generate_PB contents to target
+            # Use shutil.copytree with dirs_exist_ok=True to overwrite
+            try:
+                shutil.copytree(generate_pb_dir, target_dir, dirs_exist_ok=True)
+                copied_count += 1
+            except Exception as e:
+                print(f"Warning: Failed to copy templates for {name}: {e}")
+
+        if copied_count > 0:
+            print(f"Copied templates for {copied_count} module(s) to {templates_dir}")
             
     def _resolve_path(self, path_str: str, project_dir: Path) -> Path:
         """Robustly resolve paths that might be relative or absolute from another platform"""
@@ -488,6 +606,11 @@ class WorkspaceManager:
         # Load chip selection (new in format v7)
         project.available_chips = data.get("available_chips", [])
         project.selected_chip = data.get("selected_chip", None)
+
+        # Load EB source root (for imported EB projects)
+        eb_root = data.get("eb_source_root")
+        if eb_root:
+            project.eb_source_root = Path(eb_root)
         
         # If no available chips in file, try to discover them
         if not project.available_chips:
@@ -585,6 +708,224 @@ class WorkspaceManager:
                 print(f"Indexed {reverse_count} reverse reference(s)")
         except Exception as e:
             print(f"Warning: Reference resolution failed: {e}")
-                
+
+        # Load ECU resources from .properties files (if Def/plugins/ exists)
+        ecu_res = project.load_ecu_resources()
+        if ecu_res:
+            print(f"Loaded {len(ecu_res)} ECU resource(s) from .properties files")
+
         self.current_project = project
         return project, failed_modules
+
+    def import_eb_project(self, project_root: Path, chip_name: Optional[str] = None,
+                          target_dir: Optional[Path] = None,
+                          progress_callback=None) -> tuple:
+        """Batch import an EB Tresos project: auto-discover defines + EPC configs
+
+        When *target_dir* is supplied the entire plugin directory tree
+        (including ``resource/*.properties``) is copied there first, so that
+        the resulting project is fully self-contained.
+
+        Args:
+            project_root: Root directory of the source EB project
+            chip_name: Optional chip name to select Config/{chip}/output/*.epc
+            target_dir: Optional target directory for the new project.
+                        If None, the project is created inside *project_root*.
+            progress_callback: Optional callable(message: str) for progress updates
+
+        Returns:
+            tuple: (project, loaded_modules, failed_modules)
+            loaded_modules: List of successfully loaded module names
+            failed_modules: List of tuples (module_name, error_message)
+        """
+        from .config_manager import EpcFileScanner, ProjectType
+
+        def _progress(msg):
+            if progress_callback:
+                progress_callback(msg)
+            print(msg)
+
+        # Determine where the project will live
+        project_dir = target_dir if target_dir else project_root
+        project_name = project_dir.name
+        project = WorkspaceProject(project_name, project_dir / f"{project_name}.dpa")
+        project.project_type = ProjectType.EB_TRESOS
+
+        loaded_modules = []
+        failed_modules = []
+
+        # Step 1: Scan for define files (.xdm and .arxml) in EB plugin structure
+        _progress("Scanning for module definitions...")
+        define_map = {}  # module_name -> def_path
+
+        # Primary: Define/EbPlugins/eclipse/*/config/*.xdm
+        eb_plugins_dir = project_root / "Define" / "EbPlugins" / "eclipse"
+        if eb_plugins_dir.exists():
+            for module_dir in sorted(eb_plugins_dir.iterdir()):
+                if not module_dir.is_dir():
+                    continue
+                # Search config/ for .xdm files (primary define format)
+                config_dir = module_dir / "config"
+                if config_dir.exists():
+                    for def_file in config_dir.glob("*.xdm"):
+                        module_name = def_file.stem
+                        # Skip supplementary config files (not real module definitions)
+                        if module_name.endswith("PreConfiguration") or module_name.endswith("_Pre"):
+                            continue
+                        if module_name not in define_map:
+                            define_map[module_name] = def_file
+                # Also search autosar/ for .arxml define files (chip-specific defines)
+                autosar_dir = module_dir / "autosar"
+                if autosar_dir.exists():
+                    for def_file in autosar_dir.glob("*.arxml"):
+                        # arxml defines often have chip suffix, extract base module name
+                        # e.g., Can_THA6206_LFBGA292.arxml → base "Can"
+                        module_name = def_file.stem
+                        base_name = module_name.split('_')[0] if '_' in module_name else module_name
+                        # Only use arxml as fallback if no xdm for this module (case-insensitive)
+                        existing_keys_lower = {k.lower() for k in define_map}
+                        if base_name.lower() not in existing_keys_lower:
+                            define_map[base_name] = def_file
+
+        # Fallback: search more broadly in Define/ for both .xdm and .arxml
+        if not define_map:
+            define_dir = project_root / "Define"
+            if define_dir.exists():
+                for ext in ("*.xdm", "*.arxml"):
+                    for def_file in define_dir.rglob(ext):
+                        module_name = def_file.stem
+                        # Filter out config/rec files
+                        if module_name.endswith("_Config") or module_name.endswith("_rec"):
+                            continue
+                        if module_name not in define_map:
+                            define_map[module_name] = def_file
+
+        _progress(f"Found {len(define_map)} module definition(s)")
+
+        # ------------------------------------------------------------------
+        # Step 1.5: Copy plugin directories to project_dir/Def/plugins/
+        # This makes the project self-contained (defines + resource/ +
+        # generate_PB/ + autosar/ all live under the project tree).
+        # ------------------------------------------------------------------
+        plugins_target = project_dir / "Def" / "plugins"
+        plugins_target.mkdir(parents=True, exist_ok=True)
+        copied_plugins: set[str] = set()
+
+        _progress("Copying plugin directories...")
+
+        for module_name, def_path in list(define_map.items()):
+            # def_path is typically .../PluginName/config/Module.xdm
+            # or .../PluginName/autosar/Module.arxml
+            plugin_dir = def_path.parent.parent
+            plugin_name = plugin_dir.name
+            target_plugin = plugins_target / plugin_name
+
+            # Copy entire plugin directory (config/, resource/, autosar/,
+            # generate_PB/, etc.) if not already done and source != target
+            if plugin_name not in copied_plugins and plugin_dir.is_dir():
+                if plugin_dir.resolve() != target_plugin.resolve():
+                    try:
+                        shutil.copytree(plugin_dir, target_plugin, dirs_exist_ok=True)
+                        _progress(f"  Copied {plugin_name}")
+                    except Exception as e:
+                        _progress(f"  Warning: Failed to copy {plugin_name}: {e}")
+                copied_plugins.add(plugin_name)
+
+            # Remap define_map entry to the new location
+            try:
+                relative = def_path.relative_to(plugin_dir)
+                new_path = target_plugin / relative
+                if new_path.exists():
+                    define_map[module_name] = new_path
+            except ValueError:
+                pass  # keep original path if remapping fails
+
+        _progress(f"Copied {len(copied_plugins)} plugin directory(ies) to Def/plugins/")
+
+        # Step 2: Scan for EPC configuration files
+        _progress("Scanning for EPC configuration files...")
+        epc_map = EpcFileScanner.find_epc_files(project_root, chip_name)
+        _progress(f"Found {len(epc_map)} EPC configuration file(s)")
+
+        # Step 3: Match defines with EPCs by module name
+        all_modules = set(define_map.keys())
+        epc_only = set(epc_map.keys()) - all_modules
+        if epc_only:
+            for name in sorted(epc_only):
+                msg = f"EPC found but no matching define: {name} (skipped)"
+                _progress(f"Warning: {msg}")
+                failed_modules.append((name, msg))
+
+        # Step 4: Load each module
+        total = len(all_modules)
+        for idx, module_name in enumerate(sorted(all_modules), 1):
+            def_path = define_map[module_name]
+            epc_path = epc_map.get(module_name)
+
+            status = f"({idx}/{total}) Loading {module_name}..."
+            if epc_path:
+                status += f" + EPC"
+            _progress(status)
+
+            try:
+                # Parse definition
+                module_def = self.def_parser.parse_module_def_file(def_path)
+
+                # Check if module already loaded (e.g., EcuC.xdm and Ecuc.arxml both define "EcuC")
+                actual_name = module_def.short_name
+                if actual_name in project.module_managers:
+                    _progress(f"  Skipped {module_name}: module '{actual_name}' already loaded")
+                    continue
+
+                # Add to project
+                manager = project.add_module(module_def, def_path)
+
+                # Load EPC configuration if available
+                # Also try matching by parsed short_name if filename didn't match
+                actual_epc = epc_path
+                if not actual_epc and actual_name != module_name:
+                    actual_epc = epc_map.get(actual_name)
+                if actual_epc:
+                    manager.load_configuration(actual_epc)
+
+                loaded_modules.append(actual_name)
+            except Exception as e:
+                error_str = str(e)
+                # Non-module definition files (e.g., McuPreConfiguration) - just skip
+                if "No ECUC-MODULE-DEF found" in error_str:
+                    _progress(f"  Skipped {module_name}: not a module definition ({def_path.name})")
+                    continue
+                error_msg = f"Failed to load: {error_str}"
+                failed_modules.append((module_name, error_msg))
+                print(f"Failed to load module {module_name}: {e}")
+
+        _progress(f"Import complete: {len(loaded_modules)} loaded, {len(failed_modules)} failed")
+
+        # Step 5: Resolve cross-module references
+        if loaded_modules:
+            try:
+                resolved_count, error_count = project.resolve_all_references()
+                if resolved_count > 0:
+                    _progress(f"Resolved {resolved_count} cross-module reference(s)")
+                if error_count > 0:
+                    _progress(f"Warning: {error_count} reference(s) could not be resolved")
+
+                reverse_count = project.build_reverse_reference_index()
+                if reverse_count > 0:
+                    _progress(f"Indexed {reverse_count} reverse reference(s)")
+            except Exception as e:
+                print(f"Warning: Reference resolution failed: {e}")
+
+        # Store chip info and EB source root
+        chips = EpcFileScanner.detect_available_chips(project_root)
+        project.available_chips = chips
+        project.selected_chip = chip_name
+        project.eb_source_root = project_root
+
+        # Step 6: Load ECU resources from .properties files (now in Def/plugins/)
+        ecu_res = project.load_ecu_resources()
+        if ecu_res:
+            _progress(f"Loaded {len(ecu_res)} ECU resource(s) from .properties files")
+
+        self.current_project = project
+        return project, loaded_modules, failed_modules
