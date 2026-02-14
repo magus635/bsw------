@@ -265,7 +265,17 @@ class XPathEngine:
                 # Variable not defined - return None/empty (common when Resource module not loaded)
                 return None
 
-        # 6. Handle relative path from current context (default)
+        # 6. Handle numeric and boolean literals before falling to path navigation
+        if xpath.lstrip('-').isdigit():
+            return int(xpath)
+        if re.match(r'^-?\d+\.\d+$', xpath):
+            return float(xpath)
+        if xpath.lower() == 'true':
+            return True
+        if xpath.lower() == 'false':
+            return False
+
+        # 7. Handle relative path from current context (default)
         return self._evaluate_relative(xpath)
     
     def _find_operator_outside_context(self, expr: str, operator: str) -> int:
@@ -1320,7 +1330,7 @@ class XPathEngine:
 
             # Apply predicates
             current = self._apply_predicates(next_nodes, predicates)
-        
+
         # Return single node or list
         if len(current) == 0:
             return None
@@ -1332,6 +1342,20 @@ class XPathEngine:
             node = current[0]
             if not self._return_node and hasattr(node, 'node_type') and node.node_type == 'parameter':
                 return node.get_value()
+
+            # EB Tresos: if the result is a container instance matched by definition-ref
+            # and it has a parameter child with the same name as the last path segment,
+            # prefer the parameter. This handles the pattern where container and parameter
+            # share the same name (e.g., IomClkConfiguration/IomClkConfiguration).
+            if hasattr(node, 'node_type') and node.node_type == 'container' and segments:
+                last_name = segments[-1]['name']
+                if last_name and last_name != '*':
+                    param_child = node.get_child(last_name)
+                    if param_child and hasattr(param_child, 'node_type') and param_child.node_type == 'parameter':
+                        if not self._return_node:
+                            return param_child.get_value()
+                        return param_child
+
             return node
         else:
             return current
@@ -1520,14 +1544,28 @@ class XPathEngine:
 
             # Try to evaluate the predicate as an expression that returns a number
             # This handles cases like [num:i($ModuleIndex)] used with text:split
+            # and arithmetic predicates like [($LPUIndex) + num:i(1)]
             if '(' in pred and ')' in pred:
                 try:
                     # Evaluate the predicate expression
                     eval_result = self.evaluate(pred)
-                    
+
+                    # If XPath evaluate failed, try predicate expression evaluator
+                    # which handles arithmetic like ($var) + num:i(1)
+                    if eval_result is None:
+                        eval_result = self._evaluate_predicate_expression(pred)
+                        # Convert numeric strings from expression evaluator
+                        if isinstance(eval_result, str):
+                            try:
+                                eval_result = float(eval_result)
+                                if eval_result == int(eval_result):
+                                    eval_result = int(eval_result)
+                            except (ValueError, TypeError):
+                                pass
+
                     # Fix: Ensure boolean results are NOT treated as numeric indices
                     if isinstance(eval_result, bool):
-                         # If it evaluates to boolean (e.g. dynamic == 'value'), 
+                         # If it evaluates to boolean (e.g. dynamic == 'value'),
                          # fall through to normal filtering below
                          pass
                     elif isinstance(eval_result, (int, float)):
@@ -1618,6 +1656,19 @@ class XPathEngine:
                 return getattr(context_node, attr_name)
             return None
 
+        # Handle parenthesized expression: (expr)
+        if expr.startswith('(') and expr.endswith(')'):
+            depth = 0
+            balanced = True
+            for i, c in enumerate(expr):
+                if c == '(': depth += 1
+                elif c == ')': depth -= 1
+                if depth == 0 and i < len(expr) - 1:
+                    balanced = False
+                    break
+            if balanced:
+                return self._evaluate_predicate_expression(expr[1:-1].strip(), context_node)
+
         # Handle variable references
         if expr.startswith('$'):
             var_name = expr[1:]
@@ -1638,10 +1689,12 @@ class XPathEngine:
         if '(' in expr and ')' in expr:
             if self.function_handler:
                 result = self.evaluate(expr)
-                # Unwrap ConfigurationNode values
-                if hasattr(result, 'get_value'):
-                    return result.get_value()
-                return result
+                if result is not None:
+                    # Unwrap ConfigurationNode values
+                    if hasattr(result, 'get_value'):
+                        return result.get_value()
+                    return result
+                # If evaluate returned None, fall through to arithmetic handling
         
         # Handle relative paths in context
         if context_node and hasattr(context_node, 'get_child'):
