@@ -74,8 +74,14 @@ class ConfigurationNode:
         Used by _alias_active_instance to make sub-containers accessible
         from the wrapper node while preserving the original parent chain
         needed for correct '..' (parent axis) XPath navigation.
+
+        Note: Aliases are added ONLY to the lookup map (_children_by_name),
+        NOT to the main children list. This ensures that:
+        1. Wildcard iteration (count(*)) only counts distinct structural children (instances)
+        2. Named lookup (node.get_child('name')) still works via the map
         """
-        self.children.append(node)
+        # Do not append to self.children to avoid duplication in iteration
+        # self.children.append(node) 
         self._children_by_name[node.short_name] = node
 
     def __post_init__(self):
