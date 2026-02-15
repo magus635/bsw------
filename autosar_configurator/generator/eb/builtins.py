@@ -60,6 +60,7 @@ class BuiltinFunctions:
             # Number functions
             'num:i': self.num_i,
             'num:f': self.num_f,                  # Convert to float
+            'num:mul': self.num_mul,              # NEW: Point-to-point multiplication
             'num:inttohex': self.num_inttohex,
             'num:hextoint': self.num_hextoint,
             'num:is_nan': self.num_is_nan,
@@ -68,6 +69,8 @@ class BuiltinFunctions:
             'num:floor': self.xpath_floor,      # Alias for floor()
             'num:ceiling': self.xpath_ceiling,  # Alias for ceiling()
             'num:abs': self.xpath_abs,          # Alias for abs()
+            'num:max': self.xpath_max,          # Alias for max()
+            'num:min': self.xpath_min,          # Alias for min()
             
             # String functions
             'string:concat': self.string_concat,
@@ -769,6 +772,7 @@ class BuiltinFunctions:
         """Convert value to integer"""
         if value is None:
             return 0
+            return 0
         if isinstance(value, list):
             if not value: return 0
             value = value[0]
@@ -841,6 +845,33 @@ class BuiltinFunctions:
         if hasattr(value, 'value'):
             return self.num_f(value.value)
         return 0.0
+    
+    def num_mul(self, list1: Any, list2: Any) -> Union[List[float], float]:
+        """Multiply two values or two lists point-to-point (EB extension)."""
+        def to_list(v):
+            if isinstance(v, list):
+                return v
+            return [v]
+
+        l1 = to_list(list1)
+        l2 = to_list(list2)
+        
+        max_len = max(len(l1), len(l2))
+        res = []
+        for i in range(max_len):
+            v1 = self.num_f(l1[i]) if i < len(l1) else 1.0
+            v2 = self.num_f(l2[i]) if i < len(l2) else 1.0
+            # EB specific: if product is integer-like, return as int
+            prod = v1 * v2
+            if prod == int(prod):
+                res.append(int(prod))
+            else:
+                res.append(prod)
+            
+        if len(res) == 1 and not isinstance(list1, list) and not isinstance(list2, list):
+            return res[0]
+            
+        return res
     
     def num_inttohex(self, value: Any, width: int = 0) -> str:
         """Convert integer to hex string."""
@@ -1910,8 +1941,24 @@ class BuiltinFunctions:
         from .renderer import _debug_log
 
         # 1. User override (retained for testing)
+        # Try exact match first (flat key like "Eth.MaxTxRam")
         if path in self.ecu_resources:
             return self.ecu_resources[path]
+            
+        # Try nested match (if ecu_resources is structured as {module: {param: val}})
+        if '.' in path:
+            p_parts = path.split('.')
+            curr = self.ecu_resources
+            for p in p_parts:
+                if isinstance(curr, dict) and p in curr:
+                    curr = curr[p]
+                else:
+                    curr = None
+                    break
+            if curr is not None:
+                return curr
+
+        # 2. Parse path "Module.ParamName" or "Module.Container.ParamName"
 
         # 2. Parse path "Module.ParamName" or "Module.Container.ParamName"
         parts = path.split('.')

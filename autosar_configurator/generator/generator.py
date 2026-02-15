@@ -88,19 +88,46 @@ class CodeGenerator:
         if not self.project_template_dir:
             return ecu_resources
 
-        # Heuristic: Find .properties files in the project root (parent of templates/ or child of Def/)
-        project_root = self.project_template_dir.parent
-        logger.info(f"Scanning for ECU resources in: {project_root}")
+        # Robust Project Root Detection:
+        # Search upwards from project_template_dir until we find a directory 
+        # containing 'Def' or 'Define', or we hit the filesystem root.
+        project_root = None
+        current = self.project_template_dir.resolve()
+        # Max search depth 5 to avoid traversing too far up
+        for _ in range(5):
+            if (current / "Def").exists() or (current / "Define").exists():
+                project_root = current
+                break
+            if current.parent == current: # Root
+                break
+            current = current.parent
+            
+        if not project_root:
+            # Fallback to parent of templates if templates dir exists in path
+            if "templates" in str(self.project_template_dir).lower():
+                curr = self.project_template_dir
+                while curr.name.lower() != "templates" and curr.parent != curr:
+                    curr = curr.parent
+                project_root = curr.parent
+            else:
+                project_root = self.project_template_dir.parent
+
+        logger.info(f"Scanning for ECU resources in project root: {project_root}")
         
         parser = TresosPropertiesParser()
         props_files = []
         
-        # Search recursively for .properties files
+        # Search recursively for .properties files in Def and Define
         try:
-            # common location: project_root/Def/plugins/.../resource/*.properties
-            def_dir = project_root / "Def"
-            if def_dir.exists():
-                all_props = list(def_dir.glob("**/*.properties"))
+            search_dirs = [project_root / "Def", project_root / "Define"]
+            
+            for def_dir in search_dirs:
+                if not def_dir.exists():
+                    continue
+                
+                logger.info(f"Searching for .properties in: {def_dir}")
+                # Recursively find all properties files
+                all_props = list(def_dir.rglob("*.properties"))
                 
                 # Filter by selected chip if specified
                 if self.selected_chip:
