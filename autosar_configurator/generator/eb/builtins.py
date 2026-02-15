@@ -94,6 +94,7 @@ class BuiltinFunctions:
             'text:tolower': self.string_lower,
             'text:toupper': self.string_upper,
             'text:replace': self.string_replace,
+            'text:replaceAll': self.string_replace,
             'text:contains': self.string_contains,
             
             # XPath standard function aliases (for compatibility)

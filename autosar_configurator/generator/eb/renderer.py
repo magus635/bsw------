@@ -237,7 +237,14 @@ class Renderer:
 
         # Set initial context node if path provided
         if context_path and root_node:
-            initial_context_node = self._xpath_engine.evaluate(context_path, context_node=root_node)
+            # Temporarily push root node to context stack so evaluate can use it
+            self._context_stack.push(root_node)
+            try:
+                # We need the node itself as context, not its value
+                initial_context_node = self._xpath_engine.evaluate(context_path, return_node=True)
+            finally:
+                self._context_stack.pop()
+
             if isinstance(initial_context_node, list):
                 initial_context_node = initial_context_node[0] if initial_context_node else None
             if initial_context_node:
@@ -567,7 +574,6 @@ class Renderer:
         match = None
 
         # Try quoted format first
-        import re
         patterns = [
             r'"(\w+)"\s*=\s*(.+)',  # "name" = expr
             r"'(\w+)'\s*=\s*(.+)",  # 'name' = expr
@@ -873,6 +879,7 @@ class Renderer:
     
     def _evaluate_expression(self, expr: str) -> Any:
         """Evaluate an expression and return its value."""
+        import re
         if expr is None: return None
         expr = expr.strip()
 
@@ -1134,6 +1141,26 @@ class Renderer:
                                 # XPath last() function - return the last element
                                 if isinstance(result, list) and result:
                                     idx_val = len(result) - 1
+                            elif 'position()' in idx_str:
+                                # Handle [position() = N] pattern commonly used in EB templates
+                                import re
+                                # Match position()=N or position() = N
+                                pos_match = re.search(r'position\s*\(\)\s*=\s*(.+)', idx_str)
+                                if pos_match:
+                                    val_expr = pos_match.group(1)
+                                    evaluated = self._evaluate_expression(val_expr)
+                                    try:
+                                        idx_val = int(evaluated) - 1
+                                    except (TypeError, ValueError):
+                                        pass
+                                else:
+                                    # Fallback
+                                    evaluated = self._evaluate_expression(idx_str)
+                                    if evaluated is not None:
+                                        try:
+                                            idx_val = int(evaluated) - 1
+                                        except (TypeError, ValueError):
+                                            pass
                             else:
                                 # Evaluate index expression
                                 evaluated = self._evaluate_expression(idx_str)

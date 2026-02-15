@@ -204,9 +204,6 @@ class OverlayEngine:
                                  if matches_def(getattr(s, 'definition_ref', ''), sub_def_name)]
                 
                 if matching_subs:
-
-
-
                     # ALWAYS create a wrapper/group node for sub-containers
                     # This allows XPath like "CanHardwareObject/*" to return instances
                     # Even when there's only 1 instance, the XPath pattern expects instances, not parameters
