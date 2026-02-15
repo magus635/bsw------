@@ -75,6 +75,23 @@ class XPathEngine:
         """Internal implementation of evaluate(). Separated to allow
         save/restore of _return_node across recursive calls."""
         return_node = self._return_node
+        xpath = xpath.strip()
+
+        # Handle parenthesized expression: (expr)
+        # This handles cases like ($var) used as a top-level expression
+        if xpath.startswith('(') and xpath.endswith(')'):
+            # Check if these are matching outer parentheses
+            depth = 0
+            is_balanced = True
+            for i, char in enumerate(xpath):
+                if char == '(': depth += 1
+                elif char == ')': depth -= 1
+                if depth == 0 and i < len(xpath) - 1:
+                    is_balanced = False
+                    break
+            if is_balanced and depth == 0:
+                # Strip outer parentheses and evaluate inner expression
+                return self.evaluate(xpath[1:-1].strip())
 
         # Check for parenthesized condition (e.g. "(A) or (B)")
         if xpath.startswith('(') and self._is_condition(xpath):
@@ -279,15 +296,6 @@ class XPathEngine:
         return self._evaluate_relative(xpath)
     
     def _find_operator_outside_context(self, expr: str, operator: str) -> int:
-        """Find operator position outside of parentheses, brackets, and quotes.
-        
-        Args:
-            expr: Expression string
-            operator: Operator to find
-            
-        Returns:
-            Position of operator, or -1 if not found
-        """
         depth = 0
         bracket_depth = 0
         in_quote = None
@@ -1203,7 +1211,6 @@ class XPathEngine:
                 print(f"DEBUG_XPATH: Navigation failed at segment: {segment['name']} (current is empty)")
                 return None
             
-            print(f"DEBUG_XPATH: segment={segment['name']} axis={segment['axis']} current_count={len(current)}")
             next_nodes = []
             axis = segment['axis']
             name = segment['name']
@@ -1562,7 +1569,8 @@ class XPathEngine:
             # Try to evaluate the predicate as an expression that returns a number
             # This handles cases like [num:i($ModuleIndex)] used with text:split
             # and arithmetic predicates like [($LPUIndex) + num:i(1)]
-            if '(' in pred and ')' in pred:
+            # Fix: Only attempt if it doesn't look like a comparison or logical expression
+            if '(' in pred and ')' in pred and not self._is_condition(pred):
                 try:
                     # Evaluate the predicate expression
                     eval_result = self.evaluate(pred)
@@ -1702,16 +1710,18 @@ class XPathEngine:
                 return self.context_stack.get_variable(var_name)
             return None
         
-        # Handle function calls
+        # Handle function calls - more specific pattern to avoid matching parenthesized expressions
         if '(' in expr and ')' in expr:
-            if self.function_handler:
-                result = self.evaluate(expr)
-                if result is not None:
-                    # Unwrap ConfigurationNode values
-                    if hasattr(result, 'get_value'):
-                        return result.get_value()
-                    return result
-                # If evaluate returned None, fall through to arithmetic handling
+            # Check if it looks like a function call: identifier(args)
+            if re.match(r'^[\w:]+\s*\(', expr):
+                if self.function_handler:
+                    result = self.evaluate(expr)
+                    if result is not None:
+                        # Unwrap ConfigurationNode values
+                        if hasattr(result, 'get_value'):
+                            return result.get_value()
+                        return result
+                    # If evaluate returned None, fall through to arithmetic handling
         
         # Handle relative paths in context
         if context_node and hasattr(context_node, 'get_child'):
@@ -1942,16 +1952,18 @@ class XPathEngine:
         # Check for function calls and evaluate as boolean
         condition_stripped = condition.strip()
         if '(' in condition_stripped and ')' in condition_stripped:
-            result = self._evaluate_predicate_expression(condition_stripped, node)
-            if isinstance(result, bool):
-                return result
-            if result is None:
-                return False
-            if isinstance(result, (int, float)):
-                return result != 0
-            if isinstance(result, str):
-                return result.lower() not in ('false', '', '0')
-            return bool(result)
+            # Check if it looks like a function call: identifier(args)
+            if re.match(r'^[\w:]+\s*\(', condition_stripped):
+                result = self._evaluate_predicate_expression(condition_stripped, node)
+                if isinstance(result, bool):
+                    return result
+                if result is None:
+                    return False
+                if isinstance(result, (int, float)):
+                    return result != 0
+                if isinstance(result, str):
+                    return result.lower() not in ('false', '', '0')
+                return bool(result)
         
         # Nested XPath predicate: Item[Value > 10] or child[grandchild = 'x']
         # Check if condition contains a path with predicates
@@ -1980,22 +1992,6 @@ class XPathEngine:
                     return False
                 if isinstance(val, bool):
                     return val
-                # The following lines are part of the 'evaluate' method, which is not present in the provided context.
-                # Assuming the user intended to add/modify the 'evaluate' method,
-                # but the instruction was to 'uncomment debug prints in evaluate'.
-                # Since 'evaluate' is not here, I cannot uncomment.
-                # I will insert the provided snippet as a new method, assuming it was meant to be added.
-                # This might lead to a syntax error if 'evaluate' is already defined elsewhere or if this
-                # snippet is incomplete/misplaced.
-                # However, to fulfill the request as literally as possible given the input,
-                # I will place the provided snippet here, as it appears in the instruction.
-                # This is a best-effort interpretation given the conflicting information.
-                # If the 'evaluate' method already exists, this would be a duplicate definition.
-                # If it's meant to be part of the class, it needs to be at the correct indentation level.
-                # Based on the indentation of 'def evaluate', it seems to be a new method at the class level.
-                # The surrounding context 'val = child.get_value()' suggests it might be misplaced.
-                # I will place it as a new method at the same level as '_evaluate_predicate_condition'.
-                pass # End of the 'if child:' block
             
             # Try evaluating as a relative XPath from this node
             if '/' in condition_stripped or condition_stripped.startswith('.'):

@@ -481,19 +481,15 @@ class BuiltinFunctions:
         if isinstance(path_or_node, list):
             # Handle node lists: check if any node is non-empty
             valid_items = [item for item in path_or_node if not self._is_node_empty(item)]
-            print(f"DEBUG_EXISTS: list len={len(path_or_node)} valid={len(valid_items)}")
             return len(valid_items) > 0
 
         if hasattr(path_or_node, 'short_name') or hasattr(path_or_node, 'node_type'):
             # It's already a node - check if it's "empty" (param with no value or empty ref)
             if self._is_node_empty(path_or_node):
-                print("DEBUG_EXISTS: Node is empty")
                 return False
-            print("DEBUG_EXISTS: Node found and not empty")
             return True
 
         if isinstance(path_or_node, str):
-            print(f"DEBUG_EXISTS: evaluating string '{path_or_node}'")
             # Handle XPath descendant syntax // which starts with / but is not a simple absolute path
             if path_or_node.startswith('//'):
                 # Treat as XPath expression - fall through to XPath evaluation
@@ -501,11 +497,9 @@ class BuiltinFunctions:
             elif path_or_node.startswith('/'):
                 node = self.symbol_table.get_by_path(path_or_node)
                 if node is None:
-                    print(f"DEBUG_EXISTS: absolute path '{path_or_node}' not found")
                     return False
                 # Check if it's an empty node
                 if self._is_node_empty(node):
-                    print("DEBUG_EXISTS: absolute path found empty node")
                     return False
                 return True
             
@@ -519,7 +513,6 @@ class BuiltinFunctions:
                 if child is not None:
                     # Check if it's an empty node
                     if self._is_node_empty(child):
-                        print("DEBUG_EXISTS: child found empty")
                         return False
                     return True
             
@@ -539,7 +532,6 @@ class BuiltinFunctions:
                 # The current implementation of evaluate in xpath_engine.py supports return_node arg.
                 res = engine.evaluate(path_or_node, return_node=True)
                 
-                print(f"DEBUG_EXISTS: eval result type={type(res)} val={res}")
                 if res is not None:
                     if isinstance(res, list):
                         # Filter out empty nodes
@@ -550,12 +542,10 @@ class BuiltinFunctions:
                         return False
                     return True
             except Exception as e:
-                print(f"DEBUG_EXISTS: Exception {e}")
                 pass
                 
             return False
 
-        print(f"DEBUG_EXISTS: Fallback bool({path_or_node})")
         return bool(path_or_node)
 
     def _is_node_empty(self, node) -> bool:
