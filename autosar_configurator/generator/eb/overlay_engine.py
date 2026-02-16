@@ -95,7 +95,8 @@ class OverlayEngine:
                 short_name=container_name,
                 node_type='container', # Use container type so it's navigable
                 path=wrapper_path,
-                definition_ref=container_def.definition_ref
+                definition_ref=container_def.definition_ref,
+                is_wrapper=True
             )
             
             active_instance_node = None
@@ -103,12 +104,10 @@ class OverlayEngine:
             if matching_instances:
                 for inst in matching_instances:
                     # Build instances as children of the wrapper
-                    # FIX: Pass root.path as parent_path so instances are /Adc/AdcConfigSet
-                    # NOT /Adc/AdcConfigSet/AdcConfigSet
                     nodes = self._build_container_nodes(
                         container_def,
                         inst,
-                        parent_path=root.path
+                        parent_path=wrapper_node.path
                     )
                     for node in nodes:
                         wrapper_node.add_child(node)
@@ -214,14 +213,15 @@ class OverlayEngine:
                         path=wrapper_path,
                         definition_ref=sub_def.definition_ref,
                         lower_multiplicity=sub_def.lower_multiplicity,
-                        upper_multiplicity=sub_def.upper_multiplicity
+                        upper_multiplicity=sub_def.upper_multiplicity,
+                        is_wrapper=True
                     )
                     
                     # Add each instance as a child of the wrapper
                     for sub_config_raw in matching_subs:
                         sub_instance_name = sub_config_raw.short_name
-                        # FIX: Child instances are relative to the PARENT INSTANCE, not the WRAPPER
-                        sub_instance_path = f"{instance_path}/{sub_instance_name}"
+                        # FIX: Child instances are relative to their wrapper, not the grandparent instance
+                        sub_instance_path = f"{wrapper_path}/{sub_instance_name}"
                         sub_node = self._create_container_node(sub_def, sub_config_raw, sub_instance_path)
                         
                         # Recursively process sub-sub-containers
@@ -276,13 +276,14 @@ class OverlayEngine:
                     path=wrapper_path,
                     definition_ref=sub_def.definition_ref,
                     lower_multiplicity=sub_def.lower_multiplicity,
-                    upper_multiplicity=sub_def.upper_multiplicity
+                    upper_multiplicity=sub_def.upper_multiplicity,
+                    is_wrapper=True
                 )
                 
                 for sub_config_raw in matching_subs:
                     sub_instance_name = sub_config_raw.short_name
-                    # FIX: Child instances are relative to the PARENT INSTANCE, not the WRAPPER
-                    sub_instance_path = f"{instance_path}/{sub_instance_name}"
+                    # FIX: Child instances are relative to their wrapper
+                    sub_instance_path = f"{wrapper_path}/{sub_instance_name}"
                     sub_node = self._create_container_node(sub_def, sub_config_raw, sub_instance_path)
                     self._process_sub_containers(sub_def, sub_config_raw, sub_node, sub_instance_path)
                     wrapper_node.add_child(sub_node)
@@ -332,7 +333,8 @@ class OverlayEngine:
                     path=f"{path}/{param_name}",
                     definition_ref=param_def.definition_ref,
                     lower_multiplicity=param_def.lower_multiplicity,
-                    upper_multiplicity=param_def.upper_multiplicity
+                    upper_multiplicity=param_def.upper_multiplicity,
+                    is_wrapper=True
                 )
                 for idx, param_val in enumerate(multi_param_list):
                     child_node = ConfigurationNode(
@@ -370,7 +372,8 @@ class OverlayEngine:
                     path=f"{path}/{ref_name}",
                     definition_ref=ref_def.definition_ref,
                     lower_multiplicity=ref_def.lower_multiplicity,
-                    upper_multiplicity=ref_def.upper_multiplicity
+                    upper_multiplicity=ref_def.upper_multiplicity,
+                    is_wrapper=True
                 )
                 for ref_val in sorted(multi_ref_list, key=lambda r: r.index if r.index is not None else 0):
                     idx = ref_val.index if ref_val.index is not None else 0
@@ -437,7 +440,8 @@ class OverlayEngine:
                     value=None,
                     definition_ref=ref_def.definition_ref,
                     lower_multiplicity=ref_def.lower_multiplicity,
-                    upper_multiplicity=ref_def.upper_multiplicity
+                    upper_multiplicity=ref_def.upper_multiplicity,
+                    is_wrapper=True
                 )
                 node.add_child(wrapper_node)
             else:

@@ -1104,13 +1104,18 @@ extern ALIGNED(64)  Eth_RxDescr Eth_Rx3descr[ETH_FIFO3_CTRL0_RXBUF_COUNT];
                 [!IF "$PriorityCount != num:i(0)"!][!//
                   [!FOR "Priority" = "num:i(1)" TO "num:i($PriorityCount)"!][!//
                     [!VAR "PriorityValue" = "EthCtrlConfigIngress/EthCtrlConfigIngressFifo/*[EthCtrlConfigIngressFifoIdx = ($IngressFifo)]/EthCtrlConfigIngressFifoPriorityAssignment/*[num:i($Priority)]"!][!//
+                    [!IF "$PriorityValue != ''"!][!//
                     [!VAR "PriorityConfigured" = "bit:or($PriorityConfigured,bit:shl(num:i(1),$PriorityValue))"!][!//
                     [!INDENT "2"!][!//
                     [!CODE!][!//
                     /*priority: [!"$PriorityValue"!]*/  
                     [!ENDCODE!][!//
                     [!ENDINDENT!][!//
+                    [!ENDIF!][!//
                   [!ENDFOR!][!//
+                  [!IF "$PriorityConfigured = num:i(0)"!][!//
+                    [!VAR "PriorityConfigured" = "num:i(255)"!][!//
+                  [!ENDIF!][!//
                 [!ELSE!][!//
                   [!VAR "PriorityConfigured" = "num:i(255)"!][!//
                 [!ENDIF!][!//
@@ -1787,6 +1792,16 @@ static const EthSdkCtrlConfigType Eth_CtrlConfigCore[!"$CoreId "!][ETH_MAX_CTRLS
         [!ENDINDENT!][!//
       },
       /* Enable/disable timestamp */
+      [!NOCODE!]
+        [!TRACE "string:concat('--- DEBUG EthGlobalTimeSupport ---')"!][!//
+        [!TRACE "string:concat('Context Path: ', node:path(.))"!][!//
+        [!TRACE "string:concat('Parent Path (...): ', node:path(..))"!][!//
+        [!TRACE "string:concat('Grandparent Path (../..): ', node:path(../..))"!][!//
+        [!TRACE "string:concat('Great-Grandparent Path (../../..): ', node:path(../../../.))"!][!//
+        [!TRACE "string:concat('Path to EthGeneral (../../../EthGeneral) exists: ', node:exists(../../../EthGeneral))"!][!//
+        [!TRACE "string:concat('Value of EthGlobalTimeSupport: ', node:value(../../../EthGeneral/EthGlobalTimeSupport))"!][!//
+        [!TRACE "string:concat('--- END DEBUG ---')"!][!//
+      [!ENDNOCODE!]
       [!IF "../../../EthGeneral/EthGlobalTimeSupport = 'true'"!][!//
       TRUE,
       [!ELSE!][!//

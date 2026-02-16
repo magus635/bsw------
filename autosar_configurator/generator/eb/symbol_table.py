@@ -40,6 +40,9 @@ class ConfigurationNode:
     # Instance index
     index: int = 0
     
+    # Is this a wrapper node (OverlayEngine implementation detail)?
+    is_wrapper: bool = False
+    
     def get_value(self) -> Any:
         """Get value with fallback to default"""
         if self.value is not None:

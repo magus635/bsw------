@@ -1992,7 +1992,6 @@ class XPathEngine:
                     return False
                 if isinstance(val, bool):
                     return val
-            
             # Try evaluating as a relative XPath from this node
             if '/' in condition_stripped or condition_stripped.startswith('.'):
                 try:
