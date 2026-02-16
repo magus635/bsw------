@@ -140,6 +140,7 @@ class BuiltinFunctions:
 
             # Boolean helpers
             'not': self.logical_not,
+            'name': self.node_name,
             
             # Variant functions (MUST-Minimal per spec 4.4)
             'variant:name': self.variant_name,
@@ -960,6 +961,13 @@ class BuiltinFunctions:
         """
         if value is None:
             return ''
+        
+        # Unwrap list (NodeSet)
+        if isinstance(value, list):
+            if not value:
+                return ''
+            value = value[0]
+
         if hasattr(value, 'get_value'):
             value = value.get_value()
         elif hasattr(value, 'value'):
@@ -986,9 +994,11 @@ class BuiltinFunctions:
         - text:split('CORE0', 'CORE')[1] = '0'
         """
         if not isinstance(s, str):
-            s = str(s)
+            s = self.to_string(s)
         # Filter empty strings to match EB Tresos behavior
-        return [x for x in s.split(delimiter) if x]
+        res = [x for x in s.split(delimiter) if x]
+        print(f"DEBUG_BUILTIN: string_split('{s}', '{delimiter}') -> {res}")
+        return res
     
     def string_trim(self, s: str) -> str:
         """Trim whitespace from string"""

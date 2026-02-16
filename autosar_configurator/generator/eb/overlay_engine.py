@@ -364,11 +364,18 @@ class OverlayEngine:
         for ref_name, ref_def in container_def.references.items():
             is_multi = ref_def.upper_multiplicity == -1 or ref_def.upper_multiplicity > 1
             multi_ref_list = multi_refs_source.get(ref_name, [])
+            
+            # EB Tresos compatibility: If definition says it's multi-valued, but config has only one entry
+            # (stored in reference_values), treat it as a list of one to ensure wrapper node creation.
+            if is_multi and not multi_ref_list and ref_name in refs_source:
+                multi_ref_list = [refs_source[ref_name]]
+
+            print(f"DEBUG_OVERLAY: Processing ref {ref_name} (multi={is_multi}, has_multi={len(multi_ref_list)}, in_single={ref_name in refs_source})")
             if is_multi and multi_ref_list:
                 # Multi-valued reference: create wrapper node with indexed children
                 wrapper_node = ConfigurationNode(
                     short_name=ref_name,
-                    node_type='reference',
+                    node_type='container',
                     path=f"{path}/{ref_name}",
                     definition_ref=ref_def.definition_ref,
                     lower_multiplicity=ref_def.lower_multiplicity,

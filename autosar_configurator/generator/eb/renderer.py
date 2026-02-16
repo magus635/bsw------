@@ -305,19 +305,21 @@ class Renderer:
         """
         i = start
         while i < end:
-            token = tokens[i]
+            tok = tokens[i]
+            # print(f"DEBUG_TOK: Executing {tok.type} '{tok.content[:30]}...' (i={i}/{end})")
+            _debug_log(f"DEBUG_TOK: Executing {tok.type} '{tok.content[:30]}...' (i={i}/{end})")
             
             # Check for BREAK flag
             if self._break_requested:
                 break
             
-            if token.type == TokenType.TEXT:
+            if tok.type == TokenType.TEXT:
                 # Check for output suppression
                 if self._nocode_depth > 0 and not self._in_code_block:
                     i += 1
                     continue
 
-                content = token.content
+                content = tok.content
 
                 # FIX: Special handling for text immediately following ENDINDENT
                 # If ENDINDENT was used (e.g. to close a block), and the next text is
@@ -346,7 +348,7 @@ class Renderer:
                     content = content.lstrip('\n\r \t')
                     self._autospacing_active = False  # One-shot: reset after use
 
-                if token.directive_only_line:
+                if tok.directive_only_line:
                     # Remove trailing newline from directive-only lines
                     # This prevents blank lines from directive-only template lines
                     content = content.rstrip('\n\r')
@@ -359,7 +361,7 @@ class Renderer:
                 self._output_buffer.append(content)
                 i += 1
                 
-            elif token.type == TokenType.OUTPUT:
+            elif tok.type == TokenType.OUTPUT:
                 # Check for output suppression
                 if self._nocode_depth > 0 and not self._in_code_block:
                     i += 1
@@ -369,7 +371,7 @@ class Renderer:
                 self._just_ended_indent = False
 
                 # Strip outer quotes from the tag content before evaluating
-                expr = self._strip_tag_quotes(token.content)
+                expr = self._strip_tag_quotes(tok.content)
                 value = self._evaluate_expression(expr)
 
                 # Ensure value is fully unwrapped (handles nested lists and ConfigurationNodes)
@@ -381,73 +383,73 @@ class Renderer:
                 self._output_buffer.append(output_str)
                 i += 1
 
-            elif token.type == TokenType.COMMENT:
+            elif tok.type == TokenType.COMMENT:
                 # Skip comments entirely
                 i += 1
                 
-            elif token.type == TokenType.VAR:
-                self._handle_var(token.content)
+            elif tok.type == TokenType.VAR:
+                self._handle_var(tok.content)
                 i += 1
                 
-            elif token.type == TokenType.IF:
+            elif tok.type == TokenType.IF:
                 i = self._handle_if(tokens, i, end)
                 
-            elif token.type == TokenType.LOOP:
+            elif tok.type == TokenType.LOOP:
                 i = self._handle_loop(tokens, i, end)
                 
-            elif token.type == TokenType.SELECT:
+            elif tok.type == TokenType.SELECT:
                 i = self._handle_select(tokens, i, end)
                 
-            elif token.type == TokenType.INCLUDE:
-                self._handle_include(token.content)
+            elif tok.type == TokenType.INCLUDE:
+                self._handle_include(tok.content)
                 i += 1
                 
-            elif token.type == TokenType.FOR:
+            elif tok.type == TokenType.FOR:
                 i = self._handle_for(tokens, i, end)
                 
-            elif token.type == TokenType.TRACE:
-                self._handle_trace(token.content)
+            elif tok.type == TokenType.TRACE:
+                self._handle_trace(tok.content)
                 i += 1
                 
-            elif token.type == TokenType.NOCODE:
+            elif tok.type == TokenType.NOCODE:
 
                 i = self._handle_nocode(tokens, i, end)
                 
-            elif token.type == TokenType.CODE:
+            elif tok.type == TokenType.CODE:
                 i = self._handle_code(tokens, i, end)
                 
-            elif token.type == TokenType.MACRO:
+            elif tok.type == TokenType.MACRO:
                 i = self._handle_macro_def(tokens, i, end)
             
-            elif token.type == TokenType.CALL:
-                self._handle_macro_call(token.content)
+            elif tok.type == TokenType.CALL:
+                self._handle_macro_call(tok.content)
                 i += 1
                 
-            elif token.type == TokenType.ASSERT:
+            elif tok.type == TokenType.ASSERT:
                 i = self._handle_assert(tokens, i, end)
                 
-            elif token.type == TokenType.ERROR:
+            elif tok.type == TokenType.ERROR:
                 i = self._handle_error(tokens, i, end)
             
-            elif token.type == TokenType.BREAK:
+            elif tok.type == TokenType.BREAK:
                 self._break_requested = True
                 i += 1
             
-            elif token.type == TokenType.INDENT:
+            elif tok.type == TokenType.INDENT:
                 # [!INDENT "n"!] - push absolute indentation level onto stack
                 try:
-                    raw_content = token.content
+                    raw_content = tok.content
                     stripped = raw_content.strip().strip('"').strip("'")
                     n = int(stripped)
                     # INDENT specifies absolute indentation level, not delta
                     _debug_log(f"INDENT {n}: raw='{raw_content}' stripped='{stripped}' stack {self._indent_stack} -> {self._indent_stack + [n]}")
                     self._indent_stack.append(n)
                 except (ValueError, TypeError) as e:
-                    _debug_log(f"INDENT ERROR: raw='{token.content}' exception={e}")
+                    _debug_log(f"INDENT ERROR: raw='{tok.content}' exception={e}")
                     pass  # Invalid indent, skip
                 i += 1
 
-            elif token.type == TokenType.ENDINDENT:
+            elif tok.type == TokenType.ENDINDENT:
                 # [!ENDINDENT!] - pop indentation level from stack
                 before = list(self._indent_stack)
                 if len(self._indent_stack) > 1:
@@ -463,11 +465,11 @@ class Renderer:
                 # self._at_line_start = True # DO NOT RESET THIS HERE
                 self._indent_added_on_this_line = False
             
-            elif token.type == TokenType.WS:
+            elif tok.type == TokenType.WS:
                 # [!WS "n"!] - output n whitespace characters
                 # Does NOT reset _at_line_start to allow explicit column positioning
                 try:
-                    n = int(token.content.strip().strip('"').strip("'"))
+                    n = int(tok.content.strip().strip('"').strip("'"))
                     if n > 0:
                         self._output_buffer.append(' ' * n)
                         # Keep _at_line_start as-is: WS is explicit spacing, not content
@@ -476,21 +478,21 @@ class Renderer:
                     pass  # Invalid WS count, skip
                 i += 1
             
-            elif token.type == TokenType.AUTOSPACING:
+            elif tok.type == TokenType.AUTOSPACING:
                 # [!AUTOSPACING!] - suppress preceding whitespace for next TEXT output
                 # When set, the next TEXT content will not have leading whitespace stripped
                 # and will continue on the same line as previous content
                 self._autospacing_active = True
                 i += 1
             
-            elif token.type == TokenType.CR:
+            elif tok.type == TokenType.CR:
                 # [!CR!] - output carriage return/newline
                 self._output_buffer.append('\n')
                 self._at_line_start = True
                 self._indent_added_on_this_line = False
                 i += 1
 
-            elif token.type == TokenType.AUTOGENERATE_WARNING:
+            elif tok.type == TokenType.AUTOGENERATE_WARNING:
                 # [!AUTOGENERATE_WARNING!] - output standard auto-generate warning comment
                 warning_text = """/*
  * This file is auto-generated. DO NOT MODIFY.
@@ -591,6 +593,7 @@ class Renderer:
             # Strip outer quotes from the expression part of VAR
             expr = self._strip_tag_quotes(expr)
             value = self._evaluate_expression(expr)
+            print(f"DEBUG_VAR: {var_name} = {value}")
             self._context_stack.set_variable(var_name, value)
 
     def _handle_trace(self, content: str):
@@ -743,8 +746,8 @@ class Renderer:
         # Get items to iterate
         # Use _evaluate_expression to support function calls like node:order()
         expr = self._strip_tag_quotes(xpath_expr)
-        items = self._evaluate_expression(expr)
-
+        # Use return_node=True to ensure we get objects to iterate over, not just names
+        items = self._evaluate_xpath(expr, return_node=True)
         
         # If result is a string (e.g. from quoted literal "CanController/*"),
         # evaluate it as XPath
@@ -761,10 +764,11 @@ class Renderer:
         for idx, item in enumerate(items):
             self._context_stack.push(item)
             self._context_stack.set_loop_info(idx, len(items))
+            name_hint = getattr(item, 'short_name', str(item))
+            print(f"DEBUG_LOOP: Entering {expr} iteration {idx} (node={name_hint})")
             self._execute_tokens(tokens, start + 1, loop_end)
 
             # Propagate variables set in loop body to parent scope
-            # This allows macros called within loop to set variables visible after loop
             current_vars = self._context_stack.current_scope_variables()
             for name, value in current_vars.items():
                 self._context_stack.set_variable_in_parent(name, value)
@@ -805,9 +809,9 @@ class Renderer:
                     select_end = i
             i += 1
 
-        # Get target node - may be None/empty, which is allowed per spec
-        node = self._evaluate_expression(xpath_expr)
-
+        # Get target node
+        node = self._evaluate_xpath(xpath_expr, return_node=True)
+        
         # If result is a string, evaluate as XPath
         if isinstance(node, str):
             node = self._evaluate_xpath(node)
@@ -887,8 +891,12 @@ class Renderer:
         if (expr.startswith("'") and expr.endswith("'")) or \
            (expr.startswith('"') and expr.endswith('"')):
             inner = expr[1:-1]
-            # Check if the string content is a variable reference (starts with $)
-            # EB Tresos treats "$var" as a variable reference, not a literal
+            if inner.startswith('$'):
+                var_name = inner[1:]
+                if self._context_stack.has_variable(var_name):
+                    val = self._context_stack.get_variable(var_name)
+                    print(f"DEBUG_VAR_RESOLVE: ${var_name} = {val}")
+                    return val
             return inner
         
         # Handle numeric literals explicitly
@@ -1041,10 +1049,14 @@ class Renderer:
                         return False
 
                     if check_op in ('==', '='):
+                        print(f"DEBUG_IF_COMP: {left_val} ({type(left_val)}) == {right_val} ({type(right_val)})") # Added tracing
                         # Use boolean comparison if either value looks boolean
                         if is_bool_like(left_val) or is_bool_like(right_val):
-                            return to_bool(left_val) == to_bool(right_val)
-                        return str(left_val) == str(right_val)
+                            res = to_bool(left_val) == to_bool(right_val)
+                        else:
+                            res = str(left_val) == str(right_val)
+                        print(f"DEBUG_IF_COMP: '{left_val}' {check_op} '{right_val}' -> {res}")
+                        return res
                     elif check_op == '!=':
                         if is_bool_like(left_val) or is_bool_like(right_val):
                             return to_bool(left_val) != to_bool(right_val)
@@ -1131,16 +1143,20 @@ class Renderer:
                             func_part = expr[:close_paren_idx + 1]
                             # Evaluate the function
                             result = self._evaluate_function_call(func_part)
+                            print(f"DEBUG_EXPR: Func {func_part} returned {result}")
 
                             # Parse and apply index
                             idx_str = index_part[1:-1]
                             idx_val = None
+                            print(f"DEBUG_EXPR: Applying index [{idx_str}] to result of length {len(result) if isinstance(result, list) else 1}")
                             if idx_str.isdigit():
                                 idx_val = int(idx_str) - 1  # 1-indexed to 0-indexed
                             elif idx_str == 'last()':
                                 # XPath last() function - return the last element
                                 if isinstance(result, list) and result:
                                     idx_val = len(result) - 1
+                                elif not isinstance(result, list):
+                                    idx_val = 0 # Scalar as list of length 1
                             elif 'position()' in idx_str:
                                 # Handle [position() = N] pattern commonly used in EB templates
                                 import re
@@ -1173,8 +1189,7 @@ class Renderer:
                             if idx_val is not None and isinstance(result, list):
                                 if 0 <= idx_val < len(result):
                                     return result[idx_val]
-                                return None
-                            return result
+                        return result
 
         # 5. XPath or Node Access
         res = self._evaluate_xpath(expr)
@@ -1229,12 +1244,21 @@ class Renderer:
                 # For non-node lists (e.g., from text:split), return first element
                 return first
 
+        if hasattr(val, 'node_type'):
+            if val.node_type == 'parameter':
+                return val.get_value()
+            if val.node_type == 'reference':
+                return val.value
+            if val.node_type in ('container', 'module'):
+                return val.short_name
+        
         if hasattr(val, 'get_value'):
             return val.get_value()
         return val
 
         
     def _evaluate_condition(self, condition: str) -> bool:
+        print(f"DEBUG_COND: Evaluating '{condition}'")
         """Evaluate a condition string (used in IF, WHILE)."""
         if condition is None: return False
         if isinstance(condition, bool): return condition
@@ -1588,10 +1612,10 @@ class Renderer:
             raise NameError(f"Unknown function: {func_name}")
         return None
     
-    def _evaluate_xpath(self, xpath: str) -> Any:
+    def _evaluate_xpath(self, xpath: str, return_node: bool = False) -> Any:
         """Evaluate an XPath-like expression using the XPath engine."""
         if self._xpath_engine:
-            return self._xpath_engine.evaluate(xpath)
+            return self._xpath_engine.evaluate(xpath, return_node=return_node)
         
         # Fallback to simple evaluation if engine not available
         xpath = xpath.strip()
@@ -2167,7 +2191,8 @@ class Renderer:
             if tok.type == TokenType.TEXT:
                 message_parts.append(tok.content)
             elif tok.type == TokenType.OUTPUT:
-                val = self._builtins.to_string(self._evaluate_expression(tok.content))
+                val = self._evaluate_expression(tok.content)
+                message_parts.append(self._builtins.to_string(val))
         
         message = "".join(message_parts).strip()
         _debug_log(f"ERROR: {message}")

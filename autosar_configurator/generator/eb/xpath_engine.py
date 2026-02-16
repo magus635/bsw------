@@ -31,24 +31,7 @@ class XPathEngine:
         self.function_handler = function_handler
         self._return_node = False  # Flag to return node instead of value for parameters
 
-    def _unwrap_value(self, value):
-        """Unwrap value from ConfigurationNode or list of nodes."""
-        if value is None:
-            return ""
-            
-        if isinstance(value, list):
-            if not value:
-                return ""
-            # Use first item
-            if len(value) > 1:
-                pass # Optionally warn
-            value = value[0]
-            
-        if hasattr(value, 'get_value'):
-            val = value.get_value()
-            return val if val is not None else ""
-            
-        return value
+
 
     def evaluate(self, xpath: str, return_node: bool = False) -> Any:
         """Evaluate an XPath expression.
@@ -67,7 +50,9 @@ class XPathEngine:
         saved_return_node = self._return_node
         self._return_node = return_node
         try:
-            return self._evaluate_impl(xpath)
+            res = self._evaluate_impl(xpath)
+            print(f"DEBUG_XPATH: evaluate('{xpath}') -> {len(res) if isinstance(res, list) else '1'} items")
+            return res
         finally:
             self._return_node = saved_return_node
 
@@ -239,6 +224,12 @@ class XPathEngine:
         # Reordered XPath Evaluation Logic
         # =============================================
 
+        # 0. Handle literal strings (single or double quoted)
+        if (xpath.startswith("'") and xpath.endswith("'")) or \
+           (xpath.startswith('"') and xpath.endswith('"')):
+            # Just return the unquoted string
+            return xpath[1:-1]
+
         # 1. Handle function calls like node:value(), as:modconf()
         if '(' in xpath and ')' in xpath:
             # Check if it is a predicate like [contains(., 'x')] - heuristic
@@ -255,7 +246,7 @@ class XPathEngine:
             val = self._evaluate_absolute(xpath)
             if return_node:
                 return val
-            return self._unwrap_value(val)
+            return val
         
         # 4. Handle current node
         if xpath == '.' or xpath == 'node:current()':
@@ -504,8 +495,6 @@ class XPathEngine:
         
         # Evaluate as expression and check truthiness
         result = self.evaluate(condition)
-        if result is None:
-            return False
         if isinstance(result, bool):
             return result
         if isinstance(result, (int, float)):
@@ -665,7 +654,6 @@ class XPathEngine:
                 return len(res)
             return 1 # Single node
             
-        # Generic function handler via callback
         if self.function_handler:
             # Parse function name and arguments (handle nested parens and trailing predicates)
             match = re.match(r"^([\w:]+)\s*\(", expr)
@@ -951,6 +939,12 @@ class XPathEngine:
                 rest_parts = parts[i + 1:]
                 filtered = []
                 skip_next_module_name = False
+                
+                # SPECIAL CASE: If the next part is EQUAL to the module name, 
+                # always skip it once to handle /Spi/Spi/... paths
+                if rest_parts and rest_parts[0].lower() == part.lower():
+                    rest_parts = rest_parts[1:]
+
                 for rp in rest_parts:
                     rp_lower = rp.lower()
                     if rp_lower in self._ARXML_STRUCTURAL:
@@ -1208,7 +1202,7 @@ class XPathEngine:
 
         for segment in segments:
             if not current:
-                print(f"DEBUG_XPATH: Navigation failed at segment: {segment['name']} (current is empty)")
+                # print(f"DEBUG_XPATH: Navigation failed at segment: {segment['name']} (current is empty)") # Removed debug log
                 return None
             
             next_nodes = []
@@ -1273,6 +1267,7 @@ class XPathEngine:
                         
                 else:  # child axis (default)
                     if name == '*':
+                        print(f"DEBUG_XPATH: Navigating '*' from node {n.short_name} (children count={len(n.children) if hasattr(n, 'children') else 0})")
                         children = n.get_children_list()
                         if children:
                             next_nodes.extend(children)
@@ -1293,55 +1288,68 @@ class XPathEngine:
                     elif name == 'DEFINITION-REF':
                         if hasattr(n, 'definition_ref') and n.definition_ref:
                             next_nodes.append(n.definition_ref)
-                    else:
+                    else:  # child axis (default)
+                        print(f"DEBUG_XPATH: Navigating children of {n.short_name} (type={getattr(n, 'node_type', 'N/A')}) for name '{name}'")
                         found_current_node = False
                         
-                        # 1. Primary Match: Match children by short_name OR definition name
-                        # (Iterate to find ALL matching instances for multiple-multiplicity containers)
-                        for c_node in n.children:
-                            def_name = c_node.definition_ref.split('/')[-1] if c_node.definition_ref else ""
-                            print(f"DEBUG_XPATH: checking child short_name={c_node.short_name} def_name={def_name} vs name={name}")
-                            # Match by ShortName OR DefinitionName (Virtual Tree Logic)
-                            if c_node.short_name == name or def_name == name:
-                                print(f"DEBUG_XPATH:   Matched! added {c_node.short_name}")
-                                next_nodes.append(c_node)
-                                found_current_node = True
-                                
-                        # 2. Case-insensitive fallback (if nothing found yet)
-                        if not found_current_node:
+                        if hasattr(n, 'children'):
+                            print(f"DEBUG_XPATH: Looking for '{name}' in children of {n.short_name} (type={getattr(n, 'node_type', 'N/A')})")
+                            # 1. Direct children
                             for c_node in n.children:
                                 def_name = c_node.definition_ref.split('/')[-1] if c_node.definition_ref else ""
-                                if c_node.short_name.lower() == name.lower() or def_name.lower() == name.lower():
+                                print(f"DEBUG_XPATH:   Checking child {c_node.short_name} (def={def_name})")
+                                if name == '*' or c_node.short_name == name or def_name == name:
                                     next_nodes.append(c_node)
                                     found_current_node = True
-                        
-                        # 3. EB Tresos implicit instance traversal (if still nothing found)
-                        # If we're at a container definition and can't find the child directly, 
-                        # look inside all instance children (e.g., AdcConfigSet -> AdcConfigSet_0 -> AdcHwUnit)
-                        if not found_current_node:
-                            for c_node in n.children:
-                                if c_node.node_type == 'container':
-                                    # Try to get child by name inside this instance
-                                    instance_child = c_node.get_child(name)
-                                    if instance_child:
-                                        next_nodes.append(instance_child)
+                            
+                            # 2. Case-insensitive fallback (if nothing found yet)
+                            if not found_current_node:
+                                for c_node in n.children:
+                                    def_name = c_node.definition_ref.split('/')[-1] if c_node.definition_ref else ""
+                                    if c_node.short_name.lower() == name.lower() or def_name.lower() == name.lower():
+                                        next_nodes.append(c_node)
                                         found_current_node = True
-                                    else:
-                                        # Also match grandchild by definition
-                                        for gc in c_node.children:
-                                            gc_def = gc.definition_ref.split('/')[-1] if gc.definition_ref else ""
-                                            if gc_def == name:
-                                                next_nodes.append(gc)
-                                                found_current_node = True
-
-                        # 4. Fallback for nested/transparent containers (e.g., CanHwFilter/CanHwFilter/...)
-                        if not found_current_node:
-                            if n.get_child(name):
-                                sub = n.get_child(name)
-                                deep_child = sub.get_child(name)
-                                if deep_child:
-                                    next_nodes.append(deep_child)
+                            
+                            # 3. EB Tresos implicit instance traversal (if still nothing found)
+                            # If we're at a container definition and can't find the child directly, 
+                            # look inside all instance children (e.g., AdcConfigSet -> AdcConfigSet_0 -> AdcHwUnit)
+                            if not found_current_node:
+                                for c_node in n.children:
+                                    if c_node.node_type == 'container':
+                                        # print(f"DEBUG_XPATH:   Checking container instance {c_node.short_name} for child '{name}'")
+                                        sub = c_node.get_child(name)
+                                        if sub:
+                                            next_nodes.append(sub)
+                                            found_current_node = True
+                                            # print(f"DEBUG_XPATH:     Found via implicit instance traversal: {sub.short_name}")
+                                            break # Found in this instance, no need to check other instances
+                            
+                            # 4. Fallback for wrappers/aliases and nested containers
+                            if not found_current_node:
+                                # Try named child (this catches wrappers added via add_alias)
+                                alias_node = n.get_child(name)
+                                if alias_node:
+                                    # print(f"DEBUG_XPATH:   Found via alias: {alias_node.short_name}")
+                                    next_nodes.append(alias_node)
                                     found_current_node = True
+                                else:
+                                    # EB Tresos compatibility: param/*[1] on a simple parameter
+                                    # (leaf node with no children) returns the parameter itself.
+                                    # This allows patterns like GptNotification/*[1] to retrieve
+                                    # the parameter value.
+                                    if name == '*' and hasattr(n, 'node_type') and n.node_type == 'parameter':
+                                        next_nodes.append(n)
+                                        found_current_node = True
+                                    # Handle deeply nested children if the parent is a container and the child is also a container
+                                    # This is a specific pattern observed in some configurations where a container
+                                    # might implicitly contain another container of the same name.
+                                    # Example: AdcConfigSet/AdcConfigSet_0/AdcHwUnit/AdcHwUnit
+                                    sub = n.get_child(name)
+                                    if sub:
+                                        deep_child = sub.get_child(name)
+                                        if deep_child:
+                                            next_nodes.append(deep_child)
+                                            found_current_node = True
 
                         # 5. Self-match Fallback for redundant wildcards
                         # Handle cases like Container/*/Child where * matched Child itself
@@ -1360,12 +1368,19 @@ class XPathEngine:
             return None
         elif len(current) == 1:
             # EB Tresos "Implicit Value" rule:
-            # If the path resolves to a single node, and that node is a simple parameter,
-            # return its value (scalar) instead of the node object.
+            # If the path resolves to a single node, and that node is a simple parameter or reference,
+            # return its value (scalar/path string) instead of the node object.
             # EXCEPT when return_node flag is set (used by node:exists).
             node = current[0]
-            if not self._return_node and hasattr(node, 'node_type') and node.node_type == 'parameter':
-                return node.get_value()
+            if not self._return_node and hasattr(node, 'node_type'):
+                if node.node_type == 'parameter':
+                    return node.get_value()
+                elif node.node_type == 'reference':
+                    val = node.value
+                    return str(val) if val is not None else ''
+                # Do NOT unwrap containers to short_names here, 
+                # as it breaks navigation in paths like A/B/C where B is a container.
+                # Renderer will handle unwrap-to-string for containers if needed.
 
             # EB Tresos: if the result is a container instance matched by definition-ref
             # and it has a parameter child with the same name as the last path segment,
@@ -1659,8 +1674,17 @@ class XPathEngine:
         Returns:
             Evaluated value (number, string, bool, or node)
         """
-        import re
-        expr = expr.strip()
+        # Temporarily push context node if provided
+        if context_node:
+            self.context_stack.push(context_node)
+        
+        try:
+            # Handle complex expressions via evaluate
+            if '(' in expr or '$' in expr or '/' in expr:
+                return self.evaluate(expr)
+        finally:
+            if context_node:
+                self.context_stack.pop()
         
         # Handle quoted strings
         if (expr.startswith('"') and expr.endswith('"')) or \

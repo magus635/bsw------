@@ -524,7 +524,16 @@ class ArxmlParser:
         
         # Parse multiplicity (use direct child lookup)
         ref.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)
-        ref.upper_multiplicity = self._get_child_int_value(element, 'UPPER-MULTIPLICITY', 1)
+        
+        upper_mult = self._get_text_value(element, 'UPPER-MULTIPLICITY')
+        upper_mult_infinite = self._get_text_value(element, 'UPPER-MULTIPLICITY-INFINITE')
+        
+        if upper_mult_infinite and upper_mult_infinite.lower() in ('1', 'true'):
+            ref.upper_multiplicity = -1
+        elif upper_mult == '*':
+            ref.upper_multiplicity = -1
+        else:
+            ref.upper_multiplicity = int(upper_mult) if upper_mult else 1
         
         return ref
     
@@ -671,7 +680,10 @@ class ArxmlParser:
                 value = 0
                 
         if 'NUMERICAL-PARAM-VALUE' in element.tag:
-            # Try int, then float
+            if isinstance(value, str):
+                value = value.strip()
+            
+            # Try to convert to number if it looks like one
             try:
                 if value is not None and '.' in str(value):
                     value = float(value)
@@ -736,6 +748,11 @@ class ArxmlParser:
 
         if target_ref is None:
             target_ref = ""
+        
+        # Ensure target_ref is stripped of whitespace properly.
+        # This handles cases where target_ref might be None and then set to ""
+        # or if it was found but has leading/trailing whitespace.
+        target_ref = target_ref.strip()
 
         # Route to multi-valued or single-valued storage
         if index_text is not None:
@@ -748,10 +765,31 @@ class ArxmlParser:
             if dest_type and ref_name in container.multi_reference_values:
                 container.multi_reference_values[ref_name][-1].dest_type = dest_type
         else:
-            container.set_reference_value(ref_name, target_ref, definition_ref)
-            # Set dest_type on the reference
-            if dest_type and ref_name in container.reference_values:
-                container.reference_values[ref_name].dest_type = dest_type
+            # EB Tresos compatibility: If a reference with the same name already exists,
+            # it should be treated as a multi-reference even if INDEX is missing.
+            if ref_name in container.reference_values:
+                # Move existing single ref to multi-refs
+                existing_ref = container.reference_values.pop(ref_name)
+                # Ensure it's in the list
+                if ref_name not in container.multi_reference_values:
+                    container.multi_reference_values[ref_name] = []
+                container.multi_reference_values[ref_name].append(existing_ref)
+                
+                # Add the new one as a multi-ref
+                container.add_multi_reference_value(ref_name, target_ref, definition_ref, len(container.multi_reference_values[ref_name]))
+                if dest_type:
+                    container.multi_reference_values[ref_name][-1].dest_type = dest_type
+            elif ref_name in container.multi_reference_values:
+                # Already in multi-refs, just append
+                container.add_multi_reference_value(ref_name, target_ref, definition_ref, len(container.multi_reference_values[ref_name]))
+                if dest_type:
+                    container.multi_reference_values[ref_name][-1].dest_type = dest_type
+            else:
+                # First time seeing this ref name, treat as single
+                container.set_reference_value(ref_name, target_ref, definition_ref)
+                # Set dest_type on the reference
+                if dest_type and ref_name in container.reference_values:
+                    container.reference_values[ref_name].dest_type = dest_type
 
     # Helper methods for Permissive Parsing
 
