@@ -148,6 +148,46 @@ class OverlayEngine:
             # Better Aliasing: Provide access to the active instance's content via the wrapper node if searched.
             # This is handled by the XPath engine usually.
 
+        # Process containers from configuration that are NOT in definition (Schema Inference)
+        if not self.strict and configuration:
+            # Get list of configured container def refs that we processed
+            processed_refs = set()
+            for c_def in module_def.containers.values():
+                processed_refs.add(c_def.definition_ref)
+            
+            # Find config containers whose definition_ref was NOT processed
+            for container in configuration.containers:
+                # Check if this container matches any processed definition
+                is_processed = False
+                for c_def_ref in processed_refs:
+                    if container.definition_ref == c_def_ref or \
+                       (c_def_ref and container.definition_ref and container.definition_ref.endswith(f"/{c_def_ref.split('/')[-1]}")):
+                        is_processed = True
+                        break
+                
+                if not is_processed:
+                    _debug_log(f"DEBUG_OVERLAY: Processing unknown container: {container.short_name}")
+                    
+                    # Deduce wrapper name from definition ref
+                    def_name = container.definition_ref.split('/')[-1] if container.definition_ref else container.short_name.split('_')[0]
+                    
+                    # Check if wrapper already exists (maybe created for another instance of same type)
+                    wrapper_node = root.get_child(def_name)
+                    if not wrapper_node:
+                        wrapper_path = f"/{module_name}/{def_name}"
+                        wrapper_node = ConfigurationNode(
+                            short_name=def_name,
+                            node_type='container',
+                            path=wrapper_path,
+                            definition_ref=container.definition_ref,
+                            is_wrapper=True
+                        )
+                        root.add_child(wrapper_node)
+                    
+                    # Add the instance
+                    instance_path = f"{wrapper_node.path}/{container.short_name}"
+                    node = self._create_container_node(None, container, instance_path)
+                    wrapper_node.add_child(node)
         
         # Register in symbol table
         self.symbol_table.register_module(module_name, root)
@@ -297,11 +337,70 @@ class OverlayEngine:
     
     def _create_container_node(
         self,
-        container_def: EcucContainerDef,
+        container_def: Optional[EcucContainerDef],
         config_instance: EcucContainerValue,
         path: str
     ) -> ConfigurationNode:
         """Create a ConfigurationNode from definition and configuration instance."""
+        
+        # Handle Schema Inference (Missing Definition)
+        if container_def is None:
+            node = ConfigurationNode(
+                short_name=config_instance.short_name,
+                node_type='container',
+                path=path,
+                definition_ref=config_instance.definition_ref,
+                index=getattr(config_instance, 'index', 0)
+            )
+            
+            # Add parameters from config
+            for param_name, param_val in config_instance.parameter_values.items():
+                p_node = ConfigurationNode(
+                    short_name=param_name,
+                    node_type='parameter',
+                    path=f"{path}/{param_name}",
+                    value=param_val.value,
+                    definition_ref=param_val.definition_ref
+                )
+                node.add_child(p_node)
+            
+            # Add references from config
+            for ref_name, ref_val in config_instance.reference_values.items():
+                r_node = ConfigurationNode(
+                    short_name=ref_name,
+                    node_type='reference',
+                    path=f"{path}/{ref_name}",
+                    value=ref_val.value_ref,
+                    definition_ref=ref_val.definition_ref
+                )
+                node.add_child(r_node)
+            
+            # Add sub-containers (grouped by definition name for wrappers)
+            subs_by_def = {}
+            for sub in config_instance.sub_containers:
+                def_name = sub.definition_ref.split('/')[-1] if sub.definition_ref else "Unknown"
+                if def_name not in subs_by_def:
+                    subs_by_def[def_name] = []
+                subs_by_def[def_name].append(sub)
+            
+            for def_name, subs in subs_by_def.items():
+                wrapper_path = f"{path}/{def_name}"
+                wrapper = ConfigurationNode(
+                    short_name=def_name,
+                    node_type='container',
+                    path=wrapper_path,
+                    definition_ref=subs[0].definition_ref,
+                    is_wrapper=True
+                )
+                for sub in subs:
+                    sub_path = f"{wrapper_path}/{sub.short_name}"
+                    sub_node = self._create_container_node(None, sub, sub_path)
+                    wrapper.add_child(sub_node)
+                node.add_child(wrapper)
+                
+            return node
+
+        # Standard Logic (Definition Available)
         node = ConfigurationNode(
             short_name=config_instance.short_name,
             node_type='container',
@@ -326,7 +425,6 @@ class OverlayEngine:
             
             if is_multi and multi_param_list:
                 # Multi-valued parameter: create wrapper node with indexed children
-                # This allows [!LOOP "AdcResultRegisterDefinition/*"!] to work
                 wrapper_node = ConfigurationNode(
                     short_name=param_name,
                     node_type='parameter',
@@ -355,6 +453,20 @@ class OverlayEngine:
                     f"{path}/{param_name}"
                 )
                 node.add_child(param_node)
+        
+        # Add unknown parameters from config (if strict=False)
+        if not self.strict:
+            for param_name, param_val in params_source.items():
+                if param_name not in container_def.parameters:
+                    # Parameter exists in config but not definition
+                    p_node = ConfigurationNode(
+                        short_name=param_name,
+                        node_type='parameter',
+                        path=f"{path}/{param_name}",
+                        value=param_val.value,
+                        definition_ref=param_val.definition_ref
+                    )
+                    node.add_child(p_node)
 
         
         # Add references

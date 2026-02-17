@@ -592,6 +592,12 @@ class Renderer:
             expr = match.group(2).strip()
             # Strip outer quotes from the expression part of VAR
             expr = self._strip_tag_quotes(expr)
+            
+            # DEBUG: Print current context
+            curr = self._context_stack.current_node()
+            curr_info = f"{curr.short_name} ({curr.node_type})" if curr else "None"
+            print(f"DEBUG_VAR_CTX: Current context: {curr_info}, Expr: {expr}")
+            
             value = self._evaluate_expression(expr)
             print(f"DEBUG_VAR: {var_name} = {value}")
             self._context_stack.set_variable(var_name, value)
@@ -818,6 +824,10 @@ class Renderer:
 
         if isinstance(node, list):
             node = node[0] if node else None
+
+        # DEBUG
+        node_info = f"{node.short_name} ({node.node_type})" if node and hasattr(node, 'short_name') else str(node)
+        print(f"DEBUG_SELECT: Resolved context node: {node_info}")
 
         # Always execute the block, even with empty context
         # node:* functions will check for None and raise appropriate errors

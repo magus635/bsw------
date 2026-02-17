@@ -1602,6 +1602,9 @@ class XPathEngine:
                                     eval_result = int(eval_result)
                             except (ValueError, TypeError):
                                 pass
+                    
+                    # DEBUG
+                    print(f"DEBUG_PRED: '{pred}' -> {eval_result} ({type(eval_result)}). Nodes before: {len(result)}")
 
                     # Fix: Ensure boolean results are NOT treated as numeric indices
                     if isinstance(eval_result, bool):
@@ -1614,6 +1617,7 @@ class XPathEngine:
                             result = [result[idx]]
                         else:
                             result = []
+                        print(f"DEBUG_PRED: Filtered by index {idx} -> {len(result)} nodes")
                         continue
                 except:
                     pass  # Fall through to other predicate handling
@@ -1681,7 +1685,9 @@ class XPathEngine:
         try:
             # Handle complex expressions via evaluate
             if '(' in expr or '$' in expr or '/' in expr:
-                return self.evaluate(expr)
+                res = self.evaluate(expr)
+                if res is not None:
+                    return res
         finally:
             if context_node:
                 self.context_stack.pop()
