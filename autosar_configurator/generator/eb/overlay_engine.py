@@ -20,7 +20,6 @@ def _debug_log(msg: str):
     try:
         with open(_DEBUG_LOG_PATH, 'a') as f:
             f.write(msg + '\n')
-        print(f"[DEBUG] {msg}")
     except (IOError, OSError):
         pass
 
@@ -150,28 +149,26 @@ class OverlayEngine:
 
         # Process containers from configuration that are NOT in definition (Schema Inference)
         if not self.strict and configuration:
-            # Get list of configured container def refs that we processed
-            processed_refs = set()
-            for c_def in module_def.containers.values():
-                processed_refs.add(c_def.definition_ref)
+            processed_refs = {c_def.definition_ref for c_def in module_def.containers.values()}
             
-            # Find config containers whose definition_ref was NOT processed
+            unknown_containers_by_def = {}
             for container in configuration.containers:
-                # Check if this container matches any processed definition
                 is_processed = False
                 for c_def_ref in processed_refs:
                     if container.definition_ref == c_def_ref or \
                        (c_def_ref and container.definition_ref and container.definition_ref.endswith(f"/{c_def_ref.split('/')[-1]}")):
                         is_processed = True
                         break
-                
                 if not is_processed:
-                    _debug_log(f"DEBUG_OVERLAY: Processing unknown container: {container.short_name}")
-                    
-                    # Deduce wrapper name from definition ref
                     def_name = container.definition_ref.split('/')[-1] if container.definition_ref else container.short_name.split('_')[0]
-                    
-                    # Check if wrapper already exists (maybe created for another instance of same type)
+                    if def_name not in unknown_containers_by_def:
+                        unknown_containers_by_def[def_name] = []
+                    unknown_containers_by_def[def_name].append(container)
+
+            for def_name, containers in unknown_containers_by_def.items():
+                is_multiple = len(containers) > 1 or containers[0].short_name != def_name
+                
+                if is_multiple:
                     wrapper_node = root.get_child(def_name)
                     if not wrapper_node:
                         wrapper_path = f"/{module_name}/{def_name}"
@@ -179,15 +176,21 @@ class OverlayEngine:
                             short_name=def_name,
                             node_type='container',
                             path=wrapper_path,
-                            definition_ref=container.definition_ref,
+                            definition_ref=containers[0].definition_ref,
                             is_wrapper=True
                         )
                         root.add_child(wrapper_node)
                     
-                    # Add the instance
-                    instance_path = f"{wrapper_node.path}/{container.short_name}"
+                    for container in containers:
+                        instance_path = f"{wrapper_node.path}/{container.short_name}"
+                        node = self._create_container_node(None, container, instance_path)
+                        wrapper_node.add_child(node)
+                else:
+                    # Single instance, no wrapper
+                    container = containers[0]
+                    instance_path = f"/{module_name}/{container.short_name}"
                     node = self._create_container_node(None, container, instance_path)
-                    wrapper_node.add_child(node)
+                    root.add_child(node)
         
         # Register in symbol table
         self.symbol_table.register_module(module_name, root)
@@ -217,7 +220,14 @@ class OverlayEngine:
         if config_instance:
             # Create node from configuration using instance's actual name (may differ from def name)
             instance_name = config_instance.short_name
-            instance_path = f"{parent_path}/{instance_name}"
+            
+            # FIX: Avoid redundant path segments if instance name matches wrapper name
+            # This happens when container definition name equals instance name (common for singletons)
+            if parent_path.endswith(f"/{instance_name}"):
+                instance_path = parent_path
+            else:
+                instance_path = f"{parent_path}/{instance_name}"
+
             node = self._create_container_node(container_def, config_instance, instance_path)
             nodes.append(node)
             
@@ -384,19 +394,38 @@ class OverlayEngine:
                 subs_by_def[def_name].append(sub)
             
             for def_name, subs in subs_by_def.items():
-                wrapper_path = f"{path}/{def_name}"
-                wrapper = ConfigurationNode(
-                    short_name=def_name,
-                    node_type='container',
-                    path=wrapper_path,
-                    definition_ref=subs[0].definition_ref,
-                    is_wrapper=True
-                )
-                for sub in subs:
-                    sub_path = f"{wrapper_path}/{sub.short_name}"
+                # Heuristic: Create wrapper only if multiple instances or name suggests multiplicity
+                # (e.g. "PortContainer_0" vs "PortContainer")
+                is_multiple = len(subs) > 1 or subs[0].short_name != def_name
+                
+                if is_multiple:
+                    wrapper_path = f"{path}/{def_name}"
+                    wrapper = ConfigurationNode(
+                        short_name=def_name,
+                        node_type='container',
+                        path=wrapper_path,
+                        definition_ref=subs[0].definition_ref,
+                        is_wrapper=True
+                    )
+                    for sub in subs:
+                        # FIX: Avoid redundant path segments if sub instance name matches wrapper name
+                        if wrapper_path.endswith(f"/{sub.short_name}"):
+                            sub_path = wrapper_path
+                        else:
+                            sub_path = f"{wrapper_path}/{sub.short_name}"
+                        sub_node = self._create_container_node(None, sub, sub_path)
+                        wrapper.add_child(sub_node)
+                    node.add_child(wrapper)
+                else:
+                    # Single instance, no wrapper
+                    sub = subs[0]
+                    # FIX: Avoid redundant path segments if sub instance name matches parent path
+                    if path.endswith(f"/{sub.short_name}"):
+                        sub_path = path
+                    else:
+                        sub_path = f"{path}/{sub.short_name}"
                     sub_node = self._create_container_node(None, sub, sub_path)
-                    wrapper.add_child(sub_node)
-                node.add_child(wrapper)
+                    node.add_child(sub_node)
                 
             return node
 

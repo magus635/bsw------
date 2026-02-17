@@ -19,7 +19,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from PySide6.QtWidgets import QApplication
+
 from autosar_configurator.ui.davinci_main_window import DaVinciMainWindow
+
+
+
 
 
 def main():
