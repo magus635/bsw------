@@ -1602,9 +1602,6 @@ class XPathEngine:
                                     eval_result = int(eval_result)
                             except (ValueError, TypeError):
                                 pass
-                    
-                    # DEBUG
-                    print(f"DEBUG_PRED: '{pred}' -> {eval_result} ({type(eval_result)}). Nodes before: {len(result)}")
 
                     # Fix: Ensure boolean results are NOT treated as numeric indices
                     if isinstance(eval_result, bool):
@@ -1617,7 +1614,6 @@ class XPathEngine:
                             result = [result[idx]]
                         else:
                             result = []
-                        print(f"DEBUG_PRED: Filtered by index {idx} -> {len(result)} nodes")
                         continue
                 except:
                     pass  # Fall through to other predicate handling
