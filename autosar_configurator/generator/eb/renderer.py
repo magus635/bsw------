@@ -31,9 +31,8 @@ def _debug_log(msg: str):
         with open(_DEBUG_LOG_PATH, 'a') as f:
             f.write(msg + '\n')
             f.flush()  # Force flush to disk
-        print(f"[DEBUG] {msg}")  # Also print to stdout for immediate visibility
     except (IOError, OSError) as e:
-        print(f"[DEBUG ERROR] Failed to write log: {e}")
+        pass
 
 from .lexer import Lexer, Token, TokenType, tokenize
 from .context import ContextStack
@@ -593,7 +592,6 @@ class Renderer:
             # Strip outer quotes from the expression part of VAR
             expr = self._strip_tag_quotes(expr)
             value = self._evaluate_expression(expr)
-            print(f"DEBUG_VAR: {var_name} = {value}")
             self._context_stack.set_variable(var_name, value)
 
     def _handle_trace(self, content: str):
@@ -764,8 +762,6 @@ class Renderer:
         for idx, item in enumerate(items):
             self._context_stack.push(item)
             self._context_stack.set_loop_info(idx, len(items))
-            name_hint = getattr(item, 'short_name', str(item))
-            print(f"DEBUG_LOOP: Entering {expr} iteration {idx} (node={name_hint})")
             self._execute_tokens(tokens, start + 1, loop_end)
 
             # Propagate variables set in loop body to parent scope
@@ -895,7 +891,6 @@ class Renderer:
                 var_name = inner[1:]
                 if self._context_stack.has_variable(var_name):
                     val = self._context_stack.get_variable(var_name)
-                    print(f"DEBUG_VAR_RESOLVE: ${var_name} = {val}")
                     return val
             return inner
         
@@ -1049,13 +1044,11 @@ class Renderer:
                         return False
 
                     if check_op in ('==', '='):
-                        print(f"DEBUG_IF_COMP: {left_val} ({type(left_val)}) == {right_val} ({type(right_val)})") # Added tracing
                         # Use boolean comparison if either value looks boolean
                         if is_bool_like(left_val) or is_bool_like(right_val):
                             res = to_bool(left_val) == to_bool(right_val)
                         else:
                             res = str(left_val) == str(right_val)
-                        print(f"DEBUG_IF_COMP: '{left_val}' {check_op} '{right_val}' -> {res}")
                         return res
                     elif check_op == '!=':
                         if is_bool_like(left_val) or is_bool_like(right_val):
@@ -1143,12 +1136,10 @@ class Renderer:
                             func_part = expr[:close_paren_idx + 1]
                             # Evaluate the function
                             result = self._evaluate_function_call(func_part)
-                            print(f"DEBUG_EXPR: Func {func_part} returned {result}")
 
                             # Parse and apply index
                             idx_str = index_part[1:-1]
                             idx_val = None
-                            print(f"DEBUG_EXPR: Applying index [{idx_str}] to result of length {len(result) if isinstance(result, list) else 1}")
                             if idx_str.isdigit():
                                 idx_val = int(idx_str) - 1  # 1-indexed to 0-indexed
                             elif idx_str == 'last()':
@@ -1258,10 +1249,10 @@ class Renderer:
 
         
     def _evaluate_condition(self, condition: str) -> bool:
-        print(f"DEBUG_COND: Evaluating '{condition}'")
         """Evaluate a condition string (used in IF, WHILE)."""
         if condition is None: return False
         if isinstance(condition, bool): return condition
+        # ... (rest of the code without prints)
 
         condition = self._strip_tag_quotes(condition)
 
@@ -1554,17 +1545,10 @@ class Renderer:
                (arg.startswith("'") and arg.endswith("'")):
                 arg = arg[1:-1]
             result = self._xpath_engine.evaluate(arg, return_node=True)
-            ctx = self._context_stack.current_node()
-            ctx_name = ctx.short_name if ctx and hasattr(ctx, 'short_name') else str(ctx)
             if result is None:
-                print(f"DEBUG_COUNT: count({arg}) = 0 [None], context={ctx_name}")
                 return 0
             if isinstance(result, list):
-                # Log children names for debugging
-                child_names = [getattr(n, 'short_name', str(n)) for n in result[:5]]
-                print(f"DEBUG_COUNT: count({arg}) = {len(result)}, context={ctx_name}, first_children={child_names}")
                 return len(result)
-            print(f"DEBUG_COUNT: count({arg}) = 1 [single], context={ctx_name}, node={getattr(result, 'short_name', str(result))}")
             return 1
 
         # Evaluate each argument
@@ -1590,10 +1574,6 @@ class Renderer:
         if self._builtins.has(func_name):
             try:
                 res = self._builtins.call(func_name, *evaluated_args)
-                # Debug: trace node:name and node:value calls
-                if func_name in ('node:name', 'node:value'):
-                    arg_info = evaluated_args[0].short_name if evaluated_args and hasattr(evaluated_args[0], 'short_name') else str(evaluated_args[0]) if evaluated_args else 'no-arg'
-                    print(f"DEBUG_NODE_FUNC: {func_name}({arg_info}) = {res}")
                 return res
             except Exception as e:
                 logger.error(f"Error calling function {func_name}: {e}")

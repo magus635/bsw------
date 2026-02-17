@@ -96,6 +96,7 @@ class BuiltinFunctions:
             'text:replace': self.string_replace,
             'text:replaceAll': self.string_replace,
             'text:contains': self.string_contains,
+            'text:grep': self.text_grep,
             
             # XPath standard function aliases (for compatibility)
             'string': self.to_string,  # XPath string() type conversion
@@ -997,7 +998,6 @@ class BuiltinFunctions:
             s = self.to_string(s)
         # Filter empty strings to match EB Tresos behavior
         res = [x for x in s.split(delimiter) if x]
-        print(f"DEBUG_BUILTIN: string_split('{s}', '{delimiter}') -> {res}")
         return res
     
     def string_trim(self, s: str) -> str:
@@ -1077,6 +1077,45 @@ class BuiltinFunctions:
             s = str(s)
         return str(substring) in s
     
+    def text_grep(self, items: Any, pattern: str) -> List[str]:
+        """Filter list items matching a regex pattern (text:grep).
+        
+        Args:
+            items: List of strings, or a single string (will be treated as list of 1)
+            pattern: Regex pattern
+            
+        Returns:
+            List of matching strings
+        """
+        if items is None:
+            return []
+            
+        # Normalize to list
+        if not isinstance(items, list):
+            items = [str(items)]
+            
+        import re
+        result = []
+        try:
+            regex = re.compile(str(pattern))
+            for item in items:
+                # Unwrap node value if needed
+                if hasattr(item, 'get_value'):
+                    s = str(item.get_value())
+                else:
+                    s = str(item)
+                    
+                if regex.search(s):
+                    result.append(s)
+        except re.error:
+            # Invalid regex, return empty or log error
+            pass
+            
+        if not result:
+            return '[]'
+            
+        return result
+
     def string_substring(self, s: str, start: Any, length: Any = None) -> str:
         """Extract substring from string."""
         if s is None: return ""

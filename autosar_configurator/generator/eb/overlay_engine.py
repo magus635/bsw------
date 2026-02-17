@@ -420,9 +420,6 @@ class OverlayEngine:
             is_multi = param_def.upper_multiplicity == -1 or param_def.upper_multiplicity > 1
             multi_param_list = multi_params_source.get(param_name, [])
             
-            if param_name == 'AdcResultRegisterDefinition':
-                print(f"DEBUG_OVERLAY: AdcResultRegisterDefinition is_multi={is_multi} count={len(multi_param_list)}")
-            
             if is_multi and multi_param_list:
                 # Multi-valued parameter: create wrapper node with indexed children
                 wrapper_node = ConfigurationNode(
@@ -482,7 +479,6 @@ class OverlayEngine:
             if is_multi and not multi_ref_list and ref_name in refs_source:
                 multi_ref_list = [refs_source[ref_name]]
 
-            print(f"DEBUG_OVERLAY: Processing ref {ref_name} (multi={is_multi}, has_multi={len(multi_ref_list)}, in_single={ref_name in refs_source})")
             if is_multi and multi_ref_list:
                 # Multi-valued reference: create wrapper node with indexed children
                 wrapper_node = ConfigurationNode(
@@ -691,17 +687,10 @@ class OverlayEngine:
         # This prevents parameter nodes from appearing as siblings of container
         # instances when iterating with wildcards (e.g., AdcGroup/*).
         if active_instance_node:
-            print(f"DEBUG_OVERLAY: Aliasing from {active_instance_node.short_name} to wrapper {wrapper_node.short_name}")
-            print(f"DEBUG_OVERLAY:   Found {len(active_instance_node.children)} children in active instance node")
             for sub_node in active_instance_node.children:
-                print(f"DEBUG_OVERLAY:   Candidate child {sub_node.short_name} (type={sub_node.node_type})")
                 if sub_node.node_type != 'container':
-                    print(f"DEBUG_OVERLAY:     -> Skipped (not a container, type={sub_node.node_type})")
                     continue
                 if not wrapper_node.get_child(sub_node.short_name):
                     wrapper_node.add_alias(sub_node)
-                    print(f"DEBUG_OVERLAY:     -> Added alias for {sub_node.short_name}")
-                else:
-                    print(f"DEBUG_OVERLAY:     -> Skipped (already exists)")
 
 

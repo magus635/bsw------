@@ -51,7 +51,6 @@ class XPathEngine:
         self._return_node = return_node
         try:
             res = self._evaluate_impl(xpath)
-            print(f"DEBUG_XPATH: evaluate('{xpath}') -> {len(res) if isinstance(res, list) else '1'} items")
             return res
         finally:
             self._return_node = saved_return_node
@@ -1267,7 +1266,6 @@ class XPathEngine:
                         
                 else:  # child axis (default)
                     if name == '*':
-                        print(f"DEBUG_XPATH: Navigating '*' from node {n.short_name} (children count={len(n.children) if hasattr(n, 'children') else 0})")
                         children = n.get_children_list()
                         if children:
                             next_nodes.extend(children)
@@ -1289,15 +1287,12 @@ class XPathEngine:
                         if hasattr(n, 'definition_ref') and n.definition_ref:
                             next_nodes.append(n.definition_ref)
                     else:  # child axis (default)
-                        print(f"DEBUG_XPATH: Navigating children of {n.short_name} (type={getattr(n, 'node_type', 'N/A')}) for name '{name}'")
                         found_current_node = False
                         
                         if hasattr(n, 'children'):
-                            print(f"DEBUG_XPATH: Looking for '{name}' in children of {n.short_name} (type={getattr(n, 'node_type', 'N/A')})")
                             # 1. Direct children
                             for c_node in n.children:
                                 def_name = c_node.definition_ref.split('/')[-1] if c_node.definition_ref else ""
-                                print(f"DEBUG_XPATH:   Checking child {c_node.short_name} (def={def_name})")
                                 if name == '*' or c_node.short_name == name or def_name == name:
                                     next_nodes.append(c_node)
                                     found_current_node = True
@@ -1316,12 +1311,10 @@ class XPathEngine:
                             if not found_current_node:
                                 for c_node in n.children:
                                     if c_node.node_type == 'container':
-                                        # print(f"DEBUG_XPATH:   Checking container instance {c_node.short_name} for child '{name}'")
                                         sub = c_node.get_child(name)
                                         if sub:
                                             next_nodes.append(sub)
                                             found_current_node = True
-                                            # print(f"DEBUG_XPATH:     Found via implicit instance traversal: {sub.short_name}")
                                             break # Found in this instance, no need to check other instances
                             
                             # 4. Fallback for wrappers/aliases and nested containers
