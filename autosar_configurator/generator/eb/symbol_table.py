@@ -42,6 +42,21 @@ class ConfigurationNode:
     
     # Is this a wrapper node (OverlayEngine implementation detail)?
     is_wrapper: bool = False
+
+    def __post_init__(self):
+        print(f"DIRECT_PRINT_CONFIG_NODE_INIT: Created {self.short_name} (path={self.path}, parent={self.parent.path if self.parent else 'None'}, is_wrapper={self.is_wrapper})")
+        # If children were passed as a dict during construction (for legacy reasons), 
+        # convert them to list and populate lookup
+        if isinstance(self.children, dict):
+            legacy_dict = self.children
+            self.children = []
+            self._children_by_name = {}
+            for name, node in legacy_dict.items():
+                self.add_child(node)
+        elif not hasattr(self, '_children_by_name') or self._children_by_name is None:
+            self._children_by_name = {}
+            for node in self.children:
+                self._children_by_name[node.short_name] = node
     
     def get_value(self) -> Any:
         """Get value with fallback to default"""
@@ -67,7 +82,29 @@ class ConfigurationNode:
     
     def add_child(self, node: 'ConfigurationNode'):
         """Add a child node"""
-        node.parent = self
+        # Cycle Prevention: Check if adding 'node' as a child would create a cycle.
+        # This happens if 'node' is already an ancestor of 'self'.
+        ancestor = self
+        while ancestor:
+            if ancestor == node:
+                from .renderer import _debug_log
+                _debug_log(f"ERROR_CYCLE_DETECTED: Computed parent {self.short_name} (path={self.path}) is a descendant of child {node.short_name} (path={node.path}). Rejecting add_child to prevent cycle.")
+                return
+            ancestor = ancestor.parent
+
+        print(f"DIRECT_PRINT_ADD_CHILD: Adding child {node.short_name} (path={node.path}) to {self.short_name} (path={self.path})") # Direct print for debug
+        from .renderer import _debug_log
+        _debug_log(f"DEBUG_CONFIG_NODE: Adding child {node.short_name} (path={node.path}) to {self.short_name} (path={self.path})")
+        
+        # FIX: If the child's path is the same as the parent's path, and parent is a wrapper,
+        # it means this child instance effectively 'replaces' the wrapper in the hierarchy.
+        # In this case, the child's logical parent should be the wrapper's parent.
+        if node.path == self.path and self.is_wrapper:
+            _debug_log(f"DEBUG_CONFIG_NODE:   Child {node.short_name} (path={node.path}) effectively replaces wrapper {self.short_name}. Setting child's parent to wrapper's parent ({self.parent.path if self.parent else 'None'}).")
+            node.parent = self.parent
+        else:
+            node.parent = self
+            
         self.children.append(node)
         self._children_by_name[node.short_name] = node
 
@@ -84,22 +121,9 @@ class ConfigurationNode:
         2. Named lookup (node.get_child('name')) still works via the map
         """
         # Do not append to self.children to avoid duplication in iteration
-        # self.children.append(node) 
+        # self.children.append(node)
         self._children_by_name[node.short_name] = node
 
-    def __post_init__(self):
-        # If children were passed as a dict during construction (for legacy reasons), 
-        # convert them to list and populate lookup
-        if isinstance(self.children, dict):
-            legacy_dict = self.children
-            self.children = []
-            self._children_by_name = {}
-            for name, node in legacy_dict.items():
-                self.add_child(node)
-        elif not hasattr(self, '_children_by_name') or self._children_by_name is None:
-            self._children_by_name = {}
-            for node in self.children:
-                self._children_by_name[node.short_name] = node
 
     def __str__(self):
         """String representation showing value or short name"""
@@ -165,12 +189,8 @@ class SymbolTable:
         Returns:
             Target ConfigurationNode or None
         """
-        from .renderer import _debug_log
-        _debug_log(f"resolve_reference: Resolving '{ref_path}'")
-
         # Try direct path lookup first
         if ref_path in self._path_index:
-            _debug_log(f"resolve_reference: Found exact match in path_index")
             return self._path_index[ref_path]
 
         # Cleanup path
@@ -188,12 +208,10 @@ class SymbolTable:
                 candidates.append((mod, i))
         
         if not candidates:
-            _debug_log(f"resolve_reference: No candidate modules found for parts: {parts}")
             return None
 
         # Successively try to resolve starting from each candidate module
         for root, start_idx in candidates:
-            _debug_log(f"resolve_reference: Attempting resolution from module '{root.short_name}' (start_idx={start_idx})")
             
             # Recursive search function to skip wrappers and handle structural mismatches
             def navigate(current: ConfigurationNode, parts_to_find: list) -> Optional[ConfigurationNode]:
@@ -230,10 +248,8 @@ class SymbolTable:
             # Start navigation skipping the module name part itself
             result = navigate(root, parts[start_idx + 1:])
             if result:
-                _debug_log(f"resolve_reference: Successfully resolved to '{result.path}'")
                 return result
 
-        _debug_log(f"resolve_reference: Resolution FAILED for '{ref_path}'")
         return None
     
     def get_all_modules(self) -> List[str]:

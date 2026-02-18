@@ -712,6 +712,13 @@ class XPathEngine:
                         evaluated_args.append(arg[1:-1])
                     else:
                         val = self.evaluate(arg, return_node=is_node_func)
+                        # If evaluate returns None and arg contains arithmetic operators,
+                        # fallback to _evaluate_predicate_expression which handles arithmetic
+                        if val is None and re.search(r'[\+\-\*]', arg) and not arg.startswith('/') and not arg.startswith('.'):
+                            try:
+                                val = self._evaluate_predicate_expression(arg, self.context_stack.current_node())
+                            except Exception:
+                                pass
                         evaluated_args.append(val)
                 
                 # Execute function
@@ -1713,21 +1720,27 @@ class XPathEngine:
             if balanced:
                 return self._evaluate_predicate_expression(expr[1:-1].strip(), context_node)
 
-        # Handle variable references
+        # Handle variable references (only pure $var or $var/path, not $var - 1)
         if expr.startswith('$'):
-            var_name = expr[1:]
-            # Handle $var/path
-            if '/' in var_name:
-                parts = var_name.split('/', 1)
-                base_var = parts[0]
-                rest_path = parts[1]
-                if self.context_stack.has_variable(base_var):
-                    base_node = self.context_stack.get_variable(base_var)
-                    if hasattr(base_node, 'get_child'):
-                        return self._evaluate_relative(rest_path, base_node)
-            elif self.context_stack.has_variable(var_name):
-                return self.context_stack.get_variable(var_name)
-            return None
+            # Extract the variable name (word characters only)
+            var_match = re.match(r'^\$(\w+)(.*)', expr)
+            if var_match:
+                var_name = var_match.group(1)
+                remainder = var_match.group(2).strip()
+                if not remainder:
+                    # Pure variable reference: $var
+                    if self.context_stack.has_variable(var_name):
+                        return self.context_stack.get_variable(var_name)
+                    return None
+                elif remainder.startswith('/'):
+                    # Variable path: $var/path
+                    rest_path = remainder[1:]
+                    if self.context_stack.has_variable(var_name):
+                        base_node = self.context_stack.get_variable(var_name)
+                        if hasattr(base_node, 'get_child'):
+                            return self._evaluate_relative(rest_path, base_node)
+                    return None
+                # Otherwise (e.g. $var - 1, $var + $other), fall through to arithmetic handling
         
         # Handle function calls - more specific pattern to avoid matching parenthesized expressions
         if '(' in expr and ')' in expr:

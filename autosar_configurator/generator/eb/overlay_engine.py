@@ -77,7 +77,7 @@ class OverlayEngine:
             definition_ref=module_def.definition_ref
         )
         
-        _debug_log(f"DEBUG_OVERLAY: Tree root created: {root.short_name} (path={root.path})")
+        _debug_log(f"DEBUG_OVERLAY_TREE: Root node created: {root.short_name} (path={root.path}, parent={root.parent.path if root.parent else 'None'})")
         for container_name, container_def in module_def.containers.items():
             # Find matching configuration instances
             matching_instances = []
@@ -85,7 +85,7 @@ class OverlayEngine:
                 matching_instances = [c for c in configuration.containers 
                                       if c.definition_ref == container_name or c.definition_ref.endswith(f"/{container_name}")]
 
-            _debug_log(f"DEBUG_OVERLAY: Processing module container definition: {container_name}, found {len(matching_instances)} instances")
+            _debug_log(f"DEBUG_OVERLAY_TREE: Processing module container definition: {container_name}, found {len(matching_instances)} instances")
             
             # Create a WRAPPER node for this container definition
             # This allows [!LOOP "as:modconf('Can')/CanConfigSet/*"!]
@@ -97,7 +97,13 @@ class OverlayEngine:
                 definition_ref=container_def.definition_ref,
                 is_wrapper=True
             )
+            _debug_log(f"DEBUG_OVERLAY_TREE: Wrapper node created: {wrapper_node.short_name} (path={wrapper_node.path}, parent={wrapper_node.parent.path if wrapper_node.parent else 'None'})")
             
+            # FIX: Add wrapper to root BEFORE adding children, so that children can correctly 
+            # resolve their parent (handling the case where child path == wrapper path)
+            _debug_log(f"DEBUG_OVERLAY_TREE: Adding wrapper node {wrapper_node.short_name} (path={wrapper_node.path}) to root {root.short_name} (path={root.path})")
+            root.add_child(wrapper_node)
+
             active_instance_node = None
             
             if matching_instances:
@@ -109,6 +115,7 @@ class OverlayEngine:
                         parent_path=wrapper_node.path
                     )
                     for node in nodes:
+                        _debug_log(f"DEBUG_OVERLAY_TREE: Adding instance node {node.short_name} (path={node.path}) to wrapper {wrapper_node.short_name} (path={wrapper_node.path})")
                         wrapper_node.add_child(node)
                         # Check if this is the active instance for the variant
                         if variant and getattr(inst, 'variant', None) == variant:
@@ -126,10 +133,11 @@ class OverlayEngine:
                     parent_path=root.path
                 )
                 for node in nodes:
+                    _debug_log(f"DEBUG_OVERLAY_TREE: Adding default instance node {node.short_name} (path={node.path}) to wrapper {wrapper_node.short_name} (path={wrapper_node.path})")
                     wrapper_node.add_child(node)
 
-            # Add the wrapper to the module root
-            root.add_child(wrapper_node)
+            # Add the wrapper to the module root (MOVED UP)
+            # root.add_child(wrapper_node) -> See above
             
             # Special Alias Selection:
             # If a specific variant is active and we found a matching instance, 
