@@ -91,10 +91,20 @@ class TresosPropertiesParser:
             # Skip empty lines
             stripped = line.strip()
             if not stripped:
+                # Empty line terminates any pending line continuation
+                if current_key and current_value:
+                    self._raw_properties[current_key] = ' '.join(current_value)
+                    current_key = None
+                    current_value = []
                 continue
 
             # Skip comments
             if stripped.startswith('#') or stripped.startswith('!'):
+                # Comments also terminate any pending line continuation
+                if current_key and current_value:
+                    self._raw_properties[current_key] = ' '.join(current_value)
+                    current_key = None
+                    current_value = []
                 continue
 
             # Check for line continuation
