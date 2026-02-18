@@ -210,7 +210,7 @@ class BuiltinFunctions:
             stripped = node.strip()
             if '/' not in stripped and not stripped.startswith('.'):
                 current = self.context_stack.current_node()
-                if current and current.get_child(stripped) is not None:
+                if current and hasattr(current, 'get_child') and current.get_child(stripped) is not None:
                     # It's a child name — resolve it
                     path = node
                     child = current.get_child(stripped)
@@ -986,10 +986,15 @@ class BuiltinFunctions:
     def string_split(self, s: str, delimiter: str = " ") -> List[str]:
         """Split string by delimiter.
 
-        Note: Empty strings are filtered out to match EB Tresos behavior.
-        This allows both:
-        - text:split('/Adc/Config/Unit', '/')[3] = 'Unit'
-        - text:split('CORE0', 'CORE')[1] = '0'
+        Behavior varies by delimiter to match EB Tresos:
+        - Space delimiter: filter ALL empty strings (handles multiple spaces,
+          leading/trailing spaces in space-separated arrays like '2 2 ')
+        - Other delimiters: preserve middle empty strings (critical for
+          comma-separated data like '0,,4,256' where index positions matter),
+          but filter leading and trailing empty strings. Leading empty strings
+          are filtered because EB Tresos templates use hardcoded indices
+          like text:split(path,'/')[4] assuming no leading empty from paths
+          starting with '/'.
         """
         if not isinstance(s, str):
             # For lists (e.g. from num:mul), use Python str() to get "[2, 2]"
@@ -998,8 +1003,17 @@ class BuiltinFunctions:
                 s = str(s)
             else:
                 s = self.to_string(s)
-        # Filter empty strings to match EB Tresos behavior
-        res = [x for x in s.split(delimiter) if x]
+        res = s.split(delimiter)
+        if delimiter == ' ':
+            # For space delimiter, filter all empty strings
+            res = [x for x in res if x]
+        else:
+            # For other delimiters: remove leading and trailing empties,
+            # but preserve middle empty strings
+            while res and res[-1] == '':
+                res.pop()
+            while res and res[0] == '':
+                res.pop(0)
         return res
 
     def string_join(self, items: Any, separator: str = " ") -> str:

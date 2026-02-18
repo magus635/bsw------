@@ -1558,6 +1558,19 @@ class Renderer:
                 return len(result)
             return 1
 
+        # Special handling for num:max/num:min - argument is an XPath node-set
+        # that must be evaluated as nodes (not unwrapped to scalar).
+        if func_name in ('num:max', 'num:min', 'max', 'min') and len(args) == 1 and self._xpath_engine:
+            arg = args[0].strip()
+            if (arg.startswith('"') and arg.endswith('"')) or \
+               (arg.startswith("'") and arg.endswith("'")):
+                arg = arg[1:-1]
+            result = self._xpath_engine.evaluate(arg, return_node=True)
+            if result is not None:
+                # Pass node set directly to the builtin function
+                if self._builtins.has(func_name):
+                    return self._builtins.call(func_name, result)
+
         # Evaluate each argument
         # For node:* / ecuC:* functions, arguments should be resolved as NODES
         # (not unwrapped to scalar values) so that node:name() can get .short_name
