@@ -156,6 +156,7 @@ class BuiltinFunctions:
 
             # ECU Resource functions
             'ecu:get': self.ecu_get,
+            'ecu:has': self.ecu_has,
             'ecu:list': self.ecu_list,
 
             # Bit manipulation functions
@@ -396,28 +397,23 @@ class BuiltinFunctions:
         if not target_path:
              return None
 
-        from .renderer import _debug_log
         target_path_str = str(target_path).strip()
-        _debug_log(f"node_ref: Resolving reference node value: {target_path_str}")
 
         # Try symbol table first
         if self.symbol_table:
             res = self.symbol_table.resolve_reference(target_path_str)
             if res:
-                _debug_log(f"node_ref: Symbol table resolved to {res.short_name}")
                 return res
 
         # Fallback: Navigate from root to find the target node
         # Path format: /Adc/Adc/AdcConfigSet/HWTrigDemo/AN0
-        # We need to find AdcConfigSet → HWTrigDemo → AN0 in the tree
+        # We need to find AdcConfigSet -> HWTrigDemo -> AN0 in the tree
         current = self.context_stack.current_node()
         if current:
             # Walk up to root
             root = current
             while root.parent:
                 root = root.parent
-
-            _debug_log(f"node_ref fallback: Resolving '{target_path_str}' from root '{root.short_name}'")
 
             # Extract path parts and remove leading empty string and duplicates
             parts = [p for p in target_path_str.split('/') if p]
@@ -438,7 +434,6 @@ class BuiltinFunctions:
                 child = nav_current.get_child(part)
                 if child:
                     nav_current = child
-                    _debug_log(f"node_ref fallback: Found '{part}', now at '{nav_current.short_name}'")
                 else:
                     # If direct child not found, search recursively in instance wrappers
                     found = False
@@ -446,7 +441,6 @@ class BuiltinFunctions:
                         if c_node.short_name == part:
                             nav_current = c_node
                             found = True
-                            _debug_log(f"node_ref fallback: Found '{part}' by name")
                             break
                         # Check if this is an instance wrapper (e.g., AdcConfigSet) and the target is inside
                         if c_node.node_type == 'container' and c_node.short_name != part:
@@ -455,18 +449,14 @@ class BuiltinFunctions:
                             if inner:
                                 nav_current = inner
                                 found = True
-                                _debug_log(f"node_ref fallback: Found '{part}' inside '{c_node.short_name}'")
                                 break
 
                     if not found:
-                        _debug_log(f"node_ref fallback: Could not find '{part}'")
                         return None
 
             if nav_current and nav_current != root:
-                _debug_log(f"node_ref fallback: Successfully resolved to '{nav_current.short_name}'")
                 return nav_current
 
-        _debug_log(f"node_ref: Could not resolve reference path {target_path_str}")
         return None
     
     def node_exists(self, path_or_node) -> bool:
@@ -741,13 +731,8 @@ class BuiltinFunctions:
         if module_name is None:
             return None
 
-        _debug_log(f"as_modconf: Looking for module '{module_name}'")
-        _debug_log(f"as_modconf: Available modules: {self.symbol_table.get_all_modules()}")
-
         result = self.symbol_table.get_module(module_name)
-        if result:
-            _debug_log(f"as_modconf: Found module '{module_name}' with children: {[c.short_name for c in result.children]}")
-        else:
+        if not result:
             _debug_log(f"WARNING: Module '{module_name}' not loaded")
         return result
 
@@ -2070,6 +2055,14 @@ class BuiltinFunctions:
         # 5. Not found
         _debug_log(f"WARNING: ecu:get('{path}') - parameter not found in module")
         return None
+
+    def ecu_has(self, path: str) -> bool:
+        """Check if an ECU resource parameter exists.
+
+        Same lookup logic as ecu:get but returns boolean.
+        """
+        result = self.ecu_get(path)
+        return result is not None and result != ''
 
     def ecu_list(self, path: str) -> List[Any]:
         """Get ECU resource list (XDM-G).

@@ -135,7 +135,6 @@ class Renderer:
             variant: Active variant for container selection
         """
         module_name = module_def.short_name if module_def else "Unknown"
-        _debug_log(f"load_module: Loading module '{module_name}' (variant={variant})")
         self.overlay_engine.build_configuration_tree(module_def, configuration, variant=variant)
 
         # Store variant for later use by builtins
@@ -144,9 +143,7 @@ class Renderer:
 
         # Verify the module was registered
         loaded = self.symbol_table.get_module(module_name)
-        if loaded:
-            _debug_log(f"load_module: Module '{module_name}' registered successfully, children: {[c.short_name for c in loaded.children]}")
-        else:
+        if not loaded:
             _debug_log(f"load_module: WARNING - Module '{module_name}' was NOT registered!")
 
     
@@ -306,7 +303,6 @@ class Renderer:
         while i < end:
             tok = tokens[i]
             # print(f"DEBUG_TOK: Executing {tok.type} '{tok.content[:30]}...' (i={i}/{end})")
-            _debug_log(f"DEBUG_TOK: Executing {tok.type} '{tok.content[:30]}...' (i={i}/{end})")
             
             # Check for BREAK flag
             if self._break_requested:
@@ -441,19 +437,15 @@ class Renderer:
                     stripped = raw_content.strip().strip('"').strip("'")
                     n = int(stripped)
                     # INDENT specifies absolute indentation level, not delta
-                    _debug_log(f"INDENT {n}: raw='{raw_content}' stripped='{stripped}' stack {self._indent_stack} -> {self._indent_stack + [n]}")
                     self._indent_stack.append(n)
-                except (ValueError, TypeError) as e:
-                    _debug_log(f"INDENT ERROR: raw='{tok.content}' exception={e}")
+                except (ValueError, TypeError):
                     pass  # Invalid indent, skip
                 i += 1
 
             elif tok.type == TokenType.ENDINDENT:
                 # [!ENDINDENT!] - pop indentation level from stack
-                before = list(self._indent_stack)
                 if len(self._indent_stack) > 1:
                     self._indent_stack.pop()
-                _debug_log(f"ENDINDENT: stack {before} -> {self._indent_stack}")
                 i += 1
                 
                 # Set flag so next TEXT token can decide whether to newline
@@ -1139,6 +1131,8 @@ class Renderer:
 
                             # Parse and apply index
                             idx_str = index_part[1:-1]
+                            if 'position()' in idx_str or 'IOMMON' in str(func_part):
+                                _debug_log(f"[DEBUG func+idx] func='{func_part[:80]}', result={result}, idx='{idx_str}'")
                             idx_val = None
                             if idx_str.isdigit():
                                 idx_val = int(idx_str) - 1  # 1-indexed to 0-indexed
@@ -1151,8 +1145,8 @@ class Renderer:
                             elif 'position()' in idx_str:
                                 # Handle [position() = N] pattern commonly used in EB templates
                                 import re
-                                # Match position()=N or position() = N
-                                pos_match = re.search(r'position\s*\(\)\s*=\s*(.+)', idx_str)
+                                # Match simple position()=N or position() = N
+                                pos_match = re.search(r'^position\s*\(\)\s*=\s*(.+)$', idx_str)
                                 if pos_match:
                                     val_expr = pos_match.group(1)
                                     evaluated = self._evaluate_expression(val_expr)
@@ -1160,14 +1154,20 @@ class Renderer:
                                         idx_val = int(evaluated) - 1
                                     except (TypeError, ValueError):
                                         pass
-                                else:
-                                    # Fallback
-                                    evaluated = self._evaluate_expression(idx_str)
-                                    if evaluated is not None:
-                                        try:
-                                            idx_val = int(evaluated) - 1
-                                        except (TypeError, ValueError):
-                                            pass
+                                elif isinstance(result, list):
+                                    # Complex position() predicate like [position()-1 = num:i($X)]
+                                    # Apply as filter: iterate each item, bind position(), check condition
+                                    _debug_log(f"[DEBUG position] Complex predicate: idx_str='{idx_str}', result={result}")
+                                    for pos_idx, item in enumerate(result):
+                                        # Replace position() with actual 1-based position
+                                        check_expr = re.sub(r'position\s*\(\)', str(pos_idx + 1), idx_str)
+                                        cond_result = self._evaluate_condition(check_expr)
+                                        _debug_log(f"[DEBUG position] pos={pos_idx+1}, item='{item}', check='{check_expr}', result={cond_result}")
+                                        if cond_result:
+                                            return item
+                                    # No match found
+                                    _debug_log(f"[DEBUG position] No match found!")
+                                    return None
                             else:
                                 # Evaluate index expression
                                 evaluated = self._evaluate_expression(idx_str)

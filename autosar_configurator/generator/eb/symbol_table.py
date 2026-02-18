@@ -44,7 +44,6 @@ class ConfigurationNode:
     is_wrapper: bool = False
 
     def __post_init__(self):
-        print(f"DIRECT_PRINT_CONFIG_NODE_INIT: Created {self.short_name} (path={self.path}, parent={self.parent.path if self.parent else 'None'}, is_wrapper={self.is_wrapper})")
         # If children were passed as a dict during construction (for legacy reasons), 
         # convert them to list and populate lookup
         if isinstance(self.children, dict):
@@ -92,15 +91,10 @@ class ConfigurationNode:
                 return
             ancestor = ancestor.parent
 
-        print(f"DIRECT_PRINT_ADD_CHILD: Adding child {node.short_name} (path={node.path}) to {self.short_name} (path={self.path})") # Direct print for debug
-        from .renderer import _debug_log
-        _debug_log(f"DEBUG_CONFIG_NODE: Adding child {node.short_name} (path={node.path}) to {self.short_name} (path={self.path})")
-        
         # FIX: If the child's path is the same as the parent's path, and parent is a wrapper,
         # it means this child instance effectively 'replaces' the wrapper in the hierarchy.
         # In this case, the child's logical parent should be the wrapper's parent.
         if node.path == self.path and self.is_wrapper:
-            _debug_log(f"DEBUG_CONFIG_NODE:   Child {node.short_name} (path={node.path}) effectively replaces wrapper {self.short_name}. Setting child's parent to wrapper's parent ({self.parent.path if self.parent else 'None'}).")
             node.parent = self.parent
         else:
             node.parent = self
