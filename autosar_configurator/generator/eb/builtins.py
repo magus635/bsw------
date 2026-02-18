@@ -1052,7 +1052,6 @@ class BuiltinFunctions:
         In EB Tresos, text:contains(list, value) checks list membership.
         Standard XPath contains(string, substring) checks string containment.
         """
-        from .renderer import _debug_log
         if isinstance(s, list):
             # EB Tresos text:contains(ecu:list(...), value): list membership
             # Unwrap ConfigurationNode to value if needed
@@ -1076,10 +1075,7 @@ class BuiltinFunctions:
             return sub_str in items_str
         if not isinstance(s, str):
             s = str(s)
-        result = str(substring) in s
-        if 'PeripheralAltMode' in str(s)[:50] or 'GETH' in str(substring):
-            _debug_log(f"[DEBUG contains] s type={type(s).__name__}, s='{str(s)[:100]}', substring='{substring}', result={result}")
-        return result
+        return str(substring) in s
     
     def text_grep(self, items: Any, pattern: str) -> List[str]:
         """Filter list items matching a regex pattern (text:grep).
@@ -1999,17 +1995,13 @@ class BuiltinFunctions:
         # space-separated string to match EB Tresos ecu:get() semantics.
         def _as_scalar(val):
             if isinstance(val, list):
-                result = ' '.join(str(v) for v in val) + ' '
-                _debug_log(f"[DEBUG ecu:get] _as_scalar: list({len(val)} items) -> '{result[:80]}...'")
-                return result
-            _debug_log(f"[DEBUG ecu:get] _as_scalar: type={type(val).__name__}, val={val}")
+                return ' '.join(str(v) for v in val) + ' '
             return val
 
         # 1. User override (retained for testing)
         # Try exact match first (flat key like "Eth.MaxTxRam")
         if path in self.ecu_resources:
-            raw = self.ecu_resources[path]
-            _debug_log(f"[DEBUG ecu:get] path='{path}', raw type={type(raw).__name__}, raw={str(raw)[:100]}")
+            return _as_scalar(self.ecu_resources[path])
             return _as_scalar(raw)
 
         # Try nested match (if ecu_resources is structured as {module: {param: val}})
