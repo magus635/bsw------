@@ -1223,6 +1223,11 @@ class XPathEngine:
                 if axis == 'parent':
                     if n.parent:
                         next_nodes.append(n.parent)
+                    else:
+                        # EB Tresos behavior: at the module root, '..' stays at root
+                        # rather than returning None. This ensures templates with
+                        # extra '..' levels still resolve correctly.
+                        next_nodes.append(n)
                         
                 elif axis == 'self':
                     if name == '*' or name == '.' or self._node_matches_name(n, name):
