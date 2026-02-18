@@ -90,7 +90,7 @@ class BuiltinFunctions:
             
             # Text functions (Namespace aliases)
             'text:split': self.string_split,
-            'text:join': self.string_concat,
+            'text:join': self.string_join,
             'text:tolower': self.string_lower,
             'text:toupper': self.string_upper,
             'text:replace': self.string_replace,
@@ -992,11 +992,26 @@ class BuiltinFunctions:
         - text:split('CORE0', 'CORE')[1] = '0'
         """
         if not isinstance(s, str):
-            s = self.to_string(s)
+            # For lists (e.g. from num:mul), use Python str() to get "[2, 2]"
+            # NOT to_string() which only takes the first element
+            if isinstance(s, list):
+                s = str(s)
+            else:
+                s = self.to_string(s)
         # Filter empty strings to match EB Tresos behavior
         res = [x for x in s.split(delimiter) if x]
         return res
-    
+
+    def string_join(self, items: Any, separator: str = " ") -> str:
+        """Join list elements with a separator (EB Tresos text:join).
+
+        text:join(list, separator) → separator.join(list)
+        """
+        if isinstance(items, list):
+            return separator.join(str(x) for x in items)
+        # If not a list, just return as string
+        return str(items) if items is not None else ''
+
     def string_trim(self, s: str) -> str:
         """Trim whitespace from string"""
         if not isinstance(s, str):

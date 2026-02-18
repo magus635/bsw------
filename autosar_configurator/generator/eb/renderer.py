@@ -13,6 +13,7 @@ from typing import Optional, Dict, Any, List, Union, Tuple
 from pathlib import Path
 import logging
 import re
+
 import tempfile
 import os
 
@@ -1712,10 +1713,13 @@ class Renderer:
         # The expr can be a number, a function call, or a complex expression
         match = re.match(r'"?(\w+)"?\s*=\s*(.+?)\s+TO\s+(.+)', content, re.IGNORECASE)
         if not match:
+            # Try with $ prefix in variable name (EB Tresos allows $var in FOR)
+            match = re.match(r'"?\$(\w+)"?\s*=\s*(.+?)\s+TO\s+(.+)', content, re.IGNORECASE)
+        if not match:
             if self.strict:
                 raise TemplateParseError(f"Invalid FOR syntax: {content}")
             return start + 1
-        
+
         var_name = match.group(1)
         start_expr = self._strip_tag_quotes(match.group(2))
         end_expr = self._strip_tag_quotes(match.group(3))
