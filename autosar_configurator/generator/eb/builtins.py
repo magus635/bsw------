@@ -127,6 +127,7 @@ class BuiltinFunctions:
             'floor': self.xpath_floor,
             'ceiling': self.xpath_ceiling,
             'abs': self.xpath_abs,
+            'number': self.xpath_number,
 
             # Additional string functions
             'translate': self.xpath_translate,
@@ -1537,6 +1538,44 @@ class BuiltinFunctions:
             return abs(value)
 
         return 0.0
+
+    def xpath_number(self, value: Any = None) -> float:
+        """XPath number() - Convert a value to a number.
+
+        Args:
+            value: Value to convert to number
+
+        Returns:
+            Numeric value as float
+        """
+        if value is None:
+            return float('nan')
+
+        # Unwrap node
+        if hasattr(value, 'get_value'):
+            value = value.get_value()
+        elif hasattr(value, 'value'):
+            value = value.value
+
+        if isinstance(value, bool):
+            return 1.0 if value else 0.0
+
+        if isinstance(value, (int, float)):
+            return float(value)
+
+        if isinstance(value, str):
+            value = value.strip()
+            if value.lower().startswith('0x'):
+                try:
+                    return float(int(value, 16))
+                except ValueError:
+                    return float('nan')
+            try:
+                return float(value)
+            except ValueError:
+                return float('nan')
+
+        return float('nan')
 
     # ========== Additional String Functions ==========
 
