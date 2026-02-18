@@ -1131,8 +1131,6 @@ class Renderer:
 
                             # Parse and apply index
                             idx_str = index_part[1:-1]
-                            if 'position()' in idx_str or 'IOMMON' in str(func_part):
-                                _debug_log(f"[DEBUG func+idx] func='{func_part[:80]}', result={result}, idx='{idx_str}'")
                             idx_val = None
                             if idx_str.isdigit():
                                 idx_val = int(idx_str) - 1  # 1-indexed to 0-indexed
@@ -1157,16 +1155,13 @@ class Renderer:
                                 elif isinstance(result, list):
                                     # Complex position() predicate like [position()-1 = num:i($X)]
                                     # Apply as filter: iterate each item, bind position(), check condition
-                                    _debug_log(f"[DEBUG position] Complex predicate: idx_str='{idx_str}', result={result}")
                                     for pos_idx, item in enumerate(result):
                                         # Replace position() with actual 1-based position
                                         check_expr = re.sub(r'position\s*\(\)', str(pos_idx + 1), idx_str)
                                         cond_result = self._evaluate_condition(check_expr)
-                                        _debug_log(f"[DEBUG position] pos={pos_idx+1}, item='{item}', check='{check_expr}', result={cond_result}")
                                         if cond_result:
                                             return item
                                     # No match found
-                                    _debug_log(f"[DEBUG position] No match found!")
                                     return None
                             else:
                                 # Evaluate index expression
@@ -2038,9 +2033,12 @@ class Renderer:
                        (arg_val_expr.startswith("'") and arg_val_expr.endswith("'")):
                         arg_val_expr = arg_val_expr[1:-1]
                     val = self._evaluate_expression(arg_val_expr)
-                    # EB Tresos behavior: If the value looks like an XPath path (contains / but not URL-like),
-                    # try to evaluate it as XPath to get the actual value at that path
-                    if isinstance(val, str) and '/' in val and not val.startswith('http') and not val.startswith('//'):
+                    # EB Tresos behavior: If the value looks like a RELATIVE XPath path
+                    # (starts with ./ but not an absolute reference path like /Mcu/...),
+                    # try to evaluate it as XPath to get the actual value at that path.
+                    # Absolute paths starting with / are reference VALUE strings and should
+                    # NOT be re-evaluated as XPath.
+                    if isinstance(val, str) and '/' in val and val.startswith('./'):
                         xpath_val = self._evaluate_xpath(val)
                         if xpath_val is not None:
                             val = self._unwrap_value(xpath_val)
@@ -2048,8 +2046,8 @@ class Renderer:
                 else:
                     # Positional
                     val = self._evaluate_expression(arg_expr)
-                    # Same XPath evaluation for positional arguments
-                    if isinstance(val, str) and '/' in val and not val.startswith('http') and not val.startswith('//'):
+                    # Same XPath evaluation for positional arguments (relative paths only)
+                    if isinstance(val, str) and '/' in val and val.startswith('./'):
                         xpath_val = self._evaluate_xpath(val)
                         if xpath_val is not None:
                             val = self._unwrap_value(xpath_val)

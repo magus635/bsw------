@@ -335,7 +335,19 @@ class BuiltinFunctions:
         if isinstance(path_or_node, str):
             path_str = path_or_node.strip()
 
-            # For relative paths (not starting with /), look within current context first
+            # For relative paths with XPath features (contains /, *, [ etc.),
+            # evaluate as XPath expression first to get the actual node
+            if ('/' in path_str or '*' in path_str or '[' in path_str) and not path_str.startswith('/AUTOSAR'):
+                # Use xpath engine to navigate to the node
+                engine = getattr(self.renderer, '_xpath_engine', None) if self.renderer else None
+                if engine:
+                    node = engine.evaluate(path_str, return_node=True)
+                    if node is not None:
+                        # Got the node via XPath - now recursively call node_ref
+                        # to follow the reference if it's a reference node
+                        return self.node_ref(node)
+
+            # For simple names (not starting with /), look within current context first
             if not path_str.startswith('/'):
                 current = self.context_stack.current_node()
                 if current:

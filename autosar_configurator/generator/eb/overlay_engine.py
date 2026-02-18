@@ -517,9 +517,10 @@ class OverlayEngine:
                 node.add_child(wrapper_node)
             else:
                 # Single-valued reference
+                ref_val_obj = refs_source.get(ref_name)
                 ref_node = self._create_reference_node(
                     ref_def,
-                    refs_source.get(ref_name),
+                    ref_val_obj,
                     f"{path}/{ref_name}"
                 )
                 node.add_child(ref_node)
