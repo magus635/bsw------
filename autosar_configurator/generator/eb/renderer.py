@@ -1337,6 +1337,17 @@ class Renderer:
                         left_val = left_is_truthy
                         right_val = right_is_truthy
 
+                # EB Tresos boolean compatibility: string "1"/"0" vs string "true"/"false"
+                # ARXML stores boolean values as <VALUE>1</VALUE> or <VALUE>0</VALUE>,
+                # but templates compare against 'true'/'false'.
+                if isinstance(left_val, str) and isinstance(right_val, str):
+                    l_low, r_low = left_val.lower().strip(), right_val.lower().strip()
+                    l_is_bool = l_low in ('true', 'false', '1', '0')
+                    r_is_bool = r_low in ('true', 'false', '1', '0')
+                    if l_is_bool and r_is_bool:
+                        left_val = l_low in ('true', '1')
+                        right_val = r_low in ('true', '1')
+
                 # Numeric normalization
                 if isinstance(left_val, (int, float)) and isinstance(right_val, str):
                     if right_val.lower() not in ('true', 'false'):
