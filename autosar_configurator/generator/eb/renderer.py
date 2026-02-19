@@ -32,6 +32,11 @@ from .errors import (
     UndefinedVariableError, XPathError, DanglingReferenceError
 )
 
+def _debug_log(msg: str):
+    """Temporary debug logger for template execution tracing."""
+    # print(f"DEBUG_EB: {msg}")
+    pass
+
 # Import existing project classes
 from ...core.model.definition_model import EcucModuleDef
 from ...core.model.configuration_model import EcucModuleConfiguration
@@ -140,7 +145,8 @@ class Renderer:
         module_name: Optional[str] = None,
         context_path: Optional[str] = None,
         initial_variables: Optional[Dict[str, Any]] = None,
-        ecu_resources: Optional[Dict[str, Any]] = None
+        ecu_resources: Optional[Dict[str, Any]] = None,
+        template_file: Optional[str] = None
     ) -> str:
         """Render a template string.
 
@@ -191,6 +197,7 @@ class Renderer:
         self._suppress_next_newline = False
         self._autospacing_active = False
         self._recursion_depth = 0
+        self._template_file = template_file if template_file else ""
         
         # Add initial variables
         if initial_variables:
@@ -249,7 +256,7 @@ class Renderer:
     ) -> str:
         """Render a template from a file."""
         template = self._load_template_file(template_path)
-        return self.render(template, module_name, initial_variables=initial_variables)
+        return self.render(template, module_name, initial_variables=initial_variables, template_file=str(template_path))
     
     def _load_template_file(self, path: Path) -> str:
         """Load template content from file."""
@@ -971,8 +978,9 @@ class Renderer:
                                 if op == '-':
                                     before = s[i-1] if i > 0 else ' '
                                     after = s[i+1] if i+1 < len(s) else ' '
-                                    # If '-' is surrounded by alphanumeric chars, it's likely part of a name
-                                    if (before.isalnum() or before == '_') and (after.isalnum() or after == '_'):
+                                    # If '-' is surrounded by letters or underscores, it's likely part of a name (like substring-after)
+                                    # If it's surrounded by digits, it's almost certainly subtraction (like 1-1)
+                                    if (before.isalpha() or before == '_') and (after.isalpha() or after == '_'):
                                         continue  # Skip, this is part of a function name
                                 last_found = (op, s[:i], s[i+len(op):])
 
@@ -1580,6 +1588,9 @@ class Renderer:
         if self._builtins.has(func_name):
             try:
                 res = self._builtins.call(func_name, *evaluated_args)
+                # DEBUG: Trace text:match
+                if func_name == 'text:match':
+
                 return res
             except Exception as e:
                 logger.error(f"Error calling function {func_name}: {e}")

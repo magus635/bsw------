@@ -16,17 +16,18 @@ from lxml import etree
 
 def main():
     module_name = "Sent"
-    def_file = "/Users/qlwang/Desktop/eclipse/Sent_THA6_AS440/autosar/Sent_THA6206_LFBGA292.arxml"
-    cfg_file = "/Users/qlwang/Desktop/project/t5/ConfigValue/Sent_Config.arxml"
-    template_dir = Path("/Users/qlwang/Desktop/project/t5/templates/Sent")
-    output_dir = Path("/Users/qlwang/Desktop/project/t5/generateCode/Sent")
+    project_root = Path("/Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa")
+    def_file = project_root / "Def/plugins/Sent_THA6_AS440/autosar/Sent_THA6206_LFBGA292.arxml"
+    cfg_file = project_root / "ConfigValue/Sent_Config.arxml"
+    template_dir = project_root / "templates/Sent"
+    output_dir = project_root / "generateCode/Sent"
 
     # Resource module for cross-module lookup
-    resource_def_file = "/Users/qlwang/Desktop/eclipse/Resource_THA6_AS440/autosar/Resource_THA6206_LFBGA292.arxml"
-    resource_cfg_file = "/Users/qlwang/Desktop/project/t5/ConfigValue/Resource_Config.arxml"
+    resource_def_file = project_root / "Def/plugins/Resource_THA6_AS440/autosar/Resource_THA6206_LFBGA292.arxml"
+    resource_cfg_file = project_root / "ConfigValue/Resource_Config.arxml"
     
     # ECU Resource Properties
-    properties_file = "/Users/qlwang/Desktop/t1/Def/plugins/Resource_THA6_AS440/resource/CotexR52_THA6206_LFBGA292.properties"
+    properties_file = project_root / "Def/plugins/Resource_THA6_AS440/resource/CotexR52_THA6206_LFBGA292.properties"
 
     print(f"--- Running generation for {module_name} ---")
     print(f"Template dir: {template_dir}")
@@ -71,8 +72,7 @@ def main():
     # Template files to generate
     templates = [
         ("include/Sent_Cfg.h", "v/include/Sent_Cfg.h"),
-        ("include/Sent_PBcfg.h", "v/include/Sent_PBcfg.h"),
-        ("src/Sent_PBcfg.c", "v/src/Sent_PBcfg.c"),
+        ("include/Sent_Cfg.h", "Default/include/Sent_Cfg.h"),
     ]
 
     context = {

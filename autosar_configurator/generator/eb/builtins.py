@@ -97,6 +97,7 @@ class BuiltinFunctions:
             'text:replaceAll': self.string_replace,
             'text:contains': self.string_contains,
             'text:grep': self.text_grep,
+            'text:match': self.string_match,
             
             # XPath standard function aliases (for compatibility)
             'string': self.to_string,  # XPath string() type conversion

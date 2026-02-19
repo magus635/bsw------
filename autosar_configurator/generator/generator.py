@@ -451,7 +451,7 @@ class CodeGenerator:
                 sw_minor = get_val(pub_info, 'SwMinorVersion', sw_minor)
                 sw_patch = get_val(pub_info, 'SwPatchVersion', sw_patch)
             
-            context['moduleReleaseVer'] = f"{rel_major}.{rel_minor}.{rel_patch}"
+            context['moduleReleaseVer'] = f"AR {rel_major}.{rel_minor}.{rel_patch}"
             context['moduleSoftwareVer'] = f"{sw_major}.{sw_minor}.{sw_patch}"
             # Also add with $ prefix for direct variable lookup if engine supports it
             context['$moduleReleaseVer'] = context['moduleReleaseVer']

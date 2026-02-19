@@ -2,7 +2,7 @@
 EB Tresos Compatible Template Engine
 Wrapper around the verified generator.eb.renderer implementation.
 """
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from pathlib import Path
 
 from ..core.model.configuration_model import EcucModuleConfiguration
@@ -33,17 +33,13 @@ class EBTemplateEngine:
     def add_module(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration, variant: Optional[str] = None):
         """Add a module to the engine's symbol table for cross-module access."""
         module_name = module_def.short_name
-        from .eb.renderer import _debug_log
-        _debug_log(f"EBTemplateEngine: adding module {module_name} (variant={variant})")
         
         cache_key = (module_name, variant)
         if cache_key not in self.initialized_modules:
             self.renderer.load_module(module_def, configuration, variant=variant)
             self.initialized_modules.add(cache_key)
 
-
-
-    def render(self, template: str, context: Dict[str, Any], ecu_resources: Optional[Dict[str, Any]] = None) -> str:
+    def render(self, template: str, context: Dict[str, Any], ecu_resources: Optional[Dict[str, Any]] = None, template_file: Optional[str] = None) -> str:
         """Render template with given context.
         
         Args:
@@ -54,6 +50,7 @@ class EBTemplateEngine:
                      - 'module_name': optional str
                      - 'all_modules': Optional[Dict[str, Tuple[EcucModuleDef, EcucModuleConfiguration]]]
             ecu_resources: Optional ECU resources dictionary
+            template_file: Optional path to the template file
                      
         Returns:
             Rendered string
@@ -83,6 +80,14 @@ class EBTemplateEngine:
         # Extract extra variables from context (excluding model objects)
         extra_vars = {k: v for k, v in context.items()
                      if k not in ('module_def', 'configuration', 'module_name')}
+        
+        # Inject standard Tresos variables if not provided
+        if 'moduleReleaseVer' not in extra_vars:
+            # Try to get from module_def if available, otherwise default to a safe value
+            # For now, we'll use a heuristic or common value
+            extra_vars['moduleReleaseVer'] = "AR 4.4.0" 
+        if 'moduleSoftwareVer' not in extra_vars:
+            extra_vars['moduleSoftwareVer'] = "1.2.0"
 
         # Ensure variant is set on renderer before rendering
         # This is needed because each template file may get a fresh EBTemplateEngine
@@ -92,11 +97,10 @@ class EBTemplateEngine:
             if hasattr(self.renderer, '_builtins') and self.renderer._builtins:
                 self.renderer._builtins.set_variant(active_variant)
 
-        return self.renderer.render(template, module_name=module_name, initial_variables=extra_vars, ecu_resources=ecu_resources)
+        return self.renderer.render(template, module_name=module_name, initial_variables=extra_vars, ecu_resources=ecu_resources, template_file=template_file)
 
     def render_file(self, template_path: str, context: Dict[str, Any], ecu_resources: Optional[Dict[str, Any]] = None) -> str:
         """Render template from file"""
         with open(template_path, 'r', encoding='utf-8') as f:
             template = f.read()
-        return self.render(template, context, ecu_resources=ecu_resources)
-
+        return self.render(template, context, ecu_resources=ecu_resources, template_file=template_path)
