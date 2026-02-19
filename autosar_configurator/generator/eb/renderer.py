@@ -1588,9 +1588,6 @@ class Renderer:
         if self._builtins.has(func_name):
             try:
                 res = self._builtins.call(func_name, *evaluated_args)
-                # DEBUG: Trace text:match
-                if func_name == 'text:match':
-
                 return res
             except Exception as e:
                 logger.error(f"Error calling function {func_name}: {e}")
