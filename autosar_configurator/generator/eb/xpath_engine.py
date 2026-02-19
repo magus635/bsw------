@@ -575,7 +575,6 @@ class XPathEngine:
         expr_len = len(expr)
         word_len = len(word)
         
-        # print(f"DEBUG: Finding '{word}' in '{expr}'")
         
         i = 0
         while i < expr_len:
@@ -1208,7 +1207,6 @@ class XPathEngine:
 
         for segment in segments:
             if not current:
-                # print(f"DEBUG_XPATH: Navigation failed at segment: {segment['name']} (current is empty)") # Removed debug log
                 return None
             
             next_nodes = []
@@ -1334,7 +1332,6 @@ class XPathEngine:
                                 # Try named child (this catches wrappers added via add_alias)
                                 alias_node = n.get_child(name)
                                 if alias_node:
-                                    # print(f"DEBUG_XPATH:   Found via alias: {alias_node.short_name}")
                                     next_nodes.append(alias_node)
                                     found_current_node = True
                                 else:

@@ -596,7 +596,6 @@ class DaVinciConfigPanel(QWidget):
         # Use nested function for reliable closure capture
         def on_change(*args):
              val = value_getter()
-             # print(f"DEBUG SIGNAL FIRED: {param_name} -> {val}")
              self._on_value_changed(param_name, val)
              
         # Keep reference to prevent GC (Crucial for reliable signal handling)
@@ -631,8 +630,6 @@ class DaVinciConfigPanel(QWidget):
                 allowed_values = self._get_allowed_literals(param_name, self.current_def, param_def)
                 if allowed_values:
                     # DEBUG
-                    if "Resolution" in param_name or "ChannelNum" in param_name or "RefVoltsrc" in param_name:
-                        print(f"DEBUG Filter [{param_name}]: allowed={allowed_values}, ARXML_literals={literals}")
                     
                     if literals:
                         # Filter: only keep literals that are in the allowed list
@@ -642,8 +639,6 @@ class DaVinciConfigPanel(QWidget):
                         # No static literals — use chip constraints
                         literals = allowed_values
                     
-                    if "Resolution" in param_name or "ChannelNum" in param_name or "RefVoltsrc" in param_name:
-                        print(f"DEBUG Result [{param_name}]: {literals}")
 
             combo.addItems(literals)
 

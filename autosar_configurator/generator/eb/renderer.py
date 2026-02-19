@@ -19,21 +19,7 @@ import os
 
 logger = logging.getLogger(__name__)
 
-# Debug log file path - cross-platform with fallback
-try:
-    _DEBUG_LOG_PATH = os.path.join(tempfile.gettempdir(), 'bsw_gen.log')
-except (FileNotFoundError, OSError):
-    # Fallback to current directory if temp is not available
-    _DEBUG_LOG_PATH = os.path.join(os.getcwd(), 'bsw_gen.log')
-
-def _debug_log(msg: str):
-    """Helper to write diagnostic logs to a fixed file for worker threads."""
-    try:
-        with open(_DEBUG_LOG_PATH, 'a') as f:
-            f.write(msg + '\n')
-            f.flush()  # Force flush to disk
-    except (IOError, OSError) as e:
-        pass
+# Standard logger is used for tracking execution and errors.
 
 from .lexer import Lexer, Token, TokenType, tokenize
 from .context import ContextStack
@@ -145,7 +131,7 @@ class Renderer:
         # Verify the module was registered
         loaded = self.symbol_table.get_module(module_name)
         if not loaded:
-            _debug_log(f"load_module: WARNING - Module '{module_name}' was NOT registered!")
+            logger.warning(f"load_module: WARNING - Module '{module_name}' was NOT registered!")
 
     
     def render(
@@ -634,12 +620,12 @@ class Renderer:
                     val_str = str(value)
                 msg = f"[TRACE] {val_str}"
 
-            _debug_log(msg)
+            logger.debug(msg)
 
             # Trace goes to output buffer as a C comment.
             self._output_buffer.append(f"\n/* {msg} */\n")
         except Exception as e:
-            _debug_log(f"[TRACE ERROR] Failed to evaluate {expr}: {e}")
+            logger.error(f"[TRACE ERROR] Failed to evaluate {expr}: {e}")
             if self.strict:
                 raise
 
