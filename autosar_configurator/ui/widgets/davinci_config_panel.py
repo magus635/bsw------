@@ -781,6 +781,24 @@ class DaVinciConfigPanel(QWidget):
             except (ValueError, TypeError):
                 spinbox.setValue(0.0)
                 
+            # Check if this is a baudrate parameter that supports calculation
+            if param_name in ('CanControllerBaudRate', 'CanControllerFdBaudRate'):
+                container = QWidget()
+                layout = QHBoxLayout(container)
+                layout.setContentsMargins(0, 0, 0, 0)
+                layout.setSpacing(2)
+                layout.addWidget(spinbox)
+                
+                calc_btn = QToolButton()
+                calc_btn.setText("🔢")
+                calc_btn.setToolTip("Calculate timing parameters")
+                calc_btn.setFixedSize(24, 24)
+                is_fd = (param_name == 'CanControllerFdBaudRate')
+                calc_btn.clicked.connect(lambda checked, sp=spinbox, fd=is_fd: self._on_calc_baudrate_clicked(sp, fd))
+                layout.addWidget(calc_btn)
+                
+                return container, spinbox.value, spinbox.valueChanged
+                
             return spinbox, spinbox.value, spinbox.valueChanged
             
         else:
