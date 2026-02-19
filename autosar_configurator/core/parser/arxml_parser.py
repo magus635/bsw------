@@ -679,28 +679,22 @@ class ArxmlParser:
             elif val_lower == 'false': 
                 value = 0
                 
-        if 'NUMERICAL-PARAM-VALUE' in element.tag:
-            if isinstance(value, str):
-                value = value.strip()
-            
-            # Try to convert to number if it looks like one
-            try:
-                if value is not None and '.' in str(value):
-                    value = float(value)
-                else:
-                    value = int(value)
-            except (ValueError, TypeError):
-                pass
-        elif 'TEXTUAL-PARAM-VALUE' in element.tag or 'ENUMERATION-PARAM-VALUE' in element.tag:
-            # Also try numeric conversion for textual/enum values in case they are misused
-            try:
-                if value is not None:
-                    if '.' in str(value):
-                        value = float(value)
+        if 'NUMERICAL-PARAM-VALUE' in element.tag or 'TEXTUAL-PARAM-VALUE' in element.tag or 'ENUMERATION-PARAM-VALUE' in element.tag:
+            if value is not None and isinstance(value, str):
+                val_stripped = value.strip()
+                try:
+                    # Try to convert to float (handles 1e-06, 1.0, 100, etc.)
+                    f_val = float(val_stripped)
+                    # If it's a simple integer (no . and no scientific notation in source string)
+                    # and the value equals the float, convert to int.
+                    # Otherwise keep as float.
+                    if '.' not in val_stripped and 'e' not in val_stripped.lower():
+                        value = int(f_val)
                     else:
-                        value = int(value)
-            except (ValueError, TypeError):
-                pass # Keep as string if not a number
+                        value = f_val
+                except (ValueError, TypeError):
+                    # Keep as original string
+                    pass
                 
         if index_text is not None:
             try:
