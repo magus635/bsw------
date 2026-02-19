@@ -165,7 +165,7 @@ class EcucDefParser:
         elif upper_mult_text == '*':
             container_def.upper_multiplicity = -1
         else:
-            container_def.upper_multiplicity = int(upper_mult_text) if upper_mult_text else 1
+            container_def.upper_multiplicity = int(float(upper_mult_text)) if upper_mult_text else 1
 
         # XDM: multiplicity from a:a attributes (override defaults if present)
         ns_a = self.NAMESPACES['a']
@@ -173,7 +173,7 @@ class EcucDefParser:
         upper_mult_attr = element.xpath("a:a[@name='UPPER-MULTIPLICITY']/@value", namespaces={'a': ns_a})
         if lower_mult_attr:
             try:
-                container_def.lower_multiplicity = int(lower_mult_attr[0])
+                container_def.lower_multiplicity = int(float(lower_mult_attr[0]))
             except ValueError:
                 pass
         if upper_mult_attr:
@@ -182,7 +182,7 @@ class EcucDefParser:
                 container_def.upper_multiplicity = -1
             else:
                 try:
-                    container_def.upper_multiplicity = int(val)
+                    container_def.upper_multiplicity = int(float(val))
                 except ValueError:
                     pass
 
@@ -572,7 +572,7 @@ class EcucDefParser:
                 target_def.symbolic_name_value = (value.lower() == 'true')
             elif name == 'LOWER-MULTIPLICITY':
                 try:
-                    target_def.lower_multiplicity = int(value)
+                    target_def.lower_multiplicity = int(float(value))
                 except ValueError:
                     pass
             elif name == 'UPPER-MULTIPLICITY':
@@ -580,7 +580,7 @@ class EcucDefParser:
                     target_def.upper_multiplicity = -1
                 else:
                     try:
-                        target_def.upper_multiplicity = int(value)
+                        target_def.upper_multiplicity = int(float(value))
                     except ValueError:
                         pass
             elif name == 'DEFAULT' and isinstance(target_def, EcucParameterDef):
@@ -786,7 +786,7 @@ class EcucDefParser:
         """Get integer value of a direct child element only (not descendants)"""
         text = self._get_child_text_value(element, tag_name)
         try:
-            return int(text) if text else default
+            return int(float(text)) if text else default
         except ValueError:
             return default
 
@@ -794,6 +794,6 @@ class EcucDefParser:
         """Get integer value of a descendant"""
         text = self._get_text_value(element, tag_name)
         try:
-            return int(text) if text else default
+            return int(float(text)) if text else default
         except ValueError:
             return default
