@@ -71,9 +71,9 @@ class CodeGenerator:
         if variant_name:
             logger.info(f"Active variant: {variant_name}")
         if project_template_dir:
-            logger.info(f"✅ Project template directory SET: {project_template_dir}")
+            logger.debug(f"Project template directory: {project_template_dir}")
         else:
-            logger.warning(f"⚠️ Project template directory NOT SET - will use builtin templates!")
+            logger.debug(f"Project template directory not set, using builtin templates")
         if user_template_dir:
             logger.info(f"User template directory: {user_template_dir}")
         if variant_overrides:
