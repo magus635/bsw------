@@ -1538,7 +1538,7 @@ class Renderer:
                     node = self._xpath_engine.evaluate(arg, return_node=True) if self._xpath_engine else None
                     if node is None:
                         # Fallback: direct child lookup
-                        node = current.get_child(arg)
+                        node = current.get_child(arg) if hasattr(current, 'get_child') else None
                 else:
                     node = None
             return self._builtins.node_exists(node)

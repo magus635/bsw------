@@ -640,6 +640,11 @@ class BuiltinFunctions:
         if not nodes:
             return []
 
+        # Filter out non-node objects (e.g. strings) that may have crept into the list
+        nodes = [n for n in nodes if hasattr(n, 'get_child') or hasattr(n, 'short_name')]
+        if not nodes:
+            return []
+
         if sort_expr is None:
             # Default sort by short_name
             return sorted(nodes, key=lambda n: n.short_name if hasattr(n, 'short_name') else '')
@@ -659,6 +664,9 @@ class BuiltinFunctions:
 
         # Create a sorting function
         def get_sort_key(node):
+            # Guard: if node is not a real node object, return stable fallback
+            if not hasattr(node, 'get_child'):
+                return (2, '', str(node))
             # Temporarily push node to context for evaluation
             self.context_stack.push(node)
             try:
@@ -682,7 +690,7 @@ class BuiltinFunctions:
                     val = self.renderer._evaluate_expression(inner_expr)
                 elif '/' not in inner_expr and not '(' in inner_expr:
                     # Simple attribute lookup
-                    child = node.get_child(inner_expr)
+                    child = node.get_child(inner_expr) if hasattr(node, 'get_child') else None
                     if child:
                         val = child.get_value()
 
@@ -697,7 +705,7 @@ class BuiltinFunctions:
                             parts = [p for p in inner_expr.split('/') if p and p != '.']
                             for part in parts:
                                 if current:
-                                    current = current.get_child(part)
+                                    current = current.get_child(part) if hasattr(current, 'get_child') else None
                             if current:
                                 val = current.get_value()
 

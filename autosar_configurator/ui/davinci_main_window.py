@@ -902,7 +902,7 @@ class DaVinciMainWindow(QMainWindow):
                         target_dir=target_dir,
                         progress_callback=lambda msg: self.statusbar.showMessage(msg)
                     )
-                self.current_project_file = target_dir
+                self.current_project_file = self.current_project.path
 
                 # Store search paths
                 self.current_project.def_search_paths = def_search_paths
@@ -1171,7 +1171,7 @@ class DaVinciMainWindow(QMainWindow):
                 )
 
             self.current_project = project
-            self.current_project_file = target_dir
+            self.current_project_file = project.path
 
             # Set up UI
             self.tree_view.set_project(self.current_project)
@@ -1195,9 +1195,9 @@ class DaVinciMainWindow(QMainWindow):
             # Auto-select first module
             self.tree_view.select_first_module()
 
-            # Save as last project (use target_dir, not source)
-            self.settings.setValue("last_project_path", str(target_dir))
-            self._add_to_recent_files(str(target_dir))
+            # Save as last project (record the .dpa file path, not the directory)
+            self.settings.setValue("last_project_path", str(project.path))
+            self._add_to_recent_files(str(project.path))
 
             # Update window title
             self._update_window_title()
