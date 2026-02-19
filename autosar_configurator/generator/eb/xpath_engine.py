@@ -920,6 +920,38 @@ class XPathEngine:
         if not parts:
             return None
 
+        # Handle XDM wildcard pattern: /AUTOSAR/TOP-LEVEL-PACKAGES/*/ELEMENTS/*
+        # This is used by EB Tresos templates to enumerate all module definitions.
+        # We detect paths where all non-wildcard segments are structural ARXML names
+        # and the path ends with a wildcard, meaning "all modules in all packages".
+        if '*' in parts:
+            non_wildcard_parts = [p for p in parts if p != '*']
+            all_structural = all(p.lower() in self._ARXML_STRUCTURAL for p in non_wildcard_parts)
+            if all_structural:
+                # Return virtual XDM element nodes for all registered modules.
+                # Each node uses the module name as short_name (for correct sorting),
+                # and carries _xdm_choice_value='MODULE-DEF' so that node:name()
+                # returns 'MODULE-DEF' (matching EB Tresos XDM choice container behavior).
+                # path includes module name as last segment for text:split extraction.
+                from .symbol_table import ConfigurationNode
+                result_nodes = []
+                for mod_name in sorted(self.symbol_table.get_template_modules()):
+                    mod_root = self.symbol_table.get_module(mod_name)
+                    if mod_root:
+                        actual_name = mod_root.short_name
+                        virtual_node = ConfigurationNode(
+                            short_name=actual_name,
+                            node_type='xdm_element',
+                            path=f'/AUTOSAR/{actual_name}',
+                            children=[],
+                        )
+                        # Mark as XDM choice node: node:name() returns this value
+                        virtual_node._xdm_choice_value = 'MODULE-DEF'
+                        # Store reference to actual module root for downstream navigation
+                        virtual_node._module_root = mod_root
+                        result_nodes.append(virtual_node)
+                return result_nodes if result_nodes else None
+
         # First part might be module name
         module = self.symbol_table.get_module(parts[0])
         if module:

@@ -70,6 +70,12 @@ class EBTemplateEngine:
             for m_name, (m_def, m_config) in all_modules.items():
                 self.add_module(m_def, m_config, variant=active_variant)
 
+        # Mark modules that have templates as MODULE-DEFs for XDM enumeration
+        template_module_names = context.get('template_module_names')
+        if template_module_names:
+            for m_name in template_module_names:
+                self.renderer.symbol_table.mark_template_module(m_name)
+
         # Ensure current module is loaded
         module_def = context.get('module_def')
         configuration = context.get('configuration')

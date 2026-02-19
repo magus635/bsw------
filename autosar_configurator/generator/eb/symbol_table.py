@@ -139,6 +139,9 @@ class SymbolTable:
         self._modules: Dict[str, ConfigurationNode] = {}
         # Absolute path -> ConfigurationNode (cache for fast lookup)
         self._path_index: Dict[str, ConfigurationNode] = {}
+        # Modules that have code generation templates (MODULE-DEF in XDM terms)
+        # Only these appear when enumerating /AUTOSAR/TOP-LEVEL-PACKAGES/*/ELEMENTS/*
+        self._template_modules: set = set()
     
     def register_module(self, module_name: str, root_node: ConfigurationNode):
         """Register a module's configuration tree"""
@@ -249,8 +252,23 @@ class SymbolTable:
     def get_all_modules(self) -> List[str]:
         """Get list of all registered module names"""
         return list(self._modules.keys())
-    
+
+    def mark_template_module(self, module_name: str):
+        """Mark a module as having code generation templates (MODULE-DEF in XDM)."""
+        self._template_modules.add(module_name.lower())
+
+    def get_template_modules(self) -> List[str]:
+        """Get module names that have code generation templates.
+
+        If no modules have been explicitly marked, fall back to all modules
+        (backward compatibility for cases where marking isn't done).
+        """
+        if self._template_modules:
+            return [m for m in self._modules.keys() if m in self._template_modules]
+        return list(self._modules.keys())
+
     def clear(self):
         """Clear all registered modules"""
         self._modules.clear()
         self._path_index.clear()
+        self._template_modules.clear()

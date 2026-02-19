@@ -307,11 +307,19 @@ class BuiltinFunctions:
         return False
     
     def node_name(self, node: Optional['ConfigurationNode'] = None) -> str:
-        """Get the short name of a node"""
+        """Get the short name of a node.
+
+        For XDM choice containers (virtual nodes from /AUTOSAR/TOP-LEVEL-PACKAGES/*/ELEMENTS/*),
+        returns the choice value (e.g. 'MODULE-DEF') to match EB Tresos behavior.
+        """
         if node is None:
             node = self.context_stack.current_node()
         if node is None:
             return ""
+        # XDM choice containers report their choice value as name
+        xdm_val = getattr(node, '_xdm_choice_value', None)
+        if xdm_val:
+            return xdm_val
         return node.short_name
     
     def node_path(self, node: Optional['ConfigurationNode'] = None) -> str:

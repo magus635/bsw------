@@ -170,6 +170,19 @@ class CodeGenerator:
         
         return ecu_resources
 
+    def _get_template_module_names(self) -> List[str]:
+        """Get names of modules that should appear as MODULE-DEF in XDM enumeration
+        (i.e., /AUTOSAR/TOP-LEVEL-PACKAGES/*/ELEMENTS/*).
+
+        In EB Tresos, this returns all loaded BSW/MCAL module definitions.
+        Infrastructure modules like EcuC (virtual ECU configuration collector)
+        are excluded as they are not regular BSW modules.
+        """
+        # Known AUTOSAR infrastructure / virtual modules that are NOT regular BSW modules
+        _INFRASTRUCTURE_MODULES = frozenset({'ecuc', 'ecum', 'bswm', 'det', 'os'})
+        return [m_name for m_name in self.all_configurations
+                if m_name.lower() not in _INFRASTRUCTURE_MODULES]
+
     def _load_template(self, template_name: str, module_name: str = None) -> Optional[str]:
         """Load template content, searching across project, user, and default directories.
         
@@ -411,7 +424,8 @@ class CodeGenerator:
             'postbuild_params': self._get_params_by_config_class(ConfigClass.POST_BUILD) if self.configuration else [],
             'references': self._get_references() if self.configuration else [],
             'header_guard': f"{module_name.upper()}_CFG_H",
-            'all_modules': self.all_configurations  # Corrected: Include for cross-module access
+            'all_modules': self.all_configurations,  # Corrected: Include for cross-module access
+            'template_module_names': self._get_template_module_names(),  # Modules with templates (MODULE-DEF)
         }
         
         # Inject standard EB Tresos version variables
