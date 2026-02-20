@@ -28,9 +28,9 @@ class GeminiClient:
             
     def configure(self, api_key: str):
         """Configure the client with an API key"""
-        print(f"DEBUG: Configuring Gemini with key: {api_key[:4]}...***")
+
         if not HAS_GEMINI:
-            print("DEBUG: google-generativeai package not installed.")
+
             self._is_configured = False
             return
             
@@ -39,16 +39,15 @@ class GeminiClient:
             genai.configure(api_key=self.api_key)
             
             # Dynamic Model Discovery
-            print("DEBUG: Discovering available models...")
+
             self._available_models = []
             try:
                 for m in genai.list_models():
                     if 'generateContent' in m.supported_generation_methods:
                         self._available_models.append(m.name)
-                        print(f"DEBUG: Found model: {m.name}")
+
             except Exception as list_err:
-                print(f"DEBUG: Failed to list models: {list_err}")
-                
+                pass                
             # Selection Strategy - Prioritize latest Gemini models
             preferred_order = [
                 'models/gemini-3.0-flash-exp',
@@ -77,13 +76,13 @@ class GeminiClient:
                 else:
                      selected_model_name = 'gemini-2.5-flash' # Updated fallback model
             
-            print(f"DEBUG: Selected model: {selected_model_name}")
+
             self.model = genai.GenerativeModel(selected_model_name)
             self._current_model_name = selected_model_name
             self._is_configured = True
-            print(f"DEBUG: Gemini configured successfully using model: '{selected_model_name}'")
+
         except Exception as e:
-            print(f"DEBUG: Failed to configure Gemini: {e}")
+
             self._is_configured = False
     
     def get_available_models(self) -> List[str]:
@@ -110,10 +109,10 @@ class GeminiClient:
             try:
                 self.model = genai.GenerativeModel(target)
                 self._current_model_name = target
-                print(f"DEBUG: Switched to model: {target}")
+
                 return True
             except Exception as e:
-                print(f"DEBUG: Failed to switch model: {e}")
+
                 return False
         return False
             
@@ -125,11 +124,11 @@ class GeminiClient:
             timeout: Request timeout in seconds (default 30)
         """
         if not self._is_configured or not self.model:
-            print("DEBUG: Gemini not configured, skipping generation.")
+
             return "⚠️ Gemini API key not configured. Please set it in Settings."
             
         try:
-            print("DEBUG: Sending request to Gemini...")
+
             # Merge generation_config if provided in kwargs
             gen_config = kwargs.pop('generation_config', {})
             if 'temperature' not in gen_config:
@@ -141,11 +140,11 @@ class GeminiClient:
                 generation_config=gen_config,
                 **kwargs
             )
-            print("DEBUG: Gemini response received.")
+
             return response.text
         except Exception as e:
             error_msg = str(e)
-            print(f"DEBUG: Gemini API Error: {error_msg}")
+
             if "timeout" in error_msg.lower() or "deadline" in error_msg.lower():
                 return "⏱️ 请求超时，请稍后重试"
             if "location" in error_msg.lower() and "not supported" in error_msg.lower():

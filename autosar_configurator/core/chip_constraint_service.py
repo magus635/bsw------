@@ -38,8 +38,6 @@ class ChipConstraints:
     def get_enum_values(self, path: str) -> List[str]:
         """Get list of allowed enum values for a path"""
         value = self.get(path)
-        if "Resolution" in path or "ChannelNum" in path or "RefVolt" in path:
-            print(f"DEBUG ChipService.get_enum_values({path}) -> {value}")
         
         if isinstance(value, list):
             return value

@@ -1,8 +1,0 @@
-Traceback (most recent call last):
-  File "/Users/qlwang/Desktop/bsw图形配置工具/regenerate_can.py", line 9, in <module>
-    from autosar_configurator.core.workspace_manager import WorkspaceManager
-  File "/Users/qlwang/Desktop/bsw图形配置工具/autosar_configurator/core/workspace_manager.py", line 11, in <module>
-    from .parser.ecuc_def_parser import EcucDefParser
-  File "/Users/qlwang/Desktop/bsw图形配置工具/autosar_configurator/core/parser/ecuc_def_parser.py", line 5, in <module>
-    from lxml import etree
-ModuleNotFoundError: No module named 'lxml'

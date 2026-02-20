@@ -150,11 +150,7 @@ class WorkspaceProject:
                 logger.warning(f"Failed to parse properties file {pf}: {e}")
 
         self.ecu_resources = parser.get_ecu_resources_dict()
-        if self.ecu_resources:
-            logger.info(
-                f"Loaded {len(self.ecu_resources)} ECU resource(s) "
-                f"from {len(all_props)} .properties file(s)"
-            )
+
         return self.ecu_resources
 
     def ensure_default_variant(self):
@@ -496,11 +492,8 @@ class WorkspaceManager:
                 shutil.copytree(generate_pb_dir, target_dir, dirs_exist_ok=True)
                 copied_count += 1
             except Exception as e:
-                print(f"Warning: Failed to copy templates for {name}: {e}")
+                pass
 
-        if copied_count > 0:
-            print(f"Copied templates for {copied_count} module(s) to {templates_dir}")
-            
     def _resolve_path(self, path_str: str, project_dir: Path) -> Path:
         """Robustly resolve paths that might be relative or absolute from another platform"""
         import re
@@ -600,9 +593,7 @@ class WorkspaceManager:
         
         # Load dependency rules (new in format v4)
         project.dependency_rules = data.get("dependency_rules", [])
-        if project.dependency_rules:
-            print(f"Loaded {len(project.dependency_rules)} confirmed dependency rules")
-        
+
         # Load chip selection (new in format v7)
         project.available_chips = data.get("available_chips", [])
         project.selected_chip = data.get("selected_chip", None)
@@ -637,14 +628,14 @@ class WorkspaceManager:
                 legacy_path = project_dir / Path(config_path_str).name
                 if legacy_path.exists():
                     config_path = legacy_path
-                    print(f"Loading legacy config location: {config_path}")
+
             # Extended fallback: if ConfigValue is missing but file is in root
             # Check for both ConfigValue/ and ConfigValue\ for cross-platform compatibility
             elif not config_path.exists() and ("ConfigValue/" in config_path_str or "ConfigValue\\" in config_path_str):
                 legacy_path = project_dir / Path(config_path_str).name
                 if legacy_path.exists():
                     config_path = legacy_path
-                    print(f"Fallback to legacy config location: {config_path}")
+
             
             if def_path.exists():
                 try:
@@ -665,7 +656,7 @@ class WorkspaceManager:
                 except Exception as e:
                     error_msg = f"Failed to load: {str(e)}"
                     failed_modules.append((name, error_msg))
-                    print(f"Failed to load module {name}: {e}")
+
             else:
                 # Stub load: Create a surrogate module definition so we can still see the values
                 try:
@@ -687,32 +678,26 @@ class WorkspaceManager:
                     if "variant_overrides" in module_data:
                         manager.configuration.variant_overrides = module_data["variant_overrides"]
                     
-                    print(f"Loaded module {name} with stub definition (DEF file missing)")
+
                     
                 except Exception as e:
                     error_msg = f"Failed to load stub: {str(e)}"
                     failed_modules.append((name, error_msg))
-                    print(f"Failed to load stub module {name}: {e}")
+
         
         # EMF-style reference resolution: resolve cross-module references
         try:
             resolved_count, error_count = project.resolve_all_references()
-            if resolved_count > 0:
-                print(f"Resolved {resolved_count} cross-module reference(s)")
-            if error_count > 0:
-                print(f"⚠️ {error_count} reference(s) could not be resolved")
+
+
             
             # Build reverse reference index for "who references me?" queries
             reverse_count = project.build_reverse_reference_index()
-            if reverse_count > 0:
-                print(f"Indexed {reverse_count} reverse reference(s)")
-        except Exception as e:
-            print(f"Warning: Reference resolution failed: {e}")
 
+        except Exception as e:
+            pass
         # Load ECU resources from .properties files (if Def/plugins/ exists)
         ecu_res = project.load_ecu_resources()
-        if ecu_res:
-            print(f"Loaded {len(ecu_res)} ECU resource(s) from .properties files")
 
         self.current_project = project
         return project, failed_modules
@@ -743,7 +728,7 @@ class WorkspaceManager:
         def _progress(msg):
             if progress_callback:
                 progress_callback(msg)
-            print(msg)
+
 
         # Determine where the project will live
         project_dir = target_dir if target_dir else project_root
@@ -897,7 +882,7 @@ class WorkspaceManager:
                     continue
                 error_msg = f"Failed to load: {error_str}"
                 failed_modules.append((module_name, error_msg))
-                print(f"Failed to load module {module_name}: {e}")
+
 
         _progress(f"Import complete: {len(loaded_modules)} loaded, {len(failed_modules)} failed")
 
@@ -905,18 +890,13 @@ class WorkspaceManager:
         if loaded_modules:
             try:
                 resolved_count, error_count = project.resolve_all_references()
-                if resolved_count > 0:
-                    _progress(f"Resolved {resolved_count} cross-module reference(s)")
-                if error_count > 0:
-                    _progress(f"Warning: {error_count} reference(s) could not be resolved")
+
+
 
                 reverse_count = project.build_reverse_reference_index()
-                if reverse_count > 0:
-                    _progress(f"Indexed {reverse_count} reverse reference(s)")
-            except Exception as e:
-                print(f"Warning: Reference resolution failed: {e}")
 
-        # Store chip info and EB source root
+            except Exception as e:
+                pass        # Store chip info and EB source root
         chips = EpcFileScanner.detect_available_chips(project_root)
         project.available_chips = chips
         project.selected_chip = chip_name
@@ -924,8 +904,7 @@ class WorkspaceManager:
 
         # Step 6: Load ECU resources from .properties files (now in Def/plugins/)
         ecu_res = project.load_ecu_resources()
-        if ecu_res:
-            _progress(f"Loaded {len(ecu_res)} ECU resource(s) from .properties files")
+
 
         self.current_project = project
         return project, loaded_modules, failed_modules

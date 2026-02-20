@@ -79,7 +79,7 @@ class DependencyAnalyzer:
                 continue
                 
             # Debug output
-            # print(f"[DEP] Checking ref: {ref_name} -> {dest_ref}")
+
             
             # Extract target module name from destination_ref
             # Format: /AUTOSAR/EcucDefs/ModuleName/...
@@ -88,7 +88,7 @@ class DependencyAnalyzer:
             
             if target_module and target_module.lower() != module_name.lower():
                 # This is a cross-module reference!
-                print(f"[DEP] Found cross-module ref: {module_name}.{ref_name} -> {target_module}")
+
                 self.cross_module_refs.append({
                     'source_module': module_name,
                     'source_container': container_path,
@@ -136,18 +136,18 @@ class DependencyAnalyzer:
         """Extract parameters from a module configuration"""
         params = []
         
-        print(f"[DEP] Extracting params from module: {module_name}")
-        print(f"[DEP]   Containers count: {len(configuration.containers)}")
+
+
         
         for container in configuration.containers:
             params.extend(self._extract_container_parameters(
                 module_name, container, ""
             ))
         
-        print(f"[DEP]   Total params extracted: {len(params)}")
+
         # Verbose logging disabled
         # for p in params:
-        #    print(f"[DEP]     - {p['parameter']} = {p['value']}")
+
         
         return params
     
@@ -281,7 +281,7 @@ class DependencyAnalyzer:
                 'origin': '📋 定义'  # Source: Module Definition
             })
         
-        print(f"[DEBUG] Added {len(dependencies)} definition-based rules from cross_module_refs")
+
 
         # 2. Add built-in DevErrorDetect consistency rules (common AUTOSAR pattern)
         # When one module enables DevErrorDetect, related modules should also enable it
@@ -289,7 +289,7 @@ class DependencyAnalyzer:
         if len(dev_error_modules) >= 2:
             dev_error_rules = self._generate_dev_error_consistency_rules(dev_error_modules)
             dependencies.extend(dev_error_rules)
-            print(f"[DEBUG] Added {len(dev_error_rules)} DevErrorDetect consistency rules for modules: {list(dev_error_modules.keys())}")
+
 
         # 3. Use AI to find additional parameter dependencies
         if self.gemini_client and self.gemini_client.is_ready():
@@ -299,20 +299,20 @@ class DependencyAnalyzer:
             max_retries = 2
             for attempt in range(max_retries):
                 try:
-                    print(f"DEBUG: AI Request Attempt {attempt + 1}/{max_retries}")
+
                     # Increased timeout to 120 seconds for large prompts
                     response = self.gemini_client.generate_response(prompt, timeout=120)
                     # Verbose logging disabled
-                    # print(f"[DEP] Raw AI Response:\n{response}\n[DEP] End of Raw Response")
+
                     
                     if response.startswith("🌍") or response.startswith("❌"):
-                        print(f"[DEP] AI Analysis unavailable: {response}")
+
                         self.ai_status = f"不可用: {response}"
                         # If it's a timeout/network error, we might retry, but client usually handles simple retries.
                         # If it returns error string, it's often a caught exception in client.
                         if "504" in response or "timeout" in response.lower():
                             if attempt < max_retries - 1:
-                                print("DEBUG: 504 Timeout, retrying...")
+
                                 continue
                         break # Stop if other error
                     else:

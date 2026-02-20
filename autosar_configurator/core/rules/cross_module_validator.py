@@ -57,14 +57,14 @@ class CrossModuleValidator:
         self.rules = []
         
         if not md_path.exists():
-            print(f"Warning: Dependency file not found: {md_path}")
+
             return 0
         
         content = md_path.read_text(encoding='utf-8')
         
         # First, count how many [x] marked rows exist
         confirmed_rows = re.findall(r'\|\s*\d+\s*\|\s*\[\s*x\s*\]\s*\|', content, re.IGNORECASE)
-        print(f"[DEBUG] Found {len(confirmed_rows)} rows with [x] status in markdown")
+
         
         # Parse table rows - look for lines with confirmed status [x] (flexible whitespace)
         # New format: | # | [x] | 来源 | `source_param` | condition value | `target_param` | condition value | reason |
@@ -82,7 +82,7 @@ class CrossModuleValidator:
         # Try new format first, then old format
         for pattern_name, pattern in [("new", table_pattern_new), ("old", table_pattern_old)]:
             matches = list(pattern.finditer(content))
-            print(f"[DEBUG] Pattern '{pattern_name}' matched {len(matches)} rows")
+
             
             for match in matches:
                 source_param = match.group(1).strip()
@@ -108,13 +108,12 @@ class CrossModuleValidator:
                     )
                     self.rules.append(rule)
                 else:
-                    print(f"[WARN] Skipped rule due to condition parsing failure: {source_param} -> {target_param}")
-            
+                    pass
             # If found rules with current pattern, stop
             if self.rules:
                 break
         
-        print(f"Loaded {len(self.rules)} confirmed dependency rules")
+
         return len(self.rules)
     
     def _parse_condition_value(self, cond_val: str) -> Tuple[Optional[str], Optional[str]]:
