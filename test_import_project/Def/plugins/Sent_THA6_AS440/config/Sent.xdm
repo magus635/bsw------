@@ -1,0 +1,544 @@
+<?xml version='1.0'?>
+<datamodel version="7.0"
+  xmlns="http://www.tresos.de/_projects/DataModel2/16/root.xsd"
+  xmlns:a="http://www.tresos.de/_projects/DataModel2/16/attribute.xsd"
+  xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd"
+  xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd">
+  <d:ctr type="AUTOSAR" factory="autosar"
+    xmlns:ad="http://www.tresos.de/_projects/DataModel2/08/admindata.xsd"
+    xmlns:cd="http://www.tresos.de/_projects/DataModel2/08/customdata.xsd"
+    xmlns:f="http://www.tresos.de/_projects/DataModel2/14/formulaexpr.xsd"
+    xmlns:icc="http://www.tresos.de/_projects/DataModel2/08/implconfigclass.xsd"
+    xmlns:mt="http://www.tresos.de/_projects/DataModel2/11/multitest.xsd"
+    xmlns:variant="http://www.tresos.de/_projects/DataModel2/11/variant.xsd">
+    <d:lst type="TOP-LEVEL-PACKAGES">
+      <d:ctr name="THA6_AS440_FuSa" type="AR-PACKAGE">
+        <a:a name="UUID" value="ECUC:AUTOSAR"/>
+        <d:lst type="ELEMENTS">
+          <d:chc name="Sent" type="AR-ELEMENT" value="MODULE-DEF">
+            <v:ctr type="MODULE-DEF">
+              <a:a name="ADMIN-DATA" type="ADMIN-DATA">
+                <ad:ADMIN-DATA>
+                  <ad:DOC-REVISIONS>
+                    <ad:DOC-REVISION>
+                      <ad:REVISION-LABEL>4.4.0</ad:REVISION-LABEL>
+                      <ad:ISSUED-BY>AUTOSAR</ad:ISSUED-BY>
+                    </ad:DOC-REVISION>
+                  </ad:DOC-REVISIONS>
+                </ad:ADMIN-DATA>
+              </a:a>
+              <a:a name="DESC" value="EN: Configuration of the Sent module."/>
+              <a:a name="LOWER-MULTIPLICITY" value="0"/>
+              <a:a name="POSTBUILDVARIANTSUPPORT" value="true"/>
+              <a:a name="RELEASE" value="asc:4.4.0"/>
+              <a:a name="UPPER-MULTIPLICITY" value="*"/>
+              <a:a name="UUID" value="ECUC:b7b62808-1e4b-40ce-b615-cf7593ta43e1"/>
+              <v:var name="IMPLEMENTATION_CONFIG_VARIANT" type="ENUMERATION">
+                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                  <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                </a:a>
+                <a:a name="LABEL" value="Config Variant"/>
+                <a:da name="DEFAULT" value="VariantPostBuild"/>
+                <a:da name="RANGE" value="VariantPostBuild"/>
+              </v:var>
+              <v:lst name="SentConfigSet" type="MAP">
+                <a:da name="MAX" value="1"/>
+                <v:ctr name="SentConfigSet" type="IDENTIFIABLE">
+                  <a:a name="DESC" value="FOR-ALL: This is the base container that contains the post-build selectable configuration parameters"/>
+                  <a:a name="UUID" value="ECUC:ccda81dc-46cf-4171-858b-7c947884702f"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                  <v:lst name="SentChannelConfigSet" type="MAP">
+                    <a:da name="MAX" type="XPath" expr="ecu:get('Sent.MaxChannelsSupported')" />
+                    <a:da name="MIN" value="1"/>
+                    <v:ctr name="SentChannelConfigSet" type="IDENTIFIABLE">
+                      <a:a name="DESC" value="FOR-ALL: This is the base container that contains the post-build selectable configuration parameters for a particular channel"/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                      <a:a name="UUID" value="ECUC:97e6fd09-f2da-4844-b2e0-ecc3dc70e5a3"/>
+                      <a:a name="REQUIRES-INDEX" value="true"/>
+                      <v:var name="SentChLogiIndex" type="INTEGER">
+                        <a:a name="DESC" value="FOR-ALL: SENT Logical Channel Id to be configured."/>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                        <a:a name="ORIGIN" value="ChipowerTech"/>
+                        <a:a name="SCOPE" value="LOCAL"/>
+                        <a:a name="UUID" value="ECUC:6e2cdc5f-16e8-4669-b7d8-531a888e7acc"/>
+                        <a:da name="DEFAULT" type="XPath" expr="node:fallback(node:current()/../@index, num:i(0))" />
+                        <a:da name="INVALID" type="Multi">
+                          <mt:range>
+                            <mt:tst expr="&gt;=0" />
+                            <mt:tst
+                              expr="&lt;=num:i(num:i(ecu:get('Sent.MaxChannelsSupported'))-1)" />
+                          </mt:range>
+                        </a:da>
+                        <a:da name="RANGE" type="XPath">
+                          <a:tst expr="text:uniq(../../*/SentChLogiIndex,.)" false="Duplicated value, SentChLogiIndex must be unique across all channels."/>
+                        </a:da>
+                      </v:var>
+                      <v:var name="SentChPhyIndex" type="ENUMERATION">
+                        <a:a name="DESC" value="FOR-ALL: Defines the physical id of the Sent"/>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                        <a:a name="ORIGIN" value="ChipowerTech"/>
+                        <a:a name="SCOPE" value="LOCAL"/>
+                        <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                        <a:a name="UUID" value="ECUC:bfec07fb-550f-421e-b568-cb02a2e4eda7"/>
+                        <a:da name="DEFAULT" value="SENT0"/>
+                        <a:da name="RANGE" type="XPath">
+                        <a:tst expr="ecu:list('Sent.AvailableSentChannels')"/>
+                      </a:da>
+                        <a:da name="INVALID" type="XPath">
+                          <a:tst expr="text:uniq(../../*/SentChPhyIndex,.)" false="Duplicated value, SentChPhyIndex must be unique across all channels."/>
+                        </a:da>
+                      </v:var>
+                      <v:var name="SentChanCRCType" type="ENUMERATION">
+                        <a:a name="DESC" value="FOR-ALL: Defines the CRC mode to be used for fast channel/slow channel data communication"/>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                        <a:a name="ORIGIN" value="ChipowerTech"/>
+                        <a:a name="SCOPE" value="LOCAL"/>
+                        <a:a name="UUID" value="ECUC:bfec07fb-550f-421e-b568-cb02a2e4eda6"/>
+                        <a:da name="DEFAULT" value="SENT_CRC_TYPE_2010"/>
+                        <a:da name="RANGE">
+                          <a:v>SENT_CRC_TYPE_2010</a:v>
+                          <a:v>SENT_CRC_TYPE_2007</a:v>
+                        </a:da>
+                      </v:var>
+                      <v:var name="SentChanStatusNibbleCRCInc" type="BOOLEAN">
+                        <a:a name="DESC" value="FOR-ALL: Defines whether status nibble should be used for CRC calculation."/>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                        <a:a name="ORIGIN" value="ChipowerTech"/>
+                        <a:a name="SCOPE" value="LOCAL"/>
+                        <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                        <a:a name="UUID" value="ECUC:f09ce730-c48a-499a-8eff-8b03a15032cc"/>
+                        <a:da name="DEFAULT" value="false"/>
+                      </v:var>
+                      <v:var name="SentChanFrameCrcDisable" type="BOOLEAN">
+                        <a:a name="DESC">
+                          <a:v>FOR-ALL: Defines whether the current SENT frame&apos;s CRC should be verified internally by SENT hardware.
+                                If TRUE, then it is responsibility of the application to verify the CRC of the received SENT frame.</a:v>
+                        </a:a>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                        <a:a name="ORIGIN" value="ChipowerTech"/>
+                        <a:a name="SCOPE" value="LOCAL"/>
+                        <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                        <a:a name="UUID" value="ECUC:f09ce730-c48a-499a-8eff-8b03a1503600"/>
+                        <a:da name="DEFAULT" value="false"/>
+                      </v:var>
+                      <v:var name="SentChanFrameDataLen" type="INTEGER">
+                        <a:a name="DESC">
+                          <a:v>FOR-ALL: Defines the number of data nibbles per SENT frame. It does not include sync pulse, status nibble, CRC nibble, or the additional zero length nibble.
+                                If more than 8 nibbles are configured, RDI interrupt is issued each time 8 nibbles are written into RDR register of that channel. At the end of the last data frame also, RDI interrupt is issued. If no RDI interrupt occurs at the last data frame, an error has occurred. RSI interrupt shall be issued at every successful receive of a single SENT frame.</a:v>
+                        </a:a>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                        <a:a name="ORIGIN" value="ChipowerTech"/>
+                        <a:a name="SCOPE" value="LOCAL"/>
+                        <a:a name="UUID" value="ECUC:6e2cdc5f-16e8-4669-b7d8-531a888e8bde"/>
+                        <a:da name="DEFAULT" value="6"/>
+                        <a:da name="INVALID" type="Range">
+                          <a:tst expr="&lt;=6"/>
+                          <a:tst expr="&gt;=1"/>
+                        </a:da>
+                      </v:var>
+                      <v:var name="SentChanIgnoreEndPulse" type="BOOLEAN">
+                        <a:a name="DESC">
+                          <a:v>FOR-ALL: Defines whether end pulse should be ignored or not.
+                                For some systems with an end pulse, during synchronize or resynchronize of reception, if calibration pulses are detected one immediately following the other, the first calibration pulse shall be ignored as it may be a pause pulse with duration matching the calibration pulse range.</a:v>
+                        </a:a>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                        <a:a name="ORIGIN" value="ChipowerTech"/>
+                        <a:a name="SCOPE" value="LOCAL"/>
+                        <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                        <a:a name="UUID" value="ECUC:f09ce730-c48a-499a-8eff-8b03a1503622"/>
+                        <a:da name="DEFAULT" value="false"/>
+                      </v:var>
+                      <v:var name="SentChanInPulse" type="ENUMERATION">
+                        <a:a name="DESC" value="FOR-ALL: Defines pulse polarity of the respective input channel."/>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                        <a:a name="ORIGIN" value="ChipowerTech"/>
+                        <a:a name="SCOPE" value="LOCAL"/>
+                        <a:a name="UUID" value="ECUC:bfec07fb-550f-421e-b568-cb02a2e5feb7"/>
+                        <a:da name="DEFAULT" value="SENT_POLARITY_RISING"/>
+                        <a:da name="RANGE">
+                          <a:v>SENT_POLARITY_RISING</a:v>
+                          <a:v>SENT_POLARITY_FALLING</a:v>
+                        </a:da>
+                      </v:var>
+                      <v:var name="SentClocksPerTick" type="INTEGER">
+                        <a:a name="DESC" value="FOR-ALL: Number of clocks in a tick as resulting from the sync pulse."/>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                        <a:a name="ORIGIN" value="ChipowerTech"/>
+                        <a:a name="SCOPE" value="LOCAL"/>
+                        <a:a name="UUID" value="ECUC:6e2cdc5f-16e8-4669-b7d8-641a888e8bdd"/>
+                        <a:da name="DEFAULT" value="15"/>
+                        <a:da name="INVALID" type="Range">
+                          <a:tst expr="&lt;=2047"/>
+                          <a:tst expr="&gt;=1"/>
+                        </a:da>
+                      </v:var>
+                      <v:var name="SentChanCalloutFn" type="FUNCTION-NAME">
+                        <a:a name="DESC" value="FOR-ALL: Defines the function to be invoked for any notification event of the respective channel."/>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                        <a:a name="ORIGIN" value="ChipowerTech"/>
+                        <a:a name="UUID" value="ECUC:bfec091d-550f-421e-b568-cb02a2e60eb7"/>
+                        <a:da name="DEFAULT" value="NULL_PTR"/>
+                      </v:var>
+                      <v:var name="SentChanErrCalloutFn" type="FUNCTION-NAME">
+                        <a:a name="DESC" value="FOR-ALL: Defines the function to be invoked for any notification error of the respective channel."/>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                        <a:a name="ORIGIN" value="ChipowerTech"/>
+                        <a:a name="UUID" value="ECUC:bfec091d-550f-421e-b568-cb02a2e60eb8"/>
+                        <a:da name="DEFAULT" value="NULL_PTR"/>
+                      </v:var>
+                      <v:ctr name="SPCConfig" type="IDENTIFIABLE">
+                        <a:a name="DESC" value="FOR-ALL: This is the base container that contains configuration parameters for SPC."/>
+                        <a:a name="UUID" value="ECUC:296ae522-734b-4ed1-bba0-463af6037c38"/>
+                        <a:a name="REQUIRES-INDEX" value="true"/>
+                        <v:var name="SentChanUsedSpc" type="BOOLEAN">
+                          <a:a name="DESC" value="FOR-ALL: Defines whether spc should be used or not."/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="ORIGIN" value="ChipowerTech"/>
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="ECUC:f09ce730-c48a-499a-8eff-8b03a1503623"/>
+                          <a:da name="DEFAULT" value="false"/>
+                          <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="../../../../../../SentGeneral/SentSpcFeatureSupport = 'true'"/>
+                          </a:da>
+                        </v:var>
+                        <v:var name="SentTriggerMode" type="ENUMERATION">
+                          <a:a name="DESC" value="FOR-ALL: The trigger mode (SPC or GTM)."/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="ORIGIN" value="ChipowerTech"/>
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="UUID" value="ECUC:bfec07fb-550f-421e-b568-cb02a2e60eb7"/>
+                          <a:da name="DEFAULT" value="SENT_TRIGGER_MODE_SPC"/>
+                          <a:da name="RANGE">
+                            <a:v>SENT_TRIGGER_MODE_SPC</a:v>
+                            <a:v>SENT_TRIGGER_MODE_GTM</a:v>
+                          </a:da>
+                          <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="../SentChanUsedSpc = 'true'"/>
+                          </a:da>
+                        </v:var>
+                        <v:var name="SentSpcPlusWidth" type="INTEGER">
+                          <a:a name="DESC" value="FOR-ALL: Number of tick for the SPC master pulse."/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="ORIGIN" value="ChipowerTech"/>
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="UUID" value="ECUC:bcfece32-0025-4820-8017-d2e02399d70e"/>
+                          <a:da name="DEFAULT" value="3"/>
+                          <a:da name="INVALID" type="Range">
+                            <a:tst expr="&lt;=255"/>
+                            <a:tst expr="&gt;=1"/>
+                          </a:da>
+                          <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="../SentChanUsedSpc = 'true'"/>
+                          </a:da>
+                        </v:var>
+                        <v:ref name="SentGtmChannel" type="CHOICE-REFERENCE">
+                          <a:a name="DESC" value="EN: Gtm channel for triggering SPC."/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="ORIGIN" value="ChipowerTech"/>
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="UUID" value="ECUC:fc412877-d8ab-4b65-96e8-0498ac13762e"/>
+                          <a:da name="REF">
+                            <a:v>ASPathDataOfSchema:/THA6_AS440_FuSa/Mcu/GtmConfiguration/GtmToPeripheral/SaradcSent</a:v>
+                            <a:v>ASPathDataOfSchema:/THA6_AS440_FuSa/Mcu/GtmConfiguration/GtmToPeripheral/Dsadc</a:v>
+                          </a:da>
+                          <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="(../SentChanUsedSpc = 'true') and (../SentTriggerMode = 'SENT_TRIGGER_MODE_GTM')"/>
+                          </a:da>
+                        </v:ref>
+                      </v:ctr>
+                    </v:ctr>
+                  </v:lst>
+                </v:ctr>
+              </v:lst>
+              <v:ctr name="SentGeneral" type="IDENTIFIABLE">
+                <a:a name="DESC" value="EN: General configuration (parameters) of the SENT driver software module."/>
+                <a:a name="UUID" value="ECUC:3ea7abca-6ba4-4d14-befd-8bb9350fe86f"/>
+                <v:var name="SentDeInitApi" type="BOOLEAN">
+                  <a:a name="DESC">
+                    <a:v>FOR-ALL: Adds / removes the service Sent_DeInit() from the code.
+                          true: Sent_DeInit() can be used.
+                          false: Sent_DeInit() can not be used.</a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="ECUC:e53ed3a7-c933-483f-8b90-390e46b1d366"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="SentDevErrorDetect" type="BOOLEAN">
+                  <a:a name="DESC">
+                    <a:v>FOR-ALL: Switches the Development Error Detection and Notification ON or OFF.
+                          true: Enabled.
+                          false: Disabled.</a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="ECUC:ef9ce730-c48a-499a-8eff-8b03a15032cc"/>
+                  <a:da name="DEFAULT" value="true"/>
+                </v:var>
+                <v:var name="SentSafetyErrorDetect" type="BOOLEAN">
+                  <a:a name="DESC">
+                    <a:v>FOR-ALL: Switches the Safety Development Error Detection and Notification ON or OFF.
+                          true: Enabled.
+                          false: Disabled.</a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="ECUC:b22d80b8-8c5d-4918-b929-0f099686f9ba"/>
+                  <a:da name="DEFAULT" value="true"/>
+                </v:var>
+                <v:var name="SentSpcFeatureSupport" type="BOOLEAN">
+                  <a:a name="DESC">
+                    <a:v>FOR-ALL: Determines, if the SPC (Short PWM Code) feature should be enabled or not.
+                          true: Enabled.
+                          false: Disabled.</a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="ECUC:494fd1b0-19bd-4093-86eb-32cb35bfcf84"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="SentVersionInfoApi" type="BOOLEAN">
+                  <a:a name="DESC">
+                    <a:v>FOR-ALL: Adds / removes the service Sent_GetVersionInfo() from the code.
+                          true: Sent_GetVersionInfo() can be used.
+                          false: Sent_GetVersionInfo() can not be used.</a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="ECUC:141db8da-97cc-4ad8-a8c3-187626822714"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="SentIndex" type="INTEGER">
+                  <a:a name="DESC" value="EN: Specifies the InstanceId of this module instance. If only one instance is present it shall have the Id 0."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="ECUC:6b330dcc-6344-4ea2-bd60-bc4e44ce726f"/>
+                  <a:da name="DEFAULT" value="0"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+              </v:ctr>
+              <v:ctr name="SentPublishedInformation" type="IDENTIFIABLE">
+                <a:a name="DESC">
+                  <a:v>EN: Additional published parameters not covered by CommonPublishedInformation container.
+                        Note that these parameters do not have any configuration class setting, since they are published information.</a:v>
+                </a:a>
+                <a:a name="UUID" value="6b7480fc-6dd2-4b90-a754-188ab99f8aa4"/>
+              </v:ctr>
+              <v:ctr name="CommonPublishedInformation" type="IDENTIFIABLE">
+                <a:a name="DESC" value="EN: Common container, aggregated by all modules. It contains published information about vendor and versions."/>
+                <a:a name="UUID" value="40308482-3e2c-4bf1-b27f-01fd7ac35788"/>
+                <v:var name="ArMajorVersion" type="INTEGER_LABEL">
+                  <a:a name="DESC" value="EN: Major version number of AUTOSAR specification on which the appropriate implementation is based on."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="bd0a8d38-4d8c-4ff0-88fe-1166b258bb8a"/>
+                  <a:da name="DEFAULT" value="4"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="ArMinorVersion" type="INTEGER_LABEL">
+                  <a:a name="DESC" value="EN: Minor version number of AUTOSAR specification on which the appropriate implementation is based on."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="73f87c7f-f340-4178-bff0-eb2704aae656"/>
+                  <a:da name="DEFAULT" value="4"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="ArPatchVersion" type="INTEGER_LABEL">
+                  <a:a name="DESC" value="EN: Patch level version number of AUTOSAR specification on which the appropriate implementation is based on."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="2380135d-6889-417a-a34b-e10017d4dd54"/>
+                  <a:da name="DEFAULT" value="0"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="SwMajorVersion" type="INTEGER_LABEL">
+                  <a:a name="DESC" value="EN: Major version number of the vendor specific implementation of the module. The numbering is vendor specific."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="fdb115e3-5f28-4cbe-8949-8f4b87d86827"/>
+                  <a:da name="DEFAULT" value="1"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="SwMinorVersion" type="INTEGER_LABEL">
+                  <a:a name="DESC" value="EN: Minor version number of the vendor specific implementation of the module. The numbering is vendor specific."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="15bc81e0-3d80-43dc-8b92-247e5a542df9"/>
+                  <a:da name="DEFAULT" value="2"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="SwPatchVersion" type="INTEGER_LABEL">
+                  <a:a name="DESC" value="EN: Patch level version number of the vendor specific implementation of the module. The numbering is vendor specific."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="32f48bfd-18b6-41d1-9248-a81dbe0fe4c5"/>
+                  <a:da name="DEFAULT" value="0"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="ModuleId" type="INTEGER_LABEL">
+                  <a:a name="DESC" value="EN: Module ID of this module from Module List"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="3b518478-6902-4f80-b7cf-f33b0854e638"/>
+                  <a:da name="DEFAULT" value="255"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=65535"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="VendorId" type="INTEGER_LABEL">
+                  <a:a name="DESC" value="EN: Vendor ID of the dedicated implementation of this module according to the AUTOSAR vendor list"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="7d650b2d-4bec-41f0-a68e-5f0c416501d1"/>
+                  <a:da name="DEFAULT" value="175"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=65535"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+              </v:ctr>
+            </v:ctr>
+          </d:chc>
+          <d:chc name="Sent_EcuParameterDefinition" type="AR-ELEMENT" value="ECU_PARAMETER_DEFINITION">
+              <d:ctr type="AR-ELEMENT">
+                  <a:a name="DEF" value="ASPath:/AR_PACKAGE_SCHEMA/ECU_PARAMETER_DEFINITION" />
+                  <a:a name="UUID" value="0e39b7b2-592d-e086-07a6-ee57d7e4f073" />
+                  <d:lst name="MODULE_REF">
+                      <d:ref type="MODULE_REF" value="ASPath:/THA6_AS440_FuSa/Sent" />
+                  </d:lst>
+              </d:ctr>
+          </d:chc>
+        </d:lst>
+      </d:ctr>
+    </d:lst>
+  </d:ctr>
+
+</datamodel>

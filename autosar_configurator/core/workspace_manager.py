@@ -739,12 +739,19 @@ class WorkspaceManager:
         loaded_modules = []
         failed_modules = []
 
+        # If the user selected a chip (or passed a subfolder), we should append it to project_root
+        if chip_name and (project_root / chip_name).exists():
+            project_root = project_root / chip_name
+
         # Step 1: Scan for define files (.xdm and .arxml) in EB plugin structure
         _progress("Scanning for module definitions...")
         define_map = {}  # module_name -> def_path
 
-        # Primary: Define/EbPlugins/eclipse/*/config/*.xdm
+        # Primary: Define/EbPlugins/eclipse/*/config/*.xdm (or Def/)
         eb_plugins_dir = project_root / "Define" / "EbPlugins" / "eclipse"
+        if not eb_plugins_dir.exists():
+            eb_plugins_dir = project_root / "Def" / "plugins"
+
         if eb_plugins_dir.exists():
             for module_dir in sorted(eb_plugins_dir.iterdir()):
                 if not module_dir.is_dir():
@@ -772,18 +779,21 @@ class WorkspaceManager:
                         if base_name.lower() not in existing_keys_lower:
                             define_map[base_name] = def_file
 
-        # Fallback: search more broadly in Define/ for both .xdm and .arxml
+        # Fallback: search more broadly in Define/ or Def/ for both .xdm and .arxml
         if not define_map:
-            define_dir = project_root / "Define"
-            if define_dir.exists():
-                for ext in ("*.xdm", "*.arxml"):
-                    for def_file in define_dir.rglob(ext):
-                        module_name = def_file.stem
-                        # Filter out config/rec files
-                        if module_name.endswith("_Config") or module_name.endswith("_rec"):
-                            continue
-                        if module_name not in define_map:
-                            define_map[module_name] = def_file
+            for define_dir_name in ["Define", "Def"]:
+                define_dir = project_root / define_dir_name
+                if define_dir.exists():
+                    for ext in ("*.xdm", "*.arxml"):
+                        for def_file in define_dir.rglob(ext):
+                            module_name = def_file.stem
+                            # Filter out config/rec files
+                            if module_name.endswith("_Config") or module_name.endswith("_rec"):
+                                continue
+                            if module_name not in define_map:
+                                define_map[module_name] = def_file
+                    if define_map:
+                        break
 
         _progress(f"Found {len(define_map)} module definition(s)")
 

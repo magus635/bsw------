@@ -1,0 +1,1908 @@
+<?xml version="1.0"?>
+<datamodel version="7.0" xmlns="http://www.tresos.de/_projects/DataModel2/16/root.xsd" xmlns:a="http://www.tresos.de/_projects/DataModel2/16/attribute.xsd" xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd" xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd">
+  <d:ctr type="AUTOSAR" factory="autosar" xmlns:ad="http://www.tresos.de/_projects/DataModel2/08/admindata.xsd" xmlns:cd="http://www.tresos.de/_projects/DataModel2/08/customdata.xsd" xmlns:f="http://www.tresos.de/_projects/DataModel2/14/formulaexpr.xsd" xmlns:icc="http://www.tresos.de/_projects/DataModel2/08/implconfigclass.xsd" xmlns:mt="http://www.tresos.de/_projects/DataModel2/11/multitest.xsd" xmlns:variant="http://www.tresos.de/_projects/DataModel2/11/variant.xsd">
+    <d:lst type="TOP-LEVEL-PACKAGES">
+      <d:ctr name="THA6_AS440_FuSa" type="AR-PACKAGE">
+        <a:a name="UUID" value="ECUC:AUTOSAR" />
+        <d:lst type="ELEMENTS">
+<!-- ECUC_Spi_00103: Configuration of the Spi (Serial Peripheral Interface) module. -->
+          <d:chc name="Spi" type="AR-ELEMENT" value="MODULE-DEF">
+            <v:ctr type="MODULE-DEF">
+              <a:a name="ADMIN-DATA" type="ADMIN-DATA">
+                <ad:ADMIN-DATA>
+                  <ad:DOC-REVISIONS>
+                    <ad:DOC-REVISION>
+                      <ad:REVISION-LABEL>4.4.0</ad:REVISION-LABEL>
+                      <ad:ISSUED-BY>AUTOSAR</ad:ISSUED-BY>
+                    </ad:DOC-REVISION>
+                  </ad:DOC-REVISIONS>
+                </ad:ADMIN-DATA>
+              </a:a>
+              <a:a name="DESC" value="EN: ECUC_Spi_00103: Configuration of the Spi (Serial Peripheral Interface) module." />
+              <a:a name="LOWER-MULTIPLICITY" value="1" />
+              <a:a name="RELEASE" value="asc:4.4.0" />
+              <a:a name="UPPER-MULTIPLICITY" value="1" />
+              <a:a name="UUID" value="0566408a-c16b-4e93-8b2f-d8bf1a1a4e42" />
+              <a:a name="POSTBUILDVARIANTSUPPORT" value="true" />
+              <v:var name="IMPLEMENTATION_CONFIG_VARIANT" type="ENUMERATION">
+                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                  <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                </a:a>
+                <a:a name="LABEL" value="Config Variant" />
+                <a:a name="UUID" value="bb4936d5-8dae-4a2f-83de-14f26bc87072" />
+                <a:da name="DEFAULT" value="VariantPostBuild" />
+                <a:da name="RANGE">
+                  <a:v>VariantPostBuild</a:v>
+                </a:da>
+              </v:var>
+<!-- ECUC_Spi_00241: Container for the references to DemEventParameter elements which shall be invoked using the API Dem_ReportErrorStatus API in case the corresponding error occurs. The EventId is taken from the referenced DemEventParameter's DemEventId value. The standardized errors are provided in the container and can be extended by vendor specific error references. -->
+              <v:ctr name="SpiDemEventParameterRefs" type="IDENTIFIABLE">
+                <a:a name="DESC" value="EN: ECUC_Spi_00241: Container for the references to DemEventParameter elements which shall be invoked using the API Dem_ReportErrorStatus API in case the corresponding error occurs. The EventId is taken from the referenced DemEventParameter's DemEventId value. The standardized errors are provided in the container and can be extended by vendor specific error references." />
+                <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                  <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                </a:a>
+                <a:a name="OPTIONAL" value="true" />
+                <a:a name="UUID" value="2008862c-6d81-4b25-b980-8d66b2389165" />
+<!-- ECUC_Spi_00241: Reference to configured DEM event to report "Hardware failure". If the reference is not configured the error shall not be reported. -->
+                <v:ref name="SPI_E_HARDWARE_ERROR" type="SYMBOLIC-NAME-REFERENCE">
+                  <a:a name="DESC" value="EN: ECUC_Spi_00241: Reference to configured DEM event to report &quot;Hardware failure&quot;. If the reference is not configured the error shall not be reported." />
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="OPTIONAL" value="true" />
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="UUID" value="c63571cc-6b93-4cd1-b06d-045c81987311" />
+                  <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/Dem/DemConfigSet/DemEventParameter" />
+                  <a:da name="INVALID" type="XPath">
+                    <a:tst expr="node:refvalid(.)" false="[083-00-00-ERROR]: Invalid or empty reference." />
+                  </a:da>
+                </v:ref>
+              </v:ctr>
+<!-- ECUC_Spi_00225: General configuration settings for SPI-Handler -->
+              <v:ctr name="SpiGeneral" type="IDENTIFIABLE">
+                <a:a name="DESC" value="EN: ECUC_Spi_00225: General configuration settings for SPI-Handler" />
+                <a:a name="UUID" value="238f3404-1614-475f-bd4c-02cd2fb0eb91" />
+<!-- ECUC_Spi_00227: Selects the SPI Handler/Driver Channel Buffers usage allowed and delivered -->
+                <v:var name="SpiChannelBuffersAllowed" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:
+                      <html>
+                          ECUC_Spi_00227: Selects the SPI Handler/Driver Channel Buffers usage allowed and delivered.
+                          <h1>Note</h1><br>
+                          0 - USAGE0: Only Internal Buffers (IB) are allowed <br>
+                          1 - USAGE1: Only External buffers (EB) are allowed <br>
+                          2 - USAGE2: Both Internal (IB) and External (EB) buffers are allowed
+                      </html>
+                    ]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="124ba6eb-cab0-4c13-acaf-3f3037fd7fb1" />
+                  <a:da name="DEFAULT" value="0" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=2" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+<!-- ECUC_Spi_00231: Selects the SPI Handler/Driver level of scalable functionality that is available and delivered -->
+                <v:var name="SpiLevelDelivered" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:
+                      <html>
+                        ECUC_Spi_00231: Selects the SPI Handler/Driver level of scalable functionality that is available and delivered.
+                        <h1>Note</h1> <br>
+                        0 - Level0: Only Simple Synchronous Behavior <br>
+                        1 - Level1: Basic Asynchronous Behavior <br>
+                        2 - Level2: Enhanced Behavior(Both Synchronous and Asynchronous).
+                      </html>
+                    ]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="3fd86de5-f562-499c-ac25-85339c0fcb1d" />
+                  <a:da name="DEFAULT" value="0" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=2" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+<!-- ECUC_Spi_00242: This parameter defines the cycle time of the function Spi_MainFunction_Handling in seconds. The parameter is not used by the driver it self, but it is used by upper layer -->
+                <v:var name="SpiMainFunctionPeriod" type="FLOAT">
+                  <a:a name="DESC" value="EN: ECUC_Spi_00242: This parameter defines the cycle time of the function Spi_MainFunction_Handling in seconds. The parameter is not used by the driver it self, but it is used by upper layer." />
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="OPTIONAL" value="true" />
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="dc5e9e70-28ae-4d76-9de4-dd33dd5012f9" />
+                  <a:da name="DEFAULT" value="0.01" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=1.0" />
+                    <a:tst expr="&gt;=1.0E-7" />
+                  </a:da>
+                </v:var>
+                <v:var name="SpiTransmitTimeout" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:
+                        <html>
+                          Timeout value used to wait for the TX transfer to complete and the RX flag to be set. Unit: us
+                          <h1>Note</h1>
+                          This is an implementation parameter. If the chip cannot complete the data transfer within this timeout, the transfer will fail.
+                          This value must be greater than the time required to complete one data transfer.
+                        </html>
+                      ]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="dc5e9e70-28ae-4d76-9de4-dd33dd5122fa" />
+                  <a:da name="DEFAULT" value="1000" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=90000000" />
+                    <a:tst expr="&gt;=1" />
+                  </a:da>
+                </v:var>
+<!-- Maps the SPI driver to zero or multiple ECUC partitions to make the driver API available in the according partition -->
+                <v:lst name="SpiEcucPartitionRef">
+                    <v:ref name="SpiEcucPartitionRef" type="REFERENCE">
+                        <a:a name="DESC" value="EN: ECUC_Spi_00244: Maps the SPI driver to zero or multiple ECUC partitions to make the driver API available in the according partition. &lt;br/&gt; Tags: atp.Status=draft."/>
+                        <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true"/>
+                        <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                            <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                        <a:a name="SCOPE" value="ECU"/>
+                        <a:a name="UUID" value="d2c6c26a-5cca-483a-ba4f-9c4e7c7e6644"/>
+                        <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/EcuC/EcucPartitionCollection/EcucPartition"/>
+                    </v:ref>
+                </v:lst>
+<!-- ECUC_Spi_00245: Maps the SPI kernel to zero or one ECUC partitions to assign the driver kernel to a certain core. The ECUC partition referenced is a subset of the ECUC partitions where the SPI driver is mapped to -->
+                <v:lst name="SpiKernelEcucPartitionRef">
+                    <a:da name="MIN" value="0" />
+                    <a:da name="MAX" value="1" />
+                    <v:ref name="SpiKernelEcucPartitionRef" type="REFERENCE">
+                        <a:a name="DESC" value="EN: ECUC_Spi_00245: Maps the SPI kernel to zero or one ECUC partitions to assign the driver kernel to a certain core. The ECUC partition referenced is a subset of the ECUC partitions where the SPI driver is mapped to. &lt;br/&gt; Tags: atp.Status=draft."/>
+                        <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true"/>
+                        <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                            <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                        <a:a name="SCOPE" value="ECU"/>
+                        <a:a name="UUID" value="e8492f16-b405-4356-843f-f3d5d93231ce"/>
+                        <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/EcuC/EcucPartitionCollection/EcucPartition"/>
+                    </v:ref>
+                </v:lst>
+<!-- ECUC_Spi_00228: Switches the Default Error Tracer (Det) detection and notification ON or OFF -->
+                <v:var name="SpiDevErrorDetect" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: ECUC_Spi_00228: Switches the Default Error Tracer (Det) detection and notification ON or OFF." />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="0c7a1f87-1d34-4eb8-bdaa-de4a679a09b2" />
+                  <a:da name="DEFAULT" value="false" />
+                </v:var>
+                <v:var name="SpiSafetyErrorDetect" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: Switches the functional safety detection and notification ON or OFF." />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="cd875107-145d-497d-805c-bdddba15256c" />
+                  <a:da name="DEFAULT" value="true" />
+                </v:var>
+<!-- ECUC_Spi_00226: Switches the Spi_Cancel function ON or OFF. -->
+                <v:var name="SpiCancelApi" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: ECUC_Spi_00226: Switches the Spi_Cancel function ON or OFF." />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="90164b66-02b6-47e0-adfc-e553b5336f23" />
+                  <a:da name="DEFAULT" value="false" />
+                </v:var>
+<!-- ECUC_Spi_00229: Switches the Spi_GetHWUnitStatus function ON or OFF -->
+                <v:var name="SpiHwStatusApi" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: ECUC_Spi_00229: Switches the Spi_GetHWUnitStatus function ON or OFF." />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="9dd6edc7-a0f9-4c37-af7e-921b48c31171" />
+                  <a:da name="DEFAULT" value="false" />
+                </v:var>
+<!-- ECUC_Spi_00232: Switches the Spi_GetVersionInfo function ON or OFF -->
+                <v:var name="SpiVersionInfoApi" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: ECUC_Spi_00232: Switches the Spi_GetVersionInfo function ON or OFF." />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="e19537e1-156c-4ad4-bde7-36b2a2d5ecc3" />
+                  <a:da name="DEFAULT" value="false" />
+                </v:var>
+<!-- ECUC_Spi_00230: Switches the Interruptible Sequences handling functionality ON or OFF -->
+                <v:var name="SpiInterruptibleSeqAllowed" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: ECUC_Spi_00230: Switches the Interruptible Sequences handling functionality ON or OFF. &lt;br/&gt; &lt;h1&gt;Note&lt;/h1&gt; This parameter available only when 'SpiLevelDelivered' = 1 or = 2" />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="fb943faf-b086-42ba-bfb0-29caebd81afe" />
+                  <a:da name="DEFAULT" value="false" />
+                  <a:da name="EDITABLE" type="XPath">
+                    <a:tst expr="node:fallback(&quot;->../SpiLevelDelivered != '0'&quot;,'true')" />
+                  </a:da>
+                </v:var>
+<!-- ECUC_Spi_00237: Specifies whether concurrent Spi_SyncTransmit() calls for different sequences shall be configurable -->
+                <v:var name="SpiSupportConcurrentSyncTransmit" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: ECUC_Spi_00237: Specifies whether concurrent Spi_SyncTransmit() calls for different sequences shall be configurable." />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="1801c1e5-68c4-4083-b51f-e0e16cf85d96" />
+                  <a:da name="DEFAULT" value="false" />
+                  <a:da name="EDITABLE" type="XPath">
+                    <a:tst expr="node:fallback(&quot;->../SpiLevelDelivered = '0' or ../SpiLevelDelivered = '2'&quot;, 'true')" />
+                  </a:da>
+                </v:var>
+              </v:ctr>
+<!-- ECUC_Spi_00091: This container contains the configuration parameters and sub containers of the AUTOSAR Spi module -->
+              <v:ctr name="SpiDriver" type="IDENTIFIABLE">
+                <a:a name="DESC" value="EN: ECUC_Spi_00091: This container contains the configuration parameters and sub containers of the AUTOSAR Spi module." />
+                <a:a name="UUID" value="8a203eda-4165-4ec6-aa41-b17383e2d9ec" />
+<!-- ECUC_Spi_00197: This parameter contains the number of Channels configured. It will be gathered by tools during the configuration stage -->
+                <v:var name="SpiMaxChannel" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:
+                        <html>
+                          ECUC_Spi_00197: This parameter contains the number of Channels configured. It will be gathered by tools during the configuration stage.
+                          <h1>Note</h1>
+                          This parameter is not used, the max number of channels will be auto calculated when 'SpiChannel' container configurated.
+                        </html>
+                      ]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                    <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="OPTIONAL" value="true" />
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="1354b29a-167d-41da-831f-8fd238e59384" />
+                  <a:da name="DEFAULT" type="XPath">
+                    <a:tst expr="node:fallback(&quot;->num:i(count(../SpiChannel/*))&quot;, num:i(0))"/>
+                  </a:da>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+<!-- ECUC_Spi_00198: Total number of Jobs configured -->
+                <v:var name="SpiMaxJob" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:
+                        <html>
+                          ECUC_Spi_00198: Total number of Jobs configured.
+                          <h1>Note</h1>
+                          This parameter is not used, the max number of jobs will be auto calculated when 'SpiChannel' container configurated.
+                        </html>
+                      ]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                    <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                  <a:a name="OPTIONAL" value="true" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="80e93a74-e90c-473c-b2e9-981a2b3cc367" />S
+                  <a:da name="DEFAULT" type="XPath">
+                    <a:tst expr="node:fallback(&quot;->num:i(count(../SpiJob/*))&quot;, num:i(0))"/>
+                  </a:da>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=65535" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+<!-- ECUC_Spi_00199: Total number of Sequences configured -->
+                <v:var name="SpiMaxSequence" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:
+                        <html>
+                          ECUC_Spi_00199: Total number of Sequences configured.
+                          <h1>Note</h1>
+                          This parameter is not used, the max number of sequences will be auto calculated when 'SpiChannel' container configurated.
+                        </html>
+                      ]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                    <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="OPTIONAL" value="true" />
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="20fb88ba-43f7-46fb-a7d8-38e15761dc03" />
+                  <a:da name="DEFAULT" type="XPath">
+                    <a:tst expr="node:fallback(&quot;->num:i(count(../SpiSequence/*))&quot;, num:i(0))"/>
+                  </a:da>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+<!-- ECUC_Spi_00104: All data needed to configure one SPI-channel -->
+                <v:lst name="SpiChannel" type="MAP">
+                  <a:da name="MIN" value="1" />
+                  <a:da name="MAX" value="255" />
+                  <v:ctr name="SpiChannel" type="IDENTIFIABLE">
+                    <a:a name="DESC" value="EN: ECUC_Spi_00104: All data needed to configure one SPI-channel." />
+                    <a:a name="REQUIRES-INDEX" value="true"/>
+                    <a:a name="UUID" value="f23eb9d3-9287-414e-b14e-bb0ca28a57ad" />
+                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                    </a:a>
+<!-- ECUC_Spi_00200: SPI Channel ID, used as parameter in SPI API functions -->
+                    <v:var name="SpiChannelId" type="INTEGER">
+                      <a:a name="DESC" value="EN: ECUC_Spi_00200: SPI Channel ID, used as parameter in SPI API functions." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="true" />
+                      <a:a name="UUID" value="5d1f3512-7dde-496c-a10e-282f2d141141" />
+                      <a:da name="DEFAULT" type="XPath" expr="node:fallback(node:current()/../@index, num:i(1))" />
+                      <a:da name="INVALID" type="Range">
+                        <a:tst expr="&lt;=255" />
+                        <a:tst expr="&gt;=0" />
+                      </a:da>
+                      <a:da name="RANGE" type="XPath">
+                        <a:tst expr="(node:fallback( ., 0 ) &gt;= 0) and (node:fallback( ., 0 ) &lt; num:i(count(node:fallback(&quot;->node:current()/../../*&quot;, 1 ))))" false="[083-00-01-ERROR]: Value of SpiChannelId is out of range: must be in range 0 to N-1 (N is number of configured channels). Use the Calc button to calculate correct default value" />
+                        <a:tst expr="text:uniq(node:fallback(&quot;->../../*/SpiChannelId&quot;, text:split('0') ), node:fallback( ., 1 ))" false="[083-00-02-ERROR]: Duplicated value, SpiChannelId must be unique across all Spi channels. Use the Calc button to calculate correct default value." />
+                      </a:da>
+                    </v:var>
+<!-- ECUC_Spi_00201: Buffer usage with EB/IB channel -->
+                    <v:var name="SpiChannelType" type="ENUMERATION">
+                      <a:a name="DESC">
+                        <a:v>
+                          <![CDATA[EN:
+                            <html>
+                              ECUC_Spi_00201: Buffer usage with EB/IB channel.
+                              <h1>Note</h1>
+                              This parameter is dependant on 'SpiChannelBuffersAllowed' parameter.<br>
+                              When 'SpiChannelBuffersAllowed' = 0, SpiChannelType should be IB.<br>
+                              When 'SpiChannelBuffersAllowed' = 1, SpiChannelType should be EB.<br>
+                              When 'SpiChannelBuffersAllowed' = 2, SpiChannelType should be IB or EB.
+                            </html>
+                          ]]>
+                        </a:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="e6fd6160-48ba-4363-8c91-653da0851b25" />
+                      <a:da name="DEFAULT" value="EB" />
+                      <a:da name="RANGE">
+                        <a:v>EB</a:v>
+                        <a:v>IB</a:v>
+                      </a:da>
+                      <a:da name="INVALID" type="XPath">
+                        <a:tst expr="((. ='IB') and (../../../../SpiGeneral/SpiChannelBuffersAllowed ='1')) or ((. ='EB') and (../../../../SpiGeneral/SpiChannelBuffersAllowed ='0'))" true="[083-00-03-ERROR]: Incorrect Channel type. Please select proper Channel type.
+                            Select IB - Only when SpiChannelBuffersAllowed ='0' or  ='2'
+                            Select EB - Only When SpiChannelBuffersAllowed ='1' or  ='2'" />
+                      </a:da>
+                    </v:var>
+<!-- ECUC_Spi_00202: This parameter is the width of a transmitted data unit -->
+                    <v:var name="SpiDataWidth" type="INTEGER">
+                      <a:a name="DESC">
+                        <a:v>
+                          <![CDATA[EN:
+                            <html>
+                              ECUC_Spi_00202: This parameter is the width of a transmitted data unit.
+                              <h1>Note</h1>
+                              The hardware supports data width is 8 to 32 bit. The unit is in bits.<br>
+                              Must be a multiple of 8.
+                            </html>
+                            ]]>
+                        </a:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="01e8fdb7-e9a7-41cf-9af5-fd4160e441f2" />
+                      <a:da name="DEFAULT" value="8" />
+                      <a:da name="INVALID" type="Range">
+                        <a:tst expr="&lt;=32" />
+                        <a:tst expr="&gt;=1" />
+                      </a:da>
+                    </v:var>
+<!-- ECUC_Spi_00203: The default data to be transmitted when (for internal buffer or external buffer). The pointer passed to Spi_WriteIB (for internal buffer) or to Spi_SetupEB (for external buffer) is NULL -->
+                    <v:var name="SpiDefaultData" type="INTEGER">
+                      <a:a name="DESC">
+                        <a:v>
+                          <![CDATA[EN:
+                          <html>
+                              ECUC_Spi_00203: The default data to be transmitted when (for internal buffer or external buffer). The pointer passed to Spi_WriteIB (for internal buffer) or to Spi_SetupEB (for external buffer) is NULL.
+                              <h1>Note: Value Ranges</h1> <br>
+                              SpiDefaultData Value must be 0 ~ 2^SpiDataWidth.
+                          </html>
+                          ]]>
+                        </a:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="OPTIONAL" value="true" />
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="bf8b586b-e088-4b05-a413-0ea7cf0671b7" />
+                      <a:da name="DEFAULT" value="0" />
+                      <a:da name="INVALID" type="Range">
+                        <a:tst expr="&lt;=num:i(bit:shl(1, node:fallback(&quot;->../SpiDataWidth&quot;, 32)) - 1)" />
+                        <a:tst expr="&gt;=0" />
+                      </a:da>
+                    </v:var>
+<!-- ECUC_Spi_00204: This parameter contains the maximum size (number of data elements) of data buffers in case of EB Channels and only -->
+                    <v:var name="SpiEbMaxLength" type="INTEGER">
+                      <a:a name="DESC" value="EN: ECUC_Spi_00204: This parameter contains the maximum size (number of data elements) of data buffers in case of EB Channels and only." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="421591e3-781c-48d9-8391-dcf2fff90591" />
+                      <a:da name="DEFAULT" value="10" />
+                      <a:da name="INVALID" type="Range">
+                        <a:tst expr="&lt;=65535" />
+                        <a:tst expr="&gt;=0" />
+                      </a:da>
+                      <a:da name="EDITABLE" type="XPath">
+                        <a:tst expr="node:fallback(&quot;->((../../../../SpiGeneral/SpiChannelBuffersAllowed = '1' or ../../../../SpiGeneral/SpiChannelBuffersAllowed = '2') and ../SpiChannelType = 'EB')&quot;, 'true')" />
+                      </a:da>
+                    </v:var>
+<!-- ECUC_Spi_00205: This parameter contains the maximum number of data buffers in case of IB Channels and only -->
+                    <v:var name="SpiIbNBuffers" type="INTEGER">
+                      <a:a name="DESC">
+                        <a:v>
+                          <![CDATA[EN:
+                            <html>
+                              ECUC_Spi_00205: This parameter contains the maximum number of data buffers in case of IB Channels and only.
+                              <h1>Note</h1>
+                              This parameter only availible when ('SpiChannelBuffersAllowed' = '0' or = '2') and 'SpiChannelType' = 'IB'.
+                            </html>
+                          ]]>
+                        </a:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="943cb5f9-fd5e-4e68-907e-9d746c2475d1" />
+                      <a:da name="DEFAULT" value="5" />
+                      <a:da name="INVALID" type="Range">
+                        <a:tst expr="&lt;=65535" />
+                        <a:tst expr="&gt;=0" />
+                      </a:da>
+                      <a:da name="EDITABLE" type="XPath">
+                        <a:tst expr="node:fallback(&quot;->((../../../../SpiGeneral/SpiChannelBuffersAllowed = '0' or ../../../../SpiGeneral/SpiChannelBuffersAllowed = '2')  and ../SpiChannelType = 'IB')&quot;, 'true')" />
+                      </a:da>
+                    </v:var>
+<!-- ECUC_Spi_00206: This parameter defines the first starting bit for transmission -->
+                    <v:var name="SpiTransferStart" type="ENUMERATION">
+                      <a:a name="DESC">
+                        <a:v>
+                          <![CDATA[EN:
+                            <html>
+                              ECUC_Spi_00206: This parameter defines the first starting bit for transmission.
+                              <h1>Note</h1>
+                              LSB - Transmission starts with the Least Significant Bit first.<br/>
+                              MSB - Transmission starts with the Most Significant Bit first.
+                            </html>
+                          ]]>
+                        </a:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="d013e7f1-3b92-4bd3-aaee-7bf877ae1233" />
+                      <a:da name="DEFAULT" value="MSB" />
+                      <a:da name="RANGE">
+                        <a:v>LSB</a:v>
+                        <a:v>MSB</a:v>
+                      </a:da>
+                    </v:var>
+                  </v:ctr>
+                </v:lst>
+<!-- ECUC_Spi_00207: The communication settings of an external device. Closely linked to SpiJob -->
+                <v:lst name="SpiExternalDevice" type="MAP">
+                  <a:da name="MIN" value="1" />
+                  <a:da name="MAX" value="255" />
+                  <v:ctr name="SpiExternalDevice" type="IDENTIFIABLE">
+                    <a:a name="DESC" value="EN: ECUC_Spi_00207: The communication settings of an external device. Closely linked to SpiJob." />
+                    <a:a name="REQUIRES-INDEX" value="true"/>
+                    <a:a name="UUID" value="4d0f9ea0-449f-4e13-a59e-61f42214f92f" />
+                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                      <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                    </a:a>
+                    <v:var name="SpiExternalDeviceId" type="INTEGER">
+                      <a:a name="DESC" value="EN: SPI External Device ID, used for order." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="5d1f3512-7fae-496c-a10e-282f2d142341" />
+                      <a:da name="DEFAULT" type="XPath" expr="node:fallback(&quot;->node:current()/../@index&quot;, num:i(0))" />
+                      <a:da name="INVALID" type="Range">
+                        <a:tst expr="&lt;=255" />
+                        <a:tst expr="&gt;=0" />
+                      </a:da>
+                      <a:da name="RANGE" type="XPath">
+                        <a:tst expr="(node:fallback( ., 0 ) &gt;= 0) and (node:fallback( ., 0 ) &lt; num:i(count(node:fallback(&quot;->node:current()/../../*&quot;, 1 ))))" false="[083-00-04-ERROR]: Value of SpiExternalDeviceId is out of range: must be in range 0 to N-1 (N is number of configured External Devices). Use the Calc button to calculate correct default value" />
+                        <a:tst expr="text:uniq(node:fallback(&quot;->../../*/SpiExternalDeviceId&quot;, text:split('0') ), node:fallback( ., 1 ))" false="[083-00-05-ERROR]: Duplicated value, SpiExternalDeviceId must be unique across all Spi external devices. Use the Calc button to calculate correct default value." />
+                      </a:da>
+                    </v:var>
+                    <v:ref name="SpiHwUnitRef" type="REFERENCE">
+                      <a:a name="DESC" value="EN: Select the Spi hardware unit used for this external device." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="UUID" value="46adae94-6544-4509-a949-c980887c7b90" />
+                      <a:da name="REF" value="ASPathDataOfSchema:/THA6_AS440_FuSa/Spi/SpiDriver/SpiHwUnitConfig" />
+                      <a:da name="INVALID" type="XPath">
+                        <a:tst expr="node:refvalid(.)" false="Invalid or empty reference." />
+                      </a:da>
+                    </v:ref>
+<!-- ECUC_Spi_00209: This parameter is the symbolic name to identify the Chip Select (CS) allocated to this Job -->
+                    <v:var name="SpiCsIdentifier" type="STRING">
+                      <a:a name="DESC" value="EN: ECUC_Spi_00209: This parameter is the symbolic name to identify the Chip Select (CS) allocated to this Job." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="a2cd9e75-cb6e-4534-b5ba-3593e6018bcd" />
+                      <a:da name="DEFAULT" type="XPath" expr="text:concat('SLSO_', ecu:list(concat('Spi.', node:fallback(&quot;->node:value(node:ref(../SpiHwUnitRef)/SpiHWUnitMapping)&quot;, 'Spi_x'), '.ChipSelect'))[1])" />
+                      <a:da name="INVALID" type="XPath">
+                        <a:tst expr="text:uniq(
+                                        node:foreach(node:paths(../../*), 'path',
+                                            'concat(node:value(node:ref($path)/SpiHwUnitRef),
+                                                    node:value(node:ref($path)/SpiCsIdentifier),
+                                                    node:value(node:ref($path)/SpiEnableCs),
+                                                    node:when(node:exists(node:ref($path)/SpiCsSelection), node:ref($path)/SpiCsSelection, num:i(0)),
+                                                    node:when(node:exists(node:ref($path)/SpiCustomCsPinRef), node:ref($path)/SpiCustomCsPinRef, num:i(0))
+                                                    )
+                                            '),
+                                        concat(../SpiHwUnitRef,
+                                            ../SpiCsIdentifier,
+                                            ../SpiEnableCs,
+                                            node:when(node:exists(../SpiCsSelection), ../SpiCsSelection, num:i(0)),
+                                            node:when(node:exists(../SpiCustomCsPinRef), ../SpiCustomCsPinRef, num:i(0))
+                                            )
+                                        )" false="Duplicate Spi Chip Select(SLSO)"/>
+                      </a:da>
+                      <a:da name="RANGE" type="XPath" expr="text:concat('SLSO_', ecu:list(concat('Spi.', node:fallback(&quot;->node:value(node:ref(../SpiHwUnitRef)/SpiHWUnitMapping)&quot;, 'Spi_x'),'.ChipSelect')))"/>
+                    </v:var>
+<!-- ECUC_Spi_00212: This parameter enables or not the Chip Select handling functions. If this parameter is enabled then parameter SpiCsSelection further details the type of chip selection -->
+                    <v:var name="SpiEnableCs" type="BOOLEAN">
+                      <a:a name="DESC" value="EN: ECUC_Spi_00212: This parameter enables or not the Chip Select handling functions. If this parameter is enabled then parameter SpiCsSelection further details the type of chip selection.
+                      If this parameter is not disabled, selected SPI Peripheral 'SLSO' will be available." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="653c50b8-8a4e-490c-9c0d-31dbef1a52a7" />
+                      <a:da name="DEFAULT" value="false" />
+                    </v:var>
+<!-- ECUC_Spi_00239: When the Chip select handling is enabled (see SpiEnableCs), then this parameter specifies if the chip select is handled automatically by Pe-ripheral HW engine or via general purpose IO by Spi driver -->
+                    <v:var name="SpiCsSelection" type="ENUMERATION">
+                      <a:a name="DESC">
+                        <a:v>
+                          <![CDATA[EN:
+                            <html>
+                                ECUC_Spi_00239: When the Chip select handling is enabled (see SpiEnableCs), then this parameter specifies if the chip select is handled automatically by Pe-ripheral HW engine or via general purpose IO by Spi driver.
+                                <h1>Note</h1>
+                                As for SPI, 'CS_VIA_PERIPHERAL_ENGINE' is recommended.
+                            </html>
+                          ]]>
+                        </a:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="OPTIONAL" value="true" />
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="baffb710-9777-4495-9616-5608511afef6" />
+                      <a:da name="DEFAULT" value="CS_VIA_PERIPHERAL_ENGINE" />
+                      <a:da name="RANGE">
+                        <a:v>CS_VIA_GPIO</a:v>
+                        <a:v>CS_VIA_PERIPHERAL_ENGINE</a:v>
+                      </a:da>
+                      <a:da name="EDITABLE" type="XPath">
+                        <a:tst expr="node:fallback(&quot;->../SpiEnableCs = 'true'&quot;, 'true')" />
+                      </a:da>
+                    </v:var>
+                    <v:ref name="SpiCustomCsPinRef" type="REFERENCE">
+                      <a:a name="DESC" value="EN: Select the custom chip selection pin. This parameter only availabled when 'SpiEnableCs' = 'true' and 'SpiCsSelection' = 'CS_VIA_GPIO', Instead of 'SpiCsIdentifier' " />
+                      <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true"/>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="UUID" value="d8be221b-0b4d-45a3-9a64-c59f3b04b300" />
+                      <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/Dio/DioConfig/DioPort/DioChannel" />
+                      <a:da name="ENABLE" type="XPath">
+                        <a:tst expr="node:fallback(&quot;->../SpiEnableCs = 'true' and ../SpiCsSelection = 'CS_VIA_GPIO'&quot;, 'true')" />
+                      </a:da>
+                      <a:da name="INVALID" type="XPath">
+                        <a:tst expr="node:fallback(&quot;->../SpiEnableCs = 'true' and ../SpiCsSelection = 'CS_VIA_GPIO' and node:refvalid(.)&quot;, 'true')" false="[083-00-00-ERROR]: Invalid or empty reference." />
+                      </a:da>
+                    </v:ref>
+                    <v:ref name="SpiModuleClock" type="REFERENCE">
+                      <a:a name="DESC" value="EN: This parameter defines SPI module clk(hz) to calculate Baudrate. &lt;br/&gt; This parameter is reference from MCU Spi clock, configure SPI clock first in MCU Container" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="UUID" value="d8be721b-0b4d-45a3-9e64-c89f3b04b300" />
+                      <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/Mcu/McuModuleConfiguration/McuClockSettingConfig/McuClockReferencePoint" />
+                      <a:da name="INVALID" type="XPath">
+                        <a:tst expr="node:refvalid(.)" false="[083-00-00-ERROR]: Invalid or empty reference." />
+                      </a:da>
+                    </v:ref>
+<!-- ECUC_Spi_00208: This parameter is the communication baudrate - This parameter allows using a range of values, from the point of view of configuration tools, from Hz up to MHz -->
+                    <v:var name="SpiBaudrate" type="FLOAT">
+                      <a:a name="DESC" value="EN: ECUC_Spi_00208: This parameter is the communication baudrate - This parameter allows using a range of values, from the point of view of configuration tools, from Hz up to MHz. &lt;h1&gt;Typical value&lt;/h1&gt;When SpiGlobalClkDivRatioParamTq in SpiHwUnitConfig is configured as 1, the available baud&lt;h1&gt;Note&lt;/h1&gt;It will be auto calculated by configured parameters. &lt;br/&gt; Baudrate = SpiModuleClock / (SpiBaudParamTq*SpiBaudParamQ*(SpiBaudParamA+SpiBaudParamB+SpiBaudParamC))" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="3c950b6b-b1ce-4f3e-b688-33ea2f2d1fbd" />
+                      <a:da name="DEFAULT" value="8000000" />
+                      <a:da name="INVALID" type="Range">
+                        <a:tst expr="&lt;=50000000" />
+                        <a:tst expr="&gt;=0" />
+                        <!-- <a:tst expr="&gt;=122" /> -->
+                      </a:da>
+                      <a:da name="EDITABLE" type="XPath">
+                        <a:tst expr="node:fallback(&quot;->../SpiAutoCalcBaudrateParams = 'true'&quot;, 'true')" />
+                      </a:da>
+                    </v:var>
+                    <v:var name="SpiAutoCalcBaudrateParams" type="BOOLEAN">
+                      <a:a name="DESC" value="EN: Switches automatic calculation of Baudrate parameters function ON or OFF." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="6480de14-4883-4555-810b-fd736cb51853" />
+                      <a:da name="DEFAULT" value="false" />
+                    </v:var>
+                    <v:lst name="SpiBaudrateParams" type="MAP">
+                      <a:da name="MAX" value="1" />
+                      <a:da name="MIN" value="1" />
+                      <a:da name="EDITABLE" type="XPath">
+                        <a:tst expr="node:fallback(&quot;->../SpiAutoCalcBaudrateParams = 'false'&quot;, 'true')" />
+                      </a:da>
+                      <a:da name="INVALID" type="XPath">
+                          <a:tst expr="node:fallback(&quot;->../SpiAutoCalcBaudrateParams = 'false' and count(./*) = num:i(0)&quot;, 'false')"
+                               true="[083-00-06-ERROR]: If Auto baudrate calculation is set to false, then the individual baudrate params should be configured, (Indicate - Add the container and configure the baudrate parameters)"/>
+                      </a:da>
+                      <v:ctr name="SpiBaudrateParams" type="IDENTIFIABLE">
+                        <a:a name="DESC" value="EN: This container has the parameters which are responsible for the Baudrate." />
+                        <a:a name="UUID" value="2d94d038-322b-4951-aca2-b59a1d84d1cb" />
+                        <v:var name="SpiBaudParamA" type="INTEGER">
+                          <a:a name="DESC">
+                            <a:v>
+                              <![CDATA[EN:
+                                <html>
+                                  This parameter defines Spi A Hw parameter. This corresponds to the length expressed in time quantums of Q.<br/>
+                                  1<br/>
+                                  2<br/>
+                                  3<br/>
+                                  4<br/>
+                                  Refer to the register 'ECON' bit6-7 in <i>User Manual</i>.
+                                </html>
+                              ]]>
+                            </a:v>
+                          </a:a>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                          <a:a name="UUID" value="d8be721b-0b4d-45a3-9e64-c19f3b03b30e" />
+                          <a:da name="DEFAULT" value="1" />
+                          <a:da name="INVALID" type="Range">
+                            <a:tst expr="&lt;=4" />
+                            <a:tst expr="&gt;=1" />
+                          </a:da>
+                        </v:var>
+                        <v:var name="SpiBaudParamB" type="INTEGER">
+                          <a:a name="DESC">
+                            <a:v>
+                              <![CDATA[EN:
+                                <html>
+                                  This parameter defines Spi B Hw parameter. This corresponds to the length expressed in time quantums of Q.<br/>
+                                  0<br/>
+                                  1<br/>
+                                  2<br/>
+                                  3<br/>
+                                  Refer to the register 'ECON' bit8-9 in <i>User Manual</i>.
+                                </html>
+                              ]]>
+                            </a:v>
+                          </a:a>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                          <a:a name="UUID" value="d8be721b-0b4d-45a3-9e64-c89f4b01b30e" />
+                          <a:da name="DEFAULT" value="1" />
+                          <a:da name="INVALID" type="Range">
+                            <a:tst expr="&lt;=3" />
+                            <a:tst expr="&gt;=0" />
+                          </a:da>
+                        </v:var>
+                        <v:var name="SpiBaudParamC" type="INTEGER">
+                          <a:a name="DESC">
+                            <a:v>
+                              <![CDATA[EN:
+                                <html>
+                                  This parameter defines Spi C Hw parameter. This corresponds to the length expressed in time quantums of Q.<br/>
+                                  0<br/>
+                                  1<br/>
+                                  2<br/>
+                                  3<br/>
+                                  Refer to the register 'ECON' bit10-11 in <i>User Manual</i>.
+                                </html>
+                              ]]>
+                            </a:v>
+                          </a:a>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                          <a:a name="UUID" value="d8be721b-0b4d-45a3-9e64-c89f3b54b30e" />
+                          <a:da name="DEFAULT" value="1" />
+                          <a:da name="INVALID" type="Range">
+                            <a:tst expr="&lt;=3" />
+                            <a:tst expr="&gt;=0" />
+                          </a:da>
+                        </v:var>
+                        <v:var name="SpiBaudParamQ" type="INTEGER">
+                          <a:a name="DESC">
+                            <a:v>
+                              <![CDATA[EN:
+                                <html>
+                                  This parameter defines Spi Q Hw parameter. This defines the time quantum length used by A, B, and C to define the baud rate and duty cycle.<br/>
+                                  1<br/>
+                                  2<br/>
+                                  3<br/>
+                                  ...<br/>
+                                  64<br/>
+                                  Refer to the register 'ECON' bit0-5 in <i>User Manual</i>.
+                                </html>
+                              ]]>
+                            </a:v>
+                          </a:a>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                          <a:a name="UUID" value="d8be721b-0b4d-45a3-9e64-c89f3b04b20e" />
+                          <a:da name="DEFAULT" value="10" />
+                          <a:da name="INVALID" type="Range">
+                            <a:tst expr="&lt;=64" />
+                            <a:tst expr="&gt;=1" />
+                          </a:da>
+                        </v:var>
+                      </v:ctr>
+                    </v:lst>
+                    <v:var name="SpiAutoCalcDelayParams" type="BOOLEAN">
+                      <a:a name="DESC" value="EN: Switches automatic calculation of delay parameters function ON or OFF." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="af927774-ec00-4dda-adc3-0a5f917e547b" />
+                      <a:da name="DEFAULT" value="false" />
+                    </v:var>
+<!-- ECUC_Spi_00214: Timing between clock and chip select(LEAD) (in seconds) - This parameter allows to use a range of values from 0 up to 0.0001 seconds -->
+                    <v:var name="SpiTimeClk2Cs" type="FLOAT">
+                      <a:a name="DESC" value="EN: Timing between clock and chip select(LEAD) (in seconds) - This parameter allows to use a range of values from 0 up to 0.1048576 seconds. The real configuration-value used in software BSW-SPI is calculated out of this by the generator-tools." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="d8be721b-0b4d-45a3-9e64-81b274b32f37" />
+                      <a:da name="DEFAULT" value="0.00000004"/>
+                      <a:da name="INVALID" type="Range">
+                        <a:tst expr="&lt;=1.0E-2" />
+                        <a:tst expr="&gt;=1.0E-8" />
+                      </a:da>
+                      <a:da name="EDITABLE" type="XPath">
+                        <a:tst expr="../SpiAutoCalcDelayParams = 'true'" />
+                      </a:da>
+                    </v:var>
+                    <v:var name="SpiIdleTime" type="FLOAT">
+                      <a:a name="DESC" value="EN: Timing between Bus IDLE (in seconds) - This parameter allows to use a range of values from 0 up to 0.0001 seconds. The real configuration-value used in software BSW-SPI is calculated out of this by the generator-tools." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:a name="UUID" value="6a86496f-390a-4ef2-aac9-168620cf109e"/>
+                      <a:da name="DEFAULT" value="0.00000004"/>
+                      <a:da name="INVALID" type="Range">
+                        <a:tst expr="&lt;=1.0E-2" />
+                        <a:tst expr="&gt;=1.0E-8" />
+                      </a:da>
+                      <a:da name="EDITABLE" type="XPath">
+                        <a:tst expr="node:fallback(&quot;->../SpiAutoCalcDelayParams = 'true'&quot;, 'true')" />
+                      </a:da>
+                    </v:var>
+                    <v:var name="SpiTrailingTime" type="FLOAT">
+                      <a:a name="DESC" value="EN: Timing between Bus Trail (in seconds) - This parameter allows to use a range of values from 0 up to 0.0001 seconds. The real configuration-value used in software BSW-SPI is calculated out of this by the generator-tools." />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                          type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="UUID"
+                          value="d8e94fe6-e727-4707-8a6c-22c4ab8846a8"/>
+                      <a:da name="DEFAULT" value="0.00000004"/>
+                      <a:da name="INVALID" type="Range">
+                        <a:tst expr="&lt;=1.0E-2" />
+                        <a:tst expr="&gt;=1.0E-8" />
+                      </a:da>
+                      <a:da name="EDITABLE" type="XPath">
+                        <a:tst expr="node:fallback(&quot;->../SpiAutoCalcDelayParams = 'true'&quot;, 'true')" />
+                      </a:da>
+                    </v:var>
+                    <v:lst name="SpiDelayParams" type="MAP">
+                      <a:da name="MAX" value="1" />
+                      <a:da name="MIN" value="1" />
+                      <a:da name="EDITABLE" type="XPath">
+                        <a:tst expr="node:fallback(&quot;->../SpiAutoCalcDelayParams = 'false'&quot;, 'true')" />
+                      </a:da>
+                      <a:da name="INVALID" type="XPath">
+                          <a:tst expr="node:fallback(&quot;->../SpiAutoCalcDelayParams = 'false' and count(./*) = num:i(0)&quot;, 'false')"
+                               true="[083-00-07-ERROR]: If Automatically calculate delay parameters is set to false, then the individual delay params should be configured, (Indicate - Add the container and configure the delay parameters)"/>
+                      </a:da>
+                      <v:ctr name="SpiDelayParams" type="IDENTIFIABLE">
+                        <a:a name="DESC" value="EN: Responsible for configuration of delay parameters during transfer." />
+                        <a:a name="UUID" value="17012cee-6de5-4078-8061-13be9d8fd199" />
+                        <v:var name="SpiParamTrail" type="INTEGER">
+                          <a:a name="DESC">
+                            <a:v>
+                              <![CDATA[EN:
+                                <html>
+                                  This parameter defines the prescaler for trailing delay.<br/>
+                                  4^0: 1<br/>
+                                  4^1: 4<br/>
+                                  4^2: 16<br/>
+                                  4^3: 64<br/>
+                                  4^4: 256<br/>
+                                  4^5: 1024<br/>
+                                  4^6: 4096<br/>
+                                  4^7: 16384<br/>
+                                  Refer to the register 'EMCON' bit15-13 in <i>User Manual</i>.
+                                </html>
+                              ]]>
+                            </a:v>
+                          </a:a>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                          <a:a name="UUID" value="d8be721b-0b4d-45a3-9e64-c89f3b54b31e" />
+                          <a:da name="DEFAULT" value="1" />
+                          <a:da name="INVALID" type="Range">
+                            <a:tst expr="&lt;=7" />
+                            <a:tst expr="&gt;=0" />
+                          </a:da>
+                        </v:var>
+                        <v:var name="SpiParamTrailUnit" type="INTEGER">
+                          <a:a name="DESC">
+                            <a:v>
+                              <![CDATA[EN:
+                                <html>
+                                  This parameter defines the Spi trailing delay length.<br/>
+                                  0: 1 units<br/>
+                                  1: 2 units<br/>
+                                  ...<br/>
+                                  7: 8 units<br/>
+                                  Refer to the register 'EMCON' bit18-16 in <i>User Manual</i>.
+                                </html>
+                              ]]>
+                            </a:v>
+                          </a:a>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                          <a:a name="UUID" value="d8be721b-0b4d-45a3-9e64-c89f3b54b24e" />
+                          <a:da name="DEFAULT" value="1" />
+                          <a:da name="INVALID" type="Range">
+                            <a:tst expr="&lt;=7" />
+                            <a:tst expr="&gt;=0" />
+                          </a:da>
+                        </v:var>
+                        <v:var name="SpiParamLead" type="INTEGER">
+                          <a:a name="DESC">
+                            <a:v>
+                              <![CDATA[EN:
+                                <html>
+                                  This parameter defines the prescaler for leading delay.<br/>
+                                  4^0: 1<br/>
+                                  4^1: 4<br/>
+                                  4^2: 16<br/>
+                                  4^3: 64<br/>
+                                  4^4: 256<br/>
+                                  4^5: 1024<br/>
+                                  4^6: 4096<br/>
+                                  4^7: 16384<br/>
+                                  Refer to the register 'EMCON' bit9-7 in <i>User Manual</i>.
+                                </html>
+                              ]]>
+                            </a:v>
+                          </a:a>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                          <a:a name="UUID" value="d8be721b-0b4d-45a3-9e64-c89f3b54b33e" />
+                          <a:da name="DEFAULT" value="1" />
+                          <a:da name="INVALID" type="Range">
+                            <a:tst expr="&lt;=7" />
+                            <a:tst expr="&gt;=0" />
+                          </a:da>
+                        </v:var>
+                        <v:var name="SpiParamLeadUnit" type="INTEGER">
+                          <a:a name="DESC">
+                            <a:v>
+                              <![CDATA[EN:
+                                <html>
+                                  This parameter defines the Spi leading delay length.<br/>
+                                  0: 1 units<br/>
+                                  1: 2 units<br/>
+                                  ...<br/>
+                                  7: 8 units<br/>
+                                  Refer to the register 'EMCON' bit12-10 in <i>User Manual</i>.
+                                </html>
+                              ]]>
+                            </a:v>
+                          </a:a>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                          <a:a name="UUID" value="d8be721b-0b4d-45a3-9e64-c89f3b54b34e" />
+                          <a:da name="DEFAULT" value="1" />
+                          <a:da name="INVALID" type="Range">
+                            <a:tst expr="&lt;=7" />
+                            <a:tst expr="&gt;=0" />
+                          </a:da>
+                        </v:var>
+                        <v:var name="SpiParamIdle" type="INTEGER">
+                          <a:a name="DESC">
+                            <a:v>
+                              <![CDATA[EN:
+                                <html>
+                                  This parameter defines the prescaler for idle delay.<br/>
+                                  4^0: 1<br/>
+                                  4^1: 4<br/>
+                                  4^2: 16<br/>
+                                  4^3: 64<br/>
+                                  4^4: 256<br/>
+                                  4^5: 1024<br/>
+                                  4^6: 4096<br/>
+                                  4^7: 16384<br/>
+                                  Refer to the register 'EMCON' bit3-1 in <i>User Manual</i>.
+                                </html>
+                              ]]>
+                            </a:v>
+                          </a:a>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                          <a:a name="UUID" value="d8be721b-0b4d-45a3-9e64-c89f3b54b14e" />
+                          <a:da name="DEFAULT" value="1" />
+                          <a:da name="INVALID" type="Range">
+                            <a:tst expr="&lt;=7" />
+                            <a:tst expr="&gt;=0" />
+                          </a:da>
+                        </v:var>
+                        <v:var name="SpiParamIdleUnit" type="INTEGER">
+                          <a:a name="DESC">
+                            <a:v>
+                              <![CDATA[EN:
+                                <html>
+                                  This parameter defines the Spi idle delay length.<br/>
+                                  0: 1 units<br/>
+                                  1: 2 units<br/>
+                                  ...<br/>
+                                  7: 8 units<br/>
+                                  Refer to the register 'EMCON' bit6-4 in <i>User Manual</i>.
+                                </html>
+                              ]]>
+                            </a:v>
+                          </a:a>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                          <a:a name="UUID" value="d8be721b-0b4d-45a3-9e64-c89f3b54b32e" />
+                          <a:da name="DEFAULT" value="1" />
+                          <a:da name="INVALID" type="Range">
+                            <a:tst expr="&lt;=7" />
+                            <a:tst expr="&gt;=0" />
+                          </a:da>
+                        </v:var>
+                      </v:ctr>
+                    </v:lst>
+<!-- ECUC_Spi_00210: This parameter defines the active polarity of Chip Select -->
+                    <v:var name="SpiCsPolarity" type="ENUMERATION">
+                      <a:a name="DESC" value="EN: ECUC_Spi_00210: This parameter defines the active polarity of Chip Select." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="250c0db4-d675-46bc-b075-51f1c0b8b844" />
+                      <a:da name="DEFAULT" value="HIGH" />
+                      <a:da name="RANGE">
+                        <a:v>HIGH</a:v>
+                        <a:v>LOW</a:v>
+                      </a:da>
+                    </v:var>
+<!-- ECUC_Spi_00211: This parameter defines the SPI data shift edge -->
+                    <v:var name="SpiDataShiftEdge" type="ENUMERATION">
+                      <a:a name="DESC" value="EN: ECUC_Spi_00211: This parameter defines the SPI data shift edge." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="171c3406-c259-4e69-a183-842e31595aaa" />
+                      <a:da name="DEFAULT" value="LEADING" />
+                      <a:da name="RANGE">
+                        <a:v>LEADING</a:v>
+                        <a:v>TRAILING</a:v>
+                      </a:da>
+                    </v:var>
+<!-- ECUC_Spi_00213: This parameter defines the SPI shift clock idle level -->
+                    <v:var name="SpiShiftClockIdleLevel" type="ENUMERATION">
+                      <a:a name="DESC" value="EN: ECUC_Spi_00213: This parameter defines the SPI shift clock idle level." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="42358cb3-2237-44eb-99b4-91879fc1e642" />
+                      <a:da name="DEFAULT" value="HIGH" />
+                      <a:da name="RANGE">
+                        <a:v>HIGH</a:v>
+                        <a:v>LOW</a:v>
+                      </a:da>
+                    </v:var>
+                    <v:var name="SpiParitySupport" type="ENUMERATION">
+                      <a:a name="DESC" value="EN: When the SpiParitySupport is selected SPI data Transmission/Reception incorporates an additional bit making the parity EVEN or ODD based on selection." />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="d8a81ac9-2b44-4555-b207-03e295101c7a" />
+                      <a:da name="DEFAULT" value="Unused" />
+                      <a:da name="EDITABLE" value="false" />
+                      <a:da name="RANGE">
+                        <a:v>Unused</a:v>
+                        <a:v>Even</a:v>
+                        <a:v>Odd</a:v>
+                      </a:da>
+                    </v:var>
+<!-- ECUC_Spi_00246: Maps an SPI external device to zero or multiple ECUC partitions to limit the access to this external device. The ECUC partitions referenced are a subset of the ECUC partitions where the SPI driver is mapped to -->
+                    <v:lst name="SpiDeviceEcucPartitionRef">
+                        <v:ref name="SpiDeviceEcucPartitionRef" type="REFERENCE">
+                            <a:a name="DESC" value="EN: ECUC_Spi_00246: Maps an SPI external device to zero or multiple ECUC partitions to limit the access to this external device. The ECUC partitions referenced are a subset of the ECUC partitions where the SPI driver is mapped to. &lt;br/&gt; Tags: atp.Status=draft."/>
+                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true"/>
+                            <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                            </a:a>
+                            <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                            <a:a name="SCOPE" value="ECU"/>
+                            <a:a name="UUID" value="b44d82c5-5e69-4462-bcb3-87bf61589a07"/>
+                            <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/EcuC/EcucPartitionCollection/EcucPartition"/>
+                        </v:ref>
+                    </v:lst>
+<!-- FSwR_MCAL_SPI_004/ECUC_Spi_00217: This parameter is the symbolic name to identify the HW SPI Hardware -->
+                    <v:var name="SpiHwUnit" type="ENUMERATION">
+                      <a:a name="DESC"
+                            value="EN: ECUC_Spi_00217: This parameter is the symbolic name to identify the HW SPI Hardware."/>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                      <a:a name="SCOPE" value="LOCAL"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:a name="UUID" value="c9df357c-60ad-4f37-ac85-1c24c9fbacb7"/>
+                      <a:da name="DEFAULT" type="XPath">
+                        <a:tst expr="normalize-space(text:split(ecu:get('Spi.HwUnitList'),', ')[1])"/>
+                      </a:da>
+                      <a:da name="RANGE" type="XPath" expr="ecu:list('Spi.HwUnitList')"/>
+                      <a:da name="EDITABLE" value="false"/>
+                    </v:var>
+                  </v:ctr>
+                </v:lst>
+                <v:lst name="SpiHwUnitConfig" type="MAP">
+                  <a:da name="MIN" value="1" />
+                  <a:da name="MAX" type="XPath" expr="node:fallback(ecu:get('Spi.MaxHwUnit'), 9)" />
+                  <v:ctr name="SpiHwUnitConfig" type="IDENTIFIABLE">
+                    <a:a name="DESC" value="EN: The communication settings of an external device. Closely linked to SpiJob." />
+                    <a:a name="REQUIRES-INDEX" value="true"/>
+                    <a:a name="UUID" value="8c304ce9-99a3-42f2-b61e-5b0117a907f1" />
+                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                    <v:var name="SpiHwUnitId" type="INTEGER">
+                      <a:a name="DESC" value="EN: SPI hardware unit ID." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="true" />
+                      <a:a name="UUID" value="bb58f6d2-14a3-4953-84d4-b7a53f6fa4a4" />
+                      <a:da name="DEFAULT" type="XPath" expr="node:fallback(&quot;->node:current()/../@index&quot;, num:i(1))" />
+                      <a:da name="INVALID" type="Range">
+                        <a:tst expr="&lt;=65535" />
+                        <a:tst expr="&gt;=0" />
+                      </a:da>
+                      <a:da name="RANGE" type="XPath">
+                        <a:tst expr="(node:fallback( ., 0 ) &gt;= 0) and (node:fallback( ., 0 ) &lt; num:i(count(node:fallback(&quot;->node:current()/../../*&quot;, 1 ))))" false="[083-00-08-ERROR]: Value of SpiHwUnitId is out of range: must be in range 0 to N-1 (N is number of configured Jobs). Use the Calc button to calculate correct default value" />
+                        <a:tst expr="text:uniq(node:fallback(&quot;->../../*/SpiHwUnitId&quot;, text:split('0') ), node:fallback( ., 1 ))" false="[083-00-09-ERROR]: Duplicated value, SpiHwUnitId must be unique across all Spi HwUnits. Use the Calc button to calculate correct default value." />
+                      </a:da>
+                    </v:var>
+                    <v:var name="SpiHWUnitMapping" type="ENUMERATION">
+                      <a:a name="DESC" value="EN: This parameter is the symbolic name to identify the HW SPI Hardware microcontroller peripheral." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="a2cd9e75-cb6e-4534-b5ba-3593e60e8bc1" />
+                      <a:da name="DEFAULT" value="Spi_0" />
+                      <a:da name="RANGE" type="XPath" expr="node:fallback(ecu:list('Spi.HwUnitList'), 'Spi_0')" />
+                      <a:da name="INVALID" type="XPath">
+                        <a:tst expr="text:uniq(../../*/SpiHWUnitMapping, .)" false="[083-00-10-ERROR]: Duplicate Spi hardware unit"/>
+                      </a:da>
+                    </v:var>
+                    <v:var name="SpiGlobalClkDivRatioParamTq" type="INTEGER">
+                      <a:a name="DESC">
+                        <a:v>
+                          <![CDATA[EN:
+                            <html>
+                              This parameter defines Spi TQ Hw parameter. It corresponds to the Global Time Quantum Length for Global Configuration register.<br/>
+                              1<br/>
+                              1/2<br/>
+                              1/3<br/>
+                              ...<br/>
+                              1/256<br/>
+                              Refer to the register 'GLOBALCON1' bit0-7 in <i>User Manual</i>.
+                            </html>
+                          ]]>
+                        </a:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="233542b3-a734-4d93-8a9e-e1cd5a557629" />
+                      <a:da name="DEFAULT" value="2" />
+                      <a:da name="INVALID" type="Range">
+                        <a:tst expr="&lt;=256" />
+                        <a:tst expr="&gt;=1" />
+                      </a:da>
+                    </v:var>
+                    <v:var name="SpiEnableDMA" type="BOOLEAN">
+                      <a:a name="DESC" value="EN: Switches the SPI DMA function ON or OFF."/>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech"/>
+                      <a:a name="SCOPE" value="LOCAL"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:a name="UUID"
+                           value="897a40e4-23e3-4e12-adab-cda17ebc5832"/>
+                      <a:da name="DEFAULT" value="false"/>
+                    </v:var>
+                    <v:ref name="SpiTxDmaChannelRef" type="REFERENCE">
+                      <a:a name="DESC" value="EN: Reference to the DMA Channel used by this Spi HwUnit"/>
+                      <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech"/>
+                      <a:a name="SCOPE" value="LOCAL"/>
+                      <a:a name="UUID"
+                          value="eb96a5c0-232e-45b8-aedf-75a106db8b0a"/>
+                      <a:da name="REF" value="ASPathDataOfSchema:/THA6_AS440_FuSa/Dma/DmaConfigSet/DmaChannel" />
+                      <a:da name="ENABLE" type="XPath">
+                        <a:tst expr="node:fallback(&quot;->../SpiEnableDMA = 'true'&quot;, 'true')" />
+                      </a:da>
+                      <a:da name="INVALID" type="XPath">
+                        <a:tst expr="node:refvalid(.)" false="Invalid or empty reference." />
+                        <a:tst expr="node:value(node:ref(.)/DmaChTransferConfigFlowControl) = 'DMA_M2P'" false="The DMA channel flow control type used by SPI TX should be 'DMA_M2P'"/>
+                        <a:tst expr="contains(node:value(node:ref(.)/DmaChannelDestinationRequestSelect),concat('ESPI',text:split(node:value(../SpiHWUnitMapping),'_')[2],'_TX')) or
+                                    (contains(node:value(node:ref(.)/DmaChannelDestinationRequestSelect),'GLOBAL_REQUEST') and
+                                     (node:exists(node:ref(.)/DmaChannelDestinationGlobalRequestMUX) and
+                                      contains(node:value(node:ref(.)/DmaChannelDestinationGlobalRequestMUX),concat('ESPI',text:split(node:value(../SpiHWUnitMapping),'_')[2],'_TX'))
+                                     )
+                                    )
+                                    " false="The DMA Channel destination request used by SPIx TX should be 'ESPIx_TX'"/>
+                      </a:da>
+                    </v:ref>
+                    <v:ref name="SpiRxDmaChannelRef" type="REFERENCE">
+                      <a:a name="DESC" value="EN: Reference to the DMA Channel used by this Spi HwUnit"/>
+                      <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech"/>
+                      <a:a name="SCOPE" value="LOCAL"/>
+                      <a:a name="UUID"
+                          value="60c7a96a-51f9-495c-8fba-a246681974e5"/>
+                      <a:da name="REF" value="ASPathDataOfSchema:/THA6_AS440_FuSa/Dma/DmaConfigSet/DmaChannel" />
+                      <a:da name="ENABLE" type="XPath">
+                        <a:tst expr="node:fallback(&quot;->../SpiEnableDMA = 'true'&quot;, 'true')" />
+                      </a:da>
+                      <a:da name="INVALID" type="XPath">
+                        <a:tst expr="node:refvalid(.)" false="Invalid or empty reference." />
+                        <a:tst expr="node:value(node:ref(.)/DmaChTransferConfigFlowControl) = 'DMA_P2M'" false="The DMA channel flow control type used by SPI RX should be 'DMA_M2P'"/>
+                        <a:tst expr="contains(node:value(node:ref(.)/DmaChannelSourceRequestSelect),concat('ESPI',text:split(node:value(../SpiHWUnitMapping),'_')[2],'_RX')) or
+                                    (contains(node:value(node:ref(.)/DmaChannelSourceRequestSelect),'GLOBAL_REQUEST') and
+                                     (node:exists(node:ref(.)/DmaChannelSourceGlobalRequestMUX) and
+                                      contains(node:value(node:ref(.)/DmaChannelSourceGlobalRequestMUX),concat('ESPI',text:split(node:value(../SpiHWUnitMapping),'_')[2],'_RX'))
+                                     )
+                                    )
+                                     " false="The DMA Channel Source request used by SPIx RX should be 'ESPIx_RX'"/>
+                      </a:da>
+                    </v:ref>
+                  </v:ctr>
+                </v:lst>
+<!-- ECUC_Spi_00105: All data needed to configure one SPI-Job, amongst others the connection between the internal SPI unit and the special settings for an external device is done -->
+                <v:lst name="SpiJob" type="MAP">
+                  <a:da name="MIN" value="1" />
+                  <a:da name="MAX" value="65535" />
+                  <v:ctr name="SpiJob" type="IDENTIFIABLE">
+                    <a:a name="DESC" value="EN: ECUC_Spi_00105: All data needed to configure one SPI-Job, amongst others the connection between the internal SPI unit and the special settings for an external device is done." />
+                    <a:a name="REQUIRES-INDEX" value="true"/>
+                    <a:a name="UUID" value="1aa8b431-ec4e-45ca-9e89-6971bb18df8f" />
+                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                      <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                    </a:a>
+<!-- ECUC_Spi_00219: SPI Job ID, used as parameter in SPI API functions -->
+                    <v:var name="SpiJobId" type="INTEGER">
+                      <a:a name="DESC" value="EN: ECUC_Spi_00219: SPI Job ID, used as parameter in SPI API functions." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="true" />
+                      <a:a name="UUID" value="bb58d6d2-14a3-4953-84d4-b7ab3f6f42a4" />
+                      <a:da name="DEFAULT" type="XPath" expr="node:fallback(&quot;->node:current()/../@index&quot;, num:i(1))" />
+                      <a:da name="INVALID" type="Range">
+                        <a:tst expr="&lt;=65535" />
+                        <a:tst expr="&gt;=0" />
+                      </a:da>
+                      <a:da name="RANGE" type="XPath">
+                        <a:tst expr="(node:fallback( ., 0 ) &gt;= 0) and (node:fallback( ., 0 ) &lt; num:i(count(node:fallback(&quot;->node:current()/../../*&quot;, 1 ))))" false="[083-00-11-ERROR]: Value of SpiJobId is out of range: must be in range 0 to N-1 (N is number of configured Jobs). Use the Calc button to calculate correct default value" />
+                        <a:tst expr="text:uniq(node:fallback(&quot;->../../*/SpiJobId&quot;, text:split('0') ), node:fallback( ., 1 ))" false="[083-00-12-ERROR]: Duplicated value, SpiJobId must be unique across all Spi Jobs. Use the Calc button to calculate correct default value." />
+                      </a:da>
+                    </v:var>
+<!-- ECUC_Spi_00218: This parameter is a reference to a notification function -->
+                    <v:var name="SpiJobEndNotification" type="FUNCTION-NAME">
+                      <a:a name="DESC" value="EN: ECUC_Spi_00218: This parameter is a reference to a notification function. &lt;br/&gt; &lt;h1&gt;Note&lt;/h1&gt; This parameter available only when 'SpiLevelDelivered' = 1 or = 2. &lt;br/&gt; Must be a valid C function name or NULL_PTR." />
+                      <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="OPTIONAL" value="true" />
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="ed8602ae-8740-4d75-9934-ebac605e6162" />
+                      <a:da name="DEFAULT" value="NULL_PTR" />
+                      <a:da name="EDITABLE" type="XPath">
+                        <a:tst expr="node:fallback(&quot;->../../../../SpiGeneral/SpiLevelDelivered = '1' or ../../../../SpiGeneral/SpiLevelDelivered = '2'&quot;, 'true')" />
+                      </a:da>
+                      <a:da name="INVALID" type="XPath">
+                        <a:tst expr="text:match(normalize-space(.),'^[_a-zA-Z]+[_0-9a-zA-Z]*$')" false="[083-00-14-ERROR]: Invalid name of the 'SpiJobEndNotification'. Must be valid C function name or NULL_PTR." />
+                      </a:da>
+                    </v:var>
+<!-- ECUC_Spi_00220: Priority set accordingly to SPI: '0' is lowest; '3' is highest priority -->
+                    <v:var name="SpiJobPriority" type="INTEGER">
+                      <a:a name="DESC" value="EN: ECUC_Spi_00220: Priority set accordingly to SPI: '0' is lowest; '3' is highest priority." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="8b8c9cc8-fa82-4297-be00-561e2f1909b3" />
+                      <a:da name="DEFAULT" value="0" />
+                      <a:da name="INVALID" type="Range">
+                        <a:tst expr="&lt;=3" />
+                        <a:tst expr="&gt;=0" />
+                      </a:da>
+                    </v:var>
+<!-- ECUC_Spi_00216: Reference to the external device used by this job -->
+                    <v:ref name="SpiDeviceAssignment" type="REFERENCE">
+                      <a:a name="DESC" value="EN: ECUC_Spi_00216: Reference to the external device used by this job." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="UUID" value="a2f6d88d-d255-4b49-9bd3-d1c7b616ac0d" />
+                      <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/Spi/SpiDriver/SpiExternalDevice" />
+                      <a:da name="INVALID" type="XPath">
+                        <a:tst expr="node:refvalid(.)" false="Invalid or empty reference." />
+                      </a:da>
+                    </v:ref>
+                    <v:var name="SpiReleaseCSEachData" type="BOOLEAN">
+                      <a:a name="DESC" value="EN: if true, then SPI Driver releases CS signal after sending each data." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="e19537e1-156c-4ad4-bde7-36b2a2d5ec13" />
+                      <a:da name="DEFAULT" value="false" />
+                      <a:da name="EDITABLE" type="XPath">
+                        <a:tst expr="node:fallback(&quot;->not(node:value(node:ref(node:ref(../SpiDeviceAssignment)/SpiHwUnitRef)/SpiEnableDMA) = 'true' and
+                                                            (node:value(node:ref(../SpiDeviceAssignment)/SpiEnableCs) = 'true' and
+                                                             node:exists(node:ref(../SpiDeviceAssignment)/SpiCsSelection) and
+                                                             node:value(node:ref(../SpiDeviceAssignment)/SpiCsSelection) = 'CS_VIA_GPIO')
+                                                           )&quot;, 'true')" />
+                      </a:da>
+                    </v:var>
+<!-- ECUC_Spi_00233: References to SPI channels and their order within the Job -->
+                    <v:lst name="SpiChannelList" type="MAP">
+                      <a:da name="MAX" value="255" />
+                      <a:da name="MIN" value="1" />
+                      <v:ctr name="SpiChannelList" type="IDENTIFIABLE">
+                        <a:a name="DESC" value="EN: ECUC_Spi_00233: References to SPI channels and their order within the Job." />
+                        <a:a name="REQUIRES-INDEX" value="true"/>
+                        <a:a name="UUID" value="9899cfda-c217-487a-b65d-ed180fc1dc66" />
+                        <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                        </a:a>
+<!-- ECUC_Spi_00234: This parameter specifies the order of Channels within the Job -->
+                        <v:var name="SpiChannelIndex" type="INTEGER">
+                          <a:a name="DESC" value="EN: ECUC_Spi_00234: This parameter specifies the order of Channels within the Job." />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                          <a:a name="SCOPE" value="LOCAL" />
+                          <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                          <a:a name="UUID" value="468d1c34-7f20-4628-93ff-0bb3cbeb1404" />
+                          <a:da name="INVALID" type="Range">
+                            <a:tst expr="&lt;=255" />
+                            <a:tst expr="&gt;=0" />
+                          </a:da>
+                          <a:da name="RANGE" type="XPath">
+                            <a:tst expr="(node:fallback( ., 0 ) &gt;= 0) and (node:fallback( ., 0 ) &lt; num:i(count(node:fallback(&quot;->node:current()/../../../../../SpiChannel/*&quot;, 1 ))))" false="[083-00-15-ERROR]: Value of SpiChannelIndex is out of range: must be in range 0 to N-1 (N is number of configured channels). Use the Calc button to calculate correct default value" />
+                            <a:tst expr="text:uniq(node:fallback(&quot;->../../*/SpiChannelIndex&quot;, text:split('0') ), node:fallback(., 1 ))" false="[083-00-16-ERROR]: Duplicated value, SpiChannelIndex must be unique across all Spi channels. Use the Calc button to calculate correct default value." />
+                          </a:da>
+                          <a:da name="DEFAULT" type="XPath" expr="node:fallback(&quot;->node:current()/../@index&quot;, num:i(1))" />
+                        </v:var>
+<!-- ECUC_Spi_00215: A job reference to a SPI channel -->
+                        <v:ref name="SpiChannelAssignment" type="REFERENCE">
+                          <a:a name="DESC" value="EN: ECUC_Spi_00215: A job reference to a SPI channel." />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                          <a:a name="SCOPE" value="LOCAL" />
+                          <a:a name="UUID" value="5ebab1bf-a475-40c4-9d90-38feda1cead7" />
+                          <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/Spi/SpiDriver/SpiChannel" />
+                          <a:da name="INVALID" type="XPath">
+                            <a:tst expr="node:refvalid(.)" false="[083-00-00-ERROR]: Invalid or empty reference." />
+                          </a:da>
+                        </v:ref>
+                      </v:ctr>
+                    </v:lst>
+                  </v:ctr>
+                </v:lst>
+<!-- ECUC_Spi_00106: All data needed to configure one SPI-sequence  -->
+                <v:lst name="SpiSequence" type="MAP">
+                  <a:da name="MIN" value="1" />
+                  <a:da name="MAX" value="255" />
+                  <v:ctr name="SpiSequence" type="IDENTIFIABLE">
+                    <a:a name="DESC" value="EN: ECUC_Spi_00106: All data needed to configure one SPI-sequence" />
+                    <a:a name="REQUIRES-INDEX" value="true"/>
+                    <a:a name="UUID" value="1c2a72ca-c42d-410b-9317-530d666f919b" />
+                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                      <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                    </a:a>
+<!-- ECUC_Spi_00224: SPI Sequence ID, used as parameter in SPI API functions -->
+                    <v:var name="SpiSequenceId" type="INTEGER">
+                      <a:a name="DESC" value="EN: ECUC_Spi_00224: SPI Sequence ID, used as parameter in SPI API functions." />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="ECU" />
+                      <a:a name="UUID" value="77e06dc6-9c69-4407-9566-4ee1ccf62c08" />
+                      <a:da name="DEFAULT" type="XPath" expr="node:fallback(&quot;->node:current()/../@index&quot;, num:i(1))" />
+                      <a:da name="INVALID" type="Range">
+                        <a:tst expr="&lt;=255" />
+                        <a:tst expr="&gt;=0" />
+                      </a:da>
+                      <a:da name="RANGE" type="XPath">
+                        <a:tst expr="(node:fallback( ., 0 ) &gt;= 0) and (node:fallback( ., 0 ) &lt; num:i(count(node:fallback(&quot;->node:current()/../../*&quot;, 1 ))))" false="[083-00-17-ERROR]: Value of SpiSequenceId is out of range: must be in range 0 to N-1 (N is number of configured Sequences). Use the Calc button to calculate correct default value" />
+                        <a:tst expr="text:uniq(node:fallback(&quot;->../../*/SpiSequenceId&quot;, text:split('0') ), node:fallback( ., 1 ))" false="[083-00-18-ERROR]: Duplicated value, SpiSequenceId must be unique across all Spi Sequences. Use the Calc button to calculate correct default value." />
+                      </a:da>
+                    </v:var>
+<!-- ECUC_Spi_00222: This parameter allows or not this Sequence to be suspended by another one -->
+                    <v:var name="SpiInterruptibleSequence" type="BOOLEAN">
+                      <a:a name="DESC">
+                        <a:v>
+                          <![CDATA[EN:
+                            <html>
+                              ECUC_Spi_00222: This parameter allows or not this Sequence to be suspended by another one.
+                              <h1>Note</h1>
+                              This parameter only available when 'SpiInterruptibleSeqAllowed' = true.
+                            </html>
+                          ]]>
+                        </a:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="7434092b-2039-44b8-877e-f1e7b8eb1fa0" />
+                      <a:da name="DEFAULT" value="false" />
+                      <a:da name="EDITABLE" type="XPath">
+                        <a:tst expr="node:fallback(&quot;->../../../../SpiGeneral/SpiInterruptibleSeqAllowed = 'true' and ../../../../SpiGeneral/SpiLevelDelivered != num:i(0)&quot;, 'true')" />
+                      </a:da>
+                    </v:var>
+<!-- ECUC_Spi_00223: This parameter is a reference to a notification function -->
+                    <v:var name="SpiSeqEndNotification" type="FUNCTION-NAME">
+                      <a:a name="DESC" value="EN: ECUC_Spi_00223: This parameter is a reference to a notification function. &lt;br/&gt; &lt;h1&gt;Note&lt;/h1&gt; This parameter available only when 'SpiLevelDelivered' = 1 or = 2. &lt;br/&gt; Must be a valid C function name or NULL_PTR." />
+                      <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="OPTIONAL" value="true" />
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="544d8613-c095-4d82-8f03-bdb193eb3b8b" />
+                      <a:da name="DEFAULT" value="NULL_PTR" />
+                      <a:da name="EDITABLE" type="XPath">
+                        <a:tst expr="node:fallback(&quot;->../../../../SpiGeneral/SpiLevelDelivered = '1' or ../../../../SpiGeneral/SpiLevelDelivered = '2'&quot;, 'true')" />
+                      </a:da>
+                      <a:da name="INVALID" type="XPath">
+                        <a:tst expr="text:match(normalize-space(.),'^[_a-zA-Z]+[_0-9a-zA-Z]*$')" false="[083-00-19-ERROR]: Invalid name of the 'SpiSeqEndNotification'. Must be valid C function name or NULL_PTR." />
+                      </a:da>
+                    </v:var>
+<!-- ECUC_Spi_00221: A sequence references several jobs, which are executed during a communication sequence -->
+                    <v:lst name="SpiJobAssignment">
+                      <a:da name="MIN" value="1" />
+                      <v:ref name="SpiJobAssignment" type="REFERENCE">
+                        <a:a name="DESC" value="EN: ECUC_Spi_00221: A sequence references several jobs, which are executed during a communication sequence. " />
+                        <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                        <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                          <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                        <a:a name="SCOPE" value="LOCAL" />
+                        <a:a name="UUID" value="6e101cbf-f2a3-4949-af2b-de34286a527c" />
+                        <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/Spi/SpiDriver/SpiJob" />
+                        <a:da name="INVALID" type="XPath">
+                          <a:tst expr="node:refvalid(.)" false="[083-00-00-ERROR]: Invalid or empty reference." />
+                        </a:da>
+                      </v:ref>
+                    </v:lst>
+                  </v:ctr>
+                </v:lst>
+              </v:ctr>
+<!-- ECUC_Spi_00235: Container holding all SPI specific published information parameters -->
+              <v:ctr name="SpiPublishedInformation" type="IDENTIFIABLE">
+                <a:a name="DESC" value="EN: ECUC_Spi_00235: Container holding all SPI specific published information parameters." />
+                <a:a name="UUID" value="299f7b14-a651-44d2-9c6d-00c0547b1a06" />
+<!-- ECUC_Spi_00236: Number of different SPI hardware microcontroller peripherals (units/busses) available and handled by this SPI Handler/Driver module -->
+                <v:var name="SpiMaxHwUnit" type="INTEGER_LABEL">
+                  <a:a name="DESC" value="EN: ECUC_Spi_00236: Number of different SPI hardware microcontroller peripherals (units/busses) available and handled by this SPI Handler/Driver module." />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                  <a:a name="EDITABLE" value="false" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="bb00a969-cacc-4d20-9d9d-f5ef615b1426" />
+                  <a:da name="DEFAULT" type="XPath">
+                    <a:tst expr="node:fallback(&quot;->num:i(count(text:split(ecu:get('Spi.HwUnitList'),', ')))&quot;, num:i(9))"/>
+                  </a:da>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=20" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+              </v:ctr>
+              <v:ctr name="CommonPublishedInformation" type="IDENTIFIABLE">
+                <a:a name="DESC">
+                  <a:v>
+                    <![CDATA[EN:<html> Common container, aggregated by all modules. It contains published information about vendor and versions.</html>]]>
+                  </a:v>
+                </a:a>
+                <a:a name="UUID" value="17f16ee6-741b-11ec-a8bf-f889d2d2ec8e" />
+                <v:var name="ArReleaseMajorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Major version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="ef83ad58-9b69-11ec-a78b-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="4" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="ArReleaseMinorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Minor version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="ebe06c1e-9b69-11ec-872c-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="4" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="ArReleaseRevisionVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Revision version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="e5f29e80-9b69-11ec-8526-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="0" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="SwMajorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Major version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="dce37bc6-9b69-11ec-b239-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="1" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="SwMinorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Minor version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="d88b22e2-9b69-11ec-9c35-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="2" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="SwPatchVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Patch level version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="d1131b78-9b69-11ec-8dd4-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="0" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="VendorId" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Vendor ID of the dedicated implementation of this module according to the AUTOSAR vendor list.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="b6513a5c-9b69-11ec-8365-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="175" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=175" />
+                    <a:tst expr="&gt;=175" />
+                  </a:da>
+                </v:var>
+                <v:var name="ModuleId" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Module ID of this module from Module List.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="EDITABLE" value="false" />
+                  <a:a name="UUID" value="e03042c2-9b69-11ec-ba70-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="83" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+              </v:ctr>
+              <d:ref type="REFINED_MODULE_DEF" value="ASPath:/AUTOSAR/EcucDefs/Spi" />
+            </v:ctr>
+          </d:chc>
+          <d:chc name="Spi_EcuParameterDefinition" type="AR-ELEMENT" value="ECU_PARAMETER_DEFINITION">
+            <d:ctr type="AR-ELEMENT">
+              <a:a name="DEF" value="ASPath:/AR_PACKAGE_SCHEMA/ECU_PARAMETER_DEFINITION" />
+              <a:a name="UUID" value="7a7d6233-a780-4371-a9b0-f1890fcfa1f5" />
+              <d:lst name="MODULE_REF">
+                <d:ref type="MODULE_REF" value="ASPath:/THA6_AS440_FuSa/Spi"/>
+              </d:lst>
+            </d:ctr>
+          </d:chc>
+        </d:lst>
+      </d:ctr>
+    </d:lst>
+  </d:ctr>
+</datamodel>

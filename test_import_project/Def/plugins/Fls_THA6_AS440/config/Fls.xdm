@@ -1,0 +1,1243 @@
+<?xml version="1.0"?>
+<datamodel version="7.0" 
+           xmlns="http://www.tresos.de/_projects/DataModel2/16/root.xsd" 
+           xmlns:a="http://www.tresos.de/_projects/DataModel2/16/attribute.xsd" 
+           xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd" 
+           xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd">
+  <d:ctr type="AUTOSAR" factory="autosar" 
+         xmlns:ad="http://www.tresos.de/_projects/DataModel2/08/admindata.xsd" 
+         xmlns:cd="http://www.tresos.de/_projects/DataModel2/08/customdata.xsd" 
+         xmlns:f="http://www.tresos.de/_projects/DataModel2/14/formulaexpr.xsd" 
+         xmlns:icc="http://www.tresos.de/_projects/DataModel2/08/implconfigclass.xsd" 
+         xmlns:mt="http://www.tresos.de/_projects/DataModel2/11/multitest.xsd" 
+         xmlns:variant="http://www.tresos.de/_projects/DataModel2/11/variant.xsd">
+    <d:lst type="TOP-LEVEL-PACKAGES">
+      <d:ctr name="THA6_AS440_FuSa" type="AR-PACKAGE">
+        <a:a name="UUID" value="ECUC:AUTOSAR"/>
+        <d:lst type="ELEMENTS">
+          <d:chc name="Fls" type="AR-ELEMENT" value="MODULE-DEF">
+            <v:ctr type="MODULE-DEF">
+              <a:a name="ADMIN-DATA" type="ADMIN-DATA">
+                <ad:ADMIN-DATA>
+                  <ad:DOC-REVISIONS>
+                    <ad:DOC-REVISION>
+                      <ad:REVISION-LABEL>4.4.0</ad:REVISION-LABEL>
+                      <ad:ISSUED-BY>AUTOSAR</ad:ISSUED-BY>
+                    </ad:DOC-REVISION>
+                  </ad:DOC-REVISIONS>
+                </ad:ADMIN-DATA>
+              </a:a>
+              <a:a name="DESC" 
+                   value="EN: Configuration of the Fls (internal or external flash driver) module."/>
+              <a:a name="LOWER-MULTIPLICITY" value="0"/>
+              <a:a name="POSTBUILDVARIANTSUPPORT" value="true"/>
+              <a:a name="RELEASE" value="asc:4.4.0"/>
+              <a:a name="UPPER-MULTIPLICITY" value="*"/>
+              <a:a name="UUID" value="c5c634ef-908f-48f3-9e52-dec8331ee418"/>
+              <v:var name="IMPLEMENTATION_CONFIG_VARIANT" type="ENUMERATION">
+                <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                     type="IMPLEMENTATIONCONFIGCLASS">
+                  <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                </a:a>
+                <a:a name="LABEL" value="Config Variant"/>
+                <a:a name="UUID" value="c2867f09-6d32-4636-94d9-1f7b4baf0bc1"/>
+                <a:da name="DEFAULT" value="VariantPostBuild"/>
+                <a:da name="RANGE">
+                  <a:v>VariantPostBuild</a:v>
+                </a:da>
+              </v:var>
+              <v:ctr name="FlsGeneral" type="IDENTIFIABLE">
+                <a:a name="DESC" 
+                     value="EN: Container for general parameters of the flash driver. These parameters are always pre-compile."/>
+                <a:a name="UUID" value="21b76b53-811a-4c8c-a933-8ea9af09e856"/>
+                <v:var name="FlsDriverIndex" type="INTEGER">
+                  <a:a name="DESC" 
+                       value="EN: Index of the driver, used by FEE."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="ECU"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="true"/>
+                  <a:a name="UUID" value="a23bfbd5-67bd-4417-aeb8-7bd9858826dd"/>
+                  <a:da name="DEFAULT" value="0"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=254"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FlsAcLoadOnJobStart" type="BOOLEAN">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html><p>
+                        The flash driver shall load the flash access code to RAM whenever an erase or write job is
+                        started and unload (overwrite) it after that job has been finished or canceled.
+                        <br>Note:<br>This parameter is NOT supported.
+                      </p></html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="942a4d93-26d9-4336-90cf-3423867d6cd8"/>
+                  <a:a name="EDITABLE" value="false"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="FlsBlankCheckApi" type="BOOLEAN">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html><p>
+                        Compile switch to enable/disable the Fls_BlankCheck function.
+                      </p></html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="e901e119-265e-468b-82bc-568fd3774956"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="FlsCancelApi" type="BOOLEAN">
+                  <a:a name="DESC" 
+                       value="EN: Compile switch to enable and disable the Fls_Cancel function."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="11c1e19c-20cd-48c1-beac-743978b0fa2c"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="FlsCompareApi" type="BOOLEAN">
+                  <a:a name="DESC" 
+                       value="EN: Compile switch to enable and disable the Fls_Compare function."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="06a3bcfb-d952-49e0-b981-efa1c3822e08"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="FlsGetJobResultApi" type="BOOLEAN">
+                  <a:a name="DESC" 
+                       value="EN: Compile switch to enable and disable the Fls_GetJobResult function."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="334e39c6-0d68-4854-b9aa-95dfc7218b3f"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="FlsGetStatusApi" type="BOOLEAN">
+                  <a:a name="DESC" 
+                       value="EN: Compile switch to enable and disable the Fls_GetStatus function."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="58ffb3b3-451a-48fb-b88e-f03255a694f2"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="FlsSetModeApi" type="BOOLEAN">
+                  <a:a name="DESC" 
+                       value="EN: Compile switch to enable and disable the Fls_SetMode function."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="3ae8faba-eecd-49c3-8a57-c67f5a1e739d"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="FlsUseInterrupts" type="BOOLEAN">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html><p>
+                        true: Job processing triggered by hardware interrupt. <br>
+                        false: Job processing triggered by Fls_Mainfunction.
+                        <br>Note:<br>Only erase and write operation could triggered by interrupt. Read and compare operation always triggered by Fls_Mainfunction.
+                      </p></html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="12a4982f-c58a-42f9-b11d-3d268794b048"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="FlsBaseAddress" type="INTEGER">
+                  <a:a name="DESC" 
+                       value="EN: The flash memory start address (see also SWS_Fls_00208 and SWS_Fls_00209). This is address of DFlash."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="5ad0aca0-c2b5-47e2-bd9a-12e0278b6667"/>                  
+                  <a:da name="DEFAULT" type="XPath" expr="ecu:get('Fls.BaseAddress')"/>
+                  <a:a name="EDITABLE" value="false"/>
+                  <a:da name="INVALID" type="Range">
+                   <a:tst expr="&lt;=ecu:get('Fls.BaseAddress')"/>
+                   <a:tst expr="&gt;=ecu:get('Fls.BaseAddress')"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FlsTotalSize" type="INTEGER">
+                  <a:a name="DESC" 
+                       value="EN: The total amount of flash memory in bytes (see also SWS_Fls_00208 and SWS_Fls_00209). This is size of DFlash."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="e4c45024-9004-4410-8fe3-552a26f9a2c7"/>
+                  <a:da name="DEFAULT" type="XPath" expr="ecu:get('Fls.TotalSize')"/>
+                  <a:a name="EDITABLE" value="false"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=ecu:get('Fls.TotalSize')"/>
+                    <a:tst expr="&gt;=ecu:get('Fls.TotalSize')"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FlsDevErrorDetect" type="BOOLEAN">
+                  <a:a name="DESC" 
+                       value="EN: Switches the Default Error Tracer (Det) detection and notification ON or OFF."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="5e6e87c9-c3b4-41bb-be45-b23064085e74"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="FlsDflashECCTriggerBusErrorMaskEnable" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: Pre-processor switch to enable / disable the trigger of bus error when ECC error occurs.&lt;br/&gt;
+                                               ON: Mask bus error when reading DFlash with ECC error.&lt;br/&gt;
+                                              OFF: Unmask bus error when reading DFlash with ECC error." />
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="019696f3-8atf-72e1-a107-20486462109c" />
+                  <a:da name="DEFAULT" value="false" />
+                </v:var>
+                <v:var name="FlsSafetyErrorDetect" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: Switches the Safety Error detection ON or OFF." />
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="019676f3-8a8f-72e1-a107-20484462109c" />
+                  <a:da name="DEFAULT" value="true" />
+                </v:var>
+                <v:var name="FlsVersionInfoApi" type="BOOLEAN">
+                  <a:a name="DESC" 
+                       value="EN: Pre-processor switch to enable / disable the API to read out the modules version information."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="bd4f836b-4ceb-4ff4-9367-dbcc00c822ee"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="FlsWriteVerificationEnabled" type="BOOLEAN">
+                  <a:a name="DESC" 
+                       value="EN: Compile switch to enable write verification. &lt;br/&gt;true: written data is compared directly after write. &lt;br/&gt;false: written date is not compared directly after write."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="bd45836b-44eb-43f4-2367-dbcc10c822ee"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="FlsEraseVerificationEnabled" type="BOOLEAN">
+                  <a:a name="DESC" 
+                       value="EN: Compile switch to enable erase verification. &lt;br/&gt;true: memory region is checked to be erased. &lt;br/&gt;false: memory region is not checked to be erased."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="bd45436b-43eb-42f4-2367-dbcc10c122ee"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="FlsTimeoutSupervisionEnabled" type="BOOLEAN">
+                  <a:a name="DESC" 
+                       value="EN: Compile switch to enable timeout supervision. &lt;br/&gt;true: timeout supervision for read/erase/write/compare jobs enabled. &lt;br/&gt;false: timeout supervision for read/erase/write/compare jobs disabled."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="bd15836b-42eb-43f4-2347-dbcc10c622ee"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:ref name="FlsEcucPartitionRef" type="REFERENCE">
+                  <a:a name="DESC" value="EN: Maps the Flash driver to zero or one ECUC partition to make the driver API available in this partition. &lt;br/&gt; Tags: atp.Status=draft."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                      <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                      <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="OPTIONAL" value="true" />
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                  <a:a name="SCOPE" value="ECU"/>
+                  <a:a name="UUID" value="bd4f836b-9123-44f7-9367-9f2af1b376b2"/>
+                  <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/EcuC/EcucPartitionCollection/EcucPartition"/>
+                </v:ref>
+              </v:ctr>
+              <v:ctr name="FlsConfigSet" type="IDENTIFIABLE">
+                <a:a name="DESC" 
+                     value="EN: Container for runtime configuration parameters of the flash driver."/>
+                <a:a name="UUID" value="ed9132df-3117-4868-896e-4218fda4654d"/>
+                <v:var name="FlsAcErase" type="INTEGER">
+                  <a:a name="DESC" 
+                       value="EN: Address offset in RAM to which the erase flash access code shall be loaded."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="292bab82-152d-41af-848f-f23acf108685"/>
+                  <a:da name="DEFAULT" value="0"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=4294967295"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                  <a:da name="EDITABLE" type="XPath">
+                    <a:tst expr="../../../FlsGeneral/FlsAcLoadOnJobStart = 'true'"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FlsAcWrite" type="INTEGER">
+                  <a:a name="DESC" 
+                       value="EN: Address offset in RAM to which the write flash access code shall be loaded."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="f3f272a3-73ad-4a17-9881-2c5a2a412a80"/>
+                  <a:da name="DEFAULT" value="0"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=4294967295"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                  <a:da name="EDITABLE" type="XPath">
+                    <a:tst expr="../../../FlsGeneral/FlsAcLoadOnJobStart = 'true'"/>
+                  </a:da> 
+                </v:var>
+                <v:var name="FlsCallCycle" type="FLOAT">
+                  <a:a name="DESC" 
+                       value="EN: Cycle time of calls of the flash driver's main function (in seconds)."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="58d3e979-01be-4924-a41c-0344a8cbc8e0"/>
+                  <a:da name="DEFAULT" value="0.01"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=1.0"/>
+                    <a:tst expr="&gt;=0.0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FlsDefaultMode" type="ENUMERATION">
+                  <a:a name="DESC" 
+                       value="EN: This parameter is the default FLS device mode after initialization."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="18867054-c077-4ef4-a54c-62e404c21635"/>
+                  <a:da name="DEFAULT" value="MEMIF_MODE_FAST"/>
+                  <a:da name="RANGE">
+                    <a:v>MEMIF_MODE_FAST</a:v>
+                    <a:v>MEMIF_MODE_SLOW</a:v>
+                  </a:da>
+                </v:var>
+                <v:var name="FlsJobEndNotification" type="FUNCTION-NAME">
+                  <a:a name="DESC" value="EN: Mapped to the job end notification routine provided by some upper layer module, typically the Fee module.
+                              &lt;br /&gt;When using Fee, the end notification function is fixed to Fee_JobEndNotification. Set to NULL_PTR indicates that FLS does not have end notification function."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                    <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="OPTIONAL" value="true"/>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="b464de48-a5fa-4d1a-ac8e-6ca17be754b2"/>
+                  <a:da name="DEFAULT" value="Fee_JobEndNotification"/>
+                </v:var>
+                <v:var name="FlsJobErrorNotification" type="FUNCTION-NAME">
+                  <a:a name="DESC" value="EN: Mapped to the job error notification routine provided by some upper layer module, typically the Fee module.
+                              &lt;br /&gt;When using Fee, the error notification function is fixed to Fee_JobEndNotification. Set to NULL_PTR indicates that FLS does not have error notification function."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                    <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="OPTIONAL" value="true"/>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="05c39763-4e7e-4572-a775-7514d0e7e74c"/>
+                  <a:da name="DEFAULT" value="Fee_JobErrorNotification"/>
+                </v:var>
+                <v:var name="FlsMaxReadFastMode" type="INTEGER">
+                  <a:a name="DESC" value="EN: The maximum number of bytes to read or compare in one cycle of the flash driver's job processing function in fast mode.
+                              &lt;br /&gt;Note: The set value must be aligned with the page."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="21435df3-3083-429b-8a04-a95499df21c6"/>
+                  <a:da name="DEFAULT" value="256"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=ecu:get('Fls.SectorSize')"/>                    
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FlsMaxReadNormalMode" type="INTEGER">
+                  <a:a name="DESC" value="EN: The maximum number of bytes to read or compare in one cycle of the flash driver's job processing function in normal mode.
+                              &lt;br /&gt;Note: The set value must be aligned with the page."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="43fb918d-b2f3-485c-9151-28b39bfdc70c"/>
+                  <a:da name="DEFAULT" value="128"/>
+                  <a:da name="INVALID" type="XPath">                    
+                      <a:tst expr="(num:i(.) div (ecu:get('Fls.PageSize') * 4) - num:i(num:i(.) div (ecu:get('Fls.PageSize') * 4))) > 0 " true="Wrong Configuration, The value of FlsMaxReadNormalMode must be a multiple of 4 times the page size. "/> 
+                    </a:da>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=ecu:get('Fls.SectorSize')"/>                 
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FlsMaxWriteFastMode" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html><p>
+                        The maximum number of bytes to write in one cycle of the flash driver's job processing function in fast mode.
+                        <br>Note:<br>The set value must be aligned with the page.
+                      </p></html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="93fe7658-a6f8-417e-b854-ea639aed44ac"/>    
+                  <a:a name="EDITABLE" value="false"/>
+                  <a:da name="DEFAULT" value="128"/>
+                    <a:da name="INVALID" type="Range">
+                      <a:tst expr="&lt;=ecu:get('Fls.SectorSize')"/>
+                      <a:tst expr="&gt;=ecu:get('Fls.PageSize')"/>
+                    </a:da>
+                </v:var>
+                <v:var name="FlsMaxWriteNormalMode" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html><p>
+                        The maximum number of bytes to write in one cycle of the flash driver's job processing function in normal mode.
+                        <br>Note:<br>The set value must be aligned with the page.
+                      </p></html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="e58ed945-3742-45d9-b498-701c717030ee"/>
+                  <a:a name="EDITABLE" value="false"/>
+                  <a:da name="DEFAULT" value="128"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=ecu:get('Fls.SectorSize')"/>
+                    <a:tst expr="&gt;=ecu:get('Fls.PageSize')"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FlsProtection" type="INTEGER">
+                  <a:a name="DESC" 
+                       value="EN: Erase/write protection settings. Only relevant if supported by hardware."/>
+                  <a:da name="TOOLTIP" value="This parameter will not be supported."/>     
+                  <a:da name="EDITABLE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="53a562f9-8ac8-4634-ba5a-aca1173879db"/>
+                  <a:da name="DEFAULT" value="0"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=4294967295"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:lst name="FlsExternalDriver" type="MAP">
+                  <a:da name="MIN" value="0"/>
+                  <a:da name="MAX" value="1"/>
+                  <a:a name="EDITABLE" value="false"/>
+                  <v:ctr name="FlsExternalDriver" type="IDENTIFIABLE">
+                    <a:a name="DESC" >
+                      <a:v>
+                        <![CDATA[EN:<html><p>
+                          This container is present for external Flash drivers only. Internal Flash drivers do not use the parameter listed in this container, hence its multiplicity is 0 for internal drivers.
+                          <br>Note:<br>Not support in current software implement.
+                        </p></html>]]>
+                      </a:v>
+                    </a:a>
+                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                      <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                    </a:a>
+                    <a:a name="UUID" value="ed4c3f2b-e5ed-4815-9dd1-266cce9999c9"/>
+                    <v:lst name="FlsSpiReference">
+                      <a:da name="MIN" value="1"/>
+                      <v:ref name="FlsSpiReference" type="SYMBOLIC-NAME-REFERENCE">
+                        <a:a name="DESC" 
+                             value="EN: Reference to SPI sequence (required for external Flash drivers)."/>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                             type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                          <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                        <a:a name="SCOPE" value="LOCAL"/>
+                        <a:a name="UUID" 
+                             value="306847af-4134-4eaf-b2e7-649a52d30909"/>
+                        <a:da name="REF" 
+                              value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/Spi/SpiDriver/SpiSequence"/>
+                      </v:ref>
+                    </v:lst>
+                  </v:ctr>  
+                </v:lst>
+                <v:ctr name="FlsSectorList" type="IDENTIFIABLE">
+                  <a:a name="DESC" 
+                       value="EN: List of flashable sectors and pages."/>
+                  <a:a name="REQUIRES-INDEX" value="true"/>
+                  <a:a name="UUID" value="17dc1111-46e1-40ac-9e44-f9c66b49e468"/>
+                  <v:lst name="FlsSector" type="MAP">
+                    <a:da name="MIN" value="1"/>
+                    <!-- <a:da name="INVALID" type="XPath">                    
+                      <a:tst expr="(num:i(count(./*))) > 1 " true="Wrong Configuration, you can have only one FlsSector instance.(This FlsSector used for Fee) "/> 
+                    </a:da> -->
+                    <v:ctr name="FlsSector" type="IDENTIFIABLE">
+                      <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                      <a:a name="REQUIRES-INDEX" value="true"/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="DESC" value="EN: Configuration description of a flashable sector"/>
+                      <a:a name="UUID" value="8cab5c31-26c2-4be1-b2fb-ef41aa54a7da"/>
+                      <v:var name="FlsNumberOfSectors" type="INTEGER">
+                        <a:a name="DESC">
+                          <a:v>
+                            <![CDATA[EN:
+                            <html>
+                              Number of continuous sectors with identical values for FlsSectorSize and FlsPageSize. 
+                              The parameter FlsSectorStartAddress denotes the start address of the first sector.</br>
+                              <h1>NOTE</h1>
+                              For THA6 series, the maximum number of 'FlsNumberOfSectors' is shown as follows:
+                              <table border="1"><tbody><tr><td></td>
+                                    <td>DFLASH</td>
+                                    <td>PFLASH</td>
+                                  </tr>
+                                  <tr>
+                                    <td>THA6206</td>
+                                    <td>64</td>
+                                    <td>384</td>
+                                  </tr>
+                                  <tr>
+                                    <td>THA6412</td>
+                                    <td>64</td>
+                                    <td>768</td>
+                                  </tr>
+                                  <tr>
+                                    <td>THA610X</td>
+                                    <td>256</td>
+                                    <td>512</td>
+                                  </tr>
+                                  </tbody><colgroup><col><col><col></colgroup>
+                              </table>
+                            </html>]]>
+                          </a:v>
+                        </a:a>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                              type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:da name="INVALID" type="Range">
+                          <a:tst expr="&lt;=65535" />
+                          <a:tst expr="&gt;=0" />
+                        </a:da>
+                        <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                        <a:a name="SCOPE" value="LOCAL"/>
+                        <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                        <a:a name="UUID" value="378cbd88-005c-46c1-a38f-2ee7659a6031"/>
+                        <a:da name="DEFAULT" type="XPath" expr="num:i('1')"/>
+
+                        <a:da name="INVALID" type="XPath">
+                          <a:tst expr="((num:i(../FlsSectorStartaddress) &lt;= ecu:get('Fls.TotalSize')) and (num:i(.) * num:i(../FlsSectorSize) + num:i(../FlsSectorStartaddress)) &lt;= ecu:get('Fls.TotalSize'))
+                                 or
+                                 ((num:i(../FlsSectorStartaddress) &gt;= ecu:get('Fls.PFlashVirtualBaseAddress')) and (num:i(../FlsSectorStartaddress) &lt;= (ecu:get('Fls.PFlashTotalSize') + ecu:get('Fls.PFlashVirtualBaseAddress'))) and 
+                                    ((ecu:get('Fls.PFlashSectorSize') * num:i(.) + num:i(../FlsSectorStartaddress) - ecu:get('Fls.PFlashVirtualBaseAddress')) &lt;= ecu:get('Fls.PFlashTotalSize')))"
+                                    false = "FlsNumberOfSectors is invalid, please check the FlsSectorSize, FlsSectorStartaddress and FlsNumberOfSectors"/>
+                        </a:da>
+                      </v:var>
+                      <v:var name="FlsPageSize" type="INTEGER">
+                        <a:a name="DESC">
+                          <a:v>
+                            <![CDATA[EN:
+                            <html>
+                              Size of one page of this sector.</br>
+                              <h1>NOTE</h1>
+                              For THA6 series, 'FlsPageSize' is shown as follows:
+                              <table border="1"><tbody><tr><td></td>
+                                    <td>DFLASH</td>
+                                    <td>PFLASH</td>
+                                  </tr>
+                                  <tr>
+                                    <td>THA6206</td>
+                                    <td>16</td>
+                                    <td>32</td>
+                                  </tr>
+                                  <tr>
+                                    <td>THA6412</td>
+                                    <td>16</td>
+                                    <td>32</td>
+                                  </tr>
+                                  <tr>
+                                    <td>THA610X</td>
+                                    <td>16</td>
+                                    <td>64</td>
+                                  </tr>
+                                  </tbody><colgroup><col><col><col></colgroup>
+                              </table>
+                            </html>]]>
+                          </a:v>
+                        </a:a>
+                        <a:da name="INVALID" type="Range">
+                          <a:tst expr="&lt;=65535" />
+                          <a:tst expr="&gt;=0" />
+                        </a:da>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                              type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                        <a:a name="SCOPE" value="LOCAL"/>
+                        <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                        <a:a name="UUID" value="aafc844a-c148-4318-99a8-b5809f377bc6"/>
+                        <a:a name="EDITABLE" value="true"/>
+                        <a:da name="DEFAULT" type="XPath" expr="
+                          node:fallback(
+                            &quot;->node:when(
+                              (num:i(../FlsSectorStartaddress)&lt;=ecu:get('Fls.TotalSize')),
+                              ecu:get('Fls.PageSize'), 
+                              node:when(
+                                ((num:i(../FlsSectorStartaddress)&gt;=ecu:get('Fls.PFlashVirtualBaseAddress')) and 
+                                (num:i(../FlsSectorStartaddress)&lt;(ecu:get('Fls.PFlashTotalSize') + ecu:get('Fls.PFlashVirtualBaseAddress')))),
+                                ecu:get('Fls.PFlashPageSize'),
+                                num:i(0))
+                            )&quot;,
+                            num:i(0)
+                          )"/>
+                        <a:da name="INVALID" type="XPath">
+                          <a:tst expr="
+                            (
+                              (num:i(../FlsSectorStartaddress) &lt;= ecu:get('Fls.TotalSize')) and 
+                              (num:i(../FlsSectorStartaddress) &gt;= '0') and 
+                              (num:i(.) &gt;= ecu:get('Fls.PageSize')) and 
+                              (num:i(.) &lt;= ecu:get('Fls.PageSize'))
+                            )
+                            or 
+                            (
+                              (num:i(../FlsSectorStartaddress) &gt;= ecu:get('Fls.PFlashVirtualBaseAddress')) and 
+                              (num:i(../FlsSectorStartaddress) &lt;= (ecu:get('Fls.PFlashTotalSize') + ecu:get('Fls.PFlashVirtualBaseAddress'))) and 
+                              (num:i(.) &lt;= ecu:get('Fls.PFlashPageSize')) and 
+                              (num:i(.) &gt;= ecu:get('Fls.PFlashPageSize'))
+                            )"
+                          false = " FlsPageSize is invalid. Please check the description of this node."/>
+                        </a:da>
+                      </v:var>
+                      <v:var name="FlsSectorSize" type="INTEGER">
+                        <a:a name="DESC">
+                          <a:v>
+                            <![CDATA[EN:
+                            <html>
+                              Size of this sector.</br>
+                              <h1>NOTE</h1>
+                              For THA6 series, 'FlsSectorSize' is shown as follows:
+                              <table border="1"><tbody><tr><td></td>
+                                    <td>DFLASH</td>
+                                    <td>PFLASH</td>
+                                  </tr>
+                                  <tr>
+                                    <td>THA6206</td>
+                                    <td>8192</td>
+                                    <td>16384</td>
+                                  </tr>
+                                  <tr>
+                                    <td>THA6412</td>
+                                    <td>8192</td>
+                                    <td>16384</td>
+                                  </tr>
+                                  <tr>
+                                    <td>THA610X</td>
+                                    <td>1024</td>
+                                    <td>8192</td>
+                                  </tr>
+                                  </tbody><colgroup><col><col><col></colgroup>
+                              </table>
+                            </html>]]>
+                          </a:v>
+                        </a:a>
+                        <a:da name="INVALID" type="Range">
+                          <a:tst expr="&lt;=65535" />
+                          <a:tst expr="&gt;=0" />
+                        </a:da>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                              type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                        <a:a name="SCOPE" value="LOCAL"/>
+                        <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                        <a:a name="UUID" value="9201d76c-ecf7-4961-a7a0-bf3ce804baa9"/>
+                        <a:a name="EDITABLE" value="true"/>
+                        <a:da name="DEFAULT" type="XPath" expr="
+                          node:fallback(
+                            &quot;->node:when(
+                              (num:i(../FlsSectorStartaddress)&lt;=ecu:get('Fls.TotalSize')),
+                              ecu:get('Fls.SectorSize'),
+                              node:when(
+                                ((num:i(../FlsSectorStartaddress)&gt;=ecu:get('Fls.PFlashVirtualBaseAddress')) and 
+                                (num:i(../FlsSectorStartaddress) &lt;(ecu:get('Fls.PFlashTotalSize') + ecu:get('Fls.PFlashVirtualBaseAddress')))),
+                                ecu:get('Fls.PFlashSectorSize'),
+                                0)
+                            )&quot;,
+                            num:i(8192)
+                          )"/>
+                        <a:da name="INVALID" type="XPath">
+                          <a:tst expr="
+                            (
+                              (num:i(../FlsSectorStartaddress) &lt;= ecu:get('Fls.TotalSize')) and 
+                              (num:i(../FlsSectorStartaddress) &gt;= '0') and 
+                              (num:i(.) &gt;= ecu:get('Fls.SectorSize')) and 
+                              (num:i(.) &lt;= ecu:get('Fls.SectorSize'))
+                            )
+                            or 
+                            (
+                              (num:i(../FlsSectorStartaddress) &gt;= ecu:get('Fls.PFlashVirtualBaseAddress')) and 
+                              (num:i(../FlsSectorStartaddress) &lt;= (ecu:get('Fls.PFlashTotalSize') + ecu:get('Fls.PFlashVirtualBaseAddress'))) and 
+                              (num:i(.) &lt;= ecu:get('Fls.PFlashSectorSize')) and 
+                              (num:i(.) &gt;= ecu:get('Fls.PFlashSectorSize'))
+                            )"
+                          false = " FlsSectorSize is invalid. Please check the description of this node."/>
+                        </a:da>
+                      </v:var>
+                      <v:var name="FlsSectorStartaddress" type="INTEGER">
+                        <a:a name="DESC">
+                          <a:v>
+                            <![CDATA[EN:
+                            <html>
+                              Start address of this sector.</br>
+                              <h1>NOTE</h1>
+                              For THA6 series, the range of 'FlsSectorStartaddress' is shown as follows:
+                              <table border="1"><tbody><tr><td></td>
+                                    <td>DFLASH</td>
+                                    <td>PFLASH</td>
+                                  </tr>
+                                  <tr>
+                                    <td>THA6206</td>
+                                    <td>0x0000_0000 ~ 0x0008_0000</td>
+                                    <td>0x1000_0000 ~ 0x1060_0000</td>
+                                  </tr>
+                                  <tr>
+                                    <td>THA6412</td>
+                                    <td>0x0000_0000 ~ 0x0008_0000</td>
+                                    <td>0x1000_0000 ~ 0x10c0_0000</td>
+                                  </tr>
+                                  <tr>
+                                    <td>THA610X</td>
+                                    <td>0x0000_0000 ~ 0x0004_0000</td>
+                                    <td>0x1000_0000 ~ 0x0040_0000</td>
+                                  </tr>
+                                  </tbody><colgroup><col><col><col></colgroup>
+                              </table>
+                            </html>]]>
+                          </a:v>
+                        </a:a>
+                        <a:da name="INVALID" type="Range">
+                          <a:tst expr="&lt;=4294967295" />
+                          <a:tst expr="&gt;=0" />
+                        </a:da>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                              type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                        <a:a name="SCOPE" value="LOCAL"/>
+                        <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                        <a:a name="UUID" value="69d8ea72-79a0-4ed5-be03-54f792551cfd"/>
+                        <a:a name="EDITABLE" value="true"/>
+                        <a:da name="DEFAULT" type="XPath" expr="
+                          node:fallback(&quot;->
+                            node:when(
+                              node:when(
+                                node:current()/../../*[last()]/@index = 0,
+                                num:i(0),
+                                num:i(node:current()/../../*[last()-1]/FlsSectorStartaddress + node:current()/../../*[last()-1]/FlsNumberOfSectors * node:current()/../../*[last()-1]/FlsSectorSize)
+                              ) &lt;ecu:get('Fls.TotalSize'),
+                              node:when(
+                                node:current()/../../*[last()]/@index = 0,
+                                num:i(0),
+                                num:i(node:current()/../../*[last()-1]/FlsSectorStartaddress + node:current()/../../*[last()-1]/FlsNumberOfSectors * node:current()/../../*[last()-1]/FlsSectorSize)
+                              ),
+                              node:when(
+                                (
+                                  (
+                                    node:when(
+                                      node:current()/../../*[last()]/@index = 0,
+                                      num:i(0),
+                                      num:i(node:current()/../../*[last()-1]/FlsSectorStartaddress + node:current()/../../*[last()-1]/FlsNumberOfSectors * node:current()/../../*[last()-1]/FlsSectorSize)
+                                    ) &lt;(ecu:get('Fls.PFlashTotalSize') + ecu:get('Fls.PFlashVirtualBaseAddress'))
+                                  ) and
+                                  (
+                                    node:when(
+                                      node:current()/../../*[last()]/@index = 0,
+                                      num:i(0),
+                                      num:i(node:current()/../../*[last()-1]/FlsSectorStartaddress + node:current()/../../*[last()-1]/FlsNumberOfSectors * node:current()/../../*[last()-1]/FlsSectorSize)
+                                    ) &gt;ecu:get('Fls.PFlashVirtualBaseAddress')
+                                  )
+                                ),
+                                node:when(
+                                  node:current()/../../*[last()]/@index = 0,
+                                  num:i(0),
+                                  num:i(node:current()/../../*[last()-1]/FlsSectorStartaddress + node:current()/../../*[last()-1]/FlsNumberOfSectors * node:current()/../../*[last()-1]/FlsSectorSize)
+                                ),
+                                num:hextoint('0x10000000')
+                              )
+                            )&quot;,
+                            num:i(0)
+                          )
+                        "/>
+                        <a:da name="INVALID" type="Multi">
+                          <!-- Fls start address must within DFlash/PFlash rigion -->
+                          <mt:xpath expr="
+                            (
+                              (num:i(.) &lt;= ecu:get('Fls.TotalSize')) and 
+                              (num:i(.) &gt;= '0')
+                            )
+                            or 
+                            (
+                              (num:i(.) &gt;= ecu:get('Fls.PFlashVirtualBaseAddress')) and 
+                              (num:i(.) &lt;= (ecu:get('Fls.PFlashTotalSize') + ecu:get('Fls.PFlashVirtualBaseAddress')))
+                            )"
+                          false = "FlsSectorStartaddress range is invalid. Please check the description of this node."/>
+                          <!-- The start address must be unique -->
+                          <mt:xpath expr = "text:uniq(../../*/FlsSectorStartaddress,.)"
+                                 false = "FlsSectorStartaddress must be unique."/>
+                          <mt:xpath expr = "
+                            (
+                              (
+                                (num:i(.) mod ecu:get('Fls.SectorSize') = '0') and
+                                (num:i(.) &lt;= ecu:get('Fls.TotalSize')) and 
+                                (num:i(.) &gt;= '0')
+                              ) 
+                              or
+                              (
+                                (num:i(.) mod ecu:get('Fls.PFlashSectorSize') = '0') and 
+                                (num:i(.) &gt;= ecu:get('Fls.PFlashVirtualBaseAddress')) and 
+                                (num:i(.) &lt;= (ecu:get('Fls.PFlashTotalSize') + ecu:get('Fls.PFlashVirtualBaseAddress')))
+                              )
+                            )
+                          " false="The start address must be aligned to the sector size."/>
+                        </a:da>
+                      </v:var>
+                    </v:ctr>
+                  </v:lst>
+                </v:ctr>
+              </v:ctr>
+              <v:ctr name="FlsPublishedInformation" type="IDENTIFIABLE">
+                <a:a name="DESC" 
+                     value="EN: Additional published parameters not covered by CommonPublishedInformation container."/>
+                <a:a name="UUID" value="3b520615-66a2-4b03-a577-bc6494b1023c"/>
+                <v:var name="FlsAcLocationErase" type="INTEGER_LABEL">
+                  <a:a name="DESC" 
+                       value="EN: Position in RAM, to which the erase flash access code has to be loaded.  This parameter is unused and instead FlsAcErase is used"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="42fad8be-acf0-46c9-a640-bbb9af246219"/>
+                  <a:da name="DEFAULT" value="0"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=4294967295"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FlsAcLocationWrite" type="INTEGER_LABEL">
+                  <a:a name="DESC" 
+                       value="EN: Position in RAM, to which the write flash access code has to be loaded. This parameter is unused and instead FlsAcWrite is used"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="3aa743eb-86ca-4895-9174-0bc38709083f"/>
+                  <a:da name="DEFAULT" value="0"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=4294967295"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FlsAcSizeErase" type="INTEGER_LABEL">
+                  <a:a name="DESC" 
+                       value="EN: Number of bytes in RAM needed for the erase flash access code."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="9e0c1951-ad21-4a30-bf21-020e87ee6543"/>
+                  <a:da name="DEFAULT" value="0"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=4294967295"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FlsAcSizeWrite" type="INTEGER_LABEL">
+                  <a:a name="DESC" 
+                       value="EN: Number of bytes in RAM needed for the write flash access code."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="1e2d667a-8f95-43cb-88bc-196e6526f151"/>
+                  <a:da name="DEFAULT" value="0"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=4294967295"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FlsEraseTime" type="FLOAT_LABEL">
+                  <a:a name="DESC" 
+                       value="EN: Maximum time to erase one complete flash sector(in Microseconds)."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="998f8eb1-c9ef-4995-9f82-a861e9159bf6"/>
+                  <a:da name="DEFAULT" value="16000"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=429496000.0"/>
+                    <a:tst expr="&gt;=0.0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FlsErasedValue" type="INTEGER_LABEL">
+                  <a:a name="DESC" 
+                       value="EN: The contents of an erased flash memory cell."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="336ed79c-a250-4e3c-a5a1-f978fda78670"/>
+                  <a:da name="DEFAULT" value="255"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=255"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FlsExpectedHwId" type="STRING_LABEL">
+                  <a:a name="DESC" 
+                       value="EN: Unique identifier of the hardware device that is expected by this driver 
+                       (the device for which this driver has been implemented).Only relevant for external flash drivers."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="16121161-9fa4-4274-a66b-2fae5c12bc8b"/>
+                  <a:da name="DEFAULT" value="0"/>
+                </v:var>
+                <v:var name="FlsSpecifiedEraseCycles" type="INTEGER_LABEL">
+                  <a:a name="DESC" 
+                       value="EN: Number of erase cycles specified for the flash device (usually given in the device data sheet)."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="91b432fc-df5e-48f5-9154-d12312e18c94"/>
+                  <a:da name="DEFAULT" value="100000"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=4294967295"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FlsWriteTime" type="FLOAT_LABEL">
+                  <a:a name="DESC" 
+                       value="EN: Maximum time to program one complete flash page in Microseconds."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="40deff1c-2f82-42a5-965f-6b1741723562"/>
+                  <a:da name="DEFAULT" value="1500"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=42949600.0"/>
+                    <a:tst expr="&gt;=0.0"/>
+                  </a:da>
+                </v:var>
+              </v:ctr>
+              <v:ctr name="CommonPublishedInformation" type="IDENTIFIABLE">
+                <a:a name="DESC" value="EN: Common container, aggregated by all modules. It contains published information about vendor and versions."/>
+                <a:a name="UUID" value="7a1e51b1-0bda-41e0-aa92-fd2bb7a2bccd"/>
+                <v:var name="ArReleaseMajorVersion" type="INTEGER">
+                  <a:a name="DESC" value="EN: Major version number of AUTOSAR specification on which the appropriate implementation is based on."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="UUID" value="e8b73622-992a-46a1-a39b-e3c17a64a4e1"/>
+                  <a:da name="DEFAULT" value="4"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="ArReleaseMinorVersion" type="INTEGER">
+                  <a:a name="DESC" value="EN: Minor version number of AUTOSAR specification on which the appropriate implementation is based on."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="UUID" value="01144646-0eea-4a51-bacc-4a69e352f662"/>
+                  <a:da name="DEFAULT" value="4"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="ArReleaseRevisionVersion" type="INTEGER">
+                  <a:a name="DESC" value="EN: Patch level version number of AUTOSAR specification on which the appropriate implementation is based on."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="UUID" value="65eb8255-a817-4127-8a75-200848c4ffad"/>
+                  <a:da name="DEFAULT" value="0"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="ModuleId" type="INTEGER">
+                  <a:a name="DESC" value="EN: Module ID of this module from Module List"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="UUID" value="1f3d7818-33ce-46d6-89e8-da5106dba2d4"/>
+                  <a:da name="DEFAULT" value="92"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="SwMajorVersion" type="INTEGER">
+                  <a:a name="DESC" value="EN: Major version number of the vendor specific implementation of the module. The numbering is vendor specific."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="UUID" value="ac1db1a2-d08a-420a-af16-4ca01856bec3"/>
+                  <a:da name="DEFAULT" value="1"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="SwMinorVersion" type="INTEGER">
+                  <a:a name="DESC" value="EN: Minor version number of the vendor specific implementation of the module. The numbering is vendor specific."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="UUID" value="8c8d128c-51e0-4f6d-8733-8678b5ed970c"/>
+                  <a:da name="DEFAULT" value="2"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="SwPatchVersion" type="INTEGER">
+                  <a:a name="DESC" value="EN: Patch level version number of the vendor specific implementation of the module. The numbering is vendor specific."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="UUID" value="5b7c528a-453a-48ed-a242-5d2dce3e76d8"/>
+                  <a:da name="DEFAULT" value="0"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="VendorId" type="INTEGER">
+                  <a:a name="DESC" value="EN: Vendor ID of the dedicated implementation of this module according to the AUTOSAR vendor list"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="UUID" value="8db6d6c8-2332-4ee1-a70a-688b03ab2151"/>
+                  <a:da name="DEFAULT" value="175"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+              </v:ctr>
+              <d:ref type="REFINED_MODULE_DEF" 
+                     value="ASPath:/AUTOSAR/EcucDefs/Fls"/>
+            </v:ctr>
+          </d:chc>
+          <d:chc name="Fls_EcuParameterDefinition" type="AR-ELEMENT" 
+                 value="ECU_PARAMETER_DEFINITION">
+            <d:ctr type="AR-ELEMENT">
+              <a:a name="DEF" 
+                   value="ASPath:/AR_PACKAGE_SCHEMA/ECU_PARAMETER_DEFINITION"/>
+              <a:a name="UUID" value="6aa24d9e-2339-454b-ab3d-97091f2613cd"/>
+              <d:lst name="MODULE_REF">
+                <d:ref type="MODULE_REF" value="ASPath:/THA6_AS440_FuSa/Fls"/>
+              </d:lst>
+            </d:ctr>
+          </d:chc>
+        </d:lst>
+      </d:ctr>
+    </d:lst>
+  </d:ctr>
+</datamodel>

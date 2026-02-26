@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+  <extension point="dreisoft.tresos.launcher2.plugin.module"
+             id="Uart_THA6_AS440_FuSa_ModuleID"
+             name="Uart_THA6_AS440_FuSa Module">
+    <module id="Uart_THA6_AS440_FuSa"
+            label="Uart"
+            mandatory="false"
+            allowMultiple="false"
+            description="Uart MCAL module"
+            copyright="Copyright 2020-2030 ChipowerTech, Inc"
+            swVersionMajor="1"
+            swVersionMinor="2"
+            swVersionPatch="0"
+            swVersionSuffix=""
+            specVersionMajor="4"
+            specVersionMinor="4"
+            specVersionPatch="0"
+            specVersionSuffix=""
+            relVersionPrefix="AUTOSAR"
+            relVersionMajor="4"
+            relVersionMinor="4"
+            relVersionPatch="0"
+            relVersionSuffix=""
+            categoryType="Uart"
+            categoryLayer="MCAL"
+            categoryCategory="ECU Firmware"
+            categoryComponent="ECUC">
+      <ecuType target="ARM" derivate="THA6XXX_FuSa"/>
+      <cluster name="MCAL"/>
+    </module>
+  </extension>
+  <extension point="dreisoft.tresos.launcher2.plugin.configuration"
+             id="Uart_THA6_AS440_FuSa_ConfigurationID"
+             name="Uart_THA6_AS440_FuSa Configuration">
+    <configuration moduleId="Uart_THA6_AS440_FuSa">
+      <schema>
+        <manager class="dreisoft.tresos.autosar2.resourcehandling.AutosarSchemaManager"/>
+        <resource type="xdm" value="config/Uart.xdm"/>
+      </schema>
+      <data>
+        <manager class="dreisoft.tresos.autosar2.resourcehandling.AutosarConfigManager"/>
+        <schemaNode path="ASPath:/THA6_AS440_FuSa/Uart"/>
+      </data>
+      <editor id="Uart_THA6_AS440_FuSa_EditorId"
+              label="Uart"
+              tooltip="Uart MCAL module">
+        <class class="dreisoft.tresos.launcher2.editor.GenericConfigEditor">
+          <parameter name="schema" value="ASPath:/THA6_AS440_FuSa/Uart"/>
+          <parameter name="title" value="Uart"/>
+          <parameter name="noTabs" value="false"/>
+          <parameter name="noLinks" value="true"/>
+          <parameter name="groupLinks" value="false"/>
+          <parameter name="groupContainers" value="false"/>
+          <parameter name="groupTables" value="true"/>
+          <parameter name="optionalGeneralTab" value="true"/>
+        </class>
+      </editor>
+    </configuration>
+  </extension>
+  <extension point="dreisoft.tresos.launcher2.plugin.generator"
+             id="EPC_GeneratorID"
+             name="EPC Generator">
+    <generator moduleId="Uart_THA6_AS440_FuSa"
+               id="Uart_THA6_AS440_FuSa"
+               class="dreisoft.tresos.autosar2.generator.EPCFileGenerator">
+      <parameter name="variantAware" value="true"/>
+      <parameter name="cfgFilePath" value="output"/>
+      <parameter name="generateAllModules" value="false"/>
+      <parameter name="generateIntoOneFile" value="false"/>
+      <parameter name="contentType" value="asc:4.4.0"/>
+    </generator>
+  </extension>
+  <extension point="dreisoft.tresos.launcher2.plugin.generator"
+             id="Uart_THA6_AS440_FuSa_GeneratorID"
+             name="Uart_THA6_AS440_FuSa Generator">
+    <generator moduleId="Uart_THA6_AS440_FuSa"
+               class="dreisoft.tresos.launcher2.generator.TemplateBasedCodeGenerator">
+      <parameter name="variantAware" value="true"/>
+      <parameter name="mode_type" mode="generate_swcd" value="generate"/>
+      <parameter name="mode_type" mode="verify_swcd" value="verify"/>
+      <parameter name="templates" mode="generate_swcd,verify_swcd" value="generate_swcd"/>
+      <parameter name="templates" mode="generate,verify" value="generate,generate_PC,generate_PB"/>
+      <parameter name="templates" mode="generate_PC" value="generate_PC"/>
+      <parameter name="templates" mode="generate_PB" value="generate_PB"/>
+      <parameter name="mode_type" mode="generate_PC" value="generate"/>
+      <parameter name="mode_type" mode="generate_PB" value="generate"/>
+    </generator>
+  </extension>
+  <!-- this post-generator just calls an ant script which renames the file created by the TemplateBasedCodeGenerator defined above
+       otherwise the next run of the TemplateBasedCodeGenerator for another variant would overwrite the file -->
+  <extension point="dreisoft.tresos.generator.api.plugin.generator"
+    id="Uart_THA6_AS440_Gen_Template_MoveFile">
+    <generator moduleId="Uart_THA6_AS440_FuSa"
+      id="Uart_THA6_AS440_Gen_Template_MoveFile"
+      class="dreisoft.tresos.generator.ng.api.NGGenerator"
+      modes="generate,Template_withPostRename"
+      step="post">
+      <!-- Specify the ant build script as parameter to the NGGenerator. -->
+      <parameter name="buildfile"  value="template_ant/ant_generator.xml"/>
+
+      <!-- only having this parameter set to true, a generator is called once for each variant! -->
+      <parameter name="variantAware" value="true"/>
+    </generator>
+  </extension>
+</plugin>

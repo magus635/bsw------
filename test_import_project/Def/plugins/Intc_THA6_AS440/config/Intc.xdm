@@ -1,0 +1,787 @@
+<?xml version='1.0'?>
+<datamodel version="7.0" xmlns="http://www.tresos.de/_projects/DataModel2/16/root.xsd"
+  xmlns:a="http://www.tresos.de/_projects/DataModel2/16/attribute.xsd"
+  xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd"
+  xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd">
+  <d:ctr type="AUTOSAR" factory="autosar"
+    xmlns:ad="http://www.tresos.de/_projects/DataModel2/08/admindata.xsd"
+    xmlns:cd="http://www.tresos.de/_projects/DataModel2/08/customdata.xsd"
+    xmlns:f="http://www.tresos.de/_projects/DataModel2/14/formulaexpr.xsd"
+    xmlns:icc="http://www.tresos.de/_projects/DataModel2/08/implconfigclass.xsd"
+    xmlns:mt="http://www.tresos.de/_projects/DataModel2/11/multitest.xsd"
+    xmlns:variant="http://www.tresos.de/_projects/DataModel2/11/variant.xsd">
+    <d:lst type="TOP-LEVEL-PACKAGES">
+      <d:ctr name="THA6_AS440_FuSa" type="AR-PACKAGE">
+        <a:a name="UUID" value="ECUC:AUTOSAR"/>
+        <d:lst type="ELEMENTS">
+          <d:chc name="Intc" type="AR-ELEMENT" value="MODULE-DEF">
+            <v:ctr type="MODULE-DEF">
+              <a:a name="ADMIN-DATA" type="ADMIN-DATA">
+                <ad:ADMIN-DATA>
+                  <ad:DOC-REVISIONS>
+                    <ad:DOC-REVISION>
+                      <ad:REVISION-LABEL>4.4.0</ad:REVISION-LABEL>
+                      <ad:ISSUED-BY>AUTOSAR</ad:ISSUED-BY>
+                    </ad:DOC-REVISION>
+                  </ad:DOC-REVISIONS>
+                </ad:ADMIN-DATA>
+              </a:a>
+              <a:a name="DESC" value="EN: Configuration of the Intc (Interrupt controller) module." />
+              <a:a name="LOWER-MULTIPLICITY" value="0" />
+              <a:a name="POSTBUILDVARIANTSUPPORT" value="true" />
+              <a:a name="RELEASE" value="asc:4.4.0" />
+              <a:a name="UPPER-MULTIPLICITY" value="*" />
+              <a:a name="UUID" value="326109f4-7397-11ec-8934-f889d2d2ec8e" />
+              <v:var name="IMPLEMENTATION_CONFIG_VARIANT" type="ENUMERATION">
+                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                  <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                </a:a>
+                <a:a name="LABEL" value="Config Variant" />
+                <a:a name="UUID" value="4a20300a-7397-11ec-bbeb-f889d2d2ec8e" />
+                <a:da name="DEFAULT" value="VariantPostBuild" />
+                <a:da name="RANGE">
+                  <a:v>VariantPostBuild</a:v>
+                </a:da>
+              </v:var>
+
+              <!-- Intc general checkbox configuration -->
+              <v:ctr name="IntcGeneral" type="IDENTIFIABLE">
+                <a:a name="DESC"
+                  value="EN: Module wide configuration parameters of the PORT driver." />
+                <a:a name="UUID" value="ecb69da8-740c-11ec-bbe1-f889d2d2ec8e" />
+                <v:var name="IntcDevErrorDetect" type="BOOLEAN">
+                  <a:a name="DESC"
+                    value="EN: Switches the Default Error Tracer (Det) detection and 
+                    notification ON or OFF.&lt;br/&gt;
+                    true: enabled (ON). &lt;br/&gt;
+                    false: disabled (OFF)." />
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:da name="TOOLTIP" value="Switch for enabling the development error detection." />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="UUID" value="df98e78c-740c-11ec-b2b3-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="false" />
+                </v:var>
+
+                <v:var name="IntcVersionInfoApi" type="BOOLEAN">
+                  <a:a name="DESC"
+                    value="EN: Pre-processor switch to enable / disable the API to read out 
+                    the modules version information. &lt;br/&gt;
+                    true: Version info API enabled. &lt;br/&gt;
+                    false: Version info API disabled." />
+                  <a:da name="TOOLTIP" value="Switch for enabling get version information." />
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="UUID" value="2ff4becc-7412-11ec-9233-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="false" />
+                </v:var>
+
+                <v:var name="IntcFIQPriorityBinaryPoint" type="INTEGER">
+                  <a:a name="DESC"
+                    value="EN:Defines the point of FIQ at which the priority value fields split into two parts, the group priority field and the subpriority field. 
+                              The group priority field determines FIQ interrupt preemption.&lt;br/&gt;
+                     - 2: [group priority range is 0~31], [subpriority is  None] &lt;br/&gt;
+                     - 3: [group priority range is 0~15], [subpriority range is  0~1] &lt;br/&gt;
+                     - 4: [group priority range is  0~7], [subpriority range is  0~3] &lt;br/&gt;
+                     - 5: [group priority range is  0~3], [subpriority range is  0~7] &lt;br/&gt;
+                     - 6: [group priority range is  0~1], [subpriority range is  0~15] &lt;br/&gt;
+                     - 7: [group priority range is  None], [subpriority range is  0~31]: In this case, Interrupt preemption is not supported &lt;br/&gt;
+                    &lt;h1&gt;Note&lt;/h1&gt;
+                    Detail refer to GIC register 'ICC_BPR0' in &lt;i&gt;Arm Cortex-R52 Processor Technical Reference Manual&lt;/i&gt;" />
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="UUID" value="6a20b829-0388-11ee-9fd6-f889d2d2ae74" />
+                  <a:da name="DEFAULT" type="XPath" expr="num:i(ecu:list('Intc.Group0BinaryPoint')[1])" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=ecu:list('Intc.Group0BinaryPoint')[6]" />
+                    <a:tst expr="&gt;=ecu:list('Intc.Group0BinaryPoint')[1]" />
+                  </a:da>
+                </v:var>
+
+                <v:var name="IntcIRQPriorityBinaryPoint" type="INTEGER">
+                  <a:a name="DESC"
+                    value="EN:Defines the point of IRQ at which the priority value fields split into two parts, the group priority field and the subpriority field.
+                              The group priority field determines IRQ interrupt preemption.&lt;br/&gt;
+                     - 3: [group priority range is  0~31], [subpriority is  None] &lt;br/&gt;
+                     - 4: [group priority range is  0~15], [subpriority range is  0~1] &lt;br/&gt;
+                     - 5: [group priority range is  0~7], [subpriority range is  0~3] &lt;br/&gt;
+                     - 6: [group priority range is  0~3], [subpriority range is  0~7] &lt;br/&gt;
+                     - 7: [group priority range is  0~1], [subpriority range is  0~15] &lt;br/&gt;
+                    &lt;h1&gt;Note&lt;/h1&gt;
+                    Detail refer to GIC register 'ICC_BPR1' in &lt;i&gt;Arm Cortex-R52 Processor Technical Reference Manual&lt;/i&gt;" />
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="UUID" value="1fce3438-0401-11ee-aaf1-f889d2d2ae74" />
+                  <a:da name="DEFAULT" type="XPath" expr="num:i(ecu:get('Intc.Group1BinaryPoint')[1])" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=ecu:list('Intc.Group1BinaryPoint')[5]" />
+                    <a:tst expr="&gt;=ecu:list('Intc.Group1BinaryPoint')[1]" />
+                  </a:da>
+                </v:var>
+              </v:ctr>
+
+              <v:ctr name="IntcConfigSet" type="IDENTIFIABLE">
+                <a:a name="DESC"
+                  value="EN: This container contains the configuration parameters and sub containers of the Intc module." />
+                <a:a name="UUID" value="2fc7a1ae-feb7-11ed-b138-f889d2d2ae74" />
+                <v:lst name="IntcContainer" type="MAP">
+                  <a:da name="MIN" type="XPath" expr="num:i(count(ecu:list('Intc.IntSrcClass')))" />
+                  <a:da name="MAX" type="XPath" expr="num:i(count(ecu:list('Intc.IntSrcClass')))" />
+                  <v:ctr name="IntcContainer" type="IDENTIFIABLE">
+                    <a:a name="REQUIRES-INDEX" value="true"/>
+                    <a:a name="DESC" value="EN: Container collecting the interrupt srouces.
+                        &lt;h1&gt;Note&lt;/h1&gt;
+                        Interrupt details refer to chip UM &quot;TMC_THA6206_UserManua&quot; -&gt; Appendix A Interrupt Vector Table." />
+                    <a:a name="UUID" value="2ee8f68e-feb8-11ed-9028-f889d2d2ae74" />
+
+                    <v:var name="IntcIntSrcClass" type="ENUMERATION">
+                      <a:a name="DESC" value="EN: Interrupt source classification.&lt;br/&gt;
+                            &lt;h1&gt;Note&lt;/h1&gt;
+                            Prohibit manual modification of this value." />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="a7cf0b9c-feba-11ed-a920-f889d2d2ae75" />
+                      <a:da name="EDITABLE" value="false" />
+                      <a:da name="DEFAULT" type="XPath">
+                        <a:tst
+                          expr="ecu:list('Intc.IntSrcClass')[position()-1 = node:fallback(node:current()/../@index,'0')]" />
+                      </a:da>
+                      <a:da name="RANGE" type="XPath" expr="ecu:list('Intc.IntSrcClass')" />
+                      <!-- <a:da name="INVALID" type="Multi">
+                        <mt:xpath
+                          expr="(node:current() = ecu:list('Intc.IntSrcClass')[num:i(node:fallback(node:current()/../@index,'0') + 1)])"
+                          false="The Specified intrrupt source classification is not availabled" />
+                      </a:da> -->
+                    </v:var>
+
+                    <v:lst name="IntcIntSrcSubClassContainer" type="MAP">
+                      <a:da name="MIN" type="XPath"
+                        expr="node:fallback(&quot;->num:i(count(ecu:list(concat('Intc.', node:fallback(node:current()/../IntcIntSrcClass, 'Default.Min'), '.SubClassName'))))&quot;, '1')" />
+                      <a:da name="MAX" type="XPath"
+                        expr="node:fallback(&quot;->num:i(count(ecu:list(concat('Intc.', node:fallback(node:current()/../IntcIntSrcClass, 'Default.Max'), '.SubClassName'))))&quot;, '1023')" />
+                      <v:ctr name="IntcIntSrcSubClassContainer" type="IDENTIFIABLE">
+                        <a:a name="REQUIRES-INDEX" value="true"/>
+                        <a:a name="DESC"
+                          value="EN: Container collecting the interrupt srouces sub-classification." />
+                        <a:a name="UUID" value="2ee8f68e-feb8-11ed-90d8-f825d2d2ae74" />
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                        </a:a>
+                        <v:var name="IntcIntSrcSubClassId" type="INTEGER">
+                          <a:a name="DESC" value="EN: Interrupt source sub-classification Id.&lt;br/&gt;
+                            &lt;h1&gt;Note&lt;/h1&gt;
+                            Prohibit manual modification of this value." />
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                          <a:a name="SCOPE" value="LOCAL" />
+                          <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                          <a:a name="UUID" value="a7cf0b9c-feba-11ed-a920-f889d2d2ae76" />
+                          <a:da name="EDITABLE" value="false" />
+                          <a:da name="DEFAULT" type="XPath">
+                            <a:tst expr="node:fallback(../@index,'0')" />
+                          </a:da>
+                          <a:da name="INVALID" type="XPath">
+                            <a:tst expr="text:uniq(../../*/@name,.)" false="Name must be unique" />
+                          </a:da>
+                          <a:da name="INVALID" type="Range">
+                            <a:tst expr="&lt;= node:fallback(&quot;->num:i(count(node:current()/../../*))&quot;, num:i(1023))" />
+                            <a:tst expr="&gt;= 0" />
+                          </a:da>
+                        </v:var>
+
+                        <v:var name="IntcIntSrcSubClassName" type="STRING">
+                          <a:a name="DESC" value="EN: Interrupt source sub-classification name.&lt;br/&gt;
+                            &lt;h1&gt;Note&lt;/h1&gt;
+                            Prohibit manual modification of this value." />
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                          <a:a name="SCOPE" value="LOCAL" />
+                          <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                          <a:a name="UUID" value="a7cf0b9c-feba-1133-a920-f889d2d2ae73" />
+                          <a:da name="EDITABLE" value="false" />
+                          <a:da name="DEFAULT" type="XPath">
+                            <a:tst
+                              expr="node:fallback(&quot;->ecu:list(concat('Intc.', node:current()/../../../IntcIntSrcClass, '.SubClassName'))[num:i(node:fallback(node:current()/../IntcIntSrcSubClassId, '0') + 1)]&quot;, 'NoName')" />
+                          </a:da>
+                          <a:da name="INVALID" type="XPath">
+                            <a:tst
+                              expr="(. = ecu:list(concat('Intc.', node:current()/../../../IntcIntSrcClass, '.SubClassName'))[num:i(node:fallback(node:current()/../IntcIntSrcSubClassId,'0') + 1)])"
+                              false="The Specified intrrupt source sub-classification name is not availabled" />
+                          </a:da>
+                        </v:var>
+
+                        <v:lst name="IntcIntSrcContainer" type="MAP">
+                          <a:da name="MIN" type="XPath"
+                            expr="node:fallback(&quot;->num:i(count(ecu:list(concat('Intc.', node:current()/../../../IntcIntSrcClass, '.', node:current()/../IntcIntSrcSubClassName, '.IntName'))))&quot;, '1')" />
+                          <a:da name="MAX" type="XPath"
+                            expr="node:fallback(&quot;->num:i(count(ecu:list(concat('Intc.', node:current()/../../../IntcIntSrcClass, '.', node:current()/../IntcIntSrcSubClassName, '.IntName'))))&quot;, '1023')" />
+                          <v:ctr name="IntcIntSrcContainer" type="IDENTIFIABLE">
+                            <a:a name="REQUIRES-INDEX" value="true"/>
+                            <a:a name="DESC"
+                              value="EN: Container collecting the specified interrupt srouces." />
+                            <a:a name="UUID" value="2ee8f68e-feb8-11ed-90d8-f889d2d2ae74" />
+                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                            </a:a>
+                            <v:var name="IntcIntSrcLogicalIndex" type="INTEGER">
+                              <a:a name="DESC" value="EN: The logical index of this list marks the order of the items within the list.&lt;br/&gt;
+                                &lt;h1&gt;Note&lt;/h1&gt;
+                                Prohibit manual modification of this value." />
+                              <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                              </a:a>
+                              <a:a name="ORIGIN" value="ChipowerTech" />
+                              <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                              <a:a name="SCOPE" value="LOCAL" />
+                              <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                              <a:a name="UUID" value="a7cf0b9c-feba-11ed-a920-f889d2d2ae77" />
+                              <a:a name="EDITABLE" value="false"/>
+                              <a:da name="DEFAULT" type="XPath">
+                                <a:tst expr="node:fallback(../@index, '0')" />
+                              </a:da>
+                              <a:da name="INVALID" type="Range">
+                                <a:tst expr="&lt;= node:fallback(&quot;->num:i(count(node:current()/../../*))&quot;, num:i(1023))" />
+                                <a:tst expr="&gt;= 0" />
+                              </a:da>
+                            </v:var>
+
+                            <v:var name="IntcIntSrcName" type="STRING">
+                              <a:a name="DESC" value="EN: Interrupt source name.&lt;br/&gt;
+                                &lt;h1&gt;Note&lt;/h1&gt;
+                                Prohibit manual modification of this value." />
+                              <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                              </a:a>
+                              <a:a name="ORIGIN" value="ChipowerTech" />
+                              <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                              <a:a name="SCOPE" value="LOCAL" />
+                              <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                              <a:a name="UUID" value="a7cf0b9c-feba-1133-a920-f889d2d2ae74" />
+                              <a:a name="EDITABLE" value="false"/>
+                              <a:da name="DEFAULT" type="XPath">
+                                <a:tst
+                                  expr="node:fallback(&quot;->ecu:list(concat('Intc.', node:current()/../../../../../IntcIntSrcClass, '.', node:current()/../../../IntcIntSrcSubClassName, '.IntName'))[num:i(node:fallback(node:current()/../IntcIntSrcLogicalIndex,'0') + 1)]&quot;, 'NoName')" />
+                              </a:da>
+                              <a:da name="INVALID" type="XPath">
+                                <a:tst
+                                  expr="(. = ecu:list(concat('Intc.', node:current()/../../../../../IntcIntSrcClass,  '.', node:current()/../../../IntcIntSrcSubClassName, '.IntName'))[num:i((node:fallback(node:current()/../IntcIntSrcLogicalIndex,'0') + 1))])"
+                                  false="The Specified intrrupt source name is not availabled" />
+                              </a:da>
+                            </v:var>
+
+                            <v:var name="IntcIntSrcId" type="INTEGER">
+                              <a:a name="DESC" value="EN: Unique interrupt source identification(INTID).&lt;br/&gt;
+                                &lt;h1&gt;Note&lt;/h1&gt;
+                                Prohibit manual modification of this value." />
+                              <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                              </a:a>
+                              <a:a name="ORIGIN" value="ChipowerTech" />
+                              <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                              <a:a name="SCOPE" value="LOCAL" />
+                              <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                              <a:a name="UUID" value="a7cf0b9c-feba-11ed-a920-f889d2d2ae78" />
+                              <a:a name="EDITABLE" value="false"/>
+                              <a:da name="DEFAULT" type="XPath">
+                                <!-- SGI and PPI both exists in every cores, All Core Shared SPIs -->
+                                <a:tst
+                                  expr="node:fallback(&quot;->num:i(ecu:list(concat('Intc.', node:current()/../../../../../IntcIntSrcClass, '.', node:current()/../../../IntcIntSrcSubClassName, '.IntID'))[num:i(node:fallback(node:current()/../IntcIntSrcLogicalIndex,'0') + 1)])&quot;, '0')" />
+                              </a:da>
+                              <a:da name="INVALID" type="XPath">
+                                <a:tst
+                                  expr="not(num:i(.) = num:i(ecu:list(concat('Intc.', node:current()/../../../../../IntcIntSrcClass, '.', node:current()/../../../IntcIntSrcSubClassName, '.IntID'))[num:i(node:fallback(node:current()/../IntcIntSrcLogicalIndex,'0') + 1)]))"
+                                  true="Interrupt source identification is out of range, This does not allow manual modification." />
+                              </a:da>
+                              <a:da name="INVALID" type="Range">
+                                <a:tst expr="&lt;= 1023" />
+                                <a:tst expr="&gt;= 0" />
+                              </a:da>
+                            </v:var>
+
+                            <v:var name="IntcIntSrcEnable" type="BOOLEAN">
+                              <a:a name="DESC"
+                                value="EN: To enable/disable this interrupt source in project.&lt;br/&gt;
+                                true: Enable this interrupt source.&lt;br/&gt;
+                                false: Disable this interrupt source." />
+                              <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                              </a:a>
+                              <a:a name="ORIGIN" value="ChipowerTech" />
+                              <a:a name="SCOPE" value="LOCAL" />
+                              <a:a name="UUID" value="9264be0d-7827-11ec-9213-f889d2d2ec8e" />
+                              <a:a name="EDITABLE" type="XPath" expr = "not(text:contains(node:value(node:current()/../IntcIntSrcName), 'Reserved'))"/>
+                              <a:da name="DEFAULT" value="false" />
+                              <a:da name="INVALID" type="XPath">
+                                <a:tst
+                                  expr="as:modconf('Intc')[1]/IntcConfigSet/IntcContainer/*/IntcIntSrcSubClassContainer/*/IntcIntSrcContainer/*/IntcIntSrcEnable = 'true'"
+                                  false="No interrupts have been enabled, at least one interrupt needs to be enabled." />
+                              </a:da>
+                            </v:var>
+
+                            <v:var name="IntcIntSrcEnableInstalling" type="BOOLEAN">
+                                <a:a name="DESC"
+                                  value="EN: This interrupt source will be enabled automatically upon invoking API Intc_InstallInterrupt().&lt;br/&gt;
+                                  true: Enable this interrupt source when installing.&lt;br/&gt;
+                                  false: Disable this interrupt source when installing." />
+                                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                  <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                </a:a>
+                                <a:a name="ORIGIN" value="ChipowerTech" />
+                                <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                <a:a name="SCOPE" value="LOCAL" />
+                                <a:a name="UUID" value="9264be0d-7827-11ec-9213-f889d2d2ec8f" />
+                                <a:a name="EDITABLE" type="XPath" >
+                                    <a:tst expr = "not(text:contains(node:value(node:current()/../IntcIntSrcName), 'Reserved'))" />
+                                    <a:tst expr = "node:value(node:current()/../IntcIntSrcEnable) = 'true'" />
+                                </a:a>
+                                <a:da name="DEFAULT" value="false" />
+                              </v:var>
+
+                            <v:var name="IntcIntSrcCoreMapping" type="ENUMERATION">
+                              <a:a name="DESC"
+                                value="EN:Select the core which this interrupt source mapped to.&lt;br/&gt;
+                                &lt;h1&gt;Note&lt;/h1&gt;
+                                    For SGIs(Software generated interrupts) and PPIs(private peripheral interrupts), this parameter is constant and non-configurable.&lt;br/&gt;
+                                    For SPIs(shared peripheral interrupts), this parameter is configurable." />
+                              <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                              </a:a>
+                              <a:a name="ORIGIN" value="ChipowerTech" />
+                              <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                              <a:a name="SCOPE" value="LOCAL" />
+                              <a:a name="UUID" value="9264be0f-7827-11ec-8725-f889d2d2ec8e" />
+                              <a:da name="EDITABLE" type="XPath">
+                                <!-- For SGI and PPI and SwInt(software interrupt of SPI), manual allocation of core mappings is prohibited -->
+                                <a:tst expr="not(text:contains(ecu:list('Intc.CoreFixedIntClass'), node:current()/../../../../../IntcIntSrcClass))" />
+                                <a:tst expr = "not(text:contains(node:value(node:current()/../IntcIntSrcName), 'Reserved'))"/>
+                                <a:tst expr = "node:value(node:current()/../IntcIntSrcEnable) = 'true'" />
+                              </a:da>
+                              <a:da name="VISIBLE" value="true" />
+                              <a:da name="DEFAULT" type="XPath" >
+                                <a:tst expr="node:fallback(&quot;->node:when(text:contains(ecu:list('Intc.CoreFixedIntClass'), node:current()/../../../../../IntcIntSrcClass),
+                                                  ecu:list('Resource.AvailableCores')[num:i(node:value(node:current()/../../../IntcIntSrcSubClassId) + 1)],
+                                                  ecu:list('Resource.AvailableCores')[1])&quot;, ecu:list('Resource.AvailableCores')[1])" />
+                              </a:da>
+                              <a:da name="RANGE" type="XPath" expr="ecu:list('Resource.AvailableCores')" />
+                              <a:da name="INVALID" type="XPath">
+                                <a:tst
+                                  expr="((text:contains(ecu:list('Intc.CoreFixedIntClass'), node:current()/../../../../../IntcIntSrcClass)) and
+                                            (node:current() = ecu:list('Resource.AvailableCores')[num:i(node:current()/../../../IntcIntSrcSubClassId + 1)])) or 
+                                        (not(text:contains(ecu:list('Intc.CoreFixedIntClass'), node:current()/../../../../../IntcIntSrcClass)))"
+                                  false="Error mapping core selected." />
+                              </a:da>
+                            </v:var>
+
+                            <v:var name="IntcIntSrcGroupPriority" type="INTEGER">
+                              <a:a name="DESC"
+                                value="EN:Set the interrupt source group priority.&lt;br/&gt;
+                                For FIQ, when IntcGeneral/IntcFIQPriorityBinaryPoint is: &lt;br/&gt;
+                                - 2: [group priority range is 0~31] &lt;br/&gt;
+                                - 3: [group priority range is 0~15] &lt;br/&gt;
+                                - 4: [group priority range is 0~7] &lt;br/&gt;
+                                - 5: [group priority range is 0~3] &lt;br/&gt;
+                                - 6: [group priority range is 0~1] &lt;br/&gt;
+                                - 7: [group priority is None]: In this case, Interrupt preemption is not supported &lt;br/&gt;
+                                For IRQ, when IntcGeneral/IntcIRQPriorityBinaryPoint is: &lt;br/&gt;
+                                - 3: [group priority range is 0~31] &lt;br/&gt;
+                                - 4: [group priority range is 0~15] &lt;br/&gt;
+                                - 5: [group priority range is 0~7] &lt;br/&gt;
+                                - 6: [group priority range is 0~3] &lt;br/&gt;
+                                - 7: [group priority range is 0~1] &lt;br/&gt;
+                                &lt;h1&gt;Note&lt;/h1&gt;
+                                1. Group priority is invalid when IntcGeneral/IntcFIQPriorityBinaryPoint = 7 and IntcIntSrcAssignedTo = 'FIQ'.&lt;br/&gt;
+                                2. 0 is highest priority.&lt;br/&gt;
+                                3. When both the group priority and subpriority are set to the lowest, indicates that is IDLE interrupt which will not be triggered.&lt;br/&gt;" />
+                              <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                              </a:a>
+                              <a:a name="ORIGIN" value="ChipowerTech" />
+                              <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                              <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                              <a:a name="SCOPE" value="LOCAL" />
+                              <a:a name="UUID" value="9264be11-7827-11ec-9934-f889d2d2ec45" />
+                              <a:a name="EDITABLE" type="XPath" >
+                                    <a:tst expr = "node:fallback(&quot;->not(text:contains(node:value(node:current()/../IntcIntSrcName), 'Reserved'))&quot;, 'true')" />
+                                    <a:tst expr = "node:fallback(&quot;->node:value(node:current()/../IntcIntSrcEnable) = 'true'&quot;, 'true')" />
+                                    <a:tst expr = "node:fallback(&quot;->not(node:exists(as:modconf('Intc')[1]/IntcGeneral/IntcFIQPriorityBinaryPoint) and 
+                                                       node:value(as:modconf('Intc')[1]/IntcGeneral/IntcFIQPriorityBinaryPoint) = '7' and (../IntcIntSrcAssignedTo = 'FIQ'))&quot;, 'true')" />
+                              </a:a>
+                              <a:da name="OPTIONAL" value="true" />
+                              <a:da name="DEFAULT" value="0" />
+                              <a:da name="INVALID" type="Range">
+                                <a:tst expr="&lt;=ecu:list('Intc.InterruptPriority')[2]" />
+                                <a:tst expr="&gt;=ecu:list('Intc.InterruptPriority')[1]" />
+                              </a:da>
+                              <a:da name="INVALID" type="XPath">
+                                <a:tst expr="not((node:exists(as:modconf('Intc')[1]/IntcGeneral/IntcFIQPriorityBinaryPoint) and .&lt;bit:shr(32, num:i((node:value(as:modconf('Intc')[1]/IntcGeneral/IntcFIQPriorityBinaryPoint) - 2))) and (../IntcIntSrcAssignedTo = 'FIQ')) or 
+                                             ((node:exists(as:modconf('Intc')[1]/IntcGeneral/IntcIRQPriorityBinaryPoint) and .&lt;bit:shr(32, num:i((node:value(as:modconf('Intc')[1]/IntcGeneral/IntcIRQPriorityBinaryPoint) - 3)))) and (../IntcIntSrcAssignedTo = 'IRQ')))"
+                                             true = "Group priority setting error" />
+                              </a:da>
+                            </v:var>
+
+                            <v:var name="IntcIntSrcSubPriority" type="INTEGER">
+                              <a:a name="DESC"
+                                value="EN:Set the interrupt source subpriority.&lt;br/&gt;
+                                For FIQ, when IntcGeneral/IntcFIQPriorityBinaryPoint is: &lt;br/&gt;
+                                - 2: [subpriority is None] &lt;br/&gt;
+                                - 3: [subpriority range is 0~1] &lt;br/&gt;
+                                - 4: [subpriority range is 0~3] &lt;br/&gt;
+                                - 5: [subpriority range is 0~7] &lt;br/&gt;
+                                - 6: [subpriority range is 0~15] &lt;br/&gt;
+                                - 7: [subpriority range is 0~31]: In this case, Interrupt preemption is not supported &lt;br/&gt;
+                                For IRQ, when IntcGeneral/IntcIRQPriorityBinaryPoint is: &lt;br/&gt;
+                                - 3: [subpriority is None] &lt;br/&gt;
+                                - 4: [subpriority range is 0~1] &lt;br/&gt;
+                                - 5: [subpriority range is 0~3] &lt;br/&gt;
+                                - 6: [subpriority range is 0~7] &lt;br/&gt;
+                                - 7: [subpriority range is 0~15] &lt;br/&gt;
+                                &lt;h1&gt;Note&lt;/h1&gt;
+                                1. Subpriority is invalid when (IntcGeneral/IntcFIQPriorityBinaryPoint = 2 and IntcIntSrcAssignedTo = 'FIQ') or (IntcGeneral/IntcFIQPriorityBinaryPoint = 3 and IntcIntSrcAssignedTo = 'IRQ').&lt;br/&gt;
+                                2. 0 is highest priority.&lt;br/&gt;
+                                3. When both the group priority and subpriority are set to the lowest, indicates that is IDLE interrupt which will not be triggered.&lt;br/&gt;" />
+                              <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                              </a:a>
+                              <a:a name="ORIGIN" value="ChipowerTech" />
+                              <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                              <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                              <a:a name="SCOPE" value="LOCAL" />
+                              <a:a name="UUID" value="9264be11-7827-11ec-9934-f889d2d2ec8e" />
+                              <a:a name="EDITABLE" type="XPath" >
+                                <a:tst expr = "node:fallback(&quot;->not(text:contains(node:value(node:current()/../IntcIntSrcName), 'Reserved'))&quot;, 'true')" />
+                                <a:tst expr = "node:fallback(&quot;->node:value(node:current()/../IntcIntSrcEnable) = 'true'&quot;, 'true')" />
+                                <a:tst expr = "node:fallback(&quot;->not((node:exists(as:modconf('Intc')[1]/IntcGeneral/IntcFIQPriorityBinaryPoint) and (node:value(as:modconf('Intc')[1]/IntcGeneral/IntcFIQPriorityBinaryPoint) = '2') and (node:value(../IntcIntSrcAssignedTo) = 'FIQ')) or 
+                                                   (node:exists(as:modconf('Intc')[1]/IntcGeneral/IntcIRQPriorityBinaryPoint) and (node:value(as:modconf('Intc')[1]/IntcGeneral/IntcIRQPriorityBinaryPoint) = '3') and (node:value(../IntcIntSrcAssignedTo) = 'IRQ')))&quot;, 'true')"/>
+                              </a:a>
+                              <a:da name="DEFAULT" value="0" />
+                              <a:da name="OPTIONAL" value="true" />
+                              <a:da name="INVALID" type="Range">
+                                <a:tst expr="&lt;=ecu:list('Intc.InterruptPriority')[2]" />
+                                <a:tst expr="&gt;=ecu:list('Intc.InterruptPriority')[1]" />
+                              </a:da>
+                              <a:da name="INVALID" type="XPath">
+                                <a:tst expr="not((node:exists(as:modconf('Intc')[1]/IntcGeneral/IntcFIQPriorityBinaryPoint) and .&lt;bit:shl(1, num:i((node:value(as:modconf('Intc')[1]/IntcGeneral/IntcFIQPriorityBinaryPoint) - 2))) and (../IntcIntSrcAssignedTo = 'FIQ')) or 
+                                             ((node:exists(as:modconf('Intc')[1]/IntcGeneral/IntcIRQPriorityBinaryPoint) and .&lt;bit:shl(1, num:i((node:value(as:modconf('Intc')[1]/IntcGeneral/IntcIRQPriorityBinaryPoint) - 3)))) and (../IntcIntSrcAssignedTo = 'IRQ')))"
+                                             true = "Subpriority setting error" />
+                              </a:da>
+                            </v:var>
+
+                            <v:var name="IntcIntSrcTriggerMethod" type="ENUMERATION">
+                              <a:a name="DESC"
+                                value="EN:Select the interrupt source trigger method.&lt;br/&gt;
+                                        LEVEL: level-sensitive&lt;br/&gt;
+                                        EDGE: edge-triggered&lt;br/&gt;
+                                        If this parameter is grayed out indicates that is non-configurable.
+                                       &lt;h1&gt;Note&lt;/h1&gt;
+                                       Detail refer to GIC registers 'GICD_ICFGR' and 'GICR_ICFGR' in &lt;i&gt;Arm Cortex-R52 Processor Technical Reference Manual&lt;/i&gt;" />
+                              <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                              </a:a>
+                              <a:a name="ORIGIN" value="ChipowerTech" />
+                              <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                              <a:a name="SCOPE" value="LOCAL" />
+                              <a:a name="UUID" value="c4cc1c03-0416-11ee-b700-f889d2d2ae74" />
+                              <a:da name="EDITABLE" type="XPath">
+                                <a:tst
+                                  expr="ecu:list(concat('Intc.', node:current()/../../../../../IntcIntSrcClass, '.', node:current()/../../../IntcIntSrcSubClassName, '.IntTrigMthd'))[num:i(node:fallback(node:current()/../IntcIntSrcLogicalIndex,'0') + 1)] = '9'" />
+                              </a:da>
+                              <a:da name="DEFAULT" type="XPath" expr="node:fallback(&quot;->node:when(ecu:list(concat('Intc.', node:current()/../../../../../IntcIntSrcClass,  '.', node:current()/../../../IntcIntSrcSubClassName, '.IntTrigMthd'))[num:i(node:fallback(node:current()/../IntcIntSrcLogicalIndex,'0') + 1)] = '0', 
+                                                                                            ecu:list('Intc.GicIntTriggerMethod')[1], ecu:list('Intc.GicIntTriggerMethod')[2])&quot;, ecu:list('Intc.GicIntTriggerMethod')[1])" />
+                              <a:da name="RANGE" type="XPath" expr="ecu:list('Intc.GicIntTriggerMethod')" />
+                            </v:var>
+
+                            <v:var name="IntcIntSrcAssignedTo" type="ENUMERATION">
+                              <a:a name="DESC"
+                                value="EN:Select whether to assign the interrupt to FIQ(Fast Interrupt Request) or IRQ(Interrupt Request).&lt;br/&gt;
+                                       &lt;h1&gt;Note&lt;/h1&gt;
+                                       FIQ: Assigned this interrupt source to FIQ(Group0 in GIC). &lt;br/&gt;
+                                       IRQ: Assigned this interrupt source to IRQ(Group1 in GIC). " />
+                              <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                              </a:a>
+                              <a:a name="ORIGIN" value="ChipowerTech" />
+                              <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                              <a:a name="SCOPE" value="LOCAL" />
+                              <a:a name="UUID" value="f6764dc3-0409-11ee-abd1-f889d2d2ae74" />
+                              <a:a name="EDITABLE" type="XPath" >
+                                    <a:tst expr = "not(text:contains(node:value(node:current()/../IntcIntSrcName), 'Reserved'))" />
+                                    <a:tst expr = "node:value(node:current()/../IntcIntSrcEnable) = 'true'" />
+                              </a:a>
+                              <a:da name="VISIBLE" value="true" />
+                              <a:da name="DEFAULT" value="IRQ" />
+                              <a:da name="RANGE">
+                                <a:v>FIQ</a:v>
+                                <a:v>IRQ</a:v>
+                              </a:da>
+                            </v:var>
+
+                            <v:var name="IntcIntSrcCategory" type="ENUMERATION">
+                              <a:a name="DESC"
+                                value="EN:Select the interrupt category setting. Depending upon the category the interrupt Frame is different.&lt;br/&gt;
+                                          If CAT2 is selected, the interrupt needs to be installed in the interrupt vector table when calling the API Intc_InstallInterrupt, 
+                                          the interrupt needs to be installed by the user or integrator.
+                                       &lt;h1&gt;Note&lt;/h1&gt;
+                                       CAT1: Category 1. &lt;br/&gt;
+                                       CAT2: Category 2. " />
+                              <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                              </a:a>
+                              <a:a name="ORIGIN" value="ChipowerTech" />
+                              <a:a name="SCOPE" value="LOCAL" />
+                              <a:a name="UUID" value="123e4567-e89b-12d3-a456-426655441efd" />
+                              <a:a name="EDITABLE" type="XPath" >
+                                    <a:tst expr = "not(text:contains(node:value(node:current()/../IntcIntSrcName), 'Reserved'))" />
+                                    <a:tst expr = "node:value(node:current()/../IntcIntSrcEnable) = 'true'" />
+                              </a:a>
+                              <a:da name="VISIBLE" value="true" />
+                              <a:da name="DEFAULT" value="CAT1" />
+                              <a:da name="RANGE">
+                                <a:v>CAT1</a:v>
+                                <a:v>CAT2</a:v>
+                              </a:da>
+                            </v:var>
+
+                            <v:var name="IntcIntSrcNotification" type="FUNCTION-NAME">
+                              <a:a name="DESC"
+                                value="EN: This parameter defines the existence and the name of a notification function that interrupt source triggered.&lt;br/&gt;
+                                &lt;h1&gt;Note&lt;/h1&gt;
+                                If you have used modules developed by MCAL, it is best not to setting this parameter, because interrupt mechanisms are implemented internally within MCAL modules." />
+                              <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                              </a:a>
+                              <a:a name="OPTIONAL" value="true" />
+                              <a:a name="ORIGIN" value="ChipowerTech" />
+                              <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false" />
+                              <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                              <a:a name="SCOPE" value="LOCAL" />
+                              <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                              <a:a name="UUID" value="d1206e38-c792-11ec-83a4-f889d2d2ec8e" />
+                              <a:da name="DEFAULT" value="NULL_PTR" />
+                              <a:a name="EDITABLE" type="XPath" >
+                                    <a:tst expr = "not(text:contains(node:value(node:current()/../IntcIntSrcName), 'Reserved'))" />
+                                    <a:tst expr = "node:value(node:current()/../IntcIntSrcEnable) = 'true'" />
+                              </a:a>
+                              <a:da name="INVALID" type="XPath">
+                                <a:tst expr="text:match(normalize-space(.),'^[_a-zA-Z]+[_0-9a-zA-Z]*$')"
+                                  false="Invalid name. Must be valid C function name or NULL_PTR." />
+                              </a:da>
+                            </v:var>
+
+                          </v:ctr>
+                        </v:lst>
+                      </v:ctr>
+                    </v:lst>
+                  </v:ctr>
+                </v:lst>
+              </v:ctr>
+
+              <!-- /** @implements CommonPublishedInformation_Object */ -->
+              <v:ctr name="CommonPublishedInformation" type="IDENTIFIABLE">
+                <a:a name="DESC">
+                  <a:v>
+                    <![CDATA[EN:<html> Common container, aggregated by all modules. It contains published information about vendor and versions.</html>]]>
+                  </a:v>
+                </a:a>
+                <a:a name="UUID" value="17f16ee6-741b-11ec-a8bf-f889d2d2ec8e" />
+
+                <v:var name="ArReleaseMajorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Major version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="1cc24528-741b-11ec-baf4-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="4" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+
+                <v:var name="ArReleaseMinorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Minor version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="22b5a274-741b-11ec-9fef-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="4" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+
+                <v:var name="ArReleaseRevisionVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Revision version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="27732a80-741b-11ec-b45a-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="0" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+
+                <v:var name="ModuleId" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Module ID of this module from Module List.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="2cdc8812-741b-11ec-ae71-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="255" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+
+                <v:var name="SwMajorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Major version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="32009108-741b-11ec-9af4-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="1" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+
+                <v:var name="SwMinorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Minor version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="370fb234-741b-11ec-b5d9-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="2" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+
+                <v:var name="SwPatchVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Patch level version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="3bd94014-741b-11ec-bb9c-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="0" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="VendorId" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Vendor ID of the dedicated implementation of this module according to the AUTOSAR vendor list.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="40f23b28-741b-11ec-ba1d-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="175" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=175" />
+                    <a:tst expr="&gt;=175" />
+                  </a:da>
+                </v:var>
+              </v:ctr>
+            </v:ctr>
+          </d:chc>
+          <d:chc name="Intc_EcuParameterDefinition" type="AR-ELEMENT" value="ECU_PARAMETER_DEFINITION">
+            <d:ctr type="AR-ELEMENT">
+              <a:a name="DEF" value="ASPath:/AR_PACKAGE_SCHEMA/ECU_PARAMETER_DEFINITION" />
+              <a:a name="UUID" value="01f19997-ea6e-e513-bf82-bfab416d21a0" />
+              <d:lst name="MODULE_REF">
+                <d:ref type="MODULE_REF" value="ASPath:/THA6_AS440_FuSa/Intc" />
+              </d:lst>
+            </d:ctr>
+          </d:chc>
+        </d:lst>
+      </d:ctr>
+    </d:lst>
+  </d:ctr>
+
+</datamodel>

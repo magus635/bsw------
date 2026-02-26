@@ -1,0 +1,519 @@
+<?xml version='1.0'?>
+<datamodel version="7.0"
+  xmlns="http://www.tresos.de/_projects/DataModel2/16/root.xsd"
+  xmlns:a="http://www.tresos.de/_projects/DataModel2/16/attribute.xsd"
+  xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd"
+  xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd">
+
+  <d:ctr type="AUTOSAR" factory="autosar"
+    xmlns:ad="http://www.tresos.de/_projects/DataModel2/08/admindata.xsd"
+    xmlns:cd="http://www.tresos.de/_projects/DataModel2/08/customdata.xsd"
+    xmlns:f="http://www.tresos.de/_projects/DataModel2/14/formulaexpr.xsd"
+    xmlns:icc="http://www.tresos.de/_projects/DataModel2/08/implconfigclass.xsd"
+    xmlns:mt="http://www.tresos.de/_projects/DataModel2/11/multitest.xsd"
+    xmlns:variant="http://www.tresos.de/_projects/DataModel2/11/variant.xsd">
+    <d:lst type="TOP-LEVEL-PACKAGES">
+      <d:ctr name="THA6_AS440_FuSa" type="AR-PACKAGE">
+        <a:a name="UUID" value="ECUC:ECUCDEFS" />
+        <d:lst type="ELEMENTS">
+          <d:chc name="Uart" type="AR-ELEMENT" value="MODULE-DEF">
+            <v:ctr type="MODULE-DEF">
+              <a:a name="ADMIN-DATA" type="ADMIN-DATA">
+                <ad:ADMIN-DATA>
+                  <ad:DOC-REVISIONS>
+                    <ad:DOC-REVISION>
+                      <ad:REVISION-LABEL>4.4.0</ad:REVISION-LABEL>
+                      <ad:ISSUED-BY>AUTOSAR</ad:ISSUED-BY>
+                    </ad:DOC-REVISION>
+                  </ad:DOC-REVISIONS>
+                </ad:ADMIN-DATA>
+              </a:a>
+              <a:a name="DESC" value="EN: Configuration of the Uart (UART driver) module."/>
+              <a:a name="LOWER-MULTIPLICITY" value="1"/>
+              <a:a name="POSTBUILDVARIANTSUPPORT" value="true"/>
+              <a:a name="RELEASE" value="asc:4.4.0"/>
+              <a:a name="UPPER-MULTIPLICITY" value="*"/>
+              <a:a name="UUID" value="225c6526-55a7-11ed-bb90-525400cfb560"/>
+
+              <v:var name="IMPLEMENTATION_CONFIG_VARIANT" type="ENUMERATION">
+                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                  <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                </a:a>
+                <a:a name="LABEL" value="Config Variant"/>
+                <a:a name="UUID" value="n225c8c5e-55a7-11ed-9a64-525400cfb560"/>
+                <a:da name="DEFAULT" value="VariantPostBuild"/>
+                <a:da name="RANGE">
+                  <a:v>VariantPostBuild</a:v>
+                </a:da>
+              </v:var>
+              <v:ctr name="UartClockSet" type="IDENTIFIABLE">
+                <a:a name="DESC" value="EN: This container contains All UART hardware unit baudrate clock setting." />
+                <a:a name="UUID" value="3ee451e0-55a7-11ed-b949-525400cfb560" />
+                <v:ref name="UartSysClockRef" type="REFERENCE">
+                  <a:a name="DESC" value="EN: Reference to the UART clock source configuration, which is set in the MCU driver configuration. &lt;br/&gt; &lt;h1&gt;Note&lt;/h1&gt;This is used to replace 'UartClockRef'" />
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="UUID" value="n3ee47c56-55a7-11ed-a5d4-525400cfb560" />
+                  <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/Mcu/McuModuleConfiguration/McuClockSettingConfig/McuClockReferencePoint" />
+                  <a:da name="INVALID" type="XPath">
+                    <a:tst expr="node:refvalid(.)" false="[255-03-00-ERROR]: Invalid or empty reference." />
+                  </a:da>
+                </v:ref>
+              </v:ctr>
+
+              <v:ctr name="UartGeneral" type="IDENTIFIABLE">
+                <a:a name="DESC" value="EN: This container contains the parameters related to each Uart Driver Unit."/>
+                <a:a name="UUID" value="n3ee47dbe-55a7-11ed-b7a8-525400cfb560"/>
+                <v:var name="UartDevErrorDetect" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: Switches the Default Error Tracer (Det) detection and notification ON or OFF. &lt;br/&gt; true: enabled (ON). &lt;br/&gt; false: disabled (OFF)." />
+                    " />
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:da name="TOOLTIP" value="Switch for enabling the development error detection." />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="n3ee47f44-55a7-11ed-81c3-525400cfb560"/>
+                  <a:da name="DEFAULT" value="false" />
+                </v:var>
+                <v:var name="UartVersionInfoApi" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: Switches the Uart_GetVersionInfo function ON or OFF. &lt;br/&gt; true: enabled (ON). &lt;br/&gt; false: disabled (OFF)." />
+                    " />
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="n4a1ad067-cd25-5afb-95c4-9327b383f3d5"/>
+                  <a:da name="DEFAULT" value="false" />
+                </v:var>
+                <v:var name="UartTimeoutDuration" type="INTEGER">
+                  <a:a name="DESC" value="EN: Specifies the maximum number of loops for blocking function until a timeout is raised in short term wait loops"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:da name="DEFAULT" value="500" />
+                  <a:a name="UUID" value="n4097153f-8233-4d2a-8b54-b5dc0700f835"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=65535"/>
+                    <a:tst expr="&gt;=500"/>
+                  </a:da>
+                </v:var>
+              </v:ctr>
+
+              <v:ctr name="UartGlobalConfig" type="IDENTIFIABLE">
+                <a:a name="DESC" value="EN: This container contains the global configuration parameter of the Uart driver." />
+                <a:a name="UUID" value="n78ca5129-0864-4b42-bd83-23e404665d2f" />
+                <v:lst name="UartChannel" type="MAP">
+                  <a:da name="MIN" value="1" />
+                  <v:ctr name="UartChannel" type="IDENTIFIABLE">
+                    <a:a name="DESC" value="EN: This container contains the configuration (parameters) of the UART Controller(s)." />
+                    <a:a name="REQUIRES-INDEX" value="true"/>
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                    <a:a name="UUID" value="nf8936e23-cee2-4a0a-b565-25a9224ebb99" />
+                    <v:var name="UartChannelId" type="INTEGER">
+                      <a:a name="DESC" value="EN: Identifies the UART channel. Replaces UART_CHANNEL_INDEX_NAME from the UART SWS." />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="true" />
+                      <a:da name="DEFAULT" type="XPath" expr="node:fallback(&quot;->node:current()/../@index&quot;, num:i(0))" />
+                      <a:a name="UUID" value="n0f020d29-49b3-48b5-88c0-f4cde2f6103d" />
+                      <a:da name="INVALID" type="Range">
+                        <a:tst expr="&lt;=255" />
+                        <a:tst expr="&gt;=0" />
+                      </a:da>
+                      <a:da name="RANGE" type="XPath">
+                        <a:tst expr="(. &gt;= 0) and (.&lt; num:i(count(node:current()/../../*)))" false="[255-03-01-ERROR]: Value out of range: must be in range 0 to N-1 (N is number of configured channels). Use the Calc button to calculate correct default value" />
+                        <a:tst expr="text:uniq(../../*/UartChannelId, .)" false="[255-03-02-ERROR]: Duplicated value, UartChannelId must be unique across all Uart channels. Use the Calc button to calculate correct default value." />
+                      </a:da>
+                    </v:var>
+                    <v:var name="UartHwUnit" type="ENUMERATION">
+                      <a:a name="DESC" value="EN:This parameter selects the hardware unit used to tranfer uart data." />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="UUID" value="n1f848a95-eba4-43e8-ad9e-5b6f48449884" />
+                      <a:da name="DEFAULT" value="ASI0" />
+                      <a:da name="RANGE" type="XPath">
+                        <a:tst expr="node:fallback(ecu:list('Asi.AvailableHWUnit'), 8)"/>
+                      </a:da>
+                      <a:da name="INVALID" type="XPath">
+                        <a:tst expr="text:uniq(node:fallback(&quot;->../../*/UartHwUnit&quot;, 0 ), node:fallback( ., 1 ))" false="[255-03-03-ERROR]: Duplicate Uart hardware unit" />
+                        <a:tst expr="node:containsValue(as:modconf('Lin')[1]/LinGlobalConfig/LinChannel/*/LinHwUnit, .)" true="[255-03-04-ERROR]: This ASIx HwUnit channel has been used in the Lin module" />
+                      </a:da>
+                    </v:var>
+                    <v:var name="UartChannelBaudRate" type="INTEGER">
+                      <a:a name="DESC" value="EN: Specifies the baud rate of the uart channel" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:da name="DEFAULT" value="115200" />
+                      <a:a name="UUID" value="nd1fcd084-792d-491e-abb9-6c8698f6ad9d" />
+                      <a:da name="INVALID" type="Range">
+                        <a:tst expr="&lt;=375000" />
+                        <a:tst expr="&gt;=1000" />
+                      </a:da>
+                    </v:var>
+                    <v:var name="UartDataBitWidth" type="ENUMERATION">
+                      <a:a name="DESC" value="EN:configuration uart data bits length." />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="UUID" value="e6d92a67-4b03-4a9e-a5e2-178b64b458cd" />
+                      <a:da name="DEFAULT" value="UART_DATATBITS_8" />
+                      <a:da name="RANGE">
+                        <a:v>UART_DATATBITS_7 </a:v>
+                        <a:v>UART_DATATBITS_8 </a:v>
+                        <a:v>UART_DATATBITS_15</a:v>
+                        <a:v>UART_DATATBITS_16</a:v>
+                      </a:da>
+                    </v:var>
+                    <v:var name="UartStopBitWidth" type="ENUMERATION">
+                      <a:a name="DESC" value="EN:configuration Uart stop bits length." />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="UUID" value="n87475a7a-c9ee-4c15-889b-9a6f85d205d1" />
+                      <a:da name="DEFAULT" value="UART_STOPBITS_1" />
+                      <a:da name="RANGE">
+                        <a:v>UART_STOPBITS_1</a:v>
+                        <a:v>UART_STOPBITS_2</a:v>
+                        <a:v>UART_STOPBITS_3</a:v>
+                      </a:da>
+                    </v:var>
+                    <v:var name="UartDataParityMode" type="ENUMERATION">
+                      <a:a name="DESC" value="EN:configuration Uart data parity mode." />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="UUID" value="na090b364-46cd-4f66-8fae-887312848d6c" />
+                      <a:da name="DEFAULT" value="UART_PARITY_NONE" />
+                      <a:da name="RANGE">
+                        <a:v>UART_PARITY_EVEN  </a:v>
+                        <a:v>UART_PARITY_ODD   </a:v>
+                        <a:v>UART_PARITY_LOGIC0</a:v>
+                        <a:v>UART_PARITY_LOGIC1</a:v>
+                        <a:v>UART_PARITY_NONE  </a:v>
+                      </a:da>
+                    </v:var>
+                    <v:var name="UartRxInterruptEnable" type="BOOLEAN">
+                      <a:a name="DESC" value="EN: Switches the receiving Interrupt function ON or OFF."/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                      <a:a name="ORIGIN" value="ChipowerTech"/>
+                      <a:a name="SCOPE" value="LOCAL"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:da name="DEFAULT" value="false"/>
+                      <a:a name="UUID" value="72252533-6e62-4ee6-bdf7-b90b34547cda"/>
+                    </v:var>
+                    <v:var name="UartTxInterruptEnable" type="BOOLEAN">
+                      <a:a name="DESC" value="EN: Switches the transmit Interrupt function ON or OFF."/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                      <a:a name="ORIGIN" value="ChipowerTech"/>
+                      <a:a name="SCOPE" value="LOCAL"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:da name="DEFAULT" value="false"/>
+                      <a:a name="UUID" value="99a2bb28-8a81-46ea-9846-09fe9ecc7459"/>
+                    </v:var>
+                    <v:var name="UartErrorInterruptEnable" type="BOOLEAN">
+                      <a:a name="DESC" value="EN: Switches the error Interrupt function ON or OFF."/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                      <a:a name="ORIGIN" value="ChipowerTech"/>
+                      <a:a name="SCOPE" value="LOCAL"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:da name="DEFAULT" value="false"/>
+                      <a:a name="UUID" value="61cab0db-3375-4202-93fb-d1f509b7c323"/>
+                    </v:var>
+                    <v:var name="UartBufferLockModeEnable" type="BOOLEAN">
+                      <a:a name="DESC" value="EN: Switches the RX buffer Lock mode ON or OFF, The receiver buffer is locked against overflow. Once the buffer is full, how the next message is handled.&lt;br /&gt;
+                        True: The next incoming message will be discarded.&lt;br /&gt;
+                        False: The next incoming message overwrites the previous one."/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="ORIGIN" value="ChipowerTech"/>
+                      <a:a name="SCOPE" value="LOCAL"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:da name="DEFAULT" value="false"/>
+                      <a:a name="UUID" value="dd7b882e-86f8-4d0c-8584-3b778be5d2fe"/>
+                    </v:var>
+                    <v:var name="UartRxNotification" type="FUNCTION-NAME">
+                      <a:a name="DESC" value="EN: The parameter is a reference to receiving notification function."/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="OPTIONAL" value="true" />
+                      <a:a name="ORIGIN" value="ChipowerTech"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                      <a:a name="UUID" value="n6f10aeb3-b236-4c00-a379-9b454ca6bfb4"/>
+                      <a:da name="DEFAULT" value="NULL_PTR"/>
+                      <a:da name="INVALID" type="XPath">
+                        <a:tst expr="node:fallback(&quot;->node:exists(.) and . = 'NULL_PTR'&quot;, 'false')" true="[255-03-05-ERROR]: The notification function name of receiving interrupt cannot be NULL_PTR" />
+                        <a:tst expr="node:fallback(&quot;->node:exists(.) and ../UartRxInterruptEnable = 'false'&quot;, 'false')" true="[255-03-05-ERROR]: When using receiving Notification, you need to enable UartRxInterruptEnable" />
+                        <a:tst expr="text:match(normalize-space(.),'^[_a-zA-Z]+[_0-9a-zA-Z]*$')"
+                                      false="Invalid name of the 'UartRxNotification'. Must be valid C function name." />
+                      </a:da>
+                    </v:var>
+                    <v:var name="UartTxNotification" type="FUNCTION-NAME">
+                      <a:a name="DESC" value="EN: The parameter is a reference to transmit notification function."/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true"/>
+                      <a:a name="ORIGIN" value="ChipowerTech"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="UUID" value="2f1d8542-c885-4c1f-a54c-a8af1dae32aa"/>
+                      <a:da name="DEFAULT" value="NULL_PTR"/>
+                      <a:a name="OPTIONAL" value="true" />
+                      <a:da name="INVALID" type="XPath">
+                        <a:tst expr="node:fallback(&quot;->node:exists(.) and ../UartTxInterruptEnable = 'false'&quot;, 'false')" true="[255-03-05-ERROR]: When using transmit Notification, you need to enable UartTxInterruptEnable" />
+                        <a:tst expr="text:match(normalize-space(.),'^[_a-zA-Z]+[_0-9a-zA-Z]*$')"
+                                      false="Invalid name of the 'UartTxNotification'. Must be valid C function name." />
+                      </a:da>
+                    </v:var>
+                    <v:var name="UartErrorNotification" type="FUNCTION-NAME">
+                      <a:a name="DESC" value="EN: The parameter is a reference to error notification function."/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                      <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true"/>
+                      <a:a name="ORIGIN" value="ChipowerTech"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="UUID" value="6e952dfd-66fd-4a60-97e4-185a06256c9d"/>
+                      <a:da name="DEFAULT" value="NULL_PTR"/>
+                      <a:a name="OPTIONAL" value="true" />
+                      <a:da name="INVALID" type="XPath">
+                        <a:tst expr="node:fallback(&quot;->node:exists(.) and ../UartErrorInterruptEnable = 'false'&quot;, 'false')" true="[255-03-05-ERROR]: When using error Notification, you need to enable UartErrorInterruptEnable" />
+                        <a:tst expr="text:match(normalize-space(.),'^[_a-zA-Z]+[_0-9a-zA-Z]*$')"
+                                      false="Invalid name of the 'UartErrorNotification'. Must be valid C function name." />
+                      </a:da>
+                    </v:var>
+                  </v:ctr>
+                </v:lst>
+              </v:ctr>
+              <v:ctr name="CommonPublishedInformation" type="IDENTIFIABLE">
+                <a:a name="DESC">
+                  <a:v>
+                    <![CDATA[EN:<html> Common container, aggregated by all modules. It contains published information about vendor and versions.</html>]]>
+                  </a:v>
+                </a:a>
+                <a:a name="UUID" value="n3e3bf7c3-94b5-442d-a057-798f6efeb5c2" />
+                <v:var name="ArReleaseMajorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Major version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="n3d6d04b2-12d7-4ef1-b580-90b79f2f5d5a" />
+                  <a:da name="DEFAULT" value="4" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="ArReleaseMinorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Minor version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="c5f20003-154c-4f04-bca2-871e5972be95" />
+                  <a:da name="DEFAULT" value="4" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="ArReleaseRevisionVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Revision version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="n9c0f9610-67ec-4e35-8b4b-2b82fd536f03" />
+                  <a:da name="DEFAULT" value="0" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="SwMajorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Major version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="nf48c2e40-4d44-4aaf-9105-af179eaf3ccf" />
+                  <a:da name="DEFAULT" value="1" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="SwMinorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Minor version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="n761f1ca9-2188-43e3-95bc-bee85ad0758a" />
+                  <a:da name="DEFAULT" value="2" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="SwPatchVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Patch level version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="a5078595-91ee-4094-98a5-526b0be11e42" />
+                  <a:da name="DEFAULT" value="0" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="VendorId" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Vendor ID of the dedicated implementation of this module according to the AUTOSAR vendor list.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="n5ff6b2ec-bc76-40c1-89cb-5adb2485c1e8" />
+                  <a:da name="DEFAULT" value="175" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="ModuleId" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Module ID of this module from Module List.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="nf4526a6e-c45e-40c3-ac0b-668f1ea6cace" />
+                  <a:da name="DEFAULT" value="255" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+              </v:ctr>
+            </v:ctr>
+          </d:chc>
+          <d:chc name="Uart_EcuParameterDefinition" type="AR-ELEMENT" value="ECU_PARAMETER_DEFINITION">
+            <d:ctr type="AR-ELEMENT">
+              <a:a name="DEF" value="ASPath:/AR_PACKAGE_SCHEMA/ECU_PARAMETER_DEFINITION"/>
+              <a:a name="UUID" value="b19bfa30-6663-4b57-aad3-967e87ff459d"/>
+              <d:lst name="MODULE_REF">
+                <d:ref type="MODULE_REF" value="ASPath:/THA6_AS440_FuSa/Uart"/>
+              </d:lst>
+            </d:ctr>
+          </d:chc>
+        </d:lst>
+      </d:ctr>
+    </d:lst>
+  </d:ctr>
+</datamodel>

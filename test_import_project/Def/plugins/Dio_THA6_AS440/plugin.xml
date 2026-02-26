@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+  <extension point="dreisoft.tresos.launcher2.plugin.module"
+             id="Dio_THA6_AS440_FuSa_ModuleID"
+             name="Dio_THA6_AS440_FuSa Module">
+    <module id="Dio_THA6_AS440_FuSa"
+            label="Dio"
+            mandatory="false"
+            allowMultiple="false"
+            description="Dio MCAL module"
+            copyright="Copyright 2020-2030 ChipowerTech, Inc"
+            swVersionMajor="1"
+            swVersionMinor="2"
+            swVersionPatch="0"
+            swVersionSuffix=""
+            specVersionMajor="4"
+            specVersionMinor="4"
+            specVersionPatch="0"
+            specVersionSuffix=""
+            relVersionPrefix="AUTOSAR"
+            relVersionMajor="4"
+            relVersionMinor="4"
+            relVersionPatch="0"
+            relVersionSuffix=""
+            categoryType="Dio"
+            categoryLayer="MCAL"
+            categoryCategory="ECU Firmware"
+            categoryComponent="ECUC">
+      <ecuType target="ARM" derivate="THA6XXX_FuSa"/>
+      <cluster name="MCAL"/>
+    </module>
+  </extension>
+  <extension point="dreisoft.tresos.launcher2.plugin.configuration"
+             id="Dio_THA6_AS440_FuSa_ConfigurationID"
+             name="Dio_THA6_AS440_FuSa Configuration">
+    <configuration moduleId="Dio_THA6_AS440_FuSa">
+      <schema>
+        <manager class="dreisoft.tresos.autosar2.resourcehandling.AutosarSchemaManager"/>
+        <resource type="xdm" value="config/Dio.xdm"/>
+      </schema>
+      <data>
+        <manager class="dreisoft.tresos.autosar2.resourcehandling.AutosarConfigManager"/>
+        <schemaNode path="ASPath:/THA6_AS440_FuSa/Dio"/>
+      </data>
+      <editor id="Dio_THA6_AS440_FuSa_EditorId"
+              label="Dio"
+              tooltip="Dio MCAL module">
+        <class class="dreisoft.tresos.launcher2.editor.GenericConfigEditor">
+          <parameter name="schema" value="ASPath:/THA6_AS440_FuSa/Dio"/>
+          <parameter name="title" value="Dio"/>
+          <parameter name="noTabs" value="false"/>
+          <parameter name="noLinks" value="true"/>
+          <parameter name="groupLinks" value="false"/>
+          <parameter name="groupContainers" value="false"/>
+          <parameter name="groupTables" value="true"/>
+          <parameter name="optionalGeneralTab" value="true"/>
+        </class>
+      </editor>
+    </configuration>
+  </extension>
+  <extension point="dreisoft.tresos.launcher2.plugin.generator"
+             id="EPC_GeneratorID"
+             name="EPC Generator">
+    <generator moduleId="Dio_THA6_AS440_FuSa"
+               id="Dio_THA6_AS440_FuSa"
+               class="dreisoft.tresos.autosar2.generator.EPCFileGenerator">
+      <parameter name="variantAware" value="true"/>
+      <parameter name="cfgFilePath" value="output"/>
+      <parameter name="generateAllModules" value="false"/>
+      <parameter name="generateIntoOneFile" value="false"/>
+      <parameter name="contentType" value="asc:4.4.0"/>
+    </generator>
+  </extension>
+  <extension point="dreisoft.tresos.launcher2.plugin.generator"
+             id="Dio_THA6_AS440_FuSa_GeneratorID"
+             name="Dio_THA6_AS440_FuSa Generator">
+    <generator moduleId="Dio_THA6_AS440_FuSa"
+               class="dreisoft.tresos.launcher2.generator.TemplateBasedCodeGenerator">
+      <parameter name="variantAware" value="true"/>
+      <parameter name="mode_type" mode="generate_swcd" value="generate"/>
+      <parameter name="mode_type" mode="verify_swcd" value="verify"/>
+      <parameter name="templates" mode="generate_swcd,verify_swcd" value="generate_swcd"/>
+      <parameter name="templates" mode="generate,verify" value="generate,generate_PC,generate_PB"/>
+      <parameter name="templates" mode="generate_PC" value="generate_PC"/>
+      <parameter name="templates" mode="generate_PB" value="generate_PB"/>
+      <parameter name="mode_type" mode="generate_PC" value="generate"/>
+      <parameter name="mode_type" mode="generate_PB" value="generate"/>
+    </generator>
+  </extension>
+</plugin>

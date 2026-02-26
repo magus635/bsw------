@@ -1,0 +1,472 @@
+<?xml version='1.0'?>
+<datamodel version="7.0" 
+           xmlns="http://www.tresos.de/_projects/DataModel2/16/root.xsd" 
+           xmlns:a="http://www.tresos.de/_projects/DataModel2/16/attribute.xsd" 
+           xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd" 
+           xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd">
+
+  <d:ctr type="AUTOSAR" factory="autosar" 
+         xmlns:ad="http://www.tresos.de/_projects/DataModel2/08/admindata.xsd" 
+         xmlns:cd="http://www.tresos.de/_projects/DataModel2/08/customdata.xsd" 
+         xmlns:f="http://www.tresos.de/_projects/DataModel2/14/formulaexpr.xsd" 
+         xmlns:icc="http://www.tresos.de/_projects/DataModel2/08/implconfigclass.xsd" 
+         xmlns:mt="http://www.tresos.de/_projects/DataModel2/11/multitest.xsd"  
+         xmlns:variant="http://www.tresos.de/_projects/DataModel2/11/variant.xsd">
+    <d:lst type="TOP-LEVEL-PACKAGES">
+      <d:ctr name="THA6_AS440_FuSa" type="AR-PACKAGE">
+        <a:a name="UUID" value="ECUC:AUTOSAR"/>
+        <d:lst type="ELEMENTS">
+          <d:chc name="I2c" type="AR-ELEMENT" value="MODULE-DEF">
+            <v:ctr type="MODULE-DEF">
+              <a:a name="ADMIN-DATA" type="ADMIN-DATA">
+                <ad:ADMIN-DATA>
+                  <ad:DOC-REVISIONS>
+                    <ad:DOC-REVISION>
+                      <ad:REVISION-LABEL>4.4.0</ad:REVISION-LABEL>
+                      <ad:ISSUED-BY>AUTOSAR</ad:ISSUED-BY>
+                    </ad:DOC-REVISION>
+                  </ad:DOC-REVISIONS>
+                </ad:ADMIN-DATA>
+              </a:a>
+              <a:a name="DESC" 
+                   value="EN: Configuration of the I2c (I2c driver) module."/>
+              <a:a name="LOWER-MULTIPLICITY" value="0"/>
+              <a:a name="POSTBUILDVARIANTSUPPORT" value="true"/>
+              <a:a name="RELEASE" value="asc:4.4.0"/>
+              <a:a name="UPPER-MULTIPLICITY" value="*"/>
+              <a:a name="UUID" value="2188d2fc-3fe4-4d48-8252-b7dbb5d0e8f9"/>
+              <v:var name="IMPLEMENTATION_CONFIG_VARIANT" type="ENUMERATION">
+                <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                     type="IMPLEMENTATIONCONFIGCLASS">
+                  <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                </a:a>
+                <a:a name="LABEL" value="Config Variant"/>
+                <a:a name="UUID" value="f0e6f1f1-a26b-464b-a008-9022e9c14574"/>
+                <a:da name="DEFAULT" value="VariantPostBuild"/>
+                <a:da name="RANGE">
+                  <a:v>VariantPostBuild</a:v>
+                </a:da>
+              </v:var>
+              <v:ctr name="I2cGeneral" type="IDENTIFIABLE">
+                <a:a name="DESC" 
+                     value="EN: This container contains the parameters related to each I2c Driver Unit."/>
+                <a:a name="UUID" value="3c30141b-f1bf-44de-b901-89035cf54b80"/>
+                <v:var name="I2cDevErrorDetect" type="BOOLEAN">
+                  <a:a name="DESC" 
+                       value="EN: Switches the Default Error Tracer (Det) detection and notification ON or OFF."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="1f13d07b-f8f9-4489-ab49-bef97ea76310"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="I2cDeInitApi" type="BOOLEAN">
+                  <a:a name="DESC" 
+                       value="EN: Adds / removes the service I2c_DeInit() from the code."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="1f13d07b-f8f9-4489-ab49-bef97ea76299"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="I2cTimeoutDuration" type="INTEGER">
+                  <a:a name="DESC" 
+                       value="EN: Specifies the maximum number of loops for blocking function until a timeout is raised in short term wait loops"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="ec51f904-c428-466e-938d-6f19bed756b5"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=4294967295"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                  <a:da name="DEFAULT" value="65535"/>
+                </v:var>
+                <v:var name="I2cVersionInfoApi" type="BOOLEAN">
+                  <a:a name="DESC" 
+                       value="EN: Switches the I2c_GetVersionInfo function ON or OFF."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="f44bf806-e3cf-4293-a419-ca01087e702b"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="I2cIndex" type="INTEGER">
+                  <a:a name="DESC" 
+                       value="EN: Specifies the InstanceId of this module instance. If only one instance is present it shall have the Id 0."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="f8d2455f-db9f-bfff-a9d4-7fe80544bc9e"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                  <a:da name="DEFAULT" value="0"/>
+                </v:var>
+              </v:ctr>
+              <v:ctr name="I2cGlobalConfig" type="IDENTIFIABLE">
+                <a:a name="DESC" 
+                     value="EN: This container contains the global configuration parameter of the I2c driver."/>
+                <a:a name="UUID" value="508c6e85-e3f7-4038-96c7-aeddde6ce47e"/>
+                <v:lst name="I2cChannel" type="MAP">
+                  <a:da name="MIN" value="1"/>
+                  <a:da name="MAX" type="XPath" expr="ecu:get('I2c.NumofAvailableI2c')"/>
+                  <v:ctr name="I2cChannel" type="IDENTIFIABLE">
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                            type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                    </a:a>
+                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                    <a:a name="DESC" 
+                         value="EN: This container contains the configuration (parameters) of the I2c Controller(s)."/>
+                    <a:a name="UUID" 
+                         value="501d0d3d-47e4-4106-9518-7c9a2e7659ee"/>
+                    <a:a name="REQUIRES-INDEX" value="true"/>
+
+                    <v:var name="I2cHwUnit" type="ENUMERATION">
+                      <a:a name="DESC" value="EN: This parameter selects the SDA and SCL lines for the peripheral."/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                      <a:a name="SCOPE" value="LOCAL"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:a name="UUID"
+                           value="a64deb84-f92e-4ba5-98b0-c301a8becdd1"/>
+                      <a:da name="DEFAULT" type="XPath" >
+                          <a:tst expr="ecu:list('I2c.AvailableChannels')[1]" />
+                        </a:da>
+                        <a:da name="RANGE" type="XPath">
+                          <a:tst expr="ecu:list('I2c.AvailableChannels')" />
+                        </a:da>
+                    </v:var>
+                    <v:var name="I2cChannelId" type="INTEGER">
+                      <a:a name="DESC" 
+                           value="EN: Identifies the I2c channel."/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                           type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                      <a:a name="SCOPE" value="LOCAL"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:a name="UUID" 
+                           value="3211634e-4ab9-4e8b-806c-22765c7f9696"/>
+                      <a:da name="DEFAULT" type="XPath" expr="node:fallback(&quot;->node:current()/../@index&quot;, num:i(1))" />
+                      <a:da name="INVALID" type="Range">
+                        <a:tst expr="&lt;=65535"/>
+                        <a:tst expr="&gt;=0"/>
+                      </a:da>
+                      <a:da name="RANGE" type="XPath">
+                        <a:tst expr="(. &gt;= 0) and (.&lt; num:i(count(node:current()/../../*)))" false="Value out of range: must be in range 0 to N-1 (N is number of configured channels). Use the Calc button to calculate correct default value" />
+                        <a:tst expr="text:uniq(../../*/I2cChannelId, .)" false="Duplicated value, I2cChannelId must be unique across all I2c channels. Use the Calc button to calculate correct default value." />
+                      </a:da>
+                    </v:var>
+                    <v:var name="I2cBusSpeed" type="ENUMERATION">
+                      <a:a name="DESC"
+                           value="EN: This parameter defines the data transfer speed of the external device."/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                           type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                      <a:a name="SCOPE" value="LOCAL"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:a name="UUID"
+                           value="3211634e-4ab9-4e8b-806c-22765c7f9690"/>
+                      <a:da name="DEFAULT" value="STANDARD_MODE"/>
+                      <a:da name="RANGE">
+                        <a:v>STANDARD_MODE</a:v>
+                        <a:v>FAST_MODE</a:v>
+                        <a:v>FASTPLUS_MODE</a:v>
+                        <a:v>HIGHSPEED_MODE</a:v>
+                      </a:da>
+                      <a:da name="INVALID" type="XPath">
+                        <a:tst expr="(
+                                     ((num:i(as:modconf('Mcu')/McuModuleConfiguration/McuClockSettingConfig/*[1]/McuSysClkDiv_Configuration/McuAHBClkFrequency) &gt;= 2000000) and (. = 'STANDARD_MODE')) or
+                                     ((num:i(as:modconf('Mcu')/McuModuleConfiguration/McuClockSettingConfig/*[1]/McuSysClkDiv_Configuration/McuAHBClkFrequency) &gt;= 5000000) and (../I2cDutyCycle = 'RATIO_2_1') and (. = 'FAST_MODE')) or 
+                                     ((num:i(as:modconf('Mcu')/McuModuleConfiguration/McuClockSettingConfig/*[1]/McuSysClkDiv_Configuration/McuAHBClkFrequency) &gt;= 10000000) and (../I2cDutyCycle = 'RATIO_16_9') and (. = 'FAST_MODE')) or
+                                     ((num:i(as:modconf('Mcu')/McuModuleConfiguration/McuClockSettingConfig/*[1]/McuSysClkDiv_Configuration/McuAHBClkFrequency) &gt;= 12000000) and (../I2cDutyCycle = 'RATIO_2_1') and (. = 'FASTPLUS_MODE')) or
+                                     ((num:i(as:modconf('Mcu')/McuModuleConfiguration/McuClockSettingConfig/*[1]/McuSysClkDiv_Configuration/McuAHBClkFrequency) &gt;= 25000000) and (../I2cDutyCycle = 'RATIO_16_9') and (. = 'FASTPLUS_MODE')) or
+                                     ((num:i(as:modconf('Mcu')/McuModuleConfiguration/McuClockSettingConfig/*[1]/McuSysClkDiv_Configuration/McuAHBClkFrequency) &gt;= 40000000) and (. = 'HIGHSPEED_MODE')) 
+                                     )"
+                        false="The AHB clock frequency is set too low."/>
+                    </a:da>
+                    </v:var>
+                    <v:var name="I2cDutyCycle" type="ENUMERATION">
+                      <a:a name="DESC"
+                           value="EN: Duty cycle in fast mode or fast plus mode."/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                           type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                      <a:a name="SCOPE" value="LOCAL"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:a name="UUID"
+                           value="3211634e-4ab9-4e8b-806c-22765c7f9691"/>
+                      <a:da name="DEFAULT" value="RATIO_16_9"/>
+                      <a:da name="RANGE">
+                        <a:v>RATIO_16_9</a:v>
+                        <a:v>RATIO_2_1</a:v>
+                      </a:da>
+                    </v:var>
+                    <v:var name="I2cNotification" type="BOOLEAN">
+                      <a:a name="DESC" 
+                           value="EN: Specifies whether to enable error status notification"/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                           type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                      <a:a name="SCOPE" value="LOCAL"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:a name="UUID" 
+                           value="c73ce4b1-7f93-4ca5-8749-3dafe07cc6fd"/>
+                      <a:da name="DEFAULT" value="false"/>
+                    </v:var>
+                    <v:var name="I2cPacketEndNotification" type="FUNCTION-NAME">
+                      <a:a name="DESC" value="EN: This parameter is a reference to a notification function."/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                          <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                        </a:a>
+                      <a:a name="OPTIONAL" value="true" />
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true"/>
+                      <a:a name="SCOPE" value="LOCAL"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:a name="UUID"
+                           value="999fcf11-8b4f-4719-abee-2f2d75e8614b"/>
+                      <a:da name="DEFAULT" value="NULL_PTR"/>
+                      <a:da name="EDITABLE" type="XPath">
+                        <a:tst expr="../I2cNotification = 'true'"/>
+                      </a:da>
+                      <a:da name="INVALID" type="XPath">
+                        <a:tst expr="((../I2cNotification = 'true') and ((. = 'NULL_PTR') or (. = '')))" true="I2C - I2cPacketEndNotification cannot be empty when I2cSyncNotification is enabled."/>
+                      </a:da>
+                    </v:var>
+                  </v:ctr>
+                </v:lst>
+              </v:ctr>
+              
+            
+              <!-- /** @implements CommonPublishedInformation_Object */ -->
+              <v:ctr name="CommonPublishedInformation" type="IDENTIFIABLE">
+                <a:a name="DESC">
+                  <a:v>
+                    <![CDATA[EN:<html> Common container, aggregated by all modules. It contains published information about vendor and versions.</html>]]>
+                  </a:v>
+                </a:a>
+                <a:a name="UUID" value="89010ce2-d29f-11ec-b378-f889d2d2ec8e" />
+
+                <v:var name="ArReleaseMajorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Major version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="9060d8c2-d29f-11ec-8aae-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="4" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+
+                <v:var name="ArReleaseMinorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Minor version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="947ceba8-d29f-11ec-9037-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="4" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+
+                <v:var name="ArReleaseRevisionVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Revision version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="98f05a7a-d29f-11ec-a434-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="0" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+
+                <v:var name="ModuleId" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Module ID of this module from Module List.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="EDITABLE" value="false" /> <!-- Supportted for features!-->
+                  <a:a name="UUID" value="9cd47fee-d29f-11ec-94ec-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="255" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+
+                <v:var name="SwMajorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Major version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="a1c84630-d29f-11ec-b3ed-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="1" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+
+                <v:var name="SwMinorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Minor version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="a5939b10-d29f-11ec-b0b9-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="2" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+
+                <v:var name="SwPatchVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Patch level version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="a90f8dd2-d29f-11ec-ba89-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="0" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="VendorId" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Vendor ID of the dedicated implementation of this module according to the AUTOSAR vendor list.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="b2856b58-d29f-11ec-a9ba-f889d2d2ec8e" />
+                  <a:da name="DEFAULT" value="175" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=175" />
+                    <a:tst expr="&gt;=175" />
+                  </a:da>
+                </v:var>
+              </v:ctr>
+            </v:ctr>
+          </d:chc>
+          <d:chc name="I2c_EcuParameterDefinition" type="AR-ELEMENT" 
+                 value="ECU_PARAMETER_DEFINITION">
+            <d:ctr type="AR-ELEMENT">
+              <a:a name="DEF" 
+                   value="ASPath:/AR_PACKAGE_SCHEMA/ECU_PARAMETER_DEFINITION"/>
+              <a:a name="UUID" value="3F0EA877-9B6B-57E4-6071-36F56AED8105" />
+              <d:lst name="MODULE_REF">
+                <d:ref type="MODULE_REF" value="ASPath:/THA6_AS440_FuSa/I2c"/>
+              </d:lst>
+            </d:ctr>
+          </d:chc>
+        </d:lst>
+      </d:ctr>
+    </d:lst>
+  </d:ctr>
+
+</datamodel>

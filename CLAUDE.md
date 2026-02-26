@@ -45,18 +45,18 @@ Keep this managed block unchanged so that the `openspec update` command can auto
 
 - **Multi-Session Context**:
   - I sometimes run multiple parallel Claude Code sessions.
-  - If context from another session is needed, ask me to provide it or use `/copy` to transfer relevant history.
+  - If context from another session is needed, ask me to provide it directly (paste relevant code, logs, or output into the chat).
 
 - **General Best Practices**:
   - For bug fixes and debugging: Always provide error logs, relevant ARXML snippets, and current parameter values.
-  - For multi-module changes: Use `@workspace` or explicit EMF paths (e.g., `/Can/CanConfigSet/CanController[CanControllerId=0]`).
+  - For multi-module changes: Reference specific files by path or use explicit EMF paths (e.g., `/Can/CanConfigSet/CanController[CanControllerId=0]`).
   - When proposing changes: First ask for a plan/proposal before editing code (per OpenSpec guidelines).
   - Be specific about ConfigClass (PRE-COMPILE/LINK-TIME/POST-BUILD) and variant handling.
 
 ## Runtime Requirements
 
 - Python >= 3.9 (recommended 3.11+)
-- Key dependencies: PySide6, lxml, jinja2-like templating, pytest, coverage
+- Key dependencies: PySide6, lxml, custom EB Tresos-compatible template engine (.ebt files), pytest, coverage
 
 ## Common Commands
 
@@ -94,16 +94,37 @@ git pull --rebase
 git add -p
 git commit -m "feat/config: ..."
 ```
+
 ## Additional Test Commands
 ```bash
 # After model changes, always run:
 python3 -m pytest tests/core/test_parser_serializer.py tests/core/test_command.py -q
 
 # After generator changes, verify no unintended fingerprint changes:
-python3 verify_fingerprints.py  # if exists
+[ -f verify_fingerprints.py ] && python3 verify_fingerprints.py
 ```
 
 ## Architecture
+
+```
+bsw图形配置工具/
+├── autosar_configurator/     # Main package
+│   ├── core/                 # Data models, parsing, workspace
+│   ├── generator/            # Code generation engine
+│   │   └── eb/               # EB Tresos template engine internals
+│   ├── ui/                   # PySide6 GUI
+│   ├── business/             # Business logic layer
+│   ├── infrastructure/       # Infrastructure concerns
+│   └── utils/                # Shared utilities
+├── templates/                # .ebt template files per BSW module
+├── definitions/              # AUTOSAR definition files
+├── tests/                    # Test suite (mirrors package structure)
+│   ├── core/
+│   ├── generator/
+│   └── ui/
+├── davinci_main.py           # Recommended entry point
+└── main.py                   # Alternative entry point
+```
 
 Three-layer architecture: UI → Core → Generator.
 Core (autosar_configurator/core/): Data models, ARXML parsing/serialization, configuration management, validation, workspace management.
@@ -111,7 +132,6 @@ Core (autosar_configurator/core/): Data models, ARXML parsing/serialization, con
 * workspace_manager.py — WorkspaceProject manages multiple BSW modules, cross-module reference resolution via EMF-style paths (/Module/ContainerDef/Instance)
 * model/ — EcucModuleDef → EcucContainerDef → EcucParameterDef (definition side); EcucModuleConfiguration → EcucContainerValue → EcucParameterValue (configuration side)
 * command.py — Command pattern for undo/redo (SetParameterCommand, CreateContainerCommand, etc.)
-
 * Observer pattern (model/observers.py) syncs data changes to UI automatically
 
 Generator (autosar_configurator/generator/): EB Tresos-compatible template engine with custom lexer, XPath 2.0/3.0 engine, and built-in function library.
@@ -127,11 +147,11 @@ UI (autosar_configurator/ui/): PySide6-based GUI.
 * widgets/ — TreeView, ConfigPanel, SmartSearch, DependencyGraph, AIAssistant
 * wizards/ — Quick configuration wizards
 
-Key Conventions
+## Key Conventions
 * Deterministic sorting: Generators and config management use sorted() by name for reproducible output. Never introduce unsorted collection iteration in these paths without updating fingerprint logic and tests.
 * Relative paths: All saved project paths are relative to project root for portability.
 * EMF-style references: String paths resolve to object pointers via WorkspaceProject.resolve_all_references(), which builds reverse-reference indexes.
-* Strict vs non-strict rendering: Template engine has two modes affecting error handling behavior.
+* Strict vs non-strict rendering: `Renderer(strict=True)` (default) raises errors on undefined references and missing modules. `strict=False` creates fallback/dummy nodes and skips errors — used by the production generator (`EBTemplateEngine(strict=False)`) to allow partial rendering.
 
 ## Development Guidelines
 * After modifying model/serialization code, run: python3 -m pytest tests/core/test_parser_serializer.py -q

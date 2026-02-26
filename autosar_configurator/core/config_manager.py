@@ -212,6 +212,12 @@ class EpcFileScanner:
             if module_name not in epc_files:
                 epc_files[module_name] = epc_path
 
+        # Strategy 4: fallback to *_Config.arxml (native XDM configurations)
+        for arxml_path in project_root.rglob("*_Config.arxml"):
+            module_name = arxml_path.stem.replace("_Config", "")
+            if module_name not in epc_files:
+                epc_files[module_name] = arxml_path
+
         return epc_files
 
     @staticmethod
@@ -658,17 +664,13 @@ class ConfigurationManager:
                           (useful when the definition file is missing or a stub)
         """
         from .parser.arxml_parser import ArxmlParser
+        from .parser.xdm_config_parser import XdmConfigParser
+        import lxml.etree as etree
         
         parser = ArxmlParser()
-        # Parse the file to find ECUC-MODULE-CONFIGURATION-VALUES
-        # We need to parse the whole file first
+        new_config = None
+        
         try:
-            # Use lxml directly to find the element first, or extend parser
-            # Actually ArxmlParser.parse_file returns a Container, but we need EcucModuleConfiguration
-            # Let's use a helper in parser or parse manually here
-            # Better: use the new method in ArxmlParser
-            
-            import lxml.etree as etree
             tree = etree.parse(str(file_path))
             root = tree.getroot()
             
@@ -678,23 +680,26 @@ class ConfigurationManager:
             if config_elem is None:
                 config_elem = root.find('.//ECUC-MODULE-CONFIGURATION-VALUES')
                 
-            if config_elem is None:
-                raise ValueError("No ECUC-MODULE-CONFIGURATION-VALUES found in file")
-                
-            new_config = parser.parse_ecuc_configuration_values(config_elem)
-            if new_config:
-                # Extract AR-PACKAGE SHORT-NAME from parent context
-                # Navigate: config_elem -> parent (ELEMENTS) -> parent (AR-PACKAGE)
-                ar_package = config_elem.getparent()
-                if ar_package is not None:
-                    ar_package = ar_package.getparent()
-                if ar_package is not None:
-                    pkg_sn = ar_package.find('{http://autosar.org/schema/r4.0}SHORT-NAME')
-                    if pkg_sn is None:
-                        pkg_sn = ar_package.find('SHORT-NAME')
-                    if pkg_sn is not None and pkg_sn.text:
-                        new_config.package_name = pkg_sn.text
+            if config_elem is not None:
+                new_config = parser.parse_ecuc_configuration_values(config_elem)
+                if new_config:
+                    ar_package = config_elem.getparent()
+                    if ar_package is not None:
+                        ar_package = ar_package.getparent()
+                    if ar_package is not None:
+                        pkg_sn = ar_package.find('{http://autosar.org/schema/r4.0}SHORT-NAME')
+                        if pkg_sn is None:
+                            pkg_sn = ar_package.find('SHORT-NAME')
+                        if pkg_sn is not None and pkg_sn.text:
+                            new_config.package_name = pkg_sn.text
+            else:
+                # Fallback to XDM config parser if no standard ARXML element found
+                xdm_parser = XdmConfigParser()
+                new_config = xdm_parser.parse_file(file_path)
+                if not new_config:
+                    raise ValueError("No standard configuration or valid XDM configuration found in file")
 
+            if new_config:
                 self.configuration = new_config
                 # Reset counters
                 self._instance_counters.clear()

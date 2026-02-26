@@ -1,0 +1,765 @@
+<?xml version="1.0"?>
+<datamodel version="7.0" 
+           xmlns="http://www.tresos.de/_projects/DataModel2/16/root.xsd" 
+           xmlns:a="http://www.tresos.de/_projects/DataModel2/16/attribute.xsd" 
+           xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd" 
+           xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd">
+  <d:ctr type="AUTOSAR" factory="autosar" 
+         xmlns:ad="http://www.tresos.de/_projects/DataModel2/08/admindata.xsd" 
+         xmlns:cd="http://www.tresos.de/_projects/DataModel2/08/customdata.xsd" 
+         xmlns:f="http://www.tresos.de/_projects/DataModel2/14/formulaexpr.xsd" 
+         xmlns:icc="http://www.tresos.de/_projects/DataModel2/08/implconfigclass.xsd" 
+         xmlns:mt="http://www.tresos.de/_projects/DataModel2/11/multitest.xsd" 
+         xmlns:variant="http://www.tresos.de/_projects/DataModel2/11/variant.xsd">
+    <d:lst type="TOP-LEVEL-PACKAGES">
+      <d:ctr name="THA6_AS440_FuSa" type="AR-PACKAGE">
+        <a:a name="UUID" value="ECUC:AUTOSAR"/>
+        <d:lst type="ELEMENTS">
+          <d:chc name="Fee" type="AR-ELEMENT" value="MODULE-DEF">
+            <v:ctr type="MODULE-DEF">
+              <a:a name="ADMIN-DATA" type="ADMIN-DATA">
+                <ad:ADMIN-DATA>
+                  <ad:DOC-REVISIONS>
+                    <ad:DOC-REVISION>
+                      <ad:REVISION-LABEL>4.4.0</ad:REVISION-LABEL>
+                      <ad:ISSUED-BY>AUTOSAR</ad:ISSUED-BY>
+                    </ad:DOC-REVISION>
+                  </ad:DOC-REVISIONS>
+                </ad:ADMIN-DATA>
+              </a:a>
+              <a:a name="DESC" 
+                   value="EN: Configuration of the Fee (Flash EEPROM Emulation) module."/>
+              <a:a name="LOWER-MULTIPLICITY" value="0"/>
+              <a:a name="POSTBUILDVARIANTSUPPORT" value="false"/>
+              <a:a name="RELEASE" value="asc:4.4.0"/>
+              <a:a name="UPPER-MULTIPLICITY" value="1"/>
+              <a:a name="UUID" value="50c58eb8-4b05-4e89-ad5b-8ff620f5892d"/>
+              <v:var name="IMPLEMENTATION_CONFIG_VARIANT" type="ENUMERATION">
+                <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                     type="IMPLEMENTATIONCONFIGCLASS">
+                  <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                </a:a>
+                <a:a name="LABEL" value="Config Variant"/>
+                <a:a name="UUID" value="0878706a-9d3e-4ff5-95ef-68b83da7589b"/>
+                <a:da name="DEFAULT" value="VariantPreCompile"/>
+                <a:da name="RANGE">
+                  <a:v>VariantPreCompile</a:v>
+                </a:da>
+              </v:var>
+              <v:ctr name="FeeDemEventParameterRefs" type="IDENTIFIABLE">
+                <a:a name="DESC" 
+                     value="EN: Container for the references to DemEventParameter elements which shall be invoked using the API Dem_ReportErrorStatus in case the corresponding error occurs. The EventId is taken from the referenced DemEventParameter's DemEventId value."/>
+                <a:a name="OPTIONAL" value="true"/>
+                <a:a name="UUID" value="96324a17-d67d-4796-9b8f-535765d9851a"/>
+                <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                     type="IMPLEMENTATIONCONFIGCLASS">
+                  <icc:v mclass="PreCompile">VariantPreCompile</icc:v>
+                </a:a>
+                <v:ref name="FEE_E_GC_READ" type="SYMBOLIC-NAME-REFERENCE">
+                  <a:a name="DESC" value="EN:Reference to DemEventParameter for the production error FEE_E_GC_READ."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v mclass="PreCompile">VariantPreCompile</icc:v>
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="OPTIONAL" value="true"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="UUID" value="15636b96-41f2-466f-897d-a47fe85cd8e2"/>
+                  <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/Dem/DemConfigSet/DemEventParameter"/>
+                </v:ref>
+                <v:ref name="FEE_E_GC_WRITE" type="SYMBOLIC-NAME-REFERENCE">
+                  <a:a name="DESC" value="EN:Reference to DemEventParameter for the production error FEE_E_GC_WRITE."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v mclass="PreCompile">VariantPreCompile</icc:v>
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="OPTIONAL" value="true"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="UUID" value="15636b96-41f2-466f-897d-a48fe85cd8e2"/>
+                  <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/Dem/DemConfigSet/DemEventParameter"/>
+                </v:ref>
+                <v:ref name="FEE_E_GC_ERASE" type="SYMBOLIC-NAME-REFERENCE">
+                  <a:a name="DESC" value="EN:Reference to DemEventParameter for the production error FEE_E_GC_ERASE."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v mclass="PreCompile">VariantPreCompile</icc:v>
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="OPTIONAL" value="true"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="UUID" value="15636b96-41f2-466f-897d-a49fe85cd8e2"/>
+                  <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/Dem/DemConfigSet/DemEventParameter"/>
+                </v:ref>
+                <v:ref name="FEE_E_GC_TRIG" type="SYMBOLIC-NAME-REFERENCE">
+                  <a:a name="DESC" value="EN:Reference to DemEventParameter for the production error FEE_E_GC_TRIG."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v mclass="PreCompile">VariantPreCompile</icc:v>
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="OPTIONAL" value="true"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="UUID" value="15636b96-41f2-466f-897d-a50fe85cd8e2"/>
+                  <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/Dem/DemConfigSet/DemEventParameter"/>
+                </v:ref>
+                <v:ref name="FEE_E_WRITE_CYCLES_EXHAUSTED" type="SYMBOLIC-NAME-REFERENCE">
+                  <a:a name="DESC" value="EN:Reference to DemEventParameter for the production error FEE_E_WRITE_CYCLES_EXHAUSTED."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v mclass="PreCompile">VariantPreCompile</icc:v>
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="OPTIONAL" value="true"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="UUID" value="15636b96-41f2-466f-897d-a51fe85cd8e2"/>
+                  <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/Dem/DemConfigSet/DemEventParameter"/>
+                </v:ref>
+                <v:ref name="FEE_E_UNCONFIG_BLK_EXCEEDED" type="SYMBOLIC-NAME-REFERENCE">
+                  <a:a name="DESC" value="EN:Reference to DemEventParameter for the production error FEE_E_UNCONFIG_BLK_EXCEEDED."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v mclass="PreCompile">VariantPreCompile</icc:v>
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="OPTIONAL" value="true"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="UUID" value="15636b96-41f2-466f-897d-a46fe85cd8e2"/>
+                  <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/Dem/DemConfigSet/DemEventParameter"/>
+                </v:ref>
+              </v:ctr>
+              <v:lst name="FeeBlockConfiguration" type="MAP">
+                <a:da name="MIN" value="1"/>
+                <v:ctr name="FeeBlockConfiguration" type="IDENTIFIABLE">
+                  <a:a name="REQUIRES-INDEX" value="true"/>
+                  <a:a name="DESC" 
+                       value="EN: Configuration of block specific parameters for the Flash EEPROM Emulation module."/>
+                  <a:a name="UUID" value="551a9bdf-1d70-4b60-b083-20730812ec01"/>
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v mclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <v:var name="FeeBlockNumber" type="INTEGER">
+                    <a:a name="DESC" value="EN: Block identifier (handle)."/>
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                         type="IMPLEMENTATIONCONFIGCLASS">
+                      <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                    </a:a>
+                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                    <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                    <a:a name="SCOPE" value="ECU"/>
+                    <a:a name="SYMBOLICNAMEVALUE" value="true"/>
+                    <a:a name="UUID" 
+                         value="6007a1b2-c336-4d72-a49c-90cd6472212d"/>
+                    <a:da name="DEFAULT" value="1"/>
+                    <a:da name="INVALID" type="XPath">
+                      <a:tst expr="text:uniq(../../*/FeeBlockNumber,.)"  false="EN: FeeBlockNumber should be unique for each configured."/>
+                    </a:da>
+                    <a:da name="INVALID" type="Range">
+                      <a:tst expr="&lt;=65534"/>
+                      <a:tst expr="&gt;=1"/>
+                    </a:da>
+                  </v:var>
+                  <v:var name="FeeBlockSize" type="INTEGER">
+                    <a:a name="DESC" 
+                         value="EN: Size of a logical block in bytes."/>
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                         type="IMPLEMENTATIONCONFIGCLASS">
+                      <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                    </a:a>
+                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                    <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                    <a:a name="SCOPE" value="ECU"/>
+                    <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                    <a:a name="UUID" 
+                         value="8dd0229c-d2ed-48b0-becf-c959f52af86d"/>
+                    <a:da name="DEFAULT" value="1"/>
+                    <a:da name="INVALID" type="Range">
+                      <a:tst expr="&lt;=65535"/>
+                      <a:tst expr="&gt;=1"/>
+                    </a:da>
+                  </v:var>
+                  <v:var name="FeeImmediateData" type="BOOLEAN">
+                    <a:a name="DESC" value="EN: Marker for high priority data."/>
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                         type="IMPLEMENTATIONCONFIGCLASS">
+                      <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                    </a:a>
+                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                    <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                    <a:a name="SCOPE" value="ECU"/>
+                    <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                    <a:a name="UUID" 
+                         value="e798c6f0-b10a-45f6-8f0f-917ef8abad1d"/>
+                    <a:da name="DEFAULT" value="false"/>
+                  </v:var>
+                  <v:var name="FeeNumberOfWriteCycles" type="INTEGER">
+                    <a:a name="DESC" 
+                         value="EN: Number of write cycles required for this block.The value 0 denotes that this block is not bound by any limit."/>
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                         type="IMPLEMENTATIONCONFIGCLASS">
+                      <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                    </a:a>
+                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                    <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                    <a:a name="SCOPE" value="LOCAL"/>
+                    <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                    <a:a name="UUID" 
+                         value="0745bda5-9cd0-451f-b8bd-7a9e23f867a6"/>
+                    <a:da name="DEFAULT" value="0"/>
+                    <a:da name="INVALID" type="Range">
+                      <a:tst expr="&lt;=4294967295"/>
+                      <a:tst expr="&gt;=0"/>
+                    </a:da>
+                  </v:var>
+                  <v:ref name="FeeDeviceIndex" type="SYMBOLIC-NAME-REFERENCE">
+                    <a:a name="DESC" 
+                         value="EN: Reference to the device this block is stored in.This information is needed by the NVRAM manager."/>
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                         type="IMPLEMENTATIONCONFIGCLASS">
+                      <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                    </a:a>
+                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                    <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                    <a:a name="SCOPE" value="LOCAL"/>
+                    <a:a name="UUID" 
+                         value="954d48c9-b4a5-408d-be59-26f1f13930fe"/>
+                    <a:da name="REF" 
+                          value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/Fls/FlsGeneral"/>
+                  </v:ref>
+                </v:ctr>
+              </v:lst>
+              <v:ctr name="FeeGeneral" type="IDENTIFIABLE">
+                <a:a name="DESC" 
+                     value="EN: Container for general parameters. These parameters are not specific to a block."/>
+                <a:a name="UUID" value="8e8a6e90-52e6-4340-9ebb-e4eef4698763"/>
+                <v:var name="FeeDevErrorDetect" type="BOOLEAN">
+                  <a:a name="DESC" 
+                       value="EN: Switches the Default Error Tracer (Det) detection and report ON or OFF."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="8168c2d7-e0ec-444a-94c1-a71b02a86932"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="FeeSoftwareVerify" type="BOOLEAN">
+                  <a:a name="DESC" 
+                       value="EN: Switches the Software verification function after write erase completion ON or OFF."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="8c63c2d7-e0ec-414a-94c1-a71b02286932"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="FeeMainFunctionPeriod" type="FLOAT">
+                  <a:a name="DESC" 
+                       value="EN: The period between successive calls to the main function in seconds."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="ECU"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="54e8986a-c3d7-4ca2-aabf-e434c60aa846"/>
+                  <a:da name="DEFAULT" value="0.01"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=1"/>
+                    <a:tst expr="&gt;=1.0E-3"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FeeNvmJobEndNotification" type="FUNCTION-NAME">
+                  <a:a name="DESC" 
+                       value="EN: Mapped to the job end notification routine provided by the upper layer module (NvM_JobEndNotification)."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v mclass="PreCompile">VariantPreCompile</icc:v>
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                  <a:a name="OPTIONAL" value="true"/>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="87abca4c-9412-4f5e-9fcd-53e4f3cc9cbd"/>
+                  <a:da name="DEFAULT" value="NvM_JobEndNotification"/>
+                </v:var>
+                <v:var name="FeeNvmJobErrorNotification" type="FUNCTION-NAME">
+                  <a:a name="DESC" 
+                       value="EN: Mapped to the job error notification routine provided by the upper layer module (NvM_JobErrorNotification)."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v mclass="PreCompile">VariantPreCompile</icc:v>
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                  <a:a name="OPTIONAL" value="true"/>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="d1052682-2ffc-4734-8727-35bfcc59a697"/>
+                  <a:da name="DEFAULT" value="NvM_JobErrorNotification"/>
+                </v:var>
+                <v:var name="FeeUnavailableFailureNotification" type="FUNCTION-NAME">
+                  <a:a name="DESC" value="EN: Mapped to the unavailable failure notification routine provided by the upper layer module.&lt;br /&gt;
+                                          When there is an error during the initialization process or GC (garbage collection) error is called."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v mclass="PreCompile">VariantPreCompile</icc:v>
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                  <a:a name="OPTIONAL" value="true"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="d1052682-2ffc-1334-8727-35bfcc59a697"/>
+                  <a:da name="DEFAULT" value="NvM_UnavailableFailureNotification"/>
+                </v:var>
+                <v:var name="FeeDiscoverNonErasableAreasNotification" type="FUNCTION-NAME">
+                  <a:a name="DESC" value="EN: Mapped to the discover non erasable areas notification routine provided by the upper layer module.&lt;br /&gt;
+                                          Call the notification function when an non erasable area is found."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v mclass="PreCompile">VariantPreCompile</icc:v>
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                  <a:a name="OPTIONAL" value="true"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="d1152682-2ffc-1334-8727-35bfcc59a197"/>
+                  <a:da name="DEFAULT" value="NvM_DiscoverNonErasableAreasNotification"/>
+                </v:var>
+                <v:var name="FeeNotFoundManagementInfoNotification" type="FUNCTION-NAME">
+                  <a:a name="DESC" value="EN: Map to the undetected FEE module management information notification routine provided by the upper layer module. 
+                  When the FEE module is initialized and it is checked that there is no FEE module management information in the flash memory (FEE module management 
+                  information is damaged or the original flash memory), and the 'FeeNotFoundManagementInfo' node is true, the notification routine will be called. "/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v mclass="PreCompile">VariantPreCompile</icc:v>
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                  <a:a name="OPTIONAL" value="true"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="d1252682-2ffc-1214-8727-35bfcc59a297"/>
+                  <a:da name="DEFAULT" value="NvM_NotFoundManagementInfoNotification"/>
+                </v:var>
+                <v:var name="FeePollingMode" type="BOOLEAN">
+                  <a:a name="DESC" 
+                       value="EN: Pre-processor switch to enable and disable the polling mode for this module.As callback functions are always provided to the FLS module, this parameter is pre-configured (fixed) as FALSE."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="9fbdcfcb-9a96-4e0c-bf34-0f04258aa5e5"/>
+                  <a:da name="DEFAULT" value="false"/>
+                  <a:da name="EDITABLE" value="false"/>
+                </v:var>
+                <v:var name="FeeSetModeSupported" type="BOOLEAN">
+                  <a:a name="DESC" 
+                       value="EN: Compiler switch to enable/disable the 'SetMode' functionality of the FEE module."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="cd3c3096-2702-4b22-a0c3-66fd7c785122"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="FeeVersionInfoApi" type="BOOLEAN">
+                  <a:a name="DESC" 
+                       value="EN: Pre-processor switch to enable / disable the API to read out the modules version information."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="be5677b9-5ccd-4468-bf6b-41228c1af477"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="FeeNotFoundManagementInfo" type="BOOLEAN">
+                  <a:a name="DESC" 
+                       value="EN: When the Fee module is initialized, it is detected that there is no Fee management information in the flash memory. (or it is virgin flash).&lt;br /&gt;
+                        TRUE: Stop the initialization operation and call the FeeNotFoundManagementInfo notification function.&lt;br /&gt;
+                        FALSE: Continue the initialization operation and write Fee module management information in Flash."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="be5677b9-5ccd-4461-bf6b-41228c1af477"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="FeeGcRestart" type="ENUMERATION">
+                  <a:a name="DESC"
+                    value="EN: This parameter is used to configure Garbage Collection restarting point.
+                     FEE_GC_RESTART_INIT: (if GC was interrupted in previous run) Restart GC after FEE Initialization.
+                     FEE_GC_RESTART_WRITE: (if GC was interrupted in previous run) Restart GC when the first write/invalidate request is issued."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                    type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                    </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="ccb0731b-222b-4118-8c48-f7046b8328c1"/>
+                  <a:da name="DEFAULT" value="FEE_GC_RESTART_INIT"/>
+                  <a:da name="RANGE">
+                    <a:v>FEE_GC_RESTART_INIT</a:v>
+                    <a:v>FEE_GC_RESTART_WRITE</a:v>
+                  </a:da>
+                </v:var>
+                <v:var name="FeeThresholdValue" type="INTEGER">
+                  <a:a name="DESC"
+                    value="EN: This parameter describes the threshold value (in bytes from the end of FEE sector) for triggering garbage collection/sector change."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                    type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="fb7ccac3-78f4-49ae-92ec-8c3332ee39f2"/>
+                  <a:da name="DEFAULT" value="256"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=num:i((ecu:get('Fls.TotalSize') div num:i(2)) - num:i(2048))"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FeeMaxBlockCount" type="INTEGER">
+                  <a:a name="DESC"
+                    value="EN: This configuration parameter specifies the total number of blocks throughout all configurations; Note that the blocks which are shared across configurations are counted only once.
+                     This parameter decides the cache table size at pre-compile time. The cache table holds the information of both configured and un-configured blocks.
+                     Configuration of this parameter shall be carefully done. Higher value implies higher RAM area consumption for cache table. Lower value would result in loss of un-configured block(s) during GC.
+
+                     Example 1: Configuration sets having mutually exclusive blocks:
+                     Configuration A: Number of blocks configured is 10.
+                     Configuration B: Number of blocks configured is 25.
+                     Then, FeeMaxBlockCount = 35.
+
+                     Example 2: 5 blocks are shared/used by both Configuration A and Configuration B:
+                     Configuration A: Number of blocks configured is 10.
+                     Configuration B: Number of blocks configured is 25.
+                     Then, FeeMaxBlockCount = 30 (i.e., shared blocks are counted only once)."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                    type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="4a2531c3-429a-4627-8cd6-3fbe7bc6c4e1"/>
+                  <a:da name="DEFAULT" value="1"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=num:i(((ecu:get('Fls.TotalSize') div num:i(2)) - num:i(512)) div num:i(32))" true="FeeMaxBlockCount exceeded the allowed limit"/>
+                    <a:tst expr="&gt;=1" true="FeeMaxBlockCount should not be less than 1"/>
+                  </a:da>
+                  <a:da name="WARNING" type="XPath">
+                    <a:tst expr="num:i(.) &lt; num:i(count(../../FeeBlockConfiguration/*))"
+                      true="EN: More number of blocks are configured than the value specified for FeeMaxBlockCount! It is recommended to configure the value of FeeMaxBlockCount appropriately!"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FeeMaxAllowedBadSector" type="INTEGER">
+                  <a:a name="DESC" value="EN: The max number of uneraseable sector allowed.&lt;br /&gt;
+                       When erase a sector fails, Fee automatically skip the sector and log the sector to erase state page. "/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="be677d4a-3115-4606-91a4-d13ec41532c4"/>
+                  <a:da name="DEFAULT" value="0"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&gt;=0"/>
+                    <a:tst expr="&lt;=num:i(ecu:get('Fls.SectorNum') div num:i(4))"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FeeMaxWriteBytesPerCycle" type="ENUMERATION">
+                  <a:a name="DESC" value="EN: The maximum number of bytes that can be written in a FeeMainFunction cycle."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="be677d4a-3115-4206-97a4-d13ec42532c4"/>
+                  <a:da name="DEFAULT" value="FEE_MAX_BYTES_128_PERCYCLE"/>
+                  <a:da name="RANGE">
+                    <a:v>FEE_MAX_BYTES_32_PERCYCLE</a:v>
+                    <a:v>FEE_MAX_BYTES_64_PERCYCLE</a:v>
+                    <a:v>FEE_MAX_BYTES_128_PERCYCLE</a:v>
+                  </a:da>
+                </v:var>
+                <v:var name="FeeVirtualPageSize" type="INTEGER">
+                  <a:a name="DESC" 
+                       value="EN: The size in bytes to which logical blocks shall be aligned."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="be677d4a-3015-4606-97a4-d13ec41513c4"/>
+                  <a:da name="DEFAULT" value="16"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:ref name="FeeFlsSectorSelectionRef" type="REFERENCE">
+                  <a:a name="DESC"
+                    value="EN: Reference to a Fls sector which fee use to store data, the number of sectors of that Fls sector must be divisible by 2."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="UUID"
+                    value="fbbdef7c-ea8d-4c9a-bba5-c2fe437cbdfe"/>
+                  <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/Fls/FlsConfigSet/FlsSectorList/FlsSector"/>
+                  <a:da name="INVALID" type="XPath">
+                    <a:tst expr="num:i(node:ref(.)/FlsNumberOfSectors) mod 2 = 0" false="The number of sectors of the reference Fls sector must be divisible by 2."/>
+                    <a:tst expr="num:i(node:ref(.)/FlsSectorStartaddress) &lt; ecu:get('Fls.TotalSize')" false="The reference Fls sector must be DFlash sector."/>
+                  </a:da>
+                </v:ref>
+              </v:ctr>
+              <v:ctr name="FeePublishedInformation" type="IDENTIFIABLE">
+                <a:a name="DESC" 
+                     value="EN: Additional published parameters not covered by CommonPublishedInformation container."/>
+                <a:a name="UUID" value="ea9f0054-740a-4856-887c-df0f079ca3fd"/>
+                <v:var name="FeeBlockOverhead" type="INTEGER_LABEL">
+                  <a:a name="DESC" value="EN: Management overhead per logical block in bytes.The actual overhead per block is calculated as: &lt;br/&gt;
+                            (1) If (FeeBlockSize &lt;= 8): FeeBlockOverhead = 8 + 16 - FeeBlockSize. &lt;br/&gt;
+                            (2) If (((FeeBlockSize - 8) % 15) == 0): ((FeeBlockSize / 15) * 16) + 32 - FeeBlockSize. &lt;br /&gt;
+                            (3) If (((FeeBlockSize - 8) % 15) != 0): (((FeeBlockSize / 15) + 1) * 16) + 32 - FeeBlockSize." />
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="75a41c5a-71c2-4d17-9045-006edcb68052"/>
+                  <a:da name="DEFAULT" value="24"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=24"/>
+                    <a:tst expr="&gt;=24"/>
+                  </a:da>
+                </v:var>
+                <v:var name="FeePageOverhead" type="INTEGER_LABEL">
+                  <a:a name="DESC" value="EN: Management overhead per page in bytes."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="f7bb9e5c-b239-4d0d-9ce2-4c0b9b9461ed"/>
+                  <a:da name="DEFAULT" value="1"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=1"/>
+                    <a:tst expr="&gt;=1"/>
+                  </a:da>
+                </v:var>
+              </v:ctr>
+              <v:ctr name="CommonPublishedInformation" type="IDENTIFIABLE">
+                <a:a name="DESC" value="EN: Common container, aggregated by all modules. It contains published information about vendor and versions."/>
+                <a:a name="UUID" value="7eb684b1-0bda-41e0-aa92-fd1548c3bccd"/>
+                <v:var name="ArReleaseMajorVersion" type="INTEGER">
+                  <a:a name="DESC" value="EN: Major version number of AUTOSAR specification on which the appropriate implementation is based on."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="UUID" value="e8bcd842-992a-46a1-a39b-e3015864a4e1"/>
+                  <a:da name="DEFAULT" value="4"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="ArReleaseMinorVersion" type="INTEGER">
+                  <a:a name="DESC" value="EN: Minor version number of AUTOSAR specification on which the appropriate implementation is based on."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="UUID" value="01144646-081a-4a51-bacc-4a696b8df662"/>
+                  <a:da name="DEFAULT" value="4"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="ArReleaseRevisionVersion" type="INTEGER">
+                  <a:a name="DESC" value="EN: Patch level version number of AUTOSAR specification on which the appropriate implementation is based on."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="UUID" value="65eb8255-a817-4127-8bb5-200848c4753d"/>
+                  <a:da name="DEFAULT" value="0"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="ModuleId" type="INTEGER">
+                  <a:a name="DESC" value="EN: Module ID of this module from Module List"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="UUID" value="1f3d7818-33ce-4dd6-89e8-da5119482d4"/>
+                  <a:da name="DEFAULT" value="21"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="SwMajorVersion" type="INTEGER">
+                  <a:a name="DESC" value="EN: Major version number of the vendor specific implementation of the module. The numbering is vendor specific."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="UUID" value="ac1d9165-d08a-420a-af16-4caa6856bec3"/>
+                  <a:da name="DEFAULT" value="1"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="SwMinorVersion" type="INTEGER">
+                  <a:a name="DESC" value="EN: Minor version number of the vendor specific implementation of the module. The numbering is vendor specific."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="UUID" value="e1528a2c-51e0-4f6d-82d3-861648ed970c"/>
+                  <a:da name="DEFAULT" value="2"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="SwPatchVersion" type="INTEGER">
+                  <a:a name="DESC" value="EN: Patch level version number of the vendor specific implementation of the module. The numbering is vendor specific."/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="UUID" value="5b7c528a-453a-95ed-a242-5d2dca6e86d8"/>
+                  <a:da name="DEFAULT" value="0"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="VendorId" type="INTEGER">
+                  <a:a name="DESC" value="EN: Vendor ID of the dedicated implementation of this module according to the AUTOSAR vendor list"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPreCompile</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="UUID" value="8d0112c8-2e32-4ee1-370a-68ba632d25c"/>
+                  <a:da name="DEFAULT" value="175"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+              </v:ctr>
+              <d:ref type="REFINED_MODULE_DEF" 
+                     value="ASPath:/AUTOSAR/EcucDefs/Fee"/>
+            </v:ctr>
+          </d:chc>
+          <d:chc name="Fee_EcuParameterDefinition" type="AR-ELEMENT" 
+                 value="ECU_PARAMETER_DEFINITION">
+            <d:ctr type="AR-ELEMENT">
+              <a:a name="DEF" 
+                   value="ASPath:/AR_PACKAGE_SCHEMA/ECU_PARAMETER_DEFINITION"/>
+              <a:a name="UUID" value="9b060efa-7ffd-4df1-8549-0c9a3fdbc41e"/>
+              <d:lst name="MODULE_REF">
+                <d:ref type="MODULE_REF" value="ASPath:/THA6_AS440_FuSa/Fee"/>
+              </d:lst>
+            </d:ctr>
+          </d:chc>
+        </d:lst>
+      </d:ctr>
+    </d:lst>
+  </d:ctr>
+</datamodel>
