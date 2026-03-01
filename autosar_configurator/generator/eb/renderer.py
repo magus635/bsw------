@@ -888,6 +888,17 @@ class Renderer:
                 return int(expr)
         except: pass
 
+        # Handle @index and @count - loop iteration variables (must be before XPath fallback)
+        # Both "@index" and "./@index" forms should return the loop counter
+        if expr in ('@index', './@index'):
+            idx = self._context_stack.get_loop_index()
+            if idx != -1:
+                return idx
+        if expr in ('@count', './@count'):
+            count = self._context_stack.get_loop_count()
+            if count > 0:
+                return count
+
             
         # 2. Variable reference ($name) - only if it's a pure variable (no operators)
         # Check for operators first to avoid matching "$X + 1" as variable "X + 1"
@@ -1231,6 +1242,15 @@ class Renderer:
             if val.node_type == 'reference':
                 return val.value
             if val.node_type in ('container', 'module'):
+                # EB Tresos CHOICE containers: if a container has exactly one 
+                # container child and no parameter children, it's likely a CHOICE
+                # container. Return the selected child's name as the value.
+                # E.g., OsAlarmAction contains OsAlarmActivateTask -> returns "OsAlarmActivateTask"
+                if val.children:
+                    container_children = [c for c in val.children if hasattr(c, 'node_type') and c.node_type == 'container' and not getattr(c, 'is_wrapper', False)]
+                    param_children = [c for c in val.children if hasattr(c, 'node_type') and c.node_type == 'parameter']
+                    if len(container_children) == 1 and len(param_children) == 0:
+                        return container_children[0].short_name
                 return val.short_name
         
         if hasattr(val, 'get_value'):

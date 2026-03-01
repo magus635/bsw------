@@ -4,6 +4,7 @@ ARXML Parser for AUTOSAR configuration files
 from lxml import etree
 from typing import Optional, Dict, List, Any
 from pathlib import Path
+import re
 from ..model.container import Container, Parameter
 from ..model.base import ArxmlElement
 from ..model.ecuc_model import EcucContainer, EcucParameter, EcucReference
@@ -566,17 +567,18 @@ class ArxmlParser:
         # Parse containers
         containers_elem = self._find_descendant(element, 'CONTAINERS')
         if containers_elem is not None:
-            # Auto-indexing per definition
-            def_counts = {}
+            # Initialize global definition counts mapping for unique auto-indexing
+            if not hasattr(self, '_def_counts'):
+                self._def_counts = {}
             # Find only immediate container values
             for container_elem in self._findall_children(containers_elem, 'ECUC-CONTAINER-VALUE'):
                 container = self._parse_ecuc_container_value(container_elem)
                 if container:
                     # Assign index if not explicitly set in the container
                     if not getattr(container, '_has_explicit_index', False):
-                        d_ref = container.definition_ref
-                        container.index = def_counts.get(d_ref, 0)
-                        def_counts[d_ref] = container.index + 1
+                        d_ref = self._normalize_def_ref(container.definition_ref)
+                        container.index = self._def_counts.get(d_ref, 0)
+                        self._def_counts[d_ref] = container.index + 1
                     config.add_container(container)
                     
         return config
@@ -605,8 +607,11 @@ class ArxmlParser:
         if def_dest:
             container.def_dest_type = def_dest
         
-        # Parse INDEX if present
-        index_elem = self._find_descendant(element, 'INDEX')
+        # Normalized def-ref for indexing
+        norm_def_ref = self._normalize_def_ref(definition_ref)
+        
+        # Parse INDEX if present (must be a direct child)
+        index_elem = self._find_child(element, 'INDEX')
         if index_elem is not None:
             try:
                 container.index = int(index_elem.text)
@@ -633,17 +638,17 @@ class ArxmlParser:
         # Parse sub-containers
         sub_containers_elem = self._find_child(element, 'SUB-CONTAINERS')
         if sub_containers_elem is not None:
-            # Auto-indexing per definition
-            sub_def_counts = {}
             # Find only immediate sub-container values
             for sub_elem in self._findall_children(sub_containers_elem, 'ECUC-CONTAINER-VALUE'):
                 sub_container = self._parse_ecuc_container_value(sub_elem)
                 if sub_container:
                     # Assign index if not explicitly set
                     if not getattr(sub_container, '_has_explicit_index', False):
-                        sd_ref = sub_container.definition_ref
-                        sub_container.index = sub_def_counts.get(sd_ref, 0)
-                        sub_def_counts[sd_ref] = sub_container.index + 1
+                        sd_ref = self._normalize_def_ref(sub_container.definition_ref)
+                        if not hasattr(self, '_def_counts'):
+                            self._def_counts = {}
+                        sub_container.index = self._def_counts.get(sd_ref, 0)
+                        self._def_counts[sd_ref] = sub_container.index + 1
                     
                     sub_container.parent = container
                     container.add_sub_container(sub_container)
@@ -799,6 +804,25 @@ class ArxmlParser:
                 if local_name == tag_name:
                     return child
         return None
+
+    def _normalize_def_ref(self, def_ref: str) -> str:
+        """Strip instance suffixes (e.g., _0, _1) from definition references"""
+        if not def_ref:
+            return ""
+        
+        parts = def_ref.split('/')
+        if not parts:
+            return def_ref
+            
+        last_segment = parts[-1]
+        normalized_last = re.sub(r'_\d+$', '', last_segment)
+        
+        result = def_ref
+        if normalized_last != last_segment:
+            result = '/'.join(parts[:-1] + [normalized_last])
+        
+        # print(f"DEBUG_NORM: {def_ref} -> {result}")
+        return result
 
     def _find_descendant(self, element: etree._Element, tag_name: str) -> Optional[etree._Element]:
         """Find first descendant with tag_name, ignoring namespace"""

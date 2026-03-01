@@ -369,6 +369,29 @@ class OverlayEngine:
                 )
                 node.add_child(r_node)
             
+            # Add multi-valued references (e.g., OsAppAlarmRef, OsAppTaskRef)
+            multi_refs = getattr(config_instance, 'multi_reference_values', {}) or {}
+            for ref_name, ref_list in multi_refs.items():
+                wrapper_node = ConfigurationNode(
+                    short_name=ref_name,
+                    node_type='container',
+                    path=f"{path}/{ref_name}",
+                    definition_ref=ref_list[0].definition_ref if ref_list else '',
+                    is_wrapper=True
+                )
+                for ref_val in sorted(ref_list, key=lambda r: r.index if r.index is not None else 0):
+                    idx = ref_val.index if ref_val.index is not None else 0
+                    child_node = ConfigurationNode(
+                        short_name=str(idx),
+                        node_type='reference',
+                        path=f"{path}/{ref_name}/{idx}",
+                        value=ref_val.value_ref,
+                        definition_ref=ref_val.definition_ref,
+                        index=idx
+                    )
+                    wrapper_node.add_child(child_node)
+                node.add_child(wrapper_node)
+            
             # Add sub-containers (grouped by definition name for wrappers)
             subs_by_def = {}
             for sub in config_instance.sub_containers:

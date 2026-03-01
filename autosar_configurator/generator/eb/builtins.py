@@ -42,6 +42,7 @@ class BuiltinFunctions:
             'node:path': self.node_path,
             'node:ref': self.node_ref,
             'node:exists': self.node_exists,
+            'node:empty': self.node_empty,
             'node:refexists': self.node_refexists,
             'node:current': self.node_current,
             'node:order': self.node_order,
@@ -474,10 +475,54 @@ class BuiltinFunctions:
                                 break
 
                     if not found:
-                        return None
+                        nav_current = None
+                        break
 
             if nav_current and nav_current != root:
                 return nav_current
+
+        # Last resort: Create a stub node for unresolved cross-module references.
+        # This handles cases like /EcuC/EcuC/EcucHardware/EcucCoreDefinition_0 where
+        # the EcuC config doesn't have the EcucHardware section but Os templates need
+        # to resolve node:ref(./OsCoreId)/EcucCoreId to differentiate cores.
+        if target_path_str.startswith('/'):
+            from .symbol_table import ConfigurationNode
+            import re as _re
+            parts = [p for p in target_path_str.split('/') if p]
+            if parts:
+                stub_name = parts[-1]
+                stub = ConfigurationNode(
+                    short_name=stub_name,
+                    node_type='container',
+                    path=target_path_str,
+                    definition_ref=target_path_str
+                )
+                # Extract numeric suffix as common parameter values
+                # e.g., EcucCoreDefinition_0 -> EcucCoreId=0
+                suffix_match = _re.search(r'_(\d+)$', stub_name)
+                if suffix_match:
+                    idx_val = int(suffix_match.group(1))
+                    base_name = _re.sub(r'_\d+$', '', stub_name)
+                    # EcucCoreDefinition -> EcucCoreId
+                    if 'Core' in base_name:
+                        id_param = ConfigurationNode(
+                            short_name='EcucCoreId',
+                            node_type='parameter',
+                            path=f"{target_path_str}/EcucCoreId",
+                            value=idx_val
+                        )
+                        stub.add_child(id_param)
+                    # Generic: add an index-based Id parameter
+                    generic_id_name = base_name.split('Definition')[0] + 'Id' if 'Definition' in base_name else base_name + 'Id'
+                    if not stub.get_child(generic_id_name):
+                        generic_param = ConfigurationNode(
+                            short_name=generic_id_name,
+                            node_type='parameter',
+                            path=f"{target_path_str}/{generic_id_name}",
+                            value=idx_val
+                        )
+                        stub.add_child(generic_param)
+                return stub
 
         return None
     
@@ -570,7 +615,7 @@ class BuiltinFunctions:
         """Check if a node represents a missing configuration.
         
         A node is "empty" if:
-        1. It's a parameter with no configured value (value is None).
+        1. It's a parameter with no configured value (value is None or empty string).
         2. It's a reference with no target (value is None or empty string).
         """
         if not hasattr(node, 'node_type'):
@@ -580,14 +625,22 @@ class BuiltinFunctions:
         value = node.value if hasattr(node, 'value') else getattr(node, 'value', None)
         
         if node.node_type == 'parameter':
-            # Parameters with no value (None) are considered non-existent
-            return value is None
+            # Parameters with no value (None) or empty strings are considered non-existent
+            return value is None or str(value).strip() == ''
             
         if node.node_type == 'reference':
             # References with no value are empty
             return value is None or str(value).strip() == ''
             
         return False
+        
+    def node_empty(self, path_or_node) -> bool:
+        """Check if a node or path is empty.
+        
+        This is the functional opposite of node_exists.
+        """
+        return not self.node_exists(path_or_node)
+    
     
     def node_refexists(self, path_or_node) -> bool:
         """Check if a reference exists and its target exists"""
@@ -694,7 +747,10 @@ class BuiltinFunctions:
                 # Check if this is a complex expression (contains function calls or operators)
                 has_functions = '(' in inner_expr or 'num:' in inner_expr or 'text:' in inner_expr or 'string:' in inner_expr
 
-                if has_functions and self.renderer:
+                if inner_expr == '@index':
+                    # Document order index
+                    val = getattr(node, 'index', getattr(node, 'config_index', 0))
+                elif has_functions and self.renderer:
                     # For complex expressions, use renderer's expression evaluator
                     val = self.renderer._evaluate_expression(inner_expr)
                 elif '/' not in inner_expr and not '(' in inner_expr:

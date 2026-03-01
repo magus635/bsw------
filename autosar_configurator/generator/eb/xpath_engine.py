@@ -1251,12 +1251,14 @@ class XPathEngine:
                 
                 # Handle different axes
                 if axis == 'parent':
-                    if n.parent:
-                        next_nodes.append(n.parent)
+                    parent = n.parent
+                    # Skip wrapper nodes - they are transparent in EB Tresos navigation
+                    while parent and getattr(parent, 'is_wrapper', False):
+                        parent = parent.parent
+                    if parent:
+                        next_nodes.append(parent)
                     else:
                         # EB Tresos behavior: at the module root, '..' stays at root
-                        # rather than returning None. This ensures templates with
-                        # extra '..' levels still resolve correctly.
                         next_nodes.append(n)
                         
                 elif axis == 'self':
@@ -1299,10 +1301,17 @@ class XPathEngine:
                     # In AUTOSAR context, attributes are treated as properties
                     # @name typically refers to short_name
                     if name == 'name':
-                        next_nodes.append(n.short_name)
+                        next_nodes.append(n.short_name if hasattr(n, 'short_name') else str(n))
                     elif name == 'index':
-                        # Return the node's index
-                        next_nodes.append(getattr(n, 'index', 0))
+                        # EB Tresos compatibility: @index returns the loop iteration
+                        # index from the context stack if the node matches an enclosing
+                        # loop's context node. This handles patterns like ../../@index
+                        # where the intent is to get the outer loop's index.
+                        loop_index = self._find_context_loop_index(n)
+                        if loop_index is not None:
+                            next_nodes.append(loop_index)
+                        else:
+                            next_nodes.append(getattr(n, 'index', 0))
                     elif hasattr(n, name):
                         next_nodes.append(getattr(n, name))
                         
@@ -1358,6 +1367,57 @@ class XPathEngine:
                                             next_nodes.append(sub)
                                             found_current_node = True
                                             break # Found in this instance, no need to check other instances
+                                            
+                            # NEW 3.5: Fallback for stub-loaded instances without definitions (.epc only)
+                            # In Eb Tresos projects, instantiated containers like OsAlarm_0 
+                            # might need to match "OsAlarm".
+                            # Even if we found a "stub" definition node (which sets found_current_node=True), 
+                            # we must wrap actual configured instances into it.
+                            if not getattr(n, '_epc_matched_instances', False):
+                                import re
+                                active_instances = []
+                                for c_node in n.children:
+                                    # Match by multiple strategies:
+                                    # 1. Numeric suffix strip: OsAlarm_0 -> OsAlarm
+                                    stripped_name = re.sub(r'_\d+$', '', c_node.short_name)
+                                    match_by_strip = (stripped_name == name or stripped_name.lower() == name.lower())
+                                    
+                                    # 2. Definition ref match: def_ref ends with /OsCounter_Software,
+                                    #    and the def_ref last segment starts with search name + '_'
+                                    match_by_def = False
+                                    if c_node.definition_ref:
+                                        def_last = c_node.definition_ref.split('/')[-1]
+                                        if def_last.startswith(name + '_') or def_last.startswith(name.lower() + '_'):
+                                            match_by_def = True
+                                    
+                                    # 3. Short name starts with search name + '_'
+                                    match_by_prefix = (c_node.short_name.startswith(name + '_') or 
+                                                       c_node.short_name.lower().startswith(name.lower() + '_'))
+                                    
+                                    if (match_by_strip or match_by_def or match_by_prefix):
+                                        if c_node.short_name != name: # exclude the stub def itself
+                                            active_instances.append(c_node)
+                                            
+                                if active_instances:
+                                    stub_def = None
+                                    for cn in next_nodes:
+                                        if cn.short_name == name and getattr(cn, 'node_type', '') == 'container':
+                                            stub_def = cn
+                                            break
+                                    
+                                    if stub_def:
+                                        stub_def.children = list(active_instances)
+                                        found_current_node = True
+                                    else:
+                                        try:
+                                            from .symbol_table import ConfigurationNode
+                                            surrogate = ConfigurationNode(name, "container", None, n)
+                                            surrogate.children = list(active_instances)
+                                            next_nodes.append(surrogate)
+                                            found_current_node = True
+                                        except ImportError:
+                                            next_nodes.extend(active_instances)
+                                            found_current_node = True
                             
                             # 4. Fallback for wrappers/aliases and nested containers
                             if not found_current_node:
@@ -1470,6 +1530,49 @@ class XPathEngine:
         if node.short_name.lower() == name.lower():
             return True
         return False
+    
+    def _find_context_loop_index(self, node) -> 'Optional[int]':
+        """Find the loop index from context stack for a node reached via parent navigation.
+        
+        In EB Tresos, when evaluating ../../@index inside a nested loop,
+        the @index should return the enclosing loop's iteration index for the
+        container that matches the navigation target.
+        
+        We search the context stack from bottom to top (skipping current scope)
+        for a loop scope whose context node:
+        - Is the exact same node
+        - Is a child of the same parent wrapper as the target node
+        - Has a parent that is an ancestor of the target node's wrapper
+        """
+        if not hasattr(self, 'context_stack') or not self.context_stack:
+            return None
+        
+        stack = self.context_stack._stack
+        # Skip the current (innermost) scope, search enclosing scopes
+        for i in range(len(stack) - 2, -1, -1):
+            scope = stack[i]
+            if scope.loop_index < 0:
+                continue  # Not a loop scope
+            
+            ctx_node = scope.context_node
+            if ctx_node is None:
+                continue
+            
+            # Direct match: the navigated-to node IS the loop context node
+            if ctx_node is node:
+                return scope.loop_index
+            
+            # Check if ctx_node is a child of a wrapper that is a child of `node`
+            # (e.g., node=Os, ctx_node=OsApplication_0, wrapper OsApplication is child of Os)
+            if hasattr(ctx_node, 'parent') and ctx_node.parent:
+                ctx_parent = ctx_node.parent
+                # If ctx_node's real parent (skipping wrappers) matches `node`
+                while ctx_parent and getattr(ctx_parent, 'is_wrapper', False):
+                    ctx_parent = ctx_parent.parent
+                if ctx_parent is node:
+                    return scope.loop_index
+        
+        return None
     
     def _find_ancestors(self, node: 'ConfigurationNode', name: str) -> List['ConfigurationNode']:
         """Find all ancestors matching name (ancestor:: axis)."""

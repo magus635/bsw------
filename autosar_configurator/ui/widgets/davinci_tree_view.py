@@ -363,6 +363,9 @@ class DaVinciTreeView(QTreeWidget):
         
         First tries exact match, then falls back to matching by container short_name
         (last path segment), to handle EB Tresos projects with vendor-specific paths.
+        
+        For EB Tresos: instance definition_refs like /THA6_ASR21/Os/OsAlarm_0 have a
+        _N numeric suffix that must be stripped to match the definition name OsAlarm.
         """
         # Try exact match first
         if config_ref == def_ref:
@@ -370,7 +373,13 @@ class DaVinciTreeView(QTreeWidget):
         
         # Fall back to matching by short_name (last segment of path)
         config_short_name = config_ref.rstrip('/').split('/')[-1] if config_ref else ""
-        return config_short_name == short_name
+        if config_short_name == short_name:
+            return True
+        
+        # EB Tresos fallback: strip _N suffix (e.g., OsAlarm_0 -> OsAlarm)
+        import re
+        stripped = re.sub(r'_\d+$', '', config_short_name)
+        return stripped == short_name
 
     
     # Event handlers

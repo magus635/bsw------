@@ -1,0 +1,94 @@
+--- /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/alarm/Os_alarm_Lcfg.c	2026-03-01 15:23:30
++++ /Users/qlwang/Downloads/Os_Configuration/output/Os/alarm/Os_alarm_Lcfg.c	2024-11-25 18:05:50
+@@ -80,6 +80,7 @@
+ /****************************************************************************************************
+ **                          Private Structure Definitions                                           **
+ ****************************************************************************************************/
++
+ const Os_AlarmConstType Alarm_OsAlarm_0_ConfigRef =
+ {
+     20UL,                                   /* ObjectID */
+@@ -98,6 +99,7 @@
+     },                        /* AutoStartInfo */
+     &OsAlarm_0_RunningData
+ }; 
++
+ const Os_AlarmConstType Alarm_OsAlarm_1_ConfigRef =
+ {
+     21UL,                                   /* ObjectID */
+@@ -116,6 +118,7 @@
+     },                        /* AutoStartInfo */
+     &OsAlarm_1_RunningData
+ }; 
++
+ const Os_AlarmConstType Alarm_OsAlarm_2_ConfigRef =
+ {
+     22UL,                                   /* ObjectID */
+@@ -134,6 +137,7 @@
+     },                        /* AutoStartInfo */
+     &OsAlarm_2_RunningData
+ }; 
++
+ const Os_AlarmConstType Alarm_OsAlarm_6_ConfigRef =
+ {
+     23UL,                                   /* ObjectID */
+@@ -152,6 +156,7 @@
+     },                        /* AutoStartInfo */
+     &OsAlarm_6_RunningData
+ }; 
++
+ const Os_AlarmConstType Alarm_OsAlarm_7_ConfigRef =
+ {
+     24UL,                                   /* ObjectID */
+@@ -170,6 +175,8 @@
+     },                        /* AutoStartInfo */
+     &OsAlarm_7_RunningData
+ }; 
++
++
+ const Os_AlarmConstType Alarm_OsAlarm_3_ConfigRef =
+ {
+     32UL,                                   /* ObjectID */
+@@ -188,6 +195,8 @@
+     },                        /* AutoStartInfo */
+     &OsAlarm_3_RunningData
+ }; 
++
++
+ const Os_AlarmConstType Alarm_OsAlarm_4_ConfigRef =
+ {
+     36UL,                                   /* ObjectID */
+@@ -206,6 +215,8 @@
+     },                        /* AutoStartInfo */
+     &OsAlarm_4_RunningData
+ }; 
++
++
+ const Os_AlarmConstType Alarm_OsAlarm_5_ConfigRef =
+ {
+     53UL,                                   /* ObjectID */
+@@ -224,6 +235,7 @@
+     },                        /* AutoStartInfo */
+     &OsAlarm_5_RunningData
+ }; 
++
+ const Os_AlarmConstType Alarm_OsAlarm_8_ConfigRef =
+ {
+     54UL,                                   /* ObjectID */
+@@ -242,6 +254,7 @@
+     },                        /* AutoStartInfo */
+     &OsAlarm_8_RunningData
+ }; 
++
+ const Os_AlarmConstType Alarm_OsAlarm_9_ConfigRef =
+ {
+     55UL,                                   /* ObjectID */
+@@ -260,6 +273,8 @@
+     },                        /* AutoStartInfo */
+     &OsAlarm_9_RunningData
+ }; 
++
++
+ 
+ /****************************************************************************************************
+ **                          Private Variable Definitions                                           **

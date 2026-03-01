@@ -845,16 +845,18 @@ class WorkspaceManager:
         # Step 3: Match defines with EPCs by module name
         all_modules = set(define_map.keys())
         epc_only = set(epc_map.keys()) - all_modules
+        
+        # Add epc_only modules to all_modules so we process them as stubs
         if epc_only:
             for name in sorted(epc_only):
-                msg = f"EPC found but no matching define: {name} (skipped)"
-                _progress(f"Warning: {msg}")
-                failed_modules.append((name, msg))
+                msg = f"EPC found but no matching define: {name}. Will load as stub module."
+                _progress(f"Notice: {msg}")
+                all_modules.add(name)
 
         # Step 4: Load each module
         total = len(all_modules)
         for idx, module_name in enumerate(sorted(all_modules), 1):
-            def_path = define_map[module_name]
+            def_path = define_map.get(module_name)
             epc_path = epc_map.get(module_name)
 
             status = f"({idx}/{total}) Loading {module_name}..."
@@ -863,17 +865,33 @@ class WorkspaceManager:
             _progress(status)
 
             try:
-                # Parse definition
-                module_def = self.def_parser.parse_module_def_file(def_path)
-
-                # Check if module already loaded (e.g., EcuC.xdm and Ecuc.arxml both define "EcuC")
-                actual_name = module_def.short_name
-                if actual_name in project.module_managers:
-                    _progress(f"  Skipped {module_name}: module '{actual_name}' already loaded")
-                    continue
-
-                # Add to project
-                manager = project.add_module(module_def, def_path)
+                actual_name = module_name
+                if def_path:
+                    # Parse definition
+                    module_def = self.def_parser.parse_module_def_file(def_path)
+                    actual_name = module_def.short_name
+    
+                    # Check if module already loaded (e.g., EcuC.xdm and Ecuc.arxml both define "EcuC")
+                    if actual_name in project.module_managers:
+                        _progress(f"  Skipped {module_name}: module '{actual_name}' already loaded")
+                        continue
+    
+                    # Add to project
+                    manager = project.add_module(module_def, def_path)
+                else:
+                    # Stub load: Create a surrogate module definition
+                    from .model.definition_model import EcucModuleDef
+                    module_def = EcucModuleDef(
+                        short_name=module_name, 
+                        definition_ref=f"/AUTOSAR/EcucDefs/{module_name}"
+                    )
+                    
+                    if actual_name in project.module_managers:
+                        _progress(f"  Skipped {module_name}: module '{actual_name}' already loaded")
+                        continue
+                        
+                    # Create manager with def_missing=True
+                    manager = project.add_module(module_def, Path(f"stub_{module_name}.xdm"), def_missing=True)
 
                 # Load EPC configuration if available
                 # Also try matching by parsed short_name if filename didn't match
@@ -881,7 +899,7 @@ class WorkspaceManager:
                 if not actual_epc and actual_name != module_name:
                     actual_epc = epc_map.get(actual_name)
                 if actual_epc:
-                    manager.load_configuration(actual_epc)
+                    manager.load_configuration(actual_epc, skip_cleanup=not bool(def_path))
 
                 loaded_modules.append(actual_name)
             except Exception as e:

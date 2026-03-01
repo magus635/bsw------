@@ -1,0 +1,45 @@
+Only in /Users/qlwang/Downloads/Os_Configuration/output/Os: .DS_Store
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/Os_Callout.c and /Users/qlwang/Downloads/Os_Configuration/output/Os/Os_Callout.c differ
+Only in /Users/qlwang/Downloads/Os_Configuration/output/Os: Os_Trace_Core0.ORTI
+Only in /Users/qlwang/Downloads/Os_Configuration/output/Os: Os_Trace_Core1.ORTI
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/alarm/Os_alarm_Lcfg.c and /Users/qlwang/Downloads/Os_Configuration/output/Os/alarm/Os_alarm_Lcfg.c differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/application/Os_application_Cfg.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/application/Os_application_Cfg.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/application/Os_application_Lcfg.c and /Users/qlwang/Downloads/Os_Configuration/output/Os/application/Os_application_Lcfg.c differ
+Only in /Users/qlwang/Downloads/Os_Configuration/output/Os: common
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/context/Os_context_Cfg.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/context/Os_context_Cfg.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/context/Os_context_Lcfg.c and /Users/qlwang/Downloads/Os_Configuration/output/Os/context/Os_context_Lcfg.c differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/context/Os_context_Lcfg.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/context/Os_context_Lcfg.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/counter/Os_counter_Cfg.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/counter/Os_counter_Cfg.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/counter/Os_counter_Lcfg.c and /Users/qlwang/Downloads/Os_Configuration/output/Os/counter/Os_counter_Lcfg.c differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/hook/Os_hook_Lcfg.c and /Users/qlwang/Downloads/Os_Configuration/output/Os/hook/Os_hook_Lcfg.c differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/hook/Os_hook_Lcfg.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/hook/Os_hook_Lcfg.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/ioc/Os_ioc_Cfg.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/ioc/Os_ioc_Cfg.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/ioc/Os_ioc_Lcfg.c and /Users/qlwang/Downloads/Os_Configuration/output/Os/ioc/Os_ioc_Lcfg.c differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/ioc/Os_ioc_Lcfg.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/ioc/Os_ioc_Lcfg.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/isr/Os_isr_Cfg.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/isr/Os_isr_Cfg.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/isr/Os_isr_Lcfg.c and /Users/qlwang/Downloads/Os_Configuration/output/Os/isr/Os_isr_Lcfg.c differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/isr/Os_isr_Lcfg.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/isr/Os_isr_Lcfg.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/kernel/Os_kernel_Cfg.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/kernel/Os_kernel_Cfg.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/kernel/Os_kernel_Lcfg.c and /Users/qlwang/Downloads/Os_Configuration/output/Os/kernel/Os_kernel_Lcfg.c differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/link/Os_link_Cfg.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/link/Os_link_Cfg.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/link/Os_link_Lcfg.c and /Users/qlwang/Downloads/Os_Configuration/output/Os/link/Os_link_Lcfg.c differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/link/Os_link_Lcfg.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/link/Os_link_Lcfg.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/memorymap/Os_memmap.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/memorymap/Os_memmap.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/mpu/Os_mpu_Cfg.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/mpu/Os_mpu_Cfg.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/mpu/Os_mpu_Lcfg.c and /Users/qlwang/Downloads/Os_Configuration/output/Os/mpu/Os_mpu_Lcfg.c differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/mpu/Os_mpu_Lcfg.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/mpu/Os_mpu_Lcfg.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/resource/Os_resource_Cfg.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/resource/Os_resource_Cfg.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/resource/Os_resource_Lcfg.c and /Users/qlwang/Downloads/Os_Configuration/output/Os/resource/Os_resource_Lcfg.c differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/resource/Os_resource_Lcfg.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/resource/Os_resource_Lcfg.h differ
+Only in /Users/qlwang/Downloads/Os_Configuration/output/Os: scatter.scat
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/scheduletable/Os_scheduletable_Lcfg.c and /Users/qlwang/Downloads/Os_Configuration/output/Os/scheduletable/Os_scheduletable_Lcfg.c differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/services/Os_services_Lcfg.c and /Users/qlwang/Downloads/Os_Configuration/output/Os/services/Os_services_Lcfg.c differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/services/Os_services_Lcfg.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/services/Os_services_Lcfg.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/spinlock/Os_spinlock_Lcfg.c and /Users/qlwang/Downloads/Os_Configuration/output/Os/spinlock/Os_spinlock_Lcfg.c differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/task/Os_task_Cfg.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/task/Os_task_Cfg.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/task/Os_task_Lcfg.c and /Users/qlwang/Downloads/Os_Configuration/output/Os/task/Os_task_Lcfg.c differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/timer/Os_timer_Callout.c and /Users/qlwang/Downloads/Os_Configuration/output/Os/timer/Os_timer_Callout.c differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/timer/Os_timer_Callout.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/timer/Os_timer_Callout.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/timer/Os_timer_Lcfg.c and /Users/qlwang/Downloads/Os_Configuration/output/Os/timer/Os_timer_Lcfg.c differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/timer/Os_timer_Lcfg.h and /Users/qlwang/Downloads/Os_Configuration/output/Os/timer/Os_timer_Lcfg.h differ
+Files /Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/Os/timingprotection/Os_timingprotection_Lcfg.c and /Users/qlwang/Downloads/Os_Configuration/output/Os/timingprotection/Os_timingprotection_Lcfg.c differ

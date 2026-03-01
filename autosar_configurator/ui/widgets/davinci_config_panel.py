@@ -260,7 +260,7 @@ class DaVinciConfigPanel(QWidget):
             
             # Populate references table (sets title with error count)
             self._populate_references(instance, container_def)
-            if len(container_def.references) > 0:
+            if len(container_def.references) > 0 or len(instance.multi_reference_values) > 0:
                 self.references_group.show()
                 
         except Exception as e:
@@ -1246,8 +1246,11 @@ class DaVinciConfigPanel(QWidget):
             return
         
         ref_name = name_item.text()
+        # Strip index suffix like "[0]", "[1]" for multi-valued refs
+        import re as _re
+        base_ref_name = _re.sub(r'\[\d+\]$', '', ref_name)
         container_name = self.current_def.short_name
-        cache_key = f"{container_name}.ref.{ref_name}"
+        cache_key = f"{container_name}.ref.{base_ref_name}"
         
         # Check cache first
         if cache_key in self.ai_help_cache:
@@ -1263,12 +1266,12 @@ class DaVinciConfigPanel(QWidget):
         self.ai_cancel_btn.show()
         self.ai_pending_request = True
         self.ai_request_cancelled = False
-        self.ai_help_label.setText(f"⏳ 正在获取 Reference **{ref_name}** 的配置建议...")
+        self.ai_help_label.setText(f"⏳ 正在获取 Reference **{base_ref_name}** 的配置建议...")
         self.ai_help_label.setStyleSheet("color: #666; padding: 8px; background: #f0f8ff; border-radius: 4px;")
         
         # Emit signal with special format for reference
         # Format: container_name, "REF:ref_name:dest_type"
-        self.ai_help_requested.emit(container_name, f"REF:{ref_name}:{dest_type}")
+        self.ai_help_requested.emit(container_name, f"REF:{base_ref_name}:{dest_type}")
     
     def _on_ref_cell_double_clicked(self, row: int, column: int):
         """Handle double-click on references table - navigate to target container"""
@@ -1280,19 +1283,24 @@ class DaVinciConfigPanel(QWidget):
         if not name_item:
             return
         
-        ref_name = name_item.text()
-        
-        # Check if this reference is set and resolved
-        if ref_name in self.current_instance.reference_values:
-            ref_value = self.current_instance.reference_values[ref_name]
-            
+        # Use stored UserRole data for navigation (works for both single and multi-ref)
+        ref_value = name_item.data(Qt.UserRole)
+        if isinstance(ref_value, EcucReferenceValue):
             if ref_value.is_resolved and ref_value.target is not None:
-                # Emit navigation signal with target path
                 target_path = ref_value.target.get_path()
                 self.reference_jump_requested.emit(target_path)
             elif ref_value.value_ref:
-                # Try to navigate using the stored path even if not resolved
                 self.reference_jump_requested.emit(ref_value.value_ref)
+            return
+        
+        # Fallback: look up by name in single-valued references
+        ref_name = name_item.text()
+        if ref_name in self.current_instance.reference_values:
+            rv = self.current_instance.reference_values[ref_name]
+            if rv.is_resolved and rv.target is not None:
+                self.reference_jump_requested.emit(rv.target.get_path())
+            elif rv.value_ref:
+                self.reference_jump_requested.emit(rv.value_ref)
 
     
     def update_ai_help(self, help_text: str):
@@ -1510,42 +1518,77 @@ class DaVinciConfigPanel(QWidget):
         return False
 
     def _populate_references(self, instance: EcucContainerValue, container_def: EcucContainerDef):
-        """Populate references table with resolution error display"""
-        self.refs_table.setRowCount(len(container_def.references))
+        """Populate references table with resolution error display.
+        
+        Multi-valued refs (upper_multiplicity > 1) are expanded into individual rows
+        with indexed names like RefName[0], RefName[1], etc. and read-only target labels.
+        """
+        # Build a flat list of (display_name, ref_def, ref_value_or_None, is_multi) rows
+        rows_data = []
+        
+        for ref_name, ref_def in container_def.references.items():
+            is_multi = getattr(ref_def, 'upper_multiplicity', 1) > 1 or \
+                       getattr(ref_def, 'upper_multiplicity', 1) == -1  # -1 = INFINITE
+            
+            if is_multi and ref_name in instance.multi_reference_values:
+                # Expand each indexed value into its own row
+                multi_refs = instance.multi_reference_values[ref_name]
+                if multi_refs:
+                    for idx, ref_val in enumerate(multi_refs):
+                        rows_data.append((f"{ref_name}[{idx}]", ref_def, ref_val, True))
+                else:
+                    # No values yet, show empty placeholder
+                    rows_data.append((ref_name, ref_def, None, True))
+            else:
+                # Single-valued reference (normal path)
+                ref_val = instance.reference_values.get(ref_name)
+                rows_data.append((ref_name, ref_def, ref_val, False))
+        
+        self.refs_table.setRowCount(len(rows_data))
         error_count = 0
         
-        for row, (ref_name, ref_def) in enumerate(container_def.references.items()):
-            # Column 0: Reference name
-            name_item = QTableWidgetItem(ref_def.short_name)
+        for row, (display_name, ref_def, ref_val, is_multi) in enumerate(rows_data):
+            # Column 0: Reference name (store ref_value in UserRole for navigation)
+            name_item = QTableWidgetItem(display_name)
             name_item.setToolTip(f"Destination: {ref_def.destination_ref}")
+            if ref_val is not None:
+                name_item.setData(Qt.UserRole, ref_val)
             self.refs_table.setItem(row, 0, name_item)
             
-            # Column 1: Target selector (ComboBox)
-            # Check for variant override first, then base value
-            current_value = None
-            is_variant_override = False
-            
-            if self.project and hasattr(self.project, 'active_variant') and self.project.active_variant:
-                variant = self.project.active_variant
-                module_config = instance.module_config
-                if module_config:
-                    ref_path = f"{instance.get_path()}.ref:{ref_name}"
-                    override_value, is_override = module_config.get_value_for_variant(ref_path, variant)
-                    if is_override:
-                        current_value = override_value
-                        is_variant_override = True
-            
-            # Fall back to base value if no variant override
-            if current_value is None:
-                if ref_name in instance.reference_values:
-                    current_value = instance.reference_values[ref_name].value_ref
-            
-            # Clear any existing item in the target cell
-            self.refs_table.setItem(row, 1, QTableWidgetItem(""))
-            
-            selector = self._create_reference_selector(ref_name, ref_def, current_value)
-            self.refs_table.setCellWidget(row, 1, selector)
-
+            # Column 1: Target selector or read-only label
+            if is_multi and ref_val is not None:
+                # Multi-valued ref: show read-only label with the target path
+                target_label = ref_val.value_ref or "(Not set)"
+                if ref_val.is_resolved and ref_val.target:
+                    target_label = ref_val.target.get_path()
+                label_item = QTableWidgetItem(target_label)
+                label_item.setFlags(label_item.flags() & ~Qt.ItemIsEditable)
+                label_item.setToolTip(ref_val.value_ref or "")
+                self.refs_table.setItem(row, 1, label_item)
+                self.refs_table.removeCellWidget(row, 1)
+            else:
+                # Single-valued ref: editable ComboBox selector
+                current_value = None
+                is_variant_override = False
+                
+                ref_name_base = display_name  # For single-valued, display_name == ref_name
+                
+                if self.project and hasattr(self.project, 'active_variant') and self.project.active_variant:
+                    variant = self.project.active_variant
+                    module_config = instance.module_config
+                    if module_config:
+                        ref_path = f"{instance.get_path()}.ref:{ref_name_base}"
+                        override_value, is_override = module_config.get_value_for_variant(ref_path, variant)
+                        if is_override:
+                            current_value = override_value
+                            is_variant_override = True
+                
+                if current_value is None and ref_val is not None:
+                    current_value = ref_val.value_ref
+                
+                self.refs_table.setItem(row, 1, QTableWidgetItem(""))
+                selector = self._create_reference_selector(ref_name_base, ref_def, current_value)
+                self.refs_table.setCellWidget(row, 1, selector)
             
             # Column 2: Destination type
             dest_parts = ref_def.destination_ref.split('/')
@@ -1564,12 +1607,10 @@ class DaVinciConfigPanel(QWidget):
             status_tooltip = ""
             status_color = None
             
-            if ref_name in instance.reference_values:
-                ref_value = instance.reference_values[ref_name]
-                if ref_value.has_error:
-                    error = ref_value.resolution_error
+            if ref_val is not None:
+                if ref_val.has_error:
+                    error = ref_val.resolution_error
                     error_count += 1
-                    # Icon based on severity
                     severity_icons = {
                         "error": "❌",
                         "warning": "⚠️",
@@ -1577,13 +1618,12 @@ class DaVinciConfigPanel(QWidget):
                     }
                     status_icon = severity_icons.get(error.severity, "❓")
                     status_tooltip = error.to_user_message()
-                    # Color based on severity
                     status_color = {
-                        "error": QColor(255, 200, 200),    # Light red
-                        "warning": QColor(255, 240, 200),  # Light yellow
-                        "info": QColor(240, 240, 240),     # Light gray
+                        "error": QColor(255, 200, 200),
+                        "warning": QColor(255, 240, 200),
+                        "info": QColor(240, 240, 240),
                     }.get(error.severity)
-                elif ref_value.is_resolved:
+                elif ref_val.is_resolved:
                     status_icon = "✅"
                     status_tooltip = "引用解析成功"
                 else:
@@ -1600,8 +1640,9 @@ class DaVinciConfigPanel(QWidget):
                 status_item.setBackground(status_color)
             self.refs_table.setItem(row, 4, status_item)
         
-        # Update title with error count
-        title = f"🔗 References ({len(container_def.references)})"
+        # Update title with total count (single + multi-expanded)
+        total_refs = len(rows_data)
+        title = f"🔗 References ({total_refs})"
         if error_count > 0:
             title += f" ⚠️ {error_count} error{'s' if error_count > 1 else ''}"
         self.references_group.setTitle(title)
