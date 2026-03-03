@@ -207,45 +207,48 @@ class SymbolTable:
         if not candidates:
             return None
 
-        # Successively try to resolve starting from each candidate module
+        # Strategy: Successively try to resolve starting from each candidate module.
+        # ARXML paths might have wrapper segments like /Os/Os/Task1 where we have /Os/Os/OsTask/Task1.
         for root, start_idx in candidates:
+            # Simple path traversal first
+            remaining_parts = parts[start_idx + 1:]
             
-            # Recursive search function to skip wrappers and handle structural mismatches
-            def navigate(current: ConfigurationNode, parts_to_find: list) -> Optional[ConfigurationNode]:
+            def find_path(current: ConfigurationNode, parts_to_find: List[str]) -> Optional[ConfigurationNode]:
                 if not parts_to_find:
                     return current
                 
                 target = parts_to_find[0]
-                remaining = parts_to_find[1:]
+                rest = parts_to_find[1:]
                 
                 # Try direct child
                 child = current.get_child(target)
                 if child:
-                    return navigate(child, remaining)
+                    return find_path(child, rest)
                 
-                # CASE 1: Skip "structural" wrapper nodes in the tree
-                # If current has children that are wrappers or have the same name as current,
-                # explore them if they might contain our target.
-                for child_node in current.children:
-                    # If the child looks like a structural node (wrapper or same name alias),
-                    # try to see if it contains the target.
-                    if child_node.node_type == 'container':
-                        # OPTION A: The child IS the target (but maybe its name is slightly different, dealt with above)
-                        # OPTION B: The child is a wrapper node - try to look INSIDE it for 'target'
-                        res = navigate(child_node, parts_to_find)
+                # Try case-insensitive child lookup
+                for c_node in current.children:
+                    if c_node.short_name.lower() == target.lower():
+                        return find_path(c_node, rest)
+                
+                # CASE 1: Skip wrapper nodes if target might be inside
+                # (e.g. tree has /OsTask wrapper, ARXML ref is /Os/Task1)
+                for c_node in current.children:
+                    if c_node.is_wrapper:
+                        res = find_path(c_node, parts_to_find)
                         if res: return res
                 
-                # CASE 2: The ARXML path might have redundant segments (like /Can/Can/...)
-                # If the current node's name matches the target, skip this segment and continue from here
+                # CASE 2: Skip redundant segments in the ARXML path
+                # (e.g. ARXML ref is /Os/Os/Task1, tree is /Os/OsTask/Task1)
                 if current.short_name.lower() == target.lower():
-                    return navigate(current, remaining)
+                    return find_path(current, rest)
                 
                 return None
 
-            # Start navigation skipping the module name part itself
-            result = navigate(root, parts[start_idx + 1:])
+            result = find_path(root, remaining_parts)
             if result:
                 return result
+
+        return None
 
         return None
     

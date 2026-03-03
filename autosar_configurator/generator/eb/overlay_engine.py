@@ -6,6 +6,7 @@ Implements the XDM + ARXML Overlay mechanism:
 2. Overlay Layer: Apply user configuration values
 3. Fallback: If config value missing, use definition default
 """
+import re as _re
 from typing import Optional, Dict, Any
 from .symbol_table import ConfigurationNode, SymbolTable
 from .errors import MultiplicityViolationError
@@ -64,31 +65,63 @@ class OverlayEngine:
             definition_ref=module_def.definition_ref
         )
 
+        # Track processed configuration instances to avoid duplicates in the unknown containers loop
+        processed_instances = set()
+
         for container_name, container_def in module_def.containers.items():
             # Find matching configuration instances
             matching_instances = []
             if configuration:
-                matching_instances = [c for c in configuration.containers 
-                                      if c.definition_ref == container_name or c.definition_ref.endswith(f"/{container_name}")]
+                for c in configuration.containers:
+                    if id(c) in processed_instances:
+                        continue
+                        
+                    # 1. Direct match or endswith match (standard AUTOSAR)
+                    if c.definition_ref == container_name or c.definition_ref.endswith(f"/{container_name}"):
+                        matching_instances.append(c)
+                        processed_instances.add(id(c))
+                        continue
+                        
+                    # 2. EB Tresos numeric suffix match (e.g. OsAlarm_0 -> OsAlarm)
+                    if _re.sub(r'_\d+$', '', c.short_name) == container_name:
+                        matching_instances.append(c)
+                        processed_instances.add(id(c))
+                        continue
+                    
+                    # 3. EB Tresos prefix match (e.g. OsCounter_Software -> OsCounter)
+                    if c.short_name.startswith(f"{container_name}_"):
+                        matching_instances.append(c)
+                        processed_instances.add(id(c))
+                        continue
+                        
+                    # 4. EB Tresos majority-vote inference fallback (e.g. Task1 -> OsTask)
+                    # We check if > 50% of Os-prefixed parameters start with the definition name
+                    os_params = [n for n in c.parameter_values.keys() if n.startswith('Os')]
+                    if os_params:
+                        votes = sum(1 for n in os_params if n.startswith(container_name))
+                        if votes * 2 > len(os_params):
+                            matching_instances.append(c)
+                            processed_instances.add(id(c))
+                            continue
 
             # Create a WRAPPER node for this container definition
-            # This allows [!LOOP "as:modconf('Can')/CanConfigSet/*"!]
             wrapper_path = f"/{module_name}/{container_name}"
             wrapper_node = ConfigurationNode(
                 short_name=container_name,
-                node_type='container', # Use container type so it's navigable
+                node_type='container',
                 path=wrapper_path,
                 definition_ref=container_def.definition_ref,
                 is_wrapper=True
             )
 
-            # FIX: Add wrapper to root BEFORE adding children, so that children can correctly
-            # resolve their parent (handling the case where child path == wrapper path)
+            # FIX: Add wrapper to root BEFORE adding children
             root.add_child(wrapper_node)
 
-            active_instance_node = None
-            
             if matching_instances:
+                # Assign stable sequential indices to matching instances
+                for i, inst in enumerate(matching_instances):
+                    inst.index = i
+                    
                 for inst in matching_instances:
                     # Build instances as children of the wrapper
                     nodes = self._build_container_nodes(
@@ -98,49 +131,28 @@ class OverlayEngine:
                     )
                     for node in nodes:
                         wrapper_node.add_child(node)
-                        # Check if this is the active instance for the variant
-                        if variant and getattr(inst, 'variant', None) == variant:
-                            active_instance_node = node
-                
-                self._alias_active_instance(wrapper_node, variant)
-
-
             elif container_def.is_required:
-
                 # Build from defaults if required
                 nodes = self._build_container_nodes(
                     container_def,
                     None,
-                    parent_path=root.path
+                    parent_path=wrapper_node.path
                 )
                 for node in nodes:
                     wrapper_node.add_child(node)
 
-            # Add the wrapper to the module root (MOVED UP)
-            # root.add_child(wrapper_node) -> See above
-            
-            # Special Alias Selection:
-            # If a specific variant is active and we found a matching instance, 
-            # we can make the wrapper node's values reflect that instance?
-            # Actually, EB Tresos often lets you use the definition name as an alias for the active instance.
-            # For now, the user mostly wants the iteration to work.
-            
-            # If we have an active_instance_node, we could optionally alias it?
-            # But wait, if they say 'CanConfigSet/CanController', and CanConfigSet is a wrapper,
-            # it won't find CanController unless we search deeper or alias.
-            
-            # Simple Aliasing: if we have an active instance, and it's NOT named the same as the wrapper,
-            # we can add its children to the wrapper's children? (No, that's messy).
-            
-            # Better Aliasing: Provide access to the active instance's content via the wrapper node if searched.
-            # This is handled by the XPath engine usually.
-
         # Process containers from configuration that are NOT in definition (Schema Inference)
         if not self.strict and configuration:
             processed_refs = {c_def.definition_ref for c_def in module_def.containers.values()}
-            
+
+            # Build file-order position map for stable sequential index assignment
+            container_file_order = {id(c): i for i, c in enumerate(configuration.containers)}
+
             unknown_containers_by_def = {}
             for container in configuration.containers:
+                # Skip containers already handled by standard processing (prefix/numeric/vote match)
+                if id(container) in processed_instances:
+                    continue
                 is_processed = False
                 for c_def_ref in processed_refs:
                     if container.definition_ref == c_def_ref or \
@@ -148,14 +160,36 @@ class OverlayEngine:
                         is_processed = True
                         break
                 if not is_processed:
-                    def_name = container.definition_ref.split('/')[-1] if container.definition_ref else container.short_name.split('_')[0]
+                    last_seg = container.definition_ref.split('/')[-1] if container.definition_ref else container.short_name
+                    # Strategy 1: strip trailing numeric instance suffix (e.g. OsAlarm_0 -> OsAlarm)
+                    def_name = _re.sub(r'_\d+$', '', last_seg)
+                    # Strategy 2: if no stripping happened, infer ECUC type from parameter/reference names
+                    if def_name == last_seg:
+                        inferred = self._infer_ecuc_type_from_params(container)
+                        if inferred:
+                            def_name = inferred
+                    
+                    # Grouping Strategy 3: Special case for OsMemoryMap (which uses MemorySectionMatch)
+                    if not inferred and any(n == 'MemorySectionMatch' for n in container.reference_values.keys()):
+                        def_name = 'OsMemoryMap'
+                    
+                    # Grouping Strategy 4: Special case for OsMpAddressConfig
+                    if not inferred and any(n == 'OsMpAddressAttribute' for n in container.parameter_values.keys()):
+                        def_name = 'OsMpAddressConfig'
+
                     if def_name not in unknown_containers_by_def:
                         unknown_containers_by_def[def_name] = []
                     unknown_containers_by_def[def_name].append(container)
 
             for def_name, containers in unknown_containers_by_def.items():
+                # Sort by file order and assign sequential indices so @index on
+                # referenced nodes returns the correct object ID (0, 1, 2, ...)
+                containers.sort(key=lambda c: container_file_order.get(id(c), 999999))
+                for i, container in enumerate(containers):
+                    container.index = i
+
                 is_multiple = len(containers) > 1 or containers[0].short_name != def_name
-                
+
                 if is_multiple:
                     wrapper_node = root.get_child(def_name)
                     if not wrapper_node:
@@ -168,11 +202,20 @@ class OverlayEngine:
                             is_wrapper=True
                         )
                         root.add_child(wrapper_node)
-                    
+
                     for container in containers:
                         instance_path = f"{wrapper_node.path}/{container.short_name}"
-                        node = self._create_container_node(None, container, instance_path)
+                        # Match with XDM definition if available (for nested sub-containers)
+                        target_def = None
+                        if def_name in module_def.containers:
+                            target_def = module_def.containers[def_name]
+                        
+                        node = self._create_container_node(target_def, container, instance_path)
                         wrapper_node.add_child(node)
+                        
+                        # Fix: Also process sub-containers recursively for inferred containers
+                        if target_def:
+                            self._process_sub_containers(target_def, container, node, instance_path)
                 else:
                     # Single instance, no wrapper
                     container = containers[0]
@@ -729,5 +772,68 @@ class OverlayEngine:
                     continue
                 if not wrapper_node.get_child(sub_node.short_name):
                     wrapper_node.add_alias(sub_node)
+
+    def _infer_ecuc_type_from_params(self, container) -> Optional[str]:
+        """Infer the EB Tresos ECUC container type name from parameter/reference names.
+
+        In vendor-specific ARXML formats, individual OS objects may have unique
+        definition refs (e.g. /THA6_ASR21/Os/Task1) instead of the canonical
+        type ref (e.g. /AutomotiveOs/Os/OsTask).
+
+        Algorithm:
+          1. Consider only parameter/reference names that start with 'Os'.
+          2. Extract the ECUC type prefix from each: 'Os' + next CamelCase word
+             (e.g. 'OsTask' from 'OsTaskActivation', 'OsIsr' from 'OsIsrPriority').
+          3. Use majority vote: return the type prefix covering >50% of Os-prefixed names.
+
+        Examples:
+          Task1 params: OsTaskActivation(x4), OsTaskPriority(x1), TaskStackSize -> "OsTask"
+          OsCounter_Software: OsCounterMaxAllowedValue(x5), OsTimerHR(x2)       -> "OsCounter"
+          Os_IsrCfg_VirtualTimer: OsIsrPriority, OsIsrCategory, ...             -> "OsIsr"
+          OsOS: OsUse*(x5), OsError*(x1), ...                                   -> None (no majority)
+        """
+        param_names = (list(getattr(container, 'parameter_values', {}).keys()) +
+                       list(getattr(container, 'reference_values', {}).keys()) +
+                       list(getattr(container, 'multi_reference_values', {}).keys()))
+
+        # Only consider Os-prefixed names (standard ECUC parameter naming convention)
+        os_params = [n for n in param_names if n.startswith('Os')]
+        if not os_params:
+            return None
+
+        # Extract ECUC type prefix: 'Os' + CamelCase words (e.g. OsTask, OsIsr, OsScheduleTable)
+        type_votes: Dict[str, int] = {}
+        for name in os_params:
+            # Match 'Os' followed by capital letter and then any sequence of letters (including CamelCase)
+            # We stop before the next part of the parameter name which usually starts with another word
+            # E.g. OsScheduleTableDuration -> OsScheduleTable
+            # E.g. OsCounterMaxAllowedValue -> OsCounter
+            
+            # Refined Regex: Match prefix that is common to many parameters in the container
+            m = _re.match(r'^(Os[A-Z][a-z]+(?:[A-Z][a-z]{0,7})?)', name)
+            if m:
+                t = m.group(1)
+                # Standardize known types
+                for known in ['OsTask', 'OsIsr', 'OsCounter', 'OsAlarm', 'OsApplication', 'OsAppMode', 'OsResource', 'OsScheduleTable', 'OsSpinlock', 'OsIoc']:
+                    if t.startswith(known) or known.startswith(t):
+                        t = known
+                        break
+                type_votes[t] = type_votes.get(t, 0) + 1
+
+        if not type_votes:
+            return None
+
+        # Sort by votes descending
+        sorted_types = sorted(type_votes.items(), key=lambda x: x[1], reverse=True)
+        top_type, top_votes = sorted_types[0]
+        
+        # In EB, even a single vote is often correct for prefix matching
+        return top_type
+
+        # Return dominant type only when it has a strict majority (>50% of Os-prefixed params)
+        best_type = max(type_votes, key=type_votes.get)
+        if type_votes[best_type] * 2 > len(os_params):
+            return best_type
+        return None
 
 

@@ -125,6 +125,16 @@ bsw图形配置工具/
 ├── davinci_main.py           # Recommended entry point
 └── main.py                   # Alternative entry point
 ```
+实际测试的项目例子：
+/Users/qlwang/Desktop/ImportEB_1
+其中生成的os模块代码位于：
+/Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode/Os/Default/
+在这个目录下包括了os，mcu，gpt等模块的生成代码。
+os模块生成代码对应的代码模版位于：
+/Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/templates/Os/
+os模块生成代码对应的config文件位于：
+/Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/arxml/Os.arxml
+
 
 Three-layer architecture: UI → Core → Generator.
 Core (autosar_configurator/core/): Data models, ARXML parsing/serialization, configuration management, validation, workspace management.

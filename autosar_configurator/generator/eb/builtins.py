@@ -174,6 +174,12 @@ class BuiltinFunctions:
 
             # Additional node functions
             'node:refvalid': self.node_refvalid,
+            'node:index': self.node_index,
+            'node:id': self.node_index,   # Alias
+            'as:index': self.node_index,  # Alias
+            'num:order': self.num_order,  # NEW: Numeric sorting
+            'node:isFirst': self.node_isfirst,
+            'node:islast': self.node_islast,
         }
     
     def get(self, name: str) -> Optional[Callable]:
@@ -331,6 +337,26 @@ class BuiltinFunctions:
             return ""
         return node.path
 
+    def node_index(self, node: Optional['ConfigurationNode'] = None) -> int:
+        """Get the index of a node (used for IDs).
+        
+        EB Tresos node:index() returns the master index of the node 
+        within its container type.
+        """
+        if node is None:
+            node = self.context_stack.current_node()
+        if node is None:
+            return 0
+            
+        # If it's a string (path), resolve it first
+        if isinstance(node, str):
+            node = self.node_ref(node)
+            
+        if node is None:
+            return 0
+            
+        return getattr(node, 'index', 0)
+
 
     def node_ref(self, path_or_node: Union[str, 'ConfigurationNode']) -> Optional['ConfigurationNode']:
         """Resolve a reference node or path to its target node.
@@ -425,6 +451,7 @@ class BuiltinFunctions:
         # Try symbol table first
         if self.symbol_table:
             res = self.symbol_table.resolve_reference(target_path_str)
+            print(f"DEBUG_REF: resolve_reference({target_path_str}) -> {res.short_name if res else 'None'}")
             if res:
                 return res
 
@@ -854,6 +881,9 @@ class BuiltinFunctions:
         if isinstance(value, (int, bool)):
             return int(value)
         if isinstance(value, float):
+            import math
+            if math.isnan(value) or math.isinf(value):
+                return 0
             return int(value)
 
         if isinstance(value, str):
@@ -1045,6 +1075,57 @@ class BuiltinFunctions:
         elif hasattr(value, 'value'):
             value = value.value
         return str(value) if value is not None else ''
+
+    def num_order(self, values: Any) -> List[Any]:
+        """Numeric sort of a list (EB Tresos num:order).
+        
+        Handles:
+        - List of numbers: [3, 1, 2] -> [1, 2, 3]
+        - List of strings: ['10', '2'] -> ['2', '10'] (numeric conversion)
+        - Single value: 1 -> [1]
+        - None: -> []
+        """
+        if values is None:
+            return []
+            
+        if not isinstance(values, (list, tuple)):
+            values = [values]
+            
+        # Helper to convert to numeric for sorting
+        def to_num(x):
+            try:
+                # If it's a ConfigurationNode, get its value
+                if hasattr(x, 'get_value'):
+                    v = x.get_value()
+                elif hasattr(x, 'value'):
+                    v = x.value
+                else:
+                    v = x
+                    
+                if isinstance(v, str):
+                    v = v.strip()
+                    if not v: return 0
+                    if v.startswith('0x') or v.startswith('0X'):
+                        return int(v, 16)
+                    if '.' in v: return float(v)
+                    return int(v)
+                if v is None: return 0
+                return v
+            except (ValueError, TypeError):
+                return 0
+                
+        return sorted(values, key=to_num)
+
+    def node_isfirst(self, path_or_node: Optional[Any] = None) -> bool:
+        """Check if current node is the first in iteration (EB Tresos node:isFirst)."""
+        idx = self.context_stack.get_loop_index()
+        return idx == 0
+
+    def node_islast(self, path_or_node: Optional[Any] = None) -> bool:
+        """Check if current node is the last in iteration (EB Tresos node:islast)."""
+        idx = self.context_stack.get_loop_index()
+        length = self.context_stack.get_loop_count()
+        return idx == length - 1 and length > 0
     
     def string_concat(self, *args) -> str:
         """Concatenate strings"""

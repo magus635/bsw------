@@ -98,6 +98,10 @@ class ContextStack:
         """Get total loop count, or 0 if not in a loop"""
         return self._stack[-1].loop_count
     
+    def get_loop_info(self) -> tuple:
+        """Get current loop info (index, count). Provided for backward compatibility."""
+        return self.get_loop_index(), self.get_loop_count()
+    
     # Variable management
     
     def set_variable(self, name: str, value: Any):
