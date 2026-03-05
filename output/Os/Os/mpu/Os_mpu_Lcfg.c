@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:33
+*   Genaration Time       : 2026-03-05 20:05:06
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -170,8 +170,8 @@ const Os_HalMpuRegionType  OsMpu_ConfigSet_Task4_Regions[1] =
 {
     {   
         0x00000004,          /* RegionNumber */
-        (uint32)0x10000300U,          /* RegionBaseAddress */
-        (uint32)(0x10000580U),                /* RegionEndAddress */
+        (uint32)0x00000000U,          /* RegionBaseAddress */
+        (uint32)(0x00000000U),                /* RegionEndAddress */
         MPU_EL1_RW_EL0_RW|MPU_EXECUTE_NEVER,
         MPU_REGION_ENABLE
     },

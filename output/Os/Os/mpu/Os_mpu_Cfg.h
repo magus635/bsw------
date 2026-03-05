@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:33
+*   Genaration Time       : 2026-03-05 20:05:06
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -62,7 +62,7 @@
 #define OS_MPU_CURRENT_STACK_REGION          (22U)
 #define OS_MPU_STACK_REGION_PROTECT_TWO      (MAX_REGION_COUNT)
 
-#define OS_MPU_COUNT       (0U)
+#define OS_MPU_COUNT       (1U)
 #define OS_MPU_ACCESSCOUNT       (0U)
 
 #define OS_PERIPHERALID_COUNT       (0U)

@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:32
+*   Genaration Time       : 2026-03-05 20:05:05
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -50,7 +50,7 @@
 #define OS_KERNEL_CORE0_CONTEXT_START_NUMBER                    ((uint32)0)
 #define OS_KERNEL_CORE0_TPOBJECT_COUNT_NUMBER                   ((uint32)5)
 #define OS_KERNEL_CORE0_TPOBJECT_START_NUMBER                   ((uint32)0)
-#define OS_KERNEL_CORE0_TPOBJECT_USED_COUNTERID                 ((uint32)0)
+#define OS_KERNEL_CORE0_TPOBJECT_USED_COUNTERID                 ((uint32)2)
 #define OS_KERNEL_CORE0_MPU_CORE_REGION_MAX_NUMBER              ((uint32)2) 
 #define OS_KERNEL_CORE0_MPU_APP_REGION_MAX_NUMBER               ((uint32)2)  
 #define OS_KERNEL_CORE0_MPU_OBJECT_REGION_MAX_NUMBER            ((uint32)1)
@@ -65,7 +65,7 @@
 #define OS_KERNEL_CORE1_CONTEXT_START_NUMBER                    ((uint32)24)
 #define OS_KERNEL_CORE1_TPOBJECT_COUNT_NUMBER                   ((uint32)2)
 #define OS_KERNEL_CORE1_TPOBJECT_START_NUMBER                   ((uint32)5)
-#define OS_KERNEL_CORE1_TPOBJECT_USED_COUNTERID                 ((uint32)0)
+#define OS_KERNEL_CORE1_TPOBJECT_USED_COUNTERID                 ((uint32)6)
 #define OS_KERNEL_CORE1_MPU_CORE_REGION_MAX_NUMBER              ((uint32)1) 
 #define OS_KERNEL_CORE1_MPU_APP_REGION_MAX_NUMBER               ((uint32)0)  
 #define OS_KERNEL_CORE1_MPU_OBJECT_REGION_MAX_NUMBER            ((uint32)0)

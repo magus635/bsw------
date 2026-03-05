@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:37
+*   Genaration Time       : 2026-03-05 20:05:10
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -78,6 +78,61 @@ static Os_TimerHrtRunningDataType OsTimer_Hal_OsCounter_Hrt_Core1RunningData;
 /****************************************************************************************************
 **                          Global Variable Definitions                                            **
 ****************************************************************************************************/
+const Os_TimerFrtHwConfigType OsTimer_Hal_OsCounter_SystemTickHwCfg =
+{
+    OsTimer_Hal_EL1PhyTimerInit,                   /* Init */
+    OsTimer_Hal_EL1PhyTimerAckInterrupt,           /* AckInterrupt */
+    OsTimer_Hal_EL1PhyTimerGetCounterRegValue,     /* GetCounterRegValue  */
+    OsTimer_Hal_EL1PhyTimerGetCompareRegValue,     /* GetCompareRegValue  */ 
+    OsTimer_Hal_EL1PhyTimerSetCompareRegValue,     /* SetCompareRegValue  */
+    30ul,                                          /* IsrID */
+    25000ul,                                       /* Period */
+    0x7FFFFFFFFFFFFFFFul,                          /* MaxCounterRegisterValue */
+    0x7FFFFFFFul                                   /* MaxDifferenceValue */
+};
+const Os_TimerHrtHwConfigType OsTimer_Hal_OsCounter_HrtHwCfg =
+{
+    OsTimer_Hal_EL1VirtTimerInit,                   /* Init */
+    OsTimer_Hal_EL1VirtTimerAckInterrupt,           /* AckInterrupt */
+    OsTimer_Hal_EL1VirtTimerGetCounterRegValue,     /* GetCounterRegValue  */
+    OsTimer_Hal_EL1VirtTimerGetCompareRegValue,     /* GetCompareRegValue  */ 
+    OsTimer_Hal_EL1VirtTimerSetCompareRegValue,     /* SetCompareRegValue  */
+    27ul,                                           /* IsrID */
+    0x7FFFFFFFFFFFFFFFul,                           /* MaxCounterRegisterValue */
+    0x7FFFFFFFul,                                   /* MaxDifferenceValue */
+    &OsTimer_Hal_OsCounter_HrtRunningData      /* RunningData */
+};
+const Os_TimerPitHwConfigType OsTimer_Hal_OsCounter_PitHwCfg =
+{
+    OsTimer_Hal_OsCounter_PitInit,                       /* Init */
+    OsTimer_Hal_OsCounter_PitAckAndReloadInterrupt,  /* PitAckAndReloadInterrupt  */ 
+    246ul,                            /* IsrID */
+    100000ul                       /* Period */
+};        
+const Os_TimerFrtHwConfigType OsTimer_Hal_OsCounter_SystemTick_Core1HwCfg =
+{
+    OsTimer_Hal_EL1PhyTimerInit,                   /* Init */
+    OsTimer_Hal_EL1PhyTimerAckInterrupt,           /* AckInterrupt */
+    OsTimer_Hal_EL1PhyTimerGetCounterRegValue,     /* GetCounterRegValue  */
+    OsTimer_Hal_EL1PhyTimerGetCompareRegValue,     /* GetCompareRegValue  */ 
+    OsTimer_Hal_EL1PhyTimerSetCompareRegValue,     /* SetCompareRegValue  */
+    30ul,                                          /* IsrID */
+    25000ul,                                       /* Period */
+    0x7FFFFFFFFFFFFFFFul,                          /* MaxCounterRegisterValue */
+    0x7FFFFFFFul                                   /* MaxDifferenceValue */
+};
+const Os_TimerHrtHwConfigType OsTimer_Hal_OsCounter_Hrt_Core1HwCfg =
+{
+    OsTimer_Hal_EL1VirtTimerInit,                   /* Init */
+    OsTimer_Hal_EL1VirtTimerAckInterrupt,           /* AckInterrupt */
+    OsTimer_Hal_EL1VirtTimerGetCounterRegValue,     /* GetCounterRegValue  */
+    OsTimer_Hal_EL1VirtTimerGetCompareRegValue,     /* GetCompareRegValue  */ 
+    OsTimer_Hal_EL1VirtTimerSetCompareRegValue,     /* SetCompareRegValue  */
+    27ul,                                           /* IsrID */
+    0x7FFFFFFFFFFFFFFFul,                           /* MaxCounterRegisterValue */
+    0x7FFFFFFFul,                                   /* MaxDifferenceValue */
+    &OsTimer_Hal_OsCounter_Hrt_Core1RunningData      /* RunningData */
+};
 /****************************************************************************************************
 **                          Private Constant Definitions                                            **
 ****************************************************************************************************/

@@ -264,7 +264,12 @@ class OverlayEngine:
 
             def matches_def(ref, name):
                 if not ref: return False
-                return ref == name or ref.endswith(f"/{name}")
+                if ref == name or ref.endswith(f"/{name}"):
+                    return True
+                # EB Tresos: definition refs may have instance suffix, e.g.
+                # .../OsScheduleTableExpiryPoint_0 should match OsScheduleTableExpiryPoint
+                last_seg = ref.split('/')[-1]
+                return _re.sub(r'_\d+$', '', last_seg) == name
 
             # Handle sub-container instances - GROUP BY DEFINITION
             # First, collect all instances by their definition name
@@ -296,16 +301,20 @@ class OverlayEngine:
                         is_wrapper=True
                     )
                     
+                    # Assign sequential indices to sub-container instances (mirrors top-level logic)
+                    for i, sub_config_raw in enumerate(matching_subs):
+                        sub_config_raw.index = i
+
                     # Add each instance as a child of the wrapper
                     for sub_config_raw in matching_subs:
                         sub_instance_name = sub_config_raw.short_name
                         # FIX: Child instances are relative to their wrapper, not the grandparent instance
                         sub_instance_path = f"{wrapper_path}/{sub_instance_name}"
                         sub_node = self._create_container_node(sub_def, sub_config_raw, sub_instance_path)
-                        
+
                         # Recursively process sub-sub-containers
                         self._process_sub_containers(sub_def, sub_config_raw, sub_node, sub_instance_path)
-                        
+
                         wrapper_node.add_child(sub_node)
                     
                     node.add_child(wrapper_node)
@@ -342,7 +351,9 @@ class OverlayEngine:
             matching_subs = [s for s in all_subs 
                              if getattr(s, 'short_name', None) == sub_def_name or 
                              getattr(s, 'definition_ref', '') == sub_def_name or
-                             getattr(s, 'definition_ref', '').endswith(f"/{sub_def_name}")]
+                             getattr(s, 'definition_ref', '').endswith(f"/{sub_def_name}") or
+                             _re.sub(r'_\d+$', '', (getattr(s, 'definition_ref', '') or '').split('/')[-1]) == sub_def_name or
+                             _re.sub(r'_\d+$', '', getattr(s, 'short_name', '') or '') == sub_def_name]
 
             if matching_subs:
                 # ALWAYS create wrapper node for sub-containers
@@ -357,6 +368,10 @@ class OverlayEngine:
                     is_wrapper=True
                 )
                 
+                # Assign sequential indices to sub-container instances (mirrors top-level logic)
+                for i, sub_config_raw in enumerate(matching_subs):
+                    sub_config_raw.index = i
+
                 for sub_config_raw in matching_subs:
                     sub_instance_name = sub_config_raw.short_name
                     # FIX: Child instances are relative to their wrapper
@@ -438,7 +453,11 @@ class OverlayEngine:
             # Add sub-containers (grouped by definition name for wrappers)
             subs_by_def = {}
             for sub in config_instance.sub_containers:
-                def_name = sub.definition_ref.split('/')[-1] if sub.definition_ref else "Unknown"
+                raw_def_name = sub.definition_ref.split('/')[-1] if sub.definition_ref else "Unknown"
+                # Strip instance numeric suffix for grouping: OsScheduleTableExpiryPoint_0 -> OsScheduleTableExpiryPoint
+                # This ensures same-type instances are grouped under a single wrapper node,
+                # enabling correct XPath navigation like OsScheduleTableExpiryPoint/*
+                def_name = _re.sub(r'_\d+$', '', raw_def_name)
                 if def_name not in subs_by_def:
                     subs_by_def[def_name] = []
                 subs_by_def[def_name].append(sub)

@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:35
+*   Genaration Time       : 2026-03-05 20:05:08
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -82,7 +82,7 @@ static const Os_SpinlockConfigType Os_SpinlockConfig_OsSpinlock_0 =
     LOCK_NOTHING,         /* OsSpinlockLockMethod */
     0UL,            /* SpinlockSuccessorID */
     0UL,         /* SpinlockSuccesorListID */
-    0x1UL,         /* AccessApplicationIdMask */
+    0x9UL,         /* AccessApplicationIdMask */
     &Os_OsSpinlock_0_RunningData                   /* SpinlockRunningData */
 };
 

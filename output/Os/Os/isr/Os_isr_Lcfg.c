@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:30
+*   Genaration Time       : 2026-03-05 20:05:00
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -94,7 +94,7 @@ static const Os_IsrConfigType Os_IsrCfg_SystemTimer =
         0U                  /* PhysicalCoreID */
     },
     OS_INTERRUPTTYPE_CAT2,          /* IntType */
-    0U,                     /* ISRID */
+    1U,                     /* ISRID */
     13UL,                    /* ObjectID */
     0,                   /* isCrossCore */
     (uint32)&Isr_OsCounter_PfrtService,                             /* InterruptHandlerAddress */
@@ -130,7 +130,7 @@ static const Os_IsrConfigType OsIsr_BaseTimer1 =
         0U                  /* PhysicalCoreID */
     },
     OS_INTERRUPTTYPE_CAT2,          /* IntType */
-    0U,                     /* ISRID */
+    4U,                     /* ISRID */
     15UL,                    /* ObjectID */
     0,                   /* isCrossCore */
     (uint32)&Isr_Isr2Test,                             /* InterruptHandlerAddress */
@@ -148,7 +148,7 @@ static const Os_IsrConfigType OsIsr_0 =
         0U                  /* PhysicalCoreID */
     },
     OS_INTERRUPTTYPE_CAT2,          /* IntType */
-    0U,                     /* ISRID */
+    6U,                     /* ISRID */
     16UL,                    /* ObjectID */
     1,                   /* isCrossCore */
     0UL,                                         /* InterruptHandlerAddress */
@@ -166,7 +166,7 @@ static const Os_IsrConfigType Os_IsrCfg_BaseTimer0 =
         0U                  /* PhysicalCoreID */
     },
     OS_INTERRUPTTYPE_CAT2,          /* IntType */
-    0U,                     /* ISRID */
+    2U,                     /* ISRID */
     34UL,                    /* ObjectID */
     0,                   /* isCrossCore */
     (uint32)&Isr_OsCounter_PitService,                             /* InterruptHandlerAddress */
@@ -184,7 +184,7 @@ static const Os_IsrConfigType Os_IsrCfg_SystemTimer_Core1 =
         1U                  /* PhysicalCoreID */
     },
     OS_INTERRUPTTYPE_CAT2,          /* IntType */
-    0U,                     /* ISRID */
+    3U,                     /* ISRID */
     47UL,                    /* ObjectID */
     0,                   /* isCrossCore */
     (uint32)&Isr_OsCounter_PfrtService,                             /* InterruptHandlerAddress */
@@ -202,7 +202,7 @@ static const Os_IsrConfigType OsIsr_IsrCfg_VirtualTimer_Core1 =
         1U                  /* PhysicalCoreID */
     },
     OS_INTERRUPTTYPE_CAT2,          /* IntType */
-    0U,                     /* ISRID */
+    5U,                     /* ISRID */
     48UL,                    /* ObjectID */
     0,                   /* isCrossCore */
     (uint32)&Isr_TimingProtectionService,                             /* InterruptHandlerAddress */
@@ -220,7 +220,7 @@ static const Os_IsrConfigType OsIsr_1 =
         1U                  /* PhysicalCoreID */
     },
     OS_INTERRUPTTYPE_CAT2,          /* IntType */
-    0U,                     /* ISRID */
+    7U,                     /* ISRID */
     49UL,                    /* ObjectID */
     1,                   /* isCrossCore */
     0UL,                                         /* InterruptHandlerAddress */
@@ -520,8 +520,8 @@ const Os_IsrConfigRefType Os_PeripheralIntVecTable[OS_ISR_SPI_TOTAL_NUM] =
     NULL_PTR,
     NULL_PTR,
     NULL_PTR,
-    NULL_PTR,
-    NULL_PTR,
+    &Os_IsrCfg_BaseTimer0,
+    &OsIsr_BaseTimer1,
     NULL_PTR,
     NULL_PTR,
     NULL_PTR,
@@ -1277,8 +1277,14 @@ const uint32 Os_IsrGICAddr[OS_KERNEL_MAX_CORE_NUM] =
 
 const Os_IsrConfigRefType Os_IsrConfigSet[OS_ISR_TOTAL_NUM] =
 {
+    &Os_IsrCfg_VirtualTimer,
+    &Os_IsrCfg_SystemTimer,
+    &Os_IsrCfg_BaseTimer0,
+    &Os_IsrCfg_SystemTimer_Core1,
+    &OsIsr_BaseTimer1,
+    &OsIsr_IsrCfg_VirtualTimer_Core1,
     &OsIsr_0,
-    &OsIsr_1,
+    &OsIsr_1
 };
 
 /****************************************************************************************************

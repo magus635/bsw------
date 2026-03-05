@@ -176,6 +176,7 @@ class BuiltinFunctions:
             'node:refvalid': self.node_refvalid,
             'node:index': self.node_index,
             'node:id': self.node_index,   # Alias
+            'node:pos': self.node_index,  # Alias
             'as:index': self.node_index,  # Alias
             'num:order': self.num_order,  # NEW: Numeric sorting
             'node:isFirst': self.node_isfirst,
@@ -451,7 +452,6 @@ class BuiltinFunctions:
         # Try symbol table first
         if self.symbol_table:
             res = self.symbol_table.resolve_reference(target_path_str)
-            print(f"DEBUG_REF: resolve_reference({target_path_str}) -> {res.short_name if res else 'None'}")
             if res:
                 return res
 
@@ -518,17 +518,19 @@ class BuiltinFunctions:
             parts = [p for p in target_path_str.split('/') if p]
             if parts:
                 stub_name = parts[-1]
+                # Extract numeric suffix BEFORE creating stub so index is set correctly.
+                # e.g., EcucCoreDefinition_1 -> index=1 (not the default 0)
+                suffix_match = _re.search(r'_(\d+)$', stub_name)
+                idx_val = int(suffix_match.group(1)) if suffix_match else 0
                 stub = ConfigurationNode(
                     short_name=stub_name,
                     node_type='container',
                     path=target_path_str,
-                    definition_ref=target_path_str
+                    definition_ref=target_path_str,
+                    index=idx_val,
                 )
-                # Extract numeric suffix as common parameter values
-                # e.g., EcucCoreDefinition_0 -> EcucCoreId=0
-                suffix_match = _re.search(r'_(\d+)$', stub_name)
+                # Also add common parameter child nodes keyed to the numeric suffix.
                 if suffix_match:
-                    idx_val = int(suffix_match.group(1))
                     base_name = _re.sub(r'_\d+$', '', stub_name)
                     # EcucCoreDefinition -> EcucCoreId
                     if 'Core' in base_name:

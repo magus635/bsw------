@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:36
+*   Genaration Time       : 2026-03-05 20:05:10
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -76,6 +76,16 @@
 /****************************************************************************************************
 **                          Global Function Definitions                                            **
 ****************************************************************************************************/
+FUNC(void, OS_CODE) OsTimer_Hal_OsCounter_PitInit(uint32 BasePerTick)
+{
+
+}
+
+/* Acknowledge Pit interrupt and reload interrupt period for next interrupt.*/
+FUNC(void, OS_CODE) OsTimer_Hal_OsCounter_PitAckAndReloadInterrupt(void)
+{
+
+}
 
 #define OS_STOP_SEC_CODE_QM_GLOBAL
 #include "Os_memmap.h"

@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:37
+*   Genaration Time       : 2026-03-05 20:05:10
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -52,6 +52,11 @@
 /****************************************************************************************************
 **                          Global Constant Declarations                                           **
 ****************************************************************************************************/
+extern const Os_TimerFrtHwConfigType OsTimer_Hal_OsCounter_SystemTickHwCfg;
+extern const Os_TimerHrtHwConfigType OsTimer_Hal_OsCounter_HrtHwCfg;
+extern const Os_TimerPitHwConfigType OsTimer_Hal_OsCounter_PitHwCfg;
+extern const Os_TimerFrtHwConfigType OsTimer_Hal_OsCounter_SystemTick_Core1HwCfg;
+extern const Os_TimerHrtHwConfigType OsTimer_Hal_OsCounter_Hrt_Core1HwCfg;
 
 /****************************************************************************************************
 **                          Global Inline Function Definitions                                     **

@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:28
+*   Genaration Time       : 2026-03-05 20:04:59
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -78,6 +78,131 @@ extern const Os_ContextConfigType Os_ContextConfigSet;
 /****************************************************************************************************
 **                          Global Function Declarations                                           **
 ****************************************************************************************************/
+extern FUNC(void, OS_CODE) Task_Idle_Task_Core0
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Idle_Task_Core1
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task1
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task2
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task3
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task4
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task5
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task6
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task7
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Default_Init_Task
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Default_Init_Task_Core1
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task0_Core1
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task8
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task9_Core1
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task10_Core1
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task11_Core1
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task12_Core1
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task13_Core1
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task14_Core1
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task15_Core1
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task16
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task17
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task18
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task19
+(
+    void
+);
+
+extern FUNC(void, OS_CODE) Task_Task20
+(
+    void
+);
+
 
 #endif /* OS_CONTEXT_LCFG_H_ */
 

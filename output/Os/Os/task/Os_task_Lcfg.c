@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:36
+*   Genaration Time       : 2026-03-05 20:05:09
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -108,6 +108,8 @@ static Os_TaskDynamicType Task15_Core1_RunningData;
 static const Os_TaskConstType Task_Idle_Task_Core0_ConfigRef =
 {
     0UL,        /* ObjectID */
+    0UL,        /* HomePriority */
+    0UL,        /* RunningPriority */
     OSALLRUNNINGMODE,       /* AutoStart */
     1,        /* MaxActivationCount */
     FALSE,        /* IsExtended */
@@ -117,6 +119,8 @@ static const Os_TaskConstType Task_Idle_Task_Core0_ConfigRef =
 static const Os_TaskConstType Task_Task1_ConfigRef =
 {
     1UL,        /* ObjectID */
+    1UL,        /* HomePriority */
+    1UL,        /* RunningPriority */
     OSALLRUNNINGMODE,       /* AutoStart */
     1,        /* MaxActivationCount */
     FALSE,        /* IsExtended */
@@ -126,6 +130,8 @@ static const Os_TaskConstType Task_Task1_ConfigRef =
 static const Os_TaskConstType Task_Task5_ConfigRef =
 {
     2UL,        /* ObjectID */
+    4UL,        /* HomePriority */
+    4UL,        /* RunningPriority */
     OSALLRUNNINGMODE,       /* AutoStart */
     1,        /* MaxActivationCount */
     FALSE,        /* IsExtended */
@@ -135,6 +141,8 @@ static const Os_TaskConstType Task_Task5_ConfigRef =
 static const Os_TaskConstType Task_Task6_ConfigRef =
 {
     3UL,        /* ObjectID */
+    3UL,        /* HomePriority */
+    3UL,        /* RunningPriority */
     0UL,       /* AutoStart */
     100,        /* MaxActivationCount */
     FALSE,        /* IsExtended */
@@ -144,6 +152,8 @@ static const Os_TaskConstType Task_Task6_ConfigRef =
 static const Os_TaskConstType Task_Default_Init_Task_ConfigRef =
 {
     4UL,        /* ObjectID */
+    8UL,        /* HomePriority */
+    0xFFFFFFFFUL,   /* RunningPriority */
     OSALLRUNNINGMODE,       /* AutoStart */
     1,        /* MaxActivationCount */
     FALSE,        /* IsExtended */
@@ -153,6 +163,8 @@ static const Os_TaskConstType Task_Default_Init_Task_ConfigRef =
 static const Os_TaskConstType Task_Task2_ConfigRef =
 {
     5UL,        /* ObjectID */
+    6UL,        /* HomePriority */
+    6UL,        /* RunningPriority */
     OSALLRUNNINGMODE,       /* AutoStart */
     1,        /* MaxActivationCount */
     FALSE,        /* IsExtended */
@@ -162,6 +174,8 @@ static const Os_TaskConstType Task_Task2_ConfigRef =
 static const Os_TaskConstType Task_Task3_ConfigRef =
 {
     6UL,        /* ObjectID */
+    1UL,        /* HomePriority */
+    1UL,        /* RunningPriority */
     OSTRUSTAPP01MODE,       /* AutoStart */
     1,        /* MaxActivationCount */
     TRUE,        /* IsExtended */
@@ -171,6 +185,8 @@ static const Os_TaskConstType Task_Task3_ConfigRef =
 static const Os_TaskConstType Task_Task8_ConfigRef =
 {
     7UL,        /* ObjectID */
+    5UL,        /* HomePriority */
+    5UL,        /* RunningPriority */
     0UL,       /* AutoStart */
     1,        /* MaxActivationCount */
     FALSE,        /* IsExtended */
@@ -180,6 +196,8 @@ static const Os_TaskConstType Task_Task8_ConfigRef =
 static const Os_TaskConstType Task_Task16_ConfigRef =
 {
     8UL,        /* ObjectID */
+    4UL,        /* HomePriority */
+    4UL,        /* RunningPriority */
     OSALLRUNNINGMODE,       /* AutoStart */
     1,        /* MaxActivationCount */
     TRUE,        /* IsExtended */
@@ -189,6 +207,8 @@ static const Os_TaskConstType Task_Task16_ConfigRef =
 static const Os_TaskConstType Task_Task17_ConfigRef =
 {
     9UL,        /* ObjectID */
+    3UL,        /* HomePriority */
+    3UL,        /* RunningPriority */
     0UL,       /* AutoStart */
     1,        /* MaxActivationCount */
     FALSE,        /* IsExtended */
@@ -198,6 +218,8 @@ static const Os_TaskConstType Task_Task17_ConfigRef =
 static const Os_TaskConstType Task_Task18_ConfigRef =
 {
     10UL,        /* ObjectID */
+    1UL,        /* HomePriority */
+    1UL,        /* RunningPriority */
     OSALLRUNNINGMODE,       /* AutoStart */
     1,        /* MaxActivationCount */
     FALSE,        /* IsExtended */
@@ -207,6 +229,8 @@ static const Os_TaskConstType Task_Task18_ConfigRef =
 static const Os_TaskConstType Task_Task19_ConfigRef =
 {
     11UL,        /* ObjectID */
+    1UL,        /* HomePriority */
+    1UL,        /* RunningPriority */
     0UL,       /* AutoStart */
     1,        /* MaxActivationCount */
     FALSE,        /* IsExtended */
@@ -216,6 +240,8 @@ static const Os_TaskConstType Task_Task19_ConfigRef =
 static const Os_TaskConstType Task_Task20_ConfigRef =
 {
     12UL,        /* ObjectID */
+    1UL,        /* HomePriority */
+    1UL,        /* RunningPriority */
     0UL,       /* AutoStart */
     1,        /* MaxActivationCount */
     FALSE,        /* IsExtended */
@@ -225,6 +251,8 @@ static const Os_TaskConstType Task_Task20_ConfigRef =
 static const Os_TaskConstType Task_Task4_ConfigRef =
 {
     30UL,        /* ObjectID */
+    2UL,        /* HomePriority */
+    2UL,        /* RunningPriority */
     OSDEFAULTAPPMODE,       /* AutoStart */
     1,        /* MaxActivationCount */
     FALSE,        /* IsExtended */
@@ -234,6 +262,8 @@ static const Os_TaskConstType Task_Task4_ConfigRef =
 static const Os_TaskConstType Task_Task7_ConfigRef =
 {
     33UL,        /* ObjectID */
+    7UL,        /* HomePriority */
+    7UL,        /* RunningPriority */
     OSALLRUNNINGMODE,       /* AutoStart */
     1,        /* MaxActivationCount */
     TRUE,        /* IsExtended */
@@ -243,6 +273,8 @@ static const Os_TaskConstType Task_Task7_ConfigRef =
 static const Os_TaskConstType Task_Default_Init_Task_Core1_ConfigRef =
 {
     37UL,        /* ObjectID */
+    6UL,        /* HomePriority */
+    0xFFFFFFFFUL,   /* RunningPriority */
     OSALLRUNNINGMODE,       /* AutoStart */
     1,        /* MaxActivationCount */
     FALSE,        /* IsExtended */
@@ -252,6 +284,8 @@ static const Os_TaskConstType Task_Default_Init_Task_Core1_ConfigRef =
 static const Os_TaskConstType Task_Idle_Task_Core1_ConfigRef =
 {
     38UL,        /* ObjectID */
+    0UL,        /* HomePriority */
+    0UL,        /* RunningPriority */
     OSALLRUNNINGMODE,       /* AutoStart */
     1,        /* MaxActivationCount */
     FALSE,        /* IsExtended */
@@ -261,6 +295,8 @@ static const Os_TaskConstType Task_Idle_Task_Core1_ConfigRef =
 static const Os_TaskConstType Task_Task0_Core1_ConfigRef =
 {
     39UL,        /* ObjectID */
+    1UL,        /* HomePriority */
+    1UL,        /* RunningPriority */
     OSALLRUNNINGMODE,       /* AutoStart */
     1,        /* MaxActivationCount */
     FALSE,        /* IsExtended */
@@ -270,6 +306,8 @@ static const Os_TaskConstType Task_Task0_Core1_ConfigRef =
 static const Os_TaskConstType Task_Task9_Core1_ConfigRef =
 {
     40UL,        /* ObjectID */
+    3UL,        /* HomePriority */
+    3UL,        /* RunningPriority */
     OSDEFAULTAPPMODE,       /* AutoStart */
     1,        /* MaxActivationCount */
     TRUE,        /* IsExtended */
@@ -279,6 +317,8 @@ static const Os_TaskConstType Task_Task9_Core1_ConfigRef =
 static const Os_TaskConstType Task_Task10_Core1_ConfigRef =
 {
     41UL,        /* ObjectID */
+    2UL,        /* HomePriority */
+    2UL,        /* RunningPriority */
     0UL,       /* AutoStart */
     1,        /* MaxActivationCount */
     FALSE,        /* IsExtended */
@@ -288,6 +328,8 @@ static const Os_TaskConstType Task_Task10_Core1_ConfigRef =
 static const Os_TaskConstType Task_Task12_Core1_ConfigRef =
 {
     42UL,        /* ObjectID */
+    5UL,        /* HomePriority */
+    5UL,        /* RunningPriority */
     OSDEFAULTAPPMODE,       /* AutoStart */
     1,        /* MaxActivationCount */
     TRUE,        /* IsExtended */
@@ -297,6 +339,8 @@ static const Os_TaskConstType Task_Task12_Core1_ConfigRef =
 static const Os_TaskConstType Task_Task11_Core1_ConfigRef =
 {
     43UL,        /* ObjectID */
+    4UL,        /* HomePriority */
+    4UL,        /* RunningPriority */
     OSDEFAULTAPPMODE,       /* AutoStart */
     1,        /* MaxActivationCount */
     FALSE,        /* IsExtended */
@@ -306,6 +350,8 @@ static const Os_TaskConstType Task_Task11_Core1_ConfigRef =
 static const Os_TaskConstType Task_Task13_Core1_ConfigRef =
 {
     44UL,        /* ObjectID */
+    3UL,        /* HomePriority */
+    3UL,        /* RunningPriority */
     OSALLRUNNINGMODE,       /* AutoStart */
     1,        /* MaxActivationCount */
     TRUE,        /* IsExtended */
@@ -315,6 +361,8 @@ static const Os_TaskConstType Task_Task13_Core1_ConfigRef =
 static const Os_TaskConstType Task_Task14_Core1_ConfigRef =
 {
     45UL,        /* ObjectID */
+    2UL,        /* HomePriority */
+    2UL,        /* RunningPriority */
     0UL,       /* AutoStart */
     1,        /* MaxActivationCount */
     FALSE,        /* IsExtended */
@@ -324,6 +372,8 @@ static const Os_TaskConstType Task_Task14_Core1_ConfigRef =
 static const Os_TaskConstType Task_Task15_Core1_ConfigRef =
 {
     46UL,        /* ObjectID */
+    1UL,        /* HomePriority */
+    1UL,        /* RunningPriority */
     OSALLRUNNINGMODE,       /* AutoStart */
     1,        /* MaxActivationCount */
     FALSE,        /* IsExtended */
@@ -338,6 +388,31 @@ static const Os_TaskConstType Task_Task15_Core1_ConfigRef =
 const Os_TaskConfigType Os_TaskConfigSet =
 {
     {
+        &Task_Idle_Task_Core0_ConfigRef,
+        &Task_Idle_Task_Core1_ConfigRef,
+        &Task_Task1_ConfigRef,
+        &Task_Task2_ConfigRef,
+        &Task_Task3_ConfigRef,
+        &Task_Task4_ConfigRef,
+        &Task_Task5_ConfigRef,
+        &Task_Task6_ConfigRef,
+        &Task_Task7_ConfigRef,
+        &Task_Default_Init_Task_ConfigRef,
+        &Task_Default_Init_Task_Core1_ConfigRef,
+        &Task_Task0_Core1_ConfigRef,
+        &Task_Task8_ConfigRef,
+        &Task_Task9_Core1_ConfigRef,
+        &Task_Task10_Core1_ConfigRef,
+        &Task_Task11_Core1_ConfigRef,
+        &Task_Task12_Core1_ConfigRef,
+        &Task_Task13_Core1_ConfigRef,
+        &Task_Task14_Core1_ConfigRef,
+        &Task_Task15_Core1_ConfigRef,
+        &Task_Task16_ConfigRef,
+        &Task_Task17_ConfigRef,
+        &Task_Task18_ConfigRef,
+        &Task_Task19_ConfigRef,
+        &Task_Task20_ConfigRef,
         NULL_PTR
     }
 };

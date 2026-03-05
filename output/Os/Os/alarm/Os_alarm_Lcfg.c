@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:27
+*   Genaration Time       : 2026-03-05 20:04:58
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -83,12 +83,6 @@ static Os_AlarmDynamicType OsAlarm_9_RunningData;
 const Os_AlarmConstType Alarm_OsAlarm_0_ConfigRef =
 {
     20UL,                                   /* ObjectID */
-    ALARM_ACTIVATETASK,      /* AlarmActionType */
-    {
-        TASK20,           /* TaskID */
-        0,                    /* EventMask */
-        INVALID_COUNTER,           /* CounterID */
-        NULL_PTR            /* AlarmCallback */ 
     },                       /* AlarmActionInfo */
     {
         OSALLRUNNINGMODE,              /* AutoStart */
@@ -101,12 +95,6 @@ const Os_AlarmConstType Alarm_OsAlarm_0_ConfigRef =
 const Os_AlarmConstType Alarm_OsAlarm_1_ConfigRef =
 {
     21UL,                                   /* ObjectID */
-    ALARM_ACTIVATETASK,      /* AlarmActionType */
-    {
-        TASK5,           /* TaskID */
-        0,                    /* EventMask */
-        INVALID_COUNTER,           /* CounterID */
-        NULL_PTR            /* AlarmCallback */ 
     },                       /* AlarmActionInfo */
     {
         OSALLRUNNINGMODE,              /* AutoStart */
@@ -119,12 +107,6 @@ const Os_AlarmConstType Alarm_OsAlarm_1_ConfigRef =
 const Os_AlarmConstType Alarm_OsAlarm_2_ConfigRef =
 {
     22UL,                                   /* ObjectID */
-    ALARM_ACTIVATETASK,      /* AlarmActionType */
-    {
-        TASK1,           /* TaskID */
-        0,                    /* EventMask */
-        INVALID_COUNTER,           /* CounterID */
-        NULL_PTR            /* AlarmCallback */ 
     },                       /* AlarmActionInfo */
     {
         OSALLRUNNINGMODE,              /* AutoStart */
@@ -137,12 +119,6 @@ const Os_AlarmConstType Alarm_OsAlarm_2_ConfigRef =
 const Os_AlarmConstType Alarm_OsAlarm_6_ConfigRef =
 {
     23UL,                                   /* ObjectID */
-    ALARM_ACTIVATETASK,      /* AlarmActionType */
-    {
-        TASK19,           /* TaskID */
-        0,                    /* EventMask */
-        INVALID_COUNTER,           /* CounterID */
-        NULL_PTR            /* AlarmCallback */ 
     },                       /* AlarmActionInfo */
     {
         OSALLRUNNINGMODE,              /* AutoStart */
@@ -155,12 +131,6 @@ const Os_AlarmConstType Alarm_OsAlarm_6_ConfigRef =
 const Os_AlarmConstType Alarm_OsAlarm_7_ConfigRef =
 {
     24UL,                                   /* ObjectID */
-    ALARM_ACTIVATETASK,      /* AlarmActionType */
-    {
-        TASK20,           /* TaskID */
-        0,                    /* EventMask */
-        INVALID_COUNTER,           /* CounterID */
-        NULL_PTR            /* AlarmCallback */ 
     },                       /* AlarmActionInfo */
     {
         OSALLRUNNINGMODE,              /* AutoStart */
@@ -173,12 +143,6 @@ const Os_AlarmConstType Alarm_OsAlarm_7_ConfigRef =
 const Os_AlarmConstType Alarm_OsAlarm_3_ConfigRef =
 {
     32UL,                                   /* ObjectID */
-    ALARM_ACTIVATETASK,      /* AlarmActionType */
-    {
-        TASK4,           /* TaskID */
-        0,                    /* EventMask */
-        INVALID_COUNTER,           /* CounterID */
-        NULL_PTR            /* AlarmCallback */ 
     },                       /* AlarmActionInfo */
     {
         OSALLRUNNINGMODE,              /* AutoStart */
@@ -191,12 +155,6 @@ const Os_AlarmConstType Alarm_OsAlarm_3_ConfigRef =
 const Os_AlarmConstType Alarm_OsAlarm_4_ConfigRef =
 {
     36UL,                                   /* ObjectID */
-    ALARM_SETEVENT,          /* AlarmActionType */
-    {
-        TASK7,              /* TaskID */
-        OSEVENT_1,          /* EventMask */
-        INVALID_COUNTER,           /* CounterID */
-        NULL_PTR            /* AlarmCallback */ 
     },                       /* AlarmActionInfo */
     {
         OSALLRUNNINGMODE,              /* AutoStart */
@@ -209,12 +167,6 @@ const Os_AlarmConstType Alarm_OsAlarm_4_ConfigRef =
 const Os_AlarmConstType Alarm_OsAlarm_5_ConfigRef =
 {
     53UL,                                   /* ObjectID */
-    ALARM_ACTIVATETASK,      /* AlarmActionType */
-    {
-        TASK0_CORE1,           /* TaskID */
-        0,                    /* EventMask */
-        INVALID_COUNTER,           /* CounterID */
-        NULL_PTR            /* AlarmCallback */ 
     },                       /* AlarmActionInfo */
     {
         OSALLRUNNINGMODE,              /* AutoStart */
@@ -227,12 +179,6 @@ const Os_AlarmConstType Alarm_OsAlarm_5_ConfigRef =
 const Os_AlarmConstType Alarm_OsAlarm_8_ConfigRef =
 {
     54UL,                                   /* ObjectID */
-    ALARM_ACTIVATETASK,      /* AlarmActionType */
-    {
-        TASK11_CORE1,           /* TaskID */
-        0,                    /* EventMask */
-        INVALID_COUNTER,           /* CounterID */
-        NULL_PTR            /* AlarmCallback */ 
     },                       /* AlarmActionInfo */
     {
         OSALLRUNNINGMODE,              /* AutoStart */
@@ -245,12 +191,6 @@ const Os_AlarmConstType Alarm_OsAlarm_8_ConfigRef =
 const Os_AlarmConstType Alarm_OsAlarm_9_ConfigRef =
 {
     55UL,                                   /* ObjectID */
-    ALARM_SETEVENT,          /* AlarmActionType */
-    {
-        TASK12_CORE1,              /* TaskID */
-        OSEVENT_1,          /* EventMask */
-        INVALID_COUNTER,           /* CounterID */
-        NULL_PTR            /* AlarmCallback */ 
     },                       /* AlarmActionInfo */
     {
         OSALLRUNNINGMODE,              /* AutoStart */

@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:37
+*   Genaration Time       : 2026-03-05 20:05:10
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -163,7 +163,7 @@ static const Os_TpBudgetConfigType Os_OsOsResource_1BudgetConfig =
 
 static const Os_TpReSourceBudgetConfigType Os_OsOsResource_1TpConfig =
 {
-    0,  /* ResourceID */
+    1,  /* ResourceID */
     &Os_OsOsResource_1BudgetConfig
 };
 
@@ -250,7 +250,7 @@ static const Os_TpBudgetConfigType Os_OsOsResource_2BudgetConfig =
 
 static const Os_TpReSourceBudgetConfigType Os_OsOsResource_2TpConfig =
 {
-    0,  /* ResourceID */
+    2,  /* ResourceID */
     &Os_OsOsResource_2BudgetConfig
 };
 

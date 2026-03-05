@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:29
+*   Genaration Time       : 2026-03-05 20:04:59
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -325,6 +325,14 @@ const Os_CounterConfigType Os_OsCounter_Software_Core1ConfigSet =
 
 CONSTP2CONST(Os_CounterConfigType, TYPEDEF, OS_CONST) Os_CounterConfigSet[OS_COUNTER_TOTAL_NUM] =
 {
+    &Os_OsCounter_SoftwareConfigSet,
+    &Os_OsCounter_SystemTickConfigSet,
+    &Os_OsCounter_HrtConfigSet,
+    &Os_OsCounter_PitConfigSet,
+    &Os_OsCounter_Software2ConfigSet,
+    &Os_OsCounter_SystemTick_Core1ConfigSet,
+    &Os_OsCounter_Hrt_Core1ConfigSet,
+    &Os_OsCounter_Software_Core1ConfigSet
 };
 
 /****************************************************************************************************

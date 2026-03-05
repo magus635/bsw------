@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:34
+*   Genaration Time       : 2026-03-05 20:05:06
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -50,9 +50,9 @@
 #define OS_RESOURCE_TOTAL_NUM (5UL)
 #define OS_RESOURCE_INVALID_CEILING (0xFFFFFFFFUL)
 
-#define OS_RESOURCE_OSRESOURCE_0_ACCESS_OBJECT_NUM (0UL)
-#define OS_RESOURCE_OSRESOURCE_1_ACCESS_OBJECT_NUM (0UL)
-#define OS_RESOURCE_OSRESOURCE_2_ACCESS_OBJECT_NUM (0UL)
+#define OS_RESOURCE_OSRESOURCE_0_ACCESS_OBJECT_NUM (2UL)
+#define OS_RESOURCE_OSRESOURCE_1_ACCESS_OBJECT_NUM (1UL)
+#define OS_RESOURCE_OSRESOURCE_2_ACCESS_OBJECT_NUM (3UL)
 #define OS_RESOURCE_CORE0_RESSCHEDULER_ACCESS_OBJECT_NUM (15UL)
 #define OS_RESOURCE_CORE1_RESSCHEDULER_ACCESS_OBJECT_NUM (10UL)
 /****************************************************************************************************

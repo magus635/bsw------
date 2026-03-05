@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:30
+*   Genaration Time       : 2026-03-05 20:05:00
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -110,7 +110,7 @@ const Os_IocInterCoreServiceChannelCfgRefType Os_IocServiceChannelCfgRef[OS_KERN
     {
         &Os_Ioc_Core1ToCore0ServiceChannelCfg,
         NULL_PTR
-    },
+    }
 };
 CONSTP2CONST(Os_IocConfigType, AUTOMATIC, OS_CONST) Os_IocConfigSet[OS_IOC_TOTAL_NUM + 1U] = 
 {

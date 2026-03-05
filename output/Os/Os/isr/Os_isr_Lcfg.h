@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:32
+*   Genaration Time       : 2026-03-05 20:05:05
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -63,6 +63,30 @@ extern const uint32 Os_IsrGICAddr[OS_KERNEL_MAX_CORE_NUM];
 /****************************************************************************************************
 **                          Global Function Declarations                                           **
 ****************************************************************************************************/
+extern FUNC(void, OS_CODE) Isr_Isr2Test
+(
+    void
+);
+extern FUNC(void, OS_CODE) Isr_TimingProtectionService
+(
+    void
+);
+extern FUNC(void, OS_CODE) Isr_OsCounter_PitService
+(
+    void
+);
+extern FUNC(void, OS_CODE) Isr_OsCounter_PfrtService
+(
+    void
+);
+extern FUNC(void, OS_CODE) Isr_OsCounter_PfrtService
+(
+    void
+);
+extern FUNC(void, OS_CODE) Isr_TimingProtectionService
+(
+    void
+);
 
 #endif /* OS_ISR_LCFG_H_ */
 

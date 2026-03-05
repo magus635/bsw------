@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:27
+*   Genaration Time       : 2026-03-05 20:04:58
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -96,14 +96,6 @@
 #define OSAPPLICATION_1                          ((uint32)1)
 #define OSAPPLICATION_2                          ((uint32)2)
 #define OSAPPLICATION_3                          ((uint32)3)
-#define APPLICATION_COUNTER0_ID_MASK             ((uint32)0x00000000)
-#define APPLICATION_COUNTER1_ID_MASK             ((uint32)0x01000000)
-#define APPLICATION_COUNTER2_ID_MASK             ((uint32)0x02000000)
-#define APPLICATION_COUNTER3_ID_MASK             ((uint32)0x03000000)
-#define APPLICATION_COUNTER4_ID_MASK             ((uint32)0x04000000)
-#define APPLICATION_COUNTER5_ID_MASK             ((uint32)0x05000000)
-#define APPLICATION_COUNTER6_ID_MASK             ((uint32)0x06000000)
-#define APPLICATION_COUNTER7_ID_MASK             ((uint32)0x07000000)
 /****************************************************************************************************
 **                          Global Variable Declarations                                           **
 ****************************************************************************************************/

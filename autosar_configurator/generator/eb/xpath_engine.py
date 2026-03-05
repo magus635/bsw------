@@ -1357,7 +1357,7 @@ class XPathEngine:
                                         found_current_node = True
                             
                             # 3. EB Tresos implicit instance traversal (if still nothing found)
-                            # If we're at a container definition and can't find the child directly, 
+                            # If we're at a container definition and can't find the child directly,
                             # look inside all instance children (e.g., AdcConfigSet -> AdcConfigSet_0 -> AdcHwUnit)
                             if not found_current_node:
                                 for c_node in n.children:
@@ -1367,6 +1367,37 @@ class XPathEngine:
                                             next_nodes.append(sub)
                                             found_current_node = True
                                             break # Found in this instance, no need to check other instances
+
+                            # 3b. Context-aware deep search in TYPE wrappers (if still nothing found)
+                            # When at module root and looking for a parameter like 'OsApplicationCoreRef',
+                            # the child won't be found via Section 3 because the TYPE wrapper's direct
+                            # children are instances (OsApplication_0..3), not parameters.
+                            # We look two levels deep: root -> TYPE wrapper -> context-preferred instance -> param.
+                            # e.g., Os root -> OsApplication wrapper -> OsApplication_3 -> OsApplicationCoreRef
+                            if not found_current_node:
+                                for c_node in n.children:
+                                    if (c_node.node_type == 'container' and
+                                            getattr(c_node, 'is_wrapper', False) and
+                                            c_node.children):
+                                        # Use context stack to select the preferred instance
+                                        preferred = self._find_context_instance_for_child(c_node)
+                                        if preferred is not None:
+                                            deep_sub = preferred.get_child(name)
+                                            if deep_sub:
+                                                next_nodes.append(deep_sub)
+                                                found_current_node = True
+                                                break
+                                        else:
+                                            # Fallback: search all instances (first match wins)
+                                            for inst in c_node.children:
+                                                if hasattr(inst, 'get_child'):
+                                                    deep_sub = inst.get_child(name)
+                                                    if deep_sub:
+                                                        next_nodes.append(deep_sub)
+                                                        found_current_node = True
+                                                        break
+                                        if found_current_node:
+                                            break
                                             
                             # NEW 3.5: Fallback for stub-loaded instances without definitions (.epc only)
                             # In Eb Tresos projects, instantiated containers like OsAlarm_0 
@@ -1573,7 +1604,47 @@ class XPathEngine:
                     return scope.loop_index
         
         return None
-    
+
+    def _find_context_instance_for_child(self, wrapper_node: 'ConfigurationNode') -> 'Optional[ConfigurationNode]':
+        """Find the active instance of wrapper_node using the context stack.
+
+        Used by Section 3b of _navigate_segments when navigating from module root
+        into a TYPE wrapper (e.g., OsApplication wrapper containing OsApplication_0..3).
+        Scans the context stack to find which instance is currently being processed
+        in an outer loop, so we return that instance's child instead of defaulting
+        to the first instance.
+
+        Example: while inside [!LOOP "OsAppTaskRef/*"!] (outer: [!LOOP "OsApplication/*"!]),
+        navigating '../../OsApplicationCoreRef' reaches Os root, then enters OsApplication
+        wrapper. The context stack shows OsApplication_3 is the outer loop's context, so
+        we return OsApplication_3 instead of OsApplication_0.
+        """
+        if not hasattr(self, 'context_stack') or not self.context_stack:
+            return None
+        try:
+            stack = self.context_stack._stack
+            instance_ids = {id(c) for c in wrapper_node.children if hasattr(c, 'node_type')}
+            if not instance_ids:
+                return None
+            # Search context stack from innermost to outermost scope
+            for i in range(len(stack) - 1, -1, -1):
+                scope = stack[i]
+                ctx_node = scope.context_node
+                if ctx_node is None:
+                    continue
+                # Direct match: ctx_node is one of the wrapper's instance children
+                if id(ctx_node) in instance_ids:
+                    return ctx_node
+                # Ancestor match: walk up ctx_node's parent chain to find an instance child
+                p = ctx_node.parent
+                while p is not None:
+                    if id(p) in instance_ids:
+                        return p
+                    p = p.parent
+        except Exception:
+            pass
+        return None
+
     def _find_ancestors(self, node: 'ConfigurationNode', name: str) -> List['ConfigurationNode']:
         """Find all ancestors matching name (ancestor:: axis)."""
         results = []

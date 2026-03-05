@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:34
+*   Genaration Time       : 2026-03-05 20:05:06
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -137,7 +137,7 @@ static const Os_ResourceConfigType Os_ResourceConfig_OsResource_0 =
 {
     0UL,                     /* ResID */
     OS_RESOURCETYPE_STANDARD,    /* ResourceType */
-    0UL,                   /* CeilingPriority */
+    4UL,                   /* CeilingPriority */
     OS_RESOURCE_INVALID_CEILING,                /* CeilingIsrLevel */
     &Os_LockConfig_OsResource_0,                  /* Lock */
     /* AccessObjectList */
@@ -152,7 +152,7 @@ static const Os_ResourceConfigType Os_ResourceConfig_OsResource_1 =
 {
     1UL,                     /* ResID */
     OS_RESOURCETYPE_STANDARD,    /* ResourceType */
-    0UL,                   /* CeilingPriority */
+    4UL,                   /* CeilingPriority */
     OS_RESOURCE_INVALID_CEILING,                /* CeilingIsrLevel */
     &Os_LockConfig_OsResource_1,                  /* Lock */
     /* AccessObjectList */
@@ -181,7 +181,7 @@ static const Os_ResourceConfigType Os_ResourceConfig_OsResource_2 =
 {
     3UL,                     /* ResID */
     OS_RESOURCETYPE_STANDARD,    /* ResourceType */
-    0UL,                   /* CeilingPriority */
+    5UL,                   /* CeilingPriority */
     OS_RESOURCE_INVALID_CEILING,                /* CeilingIsrLevel */
     &Os_LockConfig_OsResource_2,                  /* Lock */
     /* AccessObjectList */

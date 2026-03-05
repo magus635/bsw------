@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:36
+*   Genaration Time       : 2026-03-05 20:05:10
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -59,6 +59,8 @@
 /****************************************************************************************************
 **                          Global Function Declarations                                           **
 ****************************************************************************************************/
+extern FUNC(void, OS_CODE) OsTimer_Hal_OsCounter_PitInit(uint32 BasePerTick);
+extern FUNC(void, OS_CODE) OsTimer_Hal_OsCounter_PitAckAndReloadInterrupt(void);
 
 #endif /* OS_TIMER_CALLOUT_H_ */
 

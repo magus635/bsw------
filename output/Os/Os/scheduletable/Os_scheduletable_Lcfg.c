@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-01 08:11:34
+*   Genaration Time       : 2026-03-05 20:05:07
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -67,15 +67,15 @@ static OsSchT_Type Os_OsScheduleTable_1_RunningData;
 #include "Os_memmap.h"
 static const TaskType Os_OsScheduleTable_0_OsScheduleTableExpiryPoint_0_Tasks[OS_OSSCHEDULETABLE_0_OSSCHEDULETABLEEXPIRYPOINT_0_TASKS] =
 {
-    0UL,     /* Task */
+    3UL,     /* Task */
 };
 
 static const OsSchT_EPActionEventType Os_OsScheduleTable_0_OsScheduleTableExpiryPoint_0_Events[OS_OSSCHEDULETABLE_0_OSSCHEDULETABLEEXPIRYPOINT_0_EVENTS] =
 {
     {
         1UL,        /* OsScheduleTableSetEventRef */
-        0UL        /* OsScheduleTableSetEventTaskRef */
-    },
+        4UL        /* OsScheduleTableSetEventTaskRef */
+    }
 };
 
 static const OsSchT_ExPoConfigType Os_OsScheduleTable_0_OsScheduleTableExpiryPoint_0 =
@@ -93,7 +93,7 @@ static const OsSchT_ExPoConfigType Os_OsScheduleTable_0_OsScheduleTableExpiryPoi
 
 static const OsSchT_ExPoConfigRefType Os_OsScheduleTable_0_EPRefs[OS_OSSCHEDULETABLE_0_EP_COUNT] =
 {
-    (OsSchT_ExPoConfigRefType)&Os_OsScheduleTable_0_OsScheduleTableExpiryPoint_0,
+    (OsSchT_ExPoConfigRefType)&Os_OsScheduleTable_0_OsScheduleTableExpiryPoint_0
 };
 
 static const OsSchT_ConfigType Os_SchT_OsScheduleTable_0_Config =
@@ -102,13 +102,13 @@ static const OsSchT_ConfigType Os_SchT_OsScheduleTable_0_Config =
     ((uint64)100),        /* OsScheduleTableDuration */
     1,       /* OsScheduleTableRepeating */
     25UL,      /* ObjectID */
-    0UL,       /* CounterID */
+    1UL,       /* CounterID */
     0UL,     /* SchTID */
     /* OsScheduleTableAutostart */
     {
         SCHEDULTTABLE_AUTOSTART_RELATIVE,       /* OsScheduleTableAutostartType */
         1ULL,       /* OsScheduleTableStartValue */
-        OSDEFAULTAPPMODE | 
+        OSDEFAULTAPPMODE         /* OsScheduleTableAppModeRef */
     },
     OS_OSSCHEDULETABLE_0_EP_COUNT,       /* EPCount */
     Os_OsScheduleTable_0_EPRefs,       /* OsSchT_ExPoConfigRefType */
@@ -121,7 +121,7 @@ static const OsSchT_ConfigType Os_SchT_OsScheduleTable_0_Config =
 
 static const TaskType Os_OsScheduleTable_1_OsScheduleTableExpiryPoint_0_Tasks[OS_OSSCHEDULETABLE_1_OSSCHEDULETABLEEXPIRYPOINT_0_TASKS] =
 {
-    0UL,     /* Task */
+    14UL,     /* Task */
 };
 
 static const OsSchT_ExPoConfigType Os_OsScheduleTable_1_OsScheduleTableExpiryPoint_0 =
@@ -141,8 +141,8 @@ static const OsSchT_EPActionEventType Os_OsScheduleTable_1_OsScheduleTableExpiry
 {
     {
         4UL,        /* OsScheduleTableSetEventRef */
-        0UL        /* OsScheduleTableSetEventTaskRef */
-    },
+        13UL        /* OsScheduleTableSetEventTaskRef */
+    }
 };
 
 static const OsSchT_ExPoConfigType Os_OsScheduleTable_1_OsScheduleTableExpiryPoint_1 =
@@ -161,7 +161,7 @@ static const OsSchT_ExPoConfigType Os_OsScheduleTable_1_OsScheduleTableExpiryPoi
 static const OsSchT_ExPoConfigRefType Os_OsScheduleTable_1_EPRefs[OS_OSSCHEDULETABLE_1_EP_COUNT] =
 {
     (OsSchT_ExPoConfigRefType)&Os_OsScheduleTable_1_OsScheduleTableExpiryPoint_0,
-    (OsSchT_ExPoConfigRefType)&Os_OsScheduleTable_1_OsScheduleTableExpiryPoint_1,
+    (OsSchT_ExPoConfigRefType)&Os_OsScheduleTable_1_OsScheduleTableExpiryPoint_1
 };
 
 static const OsSchT_ConfigType Os_SchT_OsScheduleTable_1_Config =
@@ -170,13 +170,13 @@ static const OsSchT_ConfigType Os_SchT_OsScheduleTable_1_Config =
     ((uint64)100),        /* OsScheduleTableDuration */
     1,       /* OsScheduleTableRepeating */
     56UL,      /* ObjectID */
-    0UL,       /* CounterID */
-    0UL,     /* SchTID */
+    5UL,       /* CounterID */
+    1UL,     /* SchTID */
     /* OsScheduleTableAutostart */
     {
         SCHEDULTTABLE_AUTOSTART_RELATIVE,       /* OsScheduleTableAutostartType */
         10ULL,       /* OsScheduleTableStartValue */
-        OSALLRUNNINGMODE | 
+        OSALLRUNNINGMODE         /* OsScheduleTableAppModeRef */
     },
     OS_OSSCHEDULETABLE_1_EP_COUNT,       /* EPCount */
     Os_OsScheduleTable_1_EPRefs,       /* OsSchT_ExPoConfigRefType */
@@ -193,7 +193,7 @@ static const OsSchT_ConfigType Os_SchT_OsScheduleTable_1_Config =
 CONSTP2CONST(OsSchT_ConfigType, AUTOMATIC, OS_CONST) Os_SchTConfigSet[OS_SCHT_TOTAL_NUM] =
 {
     &Os_SchT_OsScheduleTable_0_Config,
-    &Os_SchT_OsScheduleTable_1_Config,
+    &Os_SchT_OsScheduleTable_1_Config
 };
 /****************************************************************************************************
 **                          Private Constant Definitions                                            **
