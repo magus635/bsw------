@@ -1894,11 +1894,12 @@ class XPathEngine:
                 result = [result[-1]] if result else []
                 continue
 
-            # Try to evaluate the predicate as an expression that returns a number
-            # This handles cases like [num:i($ModuleIndex)] used with text:split
-            # and arithmetic predicates like [($LPUIndex) + num:i(1)]
-            # Fix: Only attempt if it doesn't look like a comparison or logical expression
-            if '(' in pred and ')' in pred and not self._is_condition(pred):
+            # Try to evaluate the predicate as an expression that returns a number.
+            # This handles: [num:i($ModuleIndex)], [($LPUIndex) + num:i(1)],
+            # [$ModeIndex+1], [0+1], etc.
+            # Fix 17: Removed the overly restrictive '(' in pred gate so that
+            # simple arithmetic predicates like $var+1 are also evaluated.
+            if not self._is_condition(pred):
                 try:
                     # Evaluate the predicate expression
                     eval_result = self.evaluate(pred)

@@ -230,10 +230,12 @@ class SymbolTable:
                     if c_node.short_name.lower() == target.lower():
                         return find_path(c_node, rest)
                 
-                # CASE 1: Skip wrapper nodes if target might be inside
+                # CASE 1: Skip intermediate container nodes if target might be inside
                 # (e.g. tree has /OsTask wrapper, ARXML ref is /Os/Task1)
+                # Also traverse non-wrapper instance containers to handle
+                # wrapper→instance→wrapper chains (e.g. Mcu module references)
                 for c_node in current.children:
-                    if c_node.is_wrapper:
+                    if c_node.node_type == 'container' and c_node.children:
                         res = find_path(c_node, parts_to_find)
                         if res: return res
                 

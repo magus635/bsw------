@@ -160,13 +160,16 @@ class WorkspaceProject:
                     filtered.append(pf)
             all_props = filtered
 
+        accumulated = {}
         for pf in all_props:
             try:
-                parser.parse_file(pf)
+                result = parser.parse_file(pf)
+                # Accumulate: later files override earlier ones for same key
+                accumulated.update(result.properties)
             except Exception as e:
                 logger.warning(f"Failed to parse properties file {pf}: {e}")
 
-        self.ecu_resources = parser.get_ecu_resources_dict()
+        self.ecu_resources = accumulated
 
         return self.ecu_resources
 

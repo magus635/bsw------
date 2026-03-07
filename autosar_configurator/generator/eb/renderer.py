@@ -709,10 +709,46 @@ class Renderer:
             i += 1
 
         # Execute first matching block
-        for cond, block_start, block_end in blocks:
+        executed_block_idx = -1
+        for idx, (cond, block_start, block_end) in enumerate(blocks):
             if cond is True or self._evaluate_condition(cond):
                 self._execute_tokens(tokens, block_start, block_end)
+                executed_block_idx = idx
                 break
+
+        # Fix 16: Restore newline at IF/ELSE/ENDIF block boundary.
+        # When [!//] on the chosen branch's last content line consumed
+        # the trailing newline, but another branch preserves it (no [!//]),
+        # the output is missing a newline before the next content.
+        # Detect this by checking if ANY other block has a trailing newline
+        # in its last TEXT token. If so and output doesn't end with one,
+        # add it — BUT only if the next token doesn't already start with
+        # a newline (which would make the insertion redundant/produce a
+        # double blank line).
+        if (executed_block_idx >= 0 and
+                self._output_buffer and self._output_buffer[-1] and
+                not self._output_buffer[-1].endswith('\n') and
+                not self._output_buffer[-1].endswith('\r')):
+            # Skip if the next token already provides a newline
+            needs_nl = True
+            if i < end and tokens[i].type == TokenType.TEXT:
+                nc = tokens[i].content
+                if nc and nc[0] in ('\n', '\r'):
+                    needs_nl = False
+
+            if needs_nl:
+                for blk_idx, (_, bs, be) in enumerate(blocks):
+                    if blk_idx == executed_block_idx:
+                        continue
+                    for j in range(be - 1, bs - 1, -1):
+                        if tokens[j].type == TokenType.TEXT:
+                            if tokens[j].content.endswith('\n') or tokens[j].content.endswith('\r'):
+                                self._output_buffer.append('\n')
+                            break
+                    else:
+                        continue
+                    if self._output_buffer[-1] == '\n':
+                        break
 
         return i  # After ENDIF
     
