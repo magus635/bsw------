@@ -34,6 +34,14 @@ class BuiltinFunctions:
         self._variant_name = ""
         self.renderer = None
 
+        # Proactively create EcuC stub module for cross-module references.
+        # Os templates use count(/AUTOSAR/.../EcuC/.../EcucCoreDefinition/*) and
+        # node:ref(./OsCoreId)/EcucCoreId which need the EcuC module to exist.
+        try:
+            self._ensure_ecuc_stubs()
+        except Exception:
+            pass  # Don't let stub creation failure break rendering
+
         # Build function registry
         self._functions = {
             # Node functions
@@ -200,7 +208,102 @@ class BuiltinFunctions:
             return func(*args)
         except Exception as e:
             raise e
-    
+
+    def _ensure_ecuc_stubs(self):
+        """Proactively create EcuC module stubs in the symbol table.
+
+        Os templates reference EcuC core definitions:
+        - count(/AUTOSAR/.../EcuC/.../EcucCoreDefinition/*) for core count
+        - node:ref(./OsCoreId)/EcucCoreId for core ID resolution
+
+        These require the EcuC module to exist before any template is rendered.
+        We derive the core count from the Os module's OsCoreIdMappingConfig instances.
+        """
+        if not self.symbol_table:
+            return
+
+        # Check if the EcucHardware/EcucCoreDefinition hierarchy already exists
+        ecuc_mod = self.symbol_table.get_module('EcuC')
+        if ecuc_mod:
+            hw_node = ecuc_mod.get_child('EcucHardware')
+            if hw_node:
+                core_def = hw_node.get_child('EcucCoreDefinition')
+                if core_def and len(core_def.children) > 0:
+                    return  # Already has core definitions
+
+        # Determine core count from the Os module's OsCoreIdMappingConfig
+        core_count = 0
+        os_mod = self.symbol_table.get_module('Os')
+        if os_mod:
+            # Find OsCoreIdMappingConfig wrapper
+            for child in os_mod.children:
+                if child.short_name == 'OsCoreIdMappingConfig':
+                    if getattr(child, 'is_wrapper', False):
+                        core_count = len(child.children)
+                    else:
+                        core_count = 1
+                    break
+
+        if core_count == 0:
+            return
+
+        from .symbol_table import ConfigurationNode
+
+        # If EcuC module doesn't exist yet, create it
+        if not ecuc_mod:
+            ecuc_mod = ConfigurationNode(
+                short_name='EcuC', node_type='module', path='/EcuC'
+            )
+            self.symbol_table.register_module('EcuC', ecuc_mod)
+            self.symbol_table._path_index[ecuc_mod.path] = ecuc_mod
+
+        # Add EcucHardware → EcucCoreDefinition hierarchy
+        hw_node = ecuc_mod.get_child('EcucHardware')
+        if not hw_node:
+            hw_node = ConfigurationNode(
+                short_name='EcucHardware', node_type='container',
+                path='/EcuC/EcucHardware'
+            )
+            ecuc_mod.add_child(hw_node)
+            self.symbol_table._path_index[hw_node.path] = hw_node
+
+        core_def_wrapper = hw_node.get_child('EcucCoreDefinition')
+        if not core_def_wrapper:
+            core_def_wrapper = ConfigurationNode(
+                short_name='EcucCoreDefinition', node_type='container',
+                path='/EcuC/EcucHardware/EcucCoreDefinition',
+                is_wrapper=True
+            )
+            hw_node.add_child(core_def_wrapper)
+            self.symbol_table._path_index[core_def_wrapper.path] = core_def_wrapper
+
+        # Create individual core definition stubs
+        for i in range(core_count):
+            stub_name = f"EcucCoreDefinition_{i}"
+            core_path = f"/EcuC/EcucHardware/EcucCoreDefinition/{stub_name}"
+            stub = ConfigurationNode(
+                short_name=stub_name,
+                node_type='container',
+                path=core_path,
+                definition_ref='/AUTOSAR/EcucDefs/EcuC/EcucHardware/EcucCoreDefinition',
+                index=i
+            )
+            stub.add_child(ConfigurationNode(
+                short_name='EcucCoreId',
+                node_type='parameter',
+                path=f"{core_path}/EcucCoreId",
+                value=i,
+                param_type='INTEGER'
+            ))
+            core_def_wrapper.add_child(stub)
+            # Index for path lookups
+            self.symbol_table._path_index[core_path] = stub
+            for child in stub.children:
+                self.symbol_table._path_index[child.path] = child
+            # Also register the ARXML-style reference path (double EcuC/EcuC form)
+            arxml_path = f"/EcuC/EcuC/EcucHardware/EcucCoreDefinition_{i}"
+            self.symbol_table._path_index[arxml_path] = stub
+
     # ========== Node Functions ==========
     
     def node_value(self, node_or_path: Any) -> Any:
@@ -321,14 +424,11 @@ class BuiltinFunctions:
         returns the choice value (e.g. 'MODULE-DEF') to match EB Tresos behavior.
         """
         if node is None:
-            node = self.context_stack.current_node()
-        if node is None:
             return ""
         # XDM choice containers report their choice value as name
         xdm_val = getattr(node, '_xdm_choice_value', None)
-        if xdm_val:
-            return xdm_val
-        return node.short_name
+        res = xdm_val if xdm_val else node.short_name
+        return res
     
     def node_path(self, node: Optional['ConfigurationNode'] = None) -> str:
         """Get the absolute path of a node"""
@@ -380,6 +480,9 @@ class BuiltinFunctions:
                 engine = getattr(self.renderer, '_xpath_engine', None) if self.renderer else None
                 if engine:
                     node = engine.evaluate(path_str, return_node=True)
+                    # evaluate() may return a list of nodes — take the first
+                    if isinstance(node, list):
+                        node = node[0] if node else None
                     if node is not None:
                         # Got the node via XPath - now recursively call node_ref
                         # to follow the reference if it's a reference node
@@ -448,113 +551,91 @@ class BuiltinFunctions:
              return None
 
         target_path_str = str(target_path).strip()
+        res = self.symbol_table.resolve_reference(target_path_str) if self.symbol_table else None
 
-        # Try symbol table first
-        if self.symbol_table:
-            res = self.symbol_table.resolve_reference(target_path_str)
-            if res:
-                return res
+        # Fallback: vendor-specific ARXML stores MemoryBlock references as bare short-names
+        # (e.g. 'EX_CODE' instead of a full path '/Os/MemoryBlock/EX_CODE').
+        # When resolve_reference fails for a simple name (no '/'), search the path_index.
+        if not res and '/' not in target_path_str and self.symbol_table:
+            for _path, _node in self.symbol_table._path_index.items():
+                if getattr(_node, 'short_name', None) == target_path_str:
+                    res = _node
+                    break
 
-        # Fallback: Navigate from root to find the target node
-        # Path format: /Adc/Adc/AdcConfigSet/HWTrigDemo/AN0
-        # We need to find AdcConfigSet -> HWTrigDemo -> AN0 in the tree
-        current = self.context_stack.current_node()
-        if current:
-            # Walk up to root
-            root = current
-            while root.parent:
-                root = root.parent
+        # Virtual Node Fallback for EcuC Core Definitions (Fix for multi-core duplication)
+        # EB Tresos templates often rely on EcuC hardware definitions that might be missing from exported ARXML.
+        # We create stubs AND register them in the symbol table so that both node:ref() and
+        # count(/AUTOSAR/.../EcuC/.../EcucCoreDefinition/*) work correctly.
+        if not res and 'EcucHardware/EcucCoreDefinition_' in target_path_str:
+            import re
+            match = re.search(r'EcucHardware/EcucCoreDefinition_(\d+)$', target_path_str)
+            if match:
+                from .symbol_table import ConfigurationNode
+                core_idx = match.group(1)
+                stub_name = f"EcucCoreDefinition_{core_idx}"
 
-            # Extract path parts and remove leading empty string and duplicates
-            parts = [p for p in target_path_str.split('/') if p]
-            if not parts:
-                return None
+                # Check if already registered in EcuC module
+                ecuc_mod = self.symbol_table.get_module('EcuC')
+                if ecuc_mod:
+                    hw_node = ecuc_mod.get_child('EcucHardware')
+                    if hw_node:
+                        core_def_parent = hw_node.get_child('EcucCoreDefinition')
+                        if core_def_parent:
+                            existing = core_def_parent.get_child(stub_name)
+                            if existing:
+                                res = existing
 
-            # The path format is typically: Adc, Adc, AdcConfigSet, HWTrigDemo, AN0
-            # Skip the redundant Adc (appears twice) and start from AdcConfigSet
-            start_idx = 1
-            if len(parts) > 2 and parts[0] == parts[1]:
-                # Skip both Adc entries and start from the third
-                start_idx = 2
+                if not res:
+                    # Create stub node
+                    tree_path = f"/EcuC/EcucHardware/EcucCoreDefinition/{stub_name}"
+                    res = ConfigurationNode(
+                        short_name=stub_name,
+                        node_type='container',
+                        path=tree_path,
+                        definition_ref='/AUTOSAR/EcucDefs/EcuC/EcucHardware/EcucCoreDefinition'
+                    )
+                    # Add the EcucCoreId parameter child required by Os templates
+                    res.add_child(ConfigurationNode(
+                        short_name='EcucCoreId',
+                        node_type='parameter',
+                        path=f"{tree_path}/EcucCoreId",
+                        value=core_idx,
+                        param_type='INTEGER'
+                    ))
 
-            # Navigate from root
-            nav_current = root
-            for i in range(start_idx, len(parts)):
-                part = parts[i]
-                child = nav_current.get_child(part)
-                if child:
-                    nav_current = child
-                else:
-                    # If direct child not found, search recursively in instance wrappers
-                    found = False
-                    for c_node in nav_current.children:
-                        if c_node.short_name == part:
-                            nav_current = c_node
-                            found = True
-                            break
-                        # Check if this is an instance wrapper (e.g., AdcConfigSet) and the target is inside
-                        if c_node.node_type == 'container' and c_node.short_name != part:
-                            # Try to find the part inside this container
-                            inner = c_node.get_child(part)
-                            if inner:
-                                nav_current = inner
-                                found = True
-                                break
-
-                    if not found:
-                        nav_current = None
-                        break
-
-            if nav_current and nav_current != root:
-                return nav_current
-
-        # Last resort: Create a stub node for unresolved cross-module references.
-        # This handles cases like /EcuC/EcuC/EcucHardware/EcucCoreDefinition_0 where
-        # the EcuC config doesn't have the EcucHardware section but Os templates need
-        # to resolve node:ref(./OsCoreId)/EcucCoreId to differentiate cores.
-        if target_path_str.startswith('/'):
-            from .symbol_table import ConfigurationNode
-            import re as _re
-            parts = [p for p in target_path_str.split('/') if p]
-            if parts:
-                stub_name = parts[-1]
-                # Extract numeric suffix BEFORE creating stub so index is set correctly.
-                # e.g., EcucCoreDefinition_1 -> index=1 (not the default 0)
-                suffix_match = _re.search(r'_(\d+)$', stub_name)
-                idx_val = int(suffix_match.group(1)) if suffix_match else 0
-                stub = ConfigurationNode(
-                    short_name=stub_name,
-                    node_type='container',
-                    path=target_path_str,
-                    definition_ref=target_path_str,
-                    index=idx_val,
-                )
-                # Also add common parameter child nodes keyed to the numeric suffix.
-                if suffix_match:
-                    base_name = _re.sub(r'_\d+$', '', stub_name)
-                    # EcucCoreDefinition -> EcucCoreId
-                    if 'Core' in base_name:
-                        id_param = ConfigurationNode(
-                            short_name='EcucCoreId',
-                            node_type='parameter',
-                            path=f"{target_path_str}/EcucCoreId",
-                            value=idx_val
+                    # Register in symbol table under EcuC module hierarchy
+                    ecuc_mod = self.symbol_table.get_module('EcuC')
+                    if not ecuc_mod:
+                        ecuc_mod = ConfigurationNode(
+                            short_name='EcuC', node_type='module', path='/EcuC'
                         )
-                        stub.add_child(id_param)
-                    # Generic: add an index-based Id parameter
-                    generic_id_name = base_name.split('Definition')[0] + 'Id' if 'Definition' in base_name else base_name + 'Id'
-                    if not stub.get_child(generic_id_name):
-                        generic_param = ConfigurationNode(
-                            short_name=generic_id_name,
-                            node_type='parameter',
-                            path=f"{target_path_str}/{generic_id_name}",
-                            value=idx_val
+                        hw_node = ConfigurationNode(
+                            short_name='EcucHardware', node_type='container',
+                            path='/EcuC/EcucHardware'
                         )
-                        stub.add_child(generic_param)
-                return stub
+                        ecuc_mod.add_child(hw_node)
+                        core_def_parent = ConfigurationNode(
+                            short_name='EcucCoreDefinition', node_type='container',
+                            path='/EcuC/EcucHardware/EcucCoreDefinition',
+                            is_wrapper=True
+                        )
+                        hw_node.add_child(core_def_parent)
+                        self.symbol_table.register_module('EcuC', ecuc_mod)
+                    else:
+                        hw_node = ecuc_mod.get_child('EcucHardware')
+                        core_def_parent = hw_node.get_child('EcucCoreDefinition') if hw_node else None
 
-        return None
-    
+                    if core_def_parent:
+                        core_def_parent.add_child(res)
+                        # Index the new nodes for path lookup
+                        self.symbol_table._path_index[res.path] = res
+                        for child in res.children:
+                            self.symbol_table._path_index[child.path] = child
+                        # Also index by the original ARXML reference path for direct lookups
+                        self.symbol_table._path_index[target_path_str] = res
+
+        return res
+
     def node_exists(self, path_or_node) -> bool:
         """Check if a path or node exists.
 
@@ -642,25 +723,41 @@ class BuiltinFunctions:
 
     def _is_node_empty(self, node) -> bool:
         """Check if a node represents a missing configuration.
-        
+
         A node is "empty" if:
         1. It's a parameter with no configured value (value is None or empty string).
         2. It's a reference with no target (value is None or empty string).
+        3. EB Tresos convention: ECUC-TEXTUAL-PARAM-VALUE with VALUE="None"
+           marks an optional parameter as "not configured".
         """
         if not hasattr(node, 'node_type'):
             return False
-            
+
         # Get the value
         value = node.value if hasattr(node, 'value') else getattr(node, 'value', None)
-        
+
         if node.node_type == 'parameter':
             # Parameters with no value (None) or empty strings are considered non-existent
-            return value is None or str(value).strip() == ''
-            
+            if value is None or str(value).strip() == '':
+                return True
+            # EB Tresos convention: VALUE="None" in ECUC-TEXTUAL-PARAM-VALUE
+            # marks an optional parameter as "not configured"
+            if str(value).strip() == 'None':
+                return True
+            # EB Tresos convention: float "0.0" means "not configured" for
+            # budget/timeout parameters (node:exists returns False)
+            val_str = str(value).strip()
+            try:
+                if '.' in val_str and float(val_str) == 0.0:
+                    return True
+            except (ValueError, TypeError):
+                pass
+            return False
+
         if node.node_type == 'reference':
             # References with no value are empty
             return value is None or str(value).strip() == ''
-            
+
         return False
         
     def node_empty(self, path_or_node) -> bool:
@@ -1222,12 +1319,40 @@ class BuiltinFunctions:
             return False
     
     def string_length(self, s: str) -> int:
-        """Get string length"""
+        """Get string length. Formats floats like Java's Double.toString()
+        for EB Tresos compatibility."""
         if s is None:
             return 0
         if not isinstance(s, str):
-            s = str(s)
+            if isinstance(s, float):
+                s = self._format_float_java(s)
+            else:
+                s = str(s)
         return len(s)
+
+    @staticmethod
+    def _format_float_java(value: float) -> str:
+        """Format float like Java's Double.toString() for EB Tresos compatibility.
+
+        Python: str(4e-08) -> "4e-08"  (5 chars, lowercase e, zero-padded exp)
+        Java:   4e-08      -> "4.0E-8" (6 chars, decimal point, uppercase E)
+        """
+        s = repr(value)
+        if 'e' in s:
+            parts = s.split('e')
+            mantissa = parts[0]
+            exp = int(parts[1])
+            # Java always has at least one decimal digit
+            if '.' not in mantissa:
+                mantissa += '.0'
+            else:
+                mantissa = mantissa.rstrip('0')
+                if mantissa.endswith('.'):
+                    mantissa += '0'
+            return f"{mantissa}E{exp}"
+        if '.' not in s:
+            return s + '.0'
+        return s
     
     def string_contains(self, s, substring: str) -> bool:
         """Check if string contains substring, or if list contains element.
@@ -2223,7 +2348,6 @@ class BuiltinFunctions:
         # Try exact match first (flat key like "Eth.MaxTxRam")
         if path in self.ecu_resources:
             return _as_scalar(self.ecu_resources[path])
-            return _as_scalar(raw)
 
         # Try nested match (if ecu_resources is structured as {module: {param: val}})
         if '.' in path:

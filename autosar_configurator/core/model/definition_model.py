@@ -163,6 +163,7 @@ class EcucContainerDef:
     scope: str = "LOCAL"
     origin: str = "AUTOSAR_ECUC"
     post_build_variant_multiplicity: bool = False
+    is_choice: bool = False
 
     # Full path for reference
     definition_ref: str = ""
@@ -215,6 +216,10 @@ class EcucModuleDef:
     
     # Top-level containers
     containers: Dict[str, EcucContainerDef] = field(default_factory=dict)
+
+    # Module-level parameters (v:var directly on the module, not inside containers)
+    # e.g., OsResourceSubderivative in Os.xdm
+    parameters: Dict[str, 'EcucParameterDef'] = field(default_factory=dict)
     
     # Metadata
     admin_data: Dict[str, str] = field(default_factory=dict)

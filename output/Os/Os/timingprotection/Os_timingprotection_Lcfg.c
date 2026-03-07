@@ -15,7 +15,7 @@
 *
 *   Build Version         : Cortex-R52/THA6206
 *
-*   Genaration Time       : 2026-03-05 20:05:10
+*   Genaration Time       : 2026-03-05 20:16:18
 *
 *   Copyright (c) @#
 *   All Rights Reserved.
@@ -59,12 +59,12 @@
 #include "Os_memmap.h" 
 static Os_TpBudgetRunningDataType   Os_Task1ExecutionBudgetData;
 static Os_TpBudgetRunningDataType   Os_Task1LockAllInterruptBudgetData;
-static Os_TpBudgetRunningDataType   Os_OsLockOsResource_0BudgetData;
+static Os_TpBudgetRunningDataType   Os_Task1LockOsResource_0BudgetData;
 static Os_TpBudgetRunningDataType   Os_Task1LockOsInterruptBudgetData;
 static Os_TpObjectRunningDataType   Os_Task1TimingProtectionRunningData;
 static Os_TpBudgetRunningDataType   Os_Task5ExecutionBudgetData;
 static Os_TpBudgetRunningDataType   Os_Task5LockAllInterruptBudgetData;
-static Os_TpBudgetRunningDataType   Os_OsLockOsResource_1BudgetData;
+static Os_TpBudgetRunningDataType   Os_Task5LockOsResource_1BudgetData;
 static Os_TpBudgetRunningDataType   Os_Task5LockOsInterruptBudgetData;
 static Os_TpObjectRunningDataType   Os_Task5TimingProtectionRunningData;
 static Os_TpBudgetRunningDataType   Os_Task2ExecutionBudgetData;
@@ -89,7 +89,7 @@ static Os_TpObjectRunningDataType   Os_Task3TimingProtectionRunningData;
 #include "Os_memmap.h" 
 static Os_TpBudgetRunningDataType   Os_Task12_Core1ExecutionBudgetData;
 static Os_TpBudgetRunningDataType   Os_Task12_Core1LockAllInterruptBudgetData;
-static Os_TpBudgetRunningDataType   Os_OsLockOsResource_2BudgetData;
+static Os_TpBudgetRunningDataType   Os_Task12_Core1LockOsResource_2BudgetData;
 static Os_TpBudgetRunningDataType   Os_Task12_Core1LockOsInterruptBudgetData;
 static Os_TpObjectRunningDataType   Os_Task12_Core1TimingProtectionRunningData;
 static Os_TpBudgetRunningDataType   Os_Task11_Core1ExecutionBudgetData;
@@ -113,22 +113,22 @@ static Os_TpObjectRunningDataType   Os_OsIsr_BaseTimer1TimingProtectionRunningDa
 /****************************************************************************************************
 **                          Private Constant Definitions                                            **
 ****************************************************************************************************/
-static const Os_TpBudgetConfigType Os_OsOsResource_0BudgetConfig =
+static const Os_TpBudgetConfigType Os_Task1OsResource_0BudgetConfig =
 {
     TP_MONITOR_LOCK, /* Type */
     75000,          /* Budget */
-    &Os_OsLockOsResource_0BudgetData
+    &Os_Task1LockOsResource_0BudgetData
 };
 
-static const Os_TpReSourceBudgetConfigType Os_OsOsResource_0TpConfig =
+static const Os_TpReSourceBudgetConfigType Os_Task1OsResource_0TpConfig =
 {
     0,  /* ResourceID */
-    &Os_OsOsResource_0BudgetConfig
+    &Os_Task1OsResource_0BudgetConfig
 };
 
 static const Os_TpReSourceBudgetConfigRefType Os_Task1ResourceTpConfig[2] =
 {
-    &Os_OsOsResource_0TpConfig,
+    &Os_Task1OsResource_0TpConfig,
     NULL_PTR,
 };
 
@@ -154,22 +154,22 @@ static const Os_TpObjectConfigType Os_Task1TpConfig =
     &Os_Task1TimingProtectionRunningData
 };
 
-static const Os_TpBudgetConfigType Os_OsOsResource_1BudgetConfig =
+static const Os_TpBudgetConfigType Os_Task5OsResource_1BudgetConfig =
 {
     TP_MONITOR_LOCK, /* Type */
     77500,          /* Budget */
-    &Os_OsLockOsResource_1BudgetData
+    &Os_Task5LockOsResource_1BudgetData
 };
 
-static const Os_TpReSourceBudgetConfigType Os_OsOsResource_1TpConfig =
+static const Os_TpReSourceBudgetConfigType Os_Task5OsResource_1TpConfig =
 {
     1,  /* ResourceID */
-    &Os_OsOsResource_1BudgetConfig
+    &Os_Task5OsResource_1BudgetConfig
 };
 
 static const Os_TpReSourceBudgetConfigRefType Os_Task5ResourceTpConfig[2] =
 {
-    &Os_OsOsResource_1TpConfig,
+    &Os_Task5OsResource_1TpConfig,
     NULL_PTR,
 };
 
@@ -241,22 +241,22 @@ static const Os_TpObjectConfigType Os_Task3TpConfig =
     &Os_Task3TimingProtectionRunningData
 };
 
-static const Os_TpBudgetConfigType Os_OsOsResource_2BudgetConfig =
+static const Os_TpBudgetConfigType Os_Task12_Core1OsResource_2BudgetConfig =
 {
     TP_MONITOR_LOCK, /* Type */
     80000,          /* Budget */
-    &Os_OsLockOsResource_2BudgetData
+    &Os_Task12_Core1LockOsResource_2BudgetData
 };
 
-static const Os_TpReSourceBudgetConfigType Os_OsOsResource_2TpConfig =
+static const Os_TpReSourceBudgetConfigType Os_Task12_Core1OsResource_2TpConfig =
 {
     2,  /* ResourceID */
-    &Os_OsOsResource_2BudgetConfig
+    &Os_Task12_Core1OsResource_2BudgetConfig
 };
 
 static const Os_TpReSourceBudgetConfigRefType Os_Task12_Core1ResourceTpConfig[2] =
 {
-    &Os_OsOsResource_2TpConfig,
+    &Os_Task12_Core1OsResource_2TpConfig,
     NULL_PTR,
 };
 

@@ -204,7 +204,13 @@ class Lexer:
                         break
             
             if not has_output:
-                directive_only_line_numbers.add(line_num)
+                # Only mark as directive-only if the line actually contains
+                # at least one directive token. Pure whitespace/newline-only
+                # lines (no directives) represent intentional blank lines in
+                # the template output and must be preserved.
+                has_directive = any(tok.type != TokenType.TEXT for tok in line_tokens)
+                if has_directive:
+                    directive_only_line_numbers.add(line_num)
         
         # Mark tokens on those lines
         for tok in tokens:

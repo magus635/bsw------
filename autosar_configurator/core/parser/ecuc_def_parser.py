@@ -133,23 +133,32 @@ class EcucDefParser:
                         # Avoid duplicates if already added
                         if container_def.short_name not in module_def.containers:
                             module_def.add_container(container_def)
+
+            # XDM: Parse module-level v:var parameters (e.g. OsResourceSubderivative).
+            # These are direct children of the module root, not inside any container.
+            # They often have DEFAULT values and may not appear in the ARXML config.
+            for var_elem in target_container_root.xpath("./v:var", namespaces=self.NAMESPACES):
+                param_def = self._parse_parameter_def(var_elem, parent_path=module_def.short_name)
+                if param_def:
+                    param_def.definition_ref = f"/AUTOSAR/EcucDefs/{module_def.short_name}/{param_def.short_name}"
+                    module_def.parameters[param_def.short_name] = param_def
         
         # Set module definition reference
         module_def.definition_ref = f"/AUTOSAR/EcucDefs/{module_def.short_name}"
         
         return module_def
     
-    def _parse_container_def(self, element: etree._Element, parent_path: str = "") -> Optional[EcucContainerDef]:
+    def _parse_container_def(self, element: etree._Element, parent_path: str = "", is_choice: bool = False) -> Optional[EcucContainerDef]:
         """Parse ECUC-PARAM-CONF-CONTAINER-DEF element (recursive)"""
         short_name = self._get_short_name(element)
         if not short_name:
             return None
-        
-        print(f"DEBUG_DEF_ENTRY: Parsing container def '{short_name}'")
+
 
         container_def = EcucContainerDef(
             short_name=short_name,
-            description=self._get_description(element)
+            description=self._get_description(element),
+            is_choice=is_choice
         )
         
         # Parse multiplicity (use direct child lookup to avoid finding sub-container's multiplicity)
@@ -241,15 +250,33 @@ class EcucDefParser:
                 if sub_container_def:
                     container_def.add_sub_container(sub_container_def)
         
-        # XDM support: Parse sub-containers and multi-references from v:lst/v:ctr
+            # Also parse ECUC-CHOICE-CONTAINER-DEF (choice containers)
+            for sub_cont_elem in self._findall_children(sub_conts_elem, 'ECUC-CHOICE-CONTAINER-DEF'):
+                sub_container_def = self._parse_container_def(sub_cont_elem, current_path, is_choice=True)
+                if sub_container_def:
+                    container_def.add_sub_container(sub_container_def)
+        
+        # XDM support: Parse sub-containers and multi-references from v:lst/v:ctr/v:chc
         ns_v = self.NAMESPACES['v']
         ns_a = self.NAMESPACES['a']
-        for sub_elem in element.xpath("v:lst | v:ctr", namespaces={'v': ns_v}):
+
+        # First: handle direct v:var and v:ref children (single-valued, not inside v:lst).
+        # This covers cases like <v:ctr name="RegionSelect"><v:ref name="MemoryBlockRef">
+        # where the reference belongs directly to the container, not under a list wrapper.
+        for var_elem in element.xpath("v:var", namespaces={'v': ns_v}):
+            param_def = self._parse_parameter_def(var_elem, current_path)
+            if param_def and param_def.short_name not in container_def.parameters:
+                container_def.add_parameter(param_def)
+        for ref_elem in element.xpath("v:ref", namespaces={'v': ns_v}):
+            ref_def_item = self._parse_reference_def(ref_elem, current_path)
+            if ref_def_item and ref_def_item.short_name not in container_def.references:
+                container_def.add_reference(ref_def_item)
+
+        for sub_elem in element.xpath("v:lst | v:ctr | v:chc", namespaces={'v': ns_v}):
             tag_local = etree.QName(sub_elem).localname
             if tag_local == 'lst':
                 # Extract multiplicity from v:lst's a:da MIN/MAX
                 min_da = sub_elem.xpath("a:da[@name='MIN']/@value", namespaces={'a': ns_a})
-                print(f"DEBUG_DEF: Found v:lst name={sub_elem.get('name')}")
                 max_da = sub_elem.xpath("a:da[@name='MAX']/@value", namespaces={'a': ns_a})
                 max_da_elems = sub_elem.xpath("a:da[@name='MAX']", namespaces={'a': ns_a})
 
@@ -287,7 +314,6 @@ class EcucDefParser:
                              sub_container_def.upper_multiplicity = -1
                         
                         container_def.add_sub_container(sub_container_def)
-                        print(f"DEBUG_DEF_ADD: Added sub-container '{sub_container_def.short_name}' to '{container_def.short_name}'")
 
                 # Handle v:var inside v:lst (multi-parameters)
                 var_children = sub_elem.xpath("v:var", namespaces={'v': ns_v})
@@ -300,8 +326,6 @@ class EcucDefParser:
                             param_def.upper_multiplicity = lst_upper
                         elif not max_da and not max_da_elems:
                             param_def.upper_multiplicity = -1
-                        if param_def.short_name == 'AdcResultRegisterDefinition':
-                            print(f"DEBUG_DEF: AdcResultRegisterDefinition multiplicity: {param_def.lower_multiplicity} .. {param_def.upper_multiplicity}")
                         if param_def.short_name not in container_def.parameters:
                             container_def.add_parameter(param_def)
 
@@ -332,8 +356,8 @@ class EcucDefParser:
                             sub_container_def.upper_multiplicity_expr = lst_upper_expr
                         if sub_container_def.short_name not in container_def.sub_containers:
                             container_def.add_sub_container(sub_container_def)
-            elif tag_local == 'ctr':
-                sub_container_def = self._parse_container_def(sub_elem, current_path)
+            elif tag_local == 'ctr' or tag_local == 'chc':
+                sub_container_def = self._parse_container_def(sub_elem, current_path, is_choice=(tag_local == 'chc'))
                 if sub_container_def:
                     if sub_container_def.short_name not in container_def.sub_containers:
                         container_def.add_sub_container(sub_container_def)

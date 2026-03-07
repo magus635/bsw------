@@ -19,7 +19,9 @@ def main():
         module_def=os_mgr.module_def,
         configuration=os_mgr.configuration,
         project_template_dir=Path("/Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/templates/Os"),
-        all_configurations=all_configs
+        all_configurations=all_configs,
+        selected_chip=project.selected_chip,
+        ecu_resources=project.ecu_resources
     )
     
     # Generate code for Os module

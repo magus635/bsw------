@@ -65,6 +65,23 @@ class OverlayEngine:
             definition_ref=module_def.definition_ref
         )
 
+        # Add module-level parameters (v:var in XDM directly on the module root).
+        # These often have DEFAULT values and may not be set in the ARXML config.
+        # Example: OsResourceSubderivative in Os.xdm with DEFAULT='Os_THA6206'.
+        for param_name, param_def in getattr(module_def, 'parameters', {}).items():
+            # Check if config overrides the default (not currently supported for module-level,
+            # but defaults are what matters for template conditions like OsResourceSubderivative)
+            p_node = ConfigurationNode(
+                short_name=param_name,
+                node_type='parameter',
+                path=f"/{module_name}/{param_name}",
+                value=param_def.default_value,
+                default_value=param_def.default_value,
+                definition_ref=param_def.definition_ref,
+                param_type=param_def.param_type.value if hasattr(param_def.param_type, 'value') else str(param_def.param_type),
+            )
+            root.add_child(p_node)
+
         # Track processed configuration instances to avoid duplicates in the unknown containers loop
         processed_instances = set()
 
@@ -100,6 +117,19 @@ class OverlayEngine:
                     if os_params:
                         votes = sum(1 for n in os_params if n.startswith(container_name))
                         if votes * 2 > len(os_params):
+                            matching_instances.append(c)
+                            processed_instances.add(id(c))
+                            continue
+
+                    # 5. EB Tresos MAP (v:lst type="MAP") instance matching.
+                    # MAP instances have their own SHORT-NAME as DEFINITION-REF terminal segment
+                    # (e.g. INT_VECTOR_TABLE -> /THA6_ASR21/Os/INT_VECTOR_TABLE) but their
+                    # parameter names exactly match the container_def's parameters.
+                    # Match if all instance params are defined in the container_def's parameters+references.
+                    if container_def.parameters and c.parameter_values:
+                        def_param_names = set(container_def.parameters.keys()) | set(container_def.references.keys())
+                        instance_params = set(c.parameter_values.keys())
+                        if instance_params and instance_params.issubset(def_param_names):
                             matching_instances.append(c)
                             processed_instances.add(id(c))
                             continue
@@ -163,6 +193,7 @@ class OverlayEngine:
                     last_seg = container.definition_ref.split('/')[-1] if container.definition_ref else container.short_name
                     # Strategy 1: strip trailing numeric instance suffix (e.g. OsAlarm_0 -> OsAlarm)
                     def_name = _re.sub(r'_\d+$', '', last_seg)
+                    inferred = None
                     # Strategy 2: if no stripping happened, infer ECUC type from parameter/reference names
                     if def_name == last_seg:
                         inferred = self._infer_ecuc_type_from_params(container)
@@ -317,6 +348,7 @@ class OverlayEngine:
 
                         wrapper_node.add_child(sub_node)
                     
+                    self._alias_active_instance(wrapper_node)
                     node.add_child(wrapper_node)
                 elif sub_def.is_required:
                     # Create from defaults if required
@@ -509,6 +541,18 @@ class OverlayEngine:
             index=getattr(config_instance, 'index', 0)
         )
         
+        # CHOICE Container Support: In EB Tresos, a choice container evaluates to the name
+        # of the active selection (its first sub-container instance).
+        if getattr(container_def, 'is_choice', False):
+            subs = getattr(config_instance, 'sub_containers', [])
+            if subs:
+                # Handle both list and dict sub_containers
+                first_sub = subs[0] if isinstance(subs, list) else list(subs.values())[0]
+                node.value = first_sub.short_name
+                # Fix: node:name() checks _xdm_choice_value first; set it so that
+                # node:name(choice_node) returns the selected variant name (e.g. 'RegionSelect')
+                node._xdm_choice_value = first_sub.short_name
+        
         # Add parameters
         params_source = getattr(config_instance, 'parameter_values', {}) or \
                         {k: v for k, v in getattr(config_instance, 'children', {}).items() if hasattr(v, 'value') and not hasattr(v, 'value_ref')}
@@ -603,6 +647,20 @@ class OverlayEngine:
             else:
                 # Single-valued reference
                 ref_val_obj = refs_source.get(ref_name)
+
+                # Fix: vendor-specific ARXML may store reference values as textual params.
+                # e.g. MemoryBlockRef stored as ECUC-TEXTUAL-PARAM-VALUE with key 'RegionSelect'
+                # and value 'EX_CODE' (short-name of the target MemoryBlock). When refs_source
+                # is empty but params_source has an "extra" entry (not in the container's own
+                # parameter definitions), treat that value as the reference short-name.
+                if ref_val_obj is None and params_source:
+                    for p_key, p_val in params_source.items():
+                        if p_key not in container_def.parameters:
+                            class _TextualRef:
+                                def __init__(self, v): self.value_ref = v
+                            ref_val_obj = _TextualRef(getattr(p_val, 'value', str(p_val)))
+                            break
+
                 ref_node = self._create_reference_node(
                     ref_def,
                     ref_val_obj,
@@ -786,6 +844,16 @@ class OverlayEngine:
         # This prevents parameter nodes from appearing as siblings of container
         # instances when iterating with wildcards (e.g., AdcGroup/*).
         if active_instance_node:
+            # Propagate value from instance to wrapper (e.g. for CHOICE containers)
+            # If wrapper lacks a value (standard for containers), take it from active selection
+            if wrapper_node.value is None or wrapper_node.value == wrapper_node.short_name:
+                if active_instance_node.value is not None:
+                    wrapper_node.value = active_instance_node.value
+
+            # Propagate _xdm_choice_value so node:name(wrapper) returns the choice variant name
+            if getattr(active_instance_node, '_xdm_choice_value', None) is not None:
+                wrapper_node._xdm_choice_value = active_instance_node._xdm_choice_value
+
             for sub_node in active_instance_node.children:
                 if sub_node.node_type != 'container':
                     continue

@@ -159,6 +159,7 @@ class Renderer:
         Returns:
             Rendered output string
         """
+
         root_node = None
         # Reset context stack
         if module_name:
@@ -338,12 +339,23 @@ class Renderer:
                     self._autospacing_active = False  # One-shot: reset after use
 
                 if tok.directive_only_line:
-                    # Remove trailing newline from directive-only lines
-                    # This prevents blank lines from directive-only template lines
-                    content = content.rstrip('\n\r')
-                    # Also remove leading whitespace if it's just indentation
-                    if content.strip() == '':
-                        content = ''  # Skip pure whitespace on directive lines
+                    # EB Tresos templates use [!// at end of directive lines to
+                    # suppress their trailing newlines. After [!// processing,
+                    # any remaining newlines in TEXT tokens on directive-only lines
+                    # represent intentional blank lines from the template.
+                    #
+                    # However, indentation whitespace (spaces/tabs before directives)
+                    # should be stripped to prevent unwanted output.
+                    if all(c in '\n\r' for c in content) and content:
+                        # Pure newlines — these are intentional blank lines.
+                        # Preserve them as-is.
+                        pass
+                    else:
+                        # Contains non-newline characters (indentation whitespace).
+                        # Strip everything to prevent template structure from leaking.
+                        content = content.rstrip('\n\r')
+                        if content.strip() == '':
+                            content = ''  # Skip pure whitespace on directive lines
 
                 # Apply indentation
                 content = self._apply_indent(content)
@@ -869,6 +881,7 @@ class Renderer:
         if expr is None: return None
         expr = expr.strip()
 
+
         # 1. Literal Strings (Handle both '...' and "...")
         if (expr.startswith("'") and expr.endswith("'")) or \
            (expr.startswith('"') and expr.endswith('"')):
@@ -1047,6 +1060,7 @@ class Renderer:
                             res = to_bool(left_val) == to_bool(right_val)
                         else:
                             res = str(left_val) == str(right_val)
+
                         return res
                     elif check_op == '!=':
                         if is_bool_like(left_val) or is_bool_like(right_val):
@@ -1242,10 +1256,11 @@ class Renderer:
             if val.node_type == 'reference':
                 return val.value
             if val.node_type in ('container', 'module'):
-                # EB Tresos CHOICE containers: if a container has exactly one 
-                # container child and no parameter children, it's likely a CHOICE
-                # container. Return the selected child's name as the value.
-                # E.g., OsAlarmAction contains OsAlarmActivateTask -> returns "OsAlarmActivateTask"
+                # CHOICE Container Support: If we explicitly set a value (e.g. in OverlayEngine), use it.
+                if val.value is not None:
+                    return val.value
+
+                # Legacy/Fallback heuristic for CHOICE containers
                 if val.children:
                     container_children = [c for c in val.children if hasattr(c, 'node_type') and c.node_type == 'container' and not getattr(c, 'is_wrapper', False)]
                     param_children = [c for c in val.children if hasattr(c, 'node_type') and c.node_type == 'parameter']
@@ -1262,8 +1277,7 @@ class Renderer:
         """Evaluate a condition string (used in IF, WHILE)."""
         if condition is None: return False
         if isinstance(condition, bool): return condition
-        # ... (rest of the code without prints)
-
+        
         condition = self._strip_tag_quotes(condition)
 
         # Strip outer quotes if present (common in EB syntax [!IF "expr"!])
@@ -1330,7 +1344,7 @@ class Renderer:
 
                 left_val = self._unwrap_value(left_val)
                 right_val = self._unwrap_value(right_val)
-
+                
                 # Boolean normalization
                 if isinstance(left_val, bool) and isinstance(right_val, str):
                     right_val = right_val.lower() in ('true', '1', 'yes', 'on')
@@ -1421,8 +1435,11 @@ class Renderer:
                     except: res = False
                 else:
                     res = False
-
+                
                 return res
+
+
+
 
         # Atomic manifestation check (truthiness of single value)
         val = self._evaluate_expression(condition)
@@ -1865,22 +1882,15 @@ class Renderer:
                             loop_nodes = [loop_nodes] if loop_nodes else []
                         return loop_nodes if loop_nodes else None
 
-        # Strategy 2: If the end expression is a variable or doesn't contain count(),
-        # check if it looks like it could be iterating over current node's children.
-        # Evaluate ./* from current context as a heuristic fallback.
-        # This handles: [!VAR "total" = "count(./*) - 1"!] ... [!FOR "i" = "0" TO "$total"!]
-        if end_expr.strip().startswith('$'):
-            try:
-                children = self._evaluate_xpath('./*')
-                if isinstance(children, list) and children:
-                    # Verify the loop range matches children count
-                    end_val = self._evaluate_expression(end_expr)
-                    if end_val is not None:
-                        end_int = int(self._builtins.num_i(end_val))
-                        if end_int == len(children) - 1:
-                            return children
-            except Exception:
-                pass
+        # Strategy 2: REMOVED.
+        # The previous heuristic evaluated ./* from current context when
+        # the end expression started with '$', and if the children count
+        # matched, it would incorrectly activate context switching.
+        # This caused false positives (e.g., FOR over priority levels
+        # accidentally matching OsCoreIdMappingConfig children count),
+        # leading to wrong context for expressions like ./OsCoreId.
+        # Strategy 1 (direct count() in end expression) is sufficient
+        # for legitimate FOR-over-nodeset patterns.
 
         return None
 

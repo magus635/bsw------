@@ -33,6 +33,43 @@ class XPathEngine:
 
 
 
+    def _unwrap_result(self, result: Any) -> Any:
+        """Helper to unwrap node values if return_node is False.
+        
+        Handles:
+        - Single ConfigurationNode -> value (with BOOLEAN conversion)
+        - Single ReferenceNode -> path string
+        - Empty list -> None
+        - List with single element -> unwrapped element
+        """
+        if self._return_node:
+            return result
+            
+        if result is None:
+            return None
+            
+        # Handle list results
+        if isinstance(result, list):
+            if not result:
+                return None
+            if len(result) == 1:
+                return self._unwrap_result(result[0])
+            return result
+            
+        # Handle ConfigurationNode results
+        if hasattr(result, 'node_type'):
+            if result.node_type == 'parameter':
+                val = result.get_value()
+                param_type = getattr(result, 'param_type', '')
+                if param_type and 'BOOLEAN' in param_type.upper():
+                    return 'true' if str(val).lower() in ('1', 'true', 'yes', 'on') else 'false'
+                return val
+            elif result.node_type == 'reference':
+                val = result.value
+                return str(val) if val is not None else ''
+        
+        return result
+
     def evaluate(self, xpath: str, return_node: bool = False) -> Any:
         """Evaluate an XPath expression.
 
@@ -51,7 +88,7 @@ class XPathEngine:
         self._return_node = return_node
         try:
             res = self._evaluate_impl(xpath)
-            return res
+            return self._unwrap_result(res)
         finally:
             self._return_node = saved_return_node
 
@@ -437,7 +474,9 @@ class XPathEngine:
                     if l in ('true', 'false') and r in ('true', 'false'):
                         result = l == r
                         return result
+
                     result = str(left_val) == str(right_val)
+
                     return result
                 elif op == '!=':
                     l = self._to_bool_str(left_val)
@@ -704,11 +743,15 @@ class XPathEngine:
                 # For node:* and ecuC:* functions, we want to evaluate arguments as nodes (return_node=True)
                 is_node_func = func_name.startswith('node:') or func_name.startswith('ecuC:')
                 evaluated_args = []
-                for arg in args:
+                for i_arg, arg in enumerate(args):
                     arg = arg.strip()
                     if (arg.startswith('"') and arg.endswith('"')) or \
                        (arg.startswith("'") and arg.endswith("'")):
                         evaluated_args.append(arg[1:-1])
+                    elif func_name == 'node:order' and i_arg == 1:
+                        # node:order's 2nd arg is a per-node sort expression —
+                        # pass as raw string so node_order() evaluates it per node
+                        evaluated_args.append(arg)
                     else:
                         val = self.evaluate(arg, return_node=is_node_func)
                         # If evaluate returns None and arg contains arithmetic operators,
@@ -1248,17 +1291,17 @@ class XPathEngine:
             
 
             for n in current:
-                
-                # Handle different axes
+
                 if axis == 'parent':
-                    parent = n.parent
-                    # Skip wrapper nodes - they are transparent in EB Tresos navigation
-                    while parent and getattr(parent, 'is_wrapper', False):
-                        parent = parent.parent
-                    if parent:
-                        next_nodes.append(parent)
+                    curr = n.parent
+                    # EB Tresos XDM behavior: '..' visits actual parent nodes
+                    # INCLUDING collection wrappers. Templates count wrappers
+                    # as real hops, e.g., ./../../../.. from OsTaskResourceLock_0
+                    # counts 4 hops through wrappers to reach the OsTask instance.
+                    if curr:
+                        next_nodes.append(curr)
                     else:
-                        # EB Tresos behavior: at the module root, '..' stays at root
+                        # At the module root, '..' stays at root
                         next_nodes.append(n)
                         
                 elif axis == 'self':
@@ -1319,7 +1362,16 @@ class XPathEngine:
                     if name == '*':
                         children = n.get_children_list()
                         if children:
-                            next_nodes.extend(children)
+                            for c in children:
+                                if getattr(c, 'is_wrapper', False):
+                                    # EB Tresos compatibility: Expand wrapper nodes
+                                    # to their instance children. Our config tree uses
+                                    # wrappers to group multi-instance containers (e.g.
+                                    # OsTask, OsCounter) but EB templates expect to
+                                    # iterate over instances directly with ./* wildcards.
+                                    next_nodes.extend(c.get_children_list())
+                                else:
+                                    next_nodes.append(c)
                         elif hasattr(n, 'node_type') and n.node_type == 'parameter':
                             # EB Tresos compatibility: param/*[1] on a simple parameter
                             # (leaf node with no children) returns the parameter itself.
@@ -1359,6 +1411,8 @@ class XPathEngine:
                             # 3. EB Tresos implicit instance traversal (if still nothing found)
                             # If we're at a container definition and can't find the child directly,
                             # look inside all instance children (e.g., AdcConfigSet -> AdcConfigSet_0 -> AdcHwUnit)
+                            # Also looks two levels deep for self-named wrapper/instance patterns like:
+                            # OsAlarmAction (wrapper) -> OsAlarmAction (instance) -> OsAlarmActivateTask -> OsAlarmActivateTaskRef
                             if not found_current_node:
                                 for c_node in n.children:
                                     if c_node.node_type == 'container':
@@ -1367,6 +1421,31 @@ class XPathEngine:
                                             next_nodes.append(sub)
                                             found_current_node = True
                                             break # Found in this instance, no need to check other instances
+                                        # Two-level deep: applies only when c_node is a self-named instance
+                                        # (c_node.short_name == n.short_name), meaning n is a wrapper and
+                                        # c_node is its instance. In that case we look into c_node's children
+                                        # (choice sub-containers), unwrapping self-named wrappers as needed.
+                                        # We do NOT apply this for multi-instance containers (e.g. OsApplication_0..3)
+                                        # because those require context-aware selection (handled by Section 3b).
+                                        if c_node.short_name == n.short_name:
+                                            for cc_node in c_node.children:
+                                                if cc_node.node_type == 'container':
+                                                    # Unwrap self-named wrapper chain (containers only)
+                                                    actual_cc = cc_node
+                                                    while True:
+                                                        inner = actual_cc.get_child(actual_cc.short_name)
+                                                        # Only follow container nodes; stop at parameters/references
+                                                        if inner and inner is not actual_cc and getattr(inner, 'node_type', '') == 'container':
+                                                            actual_cc = inner
+                                                        else:
+                                                            break
+                                                    sub = actual_cc.get_child(name)
+                                                    if sub:
+                                                        next_nodes.append(sub)
+                                                        found_current_node = True
+                                                        break
+                                            if found_current_node:
+                                                break
 
                             # 3b. Context-aware deep search in TYPE wrappers (if still nothing found)
                             # When at module root and looking for a parameter like 'OsApplicationCoreRef',
@@ -1450,6 +1529,22 @@ class XPathEngine:
                                             next_nodes.extend(active_instances)
                                             found_current_node = True
                             
+                            # 3.6: Definition-path intermediate segment fallback
+                            # EB Tresos templates navigate through logical definition-tree layers
+                            # (e.g., OsAlarmAction/OsAlarmActivateTaskRef) where OsAlarmAction
+                            # is only an intermediate segment in the definition path, not an
+                            # actual container in the config tree. The actual container is named
+                            # OsAlarmActivateTask with definition_ref containing /OsAlarmAction/.
+                            if not found_current_node:
+                                needle = f'/{name}/'
+                                for c_node in n.children:
+                                    if (c_node.node_type == 'container' and
+                                            getattr(c_node, 'definition_ref', None) and
+                                            needle in c_node.definition_ref):
+                                        next_nodes.append(c_node)
+                                        found_current_node = True
+                                        # Don't break: there might be multiple sub-choices
+
                             # 4. Fallback for wrappers/aliases and nested containers
                             if not found_current_node:
                                 # Try named child (this catches wrappers added via add_alias)
@@ -1485,6 +1580,24 @@ class XPathEngine:
                                  next_nodes.append(n)
                                  found_current_node = True
 
+                        # 6. Module-root fallback for cross-container navigation
+                        # EB Tresos templates use patterns like ../../OsTask/* from
+                        # inside OsAppTaskRef loops. Without wrapper-skipping in '..',
+                        # ../../ from OsAppTaskRef_0 lands on OsApplication_1, not Os
+                        # module root. OsTask is a sibling container at module root level.
+                        # Search module root's children as a last resort.
+                        if not found_current_node and name != '*':
+                            module_root = n
+                            while module_root.parent is not None:
+                                module_root = module_root.parent
+                            if module_root is not n:  # Not already at module root
+                                for c_node in module_root.children:
+                                    c_def = c_node.definition_ref.split('/')[-1] if getattr(c_node, 'definition_ref', None) else ""
+                                    if c_node.short_name == name or c_def == name:
+                                        next_nodes.append(c_node)
+                                        found_current_node = True
+                                        break
+
             # Apply predicates
             current = self._apply_predicates(next_nodes, predicates)
 
@@ -1492,21 +1605,7 @@ class XPathEngine:
         if len(current) == 0:
             return None
         elif len(current) == 1:
-            # EB Tresos "Implicit Value" rule:
-            # If the path resolves to a single node, and that node is a simple parameter or reference,
-            # return its value (scalar/path string) instead of the node object.
-            # EXCEPT when return_node flag is set (used by node:exists).
             node = current[0]
-            if not self._return_node and hasattr(node, 'node_type'):
-                if node.node_type == 'parameter':
-                    return node.get_value()
-                elif node.node_type == 'reference':
-                    val = node.value
-                    return str(val) if val is not None else ''
-                # Do NOT unwrap containers to short_names here, 
-                # as it breaks navigation in paths like A/B/C where B is a container.
-                # Renderer will handle unwrap-to-string for containers if needed.
-
             # EB Tresos: if the result is a container instance matched by definition-ref
             # and it has a parameter child with the same name as the last path segment,
             # prefer the parameter. This handles the pattern where container and parameter
@@ -1516,10 +1615,8 @@ class XPathEngine:
                 if last_name and last_name != '*':
                     param_child = node.get_child(last_name)
                     if param_child and hasattr(param_child, 'node_type') and param_child.node_type == 'parameter':
-                        if not self._return_node:
-                            return param_child.get_value()
-                        return param_child
-
+                        return self._unwrap_result(param_child)
+            
             return node
         else:
             return current
@@ -1564,35 +1661,43 @@ class XPathEngine:
     
     def _find_context_loop_index(self, node) -> 'Optional[int]':
         """Find the loop index from context stack for a node reached via parent navigation.
-        
+
         In EB Tresos, when evaluating ../../@index inside a nested loop,
         the @index should return the enclosing loop's iteration index for the
         container that matches the navigation target.
-        
-        We search the context stack from bottom to top (skipping current scope)
-        for a loop scope whose context node:
-        - Is the exact same node
-        - Is a child of the same parent wrapper as the target node
-        - Has a parent that is an ancestor of the target node's wrapper
+
+        We search the context stack in two passes (skipping current scope):
+        1. First pass: DIRECT matches only (ctx_node IS node)
+        2. Second pass: parent-chain matches (ctx_node's parent wrapper chain reaches node)
+
+        Two-pass ordering ensures that a direct match at an outer scope wins over
+        a parent-chain match at an inner scope. For example, when evaluating
+        ../../@index from OsAppCounterRef inside OsAppIsrRef loop, the navigated
+        node is OsApplication_X. Direct match finds OsApplication loop (scope 1)
+        instead of OsAppIsrRef loop (scope 2, matched via parent-chain).
         """
         if not hasattr(self, 'context_stack') or not self.context_stack:
             return None
-        
+
         stack = self.context_stack._stack
-        # Skip the current (innermost) scope, search enclosing scopes
+
+        # Pass 1: Direct matches only (most reliable)
         for i in range(len(stack) - 2, -1, -1):
             scope = stack[i]
             if scope.loop_index < 0:
                 continue  # Not a loop scope
-            
+            ctx_node = scope.context_node
+            if ctx_node is not None and ctx_node is node:
+                return scope.loop_index
+
+        # Pass 2: Parent-chain matches (fallback for wrapper navigation)
+        for i in range(len(stack) - 2, -1, -1):
+            scope = stack[i]
+            if scope.loop_index < 0:
+                continue
             ctx_node = scope.context_node
             if ctx_node is None:
                 continue
-            
-            # Direct match: the navigated-to node IS the loop context node
-            if ctx_node is node:
-                return scope.loop_index
-            
             # Check if ctx_node is a child of a wrapper that is a child of `node`
             # (e.g., node=Os, ctx_node=OsApplication_0, wrapper OsApplication is child of Os)
             if hasattr(ctx_node, 'parent') and ctx_node.parent:

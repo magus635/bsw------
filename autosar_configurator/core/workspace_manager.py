@@ -87,7 +87,7 @@ class WorkspaceProject:
         return self.available_chips
 
     def load_ecu_resources(self) -> Dict[str, Any]:
-        """Scan project Def/plugins/ for .properties files and load ECU resources.
+        """Scan project and module definition paths for .properties files and load ECU resources.
 
         This makes ecu:get() / ecu:list() data available during UI browsing
         (not only during code generation).  The result is stored in
@@ -107,15 +107,28 @@ class WorkspaceProject:
 
         project_dir = self.path.parent if self.path.suffix == '.dpa' else self.path
 
-        # Primary: Def/plugins/  (created during EB import)
-        # Fallback: Def/         (legacy layout)
+        # Collect all directories to search
         search_dirs: list[Path] = []
+        
+        # 1. Primary: Def/plugins/ (project local)
         def_plugins = project_dir / "Def" / "plugins"
         if def_plugins.exists():
             search_dirs.append(def_plugins)
+        
+        # 2. Legacy/Fallback: Def/ (project local)
         def_dir = project_dir / "Def"
         if def_dir.exists() and def_dir != def_plugins:
             search_dirs.append(def_dir)
+            
+        # 3. Module Definition Paths (handles external plugins like Os)
+        for def_path in self.module_defs.values():
+            if not def_path:
+                continue
+            # Scan the plugin root (parent of 'config' or 'autosar')
+            # Typical EB path: plugin_dir/config/module.xdm
+            plugin_dir = def_path.parent.parent
+            if plugin_dir.exists() and plugin_dir not in search_dirs:
+                search_dirs.append(plugin_dir)
 
         if not search_dirs:
             return self.ecu_resources
@@ -134,9 +147,13 @@ class WorkspaceProject:
         if self.selected_chip:
             filtered = []
             for pf in all_props:
+                # If it's a resource properties file, it MUST match selected chip
                 if "resource" in str(pf.parent).lower():
-                    # Only keep chip-specific resource files
+                    # Check if chip identifier is in filename
                     if self.selected_chip in pf.stem:
+                        filtered.append(pf)
+                    # Support partial matches (e.g. THA6206 in Os_Resource_THA6206)
+                    elif any(part in pf.stem for part in self.selected_chip.split('_')):
                         filtered.append(pf)
                 else:
                     # Non-resource .properties (build, etc.) always loaded

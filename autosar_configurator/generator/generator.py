@@ -39,7 +39,8 @@ class CodeGenerator:
                  variant_overrides: Optional[Dict[str, Any]] = None,
                  variant_name: Optional[str] = None,
                  all_configurations: Optional[Dict[str, Any]] = None,
-                 selected_chip: Optional[str] = None):
+                 selected_chip: Optional[str] = None,
+                 ecu_resources: Optional[Dict[str, Any]] = None):
         """Initialize generator
         
         Args:
@@ -51,6 +52,7 @@ class CodeGenerator:
             variant_name: Optional name of the active variant
             all_configurations: Optional dict of module_name -> (module_def, configuration)
             selected_chip: Optional name of the selected chip variant (filters .properties files)
+            ecu_resources: Optional pre-loaded ECU resources (overrides automatic scan)
         """
         self.module_def = module_def
         self.configuration = configuration
@@ -61,8 +63,11 @@ class CodeGenerator:
         self.all_configurations = all_configurations or {}
         self.selected_chip = selected_chip
         
-        # Load ECU resources from .properties files in the project
-        self.ecu_resources = self._load_ecu_resources()
+        # Load ECU resources from .properties files in the project (if not provided)
+        if ecu_resources is not None:
+            self.ecu_resources = ecu_resources
+        else:
+            self.ecu_resources = self._load_ecu_resources()
         
         # Initialize EB Engine
         self.template_engine = EBTemplateEngine(strict=False)
@@ -166,8 +171,7 @@ class CodeGenerator:
         ecu_resources = parser.get_ecu_resources_dict()
         if ecu_resources:
             logger.info(f"Loaded {len(ecu_resources)} ECU resources from {len(props_files)} files.")
-            print(f"DEBUG_ECU_RESOURCES: {ecu_resources}")
-        
+
         return ecu_resources
 
     def _get_template_module_names(self) -> List[str]:
