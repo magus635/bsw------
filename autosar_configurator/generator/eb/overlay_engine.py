@@ -586,9 +586,16 @@ class OverlayEngine:
                     wrapper_node.add_child(child_node)
                 node.add_child(wrapper_node)
             else:
+                # EB Tresos: REQUIRES-INDEX parameters are stored in
+                # multi_parameter_values even when single-valued.
+                # Fall back to the first indexed value when the normal
+                # parameter_values dict has no entry.
+                param_val = params_source.get(param_name)
+                if param_val is None and multi_param_list:
+                    param_val = multi_param_list[0]
                 param_node = self._create_parameter_node(
                     param_def,
-                    params_source.get(param_name),
+                    param_val,
                     f"{path}/{param_name}"
                 )
                 node.add_child(param_node)

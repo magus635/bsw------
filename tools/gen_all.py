@@ -42,8 +42,6 @@ for mod_name in modules_to_gen:
         continue
         
     print(f"  [Gen] {mod_name}...")
-    mod_out_dir = out_dir / mod_name / "Default"
-    mod_out_dir.mkdir(parents=True, exist_ok=True)
     
     gen = CodeGenerator(
         module_def=mgr.module_def,
@@ -53,7 +51,8 @@ for mod_name in modules_to_gen:
     )
     
     try:
-        gen.generate_all(mod_out_dir)
+        # Pass base out_dir and let generator handle /Module/Variant nesting
+        gen.generate_all(out_dir, variant="Default")
         print(f"    -> Success: {mod_name}")
     except Exception as e:
         print(f"    -> Failed: {e}")

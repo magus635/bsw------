@@ -1597,7 +1597,10 @@ class Renderer:
                (arg.startswith("'") and arg.endswith("'")):
                 arg = arg[1:-1]
             # Resolve to node, NOT to value
-            if arg.startswith('/'):
+            if arg.startswith('//'):
+                # Descendant axis - must use XPath engine (get_by_path doesn't support //)
+                node = self._xpath_engine.evaluate(arg, return_node=True) if self._xpath_engine else None
+            elif arg.startswith('/'):
                 node = self.symbol_table.get_by_path(arg)
             else:
                 # Relative path - get from current context without implicit value

@@ -1501,9 +1501,6 @@ class BuiltinFunctions:
 
     def variant_name(self) -> str:
         """Get the current variant name"""
-        # "Default" is our internal placeholder for base configuration without variants
-        if self._variant_name == "Default":
-            return ""
         return self._variant_name
     
     def count(self, items) -> int:
@@ -2187,10 +2184,8 @@ class BuiltinFunctions:
 
         Returns a list of all variant names. If a variant is set,
         returns a list containing that variant name.
-        "Default" is an internal placeholder meaning no real variant,
-        consistent with variant_name() returning "" for "Default".
         """
-        if self._variant_name and self._variant_name != "Default":
+        if self._variant_name:
             return [self._variant_name]
         return []
 
@@ -2675,13 +2670,11 @@ class BuiltinFunctions:
 
         Per EB Tresos spec: Returns the count of variants available.
         If no variant information is available, returns 0.
-        "Default" is an internal placeholder meaning no real variant,
-        consistent with variant_name() returning "" for "Default".
 
         Returns:
             Number of variants (0 if no variants defined)
         """
-        if self._variant_name and self._variant_name != "Default":
+        if self._variant_name:
             return 1
         return 0
 
