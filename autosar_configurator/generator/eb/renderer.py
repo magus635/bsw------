@@ -1955,11 +1955,15 @@ class Renderer:
             i += 1
         
         # Execute tokens between NOCODE and ENDNOCODE using state
+        # NOCODE overrides any enclosing CODE block — suppress _in_code_block
+        old_in_code = self._in_code_block
+        self._in_code_block = False
         self._nocode_depth += 1
         try:
             self._execute_tokens(tokens, start + 1, nocode_end)
         finally:
             self._nocode_depth -= 1
+            self._in_code_block = old_in_code
             
         return i  # After ENDNOCODE
 

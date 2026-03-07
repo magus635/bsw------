@@ -2340,10 +2340,11 @@ class BuiltinFunctions:
 
         # Helper: ecu:get always returns scalar/string (not list).
         # Lists are for ecu:list(). If value is a list, join back to
-        # space-separated string to match EB Tresos ecu:get() semantics.
+        # comma-separated string to match EB Tresos ecu:get() semantics.
+        # (Properties files use comma-separated values; templates split by ', ')
         def _as_scalar(val):
             if isinstance(val, list):
-                return ' '.join(str(v) for v in val) + ' '
+                return ', '.join(str(v) for v in val)
             return val
 
         # 1. User override (retained for testing)
