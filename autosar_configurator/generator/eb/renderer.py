@@ -849,8 +849,10 @@ class Renderer:
         if isinstance(node, list):
             node = node[0] if node else None
 
-        # Always execute the block, even with empty context
-        # node:* functions will check for None and raise appropriate errors
+        if node is None:
+            # EB Tresos standard: SELECT with no matching node skips body
+            return i  # After ENDSELECT
+
         self._context_stack.push(node)
 
         self._execute_tokens(tokens, start + 1, select_end)

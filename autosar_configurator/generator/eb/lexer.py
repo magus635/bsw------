@@ -81,7 +81,12 @@ class Lexer:
     # IMPORTANT: Also removes the trailing newline and subsequent leading whitespace
     # to achieve proper line continuation effect
     LINE_COMMENT_PATTERN = re.compile(r'\[!//(?!!])(?!\])[^\n]*\n?[\t ]*')
-    
+
+    # Pattern for block comments [!/* ... */!] that contain nested [! tags
+    # These confuse TAG_PATTERN's non-greedy !] matching; must be stripped first.
+    # Simple block comments (no nested [!) are handled correctly by TAG_PATTERN.
+    BLOCK_COMMENT_PATTERN = re.compile(r'\[!/\*(?:(?!\*/!\]).)*\[!(?:(?!\*/!\]).)*\*/!\]', re.DOTALL)
+
     # Pattern to find [! ... !] blocks (standard tags)
     TAG_PATTERN = re.compile(r'\[!(.*?)!]', re.DOTALL)
     
@@ -143,6 +148,9 @@ class Lexer:
         
         # Then, strip line comments [!// ... (to end of line)
         processed = self.LINE_COMMENT_PATTERN.sub('', processed)
+
+        # Strip block comments [!/* ... */!] before TAG_PATTERN matching
+        processed = self.BLOCK_COMMENT_PATTERN.sub('', processed)
         
         last_pos = 0
         

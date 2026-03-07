@@ -57,8 +57,9 @@ def get_gen_dir(module: str) -> Path:
     """获取模块的生成代码目录"""
     if module == "Os":
         return GEN_BASE / "Os" / "Default" / "Os"
-    # 非 Os 模块: generateCode/<Module>/Default/<Module>/
-    return GEN_BASE / module / "Default" / module
+    # 非 Os 模块: generateCode/<Module>/Default/
+    # generate_all 输出到 GEN_BASE/<Module>/<variant=Default>/ 下的 include/ 和 src/
+    return GEN_BASE / module / "Default"
 
 
 def get_template_dir(module: str) -> Path:
@@ -85,8 +86,16 @@ def generate_module(module: str, project, all_cfgs) -> bool:
         ecu_resources=project.ecu_resources,
     )
 
-    out_dir = GEN_BASE / module / "Default"
-    gen.generate_all(out_dir)
+    # generate_all 自动创建 GEN_BASE/<module_name>/ 子目录
+    if module == "Os":
+        # Os 模板有嵌套 Os/Os/ 结构，generate_all 会自动加 module_name
+        # 输出: GEN_BASE/Os/Default/Os/alarm/... (与标准一致)
+        out_dir = GEN_BASE / module / "Default"
+        gen.generate_all(out_dir)
+    else:
+        # 非 Os 模块: 传入 variant="Default" 使输出路径为 GEN_BASE/<module>/Default/include|src/
+        # builtins.variant_size() 对 "Default" 返回 0（无实际 PB 变体）
+        gen.generate_all(GEN_BASE, variant="Default")
     return True
 
 
