@@ -182,33 +182,30 @@ class TresosPropertiesParser:
         return result
 
     def _convert_single_value(self, value: str) -> Any:
-        """Convert a single string value to appropriate type"""
+        """Convert a single string value to appropriate type.
+
+        EB Tresos convention: values like (0U), 0x1234UL are C-literals
+        meant to be emitted verbatim. Only convert plain numbers.
+        """
         if not value:
             return None
 
-        # Remove surrounding parentheses like (0U)
-        if value.startswith('(') and value.endswith(')'):
-            value = value[1:-1]
-
-        # Remove C-style suffixes like U, L, UL
-        cleaned = re.sub(r'[UuLl]+$', '', value)
-
-        # Try hex
-        if cleaned.startswith('0x') or cleaned.startswith('0X'):
+        # Try hex (without stripping C-suffixes)
+        if value.startswith('0x') or value.startswith('0X'):
             try:
-                return int(cleaned, 16)
+                return int(value, 16)
             except ValueError:
                 pass
 
-        # Try integer
+        # Try integer (plain numbers like "15", "-1")
         try:
-            return int(cleaned)
+            return int(value)
         except ValueError:
             pass
 
         # Try float
         try:
-            return float(cleaned)
+            return float(value)
         except ValueError:
             pass
 
@@ -218,7 +215,7 @@ class TresosPropertiesParser:
         if value.lower() in ('false', 'no', 'off'):
             return False
 
-        # Return as string
+        # Return as string — preserves C-literals like "(0U)", "0x1234UL"
         return value
 
     def get_module_resources(self, module_name: str) -> Dict[str, Any]:

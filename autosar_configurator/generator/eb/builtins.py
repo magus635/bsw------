@@ -1172,6 +1172,8 @@ class BuiltinFunctions:
             value = value.get_value()
         elif hasattr(value, 'value'):
             value = value.value
+        if isinstance(value, float):
+            return self._format_float_java(value)
         return str(value) if value is not None else ''
 
     def num_order(self, values: Any) -> List[Any]:
@@ -1333,25 +1335,32 @@ class BuiltinFunctions:
     def _format_float_java(value: float) -> str:
         """Format float like Java's Double.toString() for EB Tresos compatibility.
 
-        Python: str(4e-08) -> "4e-08"  (5 chars, lowercase e, zero-padded exp)
-        Java:   4e-08      -> "4.0E-8" (6 chars, decimal point, uppercase E)
+        Java uses scientific notation for |value| >= 1e7 or |value| < 1e-3.
+        Python: str(200000000.0) -> "200000000.0", str(4e-08) -> "4e-08"
+        Java:   "2.0E8",                           "4.0E-8"
         """
-        s = repr(value)
-        if 'e' in s:
-            parts = s.split('e')
-            mantissa = parts[0]
-            exp = int(parts[1])
-            # Java always has at least one decimal digit
-            if '.' not in mantissa:
-                mantissa += '.0'
+        import math
+        if value == 0.0:
+            return '-0.0' if str(value) == '-0.0' else '0.0'
+        abs_val = abs(value)
+        sign = '-' if value < 0 else ''
+        # Java uses scientific notation for values >= 1e7 or < 1e-3
+        if abs_val >= 1e7 or abs_val < 1e-3:
+            exp = int(math.floor(math.log10(abs_val)))
+            mantissa = abs_val / (10.0 ** exp)
+            m_str = f"{mantissa:.15g}"
+            if '.' not in m_str:
+                m_str += '.0'
             else:
-                mantissa = mantissa.rstrip('0')
-                if mantissa.endswith('.'):
-                    mantissa += '0'
-            return f"{mantissa}E{exp}"
-        if '.' not in s:
-            return s + '.0'
-        return s
+                m_str = m_str.rstrip('0')
+                if m_str.endswith('.'):
+                    m_str += '0'
+            return f"{sign}{m_str}E{exp}"
+        else:
+            s = repr(value)
+            if '.' not in s:
+                s += '.0'
+            return s
     
     def string_contains(self, s, substring: str) -> bool:
         """Check if string contains substring, or if list contains element.

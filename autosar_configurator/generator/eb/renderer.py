@@ -684,7 +684,7 @@ class Renderer:
             if self._context_stack.has_variable(var_name):
                 value = self._context_stack.get_variable(var_name)
                 value = self._unwrap_value(value)
-                return str(value)
+                return self._builtins.to_string(value)
             else:
                 # Variable not found, keep original
                 return match.group(0)
@@ -1142,10 +1142,14 @@ class Renderer:
                     try:
                         # Helper to convert to number if possible
                         def to_number(v):
+                            if v is None:
+                                return 0
                             if isinstance(v, (int, float)):
                                 return v
                             if isinstance(v, str):
                                 v = v.strip()
+                                if not v:
+                                    return 0
                                 try:
                                     if '.' in v:
                                         return float(v)
@@ -1162,7 +1166,7 @@ class Renderer:
                             if l_num is not None and r_num is not None:
                                 return l_num + r_num
                             # Fall back to string concatenation
-                            return str(left_val) + str(right_val)
+                            return self._builtins.to_string(left_val) + self._builtins.to_string(right_val)
 
                         l_v = float(left_val) if not isinstance(left_val, (int, float)) else left_val
                         r_v = float(right_val) if not isinstance(right_val, (int, float)) else right_val
