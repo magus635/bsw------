@@ -265,10 +265,18 @@ class CodeGenerator:
             if mod_dir.exists():
                 dirs_to_scan.append(mod_dir)
             else:
-                for item in base_dir.iterdir():
-                    if item.is_dir() and item.name.lower() == module_name.lower():
-                        dirs_to_scan.append(item)
-                        break
+                try:
+                    for item in base_dir.iterdir():
+                        if item.name == '.DS_Store' or item.name.startswith('._'):
+                            continue
+                        try:
+                            if item.is_dir() and item.name.lower() == module_name.lower():
+                                dirs_to_scan.append(item)
+                                break
+                        except PermissionError:
+                            continue
+                except PermissionError:
+                    pass
                         
             # 2. Variant dir
             if self.variant_name:
@@ -277,51 +285,68 @@ class CodeGenerator:
                     if var_dir.exists():
                         dirs_to_scan.append(var_dir)
                     else:
-                        for item in md.iterdir():
-                            if item.is_dir() and item.name.lower() == self.variant_name.lower():
-                                dirs_to_scan.append(item)
-                                break
+                        try:
+                            for item in md.iterdir():
+                                if item.name == '.DS_Store' or item.name.startswith('._'):
+                                    continue
+                                try:
+                                    if item.is_dir() and item.name.lower() == self.variant_name.lower():
+                                        dirs_to_scan.append(item)
+                                        break
+                                except PermissionError:
+                                    continue
+                        except PermissionError:
+                            pass
                                 
             for md in dirs_to_scan:
-                for f in md.rglob("*"):
-                    if not f.is_file():
-                        continue
-                        
-                    if f.suffix.lower() == '.m':
-                        continue
-                        
-                    name_lower = f.name.lower()
-                    prefix_lower = f"{module_name}_".lower()
-                    
-                    if name_lower.startswith(prefix_lower) or name_lower.startswith("module_"):
+                try:
+                    for f in md.rglob("*"):
                         try:
-                            rel_path = f.parent.relative_to(md)
-                        except ValueError:
-                            rel_path = Path('.')
-                            
-                        rel_dir = str(rel_path).replace('\\', '/')
-                        
-                        if name_lower.startswith(prefix_lower):
-                            suffix = f.name[len(module_name)+1:]
-                        else:
-                            suffix = f.name[7:] # remove Module_
-                            
-                        if suffix.endswith('.tpl'):
-                            t_type = suffix[:-4]
-                        elif suffix.endswith('.c') or suffix.endswith('.h'):
-                            t_type = suffix
-                        else:
+                            if not f.is_file():
+                                continue
+                        except PermissionError:
                             continue
                             
-                        dedup_key = f"{rel_dir}/{t_type}"
-                        if dedup_key not in template_dict:
-                            template_dict[dedup_key] = {
-                                'type': t_type,
-                                'rel_dir': rel_dir,
-                                'template_name': f.name,
-                                'original_path': str(f.resolve()),
-                                'source_dir': str(md.resolve())
-                            }
+                        if f.name == '.DS_Store' or f.name.startswith('._'):
+                            continue
+
+                        if f.suffix.lower() == '.m':
+                            continue
+
+                        name_lower = f.name.lower()
+                        prefix_lower = f"{module_name}_".lower()
+
+                        if name_lower.startswith(prefix_lower) or name_lower.startswith("module_"):
+                            try:
+                                rel_path = f.parent.relative_to(md)
+                            except ValueError:
+                                rel_path = Path('.')
+
+                            rel_dir = str(rel_path).replace('\\', '/')
+
+                            if name_lower.startswith(prefix_lower):
+                                suffix = f.name[len(module_name)+1:]
+                            else:
+                                suffix = f.name[7:] # remove Module_
+
+                            if suffix.endswith('.tpl'):
+                                t_type = suffix[:-4]
+                            elif suffix.endswith('.c') or suffix.endswith('.h'):
+                                t_type = suffix
+                            else:
+                                continue
+
+                            dedup_key = f"{rel_dir}/{t_type}"
+                            if dedup_key not in template_dict:
+                                template_dict[dedup_key] = {
+                                    'type': t_type,
+                                    'rel_dir': rel_dir,
+                                    'template_name': f.name,
+                                    'original_path': str(f.resolve()),
+                                    'source_dir': str(md.resolve())
+                                }
+                except PermissionError:
+                    pass
 
         if self.project_template_dir:
             scan_directory_recursively(self.project_template_dir)

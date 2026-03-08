@@ -129,7 +129,7 @@ class Lexer:
     def __init__(self):
         self._line = 1
         self._column = 1
-    
+
     def tokenize(self, template: str) -> List[Token]:
         """Tokenize a template string into a list of tokens.
         
@@ -176,12 +176,12 @@ class Lexer:
             text_content = processed[last_pos:]
             if text_content:
                 tokens.append(self._make_text_token(text_content))
-        
+
         # Post-process for directive-only lines and smart trimming
         tokens = self._identify_directive_lines(tokens)
-        
+
         return tokens
-    
+
     def _identify_directive_lines(self, tokens: List[Token]) -> List[Token]:
         """Identify lines that contain only directives and whitespace.
         Set directive_only_line=True for such tokens.

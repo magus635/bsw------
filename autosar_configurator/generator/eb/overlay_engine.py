@@ -585,6 +585,19 @@ class OverlayEngine:
                     )
                     wrapper_node.add_child(child_node)
                 node.add_child(wrapper_node)
+            elif is_multi and not multi_param_list:
+                # Multi-valued parameter with no config entries: create empty
+                # wrapper node so count(.../param/*) correctly returns 0.
+                wrapper_node = ConfigurationNode(
+                    short_name=param_name,
+                    node_type='parameter',
+                    path=f"{path}/{param_name}",
+                    definition_ref=param_def.definition_ref,
+                    lower_multiplicity=param_def.lower_multiplicity,
+                    upper_multiplicity=param_def.upper_multiplicity,
+                    is_wrapper=True
+                )
+                node.add_child(wrapper_node)
             else:
                 # EB Tresos: REQUIRES-INDEX parameters are stored in
                 # multi_parameter_values even when single-valued.

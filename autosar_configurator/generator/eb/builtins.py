@@ -335,7 +335,7 @@ class BuiltinFunctions:
                     # Not a child name and not a path — it's already a value
                     return node
 
-            path = node
+            path = str(node).strip()
             if path.startswith('/'):
                 # Absolute path
                 node = self.symbol_table.get_by_path(path)
@@ -356,24 +356,23 @@ class BuiltinFunctions:
                             node = node.get_child(part)
                     except:
                         node = None
-                    
-                    # If simple lookup failed, try XPath evaluation from current context
-                    if node is None:
-                        try:
-                            from . import xpath_engine
-                            engine = xpath_engine.XPathEngine(self.symbol_table, self.context_stack, self)
-                            result = engine.evaluate(path)
-                            if result is not None:
-                                # XPath may return list; get first element
-                                if isinstance(result, list) and result:
-                                    node = result[0]
-                                else:
-                                    node = result
-                        except Exception as e:
-                            import logging
-                            logging.debug(f"node:value(): XPath evaluation failed for '{path}': {e}")
-                            node = None
-                else:
+                        
+            # If simple lookup failed, try XPath evaluation from current context
+            # This handles both absolute and relative paths with complex predicates (like *[1])
+            if node is None:
+                try:
+                    from . import xpath_engine
+                    engine = xpath_engine.XPathEngine(self.symbol_table, self.context_stack, self)
+                    result = engine.evaluate(path)
+                    if result is not None:
+                        # XPath may return list; get first element
+                        if isinstance(result, list) and result:
+                            node = result[0]
+                        else:
+                            node = result
+                except Exception as e:
+                    import logging
+                    logging.debug(f"node:value(): XPath evaluation failed for '{path}': {e}")
                     node = None
         
         if node is None:
@@ -2367,6 +2366,20 @@ class BuiltinFunctions:
         if len(parts) < 2:
             _debug_log(f"WARNING: ecu:get('{path}') - invalid path format")
             return None
+
+        # Custom logic for Resource.NumOfCores which is usually derived from the module configuration
+        if path == "Resource.NumOfCores":
+            res_mod = self.symbol_table.get_module('Resource')
+            if res_mod:
+                try:
+                    # Use local XPath engine to avoid imports loop
+                    from .xpath_engine import XPathEngine
+                    engine = XPathEngine(self.symbol_table, self.context_stack, self)
+                    cores = engine.evaluate("as:modconf('Resource')[1]/ResourceCoreConfigSet/ResourceCoreConfig/*", return_node=True)
+                    if isinstance(cores, list):
+                        return len(cores)
+                except Exception:
+                    pass
 
         module_name = parts[0]
         param_parts = parts[1:]

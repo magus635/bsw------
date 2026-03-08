@@ -357,6 +357,28 @@ class Renderer:
                         if content.strip() == '':
                             content = ''  # Skip pure whitespace on directive lines
 
+                # Strip trailing directive-line whitespace from TEXT tokens,
+                # but ONLY when next token is a context-establishing directive
+                # (CALL, CODE, INDENT, WS) that will restore correct indentation
+                # or explicitly control whitespace output.
+                # This prevents template nesting whitespace from leaking into
+                # output when macros/code blocks use their own INDENT directives,
+                # or when WS directives explicitly specify whitespace amounts.
+                _CONTEXT_DIRECTIVES = {TokenType.CALL, TokenType.CODE, TokenType.INDENT, TokenType.WS,
+                                       TokenType.ENDLOOP, TokenType.ENDFOR}
+                if content:
+                    last_nl = content.rfind('\n')
+                    if last_nl == -1:
+                        last_nl = content.rfind('\r')
+                    if last_nl != -1:
+                        after_nl = content[last_nl + 1:]
+                        if after_nl and not after_nl.strip():
+                            next_idx = i + 1
+                            if next_idx < len(tokens):
+                                next_tok = tokens[next_idx]
+                                if next_tok.type in _CONTEXT_DIRECTIVES:
+                                    content = content[:last_nl + 1]
+
                 # Apply indentation
                 content = self._apply_indent(content)
                 self._output_buffer.append(content)
@@ -504,9 +526,9 @@ class Renderer:
             else:
                 # Unknown or end token - skip
                 i += 1
-        
+
         return i
-    
+
     def _apply_indent(self, text: str) -> str:
         """Apply current indentation to text.
 

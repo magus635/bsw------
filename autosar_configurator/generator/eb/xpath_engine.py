@@ -1372,11 +1372,12 @@ class XPathEngine:
                                     next_nodes.extend(c.get_children_list())
                                 else:
                                     next_nodes.append(c)
-                        elif hasattr(n, 'node_type') and n.node_type == 'parameter':
+                        elif hasattr(n, 'node_type') and n.node_type == 'parameter' and not getattr(n, 'is_wrapper', False):
                             # EB Tresos compatibility: param/*[1] on a simple parameter
                             # (leaf node with no children) returns the parameter itself.
                             # This allows patterns like GptNotification/*[1] to retrieve
                             # the parameter value.
+                            # But NOT for empty wrapper nodes (multi-valued with 0 entries).
                             next_nodes.append(n)
                     elif name == '.':
                         next_nodes.append(n)
@@ -1980,37 +1981,89 @@ class XPathEngine:
         - num:i($Value) * 2
         - string-length(Name)
         - node:value(./Child)
-        
-        Args:
-            expr: Expression string to evaluate
-            context_node: Optional context node for relative paths
-            
-        Returns:
-            Evaluated value (number, string, bool, or node)
         """
-        # Temporarily push context node if provided
-        if context_node:
-            self.context_stack.push(context_node)
-        
-        try:
-            # Handle complex expressions via evaluate
-            if '(' in expr or '$' in expr or '/' in expr:
-                res = self.evaluate(expr)
-                if res is not None:
-                    return res
-        finally:
-            if context_node:
-                self.context_stack.pop()
+        expr = expr.strip()
         
         # Handle quoted strings
         if (expr.startswith('"') and expr.endswith('"')) or \
            (expr.startswith("'") and expr.endswith("'")):
             return expr[1:-1]
+            
+        def find_operator_outside_parens(s, ops):
+            """Find operator position outside of parentheses, brackets, and quotes."""
+            depth = 0
+            bracket_depth = 0
+            in_quote = None
+            for i in range(len(s) - 1, -1, -1):  # Right to left for left associativity
+                c = s[i]
+                if c in ('"', "'") and (i == 0 or s[i-1] != '\\'):
+                    if in_quote == c:
+                        in_quote = None
+                    elif in_quote is None:
+                        in_quote = c
+                elif in_quote is None:
+                    if c == ')':
+                        depth += 1
+                    elif c == '(':
+                        depth -= 1
+                    elif c == ']':
+                        bracket_depth += 1
+                    elif c == '[':
+                        bracket_depth -= 1
+                    elif depth == 0 and bracket_depth == 0:
+                        for op, py_op in ops:
+                            if op == ' div ':
+                                if s[max(0,i-4):i+1] == ' div ':
+                                    return i-4, 5, py_op
+                            elif op == ' mod ':
+                                if s[max(0,i-4):i+1] == ' mod ':
+                                    return i-4, 5, py_op
+                            elif c == op:
+                                return i, 1, py_op
+            return -1, 0, None
+
+        # Handle arithmetic expressions: $a + $b, num:i($x) * 2, etc.
+        # Check for + and - first (lowest precedence)
+        pos, length, py_op = find_operator_outside_parens(expr, [('+', '+'), ('-', '-')])
+        if pos > 0:  # pos > 0 to avoid matching unary minus
+            left = expr[:pos].strip()
+            right = expr[pos + length:].strip()
+            if left and right:
+                left_val = self._evaluate_predicate_expression(left, context_node)
+                right_val = self._evaluate_predicate_expression(right, context_node)
+                try:
+                    left_num = float(left_val) if left_val is not None else 0
+                    right_num = float(right_val) if right_val is not None else 0
+                    if py_op == '+':
+                        return left_num + right_num
+                    elif py_op == '-':
+                        return left_num - right_num
+                except (ValueError, TypeError) as e:
+                    pass
         
+        # Check for *, div, mod (higher precedence)
+        pos, length, py_op = find_operator_outside_parens(expr, [('*', '*'), (' div ', '/'), (' mod ', '%')])
+        if pos >= 0:
+            left = expr[:pos].strip()
+            right = expr[pos + length:].strip()
+            if left and right:
+                left_val = self._evaluate_predicate_expression(left, context_node)
+                right_val = self._evaluate_predicate_expression(right, context_node)
+                try:
+                    left_num = float(left_val) if left_val is not None else 0
+                    right_num = float(right_val) if right_val is not None else 0
+                    if py_op == '*':
+                        return left_num * right_num
+                    elif py_op == '/':
+                        return left_num / right_num if right_num != 0 else 0
+                    elif py_op == '%':
+                        return left_num % right_num if right_num != 0 else 0
+                except (ValueError, TypeError) as e:
+                    pass
+
         # Handle pure numbers
         if expr.lstrip('-').isdigit():
             return int(expr)
-
         if re.match(r'^-?\d+\.\d+$', expr):
             return float(expr)
 
@@ -2036,123 +2089,39 @@ class XPathEngine:
 
         # Handle variable references (only pure $var or $var/path, not $var - 1)
         if expr.startswith('$'):
-            # Extract the variable name (word characters only)
             var_match = re.match(r'^\$(\w+)(.*)', expr)
             if var_match:
                 var_name = var_match.group(1)
                 remainder = var_match.group(2).strip()
                 if not remainder:
-                    # Pure variable reference: $var
                     if self.context_stack.has_variable(var_name):
                         return self.context_stack.get_variable(var_name)
                     return None
                 elif remainder.startswith('/'):
-                    # Variable path: $var/path
-                    rest_path = remainder[1:]
-                    if self.context_stack.has_variable(var_name):
-                        base_node = self.context_stack.get_variable(var_name)
-                        if hasattr(base_node, 'get_child'):
-                            return self._evaluate_relative(rest_path, base_node)
+                    var_val = self.context_stack.get_variable(var_name)
+                    if hasattr(var_val, 'node_type'):
+                        return self._evaluate_relative(remainder[1:], var_val)
                     return None
-                # Otherwise (e.g. $var - 1, $var + $other), fall through to arithmetic handling
-        
-        # Handle function calls - more specific pattern to avoid matching parenthesized expressions
-        if '(' in expr and ')' in expr:
-            # Check if it looks like a function call: identifier(args)
-            if re.match(r'^[\w:]+\s*\(', expr):
-                if self.function_handler:
-                    result = self.evaluate(expr)
-                    if result is not None:
-                        # Unwrap ConfigurationNode values
-                        if hasattr(result, 'get_value'):
-                            return result.get_value()
-                        return result
-                    # If evaluate returned None, fall through to arithmetic handling
-        
-        # Handle relative paths in context
-        if context_node and hasattr(context_node, 'get_child'):
-            # Check if it's a simple child name
-            if re.match(r'^[A-Za-z_]\w*$', expr):
-                child = context_node.get_child(expr)
-                if child:
-                    return child.get_value()
-            # Handle ./path syntax
-            elif expr.startswith('./'):
-                result = self._evaluate_relative(expr[2:], context_node)
-                if hasattr(result, 'get_value'):
-                    return result.get_value()
-                return result
-        
-        # Handle arithmetic expressions: $a + $b, num:i($x) * 2, etc.
-        # Parse operators: +, -, *, div, mod (process in order of precedence, lowest first)
-        # We need to find operators NOT inside parentheses
-        def find_operator_outside_parens(s, ops):
-            """Find operator position outside of parentheses and quotes."""
-            depth = 0
-            in_quote = None
-            for i in range(len(s) - 1, -1, -1):  # Right to left for left associativity
-                c = s[i]
-                if c in ('"', "'") and (i == 0 or s[i-1] != '\\'):
-                    if in_quote == c:
-                        in_quote = None
-                    elif in_quote is None:
-                        in_quote = c
-                elif in_quote is None:
-                    if c == ')':
-                        depth += 1
-                    elif c == '(':
-                        depth -= 1
-                    elif depth == 0:
-                        for op, py_op in ops:
-                            if op == ' div ':
-                                if s[max(0,i-4):i+1] == ' div ':
-                                    return i-4, 5, py_op
-                            elif op == ' mod ':
-                                if s[max(0,i-4):i+1] == ' mod ':
-                                    return i-4, 5, py_op
-                            elif c == op:
-                                return i, 1, py_op
-            return -1, 0, None
-        
-        # Check for + and - first (lowest precedence)
-        pos, length, py_op = find_operator_outside_parens(expr, [('+', '+'), ('-', '-')])
-        if pos > 0:  # pos > 0 to avoid matching unary minus
-            left = expr[:pos].strip()
-            right = expr[pos + length:].strip()
-            if left and right:
-                left_val = self._evaluate_predicate_expression(left, context_node)
-                right_val = self._evaluate_predicate_expression(right, context_node)
-                try:
-                    left_num = float(left_val) if left_val is not None else 0
-                    right_num = float(right_val) if right_val is not None else 0
-                    if py_op == '+':
-                        return left_num + right_num
-                    elif py_op == '-':
-                        return left_num - right_num
-                except (ValueError, TypeError):
-                    pass
-        
-        # Check for *, div, mod (higher precedence)
-        pos, length, py_op = find_operator_outside_parens(expr, [('*', '*'), (' div ', '/'), (' mod ', '%')])
-        if pos >= 0:
-            left = expr[:pos].strip()
-            right = expr[pos + length:].strip()
-            if left and right:
-                left_val = self._evaluate_predicate_expression(left, context_node)
-                right_val = self._evaluate_predicate_expression(right, context_node)
-                try:
-                    left_num = float(left_val) if left_val is not None else 0
-                    right_num = float(right_val) if right_val is not None else 0
-                    if py_op == '*':
-                        return left_num * right_num
-                    elif py_op == '/':
-                        return left_num / right_num if right_num != 0 else 0
-                    elif py_op == '%':
-                        return left_num % right_num if right_num != 0 else 0
-                except (ValueError, TypeError):
-                    pass
-        
-        return expr  # Return as-is if no pattern matched
+
+        # Handle relative contexts
+        if expr == '.':
+            return context_node
+        elif expr == '..':
+            return context_node.parent if hasattr(context_node, 'parent') else None
+        elif expr.startswith('./'):
+            result = self._evaluate_relative(expr[2:], context_node)
+            if hasattr(result, 'get_value'):
+                return result.get_value()
+            return result
+
+        # Context push/pop for evaluate
+        if context_node:
+            self.context_stack.push(context_node)
+        try:
+            return self.evaluate(expr)
+        finally:
+            if context_node:
+                self.context_stack.pop()
     
     def _evaluate_predicate_condition(self, node: 'ConfigurationNode', condition: str) -> bool:
         """Evaluate a predicate condition in context of a node.
