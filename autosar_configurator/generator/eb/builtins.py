@@ -1099,10 +1099,10 @@ class BuiltinFunctions:
             except ValueError:
                 return 0
         try:
-            return int(s)
+            return int(s, 16)
         except ValueError:
             return 0
-    
+
     def num_is_nan(self, value: Any) -> bool:
         """Check if value is not a number"""
         try:

@@ -154,11 +154,10 @@ class TresosPropertiesParser:
             items = [v.strip() for v in value.split(',') if v.strip()]
             return self._convert_list_items(items)
 
-        # Check for space-separated list (but not single value)
-        if ' ' in value and not value.startswith('(') and not value.startswith('0x'):
-            parts = value.split()
-            if len(parts) > 1 and all(self._looks_like_list_item(p) for p in parts):
-                return self._convert_list_items(parts)
+        # Space-separated values: keep as raw string for ecu:get() compatibility.
+        # EB Tresos ecu:get() returns the original property string; templates use
+        # contains(ecu:get(...), 'VALUE ') with space as delimiter.
+        # Only comma-separated values (handled above) are split into lists.
 
         # Try to convert single value
         return self._convert_single_value(value)
