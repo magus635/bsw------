@@ -52,7 +52,9 @@ class ArxmlParser:
             raise FileNotFoundError(f"File not found: {file_path}")
 
         try:
-            tree = etree.parse(str(file_path))
+            # Safe parser to prevent XXE (disable entity resolution)
+            parser = etree.XMLParser(resolve_entities=False)
+            tree = etree.parse(str(file_path), parser=parser)
 
             # Validate against schema if available
             if self.schema:
@@ -98,7 +100,9 @@ class ArxmlParser:
             Root container with parsed content
         """
         try:
-            root = etree.fromstring(xml_string.encode('utf-8'))
+            # Safe parser to prevent XXE
+            parser = etree.XMLParser(resolve_entities=False)
+            root = etree.fromstring(xml_string.encode('utf-8'), parser=parser)
 
             # Check if this is an AUTOSAR root element
             if 'AUTOSAR' in root.tag:
@@ -319,7 +323,9 @@ class ArxmlParser:
         if not file_path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
 
-        tree = etree.parse(str(file_path))
+        # Safe parser to prevent XXE
+        parser = etree.XMLParser(resolve_entities=False)
+        tree = etree.parse(str(file_path), parser=parser)
         root = tree.getroot()
 
         modules = []

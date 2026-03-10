@@ -29,6 +29,7 @@ class ArxmlElement(ABC, Subject):
     # Internal state
     _dirty: bool = field(default=False, init=False, repr=False)
     _lock: RLock = field(default_factory=RLock, init=False, repr=False)
+    _cached_path: Optional[str] = field(default=None, init=False, repr=False)
 
     def __post_init__(self):
         """Post-initialization validation"""
@@ -43,6 +44,21 @@ class ArxmlElement(ABC, Subject):
             raise ValueError("shortName must start with letter")
         if not all(c.isalnum() or c == '_' for c in self.short_name):
             raise ValueError("shortName contains invalid characters")
+
+    def set_short_name(self, name: str):
+        """Set short name and invalidate path cache"""
+        with self._lock:
+            if self.short_name != name:
+                self.short_name = name
+                self._validate_short_name()
+                self.invalidate_path_cache()
+                self.mark_dirty()
+
+    def invalidate_path_cache(self):
+        """Invalidate path cache for this element and all its children"""
+        with self._lock:
+            self._cached_path = None
+            # Children path cache should be invalidated if implemented in subclasses
 
     @property
     def is_dirty(self) -> bool:
@@ -63,10 +79,17 @@ class ArxmlElement(ABC, Subject):
             self._dirty = False
 
     def get_path(self) -> str:
-        """Get full path of element"""
-        if self.parent is None:
-            return f"/{self.short_name}"
-        return f"{self.parent.get_path()}/{self.short_name}"
+        """Get full path of element with caching"""
+        with self._lock:
+            if self._cached_path is not None:
+                return self._cached_path
+            
+            if self.parent is None:
+                self._cached_path = f"/{self.short_name}"
+            else:
+                self._cached_path = f"{self.parent.get_path()}/{self.short_name}"
+            
+            return self._cached_path
 
     @property
     def path(self) -> str:

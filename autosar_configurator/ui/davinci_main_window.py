@@ -2655,25 +2655,20 @@ class DaVinciMainWindow(QMainWindow):
                 f"已更新 {Path(output_path).name} 文件标记确认状态。"
             )
         
-        # Optionally still offer to open the full report doc
-        if output_path and Path(output_path).exists():
-            reply = QMessageBox.question(
-                self,
-                "查看完整报告",
-                f"分析报告已生成并包含详细原因建议。\n\n是否打开 {Path(output_path).name} 查阅原始报告？",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
-            
-            if reply == QMessageBox.Yes:
-                import subprocess
-                import sys
-                if sys.platform == 'darwin':
-                    subprocess.run(['open', str(output_path)])
-                elif sys.platform == 'win32':
-                    subprocess.run(['start', str(output_path)], shell=True)
-                else:
-                    subprocess.run(['xdg-open', str(output_path)])
+            if output_path and Path(output_path).exists():
+                from PySide6.QtGui import QDesktopServices
+                from PySide6.QtCore import QUrl
+                
+                reply = QMessageBox.question(
+                    self,
+                    "查看完整报告",
+                    f"分析报告已生成并包含详细原因建议。\n\n是否打开 {Path(output_path).name} 查阅原始报告？",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.No
+                )
+                
+                if reply == QMessageBox.Yes:
+                    QDesktopServices.openUrl(QUrl.fromLocalFile(str(output_path)))
     
     def _on_dependency_analysis_error(self, error: str):
         """Handle dependency analysis error"""
