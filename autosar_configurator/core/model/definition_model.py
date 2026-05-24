@@ -248,13 +248,29 @@ class EcucModuleDef:
         
         Args:
             path: e.g., "AdcConfigSet" or "AdcConfigSet/AdcHwUnit"
+                  Also handles EB Tresos instance-indexed paths like
+                  "OsCoreIdMappingConfig_0/OsCoreMemoryProtection_1"
         """
+        import re
         parts = path.split('/')
         current = self.containers.get(parts[0])
+        
+        # EB Tresos fallback: strip trailing _N instance index suffix
+        if current is None:
+            stripped = re.sub(r'_\d+$', '', parts[0])
+            if stripped != parts[0]:
+                current = self.containers.get(stripped)
         
         for part in parts[1:]:
             if current is None:
                 return None
-            current = current.sub_containers.get(part)
+            sub = current.sub_containers.get(part)
+            if sub is None:
+                # EB Tresos fallback: strip trailing _N instance index suffix
+                stripped = re.sub(r'_\d+$', '', part)
+                if stripped != part:
+                    sub = current.sub_containers.get(stripped)
+            current = sub
         
         return current
+

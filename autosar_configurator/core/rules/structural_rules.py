@@ -140,14 +140,24 @@ class MultiplicityValidationRule(ValidationRule):
     
     def _definition_refs_match(self, config_ref: str, def_ref: str, short_name: str) -> bool:
         """Check if a config definition_ref matches a module definition's definition_ref.
-        
+
         First tries exact match, then falls back to matching by container short_name
         (last path segment), to handle EB Tresos projects with vendor-specific paths.
+        EB Tresos also embeds the instance index in the definition_ref last segment
+        (e.g. ``OsCoreIdMappingConfig_0``), so we also try after stripping a
+        trailing ``_<digits>`` suffix.
         """
+        import re
+
         # Try exact match first
         if config_ref == def_ref:
             return True
-        
+
         # Fall back to matching by short_name (last segment of path)
         config_short_name = config_ref.rstrip('/').split('/')[-1] if config_ref else ""
-        return config_short_name == short_name
+        if config_short_name == short_name:
+            return True
+
+        # EB Tresos: strip trailing instance-index suffix (_0, _1, …)
+        stripped = re.sub(r'_\d+$', '', config_short_name)
+        return stripped == short_name

@@ -123,11 +123,49 @@ class EcucDefParser:
             # Find top-level containers in the target_container_root
             for container_elem in target_container_root.xpath("./v:lst | ./v:ctr", namespaces=self.NAMESPACES):
                 tag_local = etree.QName(container_elem).localname
+                
+                # Extract multiplicity from v:lst if applicable
+                lst_lower = None
+                lst_upper = None
+                if tag_local == 'lst':
+                    ns_a = self.NAMESPACES['a']
+                    min_da = container_elem.xpath("a:da[@name='MIN']/@value", namespaces={'a': ns_a})
+                    max_da = container_elem.xpath("a:da[@name='MAX']/@value", namespaces={'a': ns_a})
+                    if min_da:
+                        try:
+                            lst_lower = int(min_da[0])
+                        except ValueError:
+                            pass
+                    if max_da:
+                        try:
+                            lst_upper = int(max_da[0])
+                        except ValueError:
+                            pass
+                    else:
+                        max_da_elems = container_elem.xpath("a:da[@name='MAX']", namespaces={'a': ns_a})
+                        if max_da_elems:
+                            da_type = max_da_elems[0].get('type', '')
+                            da_expr = max_da_elems[0].get('expr', '')
+                            if da_type == 'XPath' and da_expr:
+                                resolved = self._resolver.resolve_expression(da_expr)
+                                if isinstance(resolved, int) and resolved > 0:
+                                    lst_upper = resolved
+                                else:
+                                    lst_upper = -1
+                        else:
+                            lst_upper = -1
+
                 # If lst, the actual ctr is inside
                 target_elems = [container_elem] if tag_local == 'ctr' else container_elem.xpath("v:ctr", namespaces=self.NAMESPACES)
                 for target in target_elems:
                     container_def = self._parse_container_def(target)
                     if container_def:
+                        # Apply v:lst multiplicity to container definition
+                        if lst_lower is not None:
+                            container_def.lower_multiplicity = lst_lower
+                        if lst_upper is not None:
+                            container_def.upper_multiplicity = lst_upper
+                            
                         # Set full definition reference path
                         container_def.definition_ref = f"/AUTOSAR/EcucDefs/{module_def.short_name}/{container_def.short_name}"
                         # Avoid duplicates if already added
@@ -680,20 +718,32 @@ class EcucDefParser:
             expr = tst.get('expr', '')
             if not expr:
                 continue
-            m_le = re.match(r'<=\s*(-?\d+\.?\d*)', expr)
-            m_ge = re.match(r'>=\s*(-?\d+\.?\d*)', expr)
+            
+            # Match hexadecimal (e.g., 0xFFFFFFFF) or scientific/floating point/integer (e.g., 1.0E-3, 4e-8)
+            pattern = r'(0[xX][0-9a-fA-F]+|-?\d+\.?\d*(?:[eE][-+]?\d+)?)'
+            m_le = re.match(r'<=\s*' + pattern, expr)
+            m_ge = re.match(r'>=\s*' + pattern, expr)
+            
             if m_le:
                 val_str = m_le.group(1)
-                if param_type == EcucParameterType.FLOAT:
-                    param_def.max_value = float(val_str)
-                else:
-                    param_def.max_value = int(float(val_str))
+                try:
+                    val = int(val_str, 16) if val_str.lower().startswith('0x') else float(val_str)
+                    if param_type == EcucParameterType.FLOAT:
+                        param_def.max_value = float(val)
+                    else:
+                        param_def.max_value = int(val)
+                except ValueError:
+                    pass
             elif m_ge:
                 val_str = m_ge.group(1)
-                if param_type == EcucParameterType.FLOAT:
-                    param_def.min_value = float(val_str)
-                else:
-                    param_def.min_value = int(float(val_str))
+                try:
+                    val = int(val_str, 16) if val_str.lower().startswith('0x') else float(val_str)
+                    if param_type == EcucParameterType.FLOAT:
+                        param_def.min_value = float(val)
+                    else:
+                        param_def.min_value = int(val)
+                except ValueError:
+                    pass
 
     def _parse_literals(self, element: etree._Element) -> List[str]:
         """Parse enumeration literals"""

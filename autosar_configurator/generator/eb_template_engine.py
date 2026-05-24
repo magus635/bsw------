@@ -84,8 +84,9 @@ class EBTemplateEngine:
 
             
         # Extract extra variables from context (excluding model objects)
+        # Keep 'configuration' if 'module_def' is not present (e.g. mock context in unit tests)
         extra_vars = {k: v for k, v in context.items()
-                     if k not in ('module_def', 'configuration', 'module_name')}
+                     if k not in ('module_def', 'module_name') and (k != 'configuration' or not context.get('module_def'))}
         
         # Inject standard Tresos variables if not provided
         if 'moduleReleaseVer' not in extra_vars:

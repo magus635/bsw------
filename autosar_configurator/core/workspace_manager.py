@@ -275,6 +275,24 @@ class WorkspaceProject:
                 if instance is not None:
                     return instance
         
+        # 4. Module configuration root references: /ModuleName/ModuleName
+        # Some references (e.g., /Iom/Iom) point to ECUC-MODULE-CONFIGURATION-VALUES
+        # rather than a container. Create a synthetic container proxy so the
+        # reference resolver can treat the module root as a valid target.
+        if len(parts) == 3 and parts[0] == '':
+            module_key = parts[1]  # e.g., "Iom"
+            config_name = parts[2]  # e.g., "Iom"
+            if module_key in self.module_managers:
+                config = self.module_managers[module_key].configuration
+                if config.short_name == config_name:
+                    proxy = EcucContainerValue(
+                        short_name=config_name,
+                        definition_ref=config.definition_ref,
+                    )
+                    proxy.module_name = module_key
+                    proxy.module_config = config
+                    return proxy
+        
         return None
 
     

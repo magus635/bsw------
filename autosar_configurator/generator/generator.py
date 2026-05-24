@@ -230,6 +230,12 @@ class CodeGenerator:
             
             # Deeply nested templates and root templates all preserve their directory structure
             if rel_dir == '.':
+                if t_type.endswith('.h'):
+                    rel_dir = 'include'
+                elif t_type.endswith('.c'):
+                    rel_dir = 'src'
+
+            if rel_dir == '.':
                 target_parent = out_module_dir
                 rel_path = f"{module_name}_{t_type}"
             else:

@@ -31,6 +31,14 @@ def _resolve_container_def(definition_ref: str, module_def: EcucModuleDef) -> Op
     if not definition_ref:
         return None
 
+    # Check if definition_ref starts with the module's definition_ref
+    if module_def.definition_ref and definition_ref.startswith(module_def.definition_ref):
+        rel_path = definition_ref[len(module_def.definition_ref):].lstrip('/')
+        if rel_path:
+            container_def = module_def.get_container_def(rel_path)
+            if container_def:
+                return container_def
+
     parts = definition_ref.split('/')
 
     # Handle absolute paths (starts with /)
@@ -41,7 +49,9 @@ def _resolve_container_def(definition_ref: str, module_def: EcucModuleDef) -> Op
             module_idx = parts.index(module_name)
             relative_path = '/'.join(parts[module_idx + 1:])
             if relative_path:
-                return module_def.get_container_def(relative_path)
+                container_def = module_def.get_container_def(relative_path)
+                if container_def:
+                    return container_def
         except ValueError:
             pass
 
@@ -49,7 +59,9 @@ def _resolve_container_def(definition_ref: str, module_def: EcucModuleDef) -> Op
         if len(parts) >= 4:
             relative_path = '/'.join(parts[3:])
             if relative_path:
-                return module_def.get_container_def(relative_path)
+                container_def = module_def.get_container_def(relative_path)
+                if container_def:
+                    return container_def
 
     # Handle relative paths
     if not definition_ref.startswith('/'):
@@ -80,10 +92,28 @@ class TypeValidationRule(ValidationRule):
         # Get container definition
         container_def = self._get_container_def(container.definition_ref, module_def)
         if not container_def:
-            result.add_message(self._create_error(
-                f"Container definition not found: {container.definition_ref}",
-                container_path=container.get_path()
-            ))
+            # Container definition is missing – either because the config references
+            # a vendor-specific extension that the loaded .xdm doesn't include, or
+            # because of a genuine schema mismatch.  Either way we cannot validate
+            # the container's parameters.
+            # Report as WARNING (not ERROR) so that valid configurations that happen
+            # to use vendor-specific containers are not flooded with false errors.
+            # Empty containers are further downgraded to INFO since there is nothing
+            # to validate at all.
+            is_empty = (not container.parameter_values
+                        and not container.sub_containers
+                        and not container.reference_values)
+            if is_empty:
+                result.add_message(self._create_info(
+                    f"Container definition not found: {container.definition_ref} (empty container, skipped)",
+                    container_path=container.get_path()
+                ))
+            else:
+                result.add_message(self._create_warning(
+                    f"Container definition not found: {container.definition_ref} "
+                    f"(possibly a vendor-specific extension not present in the loaded definition file)",
+                    container_path=container.get_path()
+                ))
             return
 
         # Validate each parameter
@@ -137,14 +167,21 @@ class TypeValidationRule(ValidationRule):
                 ))
         
         elif param_def.param_type == EcucParameterType.FLOAT:
-            # Accept int/float directly, or string representations of floats
+            # Accept int/float directly, or string representations of floats.
+            # String "None" / "" represent unset/null values in some ARXML exports
+            # (e.g., EB Tresos writes <VALUE>None</VALUE> for optional fields).
+            # Skip validation for those instead of raising a false error.
             is_valid = isinstance(value, (int, float)) and not isinstance(value, bool)
             if isinstance(value, str):
-                try:
-                    float(value)
-                    is_valid = True
-                except ValueError:
-                    pass
+                stripped = value.strip().strip("'\"")
+                if stripped.lower() in ('none', '', 'inf', '-inf', 'nan'):
+                    is_valid = True  # treat as unset / special – not a type error
+                else:
+                    try:
+                        float(stripped)
+                        is_valid = True
+                    except ValueError:
+                        pass
             if not is_valid:
                 result.add_message(self._create_error(
                     f"Expected FLOAT, got {type(value).__name__}",
@@ -178,48 +215,8 @@ class TypeValidationRule(ValidationRule):
                 ))
     
     def _get_container_def(self, definition_ref: str, module_def: EcucModuleDef) -> Optional[EcucContainerDef]:
-        """Get container definition from reference path
-
-        Handles various path formats:
-        - /AUTOSAR/EcucDefs/Module/Container (standard AUTOSAR)
-        - /PackageName/Module/Container (custom package like THA6_AS440_FuSa)
-        - Container/SubContainer (relative paths)
-        """
-        if not definition_ref:
-            return None
-
-        parts = definition_ref.split('/')
-
-        # Handle absolute paths (starts with /)
-        if parts[0] == '' and len(parts) >= 3:
-            # Format: /PackageName/ModuleName/ContainerPath...
-            # Extract container path after module name (parts[2] is module name)
-            # Try to match module name with module_def
-            module_name = module_def.short_name
-
-            # Find module name position in path
-            try:
-                module_idx = parts.index(module_name)
-                # Container path is everything after module name
-                container_path = '/'.join(parts[module_idx + 1:])
-                if container_path:
-                    return module_def.get_container_def(container_path)
-            except ValueError:
-                # Module name not found in path, try fallback
-                pass
-
-            # Fallback: assume format /Package/Module/Container...
-            # Take parts after position 2 (skip '', PackageName, ModuleName)
-            if len(parts) >= 4:
-                container_path = '/'.join(parts[3:])
-                if container_path:
-                    return module_def.get_container_def(container_path)
-
-        # Handle relative paths
-        if not definition_ref.startswith('/'):
-            return module_def.get_container_def(definition_ref)
-
-        return None
+        """Get container definition from reference path"""
+        return _resolve_container_def(definition_ref, module_def)
 
     def _find_parameter_location(self, param_name: str, module_def: EcucModuleDef) -> Optional[str]:
         """Search all containers to find where a parameter should be defined
@@ -359,13 +356,25 @@ class EnumerationValidationRule(ValidationRule):
             if param_def.param_type == EcucParameterType.ENUMERATION:
                 value = param_value.value
                 
-                if param_def.literals and value not in param_def.literals:
-                    result.add_message(self._create_error(
-                        f"Value '{value}' is not in allowed literals: {param_def.literals}",
-                        container_path=container.get_path(),
-                        parameter_name=param_name,
-                        suggested_fix=f"Choose from: {', '.join(param_def.literals)}"
-                    ))
+                if param_def.literals:
+                    # Normalise the config value before comparing to string-typed literals:
+                    # 1. Convert integers / floats to their string representation
+                    #    (e.g. int 64 → '64' so it matches the literal '64')
+                    # 2. Strip surrounding single or double quotes that some ARXML
+                    #    exporters add  (e.g. "'RO_CODE'" → 'RO_CODE')
+                    if isinstance(value, (int, float)) and not isinstance(value, bool):
+                        # Use integer string if it's a whole number
+                        norm_value = str(int(value)) if float(value) == int(value) else str(value)
+                    else:
+                        norm_value = str(value).strip("'\"") if value is not None else ''
+
+                    if norm_value not in param_def.literals:
+                        result.add_message(self._create_error(
+                            f"Value '{value}' is not in allowed literals: {param_def.literals}",
+                            container_path=container.get_path(),
+                            parameter_name=param_name,
+                            suggested_fix=f"Choose from: {', '.join(param_def.literals)}"
+                        ))
 
         # Recursively validate sub-containers
         for sub_container in container.sub_containers:

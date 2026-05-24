@@ -86,11 +86,16 @@ class XPathEngine:
         # (e.g. from _apply_predicates) from corrupting the outer caller's flag.
         saved_return_node = self._return_node
         self._return_node = return_node
+        saved_skip_unwrap = getattr(self, '_skip_unwrap', False)
+        self._skip_unwrap = False
         try:
             res = self._evaluate_impl(xpath)
+            if self._skip_unwrap:
+                return res
             return self._unwrap_result(res)
         finally:
             self._return_node = saved_return_node
+            self._skip_unwrap = saved_skip_unwrap
 
     def _evaluate_impl(self, xpath: str) -> Any:
         """Internal implementation of evaluate(). Separated to allow
@@ -127,6 +132,7 @@ class XPathEngine:
         if range_match:
             start = int(range_match.group(1))
             end = int(range_match.group(2))
+            self._skip_unwrap = True
             return list(range(start, end + 1))
         
         # Handle for expression: "for $x in //Item return $x/Name"
@@ -157,6 +163,7 @@ class XPathEngine:
                             results.append(result)
                 finally:
                     self.context_stack.pop()
+            self._skip_unwrap = True
             return results
         
         # Handle if-then-else expression: "if ($a > 0) then 'yes' else 'no'"
@@ -254,6 +261,7 @@ class XPathEngine:
                 if item_id not in seen:
                     seen.add(item_id)
                     unique.append(item)
+            self._skip_unwrap = True
             return unique
         
         # =============================================
@@ -320,7 +328,12 @@ class XPathEngine:
             return False
 
         # 7. Handle relative path from current context (default)
-        return self._evaluate_relative(xpath)
+        res = self._evaluate_relative(xpath)
+        if res is not None:
+            return res
+        if self.context_stack.has_variable(xpath):
+            return self.context_stack.get_variable(xpath)
+        return None
     
     def _find_operator_outside_context(self, expr: str, operator: str) -> int:
         depth = 0
@@ -754,6 +767,8 @@ class XPathEngine:
                         evaluated_args.append(arg)
                     else:
                         val = self.evaluate(arg, return_node=is_node_func)
+                        if is_node_func and isinstance(val, list) and len(val) == 1:
+                            val = val[0]
                         # If evaluate returns None and arg contains arithmetic operators,
                         # fallback to _evaluate_predicate_expression which handles arithmetic
                         if val is None and re.search(r'[\+\-\*]', arg) and not arg.startswith('/') and not arg.startswith('.'):
@@ -1271,11 +1286,11 @@ class XPathEngine:
         # Safety check: ensure node is a valid ConfigurationNode, not a primitive type
         if node is None:
             current = []
-        elif hasattr(node, 'node_type'):
+        elif hasattr(node, 'node_type') or hasattr(node, 'short_name') or hasattr(node, 'containers') or hasattr(node, 'parameter_values'):
             current = [node]
         elif isinstance(node, list):
             # Filter out any non-node items from the list
-            current = [n for n in node if hasattr(n, 'node_type')]
+            current = [n for n in node if hasattr(n, 'node_type') or hasattr(n, 'short_name') or hasattr(n, 'containers') or hasattr(n, 'parameter_values')]
         else:
             # Primitive type (bool, int, str) - cannot navigate
             return None
@@ -1359,8 +1374,19 @@ class XPathEngine:
                         next_nodes.append(getattr(n, name))
                         
                 else:  # child axis (default)
+                    n_children = []
+                    if hasattr(n, 'children'):
+                        n_children = n.children
+                    else:
+                        if hasattr(n, 'containers'):
+                            n_children = n_children + list(n.containers)
+                        if hasattr(n, 'sub_containers'):
+                            n_children = n_children + list(n.sub_containers)
+                        if hasattr(n, 'parameter_values') and isinstance(n.parameter_values, dict):
+                            n_children = n_children + list(n.parameter_values.values())
+
                     if name == '*':
-                        children = n.get_children_list()
+                        children = n.get_children_list() if hasattr(n, 'get_children_list') else n_children
                         if children:
                             for c in children:
                                 if getattr(c, 'is_wrapper', False):
@@ -1392,185 +1418,116 @@ class XPathEngine:
                             next_nodes.append(n.definition_ref)
                     else:  # child axis (default)
                         found_current_node = False
+
+                        # A. EPC / Multi-instance Surrogate Fallback
+                        if name != '*':
+                            active_instances = []
+                            for c_node in n_children:
+                                c_short = getattr(c_node, 'short_name', '')
+                                c_def = getattr(c_node, 'definition_ref', None)
+                                c_def_last = c_def.split('/')[-1] if c_def else ''
+                                
+                                is_multi = False
+                                if c_short and c_short.startswith(name + "_"):
+                                    is_multi = True
+                                elif c_def_last == name and c_short != name:
+                                    is_multi = True
+                                    
+                                if is_multi:
+                                    active_instances.append(c_node)
+                                    
+                            if active_instances:
+                                from .symbol_table import ConfigurationNode
+                                surrogate = ConfigurationNode(
+                                    short_name=name,
+                                    node_type="container",
+                                    path=f"{getattr(n, 'path', '')}/{name}",
+                                    parent=n,
+                                    is_wrapper=True
+                                )
+                                surrogate.children = active_instances
+                                for inst in active_instances:
+                                    inst.parent = surrogate
+                                surrogate._children_by_name = {c.short_name: c for c in active_instances}
+                                
+                                next_nodes.append(surrogate)
+                                found_current_node = True
+
+                        # B. Mock node parameter/reference dictionary fallback
+                        if not found_current_node and name != '*':
+                            if hasattr(n, 'parameter_values') and isinstance(n.parameter_values, dict) and name in n.parameter_values:
+                                next_nodes.append(n.parameter_values[name])
+                                found_current_node = True
+                            elif hasattr(n, 'reference_values') and isinstance(n.reference_values, dict) and name in n.reference_values:
+                                next_nodes.append(n.reference_values[name])
+                                found_current_node = True
                         
-                        if hasattr(n, 'children'):
-                            # 1. Direct children
-                            for c_node in n.children:
-                                def_name = c_node.definition_ref.split('/')[-1] if c_node.definition_ref else ""
-                                if name == '*' or c_node.short_name == name or def_name == name:
+                        # 1. Direct children
+                        if not found_current_node:
+                            for c_node in n_children:
+                                def_name = c_node.definition_ref.split('/')[-1] if getattr(c_node, 'definition_ref', None) else ""
+                                if name == '*' or getattr(c_node, 'short_name', '') == name or def_name == name:
                                     next_nodes.append(c_node)
                                     found_current_node = True
-                            
-                            # 2. Case-insensitive fallback (if nothing found yet)
-                            if not found_current_node:
-                                for c_node in n.children:
-                                    def_name = c_node.definition_ref.split('/')[-1] if c_node.definition_ref else ""
-                                    if c_node.short_name.lower() == name.lower() or def_name.lower() == name.lower():
-                                        next_nodes.append(c_node)
+                        
+                        # 2. Case-insensitive fallback (if nothing found yet)
+                        if not found_current_node:
+                            for c_node in n_children:
+                                def_name = c_node.definition_ref.split('/')[-1] if getattr(c_node, 'definition_ref', None) else ""
+                                if getattr(c_node, 'short_name', '').lower() == name.lower() or def_name.lower() == name.lower():
+                                    next_nodes.append(c_node)
+                                    found_current_node = True
+                        
+                        # 3. EB Tresos implicit instance traversal (if still nothing found)
+                        if not found_current_node:
+                            for c_node in n_children:
+                                if getattr(c_node, 'node_type', '') == 'container':
+                                    sub = c_node.get_child(name) if hasattr(c_node, 'get_child') else None
+                                    if sub:
+                                        next_nodes.append(sub)
                                         found_current_node = True
-                            
-                            # 3. EB Tresos implicit instance traversal (if still nothing found)
-                            # If we're at a container definition and can't find the child directly,
-                            # look inside all instance children (e.g., AdcConfigSet -> AdcConfigSet_0 -> AdcHwUnit)
-                            # Also looks two levels deep for self-named wrapper/instance patterns like:
-                            # OsAlarmAction (wrapper) -> OsAlarmAction (instance) -> OsAlarmActivateTask -> OsAlarmActivateTaskRef
-                            if not found_current_node:
-                                for c_node in n.children:
-                                    if c_node.node_type == 'container':
-                                        sub = c_node.get_child(name)
-                                        if sub:
-                                            next_nodes.append(sub)
-                                            found_current_node = True
-                                            break # Found in this instance, no need to check other instances
-                                        # Two-level deep: applies only when c_node is a self-named instance
-                                        # (c_node.short_name == n.short_name), meaning n is a wrapper and
-                                        # c_node is its instance. In that case we look into c_node's children
-                                        # (choice sub-containers), unwrapping self-named wrappers as needed.
-                                        # We do NOT apply this for multi-instance containers (e.g. OsApplication_0..3)
-                                        # because those require context-aware selection (handled by Section 3b).
-                                        if c_node.short_name == n.short_name:
-                                            for cc_node in c_node.children:
-                                                if cc_node.node_type == 'container':
-                                                    # Unwrap self-named wrapper chain (containers only)
-                                                    actual_cc = cc_node
-                                                    while True:
-                                                        inner = actual_cc.get_child(actual_cc.short_name)
-                                                        # Only follow container nodes; stop at parameters/references
-                                                        if inner and inner is not actual_cc and getattr(inner, 'node_type', '') == 'container':
-                                                            actual_cc = inner
-                                                        else:
-                                                            break
-                                                    sub = actual_cc.get_child(name)
-                                                    if sub:
-                                                        next_nodes.append(sub)
-                                                        found_current_node = True
+                                        break
+                                    if getattr(c_node, 'short_name', '') == getattr(n, 'short_name', ''):
+                                        c_node_children = c_node.children if hasattr(c_node, 'children') else []
+                                        for cc_node in c_node_children:
+                                            if getattr(cc_node, 'node_type', '') == 'container':
+                                                actual_cc = cc_node
+                                                while True:
+                                                    inner = actual_cc.get_child(actual_cc.short_name) if hasattr(actual_cc, 'get_child') else None
+                                                    if inner and inner is not actual_cc and getattr(inner, 'node_type', '') == 'container':
+                                                        actual_cc = inner
+                                                    else:
                                                         break
-                                            if found_current_node:
-                                                break
-
-                            # 3b. Context-aware deep search in TYPE wrappers (if still nothing found)
-                            # When at module root and looking for a parameter like 'OsApplicationCoreRef',
-                            # the child won't be found via Section 3 because the TYPE wrapper's direct
-                            # children are instances (OsApplication_0..3), not parameters.
-                            # We look two levels deep: root -> TYPE wrapper -> context-preferred instance -> param.
-                            # e.g., Os root -> OsApplication wrapper -> OsApplication_3 -> OsApplicationCoreRef
-                            if not found_current_node:
-                                for c_node in n.children:
-                                    if (c_node.node_type == 'container' and
-                                            getattr(c_node, 'is_wrapper', False) and
-                                            c_node.children):
-                                        # Use context stack to select the preferred instance
-                                        preferred = self._find_context_instance_for_child(c_node)
-                                        if preferred is not None:
-                                            deep_sub = preferred.get_child(name)
-                                            if deep_sub:
-                                                next_nodes.append(deep_sub)
-                                                found_current_node = True
-                                                break
-                                        else:
-                                            # Fallback: search all instances (first match wins)
-                                            for inst in c_node.children:
-                                                if hasattr(inst, 'get_child'):
-                                                    deep_sub = inst.get_child(name)
-                                                    if deep_sub:
-                                                        next_nodes.append(deep_sub)
-                                                        found_current_node = True
-                                                        break
+                                                sub = actual_cc.get_child(name) if hasattr(actual_cc, 'get_child') else None
+                                                if sub:
+                                                    next_nodes.append(sub)
+                                                    found_current_node = True
+                                                    break
                                         if found_current_node:
                                             break
-                                            
-                            # NEW 3.5: Fallback for stub-loaded instances without definitions (.epc only)
-                            # In Eb Tresos projects, instantiated containers like OsAlarm_0 
-                            # might need to match "OsAlarm".
-                            # Even if we found a "stub" definition node (which sets found_current_node=True), 
-                            # we must wrap actual configured instances into it.
-                            if not getattr(n, '_epc_matched_instances', False):
-                                import re
-                                active_instances = []
-                                for c_node in n.children:
-                                    # Match by multiple strategies:
-                                    # 1. Numeric suffix strip: OsAlarm_0 -> OsAlarm
-                                    stripped_name = re.sub(r'_\d+$', '', c_node.short_name)
-                                    match_by_strip = (stripped_name == name or stripped_name.lower() == name.lower())
-                                    
-                                    # 2. Definition ref match: def_ref ends with /OsCounter_Software,
-                                    #    and the def_ref last segment starts with search name + '_'
-                                    match_by_def = False
-                                    if c_node.definition_ref:
-                                        def_last = c_node.definition_ref.split('/')[-1]
-                                        if def_last.startswith(name + '_') or def_last.startswith(name.lower() + '_'):
-                                            match_by_def = True
-                                    
-                                    # 3. Short name starts with search name + '_'
-                                    match_by_prefix = (c_node.short_name.startswith(name + '_') or 
-                                                       c_node.short_name.lower().startswith(name.lower() + '_'))
-                                    
-                                    if (match_by_strip or match_by_def or match_by_prefix):
-                                        if c_node.short_name != name: # exclude the stub def itself
-                                            active_instances.append(c_node)
-                                            
-                                if active_instances:
-                                    stub_def = None
-                                    for cn in next_nodes:
-                                        if cn.short_name == name and getattr(cn, 'node_type', '') == 'container':
-                                            stub_def = cn
-                                            break
-                                    
-                                    if stub_def:
-                                        stub_def.children = list(active_instances)
-                                        found_current_node = True
-                                    else:
-                                        try:
-                                            from .symbol_table import ConfigurationNode
-                                            surrogate = ConfigurationNode(name, "container", None, n)
-                                            surrogate.children = list(active_instances)
-                                            next_nodes.append(surrogate)
-                                            found_current_node = True
-                                        except ImportError:
-                                            next_nodes.extend(active_instances)
-                                            found_current_node = True
-                            
-                            # 3.6: Definition-path intermediate segment fallback
-                            # EB Tresos templates navigate through logical definition-tree layers
-                            # (e.g., OsAlarmAction/OsAlarmActivateTaskRef) where OsAlarmAction
-                            # is only an intermediate segment in the definition path, not an
-                            # actual container in the config tree. The actual container is named
-                            # OsAlarmActivateTask with definition_ref containing /OsAlarmAction/.
-                            if not found_current_node:
-                                needle = f'/{name}/'
-                                for c_node in n.children:
-                                    if (c_node.node_type == 'container' and
-                                            getattr(c_node, 'definition_ref', None) and
-                                            needle in c_node.definition_ref):
-                                        next_nodes.append(c_node)
-                                        found_current_node = True
-                                        # Don't break: there might be multiple sub-choices
 
-                            # 4. Fallback for wrappers/aliases and nested containers
-                            if not found_current_node:
-                                # Try named child (this catches wrappers added via add_alias)
-                                alias_node = n.get_child(name)
-                                if alias_node:
-                                    next_nodes.append(alias_node)
-                                    found_current_node = True
-                                else:
-                                    # EB Tresos compatibility: param/*[1] on a simple parameter
-                                    # (leaf node with no children) returns the parameter itself.
-                                    # This allows patterns like GptNotification/*[1] to retrieve
-                                    # the parameter value.
-                                    if name == '*' and hasattr(n, 'node_type') and n.node_type == 'parameter':
-                                        next_nodes.append(n)
-                                        found_current_node = True
-                                    # Handle deeply nested children if the parent is a container and the child is also a container
-                                    # This is a specific pattern observed in some configurations where a container
-                                    # might implicitly contain another container of the same name.
-                                    # Example: AdcConfigSet/AdcConfigSet_0/AdcHwUnit/AdcHwUnit
-                                    sub = n.get_child(name)
-                                    if sub:
-                                        deep_child = sub.get_child(name)
-                                        if deep_child:
-                                            next_nodes.append(deep_child)
+                        # 3b. Context-aware deep search in TYPE wrappers (if still nothing found)
+                        if not found_current_node:
+                            for c_node in n_children:
+                                c_node_children = c_node.children if hasattr(c_node, 'children') else []
+                                if (getattr(c_node, 'node_type', '') == 'container' and
+                                        getattr(c_node, 'is_wrapper', False) and
+                                        c_node_children):
+                                    preferred = self._find_context_instance_for_child(c_node)
+                                    if preferred is not None:
+                                        deep_sub = preferred.get_child(name) if hasattr(preferred, 'get_child') else None
+                                        if deep_sub:
+                                            next_nodes.append(deep_sub)
                                             found_current_node = True
+                                            break
+                                    else:
+                                        for inst in c_node_children:
+                                            if hasattr(inst, 'get_child'):
+                                                deep_sub = inst.get_child(name)
+                                                if deep_sub:
+                                                    next_nodes.append(deep_sub)
+                                                    found_current_node = True
+                                                    break
 
                         # 5. Self-match Fallback for redundant wildcards
                         # Handle cases like Container/*/Child where * matched Child itself
@@ -1592,7 +1549,8 @@ class XPathEngine:
                             while module_root.parent is not None:
                                 module_root = module_root.parent
                             if module_root is not n:  # Not already at module root
-                                for c_node in module_root.children:
+                                module_root_children = module_root.children if hasattr(module_root, 'children') else []
+                                for c_node in module_root_children:
                                     c_def = c_node.definition_ref.split('/')[-1] if getattr(c_node, 'definition_ref', None) else ""
                                     if c_node.short_name == name or c_def == name:
                                         next_nodes.append(c_node)

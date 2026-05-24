@@ -627,18 +627,35 @@ class ConfigurationManager:
 
     def validate_configuration(self) -> 'ValidationResult':
         """Validate current configuration"""
-        from .validation_engine import ValidationEngine
-        
+        from .validation_engine import ValidationEngine, ValidationResult, ValidationMessage, ValidationSeverity
+
+        # When the definition file is missing we have no schema to validate against.
+        # Running type/range/multiplicity rules would produce hundreds of false
+        # "Container definition not found" errors – one per config container.
+        # Instead, emit a single warning and skip deep structural validation.
+        if self.def_missing:
+            result = ValidationResult()
+            result.add_message(ValidationMessage(
+                severity=ValidationSeverity.WARNING,
+                message=(
+                    f"Module definition file not found for '{self.module_def.short_name}'. "
+                    f"Type, range and multiplicity validation skipped. "
+                    f"Please add the corresponding .xdm / .arxml definition file to the project."
+                ),
+                rule_name="ValidationEngine"
+            ))
+            return result
+
         engine = ValidationEngine(self.module_def, self.configuration, project_context=self.project_context)
         engine.register_default_rules()
-        
+
         # Load custom rules
         for rule_file in self.custom_rule_files:
             try:
                 engine.load_custom_rules(rule_file)
             except Exception as e:
                 print(f"Warning: Failed to load rules from {rule_file}: {e}")
-                
+
         return engine.validate()
 
     def save_configuration(self, file_path: Path):
@@ -707,6 +724,12 @@ class ConfigurationManager:
                 for container in self.configuration.containers:
                     self._update_counters_recursive(container)
 
+                # Normalize definition_refs: EB Tresos exports sometimes use
+                # instance short names in DEFINITION-REF instead of definition
+                # container names.  Fix them before cleanup runs.
+                if self.module_def and not skip_cleanup:
+                    self._normalize_definition_refs()
+
                 # Clean up invalid parameters (parameters in wrong container level)
                 # Skip if requested (e.g. for stub modules where definition is empty)
                 if self.module_def and not skip_cleanup:
@@ -760,6 +783,138 @@ class ConfigurationManager:
 
         return total_removed
 
+    def _normalize_definition_refs(self):
+        """Normalize definition_refs that use instance names instead of definition names.
+
+        EB Tresos exports sometimes produce DEFINITION-REF values like
+        ``/THA6_ASR21/Os/OsCounter_Software`` where ``OsCounter_Software`` is
+        the *instance* short-name rather than the *definition* container name
+        (``OsCounter``).  This method remaps them to the correct definition
+        path after the config is loaded.
+
+        Strategy (applied at each hierarchy level):
+        1. If the definition_ref already resolves → keep it.
+        2. **Parameter-signature match**: score each candidate definition by
+           how many of the container's parameter names appear in it.
+        3. **Longest prefix match**: pick the definition whose short_name is
+           the longest prefix of the instance name.
+        """
+        # Extract the definition_ref prefix (everything up to and including the
+        # module name).  E.g. for ``/THA6_ASR21/Os/Foo`` the prefix is
+        # ``/THA6_ASR21/Os``.
+        module_name = self.module_def.short_name
+
+        def _extract_prefix(def_ref: str) -> str:
+            """Return the prefix portion of a definition_ref up to and including the module name."""
+            parts = def_ref.split('/')
+            try:
+                idx = parts.index(module_name)
+                return '/'.join(parts[:idx + 1])
+            except ValueError:
+                # Fallback: use first 3 segments
+                if len(parts) >= 3:
+                    return '/'.join(parts[:3])
+                return '/'.join(parts)
+
+        def _best_match_def(container, candidate_defs: dict) -> Optional[EcucContainerDef]:
+            """Find the best matching definition for *container* among *candidate_defs*.
+
+            Returns the matching EcucContainerDef, or None.
+            """
+            if not candidate_defs:
+                return None
+
+            param_names = set(container.parameter_values.keys())
+            sub_names = {s.short_name for s in container.sub_containers}
+            instance_name = container.short_name
+
+            best_def = None
+            best_score = -1
+
+            for def_name, cdef in candidate_defs.items():
+                score = 0
+                # Parameter overlap score
+                if param_names:
+                    overlap = param_names & set(cdef.parameters.keys())
+                    score += len(overlap) * 2  # weight parameter matches
+                # Sub-container overlap score
+                if sub_names:
+                    sub_overlap = sub_names & set(cdef.sub_containers.keys())
+                    score += len(sub_overlap)
+                # Prefix bonus: definition name is a prefix of instance name
+                if instance_name.startswith(def_name):
+                    score += len(def_name)
+
+                if score > best_score:
+                    best_score = score
+                    best_def = cdef
+
+            # Require at least some evidence of a match
+            if best_score > 0:
+                return best_def
+            return None
+
+        def _normalize_container(container, parent_def: Optional[EcucContainerDef],
+                                parent_normalized_ref: Optional[str] = None):
+            """Normalize a single container and its sub-containers recursively.
+
+            Args:
+                container: The container value to normalize.
+                parent_def: The EcucContainerDef of the parent (or None for top-level).
+                parent_normalized_ref: The already-corrected definition_ref of the
+                    PARENT container (or None for top-level).  Used to build
+                    sub-container refs when the parent name was also remapped.
+            """
+            # Determine the pool of candidate definitions at this level
+            if parent_def is not None:
+                candidate_defs = parent_def.sub_containers
+            else:
+                candidate_defs = self.module_def.containers
+
+            # Check if current definition_ref already resolves
+            resolved_def = self.get_container_def(container.definition_ref)
+            if resolved_def is not None:
+                # Already valid – recurse into sub-containers using this container's ref
+                for sub in container.sub_containers:
+                    _normalize_container(sub, resolved_def, container.definition_ref)
+                return
+
+            # Try to find the correct definition
+            matched_def = _best_match_def(container, candidate_defs)
+            if matched_def is not None:
+                # Build the correct definition_ref.
+                # If the parent was also remapped we must use the already-corrected
+                # parent ref as the base, not the stale parent name that is still
+                # baked into container.definition_ref.
+                if parent_normalized_ref is not None:
+                    # Sub-container: base off the normalized parent ref
+                    new_ref = parent_normalized_ref + '/' + matched_def.short_name
+                elif parent_def is not None:
+                    # Sub-container: parent was valid, just replace last segment
+                    parts = container.definition_ref.rsplit('/', 1)
+                    new_ref = parts[0] + '/' + matched_def.short_name
+                else:
+                    # Top-level container
+                    prefix = _extract_prefix(container.definition_ref)
+                    new_ref = prefix + '/' + matched_def.short_name
+                container.definition_ref = new_ref
+
+                # Also fix parameter definition_refs
+                for param_name, param_val in container.parameter_values.items():
+                    param_val.definition_ref = new_ref + '/' + param_name
+                for ref_name, ref_val in container.reference_values.items():
+                    ref_val.definition_ref = new_ref + '/' + ref_name
+
+                # Recurse with matched definition context, passing the new ref
+                for sub in container.sub_containers:
+                    _normalize_container(sub, matched_def, new_ref)
+            else:
+                # Could not match – recurse anyway (sub-containers might still match)
+                for sub in container.sub_containers:
+                    _normalize_container(sub, None, None)
+
+        for container in self.configuration.containers:
+            _normalize_container(container, None)
 
     def _update_counters_recursive(self, container: EcucContainerValue):
         """Update instance counters based on existing container"""

@@ -339,23 +339,10 @@ class Renderer:
                     self._autospacing_active = False  # One-shot: reset after use
 
                 if tok.directive_only_line:
-                    # EB Tresos templates use [!// at end of directive lines to
-                    # suppress their trailing newlines. After [!// processing,
-                    # any remaining newlines in TEXT tokens on directive-only lines
-                    # represent intentional blank lines from the template.
-                    #
-                    # However, indentation whitespace (spaces/tabs before directives)
-                    # should be stripped to prevent unwanted output.
-                    if all(c in '\n\r' for c in content) and content:
-                        # Pure newlines — these are intentional blank lines.
-                        # Preserve them as-is.
-                        pass
-                    else:
-                        # Contains non-newline characters (indentation whitespace).
-                        # Strip everything to prevent template structure from leaking.
-                        content = content.rstrip('\n\r')
-                        if content.strip() == '':
-                            content = ''  # Skip pure whitespace on directive lines
+                    # If this token is on a directive-only line (which has at least one directive
+                    # and no output), any whitespace or newlines on it should be stripped completely
+                    # to achieve correct smart trimming behavior.
+                    content = ''
 
                 # Strip trailing directive-line whitespace from TEXT tokens,
                 # but ONLY when next token is a context-establishing directive
@@ -393,8 +380,7 @@ class Renderer:
                 # Reset flag
                 self._just_ended_indent = False
 
-                # Strip outer quotes from the tag content before evaluating
-                expr = self._strip_tag_quotes(tok.content)
+                expr = tok.content
                 value = self._evaluate_expression(expr)
 
                 # Ensure value is fully unwrapped (handles nested lists and ConfigurationNodes)
@@ -609,8 +595,6 @@ class Renderer:
         if match:
             var_name = match.group(1)
             expr = match.group(2).strip()
-            # Strip outer quotes from the expression part of VAR
-            expr = self._strip_tag_quotes(expr)
             value = self._evaluate_expression(expr)
             self._context_stack.set_variable(var_name, value)
 
@@ -806,7 +790,7 @@ class Renderer:
         # If result is a string (e.g. from quoted literal "CanController/*"),
         # evaluate it as XPath
         if isinstance(items, str):
-            items = self._evaluate_xpath(items)
+            items = self._evaluate_xpath(items, return_node=True)
 
         if not items:
             items = []
@@ -866,7 +850,7 @@ class Renderer:
         
         # If result is a string, evaluate as XPath
         if isinstance(node, str):
-            node = self._evaluate_xpath(node)
+            node = self._evaluate_xpath(node, return_node=True)
 
         if isinstance(node, list):
             node = node[0] if node else None
@@ -945,12 +929,25 @@ class Renderer:
         # 1. Literal Strings (Handle both '...' and "...")
         if (expr.startswith("'") and expr.endswith("'")) or \
            (expr.startswith('"') and expr.endswith('"')):
-            inner = expr[1:-1]
+            inner = expr[1:-1].strip()
             if inner.startswith('$'):
                 var_name = inner[1:]
                 if self._context_stack.has_variable(var_name):
                     val = self._context_stack.get_variable(var_name)
                     return val
+            
+            # If the inner content looks like an expression (has functions/paths/operators),
+            # try to evaluate it. If the evaluation yields a non-None value, return that.
+            # Otherwise, fall back to returning the inner literal string.
+            if '(' in inner or '/' in inner or '[' in inner or ' ' in inner or inner.startswith('$') or \
+               (inner.startswith("'") and inner.endswith("'")) or \
+               (inner.startswith('"') and inner.endswith('"')):
+                try:
+                    val = self._evaluate_expression(inner)
+                    if val is not None:
+                        return val
+                except Exception:
+                    pass
             return inner
         
         # Handle numeric literals explicitly
@@ -1684,6 +1681,8 @@ class Renderer:
                     evaluated_args.append(arg[1:-1])
                 else:
                     val = self._xpath_engine.evaluate(arg, return_node=True)
+                    if isinstance(val, list) and len(val) == 1:
+                        val = val[0]
                     evaluated_args.append(val)
         else:
             evaluated_args = [self._evaluate_expression(arg) for arg in args]

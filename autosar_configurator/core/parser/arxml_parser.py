@@ -686,9 +686,9 @@ class ArxmlParser:
         if value is not None and isinstance(value, str):
             val_lower = value.strip().lower()
             if val_lower == 'true': 
-                value = 1
+                value = True
             elif val_lower == 'false': 
-                value = 0
+                value = False
                 
         if 'NUMERICAL-PARAM-VALUE' in element.tag or 'TEXTUAL-PARAM-VALUE' in element.tag or 'ENUMERATION-PARAM-VALUE' in element.tag:
             if value is not None and isinstance(value, str):

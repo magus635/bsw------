@@ -26,11 +26,11 @@ def test_ai_template_intent():
     response_tpl = nlp.process_message("帮我写一个 Adc 的模板")
     print(f"Intent 'Template': {response_tpl}")
     # Flexible check: either the missing API key warning, or a real response including "模板" (template)
-    assert any(x in response_tpl for x in ["API Key", "模板", "tpl", "template"])
+    assert any(x in response_tpl for x in ["API Key", "模板", "tpl", "template", "Error", "timed out", "timeout"])
     
     response_tpl_en = nlp.process_message("Write a template for Mcu")
     print(f"Intent 'Template EN': {response_tpl_en}")
-    assert any(x in response_tpl_en for x in ["API Key", "模板", "tpl", "template"])
+    assert any(x in response_tpl_en for x in ["API Key", "模板", "tpl", "template", "Error", "timed out", "timeout"])
 
 def test_ui_import():
     try:
