@@ -1,0 +1,1 @@
+Stage-by-stage topology of the EB Tresos-compatible template rendering pipeline. Shows how a user-triggered code generation request flows through fingerprint checking, template resolution, symbol table population, lexing, rendering, XPath evaluation, overlay routing, and final file write.

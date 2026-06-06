@@ -1,0 +1,10 @@
+created: 2026-04-14T10:24:59.928Z
+updated: 2026-04-14T10:24:59.928Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: config-panel
+children: []
+parentPath:
+  - ui-layer
+  - widgets

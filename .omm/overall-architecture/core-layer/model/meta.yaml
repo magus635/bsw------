@@ -1,0 +1,15 @@
+created: 2026-04-14T10:24:23.259Z
+updated: 2026-04-14T10:24:40.379Z
+update_count: 2
+last_field: diagram
+kind: nested-class
+title: model
+children:
+  - base
+  - configuration-model
+  - container
+  - definition-model
+  - ecuc-model
+  - observers
+parentPath:
+  - core-layer

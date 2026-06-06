@@ -1,0 +1,18 @@
+graph TD
+    definition-model["Definition Model\ncore/model/definition_model.py"]
+    configuration-model["Configuration Model\ncore/model/configuration_model.py"]
+    ecuc-model["ECUC Model Facade\ncore/model/ecuc_model.py"]
+    observers["Observer Pattern\ncore/model/observers.py"]
+    base["Base Classes\ncore/model/base.py"]
+    container["Container\ncore/model/container.py"]
+
+    classDef store fill:#a6e3a1,stroke:#a6e3a1,color:#1e1e2e
+    class definition-model,configuration-model store
+
+    base -->|"extended by"| definition-model
+    base -->|"extended by"| configuration-model
+    definition-model -->|"schema for"| configuration-model
+    definition-model -->|"aggregated by"| ecuc-model
+    configuration-model -->|"aggregated by"| ecuc-model
+    container -->|"used by"| configuration-model
+    observers -->|"notifies on mutations in"| configuration-model

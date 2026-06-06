@@ -1,0 +1,26 @@
+graph LR
+    model["Data Model\ncore/model/"]
+    parser["Parsers\ncore/parser/"]
+    serializer["Serializers\ncore/serializer/"]
+    workspace["Workspace Manager\ncore/workspace_manager.py"]
+    config-mgr["Config Manager\ncore/config_manager.py"]
+    validation["Validation Engine\ncore/validation_engine.py"]
+    rules["Validation Rules\ncore/rules/"]
+    hardware["Hardware Layer\ncore/hardware/"]
+    ai["AI / NLP\ncore/ai/"]
+    importers["Importers\ncore/importers/"]
+    command["Commands\ncore/command.py"]
+
+    parser -->|"produces"| model
+    model -->|"serialized by"| serializer
+    workspace -->|"owns"| config-mgr
+    config-mgr -->|"CRUD on"| model
+    validation -->|"applies"| rules
+    validation -->|"checks"| model
+    hardware -->|"chip resources →"| config-mgr
+    ai -->|"NLP → parameter changes"| config-mgr
+    importers -->|"external data →"| model
+    command -->|"mutates"| model
+
+    classDef store fill:#a6e3a1,stroke:#a6e3a1,color:#1e1e2e
+    class model store

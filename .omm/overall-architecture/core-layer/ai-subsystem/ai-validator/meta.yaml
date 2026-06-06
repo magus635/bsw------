@@ -1,0 +1,10 @@
+created: 2026-04-14T10:25:32.608Z
+updated: 2026-04-14T10:25:32.609Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: ai-validator
+children: []
+parentPath:
+  - core-layer
+  - ai-subsystem

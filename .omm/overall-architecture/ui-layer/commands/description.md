@@ -1,0 +1,1 @@
+Qt command objects (ui/commands.py) implementing the Command pattern on top of QUndoStack. Includes SetParameterCommand, SetReferenceCommand, CreateContainerCommand, DeleteContainerCommand, MoveContainerCommand, PasteContainerCommand — each wraps a single model mutation with undo/redo.

@@ -1,0 +1,10 @@
+created: 2026-04-15T01:46:58.825Z
+updated: 2026-04-15T01:46:58.825Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: overlay
+children: []
+parentPath:
+  - generator
+  - eb-internals

@@ -1,0 +1,9 @@
+created: 2026-04-15T01:45:44.642Z
+updated: 2026-04-15T01:45:44.642Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: wizards
+children: []
+parentPath:
+  - ui

@@ -1,0 +1,1 @@
+User clicks "Generate Code" in DaVinciMainWindow. Collects active WorkspaceProject (all modules), selected chip, active variant, and output directory, then iterates over each module to invoke CodeGenerator.

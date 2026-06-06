@@ -1,0 +1,1 @@
+Application entry point (davinci_main.py). Creates QApplication, instantiates DaVinciMainWindow, and starts the Qt event loop. Supports DAVINCI_DEBUG=1 env var to enable verbose logging; in production mode silences all print() calls.

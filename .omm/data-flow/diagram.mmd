@@ -1,0 +1,29 @@
+graph LR
+    arxml-source["ARXML / XDM Source\n*.arxml / *.xdm"]
+    def-parse["Definition Parsing\ncore/parser/ecuc_def_parser.py"]
+    cfg-parse["Config Parsing\ncore/parser/arxml_parser.py\ncore/parser/xdm_config_parser.py"]
+    model-def["Module Definition Model\ncore/model/definition_model.py"]
+    model-cfg["Module Configuration Model\ncore/model/configuration_model.py"]
+    user-edit["User Edits\nUI Config Panel"]
+    validation["Validation\ncore/validation_engine.py"]
+    serializer["Serializer\ncore/serializer/"]
+    generator["Code Generator\ngenerator/generator.py"]
+    c-output["Generated C/H Files\n*.h / *.c"]
+    saved-arxml["Saved ARXML / XDM\n*.arxml / *.xdm"]
+
+    arxml-source -->|"parse defs"| def-parse
+    arxml-source -->|"parse values"| cfg-parse
+    def-parse -->|"produces"| model-def
+    cfg-parse -->|"produces"| model-cfg
+    model-def -->|"constrains"| model-cfg
+    user-edit -->|"mutates"| model-cfg
+    model-cfg -->|"validated by"| validation
+    model-cfg -->|"serialized"| serializer
+    model-cfg -->|"rendered"| generator
+    serializer -->|"writes"| saved-arxml
+    generator -->|"emits"| c-output
+
+    classDef store fill:#a6e3a1,stroke:#a6e3a1,color:#1e1e2e
+    classDef entry fill:#89b4fa,stroke:#89b4fa,color:#1e1e2e
+    class arxml-source,saved-arxml,c-output store
+    class user-edit entry

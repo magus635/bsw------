@@ -1,0 +1,1 @@
+QUndoCommand subclasses for reversible UI operations: SetParameterCommand, SetReferenceCommand, CreateContainerCommand, DeleteContainerCommand, MoveContainerCommand, PasteContainerCommand. Pushed onto QUndoStack in DaVinciMainWindow.

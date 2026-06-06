@@ -1,0 +1,10 @@
+created: 2026-04-14T10:25:57.687Z
+updated: 2026-04-14T10:25:57.688Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: builtins
+children: []
+parentPath:
+  - generator-layer
+  - eb-internals

@@ -1,0 +1,1 @@
+Raw input files: Vector ARXML (*.arxml with AUTOSAR schema), EB Tresos XDM (*.xdm), and chip .properties files. Read-only inputs — never modified by the tool directly (modifications go through the serializer path).

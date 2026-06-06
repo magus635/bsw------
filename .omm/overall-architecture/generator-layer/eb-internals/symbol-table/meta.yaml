@@ -1,0 +1,10 @@
+created: 2026-04-14T10:26:00.880Z
+updated: 2026-04-14T10:26:00.880Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: symbol-table
+children: []
+parentPath:
+  - generator-layer
+  - eb-internals

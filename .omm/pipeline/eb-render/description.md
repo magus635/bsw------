@@ -1,0 +1,1 @@
+EBTemplateEngine entry point for a single template file. Sets up the rendering context (module def, config, ecu resources, variant name) and delegates to the EB internals (Lexer → Renderer → XPathEngine → Builtins) to produce the output string.

@@ -1,0 +1,36 @@
+graph TD
+    davinci-main["Entry Point\ndavinci_main.py"]
+    ui-layer["UI Layer\nautosar_configurator/ui/"]
+    core-model["Core Model\ncore/model/"]
+    core-parser["Core Parsers\ncore/parser/"]
+    core-serializer["Core Serializers\ncore/serializer/"]
+    core-workspace["Workspace Manager\ncore/workspace_manager.py"]
+    core-config["Config Manager\ncore/config_manager.py"]
+    core-validation["Validation Engine\ncore/validation_engine.py"]
+    core-rules["Validation Rules\ncore/rules/"]
+    core-hardware["Hardware Layer\ncore/hardware/"]
+    core-ai["AI / NLP\ncore/ai/"]
+    core-importers["Importers\ncore/importers/"]
+    generator["Generator\ngenerator/generator.py"]
+    eb-engine["EB Template Engine\ngenerator/eb/"]
+
+    davinci-main -->|"instantiates"| ui-layer
+    ui-layer -->|"uses"| core-workspace
+    ui-layer -->|"uses"| core-config
+    ui-layer -->|"uses"| core-ai
+    ui-layer -->|"triggers"| generator
+    core-workspace -->|"owns"| core-config
+    core-config -->|"CRUD on"| core-model
+    core-parser -->|"produces"| core-model
+    core-serializer -->|"consumes"| core-model
+    core-validation -->|"applies"| core-rules
+    core-validation -->|"reads"| core-model
+    core-hardware -->|"feeds resources →"| core-config
+    core-importers -->|"writes →"| core-model
+    generator -->|"reads"| core-model
+    generator -->|"delegates to"| eb-engine
+
+    classDef entry fill:#89b4fa,stroke:#89b4fa,color:#1e1e2e
+    classDef store fill:#a6e3a1,stroke:#a6e3a1,color:#1e1e2e
+    class davinci-main entry
+    class core-model store

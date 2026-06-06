@@ -1,0 +1,1 @@
+The pipeline runs once per BSW module per generation invocation. Fingerprint files (.{ModuleName}.meta) are stored alongside output files; a mismatch triggers a full re-render of all templates for that module. Template directory priority allows project-specific templates to override built-in ones without touching the package.

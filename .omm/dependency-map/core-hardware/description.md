@@ -1,0 +1,1 @@
+Depends on core-model and external YAML/properties files. No UI dependency. Satellite module — provides chip resource data (ECU pin mapping, peripheral availability) to core-config for hardware-constrained parameter validation.

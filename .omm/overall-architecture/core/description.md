@@ -1,0 +1,1 @@
+Business logic and data layer. Handles ARXML/XDM parsing, ECUC data models (definition + configuration sides), workspace management, validation rules, hardware/chip resources, AI-assisted NLP, importers (CSV/DBC/Excel), undo/redo commands, and cross-module reference resolution.

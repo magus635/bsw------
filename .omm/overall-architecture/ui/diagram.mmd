@@ -1,0 +1,14 @@
+graph LR
+    main-window["Main Window\nui/davinci_main_window.py"]
+    widgets["Widgets\nui/widgets/"]
+    wizards["Wizards\nui/wizards/"]
+    dialogs["Dialogs\nui/dialogs/"]
+    commands["UI Commands\nui/commands.py"]
+
+    main-window -->|"hosts dock panels"| widgets
+    main-window -->|"launches"| wizards
+    main-window -->|"opens"| dialogs
+    main-window -->|"dispatches undo/redo"| commands
+
+    classDef entry fill:#89b4fa,stroke:#89b4fa,color:#1e1e2e
+    class main-window entry

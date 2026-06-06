@@ -1,0 +1,1 @@
+ContextBuilder (core/ai/context_builder.py). Extracts relevant slices of the current ECUC configuration model (active module, container path, parameter values) and serializes them into a compact representation suitable for LLM prompt injection.

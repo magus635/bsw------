@@ -1,0 +1,9 @@
+created: 2026-04-15T01:46:07.209Z
+updated: 2026-04-15T01:46:07.210Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: config-mgr
+children: []
+parentPath:
+  - core

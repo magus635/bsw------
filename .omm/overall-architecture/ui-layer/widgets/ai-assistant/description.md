@@ -1,0 +1,1 @@
+AIAssistantWidget (ui/widgets/ai_assistant.py). Chat-style dock widget. Sends user natural-language messages to NaturalLanguageProcessor via an AIWorker thread and displays suggestions; applies accepted suggestions as Qt commands.

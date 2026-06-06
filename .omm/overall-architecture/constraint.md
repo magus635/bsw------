@@ -1,0 +1,4 @@
+- Python >= 3.9 required (3.11+ recommended)
+- UI tests require a display environment (no headless)
+- TRESOS_PLUGINS_PATH env var required for EB Tresos definition lookup
+- Template engine (EBTemplateEngine) always runs in strict=False in production to allow partial rendering

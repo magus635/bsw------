@@ -1,0 +1,15 @@
+graph LR
+    tree-view["Tree View\nui/widgets/davinci_tree_view.py"]
+    config-panel["Config Panel\nui/widgets/davinci_config_panel.py"]
+    smart-search["Smart Search\nui/widgets/smart_search.py"]
+    dependency-graph["Dependency Graph\nui/widgets/dependency_graph.py"]
+    ai-assistant["AI Assistant\nui/widgets/ai_assistant.py"]
+    problems-view["Problems View\nui/widgets/problems_view.py"]
+    impact-view["Impact View\nui/widgets/impact_view.py"]
+
+    tree-view -->|"selection triggers"| config-panel
+    config-panel -->|"search request"| smart-search
+    config-panel -->|"show impact"| impact-view
+    config-panel -->|"show refs"| dependency-graph
+    ai-assistant -->|"applies suggestion to"| config-panel
+    problems-view -->|"navigate to item in"| tree-view

@@ -1,0 +1,1 @@
+Hardware abstraction layer: chip_database.py (YAML chip specs), ecu_resource_parser.py (parses .properties ECU resource files), tresos_properties_parser.py (EB Tresos .properties format), xdm_chip_extractor.py (extracts chip info from XDM), generic_mapper.py / resource_mapper.py / mapping_rule.py (maps ECU pins/resources to AUTOSAR parameters).

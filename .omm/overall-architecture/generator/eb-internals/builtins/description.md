@@ -1,0 +1,1 @@
+Built-in function library exposed to templates: node:value(), node:exists(), ecu:get(), ecu:list(), variant:postBuildVariantValue(), num:i2h(), bit:and(), string:split(), and many more. Implements the EB Tresos template function API.

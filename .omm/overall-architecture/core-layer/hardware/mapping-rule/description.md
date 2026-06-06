@@ -1,0 +1,1 @@
+MappingRule (core/hardware/mapping_rule.py). Declarative rule that pairs an ECUC parameter path pattern with the MCU resource identifier it maps to. Used by ResourceMapper to drive parameter-to-hardware translation.

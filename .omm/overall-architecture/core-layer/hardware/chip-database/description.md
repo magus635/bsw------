@@ -1,0 +1,1 @@
+ChipDatabase (core/hardware/chip_database.py). Central registry of known MCU chips and their hardware resources. Populated by XdmChipExtractor and TresosPropertiesParser; queried by ResourceMapper to enforce chip-specific constraints during code generation.

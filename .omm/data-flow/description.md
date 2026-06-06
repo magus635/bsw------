@@ -1,0 +1,1 @@
+Traces how AUTOSAR configuration data moves through the system: from raw ARXML/XDM files through parsing into in-memory models, through user editing and validation, then out via serialization (back to ARXML/XDM) or code generation (to C/H files).

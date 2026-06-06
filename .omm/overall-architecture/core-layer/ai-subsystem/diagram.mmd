@@ -1,0 +1,19 @@
+graph LR
+    nlp-processor["NLP Processor\ncore/ai/nlp_processor.py"]
+    gemini-client["Gemini Client\ncore/ai/gemini_client.py"]
+    prompt-manager["Prompt Manager\ncore/ai/prompt_manager.py"]
+    knowledge-base["Knowledge Base\ncore/ai/knowledge_base.py"]
+    context-builder["Context Builder\ncore/ai/context_builder.py"]
+    ai-validator["AI Validator\ncore/ai/validator.py"]
+
+    classDef entry fill:#89b4fa,stroke:#89b4fa,color:#1e1e2e
+    classDef external fill:#585b70,stroke:#585b70,color:#cdd6f4
+    class nlp-processor entry
+
+    nlp-processor -->|"builds prompt via"| prompt-manager
+    prompt-manager -->|"injects domain facts from"| knowledge-base
+    prompt-manager -->|"injects config context from"| context-builder
+    nlp-processor -->|"sends request to"| gemini-client
+    gemini-client -->|"calls"| gemini-api["Google Gemini API"]
+    class gemini-api external
+    nlp-processor -->|"validates suggestion via"| ai-validator

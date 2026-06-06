@@ -1,0 +1,9 @@
+created: 2026-04-15T01:46:30.886Z
+updated: 2026-04-15T01:46:30.886Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: eb-engine
+children: []
+parentPath:
+  - generator

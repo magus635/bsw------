@@ -1,0 +1,1 @@
+User interactions via DaVinciConfigPanel (direct parameter editing), AI Assistant (NLP → parameter commands), ImportWizard (bulk CSV/Excel/DBC import), and HardwareMappingWizard (resource mapping). All mutations go through ConfigurationManager and are wrapped in QUndoCommands.

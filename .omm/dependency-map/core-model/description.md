@@ -1,0 +1,1 @@
+Zero external project dependencies. Pure Python dataclasses and observer pattern. The stable hub that all other modules depend on. Changes here ripple across parser, serializer, generator, and UI simultaneously.

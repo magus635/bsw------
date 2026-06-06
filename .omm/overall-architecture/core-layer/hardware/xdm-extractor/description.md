@@ -1,0 +1,1 @@
+XdmChipExtractor (core/hardware/xdm_chip_extractor.py). Parses EB Tresos .xdm chip description files to extract available MCU peripherals, pins, and their resource counts into a structured form for the ChipDatabase.

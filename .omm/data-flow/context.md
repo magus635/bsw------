@@ -1,0 +1,1 @@
+Two parallel parse paths: definition side (EcucModuleDef hierarchy, read-only spec) and configuration side (EcucModuleConfiguration hierarchy, user-editable values). The definition constrains what values are valid in the configuration.

@@ -1,0 +1,1 @@
+In-memory definition hierarchy: EcucModuleDef → EcucContainerDef → EcucParameterDef. Describes the schema — parameter types, allowed values, multiplicity, ConfigClass. Read-only reference used to validate and guide configuration editing.

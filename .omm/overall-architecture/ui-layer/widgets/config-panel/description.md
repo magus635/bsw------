@@ -1,0 +1,1 @@
+DaVinciConfigPanel (ui/widgets/davinci_config_panel.py). Parameter editing panel rendered for the currently-selected container. Generates typed input widgets (spinbox, combobox, line edit) from EcucParameterDef metadata and issues Qt commands on commit.

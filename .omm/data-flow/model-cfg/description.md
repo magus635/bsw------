@@ -1,0 +1,1 @@
+In-memory configuration hierarchy: EcucModuleConfiguration → EcucContainerValue → EcucParameterValue. This is the mutable working state — all user edits, imports, and AI suggestions land here. Observer pattern propagates changes to UI.

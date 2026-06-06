@@ -1,0 +1,1 @@
+ConfigurationManager provides CRUD operations on EcucContainerValue/EcucParameterValue instances. ProjectTypeDetector (Vector vs EB Tresos), ConfigLoader resolves definition search paths (including TRESOS_PLUGINS_PATH). RecFileScanner finds recommended config files.

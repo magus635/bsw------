@@ -1,0 +1,1 @@
+EB Tresos-compatible .ebt template files, one set per BSW module (Adc, Can, Mcu, Port, Os, Gpt, etc.). Each module directory typically contains Cfg.ebt, Lcfg.ebt, PBcfg.ebt. Templates use [!IF], [!LOOP], [!FOREACH], ecu:get(), node:value() and other builtins.

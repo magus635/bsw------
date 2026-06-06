@@ -1,0 +1,1 @@
+EcucModuleDef → EcucContainerDef → EcucParameterDef hierarchy (core/model/definition_model.py). The schema/read-only side. Carries parameter type, multiplicity, ConfigClass (PRE-COMPILE / LINK-TIME / POST-BUILD), and constraint metadata parsed from ARXML ECUC-MODULE-DEF elements.

@@ -1,0 +1,1 @@
+GenericResource (core/hardware/generic_resource.py). Data class representing a resolved hardware resource (peripheral instance, channel, pin). Passed to CodeGenerator as ecu_resources so templates can retrieve values via ecu:get() built-in.

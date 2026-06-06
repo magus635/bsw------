@@ -1,0 +1,1 @@
+DependencyGraphWidget (ui/widgets/dependency_graph.py). Visualizes cross-module ECUC reference relationships as an interactive graph. Used to inspect who-references-who across BSW modules in the workspace.

@@ -1,0 +1,1 @@
+Shows the import/dependency relationships between all major modules. The core model is the central hub — parsers produce it, serializers consume it, UI reads/writes it through managers, and the generator renders from it. All other layers depend on core/model but not on each other.

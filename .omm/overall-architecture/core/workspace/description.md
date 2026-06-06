@@ -1,0 +1,1 @@
+WorkspaceManager and WorkspaceProject manage multi-module projects. WorkspaceProject holds a dict of module_name → ConfigurationManager, handles variant management, chip discovery from .properties files, cross-module reference resolution via EMF-style paths, and project save/load (JSON .dpa format).

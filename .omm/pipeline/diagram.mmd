@@ -1,0 +1,25 @@
+graph LR
+    trigger["Generation Trigger\nUI Generate button"]
+    fingerprint["Fingerprint Check\ngenerator.py _calculate_fingerprint()"]
+    template-resolve["Template Resolution\ngenerator.py _find_template()"]
+    module-load["Module Load\neb_template_engine.py add_module()"]
+    lexer-stage["Lexer\neb/lexer.py"]
+    render-stage["Renderer\neb/renderer.py"]
+    xpath-eval["XPath Evaluation\neb/xpath_engine.py + builtins.py"]
+    overlay-stage["Overlay Engine\neb/overlay_engine.py"]
+    file-write["File Write\nos.path / pathlib"]
+
+    trigger -->|"per module"| fingerprint
+    fingerprint -->|"changed → continue"| template-resolve
+    template-resolve -->|"locate .ebt file"| module-load
+    module-load -->|"populate symbol table"| lexer-stage
+    lexer-stage -->|"token stream"| render-stage
+    render-stage -->|"evaluate expressions"| xpath-eval
+    xpath-eval -->|"results back to"| render-stage
+    render-stage -->|"route output"| overlay-stage
+    overlay-stage -->|"write"| file-write
+
+    classDef entry fill:#89b4fa,stroke:#89b4fa,color:#1e1e2e
+    classDef store fill:#a6e3a1,stroke:#a6e3a1,color:#1e1e2e
+    class trigger entry
+    class file-write store

@@ -1,0 +1,10 @@
+created: 2026-04-14T10:25:26.504Z
+updated: 2026-04-14T10:25:26.504Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: gemini-client
+children: []
+parentPath:
+  - core-layer
+  - ai-subsystem

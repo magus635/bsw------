@@ -1,0 +1,1 @@
+In-memory configuration model (EcucModuleConfiguration tree). Mutable. Holds user-set parameter values and cross-module reference strings. Mutations notify registered UI observers and are serialized back to ARXML on save.

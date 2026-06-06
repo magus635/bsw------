@@ -1,0 +1,9 @@
+created: 2026-04-14T10:24:05.626Z
+updated: 2026-04-14T10:24:05.626Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: validation
+children: []
+parentPath:
+  - core-layer

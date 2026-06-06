@@ -1,0 +1,15 @@
+created: 2026-04-14T10:23:30.209Z
+updated: 2026-04-14T10:23:48.987Z
+update_count: 2
+last_field: diagram
+kind: nested-class
+title: core-layer
+children:
+  - ai-subsystem
+  - config-manager
+  - hardware
+  - model
+  - parser
+  - validation
+  - workspace-manager
+parentPath: []

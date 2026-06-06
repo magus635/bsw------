@@ -1,0 +1,19 @@
+created: 2026-04-15T01:45:11.193Z
+updated: 2026-04-15T01:45:32.460Z
+update_count: 2
+last_field: diagram
+kind: nested-class
+title: core
+children:
+  - ai
+  - command
+  - config-mgr
+  - hardware
+  - importers
+  - model
+  - parser
+  - rules
+  - serializer
+  - validation
+  - workspace
+parentPath: []

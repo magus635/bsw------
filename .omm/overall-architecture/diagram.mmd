@@ -1,0 +1,16 @@
+graph LR
+    ui["UI Layer\nautosar_configurator/ui/"]
+    core["Core Layer\nautosar_configurator/core/"]
+    generator["Generator Layer\nautosar_configurator/generator/"]
+    data["Data / Config Files\n*.arxml / *.xdm / *.dpa"]
+    output["Generated Code\n*.h / *.c files"]
+
+    ui -->|"read/write via managers"| core
+    core -->|"parse"| data
+    core -->|"model objects"| generator
+    generator -->|"render templates"| output
+
+    classDef entry fill:#89b4fa,stroke:#89b4fa,color:#1e1e2e
+    classDef store fill:#a6e3a1,stroke:#a6e3a1,color:#1e1e2e
+    class ui entry
+    class data,output store

@@ -1,0 +1,1 @@
+eb/overlay_engine.py handles [!SELECTFILE filename] directives that route rendered output to different files within a single template pass. Maintains a dict of filename → buffer, flushed to disk at end of render.

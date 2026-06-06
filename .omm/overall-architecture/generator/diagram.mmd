@@ -1,0 +1,13 @@
+graph LR
+    code-generator["Code Generator\ngenerator/generator.py"]
+    eb-engine["EB Template Engine\ngenerator/eb_template_engine.py"]
+    eb-internals["EB Engine Internals\ngenerator/eb/"]
+    templates["Template Files\ngenerator/templates/"]
+
+    code-generator -->|"delegates render"| eb-engine
+    eb-engine -->|"wraps"| eb-internals
+    code-generator -->|"resolves"| templates
+    templates -->|"read by"| eb-engine
+
+    classDef store fill:#a6e3a1,stroke:#a6e3a1,color:#1e1e2e
+    class templates store

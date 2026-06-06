@@ -1,0 +1,1 @@
+EcucModuleConfiguration → EcucContainerValue → EcucParameterValue hierarchy (core/model/configuration_model.py). The mutable instance/value side. Holds user-set parameter values and cross-module reference strings. Mutations fire observer notifications.

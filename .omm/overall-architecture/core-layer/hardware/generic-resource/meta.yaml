@@ -1,0 +1,10 @@
+created: 2026-04-14T10:25:46.414Z
+updated: 2026-04-14T10:25:46.414Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: generic-resource
+children: []
+parentPath:
+  - core-layer
+  - hardware

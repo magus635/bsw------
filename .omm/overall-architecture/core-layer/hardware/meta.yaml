@@ -1,0 +1,16 @@
+created: 2026-04-14T10:24:28.108Z
+updated: 2026-04-14T10:24:47.406Z
+update_count: 2
+last_field: diagram
+kind: nested-class
+title: hardware
+children:
+  - chip-database
+  - ecu-resource-parser
+  - generic-resource
+  - mapping-rule
+  - resource-mapper
+  - tresos-parser
+  - xdm-extractor
+parentPath:
+  - core-layer

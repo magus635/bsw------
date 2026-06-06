@@ -1,0 +1,1 @@
+AI integration subsystem (core/ai/). NaturalLanguageProcessor is the entry point; it uses GeminiClient for LLM calls, PromptManager to build prompts, KnowledgeBase for AUTOSAR domain context, ContextBuilder to extract relevant config state, and Validator to sanity-check AI suggestions before applying them.

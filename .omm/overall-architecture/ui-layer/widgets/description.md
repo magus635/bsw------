@@ -1,0 +1,1 @@
+Dock widget collection (ui/widgets/). Contains DaVinciTreeView (BSW module tree), DaVinciConfigPanel (parameter editing), SmartSearchWidget, DependencyGraphWidget, AIAssistantWidget, ImpactView, ProblemsView, and VariantManagementDialog.

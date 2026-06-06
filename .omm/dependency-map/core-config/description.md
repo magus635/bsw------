@@ -1,0 +1,1 @@
+Depends on core-model. Provides CRUD API over EcucContainerValue/EcucParameterValue instances. Also contains ProjectTypeDetector and ConfigLoader which depend on the filesystem and environment variables only.

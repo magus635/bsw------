@@ -1,0 +1,1 @@
+Pluggable validation rule modules: structural_rules.py (container multiplicity, required params), reference_rules.py (dangling refs), cross_module_validator.py (inter-module consistency), dependency_rules.py (parameter dependencies), custom_rules.py (user-defined), base_rules.py (shared base class).

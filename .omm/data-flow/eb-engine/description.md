@@ -1,0 +1,1 @@
+EB Tresos template engine internals (generator/eb/). Lexes and renders .ebt templates, evaluates XPath expressions against the ECUC model, and calls built-in functions to produce C/C++ source strings.

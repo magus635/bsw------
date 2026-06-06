@@ -1,0 +1,1 @@
+Step-by-step configuration wizards (ui/wizards/). Includes ImportWizard (EB Tresos project import), QuickConfigWizard, HardwareMappingWizard, BatchCreateWizard, and TemplateWizard. All extend WizardBase.

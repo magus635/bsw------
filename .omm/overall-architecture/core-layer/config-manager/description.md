@@ -1,0 +1,1 @@
+ConfigurationManager (core/config_manager.py) — CRUD operations for EcucContainerValue instances. Includes ProjectTypeDetector (Vector vs EB Tresos via marker files) and ConfigLoader (finds def search paths by project type). Delegates constraint checking to ValidationEngine.

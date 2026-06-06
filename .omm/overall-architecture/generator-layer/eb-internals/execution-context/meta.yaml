@@ -1,0 +1,10 @@
+created: 2026-04-14T10:25:59.233Z
+updated: 2026-04-14T10:25:59.233Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: execution-context
+children: []
+parentPath:
+  - generator-layer
+  - eb-internals

@@ -1,0 +1,1 @@
+Core EB Tresos template engine implementation: renderer.py (template directives: [!IF], [!LOOP], [!MACRO], [!SELECT], [!INCLUDE]), lexer.py (tokenizer), xpath_engine.py (XPath 2.0/3.0 evaluator), builtins.py (node:*, num:*, string:*, bit:*, ecu:*, variant:* functions), symbol_table.py, context.py, execution_context.py, overlay_engine.py (multi-file output), errors.py.

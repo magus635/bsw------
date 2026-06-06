@@ -1,0 +1,1 @@
+ECUC model facade (core/model/ecuc_model.py). Combines definition and configuration sides into a single access point, providing convenience lookups that pair an EcucParameterDef with its corresponding EcucParameterValue.

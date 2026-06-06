@@ -1,0 +1,13 @@
+created: 2026-04-15T01:45:08.700Z
+updated: 2026-04-15T01:45:27.181Z
+update_count: 2
+last_field: diagram
+kind: nested-class
+title: ui
+children:
+  - commands
+  - dialogs
+  - main-window
+  - widgets
+  - wizards
+parentPath: []

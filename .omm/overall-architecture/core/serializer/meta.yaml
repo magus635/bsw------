@@ -1,0 +1,9 @@
+created: 2026-04-15T01:45:59.671Z
+updated: 2026-04-15T01:45:59.671Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: serializer
+children: []
+parentPath:
+  - core

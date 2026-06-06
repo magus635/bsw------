@@ -1,0 +1,10 @@
+created: 2026-04-14T10:25:17.074Z
+updated: 2026-04-14T10:25:17.074Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: observers
+children: []
+parentPath:
+  - core-layer
+  - model

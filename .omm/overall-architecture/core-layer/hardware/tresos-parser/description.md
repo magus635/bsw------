@@ -1,0 +1,1 @@
+TresosPropertiesParser (core/hardware/tresos_properties_parser.py). Reads EB Tresos .properties files used in chip-specific resource definitions. Parses key=value pairs including ecu:get() references and C-literal values.

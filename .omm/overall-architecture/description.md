@@ -1,0 +1,1 @@
+AUTOSAR BSW Graphical Configurator — a DaVinci-style desktop tool for editing AUTOSAR ECU configuration (ARXML/XDM files) and generating BSW C/C++ source code via EB Tresos-compatible templates. Built with Python + PySide6.

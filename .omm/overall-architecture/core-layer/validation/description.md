@@ -1,0 +1,1 @@
+ValidationEngine (core/validation_engine.py). Evaluates ECUC constraints (multiplicity, value ranges, reference integrity, ConfigClass) against the current model state. Returns structured ValidationError objects consumed by both the config manager and the UI problems view.

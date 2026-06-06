@@ -1,0 +1,9 @@
+created: 2026-04-14T10:24:00.673Z
+updated: 2026-04-14T10:24:00.673Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: config-manager
+children: []
+parentPath:
+  - core-layer

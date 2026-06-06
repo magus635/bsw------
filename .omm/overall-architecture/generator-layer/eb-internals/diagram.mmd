@@ -1,0 +1,20 @@
+graph LR
+    renderer["Renderer\ngenerator/eb/renderer.py"]
+    lexer["Lexer\ngenerator/eb/lexer.py"]
+    xpath-engine["XPath Engine\ngenerator/eb/xpath_engine.py"]
+    builtins["Built-in Functions\ngenerator/eb/builtins.py"]
+    execution-context["Execution Context\ngenerator/eb/execution_context.py"]
+    symbol-table["Symbol Table\ngenerator/eb/symbol_table.py"]
+    overlay-engine["Overlay Engine\ngenerator/eb/overlay_engine.py"]
+    errors["Errors\ngenerator/eb/errors.py"]
+
+    classDef entry fill:#89b4fa,stroke:#89b4fa,color:#1e1e2e
+    class renderer entry
+
+    lexer -->|"tokenizes .ebt source for"| renderer
+    renderer -->|"evaluates XPath via"| xpath-engine
+    xpath-engine -->|"calls"| builtins
+    renderer -->|"reads/writes vars via"| execution-context
+    execution-context -->|"backed by"| symbol-table
+    renderer -->|"applies variant overlays via"| overlay-engine
+    renderer -->|"raises"| errors

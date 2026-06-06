@@ -1,0 +1,1 @@
+EB Tresos-compatible .ebt template files (templates/<Module>/*.ebt). Define code generation patterns using [!IF], [!LOOP], [!MACRO], [!SELECT] directives plus XPath expressions and built-in functions (node:*, ecu:*, variant:*, etc.).

@@ -1,0 +1,1 @@
+_find_template() searches for the .ebt file in priority order: project_template_dir → user_template_dir → DEFAULT_TEMPLATE_DIR (generator/templates/). Returns the first match. Raises FileNotFoundError if no template found for the module.

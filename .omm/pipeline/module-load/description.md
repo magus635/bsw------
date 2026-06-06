@@ -1,0 +1,1 @@
+EBTemplateEngine.add_module() loads the module_def + configuration into the Renderer's symbol table. Registers the module namespace so that cross-module XPath references (e.g., accessing Os parameters from a Can template) resolve correctly.

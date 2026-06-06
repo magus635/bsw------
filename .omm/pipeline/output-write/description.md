@@ -1,0 +1,1 @@
+Final stage: writes assembled C/C++ source strings to disk. File names follow the module name + ConfigClass suffix convention (*Cfg.h, *Lcfg.c, *PBcfg.c). Writes to output/ or the project-specific generateCode/ directory.

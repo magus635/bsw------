@@ -1,0 +1,1 @@
+Depends on core-model only. External dependencies: openpyxl (Excel), cantools (DBC). Satellite module — imports external data formats into the model. Removing importers does not break parse/edit/generate flow.

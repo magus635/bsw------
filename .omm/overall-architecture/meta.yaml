@@ -1,0 +1,41 @@
+created: 2026-04-14T10:23:03.584Z
+updated: 2026-04-15T01:45:03.537Z
+update_count: 9
+last_field: constraint
+git_commit: 3480a09
+git_branch: main
+children:
+  - arxml-files
+  - core
+  - core-layer
+  - data
+  - entry-point
+  - generator
+  - generator-layer
+  - output
+  - template-files
+  - ui
+  - ui-layer
+prev_diagram: >
+  graph LR
+      entry-point["Entry Point\ndavinci_main.py"]
+      ui-layer["UI Layer\nautosar_configurator/ui/"]
+      core-layer["Core Layer\nautosar_configurator/core/"]
+      generator-layer["Generator Layer\nautosar_configurator/generator/"]
+      arxml-files["ARXML Files\n*.arxml"]
+      template-files["Template Files\ntemplates/*.ebt"]
+
+      classDef entry fill:#89b4fa,stroke:#89b4fa,color:#1e1e2e
+      classDef store fill:#a6e3a1,stroke:#a6e3a1,color:#1e1e2e
+      classDef external fill:#585b70,stroke:#585b70,color:#cdd6f4
+
+      class entry-point entry
+      class arxml-files,template-files store
+
+      entry-point -->|"launches QApplication"| ui-layer
+      ui-layer -->|"CRUD, parse, validate"| core-layer
+      core-layer -->|"model + definition"| generator-layer
+      arxml-files -->|"parsed by"| core-layer
+      template-files -->|"rendered by"| generator-layer
+      generator-layer -->|"emits C/C++ source"| output["Generated Code\noutput/"]
+      class output store

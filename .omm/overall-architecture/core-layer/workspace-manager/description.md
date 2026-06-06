@@ -1,0 +1,1 @@
+WorkspaceManager / WorkspaceProject (core/workspace_manager.py). Manages a workspace containing multiple BSW module configurations. Builds reverse-reference indexes and resolves EMF-style cross-module paths (/Module/ContainerDef/Instance) to object pointers.

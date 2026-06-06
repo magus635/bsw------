@@ -1,0 +1,1 @@
+ARXML parsers (core/parser/). EcucDefParser reads ECUC-MODULE-DEF from ARXML and constructs EcucModuleDef / EcucContainerDef / EcucParameterDef objects. Companion serializer writes configuration values back to ARXML.

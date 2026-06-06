@@ -1,0 +1,1 @@
+DaVinci-style main window (davinci_main_window.py). Owns application state (active module def, config manager, workspace). Coordinates all dock widgets, launches file dialogs, runs AI workers in a QThreadPool, and pushes Qt commands to a QUndoStack for undo/redo.

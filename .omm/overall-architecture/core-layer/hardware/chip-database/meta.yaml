@@ -1,0 +1,10 @@
+created: 2026-04-14T10:25:41.138Z
+updated: 2026-04-14T10:25:41.139Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: chip-database
+children: []
+parentPath:
+  - core-layer
+  - hardware

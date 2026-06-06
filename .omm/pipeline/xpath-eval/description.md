@@ -1,0 +1,1 @@
+eb/xpath_engine.py evaluates XPath expressions against the AUTOSAR model nodes. Supports axes (child::, descendant::, //, @attr), predicates, arithmetic, string ops. Calls builtins.py for function calls (node:value(), ecu:get(), variant:postBuildVariantValue(), bit:and(), etc.).

@@ -1,0 +1,17 @@
+created: 2026-04-14T10:24:30.546Z
+updated: 2026-04-14T10:24:50.481Z
+update_count: 2
+last_field: diagram
+kind: nested-class
+title: eb-internals
+children:
+  - builtins
+  - errors
+  - execution-context
+  - lexer
+  - overlay-engine
+  - renderer
+  - symbol-table
+  - xpath-engine
+parentPath:
+  - generator-layer

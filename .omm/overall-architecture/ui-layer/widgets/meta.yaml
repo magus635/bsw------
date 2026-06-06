@@ -1,0 +1,16 @@
+created: 2026-04-14T10:24:20.241Z
+updated: 2026-04-14T10:24:36.904Z
+update_count: 2
+last_field: diagram
+kind: nested-class
+title: widgets
+children:
+  - ai-assistant
+  - config-panel
+  - dependency-graph
+  - impact-view
+  - problems-view
+  - smart-search
+  - tree-view
+parentPath:
+  - ui-layer

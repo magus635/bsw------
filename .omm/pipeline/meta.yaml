@@ -1,0 +1,54 @@
+created: 2026-04-14T10:26:54.830Z
+updated: 2026-04-15T01:48:10.589Z
+update_count: 8
+last_field: constraint
+git_commit: 3480a09
+git_branch: main
+children:
+  - builtin-resolve
+  - eb-render
+  - file-write
+  - fingerprint
+  - fingerprint-check
+  - input
+  - lex-parse
+  - lexer-stage
+  - module-load
+  - output-write
+  - overlay-stage
+  - param-classify
+  - render-stage
+  - template-resolve
+  - template-select
+  - trigger
+  - xpath-eval
+prev_diagram: >
+  graph LR
+      input["Input\nModuleDef + Configuration"]
+      fingerprint-check["Fingerprint Check\ngenerator.py _calculate_fingerprint()"]
+      param-classify["Parameter Classification\ngenerator.py ConfigClass routing"]
+      template-select["Template Selection\nproject > user > built-in priority"]
+      eb-render["EB Template Render\neb_template_engine.py"]
+      lex-parse["Lex & Parse\neb/lexer.py + eb/renderer.py"]
+      xpath-eval["XPath Evaluation\neb/xpath_engine.py"]
+      builtin-resolve["Built-in Resolution\neb/builtins.py ecu:get() / variant:*"]
+      output-write["Output Write\n*Cfg.h / *Lcfg.c / *PBcfg.c"]
+
+      classDef entry fill:#89b4fa,stroke:#89b4fa,color:#1e1e2e
+      classDef store fill:#a6e3a1,stroke:#a6e3a1,color:#1e1e2e
+      classDef concern fill:#f38ba8,stroke:#f38ba8,color:#1e1e2e
+
+      class input entry
+      class output-write store
+      class fingerprint-check concern
+
+      input -->|"hash model state"| fingerprint-check
+      fingerprint-check -->|"changed: proceed"| param-classify
+      fingerprint-check -->|"unchanged: skip"| output-write
+      param-classify -->|"PRE-COMPILE / LINK-TIME / POST-BUILD buckets"| template-select
+      template-select -->|"resolved .ebt file paths"| eb-render
+      eb-render -->|"tokenize source"| lex-parse
+      lex-parse -->|"evaluate XPath"| xpath-eval
+      xpath-eval -->|"call built-ins"| builtin-resolve
+      builtin-resolve -->|"resolved values back to"| lex-parse
+      lex-parse -->|"assembled C source"| output-write

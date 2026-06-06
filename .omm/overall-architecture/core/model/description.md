@@ -1,0 +1,1 @@
+ECUC data model in two parallel hierarchies: Definition side (EcucModuleDef → EcucContainerDef → EcucParameterDef) and Configuration side (EcucModuleConfiguration → EcucContainerValue → EcucParameterValue). Observer pattern (observers.py) propagates changes to UI. Base classes in base.py; container.py holds multiplicity logic; ecuc_model.py ties both sides.

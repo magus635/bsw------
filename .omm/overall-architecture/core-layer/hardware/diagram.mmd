@@ -1,0 +1,18 @@
+graph LR
+    xdm-extractor["XDM Extractor\ncore/hardware/xdm_chip_extractor.py"]
+    tresos-parser["Tresos Props Parser\ncore/hardware/tresos_properties_parser.py"]
+    chip-database["Chip Database\ncore/hardware/chip_database.py"]
+    resource-mapper["Resource Mapper\ncore/hardware/resource_mapper.py"]
+    mapping-rule["Mapping Rule\ncore/hardware/mapping_rule.py"]
+    generic-resource["Generic Resource\ncore/hardware/generic_resource.py"]
+    ecu-resource-parser["ECU Resource Parser\ncore/hardware/ecu_resource_parser.py"]
+
+    classDef store fill:#a6e3a1,stroke:#a6e3a1,color:#1e1e2e
+    class chip-database store
+
+    xdm-extractor -->|"populates"| chip-database
+    tresos-parser -->|"populates"| chip-database
+    ecu-resource-parser -->|"reads resources into"| generic-resource
+    resource-mapper -->|"applies"| mapping-rule
+    resource-mapper -->|"queries"| chip-database
+    resource-mapper -->|"produces"| generic-resource

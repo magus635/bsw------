@@ -1,0 +1,1 @@
+The core/model package has zero outward dependencies on other project packages — it is the stable foundation. UI and generator are the only layers that touch each other indirectly (both depend on core). Hardware, AI, and importers are all optional satellites — removing any of them does not break the parse/edit/generate loop.

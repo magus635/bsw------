@@ -1,0 +1,1 @@
+Targets embedded automotive software teams using AUTOSAR R4.x. Supports both Vector DaVinci (.dpa) and EB Tresos (.project/.tresos) project formats. Runs on macOS/Linux with Python 3.9+, PySide6, and lxml.

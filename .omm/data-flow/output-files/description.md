@@ -1,0 +1,1 @@
+Generated C/C++ source files. Classified by ConfigClass: *Cfg.h (PRE-COMPILE #define macros), *Lcfg.c (LINK-TIME const structs), *PBcfg.c (POST-BUILD structs). Written to output/ or project-specific generateCode/ directory.

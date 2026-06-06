@@ -1,0 +1,1 @@
+NaturalLanguageProcessor (core/ai/nlp_processor.py). Entry point for AI interactions. Orchestrates prompt building, LLM call, and response validation in response to user messages forwarded from the AIAssistantWidget via AIWorker.

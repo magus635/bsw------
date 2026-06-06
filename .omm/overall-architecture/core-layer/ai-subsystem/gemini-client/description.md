@@ -1,0 +1,1 @@
+GeminiClient (core/ai/gemini_client.py). Thin wrapper around google-generativeai SDK. Manages API key (GEMINI_API_KEY), model selection, request formatting, and response parsing for the Gemini LLM backend.

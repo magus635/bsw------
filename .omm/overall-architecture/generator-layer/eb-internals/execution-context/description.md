@@ -1,0 +1,1 @@
+ExecutionContext (generator/eb/execution_context.py). Holds runtime state during template rendering: current node context, loop variables, macro arguments, and output buffer. Backed by SymbolTable for variable scoping.

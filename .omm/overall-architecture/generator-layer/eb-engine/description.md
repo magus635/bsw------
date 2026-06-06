@@ -1,0 +1,1 @@
+EBTemplateEngine (generator/eb_template_engine.py). High-level wrapper around the EB internals. Accepts a module def + configuration + ECU resources, discovers .ebt template files, and returns rendered C/C++ source strings. Runs in strict=False mode to allow partial rendering.

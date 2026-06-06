@@ -1,0 +1,1 @@
+CodeGenerator._calculate_fingerprint() hashes the serialized model state and compares it against the stored .{ModuleName}.meta file. If identical, generation is skipped entirely. If changed, the meta file is updated and rendering proceeds.

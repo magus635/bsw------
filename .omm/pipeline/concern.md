@@ -1,0 +1,3 @@
+- XPath evaluation is recursive and unbounded — deeply nested template expressions can cause performance issues on large configurations.
+- Fingerprint logic uses MD5 over sorted parameter values; any non-deterministic iteration order breaks cache invalidation.
+- strict=False in production swallows rendering errors silently — bad template bugs may produce incomplete output without visible errors.

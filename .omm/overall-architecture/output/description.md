@@ -1,0 +1,1 @@
+Generated C/C++ source files for AUTOSAR BSW modules: Cfg.h (PRE-COMPILE macros), Lcfg.c (LINK-TIME const structs), PBcfg.c (POST-BUILD structs). Output directory structure mirrors module name. Fingerprint files (.{ModuleName}.meta) prevent redundant regeneration.

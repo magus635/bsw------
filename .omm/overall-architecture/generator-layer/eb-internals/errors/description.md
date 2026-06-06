@@ -1,0 +1,1 @@
+Error types (generator/eb/errors.py). Custom exceptions for template rendering failures: undefined reference, missing module, XPath evaluation error. In strict=True mode these are raised; in strict=False they are swallowed and fallback/dummy nodes are used.

@@ -1,0 +1,1 @@
+Depends on core-model and eb-engine. No UI dependency — generator is invoked by UI but does not import from UI. Self-contained: given model objects, produces files. Depends on templates directory at runtime (not import time).

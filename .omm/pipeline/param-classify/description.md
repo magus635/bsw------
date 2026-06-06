@@ -1,0 +1,1 @@
+Iterates all EcucParameterDef entries and routes them into three buckets by ConfigClass: PRE-COMPILE (→ *Cfg.h macros), LINK-TIME (→ *Lcfg.c const struct members), POST-BUILD (→ *PBcfg.c struct members with variant overlay).

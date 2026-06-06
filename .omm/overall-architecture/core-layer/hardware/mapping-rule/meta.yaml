@@ -1,0 +1,10 @@
+created: 2026-04-14T10:25:44.413Z
+updated: 2026-04-14T10:25:44.413Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: mapping-rule
+children: []
+parentPath:
+  - core-layer
+  - hardware

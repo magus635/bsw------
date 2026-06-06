@@ -1,0 +1,1 @@
+Code generation engine. CodeGenerator orchestrates EB Tresos-compatible .ebt template rendering via EBTemplateEngine. Internally: custom lexer, XPath 2.0/3.0 engine, builtin function library (node:*, ecu:*, variant:*, bit:*), overlay engine for multi-file output. Parameters classified by ConfigClass (PRE-COMPILE/LINK-TIME/POST-BUILD).

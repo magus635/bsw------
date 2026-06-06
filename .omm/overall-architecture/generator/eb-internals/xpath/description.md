@@ -1,0 +1,1 @@
+Custom XPath 2.0/3.0 evaluator for navigating the AUTOSAR configuration model. Supports descendant axes (//), predicates, arithmetic, and string operations. Calls builtins for node:*, ecu:*, variant:* function calls.

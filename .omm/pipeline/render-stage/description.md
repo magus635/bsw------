@@ -1,0 +1,1 @@
+eb/renderer.py drives the main render loop. Processes token stream: passes TEXT tokens to output, evaluates [!IF]/[!LOOP]/[!MACRO]/[!SELECT]/[!INCLUDE] directives, dispatches expression tokens to XPath engine. Maintains a directive stack for nested control flow.

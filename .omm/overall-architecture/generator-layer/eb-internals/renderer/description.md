@@ -1,0 +1,1 @@
+Renderer (generator/eb/renderer.py). Core template processor. Tokenizes .ebt source via Lexer, evaluates [!IF]/[!LOOP]/[!MACRO]/[!SELECT] directives, delegates XPath expressions to XPathEngine, reads/writes variables through ExecutionContext, and assembles the output string.

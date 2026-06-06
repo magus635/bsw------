@@ -1,0 +1,1 @@
+KnowledgeBase (core/ai/knowledge_base.py). Static AUTOSAR domain knowledge store. Contains BSW module descriptions, common parameter conventions, and constraint explanations injected into LLM prompts to ground AI suggestions.

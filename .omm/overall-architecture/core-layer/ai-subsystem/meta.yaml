@@ -1,0 +1,15 @@
+created: 2026-04-14T10:24:25.592Z
+updated: 2026-04-14T10:24:44.349Z
+update_count: 2
+last_field: diagram
+kind: nested-class
+title: ai-subsystem
+children:
+  - ai-validator
+  - context-builder
+  - gemini-client
+  - knowledge-base
+  - nlp-processor
+  - prompt-manager
+parentPath:
+  - core-layer

@@ -1,0 +1,10 @@
+created: 2026-04-14T10:25:28.087Z
+updated: 2026-04-14T10:25:28.088Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: prompt-manager
+children: []
+parentPath:
+  - core-layer
+  - ai-subsystem

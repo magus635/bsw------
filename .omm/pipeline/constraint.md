@@ -1,0 +1,3 @@
+- Template search order: project_template_dir → user_template_dir → DEFAULT_TEMPLATE_DIR. First match wins.
+- Each module must be registered via add_module() before render() is called, or cross-module references will fail.
+- Output directory structure is fixed: generateCode/{Module}/Default/

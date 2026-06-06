@@ -1,0 +1,1 @@
+Command pattern for undo/redo: SetParameterCommand, CreateContainerCommand, DeleteContainerCommand, and others. Commands mutate the model and are pushed onto QUndoStack by UI actions. Provides complete undo/redo history.

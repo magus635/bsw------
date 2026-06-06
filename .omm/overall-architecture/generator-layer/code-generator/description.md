@@ -1,0 +1,1 @@
+CodeGenerator (generator/generator.py). Orchestrates code generation for one BSW module: classifies parameters by ConfigClass, selects the active template directory (project > user > built-in priority), delegates rendering to EBTemplateEngine, and uses SHA fingerprints to skip unchanged modules.

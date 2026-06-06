@@ -1,0 +1,19 @@
+graph LR
+    model["Data Models\ncore/model/"]
+    config-manager["Config Manager\ncore/config_manager.py"]
+    workspace-manager["Workspace Manager\ncore/workspace_manager.py"]
+    parser["ARXML Parser\ncore/parser/"]
+    ai-subsystem["AI Subsystem\ncore/ai/"]
+    hardware["Hardware Mapping\ncore/hardware/"]
+    validation["Validation Engine\ncore/validation_engine.py"]
+
+    classDef store fill:#a6e3a1,stroke:#a6e3a1,color:#1e1e2e
+    class model store
+
+    parser -->|"builds"| model
+    config-manager -->|"CRUD on"| model
+    config-manager -->|"delegates validation"| validation
+    workspace-manager -->|"manages multiple modules"| model
+    workspace-manager -->|"resolves EMF references in"| model
+    ai-subsystem -->|"queries config context from"| model
+    hardware -->|"maps resources into"| model

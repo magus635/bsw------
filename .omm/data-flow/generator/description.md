@@ -1,0 +1,1 @@
+CodeGenerator consumes module_def + configuration and renders .ebt templates via EBTemplateEngine to produce C/H source files. Parameters are routed to output files by ConfigClass. Fingerprint check skips unchanged modules.

@@ -1,0 +1,1 @@
+PySide6-based GUI layer (autosar_configurator/ui/). Contains the DaVinci-style main window, dock widgets (tree view, config panel, AI assistant, dependency graph, search), configuration wizards, and Qt command objects for undo/redo.

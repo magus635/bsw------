@@ -1,0 +1,222 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1776161453085,
+  "projectRoot": "/Users/qlwang/Desktop/bsw图形配置工具",
+  "techStack": {
+    "languages": [
+      {
+        "name": "Python",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "requirements.txt"
+        ]
+      }
+    ],
+    "frameworks": [],
+    "packageManager": "pip",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "examples",
+      "tests"
+    ],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "autosar_configurator": {
+      "path": "autosar_configurator",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1776161453070,
+      "keyFiles": [
+        "__init__.py"
+      ]
+    },
+    "datasheets": {
+      "path": "datasheets",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1776161453073,
+      "keyFiles": [
+        "sample_chip_manual.txt"
+      ]
+    },
+    "doc": {
+      "path": "doc",
+      "purpose": null,
+      "fileCount": 8,
+      "lastAccessed": 1776161453074,
+      "keyFiles": [
+        "DBC文件导入使用说明.md",
+        "EB_Tresos_XDM格式解析说明.md",
+        "EMF.md",
+        "Hardware_Mapping硬件映射使用说明.md",
+        "XPath语言参考.md"
+      ]
+    },
+    "eb_test_templates": {
+      "path": "eb_test_templates",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1776161453074,
+      "keyFiles": [
+        "Can.xdm"
+      ]
+    },
+    "examples": {
+      "path": "examples",
+      "purpose": "Example code",
+      "fileCount": 1,
+      "lastAccessed": 1776161453074,
+      "keyFiles": [
+        "cross_module_rules.py"
+      ]
+    },
+    "output": {
+      "path": "output",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1776161453075,
+      "keyFiles": []
+    },
+    "path": {
+      "path": "path",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1776161453075,
+      "keyFiles": []
+    },
+    "templates": {
+      "path": "templates",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1776161453075,
+      "keyFiles": []
+    },
+    "test_import_project": {
+      "path": "test_import_project",
+      "purpose": null,
+      "fileCount": 0,
+      "lastAccessed": 1776161453075,
+      "keyFiles": []
+    },
+    "test_project_relocation": {
+      "path": "test_project_relocation",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1776161453075,
+      "keyFiles": [
+        "test.davinci"
+      ]
+    },
+    "tests": {
+      "path": "tests",
+      "purpose": "Test files",
+      "fileCount": 16,
+      "lastAccessed": 1776161453076,
+      "keyFiles": [
+        "compare_eb_vs_ours.py",
+        "repro_boolean_padding.py",
+        "repro_node_exists.py",
+        "repro_xpath_parens.py",
+        "test_ai_and_ui_enhancements.py"
+      ]
+    },
+    "tools": {
+      "path": "tools",
+      "purpose": null,
+      "fileCount": 4,
+      "lastAccessed": 1776161453076,
+      "keyFiles": [
+        "__init__.py",
+        "gen_all.py",
+        "run.py",
+        "tree_dump.py"
+      ]
+    },
+    "autosar_configurator/data": {
+      "path": "autosar_configurator/data",
+      "purpose": "Data files",
+      "fileCount": 0,
+      "lastAccessed": 1776161453076,
+      "keyFiles": []
+    },
+    "autosar_configurator/tests": {
+      "path": "autosar_configurator/tests",
+      "purpose": "Test files",
+      "fileCount": 4,
+      "lastAccessed": 1776161453076,
+      "keyFiles": [
+        "test_ai_integration.py",
+        "test_ai_ui.py",
+        "test_nlp_set_param.py"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "",
+      "accessCount": 3,
+      "lastAccessed": 1776217466144,
+      "type": "directory"
+    },
+    {
+      "path": "davinci_main.py",
+      "accessCount": 2,
+      "lastAccessed": 1776217469855,
+      "type": "file"
+    },
+    {
+      "path": "autosar_configurator/core/config_manager.py",
+      "accessCount": 2,
+      "lastAccessed": 1776217470729,
+      "type": "file"
+    },
+    {
+      "path": "autosar_configurator/generator/generator.py",
+      "accessCount": 2,
+      "lastAccessed": 1776217471377,
+      "type": "file"
+    },
+    {
+      "path": "autosar_configurator/ui/davinci_main_window.py",
+      "accessCount": 2,
+      "lastAccessed": 1776217475323,
+      "type": "file"
+    },
+    {
+      "path": "autosar_configurator/core/workspace_manager.py",
+      "accessCount": 1,
+      "lastAccessed": 1776217475697,
+      "type": "file"
+    },
+    {
+      "path": "autosar_configurator/generator/eb_template_engine.py",
+      "accessCount": 1,
+      "lastAccessed": 1776217476679,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

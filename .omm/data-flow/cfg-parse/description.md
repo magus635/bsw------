@@ -1,0 +1,1 @@
+ArxmlParser parses Vector ARXML value containers into EcucModuleConfiguration. XdmConfigParser handles EB Tresos XDM format. XdmExpressionResolver evaluates inline XPath expressions found in XDM attribute values during parse time.

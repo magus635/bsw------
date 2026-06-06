@@ -1,0 +1,9 @@
+created: 2026-04-14T10:24:02.634Z
+updated: 2026-04-14T10:24:02.634Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: workspace-manager
+children: []
+parentPath:
+  - core-layer

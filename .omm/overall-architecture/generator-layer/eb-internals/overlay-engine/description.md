@@ -1,0 +1,1 @@
+OverlayEngine (generator/eb/overlay_engine.py). Applies variant-specific parameter overrides on top of the base configuration during template rendering, enabling multi-variant code generation from a single template pass.

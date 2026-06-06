@@ -1,0 +1,1 @@
+EcucDefParser reads AUTOSAR ECUC-MODULE-DEF elements from ARXML/XDM files and populates the EcucModuleDef hierarchy (containers, parameters, types, multiplicity). Definition files are read-only during a session.

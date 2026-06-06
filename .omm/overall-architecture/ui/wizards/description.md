@@ -1,0 +1,1 @@
+Step-by-step configuration wizards: ImportWizard (ARXML/XDM import), HardwareMappingWizard (pin/resource mapping), QuickConfigWizard (guided BSW setup), TemplateWizard, BatchCreateWizard. All extend WizardBase.

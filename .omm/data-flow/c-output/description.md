@@ -1,0 +1,1 @@
+Generated C/H source files per BSW module: {Module}Cfg.h (PRE-COMPILE macros), {Module}Lcfg.c (LINK-TIME const structs), {Module}PBcfg.c (POST-BUILD structs). Written to generateCode/{Module}/Default/ under the project output directory.

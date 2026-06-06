@@ -1,0 +1,1 @@
+Code generation engine (autosar_configurator/generator/). Hosts the EB Tresos-compatible template engine (custom lexer, XPath 2.0/3.0 evaluator, built-in function library), routes parameters to PRE-COMPILE/LINK-TIME/POST-BUILD output files, and uses fingerprint files to skip unchanged modules.

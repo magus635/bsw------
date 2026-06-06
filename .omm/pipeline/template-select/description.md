@@ -1,0 +1,1 @@
+Resolves the list of .ebt template files to render using a three-level priority: (1) project_template_dir, (2) user_template_dir, (3) DEFAULT_TEMPLATE_DIR (generator/templates/<Module>/). First match wins per filename.

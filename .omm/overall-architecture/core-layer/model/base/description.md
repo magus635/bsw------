@@ -1,0 +1,1 @@
+Base classes (core/model/base.py). Shared superclasses for definition and configuration model objects: common identity (short name, path), parent reference, and utility methods used across the model hierarchy.

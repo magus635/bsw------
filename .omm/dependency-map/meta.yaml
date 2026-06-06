@@ -1,0 +1,21 @@
+created: 2026-04-15T01:48:46.866Z
+updated: 2026-04-15T01:48:53.858Z
+update_count: 3
+last_field: note
+git_commit: 3480a09
+git_branch: main
+children:
+  - core-ai
+  - core-config
+  - core-hardware
+  - core-importers
+  - core-model
+  - core-parser
+  - core-rules
+  - core-serializer
+  - core-validation
+  - core-workspace
+  - davinci-main
+  - eb-engine
+  - generator
+  - ui-layer

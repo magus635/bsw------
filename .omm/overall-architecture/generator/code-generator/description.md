@@ -1,0 +1,1 @@
+Main orchestrator (CodeGenerator class). Accepts module_def + configuration, classifies parameters by ConfigClass, resolves template file paths (project → user → default priority), loads ECU resources from .properties files, initializes EBTemplateEngine, and drives rendering. Calculates fingerprints to skip unchanged modules.

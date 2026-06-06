@@ -1,0 +1,1 @@
+PySide6 GUI layer. Entry point: davinci_main.py → DaVinciMainWindow. Includes tree view, config panel, smart search, dependency graph, AI assistant widget, wizards (import, hardware mapping, quick config, template), and dialogs (validation results, project properties, dependency review, user manual).

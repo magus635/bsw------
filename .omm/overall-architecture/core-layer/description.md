@@ -1,0 +1,1 @@
+Business logic and data layer (autosar_configurator/core/). Owns ECUC data models (definition + configuration sides), ARXML parsing/serialization, workspace/project management, configuration CRUD with validation, AI integration, hardware resource mapping, and the command pattern for undo/redo.

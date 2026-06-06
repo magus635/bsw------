@@ -1,0 +1,1 @@
+Depends on core-model and core-config. External dependency: Google Gemini API (optional, via GEMINI_API_KEY). Satellite module — NLP processor translates user text to configuration mutations. Can be disabled without breaking core functionality.

@@ -1,0 +1,1 @@
+DaVinci-style main window (DaVinciMainWindow). Hosts the splitter layout with tree view and config panel, toolbar, menu bar, status bar. Manages workspace project state, async AI worker thread pool, undo stack, and coordinates all child widgets and wizards.

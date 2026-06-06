@@ -1,0 +1,1 @@
+Mediates all configuration mutations. Checks multiplicity and ConfigClass constraints before applying changes, delegates deeper validation to ValidationEngine, and exposes CRUD methods used by Qt command objects.

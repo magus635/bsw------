@@ -1,0 +1,9 @@
+created: 2026-04-14T10:24:11.130Z
+updated: 2026-04-14T10:24:11.131Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: template-engine
+children: []
+parentPath:
+  - generator-layer

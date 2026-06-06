@@ -1,0 +1,1 @@
+Main template processor. Parses directive tokens from the lexer, evaluates [!IF]/[!LOOP]/[!MACRO]/[!SELECT]/[!INCLUDE] blocks, calls XPath engine for expression evaluation, and writes output through the overlay engine.

@@ -1,0 +1,1 @@
+Hardware resource mapping layer (core/hardware/). Extracts chip-specific resources from XDM files (XdmChipExtractor) and Tresos .properties files (TresosPropertiesParser), stores them in a ChipDatabase, and maps ECUC parameters to MCU pin/peripheral constraints via ResourceMapper and MappingRule.

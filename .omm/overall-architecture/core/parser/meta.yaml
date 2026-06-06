@@ -1,0 +1,9 @@
+created: 2026-04-15T01:45:57.626Z
+updated: 2026-04-15T01:45:57.627Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: parser
+children: []
+parentPath:
+  - core

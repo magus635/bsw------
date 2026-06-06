@@ -1,0 +1,1 @@
+Lexer tokenizes the .ebt source into TEXT and DIRECTIVE tokens; Renderer drives the control flow: evaluates [!IF] branches, iterates [!LOOP] bodies, expands [!MACRO] calls, and accumulates output text.

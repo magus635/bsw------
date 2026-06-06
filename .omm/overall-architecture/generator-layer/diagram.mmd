@@ -1,0 +1,12 @@
+graph LR
+    code-generator["Code Generator\ngenerator/generator.py"]
+    eb-engine["EB Template Engine\ngenerator/eb_template_engine.py"]
+    eb-internals["EB Internals\ngenerator/eb/"]
+    template-engine["Template Engine\ngenerator/template_engine.py"]
+
+    classDef entry fill:#89b4fa,stroke:#89b4fa,color:#1e1e2e
+    class code-generator entry
+
+    code-generator -->|"delegates rendering to"| eb-engine
+    eb-engine -->|"wraps"| eb-internals
+    code-generator -->|"fallback rendering via"| template-engine

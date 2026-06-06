@@ -1,0 +1,1 @@
+SymbolTable (generator/eb/symbol_table.py). Scoped variable store for the template renderer. Supports nested scopes (pushed on [!LOOP]/[!MACRO] entry, popped on exit) to isolate loop and macro variable bindings.

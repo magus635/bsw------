@@ -1,0 +1,12 @@
+created: 2026-04-14T10:23:28.235Z
+updated: 2026-04-14T10:23:45.846Z
+update_count: 2
+last_field: diagram
+kind: nested-class
+title: ui-layer
+children:
+  - commands
+  - main-window
+  - widgets
+  - wizards
+parentPath: []

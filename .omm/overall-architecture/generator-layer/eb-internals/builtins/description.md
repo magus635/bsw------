@@ -1,0 +1,1 @@
+Built-in function library (generator/eb/builtins.py). Implements EB Tresos-compatible functions: node:* (tree navigation), ecu:get() (hardware resource lookup), variant:* (variant-aware value access), bit:* (bitfield ops), num:* (numeric formatting), string:* (string ops).

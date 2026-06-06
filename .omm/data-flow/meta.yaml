@@ -1,0 +1,56 @@
+created: 2026-04-14T10:26:16.464Z
+updated: 2026-04-15T01:47:20.214Z
+update_count: 8
+last_field: concern
+git_commit: 3480a09
+git_branch: main
+children:
+  - arxml-source
+  - c-output
+  - cfg-model
+  - cfg-parse
+  - config-manager
+  - def-model
+  - def-parse
+  - eb-engine
+  - generator
+  - hardware-res
+  - model-cfg
+  - model-def
+  - output-files
+  - parser
+  - saved-arxml
+  - serializer
+  - user-edit
+  - validation
+prev_diagram: |
+  graph LR
+      arxml-source["ARXML Source\n*.arxml on disk"]
+      parser["ARXML Parser\ncore/parser/"]
+      def-model["Definition Model\ncore/model/definition_model.py"]
+      cfg-model["Configuration Model\ncore/model/configuration_model.py"]
+      config-manager["Config Manager\ncore/config_manager.py"]
+      validation["Validation Engine\ncore/validation_engine.py"]
+      hardware-res["Hardware Resources\ncore/hardware/"]
+      generator["Code Generator\ngenerator/generator.py"]
+      eb-engine["EB Template Engine\ngenerator/eb/"]
+      output-files["C/C++ Output\noutput/*.c / *.h"]
+
+      classDef store fill:#a6e3a1,stroke:#a6e3a1,color:#1e1e2e
+      classDef entry fill:#89b4fa,stroke:#89b4fa,color:#1e1e2e
+      classDef concern fill:#f38ba8,stroke:#f38ba8,color:#1e1e2e
+
+      class arxml-source,output-files store
+      class parser entry
+
+      arxml-source -->|"parsed into"| def-model
+      arxml-source -->|"parsed into"| cfg-model
+      def-model -->|"schema for"| config-manager
+      cfg-model -->|"mutated by"| config-manager
+      cfg-model -->|"validated by"| validation
+      validation -->|"errors surfaced to UI"| config-manager
+      cfg-model -->|"read by"| generator
+      def-model -->|"read by"| generator
+      hardware-res -->|"ecu_resources injected into"| generator
+      generator -->|"renders via"| eb-engine
+      eb-engine -->|"writes"| output-files

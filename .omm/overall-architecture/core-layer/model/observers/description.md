@@ -1,0 +1,1 @@
+Observer pattern implementation (core/model/observers.py). Defines observable mixins and listener interfaces; configuration model objects inherit from these to automatically notify registered UI components when parameter values are set or containers are created/deleted.

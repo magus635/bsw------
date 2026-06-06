@@ -1,0 +1,1 @@
+ResourceMapper (core/hardware/resource_mapper.py). Maps ECUC parameter values to physical MCU resources by applying MappingRules against the ChipDatabase. Produces GenericResource objects consumed by the code generator for ecu:get() resolution.

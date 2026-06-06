@@ -1,0 +1,9 @@
+created: 2026-04-14T10:23:56.613Z
+updated: 2026-04-14T10:23:56.614Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: main-window
+children: []
+parentPath:
+  - ui-layer

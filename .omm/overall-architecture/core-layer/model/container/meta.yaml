@@ -1,0 +1,10 @@
+created: 2026-04-14T10:25:19.310Z
+updated: 2026-04-14T10:25:19.311Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: container
+children: []
+parentPath:
+  - core-layer
+  - model

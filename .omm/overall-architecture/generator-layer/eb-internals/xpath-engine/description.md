@@ -1,0 +1,1 @@
+XPathEngine (generator/eb/xpath_engine.py). Custom XPath 2.0/3.0 evaluator tailored for AUTOSAR ECUC data navigation. Supports descendant axes, predicates, arithmetic, and comparisons. Calls BuiltinFunctions for node:*, ecu:*, variant:*, etc.

@@ -1,0 +1,1 @@
+EcucModuleDef + EcucModuleConfiguration pair passed into CodeGenerator.__init__(). May optionally include variant_overrides, selected_chip, and pre-loaded ecu_resources to customize the generation run.

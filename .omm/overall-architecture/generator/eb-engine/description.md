@@ -1,0 +1,1 @@
+EBTemplateEngine wraps the eb/ internals. Maintains a Renderer instance and a set of initialized modules. add_module() registers a module into the symbol table for cross-module access; render() delegates to Renderer with context and ECU resources.

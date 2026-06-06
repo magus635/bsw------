@@ -1,0 +1,1 @@
+Input configuration files: ARXML (Vector DaVinci, *.arxml), XDM (EB Tresos, *.xdm), DPA project files (*.dpa), and chip .properties files. Also includes YAML chip database files under autosar_configurator/data/chips/.

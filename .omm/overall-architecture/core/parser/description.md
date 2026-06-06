@@ -1,0 +1,1 @@
+File parsers for AUTOSAR configuration formats: arxml_parser.py (Vector ARXML), ecuc_def_parser.py (ECUC module definitions), xdm_config_parser.py (EB Tresos XDM), xdm_expression_resolver.py (resolves XPath-like expressions in XDM values).

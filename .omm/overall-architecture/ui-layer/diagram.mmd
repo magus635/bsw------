@@ -1,0 +1,13 @@
+graph LR
+    main-window["Main Window\nui/davinci_main_window.py"]
+    widgets["Widgets\nui/widgets/"]
+    wizards["Wizards\nui/wizards/"]
+    commands["Qt Commands\nui/commands.py"]
+
+    classDef entry fill:#89b4fa,stroke:#89b4fa,color:#1e1e2e
+    class main-window entry
+
+    main-window -->|"hosts dock widgets"| widgets
+    main-window -->|"launches modal flows"| wizards
+    main-window -->|"pushes to QUndoStack"| commands
+    commands -->|"mutates config via"| main-window

@@ -1,0 +1,1 @@
+XDM expression resolver (xdm_expression_resolver.py) must evaluate Tresos XPath-like expressions during parsing — failures here silently drop parameter values. Also: deterministic sort order must be maintained throughout model → generator path to ensure reproducible output fingerprints.

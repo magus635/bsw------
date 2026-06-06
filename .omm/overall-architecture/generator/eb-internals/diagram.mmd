@@ -1,0 +1,15 @@
+graph LR
+    renderer["Renderer\neb/renderer.py"]
+    lexer["Lexer\neb/lexer.py"]
+    xpath["XPath Engine\neb/xpath_engine.py"]
+    builtins["Builtins\neb/builtins.py"]
+    symbol-table["Symbol Table\neb/symbol_table.py"]
+    context["Context\neb/context.py"]
+    overlay["Overlay Engine\neb/overlay_engine.py"]
+
+    renderer -->|"tokenizes template"| lexer
+    renderer -->|"evaluates expressions"| xpath
+    xpath -->|"calls"| builtins
+    renderer -->|"resolves names"| symbol-table
+    renderer -->|"reads/writes"| context
+    renderer -->|"multi-file output"| overlay

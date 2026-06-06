@@ -1,0 +1,1 @@
+EcuResourceParser (core/hardware/ecu_resource_parser.py). Loads pre-exported ECU resource description files (alternative to live XDM extraction) and converts them into GenericResource objects for injection into the generator.

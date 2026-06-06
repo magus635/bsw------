@@ -1,0 +1,1 @@
+In-memory definition model (EcucModuleDef tree). Read-only after load. Defines allowed containers, parameters, types, multiplicities, and ConfigClass assignments used to validate and render configuration.

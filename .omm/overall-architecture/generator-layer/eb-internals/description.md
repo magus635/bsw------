@@ -1,0 +1,1 @@
+EB Tresos template engine internals (generator/eb/). Implements a custom lexer (lexer.py), renderer with [!IF]/[!LOOP]/[!MACRO]/[!SELECT] directives (renderer.py), XPath 2.0/3.0 evaluator (xpath_engine.py), built-in function library (builtins.py: node:*, ecu:*, variant:*, bit:*, num:*, string:*), execution context, symbol table, overlay engine, and error types.

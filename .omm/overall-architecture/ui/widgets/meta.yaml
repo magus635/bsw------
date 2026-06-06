@@ -1,0 +1,9 @@
+created: 2026-04-15T01:45:42.882Z
+updated: 2026-04-15T01:45:42.883Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: widgets
+children: []
+parentPath:
+  - ui

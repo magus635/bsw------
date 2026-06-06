@@ -1,0 +1,1 @@
+AI Validator (core/ai/validator.py). Sanity-checks LLM suggestions before they are applied: verifies that suggested parameter paths exist in the definition model and that proposed values pass basic type and constraint checks.

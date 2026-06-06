@@ -1,0 +1,1 @@
+Built-in function dispatcher (eb/builtins.py). Resolves calls like ecu:get("peripheral/channel"), variant:getValue(), node:value(), num:i2x() etc. during XPath evaluation. ecu:get() looks up the injected ecu_resources dict keyed by resource path.

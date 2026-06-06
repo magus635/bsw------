@@ -1,0 +1,10 @@
+created: 2026-04-14T10:25:30.843Z
+updated: 2026-04-14T10:25:30.844Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: context-builder
+children: []
+parentPath:
+  - core-layer
+  - ai-subsystem

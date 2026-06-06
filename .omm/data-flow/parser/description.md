@@ -1,0 +1,1 @@
+EcucDefParser (core/parser/). Reads ARXML XML and constructs the in-memory definition and configuration model objects. Also includes a serializer that writes mutated configuration back to ARXML on project save.

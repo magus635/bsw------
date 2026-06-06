@@ -1,0 +1,10 @@
+created: 2026-04-14T10:25:17.883Z
+updated: 2026-04-14T10:25:17.884Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: base
+children: []
+parentPath:
+  - core-layer
+  - model

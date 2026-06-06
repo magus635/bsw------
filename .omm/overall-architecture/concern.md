@@ -1,0 +1,3 @@
+- POST-BUILD parameters require special variant handling in templates; easy to miss
+- Path separators differ on Windows vs Linux — POSIX-style must be enforced in code
+- Reference resolution fails silently if absolute paths are used instead of EMF-style relative paths

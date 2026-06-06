@@ -1,0 +1,1 @@
+_calculate_fingerprint() hashes module name + sorted parameter values using MD5. Compared against stored .{ModuleName}.meta file. If identical, generation is skipped for that module. Updated on successful generation.

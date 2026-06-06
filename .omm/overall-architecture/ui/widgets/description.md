@@ -1,0 +1,1 @@
+Reusable PySide6 dock widgets: DaVinciTreeView (module/container hierarchy), DaVinciConfigPanel (parameter editing), SmartSearch, DependencyGraph (graphviz-based), AIAssistant, ImpactView, ProblemsView, BatchEditDialog, VariantManagementDialog. Each widget observes the model via Qt signals.

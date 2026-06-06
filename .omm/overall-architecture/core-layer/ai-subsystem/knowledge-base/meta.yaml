@@ -1,0 +1,10 @@
+created: 2026-04-14T10:25:29.255Z
+updated: 2026-04-14T10:25:29.255Z
+update_count: 1
+last_field: description
+kind: nested-class
+title: knowledge-base
+children: []
+parentPath:
+  - core-layer
+  - ai-subsystem

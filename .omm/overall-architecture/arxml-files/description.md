@@ -1,0 +1,1 @@
+AUTOSAR ARXML definition and configuration files (*.arxml). Contain ECUC-MODULE-DEF schemas (parameter types, constraints, ConfigClass) and ECUC-MODULE-CONF value instances. Parsed at load-time by the core layer's ARXML parser.

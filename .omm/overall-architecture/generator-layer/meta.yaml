@@ -1,0 +1,12 @@
+created: 2026-04-14T10:23:32.569Z
+updated: 2026-04-14T10:23:50.856Z
+update_count: 2
+last_field: diagram
+kind: nested-class
+title: generator-layer
+children:
+  - code-generator
+  - eb-engine
+  - eb-internals
+  - template-engine
+parentPath: []

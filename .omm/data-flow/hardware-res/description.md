@@ -1,0 +1,1 @@
+Hardware resource data loaded from XDM chip files and Tresos .properties files via core/hardware/. Injected into CodeGenerator as ecu_resources dict so ecu:get() calls in templates can resolve MCU-specific peripheral identifiers.

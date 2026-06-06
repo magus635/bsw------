@@ -1,0 +1,1 @@
+ECUC data model (core/model/). Two-sided: definition side (EcucModuleDef → EcucContainerDef → EcucParameterDef in definition_model.py) and configuration side (EcucModuleConfiguration → EcucContainerValue → EcucParameterValue in configuration_model.py). Observer pattern (observers.py) notifies UI on mutations.
