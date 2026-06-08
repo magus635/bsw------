@@ -330,5 +330,58 @@ class PasteContainerCommand(QUndoCommand):
         # Update reverse references if in project context
         if hasattr(self.config_manager, 'project_context') and self.config_manager.project_context:
             self.config_manager.project_context.unregister_container_references(self.new_instance)
-            
+
         self.config_manager.delete_container_instance(self.new_instance, self.parent_instance)
+
+
+class RenameContainerCommand(QUndoCommand):
+    """Rename a container instance, keeping instance registry and modification flag consistent."""
+
+    def __init__(self, config_manager: ConfigurationManager, instance: EcucContainerValue, new_name: str):
+        super().__init__()
+        self.config_manager = config_manager
+        self.instance = instance
+        self.old_name = instance.short_name
+        self.new_name = new_name
+        self.setText(f"Rename {self.old_name} → {new_name}")
+
+    def _apply(self, name: str):
+        self.instance.short_name = name
+        self.instance.mark_modified()
+        self.config_manager.configuration.is_modified = True
+        # Rebuild instance registry so path-based lookups stay consistent
+        if hasattr(self.config_manager, '_rebuild_instance_registry'):
+            self.config_manager._rebuild_instance_registry()
+
+    def redo(self):
+        self._apply(self.new_name)
+
+    def undo(self):
+        self._apply(self.old_name)
+
+
+class DeleteModuleCommand(QUndoCommand):
+    """Delete a whole module (manager + def) from a project, supporting undo."""
+
+    def __init__(self, project, module_name: str):
+        super().__init__()
+        self.project = project
+        self.module_name = module_name
+        # Snapshot the manager and its definition path so we can restore them
+        self.manager = project.module_managers.get(module_name)
+        self.def_path = project.module_defs.get(module_name)
+        self.setText(f"Delete Module {module_name}")
+
+    def redo(self):
+        # remove_module also nulls out dangling cross-module pointers
+        self.project.remove_module(self.module_name)
+
+    def undo(self):
+        if self.manager is None:
+            return
+        # Re-register the previously removed manager and its definition path
+        self.project.module_managers[self.module_name] = self.manager
+        if self.def_path is not None:
+            self.project.module_defs[self.module_name] = self.def_path
+        # Re-resolve references so cleared cross-module pointers are restored
+        self.project.resolve_all_references()

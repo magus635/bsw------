@@ -54,27 +54,19 @@ class TestEBTemplateEngine(unittest.TestCase):
         self.assertEqual(result, '(1)(2)')
 
     def test_xpath_mock(self):
-        # Mocking the configuration structure
-        class MockParam:
-            def __init__(self, val): self.value = val
-        class MockContainer:
-            def __init__(self, name, params=None):
-                self.short_name = name
-                self.parameter_values = params or {}
-                self.sub_containers = []
-                self.reference_values = {}
-        class MockConfig:
-            def __init__(self):
-                self.short_name = "Any"
-                self.containers = [
-                    MockContainer('Mcu', {'Clock': MockParam(8000000)})
-                ]
+        from autosar_configurator.generator.eb.symbol_table import ConfigurationNode
 
-        ctx = {'configuration': MockConfig()}
-        
-        # Test 1: Full path to parameter
+        # Build a ConfigurationNode tree for the "Any" module
+        clock_param = ConfigurationNode('Clock', 'parameter', '/Any/Mcu/Clock', 8000000, 'INTEGER')
+        mcu_container = ConfigurationNode('Mcu', 'container', '/Any/Mcu')
+        mcu_container.add_child(clock_param)
+        any_module = ConfigurationNode('Any', 'module', '/Any')
+        any_module.add_child(mcu_container)
+        self.engine.renderer.symbol_table.register_module('Any', any_module)
+
+        # Test: Full path to parameter via as:modconf
         template = r'[!node:value(as:modconf("Any")[1]/Mcu/Clock)!]'
-        result = self.engine.render(template, ctx)
+        result = self.engine.render(template, {})
         self.assertEqual(result, '8000000')
 
     def test_functions(self):

@@ -76,11 +76,11 @@ class Lexer:
     # Also consumes leading whitespace (indentation) of the following line
     LINE_CONTINUATION_PATTERN = re.compile(r'\[!//!?\]\s*\n?[\t ]*')
 
-    # Pattern for line comments [!// ... (to end of line, no !] needed)
-    # This must not match [!//!] which is line continuation
-    # IMPORTANT: Also removes the trailing newline and subsequent leading whitespace
-    # to achieve proper line continuation effect
-    LINE_COMMENT_PATTERN = re.compile(r'\[!//(?!.*!\])[^\n]*\n?[\t ]*')
+    # Pattern for line comments [!// ... (to end of line, no !] terminator)
+    # Must not match [!//!] (line continuation) or [!// comment !] (inline comment with !] terminator).
+    # Inline comments that end with !] are left for TAG_PATTERN so _parse_tag() returns a COMMENT token,
+    # allowing text after !] on the same line to be preserved (e.g. Before[!// c !]After -> BeforeAfter).
+    LINE_COMMENT_PATTERN = re.compile(r'\[!//(?!!])(?!\])(?![^\n]*!])[^\n]*\n?[\t ]*')
 
     # Pattern for block comments [!/* ... */!] that contain nested [! tags
     # These confuse TAG_PATTERN's non-greedy !] matching; must be stripped first.
@@ -159,7 +159,8 @@ class Lexer:
             if match.start() > last_pos:
                 text_content = processed[last_pos:match.start()]
                 if text_content:
-                    tokens.extend(self._make_text_tokens(text_content))
+                    tokens.append(self._make_text_token(text_content))
+                    self._update_position(text_content)
             
             # Parse the tag content
             tag_content = match.group(1)
@@ -174,7 +175,7 @@ class Lexer:
         if last_pos < len(processed):
             text_content = processed[last_pos:]
             if text_content:
-                tokens.extend(self._make_text_tokens(text_content))
+                tokens.append(self._make_text_token(text_content))
 
         # Post-process for directive-only lines and smart trimming
         tokens = self._identify_directive_lines(tokens)
@@ -227,25 +228,15 @@ class Lexer:
         return tokens
     
     
-    def _make_text_tokens(self, content: str) -> List[Token]:
-        """Create TEXT tokens, splitting by line so that tokens don't cross line boundaries"""
-        tokens = []
-        if not content:
-            return tokens
-            
-        parts = re.split(r'(\n)', content)
-        for part in parts:
-            if not part:
-                continue
-            tokens.append(Token(
-                type=TokenType.TEXT,
-                content=part,
-                line=self._line,
-                column=self._column,
-                raw=part
-            ))
-            self._update_position(part)
-        return tokens
+    def _make_text_token(self, content: str) -> Token:
+        """Create a TEXT token"""
+        return Token(
+            type=TokenType.TEXT,
+            content=content,
+            line=self._line,
+            column=self._column,
+            raw=content
+        )
     
     def _parse_tag(self, content: str, raw: str) -> Token:
         """Parse a [! ... !] tag into appropriate token type.

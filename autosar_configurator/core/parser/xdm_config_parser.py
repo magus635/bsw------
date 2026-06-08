@@ -37,7 +37,8 @@ class XdmConfigParser:
             raise FileNotFoundError(f"File not found: {file_path}")
             
         try:
-            tree = etree.parse(str(file_path))
+            _parser = etree.XMLParser(resolve_entities=False, no_network=True)
+            tree = etree.parse(str(file_path), _parser)
             root = tree.getroot()
             
             # Find the top-level d:chc which defines the MODULE-CONFIGURATION

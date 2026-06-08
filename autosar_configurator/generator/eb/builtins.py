@@ -381,8 +381,9 @@ class BuiltinFunctions:
             if isinstance(path, str):
                 import logging
                 logging.warning(f"node:value(): Could not resolve path '{path}' to a node. Returning empty string.")
-                return ''  # Return empty string, not the path
-            return None
+            # Always return '' (never None) so template truthiness is consistent
+            # regardless of whether the input was a string path or already None.
+            return ''
         
         # Robustness: If node is already a value (not a ConfigurationNode), return it
         if not hasattr(node, 'get_value') and not hasattr(node, 'value'):
@@ -394,16 +395,18 @@ class BuiltinFunctions:
         if param_type:
             param_type = param_type.upper()
 
-            # EB Tresos node:value() converts boolean parameters per AUTOSAR semantic mapping
+            # AUTOSAR boolean formatting: feature-flag params use STD_ON/STD_OFF,
+            # runtime/status params use TRUE/FALSE.  The heuristic is name-based:
+            # if the parameter name contains a feature-flag keyword, use STD_ON/STD_OFF.
             if 'BOOLEAN' in param_type:
-                val_bool = self._parse_boolean(value)
-                short_name = getattr(node, 'short_name', '').lower()
-                feature_keywords = ['enable', 'disable', 'detect', 'api', 'support']
-                is_feature = any(kw in short_name for kw in feature_keywords)
+                bool_val = self._parse_boolean(value)
+                name = getattr(node, 'short_name', '') or ''
+                feature_keywords = ('Enable', 'Disable', 'Detect', 'Support',
+                                    'Activate', 'Suppress', 'Permit', 'Allow')
+                is_feature = any(kw.lower() in name.lower() for kw in feature_keywords)
                 if is_feature:
-                    return 'STD_ON' if val_bool else 'STD_OFF'
-                else:
-                    return 'TRUE' if val_bool else 'FALSE'
+                    return 'STD_ON' if bool_val else 'STD_OFF'
+                return 'TRUE' if bool_val else 'FALSE'
 
             # Reference -> Resolve
             if 'REFERENCE' in param_type or node.node_type == 'reference':
@@ -748,14 +751,10 @@ class BuiltinFunctions:
             # marks an optional parameter as "not configured"
             if str(value).strip() == 'None':
                 return True
-            # EB Tresos convention: float "0.0" means "not configured" for
-            # budget/timeout parameters (node:exists returns False)
-            val_str = str(value).strip()
-            try:
-                if '.' in val_str and float(val_str) == 0.0:
-                    return True
-            except (ValueError, TypeError):
-                pass
+            # NOTE: A configured value of 0.0 (e.g. a timeout/offset of 0.0) is a
+            # legitimate value. EB Tresos does NOT treat 0.0 as absent, so we must
+            # not special-case it here (previously this made node:exists() return
+            # False for any '.'-containing string equal to 0.0).
             return False
 
         if node.node_type == 'reference':
@@ -949,12 +948,6 @@ class BuiltinFunctions:
 
         result = self.symbol_table.get_module(module_name)
         if not result:
-            # Fallback for unit tests: check if context_stack has a variable that matches
-            # or if 'configuration' variable has the matching short_name
-            if self.context_stack and self.context_stack.has_variable('configuration'):
-                config_var = self.context_stack.get_variable('configuration')
-                if getattr(config_var, 'short_name', None) == module_name:
-                    return config_var
             _debug_log(f"WARNING: Module '{module_name}' not loaded")
         return result
 
@@ -981,6 +974,7 @@ class BuiltinFunctions:
     def num_i(self, value: Any) -> int:
         """Convert value to integer"""
         if value is None:
+            return 0
             return 0
         if isinstance(value, list):
             if not value: return 0
@@ -1022,9 +1016,10 @@ class BuiltinFunctions:
             if res is None:
                 return 0
             return self.num_i(res)
+
         if hasattr(value, 'value'):
             return self.num_i(value.value)
-            
+
         return 0
     
     def num_f(self, value: Any) -> float:
@@ -1092,7 +1087,7 @@ class BuiltinFunctions:
         if width > 0:
             hex_str = format(int_val, f'0{width}X')
         else:
-            hex_str = format(int_val, 'X')
+            hex_str = format(int_val, 'X') if int_val else '0'
         return f"0x{hex_str}"
     
     def num_hextoint(self, value: Any) -> int:
@@ -1417,7 +1412,13 @@ class BuiltinFunctions:
             
         # Normalize to list
         if not isinstance(items, list):
-            items = [str(items)]
+            # Unwrap a single ConfigurationNode to its value, matching the
+            # per-item unwrapping done inside the loop below. Otherwise str()
+            # would stringify the object repr rather than the parameter value.
+            if hasattr(items, 'get_value'):
+                items = [str(items.get_value())]
+            else:
+                items = [str(items)]
             
         import re
         result = []
@@ -1436,10 +1437,7 @@ class BuiltinFunctions:
             # Invalid regex, return empty or log error
             pass
             
-        if not result:
-            return '[]'
-            
-        return result
+        return result  # empty list [] when no matches — never the string '[]'
 
     def string_substring(self, s: str, start: Any, length: Any = None) -> str:
         """Extract substring from string."""
@@ -2405,11 +2403,11 @@ class BuiltinFunctions:
         # 3. Get module from SymbolTable
         module = self.symbol_table.get_module(module_name)
         if module is None:
-            # Also try Resource module as a fallback for cross-module params
-            module = self.symbol_table.get_module('Resource')
-            if module is None:
-                _debug_log(f"WARNING: ecu:get('{path}') - module '{module_name}' not loaded")
-                return None
+            # Do NOT silently fall back to the 'Resource' module: a same-named
+            # parameter there would yield a wrong value with no caller signal.
+            # The caller can use ecu:has() to decide on a fallback explicitly.
+            _debug_log(f"WARNING: ecu:get('{path}') - module '{module_name}' not loaded")
+            return None
 
         # 4. Search for the parameter in the module
         param_name = param_parts[-1]

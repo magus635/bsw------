@@ -17,7 +17,7 @@ from .chip_database import (
 )
 
 # Legacy resource mapper (primary API for backward compatibility)
-from .resource_mapper import HardwareResourceMapper, MappingAction, MappingActionType
+from .resource_mapper import HardwareResourceMapper, MappingAction, MappingActionType, MappingResult as LegacyMappingResult
 
 # New generic resource model (use GenericChipDefinition to avoid confusion)
 from .generic_resource import (
@@ -44,6 +44,7 @@ from .generic_mapper import (
     GenericResourceMapper,
     MappingAction as GenericMappingAction,
     MappingActionType as GenericMappingActionType,
+    MappingResult,
     ExpressionEvaluator
 )
 
@@ -95,6 +96,7 @@ __all__ = [
     'GenericResourceMapper',
     'GenericMappingAction',
     'GenericMappingActionType',
+    'MappingResult',
     'ExpressionEvaluator',
 
     # ECU resource parser

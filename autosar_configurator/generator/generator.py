@@ -218,6 +218,7 @@ class CodeGenerator:
 
         # Discover and generate files
         generated_files = []
+        failed_files = []
 
         logger.info(f"Generating code for {module_name}...")
 
@@ -227,7 +228,7 @@ class CodeGenerator:
         for t_info in template_types:
             t_type = t_info['type']
             rel_dir = t_info['rel_dir']
-            
+
             # Deeply nested templates and root templates all preserve their directory structure
             if rel_dir == '.':
                 if t_type.endswith('.h'):
@@ -246,6 +247,15 @@ class CodeGenerator:
             # Generate the file
             if self._generate_single_file(t_info, target_parent):
                 generated_files.append(rel_path)
+            else:
+                failed_files.append(rel_path)
+
+        if failed_files:
+            logger.error(
+                f"Generation PARTIAL for {module_name}: "
+                f"{len(generated_files)} ok, {len(failed_files)} failed: {failed_files}"
+            )
+            return False
 
         logger.info(f"Generated {len(generated_files)} files to {out_module_dir}")
         return True
@@ -585,8 +595,12 @@ class CodeGenerator:
             rendered = engine.render(template_content, context)
             
         output_file = output_parent / f"{module_name}_{template_type}"
-        with open(output_file, 'w', encoding='utf-8') as f:
-            f.write(rendered)
+        try:
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write(rendered)
+        except Exception as e:
+            logger.error(f"Failed to write generated file '{output_file}': {e}", exc_info=True)
+            return False
         logger.debug(f"Generated: {output_file}")
         return True
     
@@ -673,7 +687,17 @@ class CodeGenerator:
             for param_name in sorted(container_def.parameters.keys()):
                 param_def = container_def.parameters[param_name]
 
-                param_config_class = param_def.config_class or ConfigClass.PRE_COMPILE
+                # When the definition omits config_class (a common omission in
+                # vendor-supplied ARXML), do NOT silently guess PRE_COMPILE: that
+                # would place LINK-TIME/POST-BUILD parameters into Cfg.h. Warn and
+                # skip the parameter so it is not misclassified.
+                param_config_class = getattr(param_def, 'config_class', None)
+                if param_config_class is None:
+                    logger.warning(
+                        f"Parameter '{container.get_path()}.{param_name}' has no config_class; "
+                        f"skipping to avoid misclassification."
+                    )
+                    continue
                 if param_config_class == config_class:
                     param_path = f"{container.get_path()}.{param_name}"
                     if param_path in self.variant_overrides:

@@ -105,7 +105,7 @@ class ContextStack:
     # Variable management
     
     def set_variable(self, name: str, value: Any):
-        """Set or update a variable in the current scope."""
+        """Set a variable in the current scope, shadowing any outer scope binding."""
         self._stack[-1].variables[name] = value
     
     def get_variable(self, name: str) -> Any:

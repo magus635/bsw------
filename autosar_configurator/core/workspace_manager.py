@@ -146,17 +146,18 @@ class WorkspaceProject:
         # Filter by selected chip if applicable
         if self.selected_chip:
             filtered = []
+            chip_lower = self.selected_chip.lower()
             for pf in all_props:
-                # If it's a resource properties file, it MUST match selected chip
+                # If it's a resource properties file, it MUST match selected chip.
+                # Use whole-token matching: the chip name must appear as a complete
+                # underscore-delimited token in the stem, not as a substring.
+                # e.g. "THA6206" matches "Os_Resource_THA6206" but NOT "THA62060x".
                 if "resource" in str(pf.parent).lower():
-                    # Check if chip identifier is in filename
-                    if self.selected_chip in pf.stem:
-                        filtered.append(pf)
-                    # Support partial matches (e.g. THA6206 in Os_Resource_THA6206)
-                    elif any(part in pf.stem for part in self.selected_chip.split('_')):
+                    stem_tokens = set(pf.stem.lower().split('_'))
+                    if chip_lower in stem_tokens or self.selected_chip in stem_tokens:
                         filtered.append(pf)
                 else:
-                    # Non-resource .properties (build, etc.) always loaded
+                    # Non-resource .properties (build configs, etc.) always loaded
                     filtered.append(pf)
             all_props = filtered
 
@@ -212,8 +213,51 @@ class WorkspaceProject:
         return manager
         
     def remove_module(self, module_name: str):
-        """Remove a module from the project"""
+        """Remove a module from the project.
+
+        Before deleting, scan all other loaded modules for references that
+        resolve into the module being removed.  Such references would become
+        dangling pointers, so we warn about them and null-out the target so
+        downstream code generation/validation does not silently consume a
+        stale pointer.
+        """
         if module_name in self.module_managers:
+            manager = self.module_managers[module_name]
+            removed_containers = set()
+
+            def collect(container):
+                removed_containers.add(id(container))
+                for sub in container.sub_containers:
+                    collect(sub)
+
+            for container in manager.configuration.containers:
+                collect(container)
+
+            def scan(container, owner_name):
+                def handle(ref_value):
+                    if ref_value.is_resolved and ref_value.target is not None \
+                            and id(ref_value.target) in removed_containers:
+                        print(f"  - Warning: reference in module '{owner_name}' "
+                              f"({container.get_path()}) targets removed module "
+                              f"'{module_name}' — clearing dangling pointer "
+                              f"('{ref_value.value_ref}')")
+                        if ref_value in ref_value.target.referenced_by:
+                            ref_value.target.referenced_by.remove(ref_value)
+                        ref_value.target = None
+                for ref_value in container.reference_values.values():
+                    handle(ref_value)
+                for ref_list in container.multi_reference_values.values():
+                    for ref_value in ref_list:
+                        handle(ref_value)
+                for sub in container.sub_containers:
+                    scan(sub, owner_name)
+
+            for other_name, other_mgr in self.module_managers.items():
+                if other_mgr is manager:
+                    continue
+                for container in other_mgr.configuration.containers:
+                    scan(container, other_name)
+
             del self.module_managers[module_name]
             del self.module_defs[module_name]
 
@@ -360,7 +404,15 @@ class WorkspaceProject:
                     if ref_value not in ref_value.target.referenced_by:
                         ref_value.target.referenced_by.append(ref_value)
                         indexed_count += 1
-            
+
+            # Multi-valued references
+            for ref_name, ref_list in container.multi_reference_values.items():
+                for ref_value in ref_list:
+                    if ref_value.is_resolved and ref_value.target is not None:
+                        if ref_value not in ref_value.target.referenced_by:
+                            ref_value.target.referenced_by.append(ref_value)
+                            indexed_count += 1
+
             # Recurse into sub-containers
             for sub in container.sub_containers:
                 process_container(sub)
@@ -399,7 +451,13 @@ class WorkspaceProject:
             if ref_value.is_resolved and ref_value.target is not None:
                 if ref_value not in ref_value.target.referenced_by:
                     ref_value.target.referenced_by.append(ref_value)
-        
+
+        for ref_name, ref_list in container.multi_reference_values.items():
+            for ref_value in ref_list:
+                if ref_value.is_resolved and ref_value.target is not None:
+                    if ref_value not in ref_value.target.referenced_by:
+                        ref_value.target.referenced_by.append(ref_value)
+
         for sub in container.sub_containers:
             self.register_container_references(sub)
 
@@ -409,7 +467,13 @@ class WorkspaceProject:
             if ref_value.is_resolved and ref_value.target is not None:
                 if ref_value in ref_value.target.referenced_by:
                     ref_value.target.referenced_by.remove(ref_value)
-        
+
+        for ref_name, ref_list in container.multi_reference_values.items():
+            for ref_value in ref_list:
+                if ref_value.is_resolved and ref_value.target is not None:
+                    if ref_value in ref_value.target.referenced_by:
+                        ref_value.target.referenced_by.remove(ref_value)
+
         for sub in container.sub_containers:
             self.unregister_container_references(sub)
 
@@ -726,14 +790,13 @@ class WorkspaceManager:
         # EMF-style reference resolution: resolve cross-module references
         try:
             resolved_count, error_count = project.resolve_all_references()
-
-
-            
             # Build reverse reference index for "who references me?" queries
             reverse_count = project.build_reverse_reference_index()
-
         except Exception as e:
-            pass
+            import logging
+            logging.getLogger(__name__).warning(
+                f"Reference resolution failed during project load: {e}", exc_info=True
+            )
         # Load ECU resources from .properties files (if Def/plugins/ exists)
         ecu_res = project.load_ecu_resources()
 
@@ -956,13 +1019,13 @@ class WorkspaceManager:
         if loaded_modules:
             try:
                 resolved_count, error_count = project.resolve_all_references()
-
-
-
                 reverse_count = project.build_reverse_reference_index()
-
             except Exception as e:
-                pass        # Store chip info and EB source root
+                import logging
+                logging.getLogger(__name__).warning(
+                    f"Reference resolution failed during EB import: {e}", exc_info=True
+                )
+        # Store chip info and EB source root
         chips = EpcFileScanner.detect_available_chips(project_root)
         project.available_chips = chips
         project.selected_chip = chip_name

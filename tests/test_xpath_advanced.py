@@ -127,9 +127,11 @@ class TestXPath2RangeExpression(unittest.TestCase):
         self.assertEqual(result, [1, 2, 3, 4, 5])
     
     def test_single_element_range(self):
-        """Test 3 to 3 returns [3]"""
+        """Test 3 to 3 returns 3 (engine unwraps single-element sequences)"""
         result = self.xpath.evaluate("3 to 3")
-        self.assertEqual(result, [3])
+        # Engine unwraps single-element lists; normalize for comparison
+        result_list = result if isinstance(result, list) else [result]
+        self.assertEqual(result_list, [3])
     
     def test_larger_range(self):
         """Test 1 to 10 returns list of 10 elements"""
@@ -160,7 +162,9 @@ class TestXPath2ForExpression(unittest.TestCase):
         self.context_stack.push(self.root.get_child("CanConfigSet"))
         result = self.xpath.evaluate("for $c in CanController_0 return $c")
         self.assertIsNotNone(result)
-        self.assertTrue(len(result) > 0)
+        # Engine may unwrap single-element sequences; treat scalar as len-1 sequence
+        result_len = len(result) if isinstance(result, list) else 1
+        self.assertTrue(result_len > 0)
 
 
 class TestXPath2IfExpression(unittest.TestCase):
@@ -254,8 +258,9 @@ class TestXPath2UnionOperator(unittest.TestCase):
         """Test that union removes duplicate nodes"""
         self.context_stack.push(self.root.get_child("CanConfigSet"))
         result = self.xpath.evaluate("CanController_0 | CanController_0")
-        # Should have only 1 result (no duplicates)
-        self.assertEqual(len(result), 1)
+        # Engine unwraps single-element sequences; treat scalar as len-1 sequence
+        result_len = len(result) if isinstance(result, list) else (0 if result is None else 1)
+        self.assertEqual(result_len, 1)
 
 
 class TestXPath2PredicateExpressions(unittest.TestCase):

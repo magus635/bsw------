@@ -17,6 +17,11 @@ from ..model.definition_model import (
 )
 
 
+# AUTOSAR element naming convention: uppercase letter followed by uppercase
+# letters, digits, and hyphens. Used to reject XPath-injecting tag names.
+_VALID_TAG_NAME = re.compile(r'^[A-Z][A-Z0-9-]*$')
+
+
 class EcucDefParser:
     """Parser for ECUC Definition (ECUC-DEF) ARXML files"""
     
@@ -47,7 +52,8 @@ class EcucDefParser:
             raise FileNotFoundError(f"File not found: {file_path}")
         
         try:
-            tree = etree.parse(str(file_path))
+            _parser = etree.XMLParser(resolve_entities=False, no_network=True)
+            tree = etree.parse(str(file_path), _parser)
             root = tree.getroot()
             
             # Find ECUC-MODULE-DEF element using permissive search
@@ -771,6 +777,9 @@ class EcucDefParser:
     
     def _find_descendant(self, element: etree._Element, tag_name: str) -> Optional[etree._Element]:
         """Find first descendant with tag_name, ignoring namespace"""
+        # Guard against XPath injection: tag_name must be an AUTOSAR element name
+        if not _VALID_TAG_NAME.match(tag_name):
+            raise ValueError(f"Invalid tag_name: {tag_name!r}")
         # 1. Try direct find with namespace (fastest)
         elem = element.find(f".//ar:{tag_name}", self.NAMESPACES)
         if elem is not None:
@@ -787,6 +796,9 @@ class EcucDefParser:
         
     def _findall_descendants(self, element: etree._Element, tag_name: str) -> List[etree._Element]:
         """Find all descendants with tag_name, ignoring namespace"""
+        # Guard against XPath injection: tag_name must be an AUTOSAR element name
+        if not _VALID_TAG_NAME.match(tag_name):
+            raise ValueError(f"Invalid tag_name: {tag_name!r}")
         # 1. Try direct find with namespace
         elems = element.findall(f".//ar:{tag_name}", self.NAMESPACES)
         if elems:
@@ -798,6 +810,9 @@ class EcucDefParser:
 
     def _findall_children(self, element: etree._Element, tag_name: str) -> List[etree._Element]:
         """Find immediate children with tag_name, ignoring namespace"""
+        # Guard against XPath injection: tag_name must be an AUTOSAR element name
+        if not _VALID_TAG_NAME.match(tag_name):
+            raise ValueError(f"Invalid tag_name: {tag_name!r}")
         # 1. Try direct find with namespace
         elems = element.findall(f"ar:{tag_name}", self.NAMESPACES)
         if elems:

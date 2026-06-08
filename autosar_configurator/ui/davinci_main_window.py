@@ -854,7 +854,8 @@ class DaVinciMainWindow(QMainWindow):
         def_search_paths = ConfigLoader.get_def_search_paths(project_root)
         
         try:
-            if project_type == ProjectType.VECTOR and (file_path or path.is_file()):
+            if file_path or path.is_file():
+                # Saved .dpa project file — load directly (works for both Vector and EB-typed saves)
                 # Use existing .dpa loading logic
                 load_path = Path(file_path) if file_path else path
                 self.current_project, failed_modules = self.workspace_manager.load_project(load_path)
@@ -1313,7 +1314,45 @@ class DaVinciMainWindow(QMainWindow):
         
         if dialog.exec() == QDialog.Accepted:
             only_empty = only_empty_cb.isChecked()
-            updated = self.config_manager.apply_recommended_values(rec_config, only_empty)
+            # Collect the (instance, param_name, value) changes that
+            # apply_recommended_values would perform, then push one
+            # SetParameterCommand per change inside an undo macro so the whole
+            # bulk apply is a single undoable operation.
+            changes = []
+
+            def collect(current: EcucContainerValue, recommended: EcucContainerValue):
+                for param_name, rec_param_obj in recommended.parameter_values.items():
+                    current_param_obj = current.parameter_values.get(param_name)
+                    current_value = current_param_obj.value if current_param_obj else None
+                    rec_value = rec_param_obj.value
+                    should_apply = not only_empty or current_value is None or current_value == ""
+                    if should_apply and rec_value is not None:
+                        changes.append((current, param_name, rec_value))
+                for rec_sub in recommended.sub_containers:
+                    current_sub = next(
+                        (c for c in current.sub_containers if c.short_name == rec_sub.short_name),
+                        None
+                    )
+                    if current_sub:
+                        collect(current_sub, rec_sub)
+
+            for rec_container in rec_config.containers:
+                current_container = next(
+                    (c for c in self.config_manager.configuration.containers
+                     if c.short_name == rec_container.short_name),
+                    None
+                )
+                if current_container:
+                    collect(current_container, rec_container)
+
+            self.undo_stack.beginMacro("Apply Recommended Values")
+            for instance, param_name, value in changes:
+                self.undo_stack.push(
+                    SetParameterCommand(self.config_manager, instance, param_name, value)
+                )
+            self.undo_stack.endMacro()
+            updated = len(changes)
+            self._has_unsaved_changes = True
             
             # Refresh UI
             if self.tree_view.currentItem():
@@ -1587,8 +1626,10 @@ class DaVinciMainWindow(QMainWindow):
             )
             return
         
-        # Remove module from project
-        self.current_project.remove_module(module_name)
+        # Remove module from project (routed through undo stack)
+        from .commands import DeleteModuleCommand
+        command = DeleteModuleCommand(self.current_project, module_name)
+        self.undo_stack.push(command)
         
         self._has_unsaved_changes = True
         self.statusbar.showMessage(f"已删除模块: {module_name}", 3000)
@@ -1608,10 +1649,20 @@ class DaVinciMainWindow(QMainWindow):
 
     def handle_move_container(self, instance: EcucContainerValue, new_parent, new_index):
         """Handle container move request via command"""
-        if not self.config_manager:
+        # Resolve the config_manager that owns this instance (project mode may
+        # not have an active config_manager until a module node is selected).
+        config_manager = self.config_manager
+        if not config_manager and self.current_project:
+            for module_name, manager in self.current_project.module_managers.items():
+                if manager.configuration and instance in self._get_all_instances(manager.configuration):
+                    config_manager = manager
+                    break
+
+        if not config_manager:
+            self.statusbar.showMessage("无法移动：未找到配置管理器", 3000)
             return
-            
-        command = MoveContainerCommand(self.config_manager, instance, new_parent, new_index)
+
+        command = MoveContainerCommand(config_manager, instance, new_parent, new_index)
         self.undo_stack.push(command)
         
         self._has_unsaved_changes = True
@@ -1626,25 +1677,33 @@ class DaVinciMainWindow(QMainWindow):
         self._update_dependency_graph_if_open()
     
     def handle_rename_container(self, instance: EcucContainerValue, new_name: str):
-        """Handle container rename request"""
-        if not instance or not new_name:
+        """Handle container rename request — routed through undo stack."""
+        if not instance or not new_name or new_name == instance.short_name:
             return
-        
-        old_name = instance.short_name
-        
-        # Update instance name directly (no undo support for simple rename for now)
-        instance.short_name = new_name
-        
-        self._has_unsaved_changes = True
-        self.statusbar.showMessage(f"已重命名: {old_name} → {new_name}", 2000)
-        
+
+        # Resolve the config_manager that owns this instance (project mode may
+        # not have an active config_manager until a module node is selected).
+        config_manager = self.config_manager
+        if not config_manager and self.current_project:
+            for module_name, manager in self.current_project.module_managers.items():
+                if manager.configuration and instance in self._get_all_instances(manager.configuration):
+                    config_manager = manager
+                    break
+
+        if not config_manager:
+            self.statusbar.showMessage("无法重命名：未找到配置管理器", 3000)
+            return
+
+        from .commands import RenameContainerCommand
+        cmd = RenameContainerCommand(config_manager, instance, new_name)
+        self.undo_stack.push(cmd)
+
+        self.statusbar.showMessage(f"已重命名: {instance.short_name}", 2000)
+
         # Refresh tree view
         self.tree_view.refresh()
-        
-        # Reselect the instance
         self.tree_view._select_instance(instance)
-        
-        # Update config panel if this instance is displayed
+
         if self.config_panel.current_instance == instance:
             self.config_panel.refresh()
         
@@ -1757,12 +1816,33 @@ class DaVinciMainWindow(QMainWindow):
     
     def validate_configuration(self):
         """Validate all modules in the project and show results in the Problems View"""
-        if not self.current_project:
-            return
-        
-        from ..core.validation_engine import ValidationResult
+        from ..core.validation_engine import ValidationResult, ValidationEngine
         all_results = ValidationResult()
-        
+
+        if not self.current_project:
+            # Single-module mode: validate the active config_manager directly
+            if self.config_manager and self.config_manager.configuration and self.config_manager.module_def:
+                engine = ValidationEngine(
+                    self.config_manager.module_def,
+                    self.config_manager.configuration,
+                )
+                engine.register_default_rules()
+                all_results = engine.validate()
+            self.problems_view.set_messages(all_results.messages)
+            self.problems_dock.show()
+            self.problems_dock.raise_()
+            if all_results.is_valid:
+                self.statusBar().showMessage("✅ Validation complete: No errors found.", 5000)
+                self.validation_status_label.setText("✅ Valid")
+                self.validation_status_label.setStyleSheet("QLabel { color: green; padding: 2px 10px; }")
+            else:
+                self.statusBar().showMessage(
+                    f"❌ Validation: {all_results.error_count} errors, {all_results.warning_count} warnings.", 5000
+                )
+                self.validation_status_label.setText(f"❌ {all_results.error_count} Errors")
+                self.validation_status_label.setStyleSheet("QLabel { color: red; padding: 2px 10px; }")
+            return
+
         # 1. Run validation for each module
         for module_name, manager in self.current_project.module_managers.items():
             if manager.configuration and manager.module_def:
@@ -2208,6 +2288,7 @@ class DaVinciMainWindow(QMainWindow):
         wizard = HardwareMappingWizard(
             config_manager=self.config_manager,
             project_path=project_path,
+            undo_stack=self.undo_stack,
             parent=self
         )
         wizard.wizard_completed.connect(self._on_hardware_wizard_completed)
@@ -2218,11 +2299,16 @@ class DaVinciMainWindow(QMainWindow):
         chip = data.get("chip", "Unknown")
         actions = data.get("actions_count", 0)
         applied = data.get("applied_count", 0)
+        skipped = data.get("skipped_count", 0)
+        failed = data.get("failed_count", 0)
 
         self.tree_view.refresh()
-        self.statusbar.showMessage(
-            f"Hardware mapping for {chip}: {applied}/{actions} actions applied", 5000
-        )
+        msg = f"Hardware mapping for {chip}: {applied}/{actions} actions applied"
+        if skipped:
+            msg += f", {skipped} skipped (not yet implemented)"
+        if failed:
+            msg += f", {failed} failed"
+        self.statusbar.showMessage(msg, 5000)
 
     def launch_template_wizard(self):
         """Launch the template wizard"""
@@ -2980,12 +3066,16 @@ class DaVinciMainWindow(QMainWindow):
         
         # Build Python script to run in subprocess
         script = f'''
+import os
 import sys
 import google.generativeai as genai
 
-api_key = sys.argv[1]
-prompt = sys.argv[2]
-model_name = sys.argv[3] if len(sys.argv) > 3 else "gemini-2.0-flash"
+# Read the API key from the environment instead of argv so it is not
+# visible to other users via `ps`/`/proc/<pid>/cmdline` for the
+# subprocess lifetime.
+api_key = os.environ.get("GEMINI_API_KEY", "")
+prompt = sys.argv[1]
+model_name = sys.argv[2] if len(sys.argv) > 2 else "gemini-2.0-flash"
 
 try:
     genai.configure(api_key=api_key)
@@ -3029,8 +3119,15 @@ except Exception as e:
         if self.ai_processor and self.ai_processor.gemini_client:
             model_name = self.ai_processor.gemini_client.get_current_model()
         
-        # Start subprocess
-        process.start(sys.executable, ["-c", script, api_key, prompt, model_name])
+        # Pass the API key via the process environment (not argv) so it is
+        # not exposed in the process listing to other local users.
+        from PySide6.QtCore import QProcessEnvironment
+        env = QProcessEnvironment.systemEnvironment()
+        env.insert("GEMINI_API_KEY", api_key)
+        process.setProcessEnvironment(env)
+
+        # Start subprocess (api_key intentionally NOT passed as an argument)
+        process.start(sys.executable, ["-c", script, prompt, model_name])
     
     def _show_user_manual(self):
         """Show user manual dialog"""

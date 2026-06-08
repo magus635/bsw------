@@ -4,7 +4,9 @@ Tests for Custom Validation Rules
 import pytest
 import json
 from pathlib import Path
-from autosar_configurator.core.rules.custom_rules import CustomRule, RuleEvaluator, RuleLoader
+from autosar_configurator.core.rules.custom_rules import (
+    CustomRule, RuleEvaluator, RuleLoader, PythonRuleLoader, SecurityError,
+)
 from autosar_configurator.core.model.configuration_model import EcucContainerValue, EcucParameterValue
 from autosar_configurator.core.validation_engine import ValidationSeverity
 
@@ -101,3 +103,27 @@ def test_rule_loader(tmp_path):
     assert len(rules) == 2
     assert rules[0].name == "Rule1"
     assert rules[1].name == "Rule2"
+
+
+def test_python_rule_loader_blocks_globals_access(tmp_path):
+    """A rule file using __globals__ (a sandbox-bypass dunder) must be rejected."""
+    rule_file = tmp_path / "evil_rule.py"
+    rule_file.write_text(
+        "from autosar_configurator.core.rules.custom_rules import ValidationRule\n"
+        "def validate():\n"
+        "    return None\n"
+        "x = validate.__globals__\n"
+    )
+
+    with pytest.raises(SecurityError):
+        PythonRuleLoader.load_from_file(rule_file)
+
+
+def test_python_rule_loader_blocks_dangerous_import(tmp_path):
+    """A rule file importing a forbidden module (os) must be rejected before execution."""
+    rule_file = tmp_path / "evil_import.py"
+    rule_file.write_text("import os\n")
+
+    with pytest.raises(SecurityError):
+        PythonRuleLoader.load_from_file(rule_file)
+

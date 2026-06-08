@@ -3,10 +3,15 @@ Custom Validation Rules
 Allows users to define validation rules in JSON format using a simple expression language.
 """
 import json
+import re
 import ast
 import operator
 from typing import Dict, Any, List, Optional, Union
 from pathlib import Path
+
+
+class SecurityError(Exception):
+    """Raised when a custom rule file fails the safety scan."""
 
 from ..validation_engine import ValidationRule, ValidationResult, ValidationSeverity
 from ..model.definition_model import EcucModuleDef
@@ -190,11 +195,16 @@ class CustomRule(ValidationRule):
             if not evaluator.evaluate(self.check_expression):
                 result.add_message(self._create_message(container))
         except Exception as e:
-            # Evaluation error (e.g. missing parameter)
-            # We treat this as a failure or ignore? 
-            # If a param is missing, maybe the rule doesn't apply?
-            # Or maybe it's an error. Let's report it as info/warning for debugging
-            pass
+            # Evaluation error (e.g. missing parameter or expression syntax error).
+            # Do NOT silently swallow: surface it so the user knows the rule could
+            # not be checked, instead of falsely reporting it as passed.
+            import logging
+            logging.getLogger(__name__).warning(
+                f"CustomRule '{self.name}' could not be evaluated on container "
+                f"'{container.get_path()}': {e}")
+            result.add_message(self._create_info(
+                f"Rule '{self.name}' skipped: {e}",
+                container_path=container.get_path()))
 
     def _create_message(self, container: EcucContainerValue) -> Any:
         """Create validation message"""
@@ -235,18 +245,94 @@ class RuleLoader:
 
 class PythonRuleLoader:
     """Loads rules from Python scripts"""
-    
+
+    # Forbidden module names — any import of these is rejected
+    _FORBIDDEN_MODULES = frozenset({
+        'os', 'subprocess', 'sys', 'shutil', 'socket', 'ctypes',
+        'pickle', 'marshal', 'pty', 'signal', 'threading', 'multiprocessing',
+        'importlib', 'builtins', 'pathlib', 'tempfile', 'glob', 'io',
+    })
+
+    # Imports/builtins that are never legitimate in a validation rule file.
+    # Uses AST parsing for import detection to handle comma-separated and
+    # aliased forms (e.g. "import math, os" or "import os as _os").
+    # Regex patterns catch runtime bypass forms that are not imports.
+    _FORBIDDEN_RUNTIME_PATTERNS = [
+        re.compile(r'\b__import__\s*\('),
+        re.compile(r'\beval\s*\('),
+        re.compile(r'\bexec\s*\('),
+        re.compile(r'\bcompile\s*\('),
+        re.compile(r'\bopen\s*\('),
+        re.compile(r'\b__builtins__\b'),
+        re.compile(r'\bgetattr\s*\([^,]+,\s*["\']__'),
+        re.compile(r'\b__class__\b'),
+        re.compile(r'\b__globals__\b'),
+        re.compile(r'\b__subclasses__\s*\('),
+        re.compile(r'\b__mro__\b'),
+    ]
+
+    @staticmethod
+    def _scan_for_dangerous_patterns(file_path: Path) -> None:
+        """Raise SecurityError if the file imports forbidden modules or uses dangerous builtins.
+
+        Two-layer defence:
+        1. AST import scan — handles all import forms including comma-separated
+           and aliased imports (e.g. "import math, os" or "import os as _os").
+        2. Regex scan — catches runtime bypass patterns (eval, exec, __import__,
+           dunder traversal) that are not visible as top-level imports.
+
+        This is defence-in-depth, not a full sandbox.
+        """
+        source = file_path.read_text(encoding='utf-8', errors='replace')
+
+        # Layer 1: AST import analysis
+        try:
+            tree = ast.parse(source, filename=str(file_path))
+        except SyntaxError as e:
+            raise SecurityError(f"Custom rule file '{file_path.name}' has a syntax error: {e}")
+
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    root = alias.name.split('.')[0]
+                    if root in PythonRuleLoader._FORBIDDEN_MODULES:
+                        raise SecurityError(
+                            f"Custom rule file '{file_path.name}' imports forbidden module '{alias.name}'. "
+                            f"Only pure-Python validation logic is allowed."
+                        )
+            elif isinstance(node, ast.ImportFrom):
+                root = (node.module or '').split('.')[0]
+                if root in PythonRuleLoader._FORBIDDEN_MODULES:
+                    raise SecurityError(
+                        f"Custom rule file '{file_path.name}' imports from forbidden module '{node.module}'. "
+                        f"Only pure-Python validation logic is allowed."
+                    )
+
+        # Layer 2: Regex scan for runtime bypass patterns
+        for pattern in PythonRuleLoader._FORBIDDEN_RUNTIME_PATTERNS:
+            if pattern.search(source):
+                raise SecurityError(
+                    f"Custom rule file '{file_path.name}' contains a forbidden pattern "
+                    f"({pattern.pattern!r}). os/subprocess/exec/eval and dunder access are not permitted."
+                )
+
     @staticmethod
     def load_from_file(file_path: Path) -> List[ValidationRule]:
-        """Load ValidationRule subclasses from .py file"""
+        """Load ValidationRule subclasses from .py file.
+
+        Raises SecurityError before execution if the file contains dangerous
+        patterns such as os/subprocess imports, exec, eval, or open().
+        """
         import importlib.util
         import inspect
-        
-        # Load module dynamically
+
+        PythonRuleLoader._scan_for_dangerous_patterns(file_path)
+
+        # Load module dynamically inside a restricted namespace
         spec = importlib.util.spec_from_file_location(file_path.stem, file_path)
         if not spec or not spec.loader:
             raise ImportError(f"Could not load spec for {file_path}")
-            
+
         module = importlib.util.module_from_spec(spec)
         try:
             spec.loader.exec_module(module)

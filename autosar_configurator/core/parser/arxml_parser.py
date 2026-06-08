@@ -11,6 +11,11 @@ from ..model.ecuc_model import EcucContainer, EcucParameter, EcucReference
 from ..model.configuration_model import EcucModuleConfiguration, EcucContainerValue
 
 
+# AUTOSAR element naming convention: uppercase letter followed by uppercase
+# letters, digits, and hyphens. Used to reject XPath-injecting tag names.
+_VALID_TAG_NAME = re.compile(r'^[A-Z][A-Z0-9-]*$')
+
+
 class ArxmlParser:
     """Parser for AUTOSAR ARXML files"""
 
@@ -34,7 +39,9 @@ class ArxmlParser:
     def _load_schema(self):
         """Load XSD schema for validation"""
         try:
-            schema_doc = etree.parse(str(self.schema_path))
+            # Safe parser to prevent XXE via a malicious XSD
+            _safe = etree.XMLParser(resolve_entities=False, no_network=True)
+            schema_doc = etree.parse(str(self.schema_path), _safe)
             self.schema = etree.XMLSchema(schema_doc)
         except Exception as e:
             raise ValueError(f"Failed to load schema: {e}")
@@ -53,7 +60,7 @@ class ArxmlParser:
 
         try:
             # Safe parser to prevent XXE (disable entity resolution)
-            parser = etree.XMLParser(resolve_entities=False)
+            parser = etree.XMLParser(resolve_entities=False, no_network=True)
             tree = etree.parse(str(file_path), parser=parser)
 
             # Validate against schema if available
@@ -101,7 +108,7 @@ class ArxmlParser:
         """
         try:
             # Safe parser to prevent XXE
-            parser = etree.XMLParser(resolve_entities=False)
+            parser = etree.XMLParser(resolve_entities=False, no_network=True)
             root = etree.fromstring(xml_string.encode('utf-8'), parser=parser)
 
             # Check if this is an AUTOSAR root element
@@ -324,7 +331,7 @@ class ArxmlParser:
             raise FileNotFoundError(f"File not found: {file_path}")
 
         # Safe parser to prevent XXE
-        parser = etree.XMLParser(resolve_entities=False)
+        parser = etree.XMLParser(resolve_entities=False, no_network=True)
         tree = etree.parse(str(file_path), parser=parser)
         root = tree.getroot()
 
@@ -685,24 +692,39 @@ class ArxmlParser:
         # Try smart conversion for all parameter values (handle true/false strings)
         if value is not None and isinstance(value, str):
             val_lower = value.strip().lower()
-            if val_lower == 'true': 
+            if val_lower == 'true':
                 value = True
-            elif val_lower == 'false': 
+            elif val_lower == 'false':
                 value = False
+            elif dest_type == 'ECUC-BOOLEAN-PARAM-DEF':
+                # EB Tresos and other tools sometimes write booleans as numeric 1/0
+                # Use the DEST attribute hint to preserve Python bool type identity
+                if val_lower == '1':
+                    value = True
+                elif val_lower == '0':
+                    value = False
                 
         if 'NUMERICAL-PARAM-VALUE' in element.tag or 'TEXTUAL-PARAM-VALUE' in element.tag or 'ENUMERATION-PARAM-VALUE' in element.tag:
             if value is not None and isinstance(value, str):
                 val_stripped = value.strip()
                 try:
-                    # Try to convert to float (handles 1e-06, 1.0, 100, etc.)
-                    f_val = float(val_stripped)
-                    # If it's a simple integer (no . and no scientific notation in source string)
-                    # and the value equals the float, convert to int.
-                    # Otherwise keep as float.
-                    if '.' not in val_stripped and 'e' not in val_stripped.lower():
-                        value = int(f_val)
+                    # Integer-looking strings: parse as int directly to preserve
+                    # exact 64-bit values (avoid IEEE-754 double precision loss).
+                    if val_stripped[:2].lower() == '0x':
+                        # Hex literal — must be checked BEFORE the 'e' heuristic
+                        # below, because hex nibbles include 'e'/'E' (0xFE, 0xCAFE,
+                        # 0xDEAD) which would otherwise be misrouted to float().
+                        value = int(val_stripped, 16)
+                    elif '.' not in val_stripped and 'e' not in val_stripped.lower():
+                        try:
+                            # int(.., 0) also handles 0o/0b literals.
+                            value = int(val_stripped, 0)
+                        except ValueError:
+                            # Fall back to base-10 (e.g. leading-zero decimals "010").
+                            value = int(val_stripped)
                     else:
-                        value = f_val
+                        # Handles 1e-06, 1.0, etc.
+                        value = float(val_stripped)
                 except (ValueError, TypeError):
                     # Keep as original string
                     pass
@@ -832,6 +854,9 @@ class ArxmlParser:
 
     def _find_descendant(self, element: etree._Element, tag_name: str) -> Optional[etree._Element]:
         """Find first descendant with tag_name, ignoring namespace"""
+        # Guard against XPath injection: tag_name must be an AUTOSAR element name
+        if not _VALID_TAG_NAME.match(tag_name):
+            raise ValueError(f"Invalid tag_name: {tag_name!r}")
         # 1. Try direct find with namespace (fastest) - Assumes AR namespace
         elem = element.find(f".//ar:{tag_name}", self.NAMESPACES)
         if elem is not None:
@@ -847,6 +872,9 @@ class ArxmlParser:
         
     def _findall_descendants(self, element: etree._Element, tag_name: str) -> List[etree._Element]:
         """Find all descendants with tag_name, ignoring namespace"""
+        # Guard against XPath injection: tag_name must be an AUTOSAR element name
+        if not _VALID_TAG_NAME.match(tag_name):
+            raise ValueError(f"Invalid tag_name: {tag_name!r}")
         # 1. Try direct find with namespace
         elems = element.findall(f".//ar:{tag_name}", self.NAMESPACES)
         if elems:
@@ -858,6 +886,9 @@ class ArxmlParser:
 
     def _findall_children(self, element: etree._Element, tag_name: str) -> List[etree._Element]:
         """Find immediate children with tag_name, ignoring namespace"""
+        # Guard against XPath injection: tag_name must be an AUTOSAR element name
+        if not _VALID_TAG_NAME.match(tag_name):
+            raise ValueError(f"Invalid tag_name: {tag_name!r}")
         # 1. Try direct find with namespace
         elems = element.findall(f"ar:{tag_name}", self.NAMESPACES)
         if elems:

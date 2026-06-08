@@ -6,12 +6,75 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Any, Optional
 import re
+import ast
+import operator as _op
 
 from .generic_resource import ChipDefinition, GenericResourceDef
 from .mapping_rule import (
     MappingRule, ContainerRule, ParameterMapping,
     MappingRuleLoader, get_default_rule_loader
 )
+
+# ---------------------------------------------------------------------------
+# AST-based safe expression evaluator (replaces eval() in _evaluate_condition)
+# Only allows: literals, arithmetic (+−×÷), comparisons, boolean ops (and/or/not).
+# Function calls, attribute access, imports, and name lookups are all rejected.
+# ---------------------------------------------------------------------------
+_SAFE_BINOPS = {
+    ast.Add: _op.add, ast.Sub: _op.sub,
+    ast.Mult: _op.mul, ast.Div: _op.truediv, ast.FloorDiv: _op.floordiv,
+    ast.Mod: _op.mod,
+}
+_SAFE_CMPOPS = {
+    ast.Eq: _op.eq, ast.NotEq: _op.ne,
+    ast.Lt: _op.lt, ast.LtE: _op.le,
+    ast.Gt: _op.gt, ast.GtE: _op.ge,
+}
+
+
+def _safe_ast_eval(expr: str) -> Any:
+    """Evaluate a pure-literal arithmetic/comparison expression via AST (no exec/eval)."""
+    def _eval(node):
+        if isinstance(node, ast.Expression):
+            return _eval(node.body)
+        if isinstance(node, ast.Constant):
+            return node.value
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
+            return not _eval(node.operand)
+        if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+            return -_eval(node.operand)
+        if isinstance(node, ast.BoolOp):
+            values = [_eval(v) for v in node.values]
+            if isinstance(node.op, ast.And):
+                result = values[0]
+                for v in values[1:]:
+                    result = result and v
+                return result
+            if isinstance(node.op, ast.Or):
+                result = values[0]
+                for v in values[1:]:
+                    result = result or v
+                return result
+        if isinstance(node, ast.BinOp):
+            fn = _SAFE_BINOPS.get(type(node.op))
+            if fn is None:
+                raise ValueError(f"Unsupported operator: {type(node.op).__name__}")
+            return fn(_eval(node.left), _eval(node.right))
+        if isinstance(node, ast.Compare):
+            left = _eval(node.left)
+            for cmp_op, comparator in zip(node.ops, node.comparators):
+                fn = _SAFE_CMPOPS.get(type(cmp_op))
+                if fn is None:
+                    raise ValueError(f"Unsupported comparator: {type(cmp_op).__name__}")
+                right = _eval(comparator)
+                if not fn(left, right):
+                    return False
+                left = right
+            return True
+        raise ValueError(f"Unsupported AST node: {type(node).__name__}")
+
+    tree = ast.parse(expr, mode='eval')
+    return _eval(tree)
 
 
 class MappingActionType(Enum):
@@ -38,6 +101,26 @@ class MappingAction:
             return f"  [SET] {self.parameter_name} = {self.value}"
         else:
             return f"  [REF] {self.parameter_name} -> {self.value}"
+
+
+@dataclass
+class MappingResult:
+    """Result of applying mapping actions"""
+    applied: int = 0
+    skipped: int = 0
+    failed: int = 0
+
+    def __str__(self):
+        parts = [f"applied={self.applied}"]
+        if self.skipped:
+            parts.append(f"skipped={self.skipped} (not implemented)")
+        if self.failed:
+            parts.append(f"failed={self.failed}")
+        return ", ".join(parts)
+
+    @property
+    def total(self):
+        return self.applied + self.skipped + self.failed
 
 
 class ExpressionEvaluator:
@@ -153,7 +236,8 @@ class ExpressionEvaluator:
             if value is None:
                 return 'None'
             elif isinstance(value, str):
-                return f'"{value}"'
+                # Use repr() so embedded quotes/backslashes cannot alter parse logic.
+                return repr(value)
             elif isinstance(value, bool):
                 return 'True' if value else 'False'
             else:
@@ -162,30 +246,23 @@ class ExpressionEvaluator:
         # Replace paths like resource.properties.controller_id
         modified_expr = re.sub(r'[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)+', replace_path, expression)
 
-        # Replace simple variable names
+        # Replace simple variable names.  Use repr() for strings so that
+        # values containing quotes, backslashes, etc. cannot alter parse logic.
         for key, value in eval_context.items():
             if key in modified_expr and not isinstance(value, (dict, list)):
                 if isinstance(value, str):
-                    modified_expr = re.sub(rf'\b{key}\b', f'"{value}"', modified_expr)
+                    modified_expr = re.sub(rf'\b{key}\b', repr(value), modified_expr)
                 elif isinstance(value, bool):
                     modified_expr = re.sub(rf'\b{key}\b', 'True' if value else 'False', modified_expr)
                 else:
                     modified_expr = re.sub(rf'\b{key}\b', str(value), modified_expr)
 
-        # Evaluate with restricted builtins
-        safe_builtins = {
-            'True': True, 'False': False, 'None': None,
-            'len': len, 'range': range, 'str': str, 'int': int, 'float': float,
-            'min': min, 'max': max, 'abs': abs, 'sum': sum,
-            'and': lambda a, b: a and b,
-            'or': lambda a, b: a or b,
-            'not': lambda a: not a,
-        }
-
         try:
-            return eval(modified_expr, {"__builtins__": safe_builtins}, {})
+            return _safe_ast_eval(modified_expr)
         except Exception:
-            return expression
+            # Unsupported or invalid expression — treat as falsy rather than
+            # returning the raw string (which would be truthy and bypass checks).
+            return False
 
 
 class GenericResourceMapper:
@@ -403,38 +480,100 @@ class GenericResourceMapper:
             description=f"Set {param.name} = {value}"
         )
 
-    def apply_actions(self, actions: List[MappingAction], config_manager) -> int:
-        """Apply mapping actions to a configuration manager
-
-        Args:
-            actions: List of mapping actions to apply
-            config_manager: Configuration manager instance
-
-        Returns:
-            Number of successfully applied actions
-        """
-        applied = 0
+    def apply_actions(self, actions: List[MappingAction], config_manager) -> MappingResult:
+        """Apply mapping actions to a configuration manager"""
+        result = MappingResult()
 
         for action in actions:
             try:
+                # Skip actions targeted at a different module
+                if action.module and hasattr(config_manager, 'module_def'):
+                    if config_manager.module_def.short_name != action.module:
+                        result.skipped += 1
+                        continue
+
                 if action.action_type == MappingActionType.CREATE_CONTAINER:
-                    # TODO: Implement container creation
-                    # config_manager.create_container(action.module, action.container_path)
-                    applied += 1
+                    container_def, parent = self._resolve_create_target(
+                        action.container_path, config_manager)
+                    if container_def is None:
+                        result.skipped += 1
+                        continue
+                    instance_name = action.container_path.split('/')[-1]
+                    # Skip if already exists
+                    siblings = (parent.sub_containers if parent is not None
+                                else config_manager.configuration.containers)
+                    if any(c.short_name == instance_name for c in siblings):
+                        result.applied += 1  # idempotent — container already there
+                        continue
+                    config_manager.create_container_instance(
+                        container_def, parent=parent, instance_name=instance_name)
+                    result.applied += 1
 
                 elif action.action_type == MappingActionType.SET_PARAMETER:
-                    # TODO: Implement parameter setting
-                    # config_manager.set_parameter(
-                    #     action.module, action.container_path,
-                    #     action.parameter_name, action.value
-                    # )
-                    applied += 1
+                    container = self._find_container_instance(
+                        action.container_path, config_manager)
+                    if container is None:
+                        result.skipped += 1
+                        continue
+                    config_manager.set_parameter_value(
+                        container, action.parameter_name, action.value)
+                    result.applied += 1
 
                 elif action.action_type == MappingActionType.SET_REFERENCE:
-                    # TODO: Implement reference setting
-                    applied += 1
+                    container = self._find_container_instance(
+                        action.container_path, config_manager)
+                    if container is None:
+                        result.skipped += 1
+                        continue
+                    container_def = config_manager.get_container_def(container.definition_ref)
+                    ref_def_ref = ""
+                    if container_def and action.parameter_name in container_def.references:
+                        ref_def_ref = container_def.references[action.parameter_name].definition_ref
+                    container.set_reference_value(
+                        action.parameter_name, action.value, ref_def_ref)
+                    result.applied += 1
 
             except Exception as e:
                 print(f"Warning: Failed to apply action {action}: {e}")
+                result.failed += 1
 
-        return applied
+        return result
+
+    def _find_container_instance(self, container_path: str, config_manager):
+        """Find container instance by DEF-based path (e.g. 'IntcConfig/IntcSource_IRQ0')."""
+        parts = container_path.split('/')
+        # Match top-level container by definition short_name
+        top_name = parts[0]
+        current = None
+        for c in config_manager.configuration.containers:
+            def_tail = c.definition_ref.split('/')[-1] if c.definition_ref else ''
+            if c.short_name == top_name or def_tail == top_name:
+                current = c
+                break
+        if current is None:
+            return None
+        for part in parts[1:]:
+            current = next((s for s in current.sub_containers if s.short_name == part), None)
+            if current is None:
+                return None
+        return current
+
+    def _resolve_create_target(self, container_path: str, config_manager):
+        """Return (container_def_for_new_container, parent_instance_or_None)."""
+        parts = container_path.split('/')
+        if len(parts) == 1:
+            cdef = config_manager.module_def.get_container_def(parts[0])
+            return cdef, None
+        parent = self._find_container_instance('/'.join(parts[:-1]), config_manager)
+        if parent is None:
+            return None, None
+        parent_def = config_manager.get_container_def(parent.definition_ref)
+        if parent_def is None:
+            return None, None
+        new_name = parts[-1]
+        # Try exact match first, then strip trailing _suffix (instance names often differ from def names)
+        sub_def = parent_def.sub_containers.get(new_name)
+        if sub_def is None:
+            base = new_name.rsplit('_', 1)[0] if '_' in new_name else new_name
+            sub_def = parent_def.sub_containers.get(base)
+        return sub_def, parent

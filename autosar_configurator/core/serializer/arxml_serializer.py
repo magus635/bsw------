@@ -259,8 +259,9 @@ class ArxmlSerializer:
             return True
 
         try:
-            # Load schema
-            schema_doc = etree.parse(str(schema_path))
+            # Load schema with a safe parser to prevent XXE via a malicious XSD
+            _safe = etree.XMLParser(resolve_entities=False, no_network=True)
+            schema_doc = etree.parse(str(schema_path), _safe)
             schema = etree.XMLSchema(schema_doc)
 
             # Serialize container

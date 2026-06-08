@@ -31,13 +31,14 @@ def _resolve_container_def(definition_ref: str, module_def: EcucModuleDef) -> Op
     if not definition_ref:
         return None
 
-    # Check if definition_ref starts with the module's definition_ref
-    if module_def.definition_ref and definition_ref.startswith(module_def.definition_ref):
-        rel_path = definition_ref[len(module_def.definition_ref):].lstrip('/')
-        if rel_path:
-            container_def = module_def.get_container_def(rel_path)
-            if container_def:
-                return container_def
+    # Method 1: strip module_def.definition_ref prefix (most reliable)
+    module_def_ref = getattr(module_def, 'definition_ref', '') or ''
+    if module_def_ref and definition_ref.startswith(module_def_ref + '/'):
+        relative_path = definition_ref[len(module_def_ref) + 1:]
+        if relative_path:
+            result = module_def.get_container_def(relative_path)
+            if result is not None:
+                return result
 
     parts = definition_ref.split('/')
 
@@ -49,9 +50,7 @@ def _resolve_container_def(definition_ref: str, module_def: EcucModuleDef) -> Op
             module_idx = parts.index(module_name)
             relative_path = '/'.join(parts[module_idx + 1:])
             if relative_path:
-                container_def = module_def.get_container_def(relative_path)
-                if container_def:
-                    return container_def
+                return module_def.get_container_def(relative_path)
         except ValueError:
             pass
 
@@ -59,9 +58,7 @@ def _resolve_container_def(definition_ref: str, module_def: EcucModuleDef) -> Op
         if len(parts) >= 4:
             relative_path = '/'.join(parts[3:])
             if relative_path:
-                container_def = module_def.get_container_def(relative_path)
-                if container_def:
-                    return container_def
+                return module_def.get_container_def(relative_path)
 
     # Handle relative paths
     if not definition_ref.startswith('/'):
@@ -92,28 +89,10 @@ class TypeValidationRule(ValidationRule):
         # Get container definition
         container_def = self._get_container_def(container.definition_ref, module_def)
         if not container_def:
-            # Container definition is missing – either because the config references
-            # a vendor-specific extension that the loaded .xdm doesn't include, or
-            # because of a genuine schema mismatch.  Either way we cannot validate
-            # the container's parameters.
-            # Report as WARNING (not ERROR) so that valid configurations that happen
-            # to use vendor-specific containers are not flooded with false errors.
-            # Empty containers are further downgraded to INFO since there is nothing
-            # to validate at all.
-            is_empty = (not container.parameter_values
-                        and not container.sub_containers
-                        and not container.reference_values)
-            if is_empty:
-                result.add_message(self._create_info(
-                    f"Container definition not found: {container.definition_ref} (empty container, skipped)",
-                    container_path=container.get_path()
-                ))
-            else:
-                result.add_message(self._create_warning(
-                    f"Container definition not found: {container.definition_ref} "
-                    f"(possibly a vendor-specific extension not present in the loaded definition file)",
-                    container_path=container.get_path()
-                ))
+            result.add_message(self._create_error(
+                f"Container definition not found: {container.definition_ref}",
+                container_path=container.get_path()
+            ))
             return
 
         # Validate each parameter
@@ -140,12 +119,20 @@ class TypeValidationRule(ValidationRule):
 
             # Type-specific validation
             self._validate_type(param_def, param_value, container.get_path(), result)
-        
+
+        # Validate multi-valued parameters
+        for param_name, param_list in container.multi_parameter_values.items():
+            param_def = container_def.parameters.get(param_name)
+            if not param_def:
+                continue
+            for param_value in param_list:
+                self._validate_type(param_def, param_value, container.get_path(), result)
+
         # Recursively validate sub-containers
         for sub_container in container.sub_containers:
             self._validate_container(sub_container, module_def, result)
-    
-    def _validate_type(self, param_def: EcucParameterDef, param_value: EcucParameterValue, 
+
+    def _validate_type(self, param_def: EcucParameterDef, param_value: EcucParameterValue,
                       container_path: str, result: ValidationResult):
         """Validate parameter value against its type"""
         value = param_value.value
@@ -167,21 +154,14 @@ class TypeValidationRule(ValidationRule):
                 ))
         
         elif param_def.param_type == EcucParameterType.FLOAT:
-            # Accept int/float directly, or string representations of floats.
-            # String "None" / "" represent unset/null values in some ARXML exports
-            # (e.g., EB Tresos writes <VALUE>None</VALUE> for optional fields).
-            # Skip validation for those instead of raising a false error.
+            # Accept int/float directly, or string representations of floats
             is_valid = isinstance(value, (int, float)) and not isinstance(value, bool)
             if isinstance(value, str):
-                stripped = value.strip().strip("'\"")
-                if stripped.lower() in ('none', '', 'inf', '-inf', 'nan'):
-                    is_valid = True  # treat as unset / special – not a type error
-                else:
-                    try:
-                        float(stripped)
-                        is_valid = True
-                    except ValueError:
-                        pass
+                try:
+                    float(value)
+                    is_valid = True
+                except ValueError:
+                    pass
             if not is_valid:
                 result.add_message(self._create_error(
                     f"Expected FLOAT, got {type(value).__name__}",
@@ -277,47 +257,58 @@ class RangeValidationRule(ValidationRule):
             param_def = container_def.parameters.get(param_name)
             if not param_def:
                 continue
-            
-            # Only validate numeric types
-            if param_def.param_type in (EcucParameterType.INTEGER, EcucParameterType.FLOAT):
-                value = param_value.value
-                
-                # Convert string to number if needed
-                if isinstance(value, str):
-                    try:
-                        if param_def.param_type == EcucParameterType.INTEGER:
-                            value = int(value)
-                        else:
-                            value = float(value)
-                    except (ValueError, TypeError):
-                        # Skip range validation if value can't be converted
-                        continue
-                
-                # Ensure we have a numeric value
-                if not isinstance(value, (int, float)):
-                    continue
-                
-                # Check min value
-                if param_def.min_value is not None and value < param_def.min_value:
-                    result.add_message(self._create_error(
-                        f"Value {value} is below minimum {param_def.min_value}",
-                        container_path=container.get_path(),
-                        parameter_name=param_name,
-                        suggested_fix=f"Set value to at least {param_def.min_value}"
-                    ))
-                
-                # Check max value
-                if param_def.max_value is not None and value > param_def.max_value:
-                    result.add_message(self._create_error(
-                        f"Value {value} is above maximum {param_def.max_value}",
-                        container_path=container.get_path(),
-                        parameter_name=param_name,
-                        suggested_fix=f"Set value to at most {param_def.max_value}"
-                    ))
+            self._validate_range(param_def, param_value, param_name, container, result)
+
+        # Validate multi-valued parameters
+        for param_name, param_list in container.multi_parameter_values.items():
+            param_def = container_def.parameters.get(param_name)
+            if not param_def:
+                continue
+            for param_value in param_list:
+                self._validate_range(param_def, param_value, param_name, container, result)
 
         # Recursively validate sub-containers
         for sub_container in container.sub_containers:
             self._validate_container(sub_container, module_def, result)
+
+    def _validate_range(self, param_def, param_value, param_name, container, result):
+        """Validate a single numeric parameter against min/max bounds"""
+        # Only validate numeric types
+        if param_def.param_type in (EcucParameterType.INTEGER, EcucParameterType.FLOAT):
+            value = param_value.value
+
+            # Convert string to number if needed
+            if isinstance(value, str):
+                try:
+                    if param_def.param_type == EcucParameterType.INTEGER:
+                        value = int(value)
+                    else:
+                        value = float(value)
+                except (ValueError, TypeError):
+                    # Skip range validation if value can't be converted
+                    return
+
+            # Ensure we have a numeric value
+            if not isinstance(value, (int, float)):
+                return
+
+            # Check min value
+            if param_def.min_value is not None and value < param_def.min_value:
+                result.add_message(self._create_error(
+                    f"Value {value} is below minimum {param_def.min_value}",
+                    container_path=container.get_path(),
+                    parameter_name=param_name,
+                    suggested_fix=f"Set value to at least {param_def.min_value}"
+                ))
+
+            # Check max value
+            if param_def.max_value is not None and value > param_def.max_value:
+                result.add_message(self._create_error(
+                    f"Value {value} is above maximum {param_def.max_value}",
+                    container_path=container.get_path(),
+                    parameter_name=param_name,
+                    suggested_fix=f"Set value to at most {param_def.max_value}"
+                ))
 
     def _get_container_def(self, definition_ref: str, module_def: EcucModuleDef) -> Optional[EcucContainerDef]:
         """Get container definition from reference path"""
@@ -351,34 +342,33 @@ class EnumerationValidationRule(ValidationRule):
             param_def = container_def.parameters.get(param_name)
             if not param_def:
                 continue
-            
-            # Only validate enumeration types
-            if param_def.param_type == EcucParameterType.ENUMERATION:
-                value = param_value.value
-                
-                if param_def.literals:
-                    # Normalise the config value before comparing to string-typed literals:
-                    # 1. Convert integers / floats to their string representation
-                    #    (e.g. int 64 → '64' so it matches the literal '64')
-                    # 2. Strip surrounding single or double quotes that some ARXML
-                    #    exporters add  (e.g. "'RO_CODE'" → 'RO_CODE')
-                    if isinstance(value, (int, float)) and not isinstance(value, bool):
-                        # Use integer string if it's a whole number
-                        norm_value = str(int(value)) if float(value) == int(value) else str(value)
-                    else:
-                        norm_value = str(value).strip("'\"") if value is not None else ''
+            self._validate_enum(param_def, param_value, param_name, container, result)
 
-                    if norm_value not in param_def.literals:
-                        result.add_message(self._create_error(
-                            f"Value '{value}' is not in allowed literals: {param_def.literals}",
-                            container_path=container.get_path(),
-                            parameter_name=param_name,
-                            suggested_fix=f"Choose from: {', '.join(param_def.literals)}"
-                        ))
+        # Validate multi-valued parameters
+        for param_name, param_list in container.multi_parameter_values.items():
+            param_def = container_def.parameters.get(param_name)
+            if not param_def:
+                continue
+            for param_value in param_list:
+                self._validate_enum(param_def, param_value, param_name, container, result)
 
         # Recursively validate sub-containers
         for sub_container in container.sub_containers:
             self._validate_container(sub_container, module_def, result)
+
+    def _validate_enum(self, param_def, param_value, param_name, container, result):
+        """Validate a single enumeration parameter against allowed literals"""
+        # Only validate enumeration types
+        if param_def.param_type == EcucParameterType.ENUMERATION:
+            value = param_value.value
+
+            if param_def.literals and value not in param_def.literals:
+                result.add_message(self._create_error(
+                    f"Value '{value}' is not in allowed literals: {param_def.literals}",
+                    container_path=container.get_path(),
+                    parameter_name=param_name,
+                    suggested_fix=f"Choose from: {', '.join(param_def.literals)}"
+                ))
 
     def _get_container_def(self, definition_ref: str, module_def: EcucModuleDef) -> Optional[EcucContainerDef]:
         """Get container definition from reference path"""
@@ -411,7 +401,8 @@ class RequiredParameterRule(ValidationRule):
         # Check for required parameters
         for param_name, param_def in container_def.parameters.items():
             if param_def.is_required:
-                if param_name not in container.parameter_values:
+                if param_name not in container.parameter_values \
+                        and param_name not in container.multi_parameter_values:
                     result.add_message(self._create_error(
                         f"Required parameter '{param_name}' is missing",
                         container_path=container.get_path(),

@@ -26,6 +26,7 @@ from ...core.hardware import (
     # New generic types
     GenericChipDefinition, GenericResourceDef,
     GenericResourceMapper, GenericMappingAction, GenericMappingActionType,
+    MappingResult,
     MappingRuleLoader, get_default_rule_loader,
     ChipDefinitionLoader, convert_legacy_chip
 )
@@ -842,9 +843,11 @@ class HardwareMappingWizard(ConfigWizard):
 
     def __init__(self, config_manager: Optional[ConfigurationManager] = None,
                  project_path: Optional[Path] = None,
+                 undo_stack=None,
                  parent=None):
         self.config_manager = config_manager
         self.project_path = project_path
+        self.undo_stack = undo_stack
 
         # Create chip database (legacy format for backward compatibility)
         self.chip_database = ChipDatabase.create_default_database()
@@ -926,16 +929,23 @@ class HardwareMappingWizard(ConfigWizard):
                 return
 
             # Apply actions if we have a config manager
-            applied = 0
+            mapping_result = MappingResult()
             if self.config_manager and actions:
                 mapper = GenericResourceMapper(chip=chip, rule_loader=self.rule_loader)
-                applied = mapper.apply_actions(actions, self.config_manager)
+                if self.undo_stack is not None:
+                    # Route every action through the undo stack so the whole
+                    # mapping is a single undoable operation.
+                    mapping_result = self._apply_actions_via_undo_stack(mapper, actions)
+                else:
+                    mapping_result = mapper.apply_actions(actions, self.config_manager)
 
             # Emit completion signal
             self.wizard_completed.emit({
                 "chip": chip.name,
                 "actions_count": len(actions),
-                "applied_count": applied
+                "applied_count": mapping_result.applied,
+                "skipped_count": mapping_result.skipped,
+                "failed_count": mapping_result.failed,
             })
 
         except Exception as e:
@@ -948,3 +958,75 @@ class HardwareMappingWizard(ConfigWizard):
             return
 
         super().accept()
+
+    def _apply_actions_via_undo_stack(self, mapper, actions):
+        """Apply mapping actions through QUndoCommands inside a single macro.
+
+        Mirrors GenericResourceMapper.apply_actions resolution logic but pushes
+        CreateContainerCommand / SetParameterCommand / SetReferenceCommand so the
+        whole mapping is undoable via Ctrl+Z. CREATE actions are pushed before the
+        SET actions that depend on them, so command redo() runs in the right order.
+        """
+        from ...core.hardware.generic_mapper import MappingActionType, MappingResult
+        from ..commands import (
+            CreateContainerCommand, SetParameterCommand, SetReferenceCommand
+        )
+
+        result = MappingResult()
+        config_manager = self.config_manager
+
+        self.undo_stack.beginMacro("Hardware Mapping")
+        try:
+            for action in actions:
+                try:
+                    # Skip actions targeted at a different module
+                    if action.module and hasattr(config_manager, 'module_def'):
+                        if config_manager.module_def.short_name != action.module:
+                            result.skipped += 1
+                            continue
+
+                    if action.action_type == MappingActionType.CREATE_CONTAINER:
+                        container_def, parent = mapper._resolve_create_target(
+                            action.container_path, config_manager)
+                        if container_def is None:
+                            result.skipped += 1
+                            continue
+                        instance_name = action.container_path.split('/')[-1]
+                        siblings = (parent.sub_containers if parent is not None
+                                    else config_manager.configuration.containers)
+                        if any(c.short_name == instance_name for c in siblings):
+                            result.applied += 1  # idempotent — already there
+                            continue
+                        self.undo_stack.push(CreateContainerCommand(
+                            config_manager, container_def, parent, instance_name))
+                        result.applied += 1
+
+                    elif action.action_type == MappingActionType.SET_PARAMETER:
+                        container = mapper._find_container_instance(
+                            action.container_path, config_manager)
+                        if container is None:
+                            result.skipped += 1
+                            continue
+                        self.undo_stack.push(SetParameterCommand(
+                            config_manager, container,
+                            action.parameter_name, action.value))
+                        result.applied += 1
+
+                    elif action.action_type == MappingActionType.SET_REFERENCE:
+                        container = mapper._find_container_instance(
+                            action.container_path, config_manager)
+                        if container is None:
+                            result.skipped += 1
+                            continue
+                        self.undo_stack.push(SetReferenceCommand(
+                            config_manager, container,
+                            action.parameter_name, action.value))
+                        result.applied += 1
+
+                except Exception as e:
+                    print(f"Warning: Failed to apply action {action}: {e}")
+                    result.failed += 1
+        finally:
+            self.undo_stack.endMacro()
+
+        return result

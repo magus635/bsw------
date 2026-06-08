@@ -128,7 +128,7 @@ def test_complete_generation_with_references(tmp_path):
     generator.generate_all(tmp_path)
     
     # Verify generated C source contains expected content
-    pbcfg_source = tmp_path / "Adc" / "src" / "Adc_PBcfg.c"
+    pbcfg_source = tmp_path / "Adc" / "Adc_PBcfg.c"
     assert pbcfg_source.exists()
     
     source_content = pbcfg_source.read_text()

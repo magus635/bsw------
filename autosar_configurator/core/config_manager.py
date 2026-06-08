@@ -39,17 +39,48 @@ class ProjectTypeDetector:
         """Detect project type based on marker files"""
         if not project_root.exists():
             return ProjectType.UNKNOWN
-            
-        # Check for Vector .dpa file
-        if list(project_root.glob("*.dpa")):
+
+        # Check for .dpa file — but read stored metadata first, because EB imports
+        # also save as .dpa with "project_type" set to "EB Tresos".  Extension-only
+        # detection would wrongly reclassify those as Vector on re-open.
+        dpa_files = list(project_root.glob("*.dpa"))
+        if dpa_files:
+            # Try to read the saved project_type from the first .dpa file found.
+            stored_type = ProjectTypeDetector._read_stored_project_type(dpa_files[0])
+            if stored_type is not None:
+                return stored_type
+            # Metadata absent or unreadable — fall back to extension heuristic.
             return ProjectType.VECTOR
-            
+
         # Check for EB Tresos markers
         if (project_root / ".tresos").exists() or (project_root / ".project").exists():
             # Could check content of .project for tresos nature, but existence is a strong hint
             return ProjectType.EB_TRESOS
-            
+
         return ProjectType.UNKNOWN
+
+    @staticmethod
+    def _read_stored_project_type(dpa_path: Path) -> Optional['ProjectType']:
+        """Read the project_type field saved inside a .dpa JSON file.
+
+        Returns the matching ProjectType if the field is present and recognised,
+        or None if the file cannot be read or the field is missing.
+        """
+        import json
+        try:
+            with open(dpa_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            raw = data.get("project_type", "")
+            if not isinstance(raw, str):
+                return None
+            raw_lower = raw.lower()
+            if "eb" in raw_lower or "tresos" in raw_lower:
+                return ProjectType.EB_TRESOS
+            if "vector" in raw_lower or "davinci" in raw_lower:
+                return ProjectType.VECTOR
+            return None
+        except Exception:
+            return None
 
 
 class ConfigLoader:
@@ -616,9 +647,10 @@ class ConfigurationManager:
             raise ValidationError(f"Instance with name '{name}' already exists")
 
     def _get_next_index(self, container_name: str) -> int:
-        """Get next index for sorting"""
-        # Simple counter is fine for sorting index, or we could use len()
-        return self._instance_counters.get(container_name, 0)
+        """Get and increment the instance counter for container_name."""
+        idx = self._instance_counters.get(container_name, 0)
+        self._instance_counters[container_name] = idx + 1
+        return idx
     
     def add_custom_rule_file(self, file_path: Path):
         """Add a custom rule file"""
@@ -688,9 +720,10 @@ class ConfigurationManager:
         new_config = None
         
         try:
-            tree = etree.parse(str(file_path))
+            _xml_parser = etree.XMLParser(resolve_entities=False, no_network=True)
+            tree = etree.parse(str(file_path), _xml_parser)
             root = tree.getroot()
-            
+
             # Find ECUC-MODULE-CONFIGURATION-VALUES
             namespaces = {'ar': 'http://autosar.org/schema/r4.0'}
             config_elem = root.find('.//ar:ECUC-MODULE-CONFIGURATION-VALUES', namespaces)
@@ -735,7 +768,7 @@ class ConfigurationManager:
                 if self.module_def and not skip_cleanup:
                     cleanup_count = self._cleanup_invalid_parameters()
                     if cleanup_count > 0:
-                        print(f"[ConfigManager] Cleaned up {cleanup_count} invalid parameter(s) from wrong container levels")
+                        print(f"[ConfigManager] Preserved {cleanup_count} unrecognised parameter(s) in unknown_parameters (not deleted)")
 
                 # Mark as saved (just loaded, no modifications)
                 self.configuration.mark_saved()
@@ -744,44 +777,55 @@ class ConfigurationManager:
             raise ValueError(f"Failed to load configuration: {e}")
 
     def _cleanup_invalid_parameters(self) -> int:
-        """Clean up parameters that don't belong to their container definition
+        """Identify parameters that don't belong to their container definition.
 
-        This handles cases where configuration files have parameters stored
-        at the wrong container level (e.g., from import or older versions).
+        Parameters are NOT deleted — they are moved to container.unknown_parameters
+        so callers can present a warning in the UI without causing data loss.
+        This handles cases where configuration files have parameters stored at the
+        wrong container level (e.g., from import or older versions).
 
         Returns:
-            Number of invalid parameters removed
+            Number of unrecognised parameters preserved in unknown_parameters
         """
-        total_removed = 0
+        total_preserved = 0
 
         def cleanup_container(container: EcucContainerValue) -> int:
-            removed = 0
+            preserved = 0
             container_def = self.get_container_def(container.definition_ref)
 
             if container_def:
-                # Find parameters that don't exist in the container definition
-                invalid_params = []
-                for param_name in container.parameter_values.keys():
+                # Find parameters that don't exist in the container definition.
+                # We warn but DO NOT delete: the DEF may be incomplete (stub, partial
+                # import, wrong path) and silently dropping values would cause
+                # irreversible data loss.  Callers can inspect container.unknown_parameters
+                # to decide whether to present a warning in the UI.
+                for param_name in list(container.parameter_values.keys()):
                     if param_name not in container_def.parameters:
-                        invalid_params.append(param_name)
+                        if not hasattr(container, 'unknown_parameters'):
+                            container.unknown_parameters = {}
+                        container.unknown_parameters[param_name] = container.parameter_values[param_name]
+                        preserved += 1
+                        print(f"  - Warning: '{param_name}' in '{container.short_name}' is not in DEF '{container_def.short_name}' — preserved in unknown_parameters (not deleted)")
 
-                # Remove invalid parameters
-                for param_name in invalid_params:
-                    del container.parameter_values[param_name]
-                    removed += 1
-                    print(f"  - Removed '{param_name}' from '{container.short_name}' (not defined in {container_def.short_name})")
+                # Same preservation guarantee for multi-valued parameters.
+                for param_name in list(container.multi_parameter_values.keys()):
+                    if param_name not in container_def.parameters:
+                        if not hasattr(container, 'unknown_parameters'):
+                            container.unknown_parameters = {}
+                        container.unknown_parameters[f'{param_name}[multi]'] = container.multi_parameter_values[param_name]
+                        preserved += 1
+                        print(f"  - Warning: multi-param '{param_name}' in '{container.short_name}' is not in DEF '{container_def.short_name}' — preserved in unknown_parameters (not deleted)")
 
-            # Recursively clean sub-containers
+            # Recursively process sub-containers
             for sub in container.sub_containers:
-                removed += cleanup_container(sub)
+                preserved += cleanup_container(sub)
 
-            return removed
+            return preserved
 
-        # Clean all top-level containers
         for container in self.configuration.containers:
-            total_removed += cleanup_container(container)
+            total_preserved += cleanup_container(container)
 
-        return total_removed
+        return total_preserved
 
     def _normalize_definition_refs(self):
         """Normalize definition_refs that use instance names instead of definition names.
@@ -1014,7 +1058,8 @@ class ConfigurationManager:
         import lxml.etree as etree
         
         try:
-            tree = etree.parse(str(rec_file_path))
+            _xml_parser = etree.XMLParser(resolve_entities=False, no_network=True)
+            tree = etree.parse(str(rec_file_path), _xml_parser)
             root = tree.getroot()
             
             # Find ECUC-MODULE-CONFIGURATION-VALUES (same structure as _ecuc.arxml)

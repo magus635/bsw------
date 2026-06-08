@@ -311,6 +311,17 @@ class Renderer:
 
                 content = tok.content
 
+                # Consume the line-ending newline of a directive-only line (e.g. VAR-only line).
+                if self._suppress_next_newline:
+                    self._suppress_next_newline = False
+                    if content.startswith('\r\n'):
+                        content = content[2:]
+                    elif content.startswith('\n') or content.startswith('\r'):
+                        content = content[1:]
+                    if not content:
+                        i += 1
+                        continue
+
                 # FIX: Special handling for text immediately following ENDINDENT
                 # If ENDINDENT was used (e.g. to close a block), and the next text is
                 # a closing brace '}' or bracket ']', or starts with whitespace (e.g. "    },"),
@@ -339,10 +350,23 @@ class Renderer:
                     self._autospacing_active = False  # One-shot: reset after use
 
                 if tok.directive_only_line:
-                    # If this token is on a directive-only line (which has at least one directive
-                    # and no output), any whitespace or newlines on it should be stripped completely
-                    # to achieve correct smart trimming behavior.
-                    content = ''
+                    # EB Tresos templates use [!// at end of directive lines to
+                    # suppress their trailing newlines. After [!// processing,
+                    # any remaining newlines in TEXT tokens on directive-only lines
+                    # represent intentional blank lines from the template.
+                    #
+                    # However, indentation whitespace (spaces/tabs before directives)
+                    # should be stripped to prevent unwanted output.
+                    if all(c in '\n\r' for c in content) and content:
+                        # Pure newlines — these are intentional blank lines.
+                        # Preserve them as-is.
+                        pass
+                    else:
+                        # Contains non-newline characters (indentation whitespace).
+                        # Strip everything to prevent template structure from leaking.
+                        content = content.rstrip('\n\r')
+                        if content.strip() == '':
+                            content = ''  # Skip pure whitespace on directive lines
 
                 # Strip trailing directive-line whitespace from TEXT tokens,
                 # but ONLY when next token is a context-establishing directive
@@ -380,8 +404,18 @@ class Renderer:
                 # Reset flag
                 self._just_ended_indent = False
 
-                expr = tok.content
+                # Strip outer quotes from the tag content before evaluating
+                raw_content = tok.content.strip()
+                was_quoted_output = (raw_content.startswith('"') and raw_content.endswith('"')) or \
+                                    (raw_content.startswith("'") and raw_content.endswith("'"))
+                expr = self._strip_tag_quotes(raw_content)
                 value = self._evaluate_expression(expr)
+
+                # If the original expression was quoted and evaluation returned nothing,
+                # treat the stripped content as a literal string (e.g. [!"World"!] → "World").
+                if value is None and was_quoted_output and expr and \
+                        not any(c in expr for c in ':/(.$@['):
+                    value = expr
 
                 # Ensure value is fully unwrapped (handles nested lists and ConfigurationNodes)
                 value = self._unwrap_value(value)
@@ -398,6 +432,11 @@ class Renderer:
                 
             elif tok.type == TokenType.VAR:
                 self._handle_var(tok.content)
+                # If VAR occupies its own line (buffer ends with \n or is empty),
+                # suppress the trailing newline of that line in the next TEXT token.
+                buf_tail = self._output_buffer[-1] if self._output_buffer else ''
+                if not buf_tail or buf_tail.endswith('\n') or buf_tail.endswith('\r'):
+                    self._suppress_next_newline = True
                 i += 1
                 
             elif tok.type == TokenType.IF:
@@ -594,8 +633,21 @@ class Renderer:
 
         if match:
             var_name = match.group(1)
-            expr = match.group(2).strip()
-            value = self._evaluate_expression(expr)
+            raw_expr = match.group(2).strip()
+            stripped = self._strip_tag_quotes(raw_expr)
+            was_quoted = (raw_expr.startswith('"') and raw_expr.endswith('"')) or \
+                         (raw_expr.startswith("'") and raw_expr.endswith("'"))
+            if was_quoted:
+                # If stripped is itself an XPath string literal ('...' or "..."), extract content
+                if (stripped.startswith("'") and stripped.endswith("'")) or \
+                   (stripped.startswith('"') and stripped.endswith('"')):
+                    value = stripped[1:-1]
+                elif stripped and not any(c in stripped for c in ':/(.$@['):
+                    value = stripped  # plain identifier treated as literal string
+                else:
+                    value = self._evaluate_expression(stripped)
+            else:
+                value = self._evaluate_expression(stripped)
             self._context_stack.set_variable(var_name, value)
 
     def _handle_trace(self, content: str):
@@ -648,7 +700,10 @@ class Renderer:
             logger.debug(msg)
 
             # Trace goes to output buffer as a C comment.
-            self._output_buffer.append(f"\n/* {msg} */\n")
+            # Escape any "*/" so a traced value cannot terminate the comment
+            # early and inject content into the generated source.
+            safe_msg = msg.replace('*/', '* /')
+            self._output_buffer.append(f"\n/* {safe_msg} */\n")
         except Exception as e:
             logger.error(f"[TRACE ERROR] Failed to evaluate {expr}: {e}")
             if self.strict:
@@ -782,15 +837,18 @@ class Renderer:
             i += 1
         
         # Get items to iterate
-        # Use _evaluate_expression to support function calls like node:order()
         expr = self._strip_tag_quotes(xpath_expr)
-        # Use return_node=True to ensure we get objects to iterate over, not just names
         items = self._evaluate_xpath(expr, return_node=True)
-        
+
         # If result is a string (e.g. from quoted literal "CanController/*"),
         # evaluate it as XPath
         if isinstance(items, str):
-            items = self._evaluate_xpath(items, return_node=True)
+            items = self._evaluate_xpath(items)
+
+        # Fall back to variable lookup (supports iterating Python lists from initial_variables)
+        if items is None and not any(c in expr for c in ':/(.$@[') and ' ' not in expr:
+            if self._context_stack.has_variable(expr):
+                items = self._context_stack.get_variable(expr)
 
         if not items:
             items = []
@@ -804,10 +862,10 @@ class Renderer:
             self._context_stack.set_loop_info(idx, len(items))
             self._execute_tokens(tokens, start + 1, loop_end)
 
-            # Propagate variables set in loop body to parent scope
-            current_vars = self._context_stack.current_scope_variables()
-            for name, value in current_vars.items():
-                self._context_stack.set_variable_in_parent(name, value)
+            # Do NOT propagate loop-body variables back to the parent scope.
+            # Each iteration runs in its own scope; leaking variables would let
+            # iteration N's locals corrupt iteration N+1 (and nested loops that
+            # share a variable name), as well as scope after the loop ends.
 
             self._context_stack.pop()
 
@@ -850,7 +908,7 @@ class Renderer:
         
         # If result is a string, evaluate as XPath
         if isinstance(node, str):
-            node = self._evaluate_xpath(node, return_node=True)
+            node = self._evaluate_xpath(node)
 
         if isinstance(node, list):
             node = node[0] if node else None
@@ -872,33 +930,84 @@ class Renderer:
 
         return i  # After ENDSELECT
     
+    def _is_path_within_allowed_dirs(self, resolved: Path) -> bool:
+        """Return True only if resolved is inside one of the permitted directories."""
+        for search_path in self.include_search_paths:
+            try:
+                resolved.relative_to(search_path.resolve())
+                return True
+            except ValueError:
+                pass
+        if self._template_file:
+            try:
+                resolved.relative_to(Path(self._template_file).parent.resolve())
+                return True
+            except ValueError:
+                pass
+        return False
+
     def _handle_include(self, content: str):
         """Handle [!INCLUDE "file"!]"""
         # Strip quotes
         filename = content.strip().strip('"\'')
+
+        # Reject null bytes before any path manipulation
+        if '\x00' in filename:
+            msg = "INCLUDE path contains null byte"
+            if self.strict:
+                raise TemplateParseError(msg)
+            _debug_log(f"SECURITY: {msg}")
+            return
+
         # Normalize backslashes (Windows style) to forward slashes
         filename = filename.replace('\\', '/')
-        
+
+        # Reject absolute paths, Windows drive-letter paths (e.g. C:/), and
+        # directory traversal before any filesystem I/O.
+        _has_drive_letter = len(filename) >= 2 and filename[1] == ':' and filename[0].isalpha()
+        if (Path(filename).is_absolute()
+                or _has_drive_letter
+                or '..' in filename.split('/')):
+            msg = f"INCLUDE path '{filename}' is not allowed (absolute paths and '../' traversal are forbidden)"
+            if self.strict:
+                raise TemplateParseError(msg)
+            _debug_log(f"SECURITY: {msg}")
+            return
+
         # Prevent infinite recursion
         if self._recursion_depth >= self.MAX_RECURSION_DEPTH:
             raise TemplateParseError(f"Maximum recursion depth exceeded during include of {filename}")
-        
+
         # Resolve path using search paths
         include_path = None
         for search_path in self.include_search_paths:
             candidate = search_path / filename
             if candidate.exists():
-                include_path = candidate
+                resolved = candidate.resolve()
+                if not self._is_path_within_allowed_dirs(resolved):
+                    msg = f"INCLUDE '{filename}' resolves outside permitted directories ({resolved})"
+                    if self.strict:
+                        raise TemplateParseError(msg)
+                    _debug_log(f"SECURITY: {msg}")
+                    return
+                include_path = resolved
                 break
-        
+
         if not include_path:
             # Fallback to current template's directory if available
             if self._template_file:
                 parent = Path(self._template_file).parent
                 candidate = parent / filename
                 if candidate.exists():
-                    include_path = candidate
-        
+                    resolved = candidate.resolve()
+                    if not self._is_path_within_allowed_dirs(resolved):
+                        msg = f"INCLUDE '{filename}' resolves outside permitted directories ({resolved})"
+                        if self.strict:
+                            raise TemplateParseError(msg)
+                        _debug_log(f"SECURITY: {msg}")
+                        return
+                    include_path = resolved
+
         if not include_path:
             if self.strict:
                 raise TemplateParseError(f"Include file not found: {filename} (searched in {self.include_search_paths})")
@@ -924,30 +1033,17 @@ class Renderer:
         import re
         if expr is None: return None
         expr = expr.strip()
-
+        if not expr: return None
 
         # 1. Literal Strings (Handle both '...' and "...")
         if (expr.startswith("'") and expr.endswith("'")) or \
            (expr.startswith('"') and expr.endswith('"')):
-            inner = expr[1:-1].strip()
+            inner = expr[1:-1]
             if inner.startswith('$'):
                 var_name = inner[1:]
                 if self._context_stack.has_variable(var_name):
                     val = self._context_stack.get_variable(var_name)
                     return val
-            
-            # If the inner content looks like an expression (has functions/paths/operators),
-            # try to evaluate it. If the evaluation yields a non-None value, return that.
-            # Otherwise, fall back to returning the inner literal string.
-            if '(' in inner or '/' in inner or '[' in inner or ' ' in inner or inner.startswith('$') or \
-               (inner.startswith("'") and inner.endswith("'")) or \
-               (inner.startswith('"') and inner.endswith('"')):
-                try:
-                    val = self._evaluate_expression(inner)
-                    if val is not None:
-                        return val
-                except Exception:
-                    pass
             return inner
         
         # Handle numeric literals explicitly
@@ -1263,22 +1359,32 @@ class Renderer:
         if res is not None:
             return res
 
+        # 5b. Variable fallback for bare identifiers (no XPath special chars, no spaces).
+        # Allows [!foo!] to read variable "foo" when XPath finds no node.
+        if not any(c in expr for c in ':/(.$@[') and ' ' not in expr:
+            if self._context_stack.has_variable(expr):
+                return self._context_stack.get_variable(expr)
 
         # 6. Primary Literals
         if expr.isdigit(): return int(expr)
         if expr.lower() == 'true': return True
         if expr.lower() == 'false': return False
-        
+
         # 7. Fallback for undefined identifiers
         if '/' in expr or expr.startswith('.') or '[' in expr:
             return None
-            
+
         if self.strict:
             raise UndefinedVariableError(expr)
-            
+
         if expr.isupper() and len(expr) > 1:
             return expr
-            
+
+        # Plain string fallback: expression with spaces and no XPath operators.
+        # e.g. [!"Hello World"!] → after quote stripping → "Hello World" → return as-is
+        if ' ' in expr and not any(c in expr for c in ':/(.$@['):
+            return expr
+
         return None
 
 
@@ -1681,8 +1787,10 @@ class Renderer:
                     evaluated_args.append(arg[1:-1])
                 else:
                     val = self._xpath_engine.evaluate(arg, return_node=True)
-                    if isinstance(val, list) and len(val) == 1:
-                        val = val[0]
+                    # Fall back to variable/expression evaluation if XPath found nothing.
+                    # Allows passing context variables (e.g. node:name($myVar) or node:name(myVar)).
+                    if val is None:
+                        val = self._evaluate_expression(arg)
                     evaluated_args.append(val)
         else:
             evaluated_args = [self._evaluate_expression(arg) for arg in args]
@@ -2200,14 +2308,17 @@ class Renderer:
                 # Standard macro with pre-tokenized body
                 self._execute_tokens(macro_info['tokens'], macro_info['start'], macro_info['end'])
             
-            # IMPORTANT: Propagate variables set in macro to parent scope
-            # This allows macros to set global variables that persist after the call
-            # NOTE: EB Tresos templates like CG_ChangeStringListMember depend on
-            # parameter variables (like "Object") being propagated back after modification.
-            # So we propagate ALL variables, not just non-parameters.
+            # Propagate variables set in the macro body to the parent scope, but
+            # EXCLUDE the macro's formal parameters. Formal parameter bindings are
+            # macro-local; propagating them leaks argument/parameter state into the
+            # caller scope and corrupts state across successive macro calls.
+            # Non-parameter VAR assignments are still propagated, which preserves
+            # the CG_ChangeStringListMember "output variable" use-case.
+            formal_params = set(params)
             current_vars = self._context_stack.current_scope_variables()
             for name, value in current_vars.items():
-                # Propagate all variables including modified parameters
+                if name in formal_params:
+                    continue
                 self._context_stack.set_variable_in_parent(name, value)
         finally:
             self._recursion_depth -= 1

@@ -35,6 +35,26 @@ class MappingAction:
             return f"Set reference {self.container_path}/{self.parameter_name} -> {self.value}"
 
 
+@dataclass
+class MappingResult:
+    """Result of applying mapping actions"""
+    applied: int = 0
+    skipped: int = 0
+    failed: int = 0
+
+    def __str__(self):
+        parts = [f"applied={self.applied}"]
+        if self.skipped:
+            parts.append(f"skipped={self.skipped} (not implemented)")
+        if self.failed:
+            parts.append(f"failed={self.failed}")
+        return ", ".join(parts)
+
+    @property
+    def total(self):
+        return self.applied + self.skipped + self.failed
+
+
 class HardwareResourceMapper:
     """Maps hardware resources to AUTOSAR configuration"""
 
@@ -315,39 +335,11 @@ class HardwareResourceMapper:
 
         return actions
 
-    def apply_mappings(self, actions: List[MappingAction], config_manager) -> int:
-        """Apply mapping actions to configuration
-
-        Args:
-            actions: List of mapping actions to apply
-            config_manager: Configuration manager instance
-
-        Returns:
-            Number of actions successfully applied
-        """
-        applied = 0
-
-        for action in actions:
-            try:
-                if action.action_type == MappingActionType.CREATE_CONTAINER:
-                    # Parse container path and create
-                    # This is a simplified implementation
-                    # Real implementation would handle nested containers
-                    applied += 1
-
-                elif action.action_type == MappingActionType.SET_PARAMETER:
-                    # Set parameter value
-                    # Real implementation would resolve container and set value
-                    applied += 1
-
-                elif action.action_type == MappingActionType.SET_REFERENCE:
-                    # Set reference
-                    applied += 1
-
-            except Exception as e:
-                print(f"Warning: Failed to apply action {action}: {e}")
-
-        return applied
+    def apply_mappings(self, actions: List[MappingAction], config_manager) -> MappingResult:
+        """Apply mapping actions to configuration — delegates to GenericResourceMapper logic."""
+        from .generic_mapper import GenericResourceMapper
+        delegate = GenericResourceMapper.__new__(GenericResourceMapper)
+        return delegate.apply_actions(actions, config_manager)
 
     def get_available_modules(self) -> List[str]:
         """Get list of modules that can be configured for this chip"""

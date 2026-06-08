@@ -233,7 +233,7 @@ class ValidationEngine:
         Args:
             file_path: Path to the rule file (.json or .py)
         """
-        from .rules.custom_rules import RuleLoader, PythonRuleLoader
+        from .rules.custom_rules import RuleLoader, PythonRuleLoader, SecurityError
         from pathlib import Path
         
         path = Path(file_path)
@@ -242,9 +242,11 @@ class ValidationEngine:
                 new_rules = PythonRuleLoader.load_from_file(path)
             else:
                 new_rules = RuleLoader.load_from_file(path)
-                
+
             self.register_rules(new_rules)
             return len(new_rules)
+        except SecurityError:
+            raise  # Never swallow security rejections — let callers see the real error
         except Exception as e:
             raise ValueError(f"Failed to load custom rules from {path.name}: {str(e)}")
     
@@ -258,19 +260,18 @@ class ValidationEngine:
         
         for rule in self.rules:
             try:
-                # Pass project_context if available
-                try:
+                import inspect
+                sig = inspect.signature(rule.validate)
+                if 'project_context' in sig.parameters:
                     rule_result = rule.validate(self.module_def, self.configuration, project_context=self.project_context)
-                except TypeError:
-                    # Fallback for rules that don't accept project_context yet
+                else:
                     rule_result = rule.validate(self.module_def, self.configuration)
-                    
                 result.merge(rule_result)
             except Exception as e:
-                # If a rule fails, add error message but continue
+                # If a rule fails, record the error and continue so other rules still run
                 result.add_message(ValidationMessage(
                     severity=ValidationSeverity.ERROR,
-                    message=f"Rule '{rule.name}' failed: {str(e)}",
+                    message=f"Rule '{rule.name}' raised an exception: {type(e).__name__}: {e}",
                     rule_name="ValidationEngine"
                 ))
         
@@ -300,7 +301,9 @@ class ValidationEngine:
                     if msg.container_path and msg.container_path.startswith(container_path):
                         result.add_message(msg)
             except Exception as e:
-                # Ignore rule failures in incremental mode
-                pass
+                import logging
+                logging.getLogger(__name__).debug(
+                    f"Rule '{rule.name}' failed during incremental validation: {e}"
+                )
         
         return result

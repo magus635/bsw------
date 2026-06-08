@@ -395,11 +395,30 @@ class EcucContainerValue:
         self.sub_containers.remove(sub_container)
         self.mark_modified()
     
+    def attach(self, observer):
+        """Attach an observer to be notified of structural/modification changes"""
+        observers = self.__dict__.setdefault('_observers', [])
+        if observer not in observers:
+            observers.append(observer)
+
+    def detach(self, observer):
+        """Detach a previously attached observer"""
+        observers = self.__dict__.get('_observers')
+        if observers and observer in observers:
+            observers.remove(observer)
+
+    def notify(self, event: str, data: Any = None):
+        """Notify all attached observers of a change event"""
+        for observer in self.__dict__.get('_observers', []):
+            observer.handle_update(event, data)
+
     def mark_modified(self):
         """Mark this container as modified"""
         self.is_modified = True
         self.last_modified = datetime.now()
-    
+        # Notify observers so structural changes (rename/move) propagate
+        self.notify('modified', self)
+
     def has_validation_errors(self) -> bool:
         """Check if this container has validation errors"""
         return len(self.validation_errors) > 0
@@ -656,7 +675,34 @@ class EcucModuleConfiguration:
                             )
                         ref_value.resolution_error = error
                         error_count += 1
-            
+
+            # Multi-valued references (REFERENCE-VALUE with INDEX or duplicate names)
+            for ref_name, ref_list in container.multi_reference_values.items():
+                for ref_value in ref_list:
+                    if ref_value.value_ref and not ref_value.is_resolved:
+                        target = resolver(ref_value.value_ref)
+                        if target is not None:
+                            ref_value.target = target
+                            ref_value.resolution_error = None  # Clear any previous error
+                            resolved_count += 1
+                        else:
+                            path = ref_value.value_ref
+                            if not path or not path.startswith('/'):
+                                error = ResolutionError(
+                                    ResolutionError.INVALID_PATH,
+                                    path
+                                )
+                            else:
+                                parts = path.split('/')
+                                module_hint = parts[2] if len(parts) > 2 else ""
+                                error = ResolutionError(
+                                    ResolutionError.PATH_NOT_FOUND,
+                                    path,
+                                    suggestion=f"检查 '{module_hint}' 模块是否已加载，或目标容器是否存在"
+                                )
+                            ref_value.resolution_error = error
+                            error_count += 1
+
             for sub in container.sub_containers:
                 resolve_container(sub)
         
@@ -677,6 +723,10 @@ class EcucModuleConfiguration:
             for ref_name, ref_value in container.reference_values.items():
                 if ref_value.has_error:
                     errors.append(ref_value.resolution_error)
+            for ref_name, ref_list in container.multi_reference_values.items():
+                for ref_value in ref_list:
+                    if ref_value.has_error:
+                        errors.append(ref_value.resolution_error)
             for sub in container.sub_containers:
                 collect_errors(sub)
         
