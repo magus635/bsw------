@@ -92,12 +92,14 @@ def test_complete_generation_with_references(tmp_path):
     enabled_param = EcucParameterDef(
         short_name="AdcDevEnabled",
         param_type=EcucParameterType.BOOLEAN,
-        definition_ref="/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcDevEnabled"
+        definition_ref="/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcDevEnabled",
+        config_class="PRE-COMPILE"
     )
     prescaler_param = EcucParameterDef(
         short_name="AdcPrescale",
         param_type=EcucParameterType.INTEGER,
-        definition_ref="/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcPrescale"
+        definition_ref="/AUTOSAR/EcucDefs/Adc/AdcConfigSet/AdcPrescale",
+        config_class="PRE-COMPILE"
     )
     config_set.add_parameter(enabled_param)
     config_set.add_parameter(prescaler_param)

@@ -60,7 +60,7 @@ def test_code_generation(tmp_path):
     
     # Add container
     container_def = EcucContainerDef(short_name="TestContainer", definition_ref="/AUTOSAR/EcucDefs/Test/TestContainer")
-    param = EcucParameterDef(short_name="TestParam", param_type="INTEGER", definition_ref="/AUTOSAR/EcucDefs/Test/TestContainer/TestParam")
+    param = EcucParameterDef(short_name="TestParam", param_type="INTEGER", definition_ref="/AUTOSAR/EcucDefs/Test/TestContainer/TestParam", config_class="PRE-COMPILE")
     container_def.add_parameter(param)
     module.add_container(container_def)
     
