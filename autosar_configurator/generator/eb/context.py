@@ -105,9 +105,29 @@ class ContextStack:
     # Variable management
     
     def set_variable(self, name: str, value: Any):
-        """Set a variable in the current scope, shadowing any outer scope binding."""
+        """Set a variable, following EB Tresos [!VAR!] assignment semantics.
+
+        If the variable already exists in an enclosing scope, update it there
+        (so re-assignments inside nested LOOP/SELECT blocks propagate back to the
+        scope that declared it — the accumulator idiom). Only when the variable
+        is not defined in any accessible scope is it created in the current scope.
+        """
+        for scope in reversed(self._stack):
+            if name in scope.variables:
+                scope.variables[name] = value
+                return
         self._stack[-1].variables[name] = value
     
+    def declare_variable(self, name: str, value: Any):
+        """Declare a variable in the current (top) scope unconditionally.
+
+        Unlike set_variable, this always creates a binding in the innermost
+        scope even if an outer scope already defines the same name. Used for
+        scope-local bindings such as MACRO parameters, which must shadow outer
+        variables so recursion and nested calls stay isolated.
+        """
+        self._stack[-1].variables[name] = value
+
     def get_variable(self, name: str) -> Any:
         """Get a variable, searching from current scope up to root.
         

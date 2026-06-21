@@ -2285,15 +2285,18 @@ class Renderer:
             
             # Map arguments to parameters
             for idx, param_name in enumerate(params):
+                # Macro parameters are scope-local: declare them in the freshly
+                # pushed call scope so they shadow any outer variable of the same
+                # name (keeps recursion and nested calls isolated).
                 if param_name in named_args:
                     # Use named argument
-                    self._context_stack.set_variable(param_name, named_args[param_name])
+                    self._context_stack.declare_variable(param_name, named_args[param_name])
                 elif idx < len(pos_args):
                     # Use positional argument
-                    self._context_stack.set_variable(param_name, pos_args[idx])
+                    self._context_stack.declare_variable(param_name, pos_args[idx])
                 else:
                     # No value provided, keep default (None or previously set)
-                    self._context_stack.set_variable(param_name, None)
+                    self._context_stack.declare_variable(param_name, None)
 
             
             # Execute macro - support two formats:

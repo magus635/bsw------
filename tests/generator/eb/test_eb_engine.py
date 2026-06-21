@@ -90,16 +90,31 @@ class TestContextStack(unittest.TestCase):
         self.assertEqual(ctx.get_variable("x"), 1)
         self.assertFalse(ctx.has_variable("y"))  # Out of scope
     
-    def test_variable_shadowing(self):
+    def test_variable_assignment_updates_outer(self):
+        # EB Tresos [!VAR!] semantics: re-assigning an existing variable updates
+        # the scope that declared it (accumulator idiom), it does not shadow.
         ctx = ContextStack()
         ctx.set_variable("x", 1)
-        
+
         ctx.push()
-        ctx.set_variable("x", 2)  # Shadow
+        ctx.set_variable("x", 2)  # updates the outer binding
         self.assertEqual(ctx.get_variable("x"), 2)
-        
+
         ctx.pop()
-        self.assertEqual(ctx.get_variable("x"), 1)  # Restored
+        self.assertEqual(ctx.get_variable("x"), 2)  # update persisted
+
+    def test_declare_variable_shadows(self):
+        # declare_variable (used for MACRO parameters) creates a scope-local
+        # binding that shadows the outer variable and is dropped on pop.
+        ctx = ContextStack()
+        ctx.set_variable("x", 1)
+
+        ctx.push()
+        ctx.declare_variable("x", 2)  # shadow, local to this scope
+        self.assertEqual(ctx.get_variable("x"), 2)
+
+        ctx.pop()
+        self.assertEqual(ctx.get_variable("x"), 1)  # outer value restored
 
 
 class TestSymbolTable(unittest.TestCase):
