@@ -480,7 +480,16 @@ class ConfigurationManager:
             elif param_def.param_type == EcucParameterType.BOOLEAN:
                 # Convert to bool (handle various inputs)
                 if isinstance(value, str):
-                    value = value.lower() in ('true', '1', 'yes')
+                    lower_val = value.lower()
+                    if lower_val in ('true', '1', 'yes'):
+                        value = True
+                    elif lower_val in ('false', '0', 'no'):
+                        value = False
+                    else:
+                        raise ValidationError(
+                            f"{param_name}: invalid boolean string '{value}', "
+                            f"expected one of: true/false, 1/0, yes/no"
+                        )
                 else:
                     value = bool(value)
                     
@@ -681,14 +690,33 @@ class ConfigurationManager:
         engine = ValidationEngine(self.module_def, self.configuration, project_context=self.project_context)
         engine.register_default_rules()
 
+        failed_rules = []
         # Load custom rules
         for rule_file in self.custom_rule_files:
             try:
                 engine.load_custom_rules(rule_file)
             except Exception as e:
-                print(f"Warning: Failed to load rules from {rule_file}: {e}")
+                import logging
+                logging.getLogger(__name__).warning(
+                    f"Failed to load custom rules from {rule_file}: {e}"
+                )
+                failed_rules.append((rule_file, e))
 
-        return engine.validate()
+        result = engine.validate()
+        for rule_file, e in failed_rules:
+            result.add_message(ValidationMessage(
+                severity=ValidationSeverity.WARNING,
+                message=f"Custom rule file '{rule_file}' failed to load: {e}. "
+                        f"Constraints defined in this file were NOT checked.",
+                rule_name="CustomRuleLoader"
+            ))
+        return result
+
+    def _rebuild_instance_registry(self):
+        """Rebuild the instance registry after structural changes (rename/move)."""
+        self.configuration._instance_registry.clear()
+        for container in self.configuration.containers:
+            self.configuration._register_instance(container)
 
     def save_configuration(self, file_path: Path):
         """Save configuration to ARXML file

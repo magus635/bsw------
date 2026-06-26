@@ -667,6 +667,20 @@ class CodeGenerator:
                 ref = container.reference_values[name]
                 parts.append(f"R:{name}={ref.value_ref}")
                 
+            # Multi-valued parameters
+            for name in sorted(container.multi_parameter_values.keys()):
+                for i, val in enumerate(container.multi_parameter_values[name]):
+                    param_path = f"{container.get_path()}.{name}[{i}]"
+                    if param_path in self.variant_overrides:
+                        parts.append(f"MP:{name}[{i}]={self.variant_overrides[param_path]}")
+                    else:
+                        parts.append(f"MP:{name}[{i}]={val.value}")
+
+            # Multi-valued references
+            for name in sorted(container.multi_reference_values.keys()):
+                for i, ref in enumerate(container.multi_reference_values[name]):
+                    parts.append(f"MR:{name}[{i}]={ref.value_ref}")
+                
             # Sub-containers
             for sub in container.sub_containers:
                 process_container(sub)

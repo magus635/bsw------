@@ -261,6 +261,53 @@ class WorkspaceProject:
             del self.module_managers[module_name]
             del self.module_defs[module_name]
 
+    def find_references_to_module(self, module_name: str) -> List[tuple]:
+        """Find all references in other modules pointing to this module."""
+        references = []
+        target_manager = self.module_managers.get(module_name)
+        if not target_manager:
+            return references
+
+        target_containers = set()
+        def collect_containers(container):
+            target_containers.add(id(container))
+            for sub in container.sub_containers:
+                collect_containers(sub)
+
+        for container in target_manager.configuration.containers:
+            collect_containers(container)
+
+        def scan_container(container, src_module, path):
+            for ref_name, ref_val in container.reference_values.items():
+                is_match = False
+                if ref_val.is_resolved and ref_val.target is not None and id(ref_val.target) in target_containers:
+                    is_match = True
+                elif ref_val.value_ref and (ref_val.value_ref.startswith(f"/{module_name}/") or ref_val.value_ref == f"/{module_name}"):
+                    is_match = True
+                if is_match:
+                    references.append((src_module, path, ref_name))
+
+            for ref_name, ref_list in container.multi_reference_values.items():
+                for ref_val in ref_list:
+                    is_match = False
+                    if ref_val.is_resolved and ref_val.target is not None and id(ref_val.target) in target_containers:
+                        is_match = True
+                    elif ref_val.value_ref and (ref_val.value_ref.startswith(f"/{module_name}/") or ref_val.value_ref == f"/{module_name}"):
+                        is_match = True
+                    if is_match:
+                        references.append((src_module, f"{path}/{ref_name}[{ref_val.index}]", ref_name))
+
+            for sub in container.sub_containers:
+                scan_container(sub, src_module, sub.get_path())
+
+        for other_name, other_mgr in self.module_managers.items():
+            if other_name == module_name:
+                continue
+            for container in other_mgr.configuration.containers:
+                scan_container(container, other_name, container.get_path())
+
+        return references
+
     def get_manager(self, module_name: str) -> Optional[ConfigurationManager]:
         return self.module_managers.get(module_name)
         
@@ -766,7 +813,7 @@ class WorkspaceManager:
                     # Try to infer correct definition_ref if possible, or use standard pattern
                     module_def = EcucModuleDef(
                         short_name=name, 
-                        definition_ref=f"/AUTOSAR/EcucDefs/{name}"
+                        definition_ref=f"/__STUB__/AUTOSAR/EcucDefs/{name}"
                     )
                     
                     # Create manager with def_missing=True
@@ -984,7 +1031,7 @@ class WorkspaceManager:
                     from .model.definition_model import EcucModuleDef
                     module_def = EcucModuleDef(
                         short_name=module_name, 
-                        definition_ref=f"/AUTOSAR/EcucDefs/{module_name}"
+                        definition_ref=f"/__STUB__/AUTOSAR/EcucDefs/{module_name}"
                     )
                     
                     if actual_name in project.module_managers:

@@ -1023,7 +1023,7 @@ class Renderer:
             finally:
                 self._recursion_depth -= 1
         except Exception as e:
-            _debug_log(f"ERROR including {filename}: {e}")
+            logger.warning(f"ERROR including {filename}: {e}")
             if self.strict:
                 raise TemplateParseError(f"Error including {filename}: {e}")
 
@@ -2370,7 +2370,7 @@ class Renderer:
             if self.strict:
                 raise TemplateParseError(f"Assertion failed: {message}")
             else:
-                _debug_log(f"ASSERT WARNING (non-strict): {message}")
+                logger.warning(f"Assertion failed (non-strict): {message}")
         
         return i  # After ENDASSERT
     
@@ -2409,12 +2409,12 @@ class Renderer:
                 message_parts.append(self._builtins.to_string(val))
         
         message = "".join(message_parts).strip()
-        _debug_log(f"ERROR: {message}")
+        logger.error(f"ERROR: {message}")
         if self.strict:
             raise TemplateParseError(f"Template Error: {message}")
         else:
             # Non-strict: just log warning and continue
-            _debug_log(f"WARNING: Template Error suppressed in non-strict mode: {message}")
+            logger.warning(f"Template Error suppressed in non-strict mode: {message}")
             # Optionally add a comment in output? No, standard behavior is skip/trace
         
         return i

@@ -302,8 +302,14 @@ class ValidationEngine:
                         result.add_message(msg)
             except Exception as e:
                 import logging
-                logging.getLogger(__name__).debug(
+                logging.getLogger(__name__).warning(
                     f"Rule '{rule.name}' failed during incremental validation: {e}"
                 )
+                result.add_message(ValidationMessage(
+                    severity=ValidationSeverity.ERROR,
+                    message=f"Rule '{rule.name}' crashed during incremental validation: {type(e).__name__}: {e}",
+                    rule_name="ValidationEngine",
+                    container_path=container.get_path()
+                ))
         
         return result

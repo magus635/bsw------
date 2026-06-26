@@ -308,6 +308,9 @@ class MoveContainerCommand(QUndoCommand):
             self.config_manager.configuration.is_modified = True
         
         instance.mark_modified()
+        # Rebuild instance registry since paths have changed
+        if hasattr(self.config_manager, '_rebuild_instance_registry'):
+            self.config_manager._rebuild_instance_registry()
 
 class PasteContainerCommand(QUndoCommand):
     """Command to paste (add) a container instance"""

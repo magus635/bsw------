@@ -565,7 +565,7 @@ class ArxmlParser:
             return None
             
         # Get definition reference
-        definition_ref = self._get_text_value(element, 'DEFINITION-REF') or ""
+        definition_ref = self._get_child_text_value(element, 'DEFINITION-REF') or ""
         
         config = EcucModuleConfiguration(
             short_name=short_name,
@@ -603,7 +603,7 @@ class ArxmlParser:
             return None
             
         # Get definition reference
-        definition_ref = self._get_text_value(element, 'DEFINITION-REF') or ""
+        definition_ref = self._get_child_text_value(element, 'DEFINITION-REF') or ""
         
         container = EcucContainerValue(
             short_name=short_name,
@@ -704,7 +704,7 @@ class ArxmlParser:
                 elif val_lower == '0':
                     value = False
                 
-        if 'NUMERICAL-PARAM-VALUE' in element.tag or 'TEXTUAL-PARAM-VALUE' in element.tag or 'ENUMERATION-PARAM-VALUE' in element.tag:
+        if 'NUMERICAL-PARAM-VALUE' in element.tag:
             if value is not None and isinstance(value, str):
                 val_stripped = value.strip()
                 try:

@@ -13,6 +13,9 @@ Implements the required function library:
 - XPath compatibility: translate, starts-with, ends-with, document, id, key
 """
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 from typing import Any, List, Optional, Callable, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -2406,7 +2409,7 @@ class BuiltinFunctions:
             # Do NOT silently fall back to the 'Resource' module: a same-named
             # parameter there would yield a wrong value with no caller signal.
             # The caller can use ecu:has() to decide on a fallback explicitly.
-            _debug_log(f"WARNING: ecu:get('{path}') - module '{module_name}' not loaded")
+            logger.warning(f"ecu:get('{path}') - module '{module_name}' not loaded")
             return None
 
         # 4. Search for the parameter in the module
@@ -2440,7 +2443,7 @@ class BuiltinFunctions:
                     return val
 
         # 5. Not found
-        _debug_log(f"WARNING: ecu:get('{path}') - parameter not found in module")
+        logger.warning(f"ecu:get('{path}') - parameter not found in module")
         return None
 
     def ecu_has(self, path: str) -> bool:

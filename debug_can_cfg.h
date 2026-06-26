@@ -11,9 +11,12 @@
 
 /* ==================== Controller IDs ==================== */
 
-/* ECUC: CanController@index/CanControllerId */
-#define CAN_CONTROLLER_ID_@index  0
-/* ECUC: CanController@index/CanControllerId */
-#define CAN_CONTROLLER_ID_@index  1
+
+/* ECUC: CanController0/CanControllerId */
+#define CAN_CONTROLLER_ID_0  0
+
+/* ECUC: CanController1/CanControllerId */
+#define CAN_CONTROLLER_ID_1  1
+
 
 #endif /* CAN_CFG_H */

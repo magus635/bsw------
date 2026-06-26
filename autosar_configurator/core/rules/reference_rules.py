@@ -44,16 +44,15 @@ class ResolutionErrorValidationRule(ValidationRule):
     
     def _check_container(self, container: EcucContainerValue, result: ValidationResult):
         """Check references using has_error property"""
+        severity_map = {
+            "error": ValidationSeverity.ERROR,
+            "warning": ValidationSeverity.WARNING,
+            "info": ValidationSeverity.INFO
+        }
+
         for ref_name, ref_value in container.reference_values.items():
             if ref_value.has_error:
                 error = ref_value.resolution_error
-                
-                # Map ResolutionError severity to ValidationSeverity
-                severity_map = {
-                    "error": ValidationSeverity.ERROR,
-                    "warning": ValidationSeverity.WARNING,
-                    "info": ValidationSeverity.INFO
-                }
                 severity = severity_map.get(error.severity, ValidationSeverity.ERROR)
                 
                 result.add_message(ValidationMessage(
@@ -65,6 +64,21 @@ class ResolutionErrorValidationRule(ValidationRule):
                     suggested_fix=error.suggestion
                 ))
         
+        # Also check multi-valued references
+        for ref_name, ref_list in container.multi_reference_values.items():
+            for ref_value in ref_list:
+                if ref_value.has_error:
+                    error = ref_value.resolution_error
+                    severity = severity_map.get(error.severity, ValidationSeverity.ERROR)
+                    result.add_message(ValidationMessage(
+                        severity=severity,
+                        message=f"Multi-Reference '{ref_name}[{ref_value.index}]': {error.message}",
+                        rule_name=self.name,
+                        container_path=container.get_path(),
+                        details=f"Error type: {error.error_type}",
+                        suggested_fix=error.suggestion
+                    ))
+
         for sub in container.sub_containers:
             self._check_container(sub, result)
 
@@ -124,6 +138,18 @@ class ReferenceIntegrityRule(ValidationRule):
                     suggested_fix=f"Remove reference or create target container at {target_path}"
                 ))
         
+        # Check multi-valued references
+        for ref_name, ref_list in container.multi_reference_values.items():
+            for ref_value in ref_list:
+                target_path = ref_value.value_ref
+                if target_path not in all_paths:
+                    result.add_message(self._create_error(
+                        f"Multi-Reference '{ref_name}[{ref_value.index}]' points to non-existent container: {target_path}",
+                        container_path=container.get_path(),
+                        details="Dangling multi-reference detected",
+                        suggested_fix=f"Remove reference or create target container at {target_path}"
+                    ))
+        
         # Recursively check sub-containers
         for sub_container in container.sub_containers:
             self._validate_container_references(sub_container, all_paths, result)
@@ -150,6 +176,11 @@ class ReferenceIntegrityRule(ValidationRule):
             for ref_name, ref_value in container.reference_values.items():
                 if ref_value.value_ref == target_path:
                     references.append((container, ref_name))
+            
+            for ref_name, ref_list in container.multi_reference_values.items():
+                for ref_value in ref_list:
+                    if ref_value.value_ref == target_path:
+                        references.append((container, ref_name))
             
             for sub_container in container.sub_containers:
                 search_references(sub_container)
@@ -203,6 +234,16 @@ class DanglingReferenceRule(ValidationRule):
                     details=f"Target {ref_value.value_ref} does not exist",
                     suggested_fix="Remove this reference or restore the target container"
                 ))
+        
+        for ref_name, ref_list in container.multi_reference_values.items():
+            for ref_value in ref_list:
+                if ref_value.value_ref not in all_paths:
+                    result.add_message(self._create_warning(
+                        f"Dangling multi-reference '{ref_name}[{ref_value.index}]' detected",
+                        container_path=container.get_path(),
+                        details=f"Target {ref_value.value_ref} does not exist",
+                        suggested_fix="Remove this reference or restore the target container"
+                    ))
         
         for sub_container in container.sub_containers:
             self._check_dangling(sub_container, all_paths, result)

@@ -439,6 +439,8 @@ class EcucContainerValue:
             new_instance.parameter_values[name] = EcucParameterValue(
                 definition_ref=param.definition_ref,
                 value=param.value[:] if isinstance(param.value, list) else param.value, # Handle list cloning
+                index=param.index,
+                dest_type=param.dest_type,
                 is_modified=True,
                 last_modified=datetime.now()
             )
@@ -449,6 +451,8 @@ class EcucContainerValue:
                 EcucParameterValue(
                     definition_ref=p.definition_ref,
                     value=p.value[:] if isinstance(p.value, list) else p.value,
+                    index=p.index,
+                    dest_type=p.dest_type,
                     is_modified=True,
                     last_modified=datetime.now()
                 ) for p in param_list
@@ -459,6 +463,7 @@ class EcucContainerValue:
             new_instance.reference_values[name] = EcucReferenceValue(
                 definition_ref=ref.definition_ref,
                 value_ref=ref.value_ref,
+                dest_type=ref.dest_type,
                 is_modified=True
             )
 
@@ -469,6 +474,7 @@ class EcucContainerValue:
                     definition_ref=ref.definition_ref,
                     value_ref=ref.value_ref,
                     index=ref.index,
+                    dest_type=ref.dest_type,
                     is_modified=True
                 ) for ref in ref_list
             ]

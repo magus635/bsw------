@@ -1625,6 +1625,33 @@ class DaVinciMainWindow(QMainWindow):
                 f"模块 '{module_name}' 不在当前项目中。"
             )
             return
+
+        # Check for cross-module references pointing to this module
+        if hasattr(self.current_project, 'find_references_to_module'):
+            incoming_refs = self.current_project.find_references_to_module(module_name)
+            if incoming_refs:
+                ref_summary = "\n".join(
+                    f"  • {src_module}: {src_container} -> {ref_name}"
+                    for src_module, src_container, ref_name in incoming_refs[:10]
+                )
+                if len(incoming_refs) > 10:
+                    ref_summary += f"\n  ... 还有 {len(incoming_refs) - 10} 个其余引用 / and {len(incoming_refs) - 10} more"
+                
+                reply = QMessageBox.warning(
+                    self,
+                    "检测到跨模块引用 / Cross-Module References Detected",
+                    f"以下其他模块中的引用指向了模块 '{module_name}':\n\n"
+                    f"{ref_summary}\n\n"
+                    f"删除此模块将导致这些引用悬空，建议先清理或修改这些引用。\n"
+                    f"您确定要继续删除吗？\n\n"
+                    f"Deleting this module will leave references dangling in other modules:\n\n"
+                    f"{ref_summary}\n\n"
+                    f"Are you sure you want to proceed?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+                if reply != QMessageBox.StandardButton.Yes:
+                    return
         
         # Remove module from project (routed through undo stack)
         from .commands import DeleteModuleCommand
