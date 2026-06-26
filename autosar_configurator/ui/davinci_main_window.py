@@ -37,6 +37,7 @@ from ..generator.generator import CodeGenerator
 from .async_workers import AIWorkerSignals
 from .controllers.ai_assistant_controller import AiAssistantController
 from .controllers.wizard_controller import WizardController
+from .controllers.navigation_controller import NavigationController
 
 
 class DaVinciMainWindow(QMainWindow):
@@ -86,6 +87,9 @@ class DaVinciMainWindow(QMainWindow):
         # Wizard launch/completion lives in a dedicated controller (P2-6 phase 2).
         self.wizard_controller = WizardController(self)
 
+        # Search-result navigation lives in a dedicated controller (P2-6 phase 3).
+        self.nav_controller = NavigationController(self)
+
         self._setup_ui()
         self._create_actions()
         self._create_menus()
@@ -113,7 +117,7 @@ class DaVinciMainWindow(QMainWindow):
         
         # Add search widget at top
         self.search_widget = SmartSearchWidget()
-        self.search_widget.result_selected.connect(self._on_search_result_selected)
+        self.search_widget.result_selected.connect(self.nav_controller._on_search_result_selected)
         self.search_widget.setMaximumHeight(200)
         self.search_widget.hide()  # Hidden by default
         layout.addWidget(self.search_widget)
@@ -290,7 +294,7 @@ class DaVinciMainWindow(QMainWindow):
         self.toggle_search_action.setShortcut(QKeySequence.Find)  # Ctrl+F
         self.toggle_search_action.setStatusTip("Show/hide search panel (Ctrl+F)")
         self.toggle_search_action.setCheckable(True)
-        self.toggle_search_action.triggered.connect(self.toggle_search)
+        self.toggle_search_action.triggered.connect(self.nav_controller.toggle_search)
         
         self.show_dep_graph_action = QAction("Dependency Graph", self)
         self.show_dep_graph_action.setShortcut(QKeySequence("Ctrl+D"))
@@ -2115,184 +2119,6 @@ class DaVinciMainWindow(QMainWindow):
             worker.signals.finished.connect(on_module_done, QtCore_Qt.QueuedConnection)
             self._gen_workers.append(worker)  # Keep reference
             self.thread_pool.start(worker)
-    
-    def toggle_search(self, checked: bool):
-        """Toggle search widget visibility"""
-        if checked:
-            self.search_widget.show()
-            self.search_widget.focus_search()
-            
-            # Build search index with current module and configuration
-            if self.current_project:
-                # Project mode: Index all modules
-                self.search_widget.build_project_index(self.current_project)
-            elif self.config_manager:
-                # Single module mode
-                self.search_widget.build_search_index(
-                    self.module_def,
-                    self.config_manager.configuration,
-                    clear=True
-                )
-        else:
-            self.search_widget.hide()
-    
-    def _on_search_result_selected(self, result_type: str, path: str):
-        """Handle search result selection"""
-        try:
-            self.statusbar.showMessage(f"🔍 Navigating to: {path}", 3000)
-            
-            # Different handling based on result type
-            if result_type == 'container_def':
-                # For container definitions, navigate in tree
-                self._navigate_to_definition(path)
-            elif result_type == 'parameter_def':
-                # For parameter definitions, navigate to its container definition
-                container_path = '/'.join(path.split('/')[:-1]) if '/' in path else path
-                self._navigate_to_definition(container_path)
-            elif result_type == 'container':
-                # For container instances, select in tree
-                self._navigate_to_container(path)
-            elif result_type in ['parameter', 'reference']:
-                # For parameter/ref values, select parent container
-                container_path = '/'.join(path.split('/')[:-1]) if '/' in path else path
-                self._navigate_to_container(container_path)
-            else:
-                self.statusbar.showMessage(f"⚠️ Unhandled result type '{result_type}' for {path}", 5000)
-                
-        except Exception as e:
-            import traceback
-            error_msg = f"Navigation Error: {str(e)}\n{traceback.format_exc()}"
-            print(error_msg)
-            from PySide6.QtWidgets import QMessageBox
-            QMessageBox.warning(self, "Search Navigation Failed", f"An error occurred while navigating to:\n{path}\n\nError: {str(e)}")
-    
-    def _navigate_to_definition(self, path: str):
-        """Navigate to a definition in tree view"""
-        parts = path.split('/')
-        if not parts:
-            return
-            
-        module_name = parts[0]
-        container_path = '/'.join(parts[1:])
-        
-        # Find correct module definition
-        target_module_def = None
-        if self.current_project and module_name in self.current_project.module_managers:
-            target_module_def = self.current_project.module_managers[module_name].module_def
-        elif self.module_def and self.module_def.short_name == module_name:
-            target_module_def = self.module_def
-            
-        if not target_module_def:
-            self.statusbar.showMessage(f"Could not find module definition for {module_name}", 3000)
-            return
-
-        container_def = target_module_def.get_container_def(container_path)
-        if container_def:
-            if self.tree_view.select_definition(container_def.definition_ref):
-                self.statusbar.showMessage(f"✓ Navigated to definition: {container_path}", 3000)
-            else:
-                self.statusbar.showMessage(f"✗ Definition found in model but failed to locate in Tree View: {container_path}", 5000)
-        else:
-            self.statusbar.showMessage(f"✗ Definition not found in module '{module_name}': {container_path}", 5000)
-
-    def _show_definition_info(self, result_type: str, path: str):
-        """Show definition information in a dialog"""
-        from PySide6.QtWidgets import QMessageBox
-        
-        parts = path.split('/')
-        module_name = parts[0]
-        
-        # Find correct module definition
-        target_module_def = None
-        if self.current_project and module_name in self.current_project.module_managers:
-            target_module_def = self.current_project.module_managers[module_name].module_def
-        elif self.module_def and self.module_def.short_name == module_name:
-            target_module_def = self.module_def
-            
-        if not target_module_def:
-            self.statusbar.showMessage(f"Could not find module definition for {module_name}", 3000)
-            return
-
-        if result_type == 'container_def':
-            # Path is Module/Path
-            container_path = '/'.join(parts[1:])
-            container_def = target_module_def.get_container_def(container_path)
-            if container_def:
-                info = f"Container: {container_def.short_name}\n"
-                info += f"Description: {container_def.description or 'N/A'}\n"
-                info += f"Multiplicity: {container_def.lower_multiplicity}..{container_def.upper_multiplicity}\n"
-                info += f"Parameters: {len(container_def.parameters)}\n"
-                info += f"Sub-containers: {len(container_def.sub_containers)}"
-                QMessageBox.information(self, "Container Definition", info)
-        elif result_type == 'parameter_def':
-            # Path is Module/ContainerPath/Param
-            container_path = '/'.join(parts[1:-1])
-            param_name = parts[-1]
-            container_def = target_module_def.get_container_def(container_path)
-            if container_def and param_name in container_def.parameters:
-                param_def = container_def.parameters[param_name]
-                info = f"Parameter: {param_name}\n"
-                info += f"Type: {param_def.param_type}\n"
-                info += f"Description: {param_def.description or 'N/A'}\n"
-                if param_def.min_value is not None:
-                    info += f"Min: {param_def.min_value}\n"
-                if param_def.max_value is not None:
-                    info += f"Max: {param_def.max_value}\n"
-                if param_def.default_value is not None:
-                    info += f"Default: {param_def.default_value}"
-                QMessageBox.information(self, "Parameter Definition", info)
-    
-    def _navigate_to_container(self, path: str):
-        """Navigate to a container instance in tree view"""
-        parts = path.split('/')
-        if not parts:
-            return
-            
-        module_name = parts[0]
-        
-        # Find correct module manager
-        target_manager = None
-        if self.current_project and module_name in self.current_project.module_managers:
-            target_manager = self.current_project.module_managers[module_name]
-        elif self.config_manager and self.config_manager.module_def.short_name == module_name:
-            target_manager = self.config_manager
-            
-        if not target_manager:
-            self.statusbar.showMessage(f"Could not find module {module_name}", 3000)
-            return
-
-        # Registry lookup needs leading slash prefix: /Module/ContainerPath
-        full_path = f"/{path}"
-        instance = target_manager.configuration.get_instance_by_path(full_path)
-        
-        if instance:
-            if self.tree_view._select_instance(instance):
-                self.statusbar.showMessage(f"✓ Navigated to: {path}", 3000)
-            else:
-                self.statusbar.showMessage(f"✗ Instance found in model but failed to locate in Tree View: {path}", 5000)
-        else:
-            self.statusbar.showMessage(f"✗ Container instance not found: {path}", 5000)
-    
-    def _find_container_by_path(self, path_parts):
-        """Find container instance by path"""
-        if not self.config_manager:
-            return None
-        
-        containers = self.config_manager.configuration.containers
-        current = None
-        
-        for part in path_parts:
-            found = None
-            for container in containers:
-                if container.short_name == part:
-                    found = container
-                    current = container
-                    containers = container.sub_containers
-                    break
-            if not found:
-                return None
-        
-        return current
     
     def show_dependency_graph(self):
         """Show dependency graph in a new window"""
