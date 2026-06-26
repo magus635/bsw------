@@ -65,3 +65,48 @@ def test_navigate_to_definition_unknown_module_reports_status():
     # Graceful: a status message is shown, no tree navigation attempted.
     win.statusbar.showMessage.assert_called()
     win.tree_view.select_definition.assert_not_called()
+
+
+def test_reference_jump_selects_found_container():
+    target = object()
+    win = MagicMock()
+    win.current_project = None
+    win.config_manager.configuration.get_instance_by_path.return_value = target
+    ctrl = NavigationController(win)
+
+    ctrl._on_reference_jump_requested("/Can/CanConfigSet/CanController")
+
+    win.tree_view.select_container.assert_called_once_with(target)
+
+
+def test_reference_jump_empty_path_is_noop():
+    win = MagicMock()
+    ctrl = NavigationController(win)
+
+    ctrl._on_reference_jump_requested("")
+
+    win.tree_view.select_container.assert_not_called()
+
+
+def test_navigate_to_path_empty_is_noop():
+    win = MagicMock()
+    ctrl = NavigationController(win)
+
+    ctrl._navigate_to_path("")
+
+    win.tree_view.select_item_by_path.assert_not_called()
+
+
+def test_search_for_ref_finds_holding_container():
+    ref_val = object()
+    holder = MagicMock()
+    holder.reference_values = {"RefToX": ref_val}
+    holder.sub_containers = []
+    other = MagicMock()
+    other.reference_values = {}
+    other.sub_containers = []
+    ctrl = NavigationController(MagicMock())
+
+    result = ctrl._search_for_ref_in_containers(ref_val, [other, holder])
+
+    assert result is holder

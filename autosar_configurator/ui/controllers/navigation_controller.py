@@ -10,6 +10,7 @@ Note: ``_show_definition_info`` and ``_find_container_by_path`` were already
 dead (no callers) when this controller was extracted; they are carried over
 verbatim to keep this change purely structural.
 """
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
 
 
@@ -198,3 +199,104 @@ class NavigationController:
                 return None
 
         return current
+
+    # ----- reference-jump / reverse-reference navigation --------------------
+    def _on_reference_jump_requested(self, target_path: str):
+        """Navigate to the referenced container in the tree view."""
+        win = self.win
+        if not target_path:
+            return
+
+        # Try to find the container in the tree.
+        target_container = None
+
+        # First try exact path.
+        if win.current_project:
+            target_container = win.current_project.get_instance_by_path(target_path)
+        elif win.config_manager:
+            target_container = win.config_manager.configuration.get_instance_by_path(target_path)
+
+        if target_container:
+            win.tree_view.select_container(target_container)
+            win.statusbar.showMessage(f"Navigated to: {target_path}", 3000)
+        else:
+            win.statusbar.showMessage(f"Could not find: {target_path}", 3000)
+
+    def _show_reverse_references(self, container):
+        """Show a dialog listing all containers that reference this container.
+
+        Part of the Object Graph Context Builder feature: enables users to
+        understand 'who depends on me?' for any container.
+        """
+        from PySide6.QtWidgets import (
+            QDialog, QVBoxLayout, QListWidget, QLabel, QDialogButtonBox, QListWidgetItem
+        )
+
+        # Get reverse references
+        refs = getattr(container, 'referenced_by', [])
+
+        # Create dialog
+        dialog = QDialog(self.win)
+        dialog.setWindowTitle(f"🔍 谁引用了 {container.short_name}?")
+        dialog.resize(600, 400)
+
+        layout = QVBoxLayout(dialog)
+
+        if refs:
+            layout.addWidget(QLabel(f"<b>{container.short_name}</b> 被 {len(refs)} 个位置引用:"))
+            list_widget = QListWidget()
+
+            for ref_val in refs:
+                # Find the source container holding this reference
+                source = self._find_reference_source(ref_val)
+                if source:
+                    ref_name = ref_val.definition_ref.split('/')[-1] if ref_val.definition_ref else "Unknown"
+                    item_text = f"📎 {source.get_path()} (via {ref_name})"
+                    item = QListWidgetItem(item_text)
+                    item.setData(Qt.UserRole, source.get_path())
+                    list_widget.addItem(item)
+                else:
+                    list_widget.addItem(f"📎 (未知来源) via {ref_val.definition_ref}")
+
+            # Enable click-to-navigate
+            list_widget.itemDoubleClicked.connect(lambda item: self._navigate_to_path(item.data(Qt.UserRole)))
+
+            layout.addWidget(list_widget)
+            layout.addWidget(QLabel("<i>双击可跳转到引用位置</i>"))
+        else:
+            layout.addWidget(QLabel(f"<b>{container.short_name}</b> 没有被任何容器引用。"))
+            layout.addWidget(QLabel("<i>提示: 确保项目已加载并解析了跨模块引用。</i>"))
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok)
+        buttons.accepted.connect(dialog.accept)
+        layout.addWidget(buttons)
+
+        dialog.exec()
+
+    def _find_reference_source(self, ref_val):
+        """Find the container that holds a given reference value."""
+        if not self.win.current_project:
+            return None
+
+        for manager in self.win.current_project.module_managers.values():
+            result = self._search_for_ref_in_containers(ref_val, manager.configuration.containers)
+            if result:
+                return result
+        return None
+
+    def _search_for_ref_in_containers(self, ref_val, containers):
+        """Recursively search for the container holding a reference."""
+        for container in containers:
+            for ref_name, stored_ref in container.reference_values.items():
+                if stored_ref is ref_val:
+                    return container
+            # Recurse
+            result = self._search_for_ref_in_containers(ref_val, container.sub_containers)
+            if result:
+                return result
+        return None
+
+    def _navigate_to_path(self, path: str):
+        """Navigate to a container by path."""
+        if path:
+            self.win.tree_view.select_item_by_path(path)

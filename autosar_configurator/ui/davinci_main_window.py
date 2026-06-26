@@ -137,7 +137,7 @@ class DaVinciMainWindow(QMainWindow):
         self.tree_view.delete_module_requested.connect(self.handle_delete_module)
         self.tree_view.move_instance_requested.connect(self.handle_move_container)
         self.tree_view.rename_instance_requested.connect(self.handle_rename_container)
-        self.tree_view.view_references_requested.connect(self._show_reverse_references)
+        self.tree_view.view_references_requested.connect(self.nav_controller._show_reverse_references)
         splitter.addWidget(self.tree_view)
         
         # Right: Config panel
@@ -146,7 +146,7 @@ class DaVinciMainWindow(QMainWindow):
         self.config_panel.parameter_changed.connect(self._on_parameter_changed)
         self.config_panel.ai_help_requested.connect(self.ai_controller.on_help_requested)
         self.config_panel.check_impact_requested.connect(self._handle_check_impact)
-        self.config_panel.reference_jump_requested.connect(self._on_reference_jump_requested)
+        self.config_panel.reference_jump_requested.connect(self.nav_controller._on_reference_jump_requested)
         self.config_panel.instance_variant_changed.connect(self._on_instance_variant_changed)
         splitter.addWidget(self.config_panel)
         
@@ -1776,18 +1776,6 @@ class DaVinciMainWindow(QMainWindow):
             self.validation_status_label.setText(f"❌ {all_results.error_count} Errors")
             self.validation_status_label.setStyleSheet("QLabel { color: red; padding: 2px 10px; }")
 
-    def _navigate_to_path(self, path: str):
-        """Navigate to a specific path in the configuration tree"""
-        self.statusbar.showMessage(f"Navigating to: {path}", 3000)
-        
-        # Use robust path selection in tree view
-        # This returns the parameter name if the path points to a parameter
-        param_name = self.tree_view.select_item_by_path(path)
-        
-        # If a parameter was returned, highlight it in the config panel
-        if param_name and self.config_panel:
-            self.config_panel.highlight_parameter(param_name)
-            
     def load_custom_rules(self):
         """Load custom validation rules from file"""
         if not self.config_manager:
@@ -2864,27 +2852,6 @@ class DaVinciMainWindow(QMainWindow):
         self.settings.setValue("windowState", self.saveState())
         event.accept()
 
-    def _on_reference_jump_requested(self, target_path: str):
-        """Navigate to the referenced container in the tree view"""
-        if not target_path:
-            return
-        
-        # Try to find the container in tree
-        target_container = None
-        
-        # First try exact path
-        if self.current_project:
-            target_container = self.current_project.get_instance_by_path(target_path)
-        elif self.config_manager:
-            target_container = self.config_manager.configuration.get_instance_by_path(target_path)
-        
-        if target_container:
-            # Find and select the item in the tree
-            self.tree_view.select_container(target_container)
-            self.statusbar.showMessage(f"Navigated to: {target_path}", 3000)
-        else:
-            self.statusbar.showMessage(f"Could not find: {target_path}", 3000)
-    
     def _setup_impact_view(self):
         """Setup Impact Analysis dock widget"""
         self.impact_dock = QDockWidget("Impact Analysis", self)
@@ -3099,83 +3066,6 @@ class DaVinciMainWindow(QMainWindow):
             logger.error(traceback.format_exc())
             self.statusbar.showMessage(f"⚠️ {error_msg}", 5000)
             QMessageBox.critical(self, "Impact Analysis Error", error_msg)
-
-    def _show_reverse_references(self, container):
-        """Show dialog listing all containers that reference this container
-        
-        Part of the Object Graph Context Builder feature: enables users to
-        understand 'who depends on me?' for any container.
-        """
-        from PySide6.QtWidgets import QDialog, QVBoxLayout, QListWidget, QLabel, QDialogButtonBox, QListWidgetItem
-        
-        # Get reverse references
-        refs = getattr(container, 'referenced_by', [])
-        
-        # Create dialog
-        dialog = QDialog(self)
-        dialog.setWindowTitle(f"🔍 谁引用了 {container.short_name}?")
-        dialog.resize(600, 400)
-        
-        layout = QVBoxLayout(dialog)
-        
-        if refs:
-            layout.addWidget(QLabel(f"<b>{container.short_name}</b> 被 {len(refs)} 个位置引用:"))
-            list_widget = QListWidget()
-            
-            for ref_val in refs:
-                # Find the source container holding this reference
-                source = self._find_reference_source(ref_val)
-                if source:
-                    ref_name = ref_val.definition_ref.split('/')[-1] if ref_val.definition_ref else "Unknown"
-                    item_text = f"📎 {source.get_path()} (via {ref_name})"
-                    item = QListWidgetItem(item_text)
-                    item.setData(Qt.UserRole, source.get_path())
-                    list_widget.addItem(item)
-                else:
-                    list_widget.addItem(f"📎 (未知来源) via {ref_val.definition_ref}")
-            
-            # Enable click-to-navigate
-            list_widget.itemDoubleClicked.connect(lambda item: self._navigate_to_path(item.data(Qt.UserRole)))
-            
-            layout.addWidget(list_widget)
-            layout.addWidget(QLabel("<i>双击可跳转到引用位置</i>"))
-        else:
-            layout.addWidget(QLabel(f"<b>{container.short_name}</b> 没有被任何容器引用。"))
-            layout.addWidget(QLabel("<i>提示: 确保项目已加载并解析了跨模块引用。</i>"))
-            
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok)
-        buttons.accepted.connect(dialog.accept)
-        layout.addWidget(buttons)
-        
-        dialog.exec()
-    
-    def _find_reference_source(self, ref_val):
-        """Find the container that holds a given reference value"""
-        if not self.current_project:
-            return None
-        
-        for manager in self.current_project.module_managers.values():
-            result = self._search_for_ref_in_containers(ref_val, manager.configuration.containers)
-            if result:
-                return result
-        return None
-    
-    def _search_for_ref_in_containers(self, ref_val, containers):
-        """Recursively search for the container holding a reference"""
-        for container in containers:
-            for ref_name, stored_ref in container.reference_values.items():
-                if stored_ref is ref_val:
-                    return container
-            # Recurse
-            result = self._search_for_ref_in_containers(ref_val, container.sub_containers)
-            if result:
-                return result
-        return None
-    
-    def _navigate_to_path(self, path: str):
-        """Navigate to a container by path"""
-        if path:
-            self.tree_view.select_item_by_path(path)
 
     def _setup_problems_view(self):
         """Setup the centralized Problems View bottom dock"""
