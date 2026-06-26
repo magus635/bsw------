@@ -22,12 +22,36 @@ print(f"DEBUG: xpath_engine file: {autosar_configurator.generator.eb.xpath_engin
 
 from autosar_configurator.generator.generator import CodeGenerator
 
+# Paths are environment-driven so the script runs on any machine / CI.
+# Point CAN_GEN_PROJECT at a project root that contains the layout below, or
+# override each path individually. Defaults are relative to that root.
+_PROJECT_ROOT = Path(os.environ.get("CAN_GEN_PROJECT", "")).expanduser()
+
+
+def _project_path(env_var: str, *relative: str) -> Path:
+    """Resolve a path from an explicit env override, else from CAN_GEN_PROJECT."""
+    override = os.environ.get(env_var)
+    if override:
+        return Path(override).expanduser()
+    return _PROJECT_ROOT.joinpath(*relative)
+
+
 def run_can_gen():
-    xdm_path = Path("/Users/qlwang/Desktop/t1/Def/plugins/Can_THA6_AS440/config/Can.xdm")
-    arxml_path = Path("/Users/qlwang/Desktop/t1/ConfigValue/Can_Config.arxml")
-    template_dir = Path("/Users/qlwang/Desktop/t1/templates")
-    output_base_dir = Path("/Users/qlwang/Desktop/t1/output")
-    
+    xdm_path = _project_path("CAN_GEN_XDM", "Def/plugins/Can_THA6_AS440/config/Can.xdm")
+    arxml_path = _project_path("CAN_GEN_ARXML", "ConfigValue/Can_Config.arxml")
+    template_dir = _project_path("CAN_GEN_TEMPLATES", "templates")
+    output_base_dir = _project_path("CAN_GEN_OUTPUT", "output")
+
+    # Skip gracefully when the inputs are not available (e.g. CI without the
+    # sample project), instead of crashing on a hardcoded local path.
+    missing = [str(p) for p in (xdm_path, arxml_path, template_dir) if not p.exists()]
+    if not _PROJECT_ROOT and not os.environ.get("CAN_GEN_XDM"):
+        print("SKIP: set CAN_GEN_PROJECT (or CAN_GEN_XDM/ARXML/TEMPLATES) to run this verification.")
+        return
+    if missing:
+        print(f"SKIP: required inputs not found: {missing}")
+        return
+
     print(f"Loading XDM: {xdm_path}")
     def_parser = EcucDefParser()
     can_def = def_parser.parse_module_def_file(xdm_path)

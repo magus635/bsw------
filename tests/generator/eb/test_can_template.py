@@ -171,14 +171,16 @@ class TestCanTemplateRendering(unittest.TestCase):
         
         try:
             result = self.renderer.render(template, "Can")
-            print("✅ INCLUDE directive test:")
-            print(result)
-            self.assertIn("Include test passed", result)
-            
         except Exception as e:
-            # Include might fail if macro file has complex dependencies
-            print(f"⚠️ INCLUDE test result: {e}")
-            # Don't fail - this is expected if ecu:get functions are not mocked
+            # The macro file may legitimately depend on ecu:get resources that are
+            # not mocked in this unit test. Skip honestly instead of swallowing the
+            # exception and reporting a false PASS — a swallowed exception hides a
+            # genuinely broken INCLUDE mechanism from the suite.
+            self.skipTest(f"INCLUDE macro has unmocked dependencies: {e}")
+        else:
+            # If the include resolved, it must have run through to the trailing
+            # marker — proving the file was found and fully processed.
+            self.assertIn("Include test passed", result)
 
 
 class TestCanTemplateFullRender(unittest.TestCase):

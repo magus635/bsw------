@@ -2,7 +2,7 @@
 Generic Resource Mapper
 Universal mapping engine that uses rules to map chip resources to AUTOSAR configuration
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Any, Optional
 import re
@@ -105,10 +105,24 @@ class MappingAction:
 
 @dataclass
 class MappingResult:
-    """Result of applying mapping actions"""
+    """Result of applying mapping actions.
+
+    ``errors`` holds structured diagnostics for every failed action so callers
+    (UI, generator, tests) can surface *what* went wrong instead of only seeing
+    an opaque ``failed`` count. Each entry is ``{'action': str, 'error': str}``.
+    """
     applied: int = 0
     skipped: int = 0
     failed: int = 0
+    errors: List[Dict[str, str]] = field(default_factory=list)
+
+    def add_error(self, action: Any, error: Exception) -> None:
+        """Record a structured diagnostic for a failed action."""
+        self.failed += 1
+        self.errors.append({
+            'action': str(action),
+            'error': f"{type(error).__name__}: {error}",
+        })
 
     def __str__(self):
         parts = [f"applied={self.applied}"]
@@ -480,8 +494,14 @@ class GenericResourceMapper:
             description=f"Set {param.name} = {value}"
         )
 
-    def apply_actions(self, actions: List[MappingAction], config_manager) -> MappingResult:
-        """Apply mapping actions to a configuration manager"""
+    @staticmethod
+    def apply_actions(actions: List[MappingAction], config_manager) -> MappingResult:
+        """Apply mapping actions to a configuration manager.
+
+        Stateless: depends only on its arguments, so it is a ``@staticmethod``
+        and can be invoked as ``GenericResourceMapper.apply_actions(...)``
+        without constructing an instance.
+        """
         result = MappingResult()
 
         for action in actions:
@@ -493,7 +513,7 @@ class GenericResourceMapper:
                         continue
 
                 if action.action_type == MappingActionType.CREATE_CONTAINER:
-                    container_def, parent = self._resolve_create_target(
+                    container_def, parent = GenericResourceMapper._resolve_create_target(
                         action.container_path, config_manager)
                     if container_def is None:
                         result.skipped += 1
@@ -510,7 +530,7 @@ class GenericResourceMapper:
                     result.applied += 1
 
                 elif action.action_type == MappingActionType.SET_PARAMETER:
-                    container = self._find_container_instance(
+                    container = GenericResourceMapper._find_container_instance(
                         action.container_path, config_manager)
                     if container is None:
                         result.skipped += 1
@@ -520,7 +540,7 @@ class GenericResourceMapper:
                     result.applied += 1
 
                 elif action.action_type == MappingActionType.SET_REFERENCE:
-                    container = self._find_container_instance(
+                    container = GenericResourceMapper._find_container_instance(
                         action.container_path, config_manager)
                     if container is None:
                         result.skipped += 1
@@ -534,12 +554,16 @@ class GenericResourceMapper:
                     result.applied += 1
 
             except Exception as e:
-                print(f"Warning: Failed to apply action {action}: {e}")
-                result.failed += 1
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Failed to apply mapping action %s: %s", action, e, exc_info=True,
+                )
+                result.add_error(action, e)
 
         return result
 
-    def _find_container_instance(self, container_path: str, config_manager):
+    @staticmethod
+    def _find_container_instance(container_path: str, config_manager):
         """Find container instance by DEF-based path (e.g. 'IntcConfig/IntcSource_IRQ0')."""
         parts = container_path.split('/')
         # Match top-level container by definition short_name
@@ -558,13 +582,14 @@ class GenericResourceMapper:
                 return None
         return current
 
-    def _resolve_create_target(self, container_path: str, config_manager):
+    @staticmethod
+    def _resolve_create_target(container_path: str, config_manager):
         """Return (container_def_for_new_container, parent_instance_or_None)."""
         parts = container_path.split('/')
         if len(parts) == 1:
             cdef = config_manager.module_def.get_container_def(parts[0])
             return cdef, None
-        parent = self._find_container_instance('/'.join(parts[:-1]), config_manager)
+        parent = GenericResourceMapper._find_container_instance('/'.join(parts[:-1]), config_manager)
         if parent is None:
             return None, None
         parent_def = config_manager.get_container_def(parent.definition_ref)

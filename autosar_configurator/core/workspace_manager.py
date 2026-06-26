@@ -641,7 +641,11 @@ class WorkspaceManager:
                 shutil.copytree(generate_pb_dir, target_dir, dirs_exist_ok=True)
                 copied_count += 1
             except Exception as e:
-                pass
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Failed to copy template directory %s -> %s: %s",
+                    generate_pb_dir, target_dir, e, exc_info=True,
+                )
 
     def _resolve_path(self, path_str: str, project_dir: Path) -> Path:
         """Robustly resolve paths that might be relative or absolute from another platform"""

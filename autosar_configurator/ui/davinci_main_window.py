@@ -3389,13 +3389,21 @@ except Exception as e:
         """Handle window close event - check for unsaved changes"""
         unsaved_items = []
         
-        # Check for unsaved changes (only in project mode)
+        single_module_unsaved = False
+        # Check for unsaved changes
         if self.current_project:
             # Project mode: check all modules
             for module_name, manager in self.current_project.module_managers.items():
                 if manager.configuration.is_modified:
                     unsaved_items.append(f"Module: {module_name}")
-        
+        elif self.config_manager and getattr(
+                self.config_manager.configuration, 'is_modified', False):
+            # Single-module mode: the lone config manager may have pending edits
+            # that would otherwise be silently discarded on close.
+            single_module_unsaved = True
+            name = getattr(self.config_manager.module_def, 'short_name', 'configuration')
+            unsaved_items.append(f"Module: {name}")
+
         if unsaved_items:
             items_text = "\n  • ".join(unsaved_items)
             reply = QMessageBox.question(
@@ -3408,7 +3416,6 @@ except Exception as e:
             )
             
             if reply == QMessageBox.Save:
-                # Try to save project (single module save is removed)
                 if self.current_project:
                     self.save_project()
                     # Check if all succeeded
@@ -3417,6 +3424,15 @@ except Exception as e:
                         if mgr.configuration.is_modified
                     ]
                     if still_unsaved:
+                        event.ignore()
+                        return
+                elif single_module_unsaved:
+                    # Save the single-module configuration back to its source file.
+                    target = getattr(self, 'current_value_file', None)
+                    if target:
+                        self._save_configuration(Path(target))
+                    if getattr(self.config_manager.configuration, 'is_modified', False):
+                        # No known target path, or save failed — don't lose data.
                         event.ignore()
                         return
             elif reply == QMessageBox.Cancel:

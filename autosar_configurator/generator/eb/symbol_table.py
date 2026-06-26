@@ -153,7 +153,20 @@ class SymbolTable:
         self._path_index[node.path] = node
         for child in node.children:
             self._index_node(child)
-    
+
+    def rebuild_path_index(self):
+        """Rebuild the absolute-path → node cache from the registered module trees.
+
+        The path index is a cache keyed by ``node.path``. After a rename or move
+        the node paths change, leaving the cache stale (old paths still resolving
+        to moved/renamed nodes). Callers that mutate the tree in place must invoke
+        this to refresh the cache so ``get_by_path`` / ``resolve_reference``
+        return current data instead of pointing at outdated paths.
+        """
+        self._path_index.clear()
+        for root in self._modules.values():
+            self._index_node(root)
+
     def get_module(self, module_name: str) -> Optional[ConfigurationNode]:
         """Get a module's root configuration node by name."""
         if not module_name:

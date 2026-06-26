@@ -95,12 +95,89 @@ def test_ghost_reference_prevention_on_update():
 
 def test_ghost_reference_prevention_on_deletion():
     project, mgr_a, mgr_b, inst_a, inst_b = setup_project()
-    
+
     assert len(inst_a.referenced_by) == 1
-    
+
     # Delete InstB (which references InstA)
     # mgr_b.delete_container_instance should now unregister references
     mgr_b.delete_container_instance(inst_b)
-    
+
     # Verify InstA is no longer referenced
     assert len(inst_a.referenced_by) == 0 # No ghost reference
+
+
+# ---------------------------------------------------------------------------
+# Multi-valued reference integrity (multi_reference_values)
+#
+# These mirror the single-value tests above but exercise references stored in
+# multi_reference_values (UPPER-MULTIPLICITY > 1). Previously this whole path
+# was untested: resolution, reverse-index/deletion protection, and validation
+# all ignored multi-valued references.
+# ---------------------------------------------------------------------------
+
+def setup_multi_project():
+    """Two ModuleA instances, both referenced from a single multi-valued ref in ModuleB."""
+    # Module A
+    def_a = EcucModuleDef("ModuleA")
+    def_a.definition_ref = "/AUTOSAR/EcucDefs/ModuleA"
+    cont_a_def = EcucContainerDef("ContA", lower_multiplicity=0, upper_multiplicity=-1)
+    cont_a_def.definition_ref = "/AUTOSAR/EcucDefs/ModuleA/ContA"
+    def_a.containers["ContA"] = cont_a_def
+
+    # Module B with a multi-valued reference to ModuleA/ContA
+    def_b = EcucModuleDef("ModuleB")
+    def_b.definition_ref = "/AUTOSAR/EcucDefs/ModuleB"
+    cont_b_def = EcucContainerDef("ContB", lower_multiplicity=0, upper_multiplicity=-1)
+    cont_b_def.definition_ref = "/AUTOSAR/EcucDefs/ModuleB/ContB"
+    ref_def = EcucReferenceDef("RefsToA", destination_ref="/AUTOSAR/EcucDefs/ModuleA/ContA")
+    ref_def.definition_ref = "/AUTOSAR/EcucDefs/ModuleB/ContB/RefsToA"
+    cont_b_def.references["RefsToA"] = ref_def
+    def_b.containers["ContB"] = cont_b_def
+
+    project = WorkspaceProject("TestProjectMulti")
+    mgr_a = project.add_module(def_a, Path("ModuleA_Def.arxml"))
+    mgr_b = project.add_module(def_b, Path("ModuleB_Def.arxml"))
+
+    inst_a1 = mgr_a.create_container_instance(cont_a_def, instance_name="InstA1")
+    inst_a2 = mgr_a.create_container_instance(cont_a_def, instance_name="InstA2")
+    inst_b = mgr_b.create_container_instance(cont_b_def, instance_name="InstB")
+
+    # Multi-valued reference InstB.RefsToA -> [InstA1, InstA2]
+    inst_b.add_multi_reference_value("RefsToA", inst_a1.get_path(), ref_def.definition_ref, 0)
+    inst_b.add_multi_reference_value("RefsToA", inst_a2.get_path(), ref_def.definition_ref, 1)
+
+    project.resolve_all_references()
+    project.build_reverse_reference_index()
+
+    return project, mgr_a, mgr_b, inst_a1, inst_a2, inst_b
+
+
+def test_multi_reference_resolution_and_reverse_index():
+    project, mgr_a, mgr_b, inst_a1, inst_a2, inst_b = setup_multi_project()
+
+    # Both multi-ref entries must resolve to their targets.
+    refs = inst_b.multi_reference_values["RefsToA"]
+    assert len(refs) == 2
+    assert all(r.is_resolved and r.target is not None for r in refs)
+
+    # And both targets must know they are referenced (reverse index).
+    assert len(inst_a1.referenced_by) == 1
+    assert len(inst_a2.referenced_by) == 1
+
+
+def test_multi_reference_deletion_protection():
+    project, mgr_a, mgr_b, inst_a1, inst_a2, inst_b = setup_multi_project()
+
+    # Deleting a target that a multi-valued reference points at must be blocked.
+    with pytest.raises(ValidationError) as excinfo:
+        mgr_a.delete_container_instance(inst_a1)
+    assert "Referenced by" in str(excinfo.value)
+
+    # Removing the whole referencing container clears both reverse links.
+    mgr_b.delete_container_instance(inst_b)
+    assert len(inst_a1.referenced_by) == 0
+    assert len(inst_a2.referenced_by) == 0
+
+    # Now deletion succeeds.
+    mgr_a.delete_container_instance(inst_a1)
+    assert inst_a1 not in mgr_a.configuration.containers

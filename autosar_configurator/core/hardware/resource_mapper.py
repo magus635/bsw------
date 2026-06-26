@@ -336,10 +336,15 @@ class HardwareResourceMapper:
         return actions
 
     def apply_mappings(self, actions: List[MappingAction], config_manager) -> MappingResult:
-        """Apply mapping actions to configuration — delegates to GenericResourceMapper logic."""
+        """Apply mapping actions to configuration — delegates to GenericResourceMapper logic.
+
+        ``apply_actions`` is a stateless ``@staticmethod``, so we call it directly
+        on the class instead of fabricating an uninitialised instance via
+        ``__new__`` (which previously relied on the fragile implicit contract
+        that the method never touches instance state).
+        """
         from .generic_mapper import GenericResourceMapper
-        delegate = GenericResourceMapper.__new__(GenericResourceMapper)
-        return delegate.apply_actions(actions, config_manager)
+        return GenericResourceMapper.apply_actions(actions, config_manager)
 
     def get_available_modules(self) -> List[str]:
         """Get list of modules that can be configured for this chip"""
