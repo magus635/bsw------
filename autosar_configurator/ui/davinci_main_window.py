@@ -32,36 +32,10 @@ from .widgets.davinci_tree_view import DaVinciTreeView
 from .widgets.davinci_config_panel import DaVinciConfigPanel
 from .widgets.smart_search import SmartSearchWidget
 from .widgets.dependency_graph import DependencyGraphWidget
-from .widgets.ai_assistant import AIAssistantWidget
-from ..core.ai.nlp_processor import NaturalLanguageProcessor
 from ..core.chip_constraint_service import ChipConstraintService
 from ..generator.generator import CodeGenerator
-
-
-class AIWorkerSignals(QObject):
-    """Signals for AI worker thread"""
-    result = Signal(object)  # Emits the response (str or complex object)
-    error = Signal(str)   # Emits error message
-
-
-class AIWorker(QRunnable):
-    """Worker thread for non-blocking AI API calls"""
-    
-    def __init__(self, processor, text: str, context_instance):
-        super().__init__()
-        self.signals = AIWorkerSignals()
-        self.processor = processor
-        self.text = text
-        self.context_instance = context_instance
-    
-    @Slot()
-    def run(self):
-        """Execute the AI processing in background thread"""
-        try:
-            response = self.processor.process_message(self.text, self.context_instance)
-            self.signals.result.emit(response)
-        except Exception as e:
-            self.signals.error.emit(str(e))
+from .async_workers import AIWorkerSignals
+from .controllers.ai_assistant_controller import AiAssistantController
 
 
 class DaVinciMainWindow(QMainWindow):
@@ -104,7 +78,10 @@ class DaVinciMainWindow(QMainWindow):
         # Chip Constraint Service - manages chip-specific ECU constraints
         self.chip_constraint_service = ChipConstraintService(parent=self)
         self.chip_constraint_service.constraints_changed.connect(self._on_chip_constraints_changed)
-        
+
+        # AI assistant behaviour lives in a dedicated controller (P2-6 phase 1).
+        self.ai_controller = AiAssistantController(self)
+
         self._setup_ui()
         self._create_actions()
         self._create_menus()
@@ -159,7 +136,7 @@ class DaVinciMainWindow(QMainWindow):
         self.config_panel = DaVinciConfigPanel()
         self.config_panel.chip_constraint_service = self.chip_constraint_service
         self.config_panel.parameter_changed.connect(self._on_parameter_changed)
-        self.config_panel.ai_help_requested.connect(self._on_ai_help_requested)
+        self.config_panel.ai_help_requested.connect(self.ai_controller.on_help_requested)
         self.config_panel.check_impact_requested.connect(self._handle_check_impact)
         self.config_panel.reference_jump_requested.connect(self._on_reference_jump_requested)
         self.config_panel.instance_variant_changed.connect(self._on_instance_variant_changed)
@@ -179,123 +156,14 @@ class DaVinciMainWindow(QMainWindow):
         self.ai_assistant_widget = None
         self.ai_assistant_dock = None
         
-        # Initialize AI Assistant
-        self._setup_ai_assistant()
+        # Initialize AI Assistant (logic lives in AiAssistantController)
+        self.ai_controller.setup_dock()
         
         # Impact View (Dock Widget)
         self._setup_impact_view()
         
         # Problems View (Bottom Dock)
         self._setup_problems_view()
-    
-    def _setup_ai_assistant(self):
-        """Setup AI Assistant dock widget"""
-        self.ai_assistant_dock = QDockWidget("AI Assistant", self)
-        self.ai_assistant_dock.setObjectName("AIAssistantDock")  # Required for saveState()
-        self.ai_assistant_dock.setAllowedAreas(Qt.RightDockWidgetArea | Qt.LeftDockWidgetArea)
-        
-        self.ai_assistant_widget = AIAssistantWidget()
-        self.ai_assistant_dock.setWidget(self.ai_assistant_widget)
-        
-        self.addDockWidget(Qt.RightDockWidgetArea, self.ai_assistant_dock)
-        
-        # Connect signals
-        self.ai_assistant_widget.message_sent.connect(self._handle_ai_message)
-        self.ai_assistant_widget.settings_clicked.connect(self._configure_ai_settings)
-        
-        # Hide by default
-        self.ai_assistant_dock.hide()
-        
-        # Initialize Backend (Lazy load or init here if fast)
-        self.ai_processor = None  # Will init when config_manager is available
-
-    def _configure_ai_settings(self):
-        """Ensure AI processor is initialized when Settings button is clicked.
-        This is called BEFORE the KnowledgeBaseDialog opens.
-        """
-        api_key = self.settings.value("gemini_api_key")
-        
-        # Initialize AI processor if not already done
-        if not self.ai_processor:
-            self.ai_processor = NaturalLanguageProcessor(
-                api_key=api_key,
-                config_manager=self.config_manager,
-                undo_stack=self.undo_stack,
-                action_handler=self._handle_ai_action
-            )
-        
-        # Always ensure KB reference is set on the widget
-        if self.ai_processor and hasattr(self.ai_processor, 'knowledge_base'):
-            self.ai_assistant_widget.knowledge_base = self.ai_processor.knowledge_base
-
-    def _handle_ai_message(self, text: str):
-        """Handle message from AI Assistant Widget"""
-        # Check/Get API Key (Optional now)
-        api_key = self.settings.value("gemini_api_key")
-        # if not api_key: ... (Removed blocking check)
-
-        # Init processor if needed
-        if not self.ai_processor:
-            self.ai_processor = NaturalLanguageProcessor(
-                api_key=api_key,
-                config_manager=self.config_manager,
-                undo_stack=self.undo_stack,
-                action_handler=self._handle_ai_action
-            )
-            # Set knowledge base reference on the widget for Settings dialog
-            self.ai_assistant_widget.knowledge_base = self.ai_processor.knowledge_base
-        else:
-            # Update config manager reference if it changed
-            self.ai_processor.config_manager = self.config_manager
-            # Update key if it changed
-            if self.ai_processor.gemini_client.api_key != api_key:
-                 self.ai_processor.gemini_client.configure(api_key)
-            # Update handler
-            self.ai_processor.action_handler = self._handle_ai_action
-
-        # Process Message Asynchronously
-        logger.debug(f"Processing AI message (async): '{text}'")
-        self.ai_assistant_widget.set_status("Thinking...", busy=True)
-        
-        # Get context from selection (Safely)
-        context_instance = None
-        try:
-            if hasattr(self.tree_view, 'get_selected_instance'):
-                context_instance = self.tree_view.get_selected_instance()
-            else:
-                logger.debug("tree_view missing get_selected_instance")
-        except Exception as e:
-            logger.debug(f"Context error: {e}")
-        
-        # Create worker and connect signals
-        worker = AIWorker(self.ai_processor, text, context_instance)
-        worker.signals.result.connect(self._on_ai_response)
-        worker.signals.error.connect(self._on_ai_error)
-        
-        # Submit to thread pool (non-blocking)
-        self.thread_pool.start(worker)
-    
-    def _on_ai_response(self, response: str):
-        """Handle AI response from worker thread"""
-        logger.debug(f"AI Response received: '{response[:50]}...'")
-        self.ai_assistant_widget.append_message("AI", response)
-        self.ai_assistant_widget.set_status("Ready")
-    
-    def _on_ai_error(self, error_msg: str):
-        """Handle AI error from worker thread"""
-        logger.debug(f"AI Error: {error_msg}")
-        self.ai_assistant_widget.append_message("System", f"❌ Error: {error_msg}")
-        self.ai_assistant_widget.set_status("Error")
-
-    def _handle_ai_action(self, action_name: str):
-        """Execute action requested by AI"""
-        if action_name == "validate":
-            self.validate_configuration()
-        elif action_name == "save":
-            # Always use save_project (works for both single module and project mode)
-            self.save_project()
-        elif action_name == "generate":
-            self.generate_code()
 
     def _create_actions(self):
         """Create actions"""
@@ -3035,127 +2903,6 @@ class DaVinciMainWindow(QMainWindow):
             # Auto-load on startup?
             pass  # For now, let user manually open
     
-    def _on_ai_help_requested(self, container_name: str, param_name: str):
-        """Handle AI help request for a parameter - provide contextual guidance"""
-        api_key = self.settings.value("gemini_api_key")
-        if not api_key:
-            self.config_panel.update_ai_help("⚠️ 请先在 AI Assistant 中配置 API Key")
-            return
-        
-        # Initialize AI processor if needed
-        if not self.ai_processor:
-            self.ai_processor = NaturalLanguageProcessor(
-                api_key=api_key,
-                config_manager=self.config_manager,
-                undo_stack=self.undo_stack,
-                action_handler=self._handle_ai_action
-            )
-        
-        # Build prompt for AI - handle both parameters and references
-        if param_name.startswith("REF:"):
-            # Reference request - format: "REF:ref_name:dest_type"
-            parts = param_name.split(":", 2)
-            ref_name = parts[1] if len(parts) > 1 else param_name
-            dest_type = parts[2] if len(parts) > 2 else "unknown"
-            
-            prompt = f"""你是一个AUTOSAR BSW配置专家。请针对以下引用(Reference)提供简洁的配置指导：
-
-容器: {container_name}
-引用名: {ref_name}
-目标类型: {dest_type}
-
-请用2-3句话说明：
-1. 这个引用的作用是什么？它连接什么模块或资源？
-2. 配置时需要注意什么？如何选择正确的目标？
-
-请直接给出指导，不要有多余的开场白。使用中文回答。"""
-        else:
-            # Parameter request
-            prompt = f"""你是一个AUTOSAR BSW配置专家。请针对以下参数提供简洁的配置指导：
-
-容器: {container_name}
-参数: {param_name}
-
-请用2-3句话说明：
-1. 这个参数的作用是什么？它影响什么功能？
-2. 配置时需要注意什么？有什么常见错误要避免？
-
-请直接给出指导，不要有多余的开场白。使用中文回答。"""
-        
-        # Use subprocess via QProcess for truly killable AI requests
-        from PySide6.QtCore import QProcess
-        import json
-        import sys
-        
-        # Create the QProcess
-        process = QProcess(self)
-        self.config_panel.current_ai_process = process  # Store for cancellation
-        
-        # Build Python script to run in subprocess
-        script = f'''
-import os
-import sys
-import google.generativeai as genai
-
-# Read the API key from the environment instead of argv so it is not
-# visible to other users via `ps`/`/proc/<pid>/cmdline` for the
-# subprocess lifetime.
-api_key = os.environ.get("GEMINI_API_KEY", "")
-prompt = sys.argv[1]
-model_name = sys.argv[2] if len(sys.argv) > 2 else "gemini-2.0-flash"
-
-try:
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(model_name)
-    response = model.generate_content(prompt, request_options={{"timeout": 15}})
-    print(response.text)
-except Exception as e:
-    print(f"ERROR: {{str(e)}}", file=sys.stderr)
-'''
-        
-        def on_finished(exit_code, exit_status):
-            if self.config_panel.ai_request_cancelled:
-                self._ai_help_process = None
-                return
-            
-            try:
-                if self._ai_help_process:
-                    output = self._ai_help_process.readAllStandardOutput().data().decode('utf-8').strip()
-                    error = self._ai_help_process.readAllStandardError().data().decode('utf-8').strip()
-                    
-                    if exit_code == 0 and output:
-                        self.config_panel.update_ai_help(output)
-                        self.config_panel.cache_ai_help(container_name, param_name, output)
-                    elif error:
-                        self.config_panel.update_ai_help(f"❌ {error}")
-                    else:
-                        self.config_panel.update_ai_help("❌ 请求失败，请重试")
-            except RuntimeError:
-                pass  # Process already deleted
-            finally:
-                self.config_panel.current_ai_process = None
-                self._ai_help_process = None
-        
-        process.finished.connect(on_finished)
-        
-        # Store reference to prevent garbage collection
-        self._ai_help_process = process
-        
-        # Get current model name
-        model_name = "gemini-2.0-flash"
-        if self.ai_processor and self.ai_processor.gemini_client:
-            model_name = self.ai_processor.gemini_client.get_current_model()
-        
-        # Pass the API key via the process environment (not argv) so it is
-        # not exposed in the process listing to other local users.
-        from PySide6.QtCore import QProcessEnvironment
-        env = QProcessEnvironment.systemEnvironment()
-        env.insert("GEMINI_API_KEY", api_key)
-        process.setProcessEnvironment(env)
-
-        # Start subprocess (api_key intentionally NOT passed as an argument)
-        process.start(sys.executable, ["-c", script, prompt, model_name])
-    
     def _show_user_manual(self):
         """Show user manual dialog"""
         from .dialogs.user_manual_dialog import UserManualDialog
@@ -3445,11 +3192,9 @@ except Exception as e:
             self.thread_pool.clear()  # Clear pending tasks
             self.thread_pool.waitForDone(1000)  # Wait max 1 second for running tasks
             
-        # Cleanup background processes
-        if hasattr(self, '_ai_help_process') and self._ai_help_process:
-            if self._ai_help_process.state() != QProcess.NotRunning:
-                self._ai_help_process.terminate()
-                self._ai_help_process.waitForFinished(1000)
+        # Cleanup background processes (AI help subprocess lives on the controller)
+        if hasattr(self, 'ai_controller') and self.ai_controller:
+            self.ai_controller.cleanup()
         
         # Save window geometry
         self.settings.setValue("geometry", self.saveGeometry())
