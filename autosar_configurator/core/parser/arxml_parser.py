@@ -7,7 +7,6 @@ from pathlib import Path
 import re
 from ..model.container import Container, Parameter
 from ..model.base import ArxmlElement
-from ..model.ecuc_model import EcucContainer, EcucParameter, EcucReference
 from ..model.configuration_model import EcucModuleConfiguration, EcucContainerValue
 
 
@@ -149,12 +148,14 @@ class ArxmlParser:
         elements = self._find_descendant(element, 'ELEMENTS')
 
         if elements is not None:
-            # Parse only immediate ECUC-MODULE-DEF elements
+            # Parse ECUC-MODULE-DEF elements as generic containers. The canonical
+            # definition model is produced by EcucDefParser (definition_model); this
+            # generic ARXML walk only yields a navigable Container tree.
             for module_def in self._findall_children(elements, 'ECUC-MODULE-DEF'):
-                module = self.parse_ecuc_module_def(module_def)
+                module = self._parse_container(module_def)
                 if module:
                     package_container.add_sub_container(module)
-            
+
             # Parse all containers in elements (direct children only)
             for container_elem in self._findall_children(elements, 'CONTAINER'):
                 sub_container = self._parse_container(container_elem)
@@ -349,207 +350,6 @@ class ArxmlParser:
                 })
 
         return modules
-    
-    # ========== ECUC-specific parsing methods ==========
-    
-    def parse_ecuc_module_def(self, element: etree._Element) -> Optional[EcucContainer]:
-        """Parse ECUC-MODULE-DEF element into EcucContainer
-        
-        Args:
-            element: ECUC-MODULE-DEF XML element
-            
-        Returns:
-            EcucContainer representing the module definition
-        """
-        short_name = self._get_short_name(element)
-        if not short_name:
-            return None
-        
-        module = EcucContainer(
-            short_name=short_name,
-            ecuc_type="ECUC-MODULE-DEF"
-        )
-        
-        # Parse description
-        module.description = self._get_description(element)
-        
-        # Parse CONTAINERS element
-        containers_elem = self._find_descendant(element, 'CONTAINERS')
-        if containers_elem is not None:
-            # Find only immediate container defs
-            for cont_def in self._findall_children(containers_elem, 'ECUC-PARAM-CONF-CONTAINER-DEF'):
-                sub_container = self._parse_ecuc_container_def(cont_def)
-                if sub_container:
-                    module.add_sub_container(sub_container)
-        
-        return module
-    
-    def _parse_ecuc_container_def(self, element: etree._Element) -> Optional[EcucContainer]:
-        """Parse ECUC-PARAM-CONF-CONTAINER-DEF element
-        
-        Args:
-            element: ECUC-PARAM-CONF-CONTAINER-DEF XML element
-            
-        Returns:
-            EcucContainer with full metadata
-        """
-        short_name = self._get_short_name(element)
-        if not short_name:
-            return None
-        
-        container = EcucContainer(
-            short_name=short_name,
-            ecuc_type="ECUC-PARAM-CONF-CONTAINER-DEF"
-        )
-        
-        # Parse description
-        container.description = self._get_description(element)
-
-        # Parse multiplicity (use direct child lookup to avoid finding sub-container's multiplicity)
-        container.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)
-
-        # Check for UPPER-MULTIPLICITY-INFINITE first (AUTOSAR variant for unlimited)
-        upper_mult_infinite = self._get_child_text_value(element, 'UPPER-MULTIPLICITY-INFINITE')
-        upper_mult = self._get_child_text_value(element, 'UPPER-MULTIPLICITY')
-
-        if upper_mult_infinite and upper_mult_infinite.lower() in ('1', 'true'):
-            container.upper_multiplicity = -1
-        elif upper_mult == '*':
-            container.upper_multiplicity = -1
-        else:
-            container.upper_multiplicity = int(upper_mult) if upper_mult else 1
-        
-        # Parse PARAMETERS
-        params_elem = self._find_descendant(element, 'PARAMETERS')
-        if params_elem is not None:
-            # Using direct iteration or findall for generic parameter handling
-            # Note: Skip non-element nodes (comments, PIs) where .tag is not a string
-            for param_def in params_elem:
-                # Check for parameter definition tags (ECUC-*-PARAM-DEF)
-                if isinstance(param_def.tag, str) and 'PARAM-DEF' in param_def.tag:
-                    param = self._parse_ecuc_parameter_def(param_def)
-                    if param:
-                        container.add_parameter(param)
-        
-        # Parse REFERENCES
-        refs_elem = self._find_descendant(element, 'REFERENCES')
-        if refs_elem is not None:
-            # Find all reference defs (support CHOICE, INSTANCE, FOREIGN, etc.)
-            for ref_def in refs_elem:
-                if isinstance(ref_def.tag, str) and ref_def.tag.split('}')[-1].endswith('REFERENCE-DEF'):
-                    ref = self._parse_ecuc_reference_def(ref_def)
-                    if ref:
-                        container.add_reference_def(ref)
-        
-        # Parse SUB-CONTAINERS recursively
-        sub_conts_elem = self._find_descendant(element, 'SUB-CONTAINERS')
-        if sub_conts_elem is not None:
-            # Find only immediate sub-container defs
-            for sub_cont_def in self._findall_children(sub_conts_elem, 'ECUC-PARAM-CONF-CONTAINER-DEF'):
-                sub_container = self._parse_ecuc_container_def(sub_cont_def)
-                if sub_container:
-                    container.add_sub_container(sub_container)
-        
-        return container
-    
-    def _parse_ecuc_parameter_def(self, element: etree._Element) -> Optional[EcucParameter]:
-        """Parse ECUC parameter definition element"""
-        short_name = self._get_short_name(element)
-        if not short_name:
-            return None
-        
-        # Determine parameter type from tag (localname)
-        param_type = etree.QName(element).localname
-        
-        param = EcucParameter(
-            short_name=short_name,
-            param_def_type=param_type
-        )
-        
-        # Parse description
-        param.description = self._get_description(element)
-        
-        # Parse multiplicity (use direct child lookup)
-        param.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)
-        param.upper_multiplicity = self._get_child_int_value(element, 'UPPER-MULTIPLICITY', 1)
-        
-        # Parse type-specific fields
-        if param_type == 'ECUC-ENUMERATION-PARAM-DEF':
-            param.value_type = "ENUM"
-            # Parse LITERALS
-            literals_elem = self._find_descendant(element, 'LITERALS')
-            if literals_elem is not None:
-                literals = []
-                for lit_def in self._findall_descendants(literals_elem, 'ECUC-ENUMERATION-LITERAL-DEF'):
-                    lit_name = self._get_short_name(lit_def)
-                    if lit_name:
-                        literals.append(lit_name)
-                param.literals = literals
-        
-        elif param_type == 'ECUC-INTEGER-PARAM-DEF':
-            param.value_type = "INTEGER"
-            param.min_value = self._get_int_value(element, 'MIN')
-            param.max_value = self._get_int_value(element, 'MAX')
-        
-        elif param_type == 'ECUC-FLOAT-PARAM-DEF':
-            param.value_type = "FLOAT"
-            param.min_value = self._get_float_value(element, 'MIN')
-            param.max_value = self._get_float_value(element, 'MAX')
-        
-        elif param_type == 'ECUC-BOOLEAN-PARAM-DEF':
-            param.value_type = "BOOLEAN"
-        
-        elif param_type == 'ECUC-STRING-PARAM-DEF':
-            param.value_type = "STRING"
-        
-        # Parse DEFAULT-VALUE
-        default_val = self._get_text_value(element, 'DEFAULT-VALUE')
-        if default_val:
-            param.value = default_val
-        
-        # Parse SCOPE
-        scope = self._get_text_value(element, 'SCOPE')
-        if scope:
-            param.scope = scope
-        
-        # Parse ORIGIN
-        origin = self._get_text_value(element, 'ORIGIN')
-        if origin:
-            param.origin = origin
-        
-        return param
-    
-    def _parse_ecuc_reference_def(self, element: etree._Element) -> Optional[EcucReference]:
-        """Parse ECUC-REFERENCE-DEF element"""
-        short_name = self._get_short_name(element)
-        if not short_name:
-            return None
-        
-        ref = EcucReference(short_name=short_name)
-        
-        # Parse description
-        ref.description = self._get_description(element)
-        
-        # Parse DESTINATION-REF
-        dest_ref_elem = self._find_descendant(element, 'DESTINATION-REF')
-        if dest_ref_elem is not None:
-            ref.destination_ref = dest_ref_elem.text or ""
-            ref.destination_type = dest_ref_elem.get('DEST', 'ECUC-PARAM-CONF-CONTAINER-DEF')
-        
-        # Parse multiplicity (use direct child lookup)
-        ref.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)
-        
-        upper_mult = self._get_text_value(element, 'UPPER-MULTIPLICITY')
-        upper_mult_infinite = self._get_text_value(element, 'UPPER-MULTIPLICITY-INFINITE')
-        
-        if upper_mult_infinite and upper_mult_infinite.lower() in ('1', 'true'):
-            ref.upper_multiplicity = -1
-        elif upper_mult == '*':
-            ref.upper_multiplicity = -1
-        else:
-            ref.upper_multiplicity = int(upper_mult) if upper_mult else 1
-        
-        return ref
     
     def parse_ecuc_configuration_values(self, element: etree._Element) -> Optional[EcucModuleConfiguration]:
         """Parse ECUC-MODULE-CONFIGURATION-VALUES element
@@ -819,19 +619,6 @@ class ArxmlParser:
                     container.reference_values[ref_name].dest_type = dest_type
 
     # Helper methods for Permissive Parsing
-
-    def _find_child(self, element: etree._Element, tag_name: str) -> Optional[etree._Element]:
-        """Find first DIRECT child with tag_name, ignoring namespace.
-
-        Unlike _find_descendant, this only searches immediate children,
-        preventing accidental matches in nested sub-containers.
-        """
-        for child in element:
-            if isinstance(child.tag, str):
-                local_name = child.tag.split('}')[-1] if '}' in child.tag else child.tag
-                if local_name == tag_name:
-                    return child
-        return None
 
     def _normalize_def_ref(self, def_ref: str) -> str:
         """Strip instance suffixes (e.g., _0, _1) from definition references"""

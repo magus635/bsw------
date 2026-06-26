@@ -122,8 +122,7 @@ bsw图形配置工具/
 │   ├── core/
 │   ├── generator/
 │   └── ui/
-├── davinci_main.py           # Recommended entry point
-└── main.py                   # Alternative entry point
+└── davinci_main.py           # Sole entry point (legacy main.py / MainWindow retired)
 ```
 实际测试的项目例子：
 /Users/qlwang/Desktop/ImportEB_1
