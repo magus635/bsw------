@@ -125,7 +125,7 @@ class AiAssistantController:
             self.win.validation_controller.validate_configuration()
         elif action_name == "save":
             # Works for both single-module and project mode.
-            self.win.save_project()
+            self.win.project_controller.save_project()
         elif action_name == "generate":
             self.win.generation_controller.generate_code()
 

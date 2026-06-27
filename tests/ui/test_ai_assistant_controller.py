@@ -17,7 +17,7 @@ def test_handle_action_dispatches_to_window():
     win.validation_controller.validate_configuration.assert_called_once()
 
     ctrl.handle_action("save")
-    win.save_project.assert_called_once()
+    win.project_controller.save_project.assert_called_once()
 
     ctrl.handle_action("generate")
     win.generation_controller.generate_code.assert_called_once()
@@ -29,7 +29,7 @@ def test_handle_action_ignores_unknown():
 
     ctrl.handle_action("nonexistent")
     win.validation_controller.validate_configuration.assert_not_called()
-    win.save_project.assert_not_called()
+    win.project_controller.save_project.assert_not_called()
     win.generation_controller.generate_code.assert_not_called()
 
 
