@@ -43,6 +43,7 @@ from .controllers.impact_problems_controller import ImpactProblemsController
 from .controllers.generation_controller import GenerationController
 from .controllers.validation_controller import ValidationController
 from .controllers.project_controller import ProjectController
+from .controllers.edit_controller import EditController
 
 
 class DaVinciMainWindow(QMainWindow):
@@ -74,9 +75,12 @@ class DaVinciMainWindow(QMainWindow):
         # Unsaved changes tracking
         self._has_unsaved_changes = False
         
+        # Model-editing command handlers (P2-6 phase 9).
+        self.edit_controller = EditController(self)
+
         # Undo Stack
         self.undo_stack = QUndoStack(self)
-        self.undo_stack.cleanChanged.connect(self._on_undo_clean_changed)
+        self.undo_stack.cleanChanged.connect(self.edit_controller._on_undo_clean_changed)
         self.undo_stack.indexChanged.connect(lambda idx: self.dep_graph_controller._update_dependency_graph_if_open())
 
         # Internal Clipboard
@@ -151,12 +155,12 @@ class DaVinciMainWindow(QMainWindow):
         self.tree_view.instance_selected.connect(self._on_instance_selected)
         self.tree_view.def_selected.connect(self._on_def_selected)
         self.tree_view.module_selected.connect(self._on_module_selected)
-        self.tree_view.create_instance_requested.connect(self.handle_create_container)
-        self.tree_view.delete_instance_requested.connect(self.handle_delete_container)
-        self.tree_view.delete_instances_requested.connect(self.handle_delete_containers_batch)
-        self.tree_view.delete_module_requested.connect(self.handle_delete_module)
-        self.tree_view.move_instance_requested.connect(self.handle_move_container)
-        self.tree_view.rename_instance_requested.connect(self.handle_rename_container)
+        self.tree_view.create_instance_requested.connect(self.edit_controller.handle_create_container)
+        self.tree_view.delete_instance_requested.connect(self.edit_controller.handle_delete_container)
+        self.tree_view.delete_instances_requested.connect(self.edit_controller.handle_delete_containers_batch)
+        self.tree_view.delete_module_requested.connect(self.edit_controller.handle_delete_module)
+        self.tree_view.move_instance_requested.connect(self.edit_controller.handle_move_container)
+        self.tree_view.rename_instance_requested.connect(self.edit_controller.handle_rename_container)
         self.tree_view.view_references_requested.connect(self.nav_controller._show_reverse_references)
         splitter.addWidget(self.tree_view)
         
@@ -261,12 +265,12 @@ class DaVinciMainWindow(QMainWindow):
         self.copy_action = QAction("Copy", self)
         self.copy_action.setShortcut(QKeySequence.Copy)
         self.copy_action.setStatusTip("Copy selected container")
-        self.copy_action.triggered.connect(self.copy_container)
+        self.copy_action.triggered.connect(self.edit_controller.copy_container)
         
         self.paste_action = QAction("Paste", self)
         self.paste_action.setShortcut(QKeySequence.Paste)
         self.paste_action.setStatusTip("Paste container from clipboard")
-        self.paste_action.triggered.connect(self.paste_container)
+        self.paste_action.triggered.connect(self.edit_controller.paste_container)
         
         # Undo/Redo actions
         self.undo_action = self.undo_stack.createUndoAction(self, "Undo")
@@ -595,453 +599,6 @@ class DaVinciMainWindow(QMainWindow):
     
     # Project operations
     
-    def _on_undo_clean_changed(self, clean):
-        """Handle undo stack clean state change"""
-        # If stack is clean, it means we are back to saved state (if we set clean on save)
-        # But we handle is_modified manually for now, so maybe just update UI?
-        pass
-
-    def handle_parameter_change(self, instance: EcucContainerValue, param_name: str, value: Any):
-        """Handle parameter change request via command"""
-        if not self.config_manager:
-            return
-            
-        if param_name.startswith('ref:'):
-            # Reference change
-            ref_name = param_name[4:]
-            command = SetReferenceCommand(self.config_manager, instance, ref_name, value)
-        else:
-            # Parameter change
-            command = SetParameterCommand(self.config_manager, instance, param_name, value)
-        
-        try:
-            self.undo_stack.push(command)
-            self._has_unsaved_changes = True
-            self.statusbar.showMessage(f"Set {param_name}", 2000)
-        except Exception as e:
-            # Handle validation errors gracefully
-            error_msg = str(e)
-            # Extract the meaningful part of the error message
-            if "Error calling Python override" in error_msg:
-                # Extract the actual validation message
-                parts = error_msg.split(":")
-                if len(parts) >= 2:
-                    error_msg = ":".join(parts[-2:]).strip()
-            
-            QMessageBox.warning(self, "验证失败", f"参数值无效:\n{error_msg}")
-            self.statusbar.showMessage(f"验证失败: {param_name}", 3000)
-            return
-        
-        # Refresh UI if needed (e.g. if reference changed, might need to update other views)
-        # For now, config panel updates itself, but tree view might need refresh if name changed (not supported yet)
-        self.dep_graph_controller._update_dependency_graph_if_open()
-        
-    def handle_create_container(self, container_def: EcucContainerDef, parent_instance: Optional[EcucContainerValue], name: str):
-        """Handle container creation request via command"""
-        if not self.config_manager:
-            return
-
-        # Pre-validate: check if instance with this name already exists
-        if self.config_manager._instance_exists(name, container_def, parent_instance):
-            QMessageBox.warning(self, "创建失败", f"名称 '{name}' 已存在，请使用其他名称")
-            self.statusbar.showMessage(f"创建失败: 名称已存在", 3000)
-            return
-
-        command = CreateContainerCommand(self.config_manager, container_def, parent_instance, name)
-        self.undo_stack.push(command)
-        
-        self._has_unsaved_changes = True
-        self.statusbar.showMessage(f"Created {name}", 2000)
-        
-        # Refresh tree view
-        self.tree_view.refresh()
-        
-        # Select the new instance
-        if command.created_instance:
-            self.tree_view._select_instance(command.created_instance)
-        
-        self.dep_graph_controller._update_dependency_graph_if_open()
-            
-    def handle_delete_container(self, instance: EcucContainerValue, parent_instance: Optional[EcucContainerValue]):
-        """Handle container deletion request via command"""
-        # Find the appropriate config_manager
-        config_manager = self.config_manager
-        
-        if not config_manager and self.current_project:
-            # In project mode, find the manager for this instance
-            for module_name, manager in self.current_project.module_managers.items():
-                if manager.configuration and instance in self._get_all_instances(manager.configuration):
-                    config_manager = manager
-                    break
-        
-        if not config_manager:
-            self.statusbar.showMessage("无法删除：未找到配置管理器", 3000)
-            return
-        
-        # PRE-VALIDATE deletion to provide user feedback
-        try:
-            # Check if instance is referenced by others
-            refs = config_manager._find_references_to(instance)
-            if refs:
-                ref_list = '\n'.join([f"  • {src.short_name}.{ref_name}" for src, ref_name in refs])
-                QMessageBox.warning(
-                    self,
-                    "Cannot Delete Container",
-                    f"Cannot delete '{instance.short_name}' because it is referenced by:\n\n"
-                    f"{ref_list}\n\n"
-                    f"Please remove these references first."
-                )
-                return
-            
-            # Note: lower_multiplicity check is skipped to give users more flexibility
-            # Validation will warn about missing required instances separately
-        except Exception as e:
-            # If validation check fails, show error and abort
-            QMessageBox.critical(
-                self,
-                "Validation Error",
-                f"Failed to validate deletion:\n{str(e)}\n\nDeletion cancelled."
-            )
-            return
-            
-        command = DeleteContainerCommand(config_manager, instance, parent_instance)
-        self.undo_stack.push(command)
-        
-        self._has_unsaved_changes = True
-        self.statusbar.showMessage(f"已删除 {instance.short_name}", 2000)
-        
-        # Refresh tree view
-        self.tree_view.refresh()
-        # Clear config panel if deleted instance was selected
-        if self.config_panel.current_instance == instance:
-            self.config_panel.clear()
-
-        self.dep_graph_controller._update_dependency_graph_if_open()
-    
-    def handle_delete_containers_batch(self, instances_list: list):
-        """Handle batch deletion of multiple container instances
-        
-        Args:
-            instances_list: List of (instance, parent_instance) tuples
-        """
-        if not instances_list:
-            return
-        
-        # Validate all instances before deleting
-        blocked_instances = []
-        valid_instances = []
-        
-        for instance, parent_instance in instances_list:
-            # Find the appropriate config_manager for this instance
-            config_manager = None
-            if self.current_project:
-                # Find which module this instance belongs to
-                for module_name, manager in self.current_project.module_managers.items():
-                    if manager.configuration and instance in self._get_all_instances(manager.configuration):
-                        config_manager = manager
-                        break
-            else:
-                config_manager = self.config_manager
-            
-            if not config_manager:
-                continue
-            
-            # Check if instance is referenced (this is a hard constraint)
-            refs = config_manager._find_references_to(instance)
-            if refs:
-                ref_names = [f"{src.short_name}.{ref_name}" for src, ref_name in refs]
-                blocked_instances.append((instance, f"被引用: {', '.join(ref_names[:3])}"))
-                continue
-            
-            # Note: lower_multiplicity check is skipped for batch delete to give users more flexibility
-            # Users can delete instances even if it would violate lower_multiplicity
-            
-            valid_instances.append((instance, parent_instance, config_manager))
-        
-        # Report blocked instances
-        if blocked_instances:
-            blocked_msg = "\n".join([f"  • {inst.short_name}: {reason}" for inst, reason in blocked_instances[:5]])
-            if len(blocked_instances) > 5:
-                blocked_msg += f"\n  ... 及其他 {len(blocked_instances) - 5} 个"
-            QMessageBox.warning(
-                self,
-                "部分实例无法删除",
-                f"以下实例因约束无法删除:\n\n{blocked_msg}\n\n"
-                f"将继续删除其他 {len(valid_instances)} 个有效实例。"
-            )
-        
-        if not valid_instances:
-            return
-        
-        # Begin macro command for undo grouping
-        self.undo_stack.beginMacro(f"批量删除 {len(valid_instances)} 个实例")
-        
-        deleted_count = 0
-        for instance, parent_instance, config_manager in valid_instances:
-            try:
-                command = DeleteContainerCommand(config_manager, instance, parent_instance)
-                self.undo_stack.push(command)
-                deleted_count += 1
-            except Exception as e:
-                logger.warning(f"Failed to delete {instance.short_name}: {e}")
-        
-        self.undo_stack.endMacro()
-        
-        self._has_unsaved_changes = True
-        self.statusbar.showMessage(f"已删除 {deleted_count} 个实例", 3000)
-        
-        # Refresh tree view
-        self.tree_view.refresh()
-        
-        # Clear config panel
-        self.config_panel.clear()
-        
-        self.dep_graph_controller._update_dependency_graph_if_open()
-    
-    def _get_all_instances(self, config) -> list:
-        """Get all instances recursively from a configuration"""
-        instances = []
-        def collect(container):
-            instances.append(container)
-            for sub in container.sub_containers:
-                collect(sub)
-        for c in config.containers:
-            collect(c)
-        return instances
-    
-    def handle_delete_module(self, module_name: str):
-        """Handle module deletion request from tree view"""
-        if not self.current_project:
-            QMessageBox.warning(
-                self,
-                "无法删除模块",
-                "请先打开一个项目才能删除模块。"
-            )
-            return
-        
-        if module_name not in self.current_project.module_managers:
-            QMessageBox.warning(
-                self,
-                "模块未找到",
-                f"模块 '{module_name}' 不在当前项目中。"
-            )
-            return
-
-        # Check for cross-module references pointing to this module
-        if hasattr(self.current_project, 'find_references_to_module'):
-            incoming_refs = self.current_project.find_references_to_module(module_name)
-            if incoming_refs:
-                ref_summary = "\n".join(
-                    f"  • {src_module}: {src_container} -> {ref_name}"
-                    for src_module, src_container, ref_name in incoming_refs[:10]
-                )
-                if len(incoming_refs) > 10:
-                    ref_summary += f"\n  ... 还有 {len(incoming_refs) - 10} 个其余引用 / and {len(incoming_refs) - 10} more"
-                
-                reply = QMessageBox.warning(
-                    self,
-                    "检测到跨模块引用 / Cross-Module References Detected",
-                    f"以下其他模块中的引用指向了模块 '{module_name}':\n\n"
-                    f"{ref_summary}\n\n"
-                    f"删除此模块将导致这些引用悬空，建议先清理或修改这些引用。\n"
-                    f"您确定要继续删除吗？\n\n"
-                    f"Deleting this module will leave references dangling in other modules:\n\n"
-                    f"{ref_summary}\n\n"
-                    f"Are you sure you want to proceed?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.No
-                )
-                if reply != QMessageBox.StandardButton.Yes:
-                    return
-        
-        # Remove module from project (routed through undo stack)
-        from .commands import DeleteModuleCommand
-        command = DeleteModuleCommand(self.current_project, module_name)
-        self.undo_stack.push(command)
-        
-        self._has_unsaved_changes = True
-        self.statusbar.showMessage(f"已删除模块: {module_name}", 3000)
-        
-        # Refresh tree view
-        self.tree_view.refresh()
-        
-        # Clear config panel 
-        self.config_panel.clear()
-        
-        # Update dependency graph if open
-        self.dep_graph_controller._update_dependency_graph_if_open()
-        
-        # Update search widget index
-        if self.search_widget:
-            self.search_widget.build_project_index(self.current_project)
-
-    def handle_move_container(self, instance: EcucContainerValue, new_parent, new_index):
-        """Handle container move request via command"""
-        # Resolve the config_manager that owns this instance (project mode may
-        # not have an active config_manager until a module node is selected).
-        config_manager = self.config_manager
-        if not config_manager and self.current_project:
-            for module_name, manager in self.current_project.module_managers.items():
-                if manager.configuration and instance in self._get_all_instances(manager.configuration):
-                    config_manager = manager
-                    break
-
-        if not config_manager:
-            self.statusbar.showMessage("无法移动：未找到配置管理器", 3000)
-            return
-
-        command = MoveContainerCommand(config_manager, instance, new_parent, new_index)
-        self.undo_stack.push(command)
-        
-        self._has_unsaved_changes = True
-        self.statusbar.showMessage(f"Moved {instance.short_name}", 2000)
-        
-        # Refresh tree view
-        self.tree_view.refresh()
-        
-        # Reselect
-        self.tree_view._select_instance(instance)
-        
-        self.dep_graph_controller._update_dependency_graph_if_open()
-    
-    def handle_rename_container(self, instance: EcucContainerValue, new_name: str):
-        """Handle container rename request — routed through undo stack."""
-        if not instance or not new_name or new_name == instance.short_name:
-            return
-
-        # Resolve the config_manager that owns this instance (project mode may
-        # not have an active config_manager until a module node is selected).
-        config_manager = self.config_manager
-        if not config_manager and self.current_project:
-            for module_name, manager in self.current_project.module_managers.items():
-                if manager.configuration and instance in self._get_all_instances(manager.configuration):
-                    config_manager = manager
-                    break
-
-        if not config_manager:
-            self.statusbar.showMessage("无法重命名：未找到配置管理器", 3000)
-            return
-
-        from .commands import RenameContainerCommand
-        cmd = RenameContainerCommand(config_manager, instance, new_name)
-        self.undo_stack.push(cmd)
-
-        self.statusbar.showMessage(f"已重命名: {instance.short_name}", 2000)
-
-        # Refresh tree view
-        self.tree_view.refresh()
-        self.tree_view._select_instance(instance)
-
-        if self.config_panel.current_instance == instance:
-            self.config_panel.refresh()
-        
-    def copy_container(self):
-        """Copy selected container to internal clipboard"""
-        current_instance = self.tree_view.get_selected_instance()
-        if not current_instance:
-            self.statusbar.showMessage("Select a container to copy", 2000)
-            return
-            
-        self.clipboard_instance = current_instance
-        self.statusbar.showMessage(f"Copied {current_instance.short_name} to clipboard", 2000)
-        
-    def paste_container(self):
-        """Paste container from internal clipboard"""
-        if not self.clipboard_instance:
-            self.statusbar.showMessage("Clipboard is empty", 2000)
-            return
-            
-        if not self.config_manager:
-            return
-            
-        # Determine target parent
-        target_parent = None
-        selected_instance = self.tree_view.get_selected_instance()
-        
-        # Try to prepare paste
-        # Logic: 
-        # 1. If selected allows child of clipboard type -> Target = Selected
-        # 2. Else -> Target = Selected.parent (sibling paste)
-        
-        clip_def_ref = self.clipboard_instance.definition_ref
-        clip_def = self.config_manager.get_container_def(clip_def_ref)
-        if not clip_def:
-             self.statusbar.showMessage("Error: Definition of copied item not found", 3000)
-             return
-
-        if selected_instance:
-             # Check if selected can hold this type
-             selected_def = self.config_manager.get_container_def(selected_instance.definition_ref)
-             if selected_def and clip_def.short_name in selected_def.sub_containers:
-                 target_parent = selected_instance
-             else:
-                 target_parent = selected_instance.parent
-        else:
-             # If top level selected or nothing selected (paste to root if allowed)
-             # Basic logic: Paste to root if clipboard item is allowed at root
-             # Check if clipboard item is a root container
-             is_root_allowed = clip_def.short_name in self.config_manager.module_def.containers
-             
-             if is_root_allowed:
-                 target_parent = None
-             else:
-                 self.statusbar.showMessage("Cannot paste here: Select a valid parent container", 3000)
-                 return
-        
-        # Check multiplicity before paste
-        try:
-            if target_parent:
-                self.config_manager._check_multiplicity_before_add(clip_def, target_parent)
-            else:
-                self.config_manager._check_multiplicity_before_add_toplevel(clip_def)
-        except ValidationError as e:
-            QMessageBox.warning(
-                self,
-                "无法粘贴",
-                f"无法粘贴 '{self.clipboard_instance.short_name}'：\n\n{str(e)}"
-            )
-            return
-                  
-        # Clone and Rename
-        try:
-            new_instance = self.clipboard_instance.clone()
-            
-            # Generate a numbered name instead of _Copy suffix
-            # Extract base name (remove any existing _N suffix or _Copy suffix)
-            base_name = new_instance.short_name
-            
-            # Strip existing _Copy or _CopyN suffix
-            import re
-            base_name = re.sub(r'_Copy\d*$', '', base_name)
-            # Strip existing _N suffix (where N is a number)
-            base_name = re.sub(r'_\d+$', '', base_name)
-            
-            # Find next available number
-            counter = 1
-            candidate_name = f"{base_name}_{counter}"
-            while self.config_manager._instance_exists(candidate_name, clip_def, target_parent):
-                counter += 1
-                candidate_name = f"{base_name}_{counter}"
-            
-            # Use auto-generated name directly (no dialog)
-            new_instance.short_name = candidate_name
-             
-            # Command
-            command = PasteContainerCommand(self.config_manager, target_parent, new_instance)
-            self.undo_stack.push(command)
-            
-            self._has_unsaved_changes = True
-            self.statusbar.showMessage(f"已粘贴 {new_instance.short_name}", 2000)
-            
-            # Refresh and select
-            self.tree_view.refresh()
-            self.tree_view._select_instance(new_instance)
-            
-            self.dep_graph_controller._update_dependency_graph_if_open()
-            
-        except Exception as e:
-            QMessageBox.critical(self, "Paste Error", f"Failed to paste:\n{str(e)}")
-    
     def _on_instance_selected(self, instance: EcucContainerValue, container_def: EcucContainerDef, manager=None):
         """Handle instance selection in tree"""
         # Update active context if manager provided (Project Mode)
@@ -1107,7 +664,7 @@ class DaVinciMainWindow(QMainWindow):
     def _on_parameter_changed(self, instance: EcucContainerValue, param_name: str, value: Any):
         """Handle parameter value change"""
         # Delegate to command handler
-        self.handle_parameter_change(instance, param_name, value)
+        self.edit_controller.handle_parameter_change(instance, param_name, value)
         
         # Detect chip variant change (ResourceSubderivative in Resource module)
         if param_name == "ResourceSubderivative" and value:
