@@ -20,7 +20,7 @@ def test_handle_action_dispatches_to_window():
     win.save_project.assert_called_once()
 
     ctrl.handle_action("generate")
-    win.generate_code.assert_called_once()
+    win.generation_controller.generate_code.assert_called_once()
 
 
 def test_handle_action_ignores_unknown():
@@ -30,7 +30,7 @@ def test_handle_action_ignores_unknown():
     ctrl.handle_action("nonexistent")
     win.validate_configuration.assert_not_called()
     win.save_project.assert_not_called()
-    win.generate_code.assert_not_called()
+    win.generation_controller.generate_code.assert_not_called()
 
 
 def test_cleanup_is_safe_without_process():

@@ -127,7 +127,7 @@ class AiAssistantController:
             # Works for both single-module and project mode.
             self.win.save_project()
         elif action_name == "generate":
-            self.win.generate_code()
+            self.win.generation_controller.generate_code()
 
     # ----- per-parameter contextual help ------------------------------------
     def on_help_requested(self, container_name: str, param_name: str):
