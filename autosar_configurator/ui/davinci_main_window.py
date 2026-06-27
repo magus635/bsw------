@@ -41,6 +41,7 @@ from .controllers.navigation_controller import NavigationController
 from .controllers.dependency_graph_controller import DependencyGraphController
 from .controllers.impact_problems_controller import ImpactProblemsController
 from .controllers.generation_controller import GenerationController
+from .controllers.validation_controller import ValidationController
 
 
 class DaVinciMainWindow(QMainWindow):
@@ -101,6 +102,9 @@ class DaVinciMainWindow(QMainWindow):
 
         # Code generation (single module / project) (P2-6 phase 6).
         self.generation_controller = GenerationController(self)
+
+        # Validation + custom rules (P2-6 phase 7).
+        self.validation_controller = ValidationController(self)
 
         self._setup_ui()
         self._create_actions()
@@ -243,11 +247,11 @@ class DaVinciMainWindow(QMainWindow):
         self.validate_action = QAction("Validate Configuration", self)
         self.validate_action.setShortcut(QKeySequence("Ctrl+Shift+V"))
         self.validate_action.setEnabled(False)
-        self.validate_action.triggered.connect(self.validate_configuration)
+        self.validate_action.triggered.connect(self.validation_controller.validate_configuration)
 
         self.load_rules_action = QAction("Load Custom Rules...", self)
         self.load_rules_action.setEnabled(False)
-        self.load_rules_action.triggered.connect(self.load_custom_rules)
+        self.load_rules_action.triggered.connect(self.validation_controller.load_custom_rules)
 
         # Copy/Paste Actions
         self.copy_action = QAction("Copy", self)
@@ -1727,94 +1731,6 @@ class DaVinciMainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Paste Error", f"Failed to paste:\n{str(e)}")
     
-    def validate_configuration(self):
-        """Validate all modules in the project and show results in the Problems View"""
-        from ..core.validation_engine import ValidationResult, ValidationEngine
-        all_results = ValidationResult()
-
-        if not self.current_project:
-            # Single-module mode: validate the active config_manager directly
-            if self.config_manager and self.config_manager.configuration and self.config_manager.module_def:
-                engine = ValidationEngine(
-                    self.config_manager.module_def,
-                    self.config_manager.configuration,
-                )
-                engine.register_default_rules()
-                all_results = engine.validate()
-            self.problems_view.set_messages(all_results.messages)
-            self.problems_dock.show()
-            self.problems_dock.raise_()
-            if all_results.is_valid:
-                self.statusBar().showMessage("✅ Validation complete: No errors found.", 5000)
-                self.validation_status_label.setText("✅ Valid")
-                self.validation_status_label.setStyleSheet("QLabel { color: green; padding: 2px 10px; }")
-            else:
-                self.statusBar().showMessage(
-                    f"❌ Validation: {all_results.error_count} errors, {all_results.warning_count} warnings.", 5000
-                )
-                self.validation_status_label.setText(f"❌ {all_results.error_count} Errors")
-                self.validation_status_label.setStyleSheet("QLabel { color: red; padding: 2px 10px; }")
-            return
-
-        # 1. Run validation for each module
-        for module_name, manager in self.current_project.module_managers.items():
-            if manager.configuration and manager.module_def:
-                # Use manager's engine or create one
-                from ..core.validation_engine import ValidationEngine
-                engine = ValidationEngine(manager.module_def, manager.configuration, self.current_project)
-                engine.register_default_rules()
-                
-                # Execute validation
-                module_result = engine.validate()
-                all_results.merge(module_result)
-        
-        # 2. Add cross-module AI rules validation (if implemented in engine)
-        # For now, these are already merged if rules handle them.
-        
-        # 3. Update Problems View
-        self.problems_view.set_messages(all_results.messages)
-        self.problems_dock.show()
-        self.problems_dock.raise_()
-        
-        # 4. Update status bar/icons
-        if all_results.is_valid:
-            self.statusBar().showMessage(f"✅ Validation complete: No errors found in {len(self.current_project.module_managers)} modules.", 5000)
-            self.validation_status_label.setText("✅ Valid")
-            self.validation_status_label.setStyleSheet("QLabel { color: green; padding: 2px 10px; }")
-        else:
-            self.statusBar().showMessage(f"❌ Validation complete: Found {all_results.error_count} errors, {all_results.warning_count} warnings.", 5000)
-            self.validation_status_label.setText(f"❌ {all_results.error_count} Errors")
-            self.validation_status_label.setStyleSheet("QLabel { color: red; padding: 2px 10px; }")
-
-    def load_custom_rules(self):
-        """Load custom validation rules from file"""
-        if not self.config_manager:
-            return
-            
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Load Custom Rules",
-            str(Path.home()),
-            "Custom Rules (*.json *.py);;JSON Files (*.json);;Python Scripts (*.py);;All Files (*)"
-        )
-        
-        if not file_path:
-            return
-            
-        try:
-            self.config_manager.add_custom_rule_file(Path(file_path))
-            self.statusbar.showMessage(f"Loaded custom rules from {Path(file_path).name}", 3000)
-            
-            # Trigger validation to see effect
-            self.validate_configuration()
-            
-        except Exception as e:
-            QMessageBox.critical(
-                self,
-                "Load Rules Error",
-                f"Failed to load custom rules:\n{str(e)}"
-            )
-
     def _on_instance_selected(self, instance: EcucContainerValue, container_def: EcucContainerDef, manager=None):
         """Handle instance selection in tree"""
         # Update active context if manager provided (Project Mode)

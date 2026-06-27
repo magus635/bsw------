@@ -122,7 +122,7 @@ class AiAssistantController:
     def handle_action(self, action_name: str):
         """Execute an action requested by the AI."""
         if action_name == "validate":
-            self.win.validate_configuration()
+            self.win.validation_controller.validate_configuration()
         elif action_name == "save":
             # Works for both single-module and project mode.
             self.win.save_project()

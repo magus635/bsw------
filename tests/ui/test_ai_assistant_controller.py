@@ -14,7 +14,7 @@ def test_handle_action_dispatches_to_window():
     ctrl = AiAssistantController(win)
 
     ctrl.handle_action("validate")
-    win.validate_configuration.assert_called_once()
+    win.validation_controller.validate_configuration.assert_called_once()
 
     ctrl.handle_action("save")
     win.save_project.assert_called_once()
@@ -28,7 +28,7 @@ def test_handle_action_ignores_unknown():
     ctrl = AiAssistantController(win)
 
     ctrl.handle_action("nonexistent")
-    win.validate_configuration.assert_not_called()
+    win.validation_controller.validate_configuration.assert_not_called()
     win.save_project.assert_not_called()
     win.generation_controller.generate_code.assert_not_called()
 
