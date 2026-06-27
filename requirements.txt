@@ -31,3 +31,6 @@ psutil>=5.9.0
 
 # Configuration
 PyYAML>=6.0
+
+# Secure secret storage (OS keychain for API keys)
+keyring>=24.0.0

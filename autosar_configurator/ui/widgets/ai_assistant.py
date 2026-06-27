@@ -217,8 +217,9 @@ class KnowledgeBaseDialog(QDialog):
         self.api_key_input.setEchoMode(QLineEdit.Password)
         self.api_key_input.setPlaceholderText("Enter Google Gemini API Key")
         
-        # Load existing key
-        current_key = self.settings.value("gemini_api_key", "")
+        # Load existing key (from OS keychain when available)
+        from ...utils.secret_store import get_api_key
+        current_key = get_api_key(self.settings)
         self.api_key_input.setText(current_key)
         
         config_layout.addRow("API Key:", self.api_key_input)
@@ -288,11 +289,12 @@ class KnowledgeBaseDialog(QDialog):
         
     def _save_and_close(self):
         """Save settings and close"""
+        from ...utils.secret_store import get_api_key, set_api_key
         new_key = self.api_key_input.text().strip()
-        old_key = self.settings.value("gemini_api_key", "")
-        
+        old_key = get_api_key(self.settings)
+
         if new_key != old_key:
-            self.settings.setValue("gemini_api_key", new_key)
+            set_api_key(self.settings, new_key)
             self.api_key_changed = True
         
         # Save AI suggestions toggle setting

@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QDockWidget
 from ..async_workers import AIWorker
 from ..widgets.ai_assistant import AIAssistantWidget
 from ...core.ai.nlp_processor import NaturalLanguageProcessor
+from ...utils.secret_store import get_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,7 @@ class AiAssistantController:
 
         Called BEFORE the KnowledgeBaseDialog opens.
         """
-        api_key = self.win.settings.value("gemini_api_key")
+        api_key = get_api_key(self.win.settings)
         self._ensure_processor(api_key)
 
         # Always ensure the KB reference is set on the widget.
@@ -76,7 +77,7 @@ class AiAssistantController:
     def handle_message(self, text: str):
         """Handle a message from the AI Assistant widget."""
         win = self.win
-        api_key = win.settings.value("gemini_api_key")
+        api_key = get_api_key(win.settings)
 
         if not self.ai_processor:
             self._ensure_processor(api_key)
@@ -133,7 +134,7 @@ class AiAssistantController:
     def on_help_requested(self, container_name: str, param_name: str):
         """Handle an AI help request for a parameter — provide contextual guidance."""
         win = self.win
-        api_key = win.settings.value("gemini_api_key")
+        api_key = get_api_key(win.settings)
         if not api_key:
             win.config_panel.update_ai_help("⚠️ 请先在 AI Assistant 中配置 API Key")
             return

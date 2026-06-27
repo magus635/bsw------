@@ -14,6 +14,7 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QMessageBox
 
 from ..async_workers import AIWorkerSignals
+from ...utils.secret_store import get_api_key
 from ..widgets.dependency_graph import DependencyGraphWidget
 
 
@@ -95,7 +96,7 @@ class DependencyGraphController:
         from ...core.ai.dependency_analyzer import DependencyAnalyzer
 
         # Get API key
-        api_key = win.settings.value("gemini_api_key")
+        api_key = get_api_key(win.settings)
         gemini_client = None
         if api_key:
             from ...core.ai.gemini_client import GeminiClient
