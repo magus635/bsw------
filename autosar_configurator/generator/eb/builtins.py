@@ -32,6 +32,13 @@ class BuiltinFunctions:
 
         # ECU resource dictionary for ecu:get function
         self.ecu_resources = ecu_resources or {}
+        # Lazily-built case-insensitive index over flat ecu_resources keys.
+        # EB Tresos resolves ecu:get keys case-insensitively (e.g. a template
+        # that builds 'Port.OutputModesA' via num:inttohex matches the resource
+        # key 'Port.OutputModesa'). Cached and rebuilt when the dict identity
+        # changes. None until first use.
+        self._ecu_resources_ci = None
+        self._ecu_resources_ci_src = None
 
         # Variant name (will be set by renderer)
         self._variant_name = ""
@@ -398,18 +405,16 @@ class BuiltinFunctions:
         if param_type:
             param_type = param_type.upper()
 
-            # AUTOSAR boolean formatting: feature-flag params use STD_ON/STD_OFF,
-            # runtime/status params use TRUE/FALSE.  The heuristic is name-based:
-            # if the parameter name contains a feature-flag keyword, use STD_ON/STD_OFF.
+            # EB Tresos node:value() of a boolean returns the canonical XPath
+            # boolean string 'true'/'false' (lowercase). Templates compare with
+            # `node:value(X) = 'true'` and do their OWN C mapping to STD_ON/TRUE
+            # via explicit [!IF!] blocks — the standard reference output contains
+            # STD_ON/TRUE/FALSE but never a bare lowercase 'true', confirming the
+            # mapping lives in the templates, not here. A name-based STD_ON/TRUE
+            # heuristic here breaks every `= 'true'` comparison (e.g. SpiEnableCs,
+            # SpiEnableDMA -> wrong CS mode, missing DMA blocks).
             if 'BOOLEAN' in param_type:
-                bool_val = self._parse_boolean(value)
-                name = getattr(node, 'short_name', '') or ''
-                feature_keywords = ('Enable', 'Disable', 'Detect', 'Support',
-                                    'Activate', 'Suppress', 'Permit', 'Allow')
-                is_feature = any(kw.lower() in name.lower() for kw in feature_keywords)
-                if is_feature:
-                    return 'STD_ON' if bool_val else 'STD_OFF'
-                return 'TRUE' if bool_val else 'FALSE'
+                return 'true' if self._parse_boolean(value) else 'false'
 
             # Reference -> Resolve
             if 'REFERENCE' in param_type or node.node_type == 'reference':
@@ -1087,10 +1092,15 @@ class BuiltinFunctions:
         int_val = self.num_i(value)
 
 
+        # EB Tresos num:inttohex emits LOWERCASE hex digits (a-f). The standard
+        # reference output confirms this: inttohex-generated values are lowercase
+        # (e.g. (uint16)0x7f), while uppercase hex in the reference comes from
+        # template string LITERALS (0xFF written verbatim), which this function
+        # never touches. Emitting uppercase here diverges from the golden files.
         if width > 0:
-            hex_str = format(int_val, f'0{width}X')
+            hex_str = format(int_val, f'0{width}x')
         else:
-            hex_str = format(int_val, 'X') if int_val else '0'
+            hex_str = format(int_val, 'x') if int_val else '0'
         return f"0x{hex_str}"
     
     def num_hextoint(self, value: Any) -> int:
@@ -1517,10 +1527,14 @@ class BuiltinFunctions:
         """Set the current variant name."""
         self._variant_name = variant or ""
 
+    def _is_real_variant(self) -> bool:
+        """Whether a variant is defined in the project."""
+        return bool(self._variant_name)
+ 
     def variant_name(self) -> str:
-        """Get the current variant name"""
-        return self._variant_name
-    
+        """Get the current variant name ('' for the implicit Default)."""
+        return self._variant_name if self._variant_name and self._variant_name != "Default" else ""
+
     def count(self, items) -> int:
         """Count items in a collection or node's children.
         
@@ -2203,7 +2217,7 @@ class BuiltinFunctions:
         Returns a list of all variant names. If a variant is set,
         returns a list containing that variant name.
         """
-        if self._variant_name:
+        if self._is_real_variant():
             return [self._variant_name]
         return []
 
@@ -2340,7 +2354,7 @@ class BuiltinFunctions:
         # Resolve the reference to its target
         return self.node_ref(node)
 
-    def ecu_get(self, path: str) -> Any:
+    def ecu_get(self, path: str, warn: bool = True) -> Any:
         """Get ECU resource parameter (XDM-G).
 
         Lookup order:
@@ -2348,6 +2362,13 @@ class BuiltinFunctions:
         2. Module configuration query (from loaded define files)
         3. Module definition default values
         4. Return None with warning if not found
+
+        Args:
+            path: Resource path like 'Port.RXMUX_IOMMON0_33_0'.
+            warn: When False, suppress the "not found"/"not loaded" log
+                warnings. Used by ecu:has(), which is an existence probe and
+                must stay silent for absent paths (otherwise every guarded
+                lookup spams the log).
         """
         from .renderer import _debug_log
 
@@ -2377,6 +2398,22 @@ class BuiltinFunctions:
                     break
             if curr is not None:
                 return _as_scalar(curr)
+
+        # 1c. Case-insensitive fallback over flat resource keys. EB Tresos
+        # resolves ecu:get keys case-insensitively; templates that build a key
+        # from num:inttohex output (uppercase 'A') must still match a lowercase
+        # resource key ('...a'). Resource keys have no case-collisions, so this
+        # is unambiguous. Built once and cached per ecu_resources identity.
+        if self.ecu_resources:
+            if self._ecu_resources_ci is None or self._ecu_resources_ci_src is not self.ecu_resources:
+                self._ecu_resources_ci = {
+                    k.lower(): v for k, v in self.ecu_resources.items()
+                    if isinstance(k, str)
+                }
+                self._ecu_resources_ci_src = self.ecu_resources
+            ci_val = self._ecu_resources_ci.get(path.lower())
+            if ci_val is not None:
+                return _as_scalar(ci_val)
 
         # 2. Parse path "Module.ParamName" or "Module.Container.ParamName"
 
@@ -2409,7 +2446,8 @@ class BuiltinFunctions:
             # Do NOT silently fall back to the 'Resource' module: a same-named
             # parameter there would yield a wrong value with no caller signal.
             # The caller can use ecu:has() to decide on a fallback explicitly.
-            logger.warning(f"ecu:get('{path}') - module '{module_name}' not loaded")
+            if warn:
+                logger.warning(f"ecu:get('{path}') - module '{module_name}' not loaded")
             return None
 
         # 4. Search for the parameter in the module
@@ -2443,7 +2481,8 @@ class BuiltinFunctions:
                     return val
 
         # 5. Not found
-        logger.warning(f"ecu:get('{path}') - parameter not found in module")
+        if warn:
+            logger.warning(f"ecu:get('{path}') - parameter not found in module")
         return None
 
     def ecu_has(self, path: str) -> bool:
@@ -2451,7 +2490,9 @@ class BuiltinFunctions:
 
         Same lookup logic as ecu:get but returns boolean.
         """
-        result = self.ecu_get(path)
+        # warn=False: an existence probe for an absent path is normal control
+        # flow, not an error worth logging.
+        result = self.ecu_get(path, warn=False)
         return result is not None and result != ''
 
     def ecu_list(self, path: str) -> List[Any]:
@@ -2706,7 +2747,7 @@ class BuiltinFunctions:
         Returns:
             Number of variants (0 if no variants defined)
         """
-        if self._variant_name:
+        if self._is_real_variant():
             return 1
         return 0
 

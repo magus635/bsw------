@@ -103,7 +103,8 @@ Inner: [!$x!]
         """Test num:inttohex formatting"""
         template = '[!"num:inttohex(255, 4)"!]'
         result = self.renderer.render(template)
-        self.assertEqual(result.strip(), "0x00FF")
+        # EB Tresos num:inttohex emits lowercase hex (matches standard output).
+        self.assertEqual(result.strip(), "0x00ff")
     
     def test_string_functions(self):
         """Test string functions"""
@@ -123,53 +124,51 @@ class TestAutoSarSemanticMapping(unittest.TestCase):
         self.context_stack = ContextStack()
         self.builtins = BuiltinFunctions(self.symbol_table, self.context_stack)
     
-    def test_feature_boolean_std_on(self):
-        """Feature boolean True -> STD_ON"""
+    # EB Tresos node:value() returns the canonical XPath boolean 'true'/'false'
+    # (lowercase) for ALL boolean params, regardless of name. The C-level mapping
+    # to STD_ON / TRUE is done by the templates via explicit [!IF!] blocks (the
+    # standard reference output never contains a bare lowercase 'true'). A
+    # name-based heuristic here would break every `node:value(X) = 'true'`
+    # comparison (e.g. SpiEnableCs, SpiEnableDMA).
+    def test_feature_boolean_true_lowercase(self):
         node = ConfigurationNode(
-            short_name="McuDevErrorEnable",  # Contains 'Enable' -> feature
+            short_name="McuDevErrorEnable",  # name must NOT change the result
             node_type="parameter",
             path="/Mcu/Config/McuDevErrorEnable",
             value=True,
             param_type="BOOLEAN"
         )
-        result = self.builtins.node_value(node)
-        self.assertEqual(result, "STD_ON")
-    
-    def test_feature_boolean_std_off(self):
-        """Feature boolean False -> STD_OFF"""
+        self.assertEqual(self.builtins.node_value(node), "true")
+
+    def test_feature_boolean_false_lowercase(self):
         node = ConfigurationNode(
-            short_name="McuVersionInfoApiDisable",  # Contains 'Disable' -> feature
+            short_name="McuVersionInfoApiDisable",
             node_type="parameter",
             path="/Mcu/Config/McuVersionInfoApiDisable",
             value=False,
             param_type="BOOLEAN"
         )
-        result = self.builtins.node_value(node)
-        self.assertEqual(result, "STD_OFF")
-    
+        self.assertEqual(self.builtins.node_value(node), "false")
+
     def test_runtime_boolean_true(self):
-        """Runtime boolean True -> TRUE"""
         node = ConfigurationNode(
-            short_name="McuIsReady",  # No feature keyword -> runtime
+            short_name="McuIsReady",
             node_type="parameter",
             path="/Mcu/Config/McuIsReady",
             value=True,
             param_type="BOOLEAN"
         )
-        result = self.builtins.node_value(node)
-        self.assertEqual(result, "TRUE")
-    
+        self.assertEqual(self.builtins.node_value(node), "true")
+
     def test_runtime_boolean_false(self):
-        """Runtime boolean False -> FALSE"""
         node = ConfigurationNode(
-            short_name="McuStatusFlag",  # No feature keyword -> runtime
+            short_name="McuStatusFlag",
             node_type="parameter",
             path="/Mcu/Config/McuStatusFlag",
             value=False,
             param_type="BOOLEAN"
         )
-        result = self.builtins.node_value(node)
-        self.assertEqual(result, "FALSE")
+        self.assertEqual(self.builtins.node_value(node), "false")
 
 
 if __name__ == '__main__':

@@ -129,9 +129,10 @@ def test_complete_generation_with_references(tmp_path):
     generator = CodeGenerator(module, manager.configuration)
     generator.generate_all(tmp_path)
     
-    # Verify generated C source contains expected content
-    # Root .c templates are routed into the module's src/ subdirectory.
-    pbcfg_source = tmp_path / "Adc" / "src" / "Adc_PBcfg.c"
+    # Verify generated C source contains expected content.
+    # With no project template provided, Adc_PBcfg.c comes from the template-less fallback,
+    # which emits FLAT at the module root (matching EB Tresos), not under src/.
+    pbcfg_source = tmp_path / "Adc" / "Adc_PBcfg.c"
     assert pbcfg_source.exists()
     
     source_content = pbcfg_source.read_text()

@@ -229,8 +229,11 @@ class CodeGenerator:
             t_type = t_info['type']
             rel_dir = t_info['rel_dir']
 
-            # Deeply nested templates and root templates all preserve their directory structure
-            if rel_dir == '.':
+            # Deeply nested templates and root templates all preserve their directory structure.
+            # Exception: template-less fallback files (original_path is None) are emitted FLAT at
+            # the module/variant root to match EB Tresos output (e.g. EcuC_Cfg.h, EcuC_PBcfg.c),
+            # which never places a generated-from-fallback file under include/ or src/.
+            if rel_dir == '.' and t_info.get('original_path') is not None:
                 if t_type.endswith('.h'):
                     rel_dir = 'include'
                 elif t_type.endswith('.c'):
@@ -812,8 +815,9 @@ class CodeGenerator:
         """Extract all enumeration definitions from module definition"""
         from ..core.model.definition_model import EcucParameterType
         enums = []
-        # Track seen enums by name and their literal sets for deduplication
-        seen_enums = {}  # name -> set(literals)
+        # Track seen enums by name and their literal sets for deduplication.
+        seen_enums = {}   # short_name -> set(literals) of the first emitter
+        seen_refs = set()  # definition_ref values already processed
         logger.debug(f"Extracting enums for module: {self.configuration.short_name}")
 
         def process_container_def(container_def):
@@ -821,7 +825,16 @@ class CodeGenerator:
                 if param_def.param_type == EcucParameterType.ENUMERATION:
                     literals = param_def.literals or []
                     literal_set = set(literals)
-                    
+
+                    # A parameter is uniquely identified by its definition_ref
+                    # (full EMF path). The same ref reached twice via different
+                    # traversal is a genuine duplicate — skip silently.
+                    ref = param_def.definition_ref
+                    if ref and ref in seen_refs:
+                        continue
+                    if ref:
+                        seen_refs.add(ref)
+
                     if param_def.short_name not in seen_enums:
                         seen_enums[param_def.short_name] = literal_set
                         enums.append({
@@ -831,14 +844,21 @@ class CodeGenerator:
                         })
                         logger.debug(f"Added enum: {param_def.short_name} with {len(literals)} literals")
                     else:
-                        # If same name exists, check if literals are identical
+                        # Same short name on a DIFFERENT definition_ref. In EB
+                        # Tresos this is legitimate: parameters are scoped by
+                        # their container, so two unrelated containers may reuse
+                        # an enum short name with different literal sets (e.g.
+                        # Mcu's McuClockReferenceSelect for SYS/CPU vs CMU clocks).
+                        # These definition-side enums are not emitted as C types,
+                        # so keep the existing "first one wins" behaviour but do
+                        # not raise a spurious warning.
                         if literal_set == seen_enums[param_def.short_name]:
                             logger.debug(f"Skipping identical duplicate enum: {param_def.short_name}")
                         else:
-                            # Warning: name collision with different literals
-                            logger.warning(f"Enum name collision with different literals: {param_def.short_name}")
-                            # To avoid C compilation error, we might need a suffix, but usually this indicates a DEF issue
-                            # For now, we just skip it to avoid redefinition error
+                            logger.debug(
+                                f"Enum short name '{param_def.short_name}' reused in a "
+                                f"different container with different literals; keeping first."
+                            )
             
             for sub_def in container_def.sub_containers.values():
                 process_container_def(sub_def)

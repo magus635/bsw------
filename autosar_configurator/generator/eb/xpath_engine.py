@@ -1295,15 +1295,16 @@ class XPathEngine:
             # Primitive type (bool, int, str) - cannot navigate
             return None
 
+        prev_axis = None  # axis of the previously-processed segment (for parent-axis gating)
         for segment in segments:
             if not current:
                 return None
-            
+
             next_nodes = []
             axis = segment['axis']
             name = segment['name']
             predicates = segment['predicates']
-            
+
 
             for n in current:
 
@@ -1478,8 +1479,14 @@ class XPathEngine:
                                     next_nodes.append(c_node)
                                     found_current_node = True
                         
-                        # 3. EB Tresos implicit instance traversal (if still nothing found)
-                        if not found_current_node:
+                        # 3. EB Tresos implicit instance traversal (if still nothing found).
+                        # Skipped right after a parent-axis ('..') step: a relative child step
+                        # like ../../Foo that climbed to an intermediate container must resolve
+                        # EMPTY when Foo is absent there, not dive into a sub-container's
+                        # instances (this is the Dma ../../DmaTransferId / ../../DmaChShadowId
+                        # case). Forward navigation (prev_axis != 'parent') still dives normally,
+                        # preserving the implicit-instance behavior Lin/Port/etc. rely on.
+                        if not found_current_node and prev_axis != 'parent':
                             for c_node in n_children:
                                 if getattr(c_node, 'node_type', '') == 'container':
                                     sub = c_node.get_child(name) if hasattr(c_node, 'get_child') else None
@@ -1506,8 +1513,11 @@ class XPathEngine:
                                         if found_current_node:
                                             break
 
-                        # 3b. Context-aware deep search in TYPE wrappers (if still nothing found)
-                        if not found_current_node:
+                        # 3b. Context-aware deep search in TYPE wrappers (if still nothing found).
+                        # Also skipped right after a parent-axis step, for the same reason as
+                        # section 3 above (do not dive into wrapper instances for a name that is
+                        # absent on a parent-axis-reached intermediate container).
+                        if not found_current_node and prev_axis != 'parent':
                             for c_node in n_children:
                                 c_node_children = c_node.children if hasattr(c_node, 'children') else []
                                 if (getattr(c_node, 'node_type', '') == 'container' and
@@ -1559,6 +1569,7 @@ class XPathEngine:
 
             # Apply predicates
             current = self._apply_predicates(next_nodes, predicates)
+            prev_axis = axis
 
         # Return single node or list
         if len(current) == 0:

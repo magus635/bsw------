@@ -203,7 +203,8 @@ extern void Can_Init_Controller_[!"node:value(CanControllerId)"!](void);
 #endif
 """
         result = self.renderer.render(template, "Can").strip()
-        self.assertIn("#define CAN_MASK 0xFF", result)
+        # num:inttohex emits lowercase hex (EB Tresos / standard-output behaviour)
+        self.assertIn("#define CAN_MASK 0xff", result)
         self.assertIn("extern void Can_Init_Controller_0(void);", result)
         self.assertIn("extern void Can_Init_Controller_1(void);", result)
 

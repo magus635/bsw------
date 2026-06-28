@@ -302,7 +302,19 @@ class Renderer:
             # Check for BREAK flag
             if self._break_requested:
                 break
-            
+
+            # A VAR's own-line newline suppression (_suppress_next_newline) must NOT leak across
+            # a block-control directive. The flag is only meant to swallow the trailing newline of
+            # the VAR's own line; once we cross an IF/LOOP/SELECT/... boundary, any following blank
+            # line is intentional and must be preserved (e.g. the blank before the
+            # "/* ...mapped to Core0 */" block in Adc/Intc PBcfg.c).
+            if self._suppress_next_newline and tok.type in (
+                    TokenType.IF, TokenType.ELSEIF, TokenType.ELSE, TokenType.ENDIF,
+                    TokenType.LOOP, TokenType.ENDLOOP, TokenType.SELECT, TokenType.ENDSELECT,
+                    TokenType.FOR, TokenType.ENDFOR, TokenType.NOCODE, TokenType.ENDNOCODE,
+                    TokenType.CODE, TokenType.ENDCODE):
+                self._suppress_next_newline = False
+
             if tok.type == TokenType.TEXT:
                 # Check for output suppression
                 if self._nocode_depth > 0 and not self._in_code_block:
@@ -330,7 +342,13 @@ class Renderer:
                 if self._just_ended_indent and not self._at_line_start:
                     # Check for closing braces/brackets first, even if no leading whitespace
                     if content and (content.lstrip().startswith('}') or content.lstrip().startswith(']')):
-                        if self._output_buffer and not self._output_buffer[-1].endswith('\n'):
+                        _prev = self._output_buffer[-1] if self._output_buffer else ''
+                        # Only break before a closing brace when the preceding glued content was
+                        # real data — NOT when it was itself a closing brace. A template that
+                        # explicitly glues `}[!//]` followed by `};` intends `}};` (EB), so do not
+                        # insert a newline that would split it into `}\n};` (Msc glued-brace case).
+                        if (self._output_buffer and not _prev.endswith('\n')
+                                and not _prev.rstrip(' \t').endswith(('}', ']'))):
                             self._output_buffer.append('\n')
                             self._at_line_start = True
                             self._indent_added_on_this_line = False
@@ -362,11 +380,15 @@ class Renderer:
                         # Preserve them as-is.
                         pass
                     else:
-                        # Contains non-newline characters (indentation whitespace).
-                        # Strip everything to prevent template structure from leaking.
-                        content = content.rstrip('\n\r')
-                        if content.strip() == '':
-                            content = ''  # Skip pure whitespace on directive lines
+                        # Mixed newline(s) + indentation. The leading newline run is an
+                        # intentional blank line; only the trailing indentation belongs to the
+                        # next directive line and must be stripped. Previously this zeroed the
+                        # whole token (rstrip('\n\r') + strip()==''), destroying blank lines that
+                        # precede an indented directive (e.g. Intc_Cfg.h per-source separators).
+                        stripped = content.rstrip(' \t')
+                        if stripped.strip() == '':
+                            # Whitespace-only token: keep just the leading newline run.
+                            content = stripped  # '\n    '->'\n', '    '->'', '\n\n    '->'\n\n'
 
                 # Strip trailing directive-line whitespace from TEXT tokens,
                 # but ONLY when next token is a context-establishing directive
@@ -375,8 +397,15 @@ class Renderer:
                 # This prevents template nesting whitespace from leaking into
                 # output when macros/code blocks use their own INDENT directives,
                 # or when WS directives explicitly specify whitespace amounts.
+                # Branch/close directives (ENDIF/ELSE/...) are also context-establishing: a
+                # TEXT token of the form 'data,\n        ' (content + the indentation of the
+                # NEXT line's [!ENDIF!]) must have that trailing indent stripped, otherwise the
+                # leaked indent becomes a spurious whitespace/blank line between array elements
+                # (Gpt/Pwm/Ocu ChannelToCoreMap). Do NOT remove ENDLOOP/ENDFOR.
                 _CONTEXT_DIRECTIVES = {TokenType.CALL, TokenType.CODE, TokenType.INDENT, TokenType.WS,
-                                       TokenType.ENDLOOP, TokenType.ENDFOR}
+                                       TokenType.ENDLOOP, TokenType.ENDFOR,
+                                       TokenType.ENDIF, TokenType.ELSE, TokenType.ELSEIF,
+                                       TokenType.ENDSELECT, TokenType.ENDNOCODE, TokenType.ENDCODE}
                 if content:
                     last_nl = content.rfind('\n')
                     if last_nl == -1:
@@ -643,7 +672,19 @@ class Renderer:
                    (stripped.startswith('"') and stripped.endswith('"')):
                     value = stripped[1:-1]
                 elif stripped and not any(c in stripped for c in ':/(.$@['):
-                    value = stripped  # plain identifier treated as literal string
+                    # Bare identifier (e.g. "AdcChannelId"). In EB Tresos an
+                    # unquoted QName is a RELATIVE PATH selecting the child node
+                    # of that name (its value in a value context) — only a
+                    # *quoted* token is a string literal. So resolve it as a path
+                    # first; fall back to the identifier as a literal string only
+                    # when no such child node exists (true enum/string literals
+                    # like "ENABLED" have no matching child).
+                    resolved = None
+                    try:
+                        resolved = self._unwrap_value(self._evaluate_xpath(stripped))
+                    except Exception:
+                        resolved = None
+                    value = resolved if resolved is not None else stripped
                 else:
                     value = self._evaluate_expression(stripped)
             else:
@@ -862,10 +903,19 @@ class Renderer:
             self._context_stack.set_loop_info(idx, len(items))
             self._execute_tokens(tokens, start + 1, loop_end)
 
-            # Do NOT propagate loop-body variables back to the parent scope.
-            # Each iteration runs in its own scope; leaking variables would let
-            # iteration N's locals corrupt iteration N+1 (and nested loops that
-            # share a variable name), as well as scope after the loop ends.
+            # EB Tresos [!VAR!] has no block scope: a variable assigned inside a
+            # [!LOOP!] body persists after [!ENDLOOP!] (and carries across
+            # iterations). Propagate loop-body VAR assignments to the parent
+            # scope, mirroring what macro calls (_handle_macro_call) and SELECT
+            # already do. Without this, a variable first created inside a loop
+            # (e.g. Can's $ResHardwareModule, set via a [!CALL!] inside the loop)
+            # is undefined when read after the loop, silently yielding None and
+            # corrupting downstream ecu:get keys / range checks. Templates that
+            # need a fresh value re-initialize it at the top of each iteration
+            # (the documented EB Tresos accumulator idiom), so cross-iteration
+            # carry-over is the intended behaviour, not corruption.
+            for _name, _value in self._context_stack.current_scope_variables().items():
+                self._context_stack.set_variable_in_parent(_name, _value)
 
             self._context_stack.pop()
 
@@ -962,13 +1012,15 @@ class Renderer:
         # Normalize backslashes (Windows style) to forward slashes
         filename = filename.replace('\\', '/')
 
-        # Reject absolute paths, Windows drive-letter paths (e.g. C:/), and
-        # directory traversal before any filesystem I/O.
+        # Reject absolute paths and Windows drive-letter paths (e.g. C:/) before any
+        # filesystem I/O. Relative '..' segments are NOT rejected here: EB Tresos templates
+        # legitimately include siblings via parent paths (e.g. Sent/include/Sent_Cfg.h does
+        # [!INCLUDE "..\Sent.m"!]). Traversal safety is enforced AFTER resolution by
+        # _is_path_within_allowed_dirs(), which guarantees the resolved target stays inside
+        # the permitted template directories.
         _has_drive_letter = len(filename) >= 2 and filename[1] == ':' and filename[0].isalpha()
-        if (Path(filename).is_absolute()
-                or _has_drive_letter
-                or '..' in filename.split('/')):
-            msg = f"INCLUDE path '{filename}' is not allowed (absolute paths and '../' traversal are forbidden)"
+        if Path(filename).is_absolute() or _has_drive_letter:
+            msg = f"INCLUDE path '{filename}' is not allowed (absolute paths are forbidden)"
             if self.strict:
                 raise TemplateParseError(msg)
             _debug_log(f"SECURITY: {msg}")
@@ -1506,12 +1558,27 @@ class Renderer:
                 right = parts[1]
                 check_op = op_raw
 
-                left_val = self._evaluate_expression(left)
-                right_val = self._evaluate_expression(right)
+                left_raw = self._evaluate_expression(left)
+                right_raw = self._evaluate_expression(right)
 
-                left_val = self._unwrap_value(left_val)
-                right_val = self._unwrap_value(right_val)
-                
+                left_val = self._unwrap_value(left_raw)
+                right_val = self._unwrap_value(right_raw)
+
+                # EB Tresos represents an empty sequence as the string '[]'.
+                # The standard idiom `text:grep(...) != '[]'` tests for "no match".
+                # _unwrap_value turns an empty list into None -> '' below, which
+                # would make `[] != '[]'` wrongly true. When one side is the
+                # literal '[]', normalize a list operand: empty -> '[]', non-empty
+                # -> a sentinel that is not '[]'. Scoped to the '[]' comparison so
+                # other list/string comparisons are unaffected.
+                _other_is_empty_seq = (right == "'[]'" or right_val == '[]'
+                                       or left == "'[]'" or left_val == '[]')
+                if _other_is_empty_seq:
+                    if isinstance(left_raw, list):
+                        left_val = '[]' if not left_raw else '[...]'
+                    if isinstance(right_raw, list):
+                        right_val = '[]' if not right_raw else '[...]'
+
                 # Boolean normalization
                 if isinstance(left_val, bool) and isinstance(right_val, str):
                     right_val = right_val.lower() in ('true', '1', 'yes', 'on')
@@ -1979,25 +2046,37 @@ class Renderer:
         loop_nodes = None
         loop_nodes = self._extract_for_loop_nodeset(end_expr)
 
+        # NOTE: [!FOR!] uses a fixed range() and OVERWRITES the counter each
+        # iteration. This intentionally ignores body-side "[!VAR "i"="$i+1"!]"
+        # increments. Some vendor macros (Mcu.m GTM_TOUT_REPEAT_ERROR_CHECK)
+        # rely on that body increment combining with an engine increment (a
+        # "double step") plus a pre-set counter to skip the current sibling,
+        # which is why their 101-00-0x / Ocu 125-00-03 duplicate-check ERRORs
+        # fire here as false positives (suppressed in non-strict mode; generation
+        # still completes). Honoring the body increment was tried and REVERTED:
+        # the same idiom is used with the OPPOSITE intent elsewhere (Sent_PBcfg.c
+        # line ~388/414 increments its FOR counter and a double step drops
+        # entries), so no single rule satisfies both. Fixing the GTM/Ocu checks
+        # needs per-idiom handling, not a global FOR-counter change.
         for val in range(start_val, end_val + 1):
             if self._break_requested:
                 self._break_requested = False
                 break
-            
+
             self._context_stack.set_variable(var_name, val)
-            
+
             # Push context if we have matching nodes
             pushed = False
             if loop_nodes and 0 <= val < len(loop_nodes):
                 self._context_stack.push(loop_nodes[val])
                 pushed = True
-            
+
             try:
                 self._execute_tokens(tokens, start + 1, for_end)
             finally:
                 if pushed:
                     self._context_stack.pop()
-        
+
         self._break_requested = False
         return i  # After ENDFOR
 
@@ -2318,9 +2397,16 @@ class Renderer:
             # Non-parameter VAR assignments are still propagated, which preserves
             # the CG_ChangeStringListMember "output variable" use-case.
             formal_params = set(params)
+            # Named arguments act as EB Tresos in/out ("output") parameters: the
+            # caller passes an initial value and reads back the macro's (possibly
+            # reassigned) result after the [!CALL!] — e.g. Eth_ShaperDet's
+            # "RetVal" output parameter. Propagate those named formal params back
+            # to the caller. Positional/defaulted params stay macro-local so
+            # recursion and nested calls remain isolated.
+            output_params = formal_params & set(named_args.keys())
             current_vars = self._context_stack.current_scope_variables()
             for name, value in current_vars.items():
-                if name in formal_params:
+                if name in formal_params and name not in output_params:
                     continue
                 self._context_stack.set_variable_in_parent(name, value)
         finally:

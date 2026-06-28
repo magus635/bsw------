@@ -154,7 +154,8 @@ class WorkspaceProject:
                 # e.g. "THA6206" matches "Os_Resource_THA6206" but NOT "THA62060x".
                 if "resource" in str(pf.parent).lower():
                     stem_tokens = set(pf.stem.lower().split('_'))
-                    if chip_lower in stem_tokens or self.selected_chip in stem_tokens:
+                    chip_tokens = set(chip_lower.split('_'))
+                    if chip_tokens.issubset(stem_tokens):
                         filtered.append(pf)
                 else:
                     # Non-resource .properties (build configs, etc.) always loaded

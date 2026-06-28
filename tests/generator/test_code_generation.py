@@ -73,9 +73,11 @@ def test_code_generation(tmp_path):
     generator = CodeGenerator(module, manager.configuration)
     generator.generate_all(tmp_path)
     
-    # Verify files exist (root .h -> include/, root .c -> src/)
-    cfg_header = tmp_path / "Test" / "include" / "Test_Cfg.h"
-    pbcfg_source = tmp_path / "Test" / "src" / "Test_PBcfg.c"
+    # Verify files exist. Template-less (fallback) modules emit FLAT at the module root,
+    # matching EB Tresos (e.g. EcuC_Cfg.h / EcuC_PBcfg.c); only real templates with a
+    # root rel_dir are promoted to include/ and src/.
+    cfg_header = tmp_path / "Test" / "Test_Cfg.h"
+    pbcfg_source = tmp_path / "Test" / "Test_PBcfg.c"
     
     assert cfg_header.exists()
     assert pbcfg_source.exists()

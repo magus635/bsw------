@@ -160,7 +160,9 @@ class TestGoldenMaster(unittest.TestCase):
         
         # Assertions
         with open("debug_can_cfg.h", "w") as f: f.write(result)
-        self.assertIn("#define CAN_DEV_ERROR_DETECT   STD_ON", result)
+        # node:value() of a boolean returns the canonical XPath 'true'/'false'
+        # (EB Tresos behaviour). Templates map to STD_ON/TRUE themselves.
+        self.assertIn("#define CAN_DEV_ERROR_DETECT   true", result)
         import re
         self.assertTrue(re.search(r"CAN_CONTROLLER_COUNT\s+[12]", result), f"Count not found in:\n{result}")
         self.assertIn("CanController", result)
@@ -180,7 +182,7 @@ static CONST(Can_ControllerConfigType, CAN_CONST) CanControllerConfig[] =
     /* Controller [!"@index"!] */
     .ControllerId = [!"node:value('CanControllerId')"!],
     .Baudrate     = [!"node:value('CanControllerBaudrate')"!],
-    .WakeupSupport = [!IF "node:value('CanWakeupSupport') == 'STD_ON'"!]TRUE[!ELSE!]FALSE[!ENDIF!]
+    .WakeupSupport = [!IF "node:value('CanWakeupSupport') == 'true'"!]TRUE[!ELSE!]FALSE[!ENDIF!]
   },
 [!ENDLOOP!]
 };

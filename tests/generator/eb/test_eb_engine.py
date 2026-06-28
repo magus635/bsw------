@@ -160,8 +160,11 @@ class TestBuiltins(unittest.TestCase):
         self.assertEqual(self.builtins.num_i("0xFF"), 255)
     
     def test_num_inttohex(self):
-        self.assertEqual(self.builtins.num_inttohex(10, 4), "0x000A")
-        self.assertEqual(self.builtins.num_inttohex(255, 2), "0xFF")
+        # EB Tresos num:inttohex emits LOWERCASE hex (confirmed against the
+        # standard reference output, e.g. (uint16)0x7f). Uppercase hex in golden
+        # files comes from template literals, not this function.
+        self.assertEqual(self.builtins.num_inttohex(10, 4), "0x000a")
+        self.assertEqual(self.builtins.num_inttohex(255, 2), "0xff")
         self.assertEqual(self.builtins.num_inttohex(0), "0x0")
     
     def test_string_functions(self):
