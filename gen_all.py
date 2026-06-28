@@ -29,10 +29,10 @@ from autosar_configurator.core.workspace_manager import WorkspaceManager
 from autosar_configurator.generator.generator import CodeGenerator
 
 # === 路径配置 ===
-DPA_PATH = Path("/Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/MCAL_R440_FuSa.dpa")
-TEMPLATE_BASE = Path("/Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/templates")
-GEN_BASE = Path("/Users/qlwang/Desktop/ImportEB_1/MCAL_R440_FuSa/generateCode")
-REF_BASE = Path("/Users/qlwang/Desktop/generateCode_标准文件")
+DPA_PATH = Path("/Users/qlwang/Desktop/🔴 Automotive_MCAL/ImportEB_1/MCAL_R440_FuSa/MCAL_R440_FuSa.dpa")
+TEMPLATE_BASE = Path("/Users/qlwang/Desktop/🔴 Automotive_MCAL/ImportEB_1/MCAL_R440_FuSa/templates")
+GEN_BASE = Path("/Users/qlwang/Desktop/🔴 Automotive_MCAL/ImportEB_1/MCAL_R440_FuSa/generateCode")
+REF_BASE = Path("/Users/qlwang/Desktop/🔴 Automotive_MCAL/generateCode_标准文件")
 
 # Os 使用独立的参考路径
 OS_REF = Path("/Users/qlwang/Downloads/Os_Configuration/output/Os")

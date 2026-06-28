@@ -5,7 +5,7 @@
 
 /* ==================== General ==================== */
 
-#define CAN_DEV_ERROR_DETECT   STD_ON
+#define CAN_DEV_ERROR_DETECT   true
 
 #define CAN_CONTROLLER_COUNT  2
 
