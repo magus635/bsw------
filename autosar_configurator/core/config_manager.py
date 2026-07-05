@@ -4,8 +4,11 @@ Provides CRUD operations for container instances with validation
 """
 from typing import Optional, List, Dict, Tuple, Any
 from pathlib import Path
+import logging
 import os
 from enum import Enum
+
+logger = logging.getLogger(__name__)
 
 from .model.definition_model import (
     EcucModuleDef,
@@ -250,6 +253,33 @@ class EpcFileScanner:
                 epc_files[module_name] = arxml_path
 
         return epc_files
+
+    @staticmethod
+    def list_module_names(value_file: Path) -> List[str]:
+        """List short-names of all module configurations inside a value file.
+
+        EB value files may bundle several ECUC-MODULE-CONFIGURATION-VALUES
+        elements; import must consider every one, not just the filename stem.
+        Returns an empty list when the file is not a standard ARXML value file.
+        """
+        import lxml.etree as etree
+        names: List[str] = []
+        try:
+            parser = etree.XMLParser(resolve_entities=False, no_network=True)
+            root = etree.parse(str(value_file), parser).getroot()
+            for tag in ('{http://autosar.org/schema/r4.0}ECUC-MODULE-CONFIGURATION-VALUES',
+                        'ECUC-MODULE-CONFIGURATION-VALUES'):
+                for elem in root.iter(tag):
+                    for sn_tag in ('{http://autosar.org/schema/r4.0}SHORT-NAME', 'SHORT-NAME'):
+                        sn = elem.find(sn_tag)
+                        if sn is not None and sn.text:
+                            names.append(sn.text)
+                            break
+                if names:
+                    break
+        except (etree.XMLSyntaxError, OSError) as e:
+            logger.debug("list_module_names(%s) failed: %s", value_file, e)
+        return names
 
     @staticmethod
     def detect_available_chips(project_root: Path) -> List[str]:
@@ -752,24 +782,32 @@ class ConfigurationManager:
             tree = etree.parse(str(file_path), _xml_parser)
             root = tree.getroot()
 
-            # Find ECUC-MODULE-CONFIGURATION-VALUES
-            namespaces = {'ar': 'http://autosar.org/schema/r4.0'}
-            config_elem = root.find('.//ar:ECUC-MODULE-CONFIGURATION-VALUES', namespaces)
-            if config_elem is None:
-                config_elem = root.find('.//ECUC-MODULE-CONFIGURATION-VALUES')
-                
-            if config_elem is not None:
-                new_config = parser.parse_ecuc_configuration_values(config_elem)
-                if new_config:
-                    ar_package = config_elem.getparent()
-                    if ar_package is not None:
-                        ar_package = ar_package.getparent()
-                    if ar_package is not None:
-                        pkg_sn = ar_package.find('{http://autosar.org/schema/r4.0}SHORT-NAME')
-                        if pkg_sn is None:
-                            pkg_sn = ar_package.find('SHORT-NAME')
-                        if pkg_sn is not None and pkg_sn.text:
-                            new_config.package_name = pkg_sn.text
+            # Parse ALL module configurations in the file (EB value files may
+            # bundle several modules) and select the one for this manager.
+            all_configs = parser.parse_all_module_configurations(root)
+
+            if all_configs:
+                module_name = self.module_def.short_name if self.module_def else None
+                new_config = None
+                if module_name:
+                    for cfg in all_configs:
+                        # Match by config short-name or by the module segment
+                        # of its DEFINITION-REF (/Pkg/Module)
+                        def_module = cfg.definition_ref.rstrip('/').rsplit('/', 1)[-1]
+                        if cfg.short_name == module_name or def_module == module_name:
+                            new_config = cfg
+                            break
+                if new_config is None:
+                    new_config = all_configs[0]
+                    if module_name and len(all_configs) > 1:
+                        logger.warning(
+                            "%s: no configuration matching module '%s'; using first ('%s')",
+                            file_path.name, module_name, new_config.short_name)
+                skipped = [c.short_name for c in all_configs if c is not new_config]
+                if skipped:
+                    logger.warning(
+                        "%s contains %d additional module configuration(s) not loaded here: %s",
+                        file_path.name, len(skipped), ", ".join(skipped))
             else:
                 # Fallback to XDM config parser if no standard ARXML element found
                 xdm_parser = XdmConfigParser()
@@ -796,7 +834,9 @@ class ConfigurationManager:
                 if self.module_def and not skip_cleanup:
                     cleanup_count = self._cleanup_invalid_parameters()
                     if cleanup_count > 0:
-                        print(f"[ConfigManager] Preserved {cleanup_count} unrecognised parameter(s) in unknown_parameters (not deleted)")
+                        logger.warning(
+                            "Preserved %d unrecognised parameter(s) in unknown_parameters (not deleted)",
+                            cleanup_count)
 
                 # Mark as saved (just loaded, no modifications)
                 self.configuration.mark_saved()
@@ -827,22 +867,27 @@ class ConfigurationManager:
                 # import, wrong path) and silently dropping values would cause
                 # irreversible data loss.  Callers can inspect container.unknown_parameters
                 # to decide whether to present a warning in the UI.
-                for param_name in list(container.parameter_values.keys()):
+                # Values stay in parameter_values (the generator and the
+                # serializer read from there — removing them would drop real
+                # data whenever the DEF is incomplete, e.g. vendor Os defs).
+                # unknown_parameters is an index of flagged names for UI
+                # warnings and export tooling.
+                for param_name, param_val in container.parameter_values.items():
                     if param_name not in container_def.parameters:
-                        if not hasattr(container, 'unknown_parameters'):
-                            container.unknown_parameters = {}
-                        container.unknown_parameters[param_name] = container.parameter_values[param_name]
+                        container.unknown_parameters[param_name] = param_val
                         preserved += 1
-                        print(f"  - Warning: '{param_name}' in '{container.short_name}' is not in DEF '{container_def.short_name}' — preserved in unknown_parameters (not deleted)")
+                        logger.warning(
+                            "'%s' in '%s' is not in DEF '%s' — flagged in unknown_parameters (kept)",
+                            param_name, container.short_name, container_def.short_name)
 
                 # Same preservation guarantee for multi-valued parameters.
-                for param_name in list(container.multi_parameter_values.keys()):
+                for param_name, param_list in container.multi_parameter_values.items():
                     if param_name not in container_def.parameters:
-                        if not hasattr(container, 'unknown_parameters'):
-                            container.unknown_parameters = {}
-                        container.unknown_parameters[f'{param_name}[multi]'] = container.multi_parameter_values[param_name]
+                        container.unknown_parameters[param_name] = param_list
                         preserved += 1
-                        print(f"  - Warning: multi-param '{param_name}' in '{container.short_name}' is not in DEF '{container_def.short_name}' — preserved in unknown_parameters (not deleted)")
+                        logger.warning(
+                            "multi-param '%s' in '%s' is not in DEF '%s' — flagged in unknown_parameters (kept)",
+                            param_name, container.short_name, container_def.short_name)
 
             # Recursively process sub-containers
             for sub in container.sub_containers:
@@ -864,12 +909,14 @@ class ConfigurationManager:
         (``OsCounter``).  This method remaps them to the correct definition
         path after the config is loaded.
 
-        Strategy (applied at each hierarchy level):
+        Strategy (applied at each hierarchy level, candidates constrained to
+        the parent container definition's sub-containers):
         1. If the definition_ref already resolves → keep it.
-        2. **Parameter-signature match**: score each candidate definition by
-           how many of the container's parameter names appear in it.
-        3. **Longest prefix match**: pick the definition whose short_name is
-           the longest prefix of the instance name.
+        2. **Exact match**: the ref's leaf segment or the instance short-name
+           equals a candidate definition name (including one level through
+           choice containers).
+        3. **Heuristic fallback** (logged as a warning): score candidates by
+           parameter/sub-container overlap and name-prefix match.
         """
         # Extract the definition_ref prefix (everything up to and including the
         # module name).  E.g. for ``/THA6_ASR21/Os/Foo`` the prefix is
@@ -887,6 +934,45 @@ class ConfigurationManager:
                 if len(parts) >= 3:
                     return '/'.join(parts[:3])
                 return '/'.join(parts)
+
+        def _exact_match_def(container, candidate_defs: dict):
+            """Structural (non-heuristic) match at this level.
+
+            Returns (matched_def, choice_segment): choice_segment is the name
+            of the intermediate choice container when the match was found one
+            level below a choice definition, else None.
+            """
+            if not candidate_defs:
+                return None, None
+
+            leaf = container.definition_ref.rstrip('/').rsplit('/', 1)[-1]
+
+            def _name_candidates():
+                """Full names first, then progressively stripped '_suffix'
+                forms (instance names like 'OsCounter_Software' map
+                deterministically to the def name 'OsCounter')."""
+                seen = set()
+                for name in (leaf, container.short_name):
+                    parts = name.split('_')
+                    for i in range(len(parts), 0, -1):
+                        candidate = '_'.join(parts[:i])
+                        if candidate and candidate not in seen:
+                            seen.add(candidate)
+                            yield candidate
+
+            names = list(_name_candidates())
+            for name in names:
+                if name in candidate_defs:
+                    return candidate_defs[name], None
+
+            # Choice-container transparency: EB refs sometimes omit or rename
+            # the choice level; look one level deeper.
+            for choice_name, cdef in candidate_defs.items():
+                if getattr(cdef, 'is_choice', False):
+                    for name in names:
+                        if name in cdef.sub_containers:
+                            return cdef.sub_containers[name], choice_name
+            return None, None
 
         def _best_match_def(container, candidate_defs: dict) -> Optional[EcucContainerDef]:
             """Find the best matching definition for *container* among *candidate_defs*.
@@ -951,8 +1037,14 @@ class ConfigurationManager:
                     _normalize_container(sub, resolved_def, container.definition_ref)
                 return
 
-            # Try to find the correct definition
-            matched_def = _best_match_def(container, candidate_defs)
+            # Try to find the correct definition: exact structural match
+            # first, heuristic scoring only as a last resort.
+            matched_def, choice_segment = _exact_match_def(container, candidate_defs)
+            heuristic_used = False
+            if matched_def is None:
+                matched_def = _best_match_def(container, candidate_defs)
+                heuristic_used = matched_def is not None
+
             if matched_def is not None:
                 # Build the correct definition_ref.
                 # If the parent was also remapped we must use the already-corrected
@@ -960,15 +1052,26 @@ class ConfigurationManager:
                 # baked into container.definition_ref.
                 if parent_normalized_ref is not None:
                     # Sub-container: base off the normalized parent ref
-                    new_ref = parent_normalized_ref + '/' + matched_def.short_name
+                    base_ref = parent_normalized_ref
                 elif parent_def is not None:
                     # Sub-container: parent was valid, just replace last segment
-                    parts = container.definition_ref.rsplit('/', 1)
-                    new_ref = parts[0] + '/' + matched_def.short_name
+                    base_ref = container.definition_ref.rsplit('/', 1)[0]
                 else:
                     # Top-level container
-                    prefix = _extract_prefix(container.definition_ref)
-                    new_ref = prefix + '/' + matched_def.short_name
+                    base_ref = _extract_prefix(container.definition_ref)
+                if choice_segment:
+                    new_ref = f"{base_ref}/{choice_segment}/{matched_def.short_name}"
+                else:
+                    new_ref = f"{base_ref}/{matched_def.short_name}"
+
+                if heuristic_used:
+                    logger.warning(
+                        "Heuristic DEFINITION-REF remap for container '%s': %s -> %s",
+                        container.short_name, container.definition_ref, new_ref)
+                else:
+                    logger.debug(
+                        "Exact DEFINITION-REF remap for container '%s': %s -> %s",
+                        container.short_name, container.definition_ref, new_ref)
                 container.definition_ref = new_ref
 
                 # Also fix parameter definition_refs

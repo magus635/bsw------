@@ -233,6 +233,11 @@ class DaVinciMainWindow(QMainWindow):
         self.import_eb_project_action.setStatusTip("Batch import an EB Tresos project (auto-discover defines + EPC configs)")
         self.import_eb_project_action.triggered.connect(self.project_controller.import_eb_project)
 
+        self.export_epc_action = QAction("Export EPC Files...", self)
+        self.export_epc_action.setStatusTip("Export module configurations as EB Tresos-compatible .epc files")
+        self.export_epc_action.setEnabled(False)
+        self.export_epc_action.triggered.connect(self.project_controller.export_epc_files)
+
         # File actions
         # Open DEF removed - use Add Module within a project instead
         # self.open_def_action removed
@@ -343,6 +348,7 @@ class DaVinciMainWindow(QMainWindow):
         file_menu.addAction(self.add_module_action)
         file_menu.addAction(self.load_recommended_action)
         file_menu.addAction(self.import_eb_project_action)
+        file_menu.addAction(self.export_epc_action)
         # Open DEF removed - use Add Module
         file_menu.addSeparator()
         # Recent Files submenu
@@ -634,7 +640,8 @@ class DaVinciMainWindow(QMainWindow):
             self.import_config_action.setEnabled(True)
             self.show_dep_graph_action.setEnabled(True)
             self.load_recommended_action.setEnabled(True)
-            
+            self.export_epc_action.setEnabled(True)
+
             self.value_file_label.setText(f"Config: {manager.configuration.short_name}")
         
         self.config_panel.clear()
@@ -660,7 +667,8 @@ class DaVinciMainWindow(QMainWindow):
             self.template_action.setEnabled(True)
             self.import_config_action.setEnabled(True)
             self.show_dep_graph_action.setEnabled(True)
-    
+            self.export_epc_action.setEnabled(True)
+
     def _on_parameter_changed(self, instance: EcucContainerValue, param_name: str, value: Any):
         """Handle parameter value change"""
         # Delegate to command handler

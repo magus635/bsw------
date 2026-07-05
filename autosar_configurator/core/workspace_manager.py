@@ -541,6 +541,40 @@ class WorkspaceManager:
     def close_project(self):
         """Close current project"""
         self.current_project = None
+
+    def export_epc(self, output_dir: Path, module_name: Optional[str] = None) -> List[Path]:
+        """Export module configuration(s) as EB Tresos-compatible .epc files.
+
+        Args:
+            output_dir: Directory to write {Module}.epc files into
+            module_name: Export only this module; None exports all modules
+
+        Returns:
+            List of written file paths (sorted by module name)
+        """
+        from .serializer.ecuc_serializer import EcucValueSerializer
+
+        if not self.current_project:
+            raise ValueError("No project loaded")
+
+        managers = self.current_project.module_managers
+        if module_name is not None:
+            if module_name not in managers:
+                raise ValueError(f"Module '{module_name}' not found in project")
+            selected = {module_name: managers[module_name]}
+        else:
+            selected = managers
+
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        serializer = EcucValueSerializer()
+        written = []
+        for name in sorted(selected):
+            epc_path = output_dir / f"{name}.epc"
+            serializer.export_epc(selected[name].configuration, epc_path)
+            written.append(epc_path)
+        return written
         
     def save_project(self):
         """Save current project to file"""
@@ -994,6 +1028,15 @@ class WorkspaceManager:
         _progress("Scanning for EPC configuration files...")
         epc_map = EpcFileScanner.find_epc_files(project_root, chip_name)
         _progress(f"Found {len(epc_map)} EPC configuration file(s)")
+
+        # Step 2.5: A single value file may bundle several module
+        # configurations — register every contained module, not just the
+        # one matching the filename stem.
+        for epc_path in sorted(set(epc_map.values())):
+            for contained in EpcFileScanner.list_module_names(epc_path):
+                if contained not in epc_map:
+                    epc_map[contained] = epc_path
+                    _progress(f"  Found bundled module '{contained}' in {epc_path.name}")
 
         # Step 3: Match defines with EPCs by module name
         all_modules = set(define_map.keys())

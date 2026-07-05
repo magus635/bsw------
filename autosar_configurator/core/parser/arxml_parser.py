@@ -350,7 +350,36 @@ class ArxmlParser:
                 })
 
         return modules
-    
+
+    def parse_all_module_configurations(self, root: etree._Element) -> List[EcucModuleConfiguration]:
+        """Parse every ECUC-MODULE-CONFIGURATION-VALUES element under *root*.
+
+        EB Tresos value files (.epc) may bundle configurations for several
+        modules in one file; callers must not assume a single module per file.
+
+        Args:
+            root: Parsed AUTOSAR document root element
+
+        Returns:
+            List of EcucModuleConfiguration (package_name populated from the
+            enclosing AR-PACKAGE when available)
+        """
+        configs = []
+        for config_elem in self._findall_descendants(root, 'ECUC-MODULE-CONFIGURATION-VALUES'):
+            config = self.parse_ecuc_configuration_values(config_elem)
+            if config is None:
+                continue
+            # Package name from the enclosing AR-PACKAGE (ELEMENTS' parent)
+            ar_package = config_elem.getparent()
+            if ar_package is not None:
+                ar_package = ar_package.getparent()
+            if ar_package is not None:
+                pkg_sn = self._get_short_name(ar_package)
+                if pkg_sn:
+                    config.package_name = pkg_sn
+            configs.append(config)
+        return configs
+
     def parse_ecuc_configuration_values(self, element: etree._Element) -> Optional[EcucModuleConfiguration]:
         """Parse ECUC-MODULE-CONFIGURATION-VALUES element
         

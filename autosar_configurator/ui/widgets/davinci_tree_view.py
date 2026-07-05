@@ -255,13 +255,14 @@ class DaVinciTreeView(QTreeWidget):
     
     def _create_instance_node(self, instance: EcucContainerValue, container_def: EcucContainerDef, config_manager: ConfigurationManager, parent_instance: Optional[EcucContainerValue] = None) -> QTreeWidgetItem:
         """Create a VALUE instance node (bold green)"""
-        display_name = f"✅ {instance.short_name}"
-        
+        unknown_params = getattr(instance, 'unknown_parameters', None) or {}
+        display_name = f"⚠️ {instance.short_name}" if unknown_params else f"✅ {instance.short_name}"
+
         item = QTreeWidgetItem([display_name])
-        
+
         # Style: bold + green checkmark
         item.setFont(0, self._get_bold_font())
-        
+
         # Build rich tooltip for instance
         tooltip_lines = [f"Container Instance: {instance.short_name}"]
         if container_def.description:
@@ -270,6 +271,11 @@ class DaVinciTreeView(QTreeWidget):
         tooltip_lines.append(f"Parameters: {len(instance.parameter_values)}/{len(container_def.parameters)}")
         if len(container_def.sub_containers) > 0:
             tooltip_lines.append(f"Sub-containers: {len(container_def.sub_containers)} types")
+        if unknown_params:
+            tooltip_lines.append(
+                "Unknown parameters (not in definition, preserved on save): "
+                + ", ".join(sorted(unknown_params.keys()))
+            )
         item.setToolTip(0, "\n".join(tooltip_lines))
         
         # Store mapping

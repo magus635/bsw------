@@ -435,6 +435,32 @@ class ProjectController:
         except Exception as e:
             QMessageBox.critical(self.win, "Error", f"Failed to add module:\n{str(e)}")
 
+    def export_epc_files(self):
+        """Export module configurations as EB Tresos-compatible .epc files"""
+        if not self.win.workspace_manager.current_project:
+            QMessageBox.warning(self.win, "Export EPC", "No project loaded.")
+            return
+
+        output_dir = QFileDialog.getExistingDirectory(
+            self.win, "Select EPC Output Directory",
+            str(Path.home()),
+            QFileDialog.ShowDirsOnly
+        )
+        if not output_dir:
+            return
+
+        try:
+            written = self.win.workspace_manager.export_epc(Path(output_dir))
+        except Exception as e:
+            logger.error("EPC export failed: %s", e, exc_info=True)
+            QMessageBox.critical(self.win, "Export EPC", f"Export failed:\n{e}")
+            return
+
+        QMessageBox.information(
+            self.win, "Export EPC",
+            f"Exported {len(written)} EPC file(s) to:\n{output_dir}"
+        )
+
     def import_eb_project(self):
         """Import an EB Tresos project by selecting its root directory"""
         from ...core.config_manager import EpcFileScanner

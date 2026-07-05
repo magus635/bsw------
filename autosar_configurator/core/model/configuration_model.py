@@ -251,6 +251,13 @@ class EcucContainerValue:
     # Multi-valued parameter values
     multi_parameter_values: Dict[str, List[EcucParameterValue]] = field(default_factory=dict)
 
+    # Index of parameters present in an imported value file but absent from
+    # the module definition.  The values THEMSELVES stay in parameter_values /
+    # multi_parameter_values (generator and serializer read from there, so
+    # nothing is ever dropped); this dict references the same objects and
+    # exists so the UI/export tooling can flag them.
+    unknown_parameters: Dict[str, object] = field(default_factory=dict)
+
     # Sub-container instances
     sub_containers: List['EcucContainerValue'] = field(default_factory=list)
     
