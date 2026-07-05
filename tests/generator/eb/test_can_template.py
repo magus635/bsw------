@@ -25,7 +25,7 @@ class TestCanTemplateLoading(unittest.TestCase):
     def setUp(self):
         """Set up paths"""
         project_root = Path(__file__).parent.parent.parent.parent
-        self.template_dir = project_root / "autosar_configurator" / "generator" / "templates" / "can"
+        self.template_dir = project_root / "tests" / "fixtures" / "templates" / "can"
         self.pbcfg_template = self.template_dir / "Can_PBcfg.c"
         self.common_macro = self.template_dir / "Can_Cfg_Common.m"
     
@@ -86,7 +86,7 @@ class TestCanTemplateRendering(unittest.TestCase):
     def setUp(self):
         """Set up renderer with mock CAN configuration"""
         project_root = Path(__file__).parent.parent.parent.parent
-        self.template_dir = project_root / "autosar_configurator" / "generator" / "templates" / "can"
+        self.template_dir = project_root / "tests" / "fixtures" / "templates" / "can"
         
         self.renderer = Renderer(strict=False, template_dir=self.template_dir)
         
@@ -189,7 +189,7 @@ class TestCanTemplateFullRender(unittest.TestCase):
     def setUp(self):
         """Set up for full template test"""
         project_root = Path(__file__).parent.parent.parent.parent
-        self.template_dir = project_root / "autosar_configurator" / "generator" / "templates" / "can"
+        self.template_dir = project_root / "tests" / "fixtures" / "templates" / "can"
         self.pbcfg_template = self.template_dir / "Can_PBcfg.c"
     
     def test_full_template_parse_only(self):

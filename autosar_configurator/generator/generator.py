@@ -28,11 +28,14 @@ logger = logging.getLogger(__name__)
 
 
 class CodeGenerator:
-    """Main code generator for AUTOSAR BSW modules"""
-    
-    # Default template directory (relative to this file)
-    DEFAULT_TEMPLATE_DIR = Path(__file__).parent / "templates"
-    
+    """Main code generator for AUTOSAR BSW modules
+
+    Templates are resolved ONLY from project_template_dir and user_template_dir.
+    There are no built-in default templates: silently generating from a
+    template that doesn't match the user's vendor/chip/define version is worse
+    than reporting the module as skipped.
+    """
+
     def __init__(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration,
                  project_template_dir: Optional[Path] = None,
                  user_template_dir: Optional[Path] = None, 
@@ -62,6 +65,10 @@ class CodeGenerator:
         self.variant_name = variant_name
         self.all_configurations = all_configurations or {}
         self.selected_chip = selected_chip
+
+        # Outcome of the last generate_all() call:
+        # 'generated' | 'skipped' (no templates) | 'failed' | None (not run yet)
+        self.last_status: Optional[str] = None
         
         # Load ECU resources from .properties files in the project (if not provided)
         if ecu_resources is not None:
@@ -78,7 +85,7 @@ class CodeGenerator:
         if project_template_dir:
             logger.debug(f"Project template directory: {project_template_dir}")
         else:
-            logger.debug(f"Project template directory not set, using builtin templates")
+            logger.debug("Project template directory not set")
         if user_template_dir:
             logger.info(f"User template directory: {user_template_dir}")
         if variant_overrides:
@@ -209,12 +216,11 @@ class CodeGenerator:
         if variant:
             self.variant_name = variant
 
-        # Prepare output directory
+        # Locate output directory (created only if there is something to generate)
         out_module_dir = output_dir / module_name
         if variant:
             out_module_dir = out_module_dir / variant
             logger.info(f"Generating for variant: {variant}")
-        out_module_dir.mkdir(parents=True, exist_ok=True)
 
         # Discover and generate files
         generated_files = []
@@ -225,15 +231,23 @@ class CodeGenerator:
         # Get all templates to process
         template_types = self._discover_template_types(module_name)
 
+        if not template_types:
+            searched = [str(d) for d in (self.project_template_dir, self.user_template_dir) if d]
+            logger.warning(
+                "No templates found for module %s — skipped (searched: %s)",
+                module_name, ", ".join(searched) if searched else "no template directories configured")
+            self.last_status = 'skipped'
+            return False
+
+        out_module_dir.mkdir(parents=True, exist_ok=True)
+
         for t_info in template_types:
             t_type = t_info['type']
             rel_dir = t_info['rel_dir']
 
-            # Deeply nested templates and root templates all preserve their directory structure.
-            # Exception: template-less fallback files (original_path is None) are emitted FLAT at
-            # the module/variant root to match EB Tresos output (e.g. EcuC_Cfg.h, EcuC_PBcfg.c),
-            # which never places a generated-from-fallback file under include/ or src/.
-            if rel_dir == '.' and t_info.get('original_path') is not None:
+            # Root-level templates are promoted into include/ and src/;
+            # nested templates preserve their directory structure.
+            if rel_dir == '.':
                 if t_type.endswith('.h'):
                     rel_dir = 'include'
                 elif t_type.endswith('.c'):
@@ -258,9 +272,11 @@ class CodeGenerator:
                 f"Generation PARTIAL for {module_name}: "
                 f"{len(generated_files)} ok, {len(failed_files)} failed: {failed_files}"
             )
+            self.last_status = 'failed'
             return False
 
         logger.info(f"Generated {len(generated_files)} files to {out_module_dir}")
+        self.last_status = 'generated'
         return True
 
     def _discover_template_types(self, module_name: str) -> List[Dict[str, Any]]:
@@ -273,7 +289,7 @@ class CodeGenerator:
         """
         template_dict = {} # Key: relative path + type
 
-        def scan_directory_recursively(base_dir: Path, is_fallback: bool = False):
+        def scan_directory_recursively(base_dir: Path):
             if not base_dir or not base_dir.exists() or not base_dir.is_dir():
                 return
                 
@@ -369,27 +385,13 @@ class CodeGenerator:
 
         if self.project_template_dir:
             scan_directory_recursively(self.project_template_dir)
-            
+
         if self.user_template_dir:
             scan_directory_recursively(self.user_template_dir)
-            
-        scan_directory_recursively(self.DEFAULT_TEMPLATE_DIR, is_fallback=True)
-        
-        # Add fallbacks for standard templates if they were not found in any directory
-        # Note: Per user request, we do NOT generate a default Lcfg.c if it's missing.
-        defaults = ["Cfg.h", "PBcfg.c"]
-        for d in defaults:
-            # Check if this type was found in ANY relative directory
-            if not any(v['type'] == d for v in template_dict.values()):
-                fallback_key = f"./{d}"
-                template_dict[fallback_key] = {
-                    'type': d,
-                    'rel_dir': '.',
-                    'template_name': f"Module_{d}", # dummy name for fallback
-                    'original_path': None,          # None triggers string fallback
-                    'source_dir': None
-                }
-                
+
+        # No built-in default templates and no string fallbacks: a module
+        # without templates generates nothing and is reported as skipped.
+
         # Return uniquely sorted list of actually discovered templates
         unique_templates = {}
         for t in sorted(template_dict.values(), key=lambda x: (x['type'], 0 if x['rel_dir'] != '.' else 1)):
@@ -409,8 +411,8 @@ class CodeGenerator:
         for t_info in template_types:
             original_path = t_info.get('original_path')
             engine = "Standard"
-            source = original_path if original_path else "Embedded Fallback"
-            
+            source = original_path
+
             if original_path:
                 try:
                     with open(original_path, 'r', encoding='utf-8') as f:
@@ -582,21 +584,11 @@ class CodeGenerator:
                     logger.error(f"CRITICAL ERROR rendering {template_name}: {e}", exc_info=True)
                     return False
         else:
-            # Fallback for standard types only
-            if template_type == "Cfg.h":
-                template_content = self._get_cfg_header_template(module_name)
-            elif template_type == "Lcfg.c":
-                template_content = self._get_lcfg_source_template(module_name)
-            elif template_type == "PBcfg.c":
-                template_content = self._get_pbcfg_source_template(module_name)
-            else:
-                logger.warning(f"No template found for {template_type} and no fallback available")
-                return False
-                
-            from .template_engine import TemplateEngine
-            engine = TemplateEngine()
-            rendered = engine.render(template_content, context)
-            
+            # No built-in fallbacks: every discovered template entry must have
+            # a real file behind it.
+            logger.error(f"No template content available for {template_type} (module {module_name})")
+            return False
+
         output_file = output_parent / f"{module_name}_{template_type}"
         try:
             with open(output_file, 'w', encoding='utf-8') as f:
@@ -872,90 +864,3 @@ class CodeGenerator:
         
         logger.info(f"Extracted {len(enums)} unique enums from definition")
         return enums
-
-    # --- Fallback Templates (used when external templates not found) ---
-    
-    def _get_cfg_header_template(self, module_name: str) -> str:
-        """Template for Cfg.h - PRE-COMPILE parameters as macros"""
-        guard = f"{module_name.upper()}_CFG_H"
-        return f"""/**
- * @file {module_name}_Cfg.h
- * @brief Pre-Compile Configuration for {module_name} module
- * @note Auto-generated - PRE-COMPILE parameters only
- */
-
-#ifndef {guard}
-#define {guard}
-
-#include "Std_Types.h"
-
-/* --- Pre-Compile Parameters --- */
-{{% for path_name_value in precompile_params %}}
-#define {{{{ module_name.upper() }}}}_{{{{ path_name_value.0.upper() }}}}_{{{{ path_name_value.1.upper() }}}}    ({{{{ path_name_value.2 }}}}) /* {{{{ path_name_value.1 }}}} */
-{{% endfor %}}
-
-/* --- Pre-Compile References --- */
-{{% for path_name_target in references %}}
-/* Reference from {{{{ path_name_target.0 }}}} to {{{{ path_name_target.2 }}}} */
-#define {{{{ module_name.upper() }}}}_{{{{ path_name_target.1.upper() }}}}_REF    {{{{ resolve_ref(path_name_target.2) }}}}
-{{% endfor %}}
-
-#endif /* {guard} */
-"""
-
-    def _get_lcfg_source_template(self, module_name: str) -> str:
-        """Template for Lcfg.c - LINK-TIME parameters as const struct"""
-        return f"""/**
- * @file {module_name}_Lcfg.c
- * @brief Link-Time Configuration for {module_name} module
- */
-
-#include "{module_name}_Cfg.h"
-#include "{module_name}_MemMap.h"
-
-#define {module_name.upper()}_START_SEC_CONFIG_DATA_UNSPECIFIED
-#include "{module_name}_MemMap.h"
-
-/* Link-Time Parameters Configuration */
-CONST({module_name}_ConfigType, {module_name.upper()}_CONST) {module_name}_Config = {{
-{{% for path_name_value in linktime_params %}}
-    ./* {{{{ path_name_value.0 }}}} */{{{{ path_name_value.1 }}}} = {{{{ path_name_value.2 }}}},
-{{% endfor %}}
-}};
-
-#define {module_name.upper()}_STOP_SEC_CONFIG_DATA_UNSPECIFIED
-#include "{module_name}_MemMap.h"
-"""
-
-    def _get_pbcfg_source_template(self, module_name: str) -> str:
-        """Template for PBcfg.c - POST-BUILD parameters"""
-        return f"""/**
- * @file {module_name}_PBcfg.c
- * @brief Post-Build Configuration for {module_name} module
- */
-
-#include "{module_name}_Cfg.h"
-#include "{module_name}_MemMap.h"
-
-#define {module_name.upper()}_START_SEC_CONFIG_DATA_POSTBUILD
-#include "{module_name}_MemMap.h"
-
-/* Post-Build Parameters Configuration */
-CONST({module_name}_ConfigType, {module_name.upper()}_CONST) {module_name}_PBConfig = {{
-{{% for path_name_value in postbuild_params %}}
-    ./* {{{{ path_name_value.0 }}}} */{{{{ path_name_value.1 }}}} = {{{{ path_name_value.2 }}}},
-{{% endfor %}}
-{{% for container in containers %}}
-    /* Container: {{{{ container.short_name }}}} */
-    {{% for param_name, param_val in container.parameter_values.items() %}}
-        /* Param: {{{{ param_name }}}} = {{{{ param_val.value|upper }}}} */
-    {{% endfor %}}
-    {{% for ref_name, ref_val in container.reference_values.items() %}}
-        /* Ref: {{{{ ref_name }}}} = &{{{{ ref_val.value_ref|resolve_ref }}}}_Config */
-    {{% endfor %}}
-{{% endfor %}}
-}};
-
-#define {module_name.upper()}_STOP_SEC_CONFIG_DATA_POSTBUILD
-#include "{module_name}_MemMap.h"
-"""

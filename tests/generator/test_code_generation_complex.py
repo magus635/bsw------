@@ -125,22 +125,36 @@ def test_complete_generation_with_references(tmp_path):
         clock_ref.definition_ref
     )
     
+    # Provide an explicit template (there are no built-in defaults)
+    template_root = tmp_path / "templates"
+    mod_dir = template_root / "Adc"
+    mod_dir.mkdir(parents=True)
+    (mod_dir / "Adc_PBcfg.c.tpl").write_text(
+        "/* Adc_PBcfg.c */\n"
+        "{% for container in containers %}"
+        "/* Container: {{ container.short_name }} */\n"
+        "{% for param_name, param_val in container.parameter_values.items() %}"
+        "/* {{ param_name }} = {{ param_val.value }} */\n"
+        "{% endfor %}"
+        "{% for ref_name, ref_val in container.reference_values.items() %}"
+        "/* Ref: {{ ref_name }} = &{{ ref_val.value_ref|resolve_ref }}_Config */\n"
+        "{% endfor %}"
+        "{% endfor %}",
+        encoding="utf-8",
+    )
+
     # Generate code
-    generator = CodeGenerator(module, manager.configuration)
-    generator.generate_all(tmp_path)
-    
-    # Verify generated C source contains expected content.
-    # With no project template provided, Adc_PBcfg.c comes from the template-less fallback,
-    # which emits FLAT at the module root (matching EB Tresos), not under src/.
-    pbcfg_source = tmp_path / "Adc" / "Adc_PBcfg.c"
+    generator = CodeGenerator(module, manager.configuration, project_template_dir=template_root)
+    assert generator.generate_all(tmp_path / "out") is True
+
+    # Root-level templates are promoted into src/
+    pbcfg_source = tmp_path / "out" / "Adc" / "src" / "Adc_PBcfg.c"
     assert pbcfg_source.exists()
-    
+
     source_content = pbcfg_source.read_text()
-    
-    # Should contain TRUE for boolean
-    assert "TRUE" in source_content or "FALSE" in source_content
-    
-    # Should contain integer value
+
+    # Should contain the boolean and integer parameter values
+    assert "True" in source_content or "TRUE" in source_content
     assert "8" in source_content
     
     # Should contain resolved reference

@@ -101,7 +101,19 @@ class GenerationController:
             )
 
             # Pass parent output directory; generator.generate_all() handles the ModuleName/ subdir
-            generator.generate_all(Path(output_dir), variant=variant_name)
+            ok = generator.generate_all(Path(output_dir), variant=variant_name)
+
+            if not ok and generator.last_status == 'skipped':
+                searched = [str(d) for d in (generator.project_template_dir, generator.user_template_dir) if d]
+                QMessageBox.warning(
+                    win,
+                    "Code Generation Skipped",
+                    "No templates found for this module — nothing was generated.\n\n"
+                    "Searched template directories:\n"
+                    + ("\n".join(searched) if searched else "(none configured)")
+                )
+                win.statusbar.showMessage("Code generation skipped (no templates)", 3000)
+                return
 
             QMessageBox.information(
                 win,
@@ -184,8 +196,13 @@ class GenerationController:
                     variant_to_use = self.variant_name if self.variant_name else "Default"
                     generated = generator.generate_all(self.out_path, force=False, variant=variant_to_use)
 
-                    status = "GEN" if generated else "SKIP"
-                    self.signals.finished.emit(self.name, status, "")
+                    if generated:
+                        status, detail = "GEN", ""
+                    elif generator.last_status == 'skipped':
+                        status, detail = "SKIP", "no templates found"
+                    else:
+                        status, detail = "FAIL", "generation failed (see log)"
+                    self.signals.finished.emit(self.name, status, detail)
                 except Exception as e:
                     import traceback
                     traceback.print_exc()
@@ -229,7 +246,7 @@ class GenerationController:
             if status == "GEN":
                 stats['generated'].append(name)
             elif status == "SKIP":
-                stats['skipped'].append(name)
+                stats['skipped'].append(f"{name} ({msg})" if msg else name)
             else:
                 stats['failed'].append((name, msg))
 
