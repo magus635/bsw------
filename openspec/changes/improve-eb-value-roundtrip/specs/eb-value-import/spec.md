@@ -17,6 +17,21 @@ Parameters present in an imported value file but absent from the module definiti
 - **WHEN** a container holds unknown parameters
 - **THEN** the configuration UI marks the container with a warning listing the unrecognized parameter names
 
+### Requirement: Standalone Value File Import
+
+The tool SHALL allow importing a single EB value file (.epc/.arxml/.xdm) into an already-loaded module, replacing that module's configuration — the import counterpart of EPC export. The user SHALL be warned that the current configuration and undo history will be replaced, and the file SHALL be rejected with a clear message when it contains no configuration for the target module. Provenance (`origin: eb-import`, source path, timestamp) SHALL be recorded.
+
+#### Scenario: Import EPC into a loaded module
+
+- **WHEN** a module with a loaded definition is selected and the user imports a matching .epc file
+- **THEN** the module's configuration is replaced by the file contents (with normalization and unknown-parameter flagging applied)
+- **AND** cross-module references are re-resolved and the tree view refreshed
+
+#### Scenario: File does not contain the module
+
+- **WHEN** the selected value file contains configurations only for other modules
+- **THEN** the import is rejected with a message listing the modules the file does contain
+
 ### Requirement: Multi-Module Value Files
 
 Value file parsing SHALL process every `ECUC-MODULE-CONFIGURATION-VALUES` element in a file. During EB project import, each configuration SHALL be matched to its module by short-name; configurations with no matching definition SHALL load as stub modules.

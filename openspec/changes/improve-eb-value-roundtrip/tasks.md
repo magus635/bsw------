@@ -29,6 +29,10 @@
 - [x] 4.3 `WorkspaceManager.export_epc()` (one/all modules) + File menu action "Export EPC Files..." in main window/project controller
 - [x] 4.4 Test: import→export→re-import semantic equality; double-export byte-identical; EB layout conventions
 
+## 4b. Standalone value file import (counterpart of EPC export)
+
+- [x] 4b.1 `File → Import Value File...`: replaces the selected module's configuration from an .epc/.arxml/.xdm file, with replace-confirmation, module-containment check (lists contained modules on mismatch), undo-stack reset, provenance recording, reference re-resolution, tree refresh, and unknown-parameter count in the summary
+
 ## 5. Regression against reference oracle
 
 - [x] 5.1 Full 25-module generation against MCAL_R440 reference: 3018 diff lines == pre-change baseline exactly (zero regression; remaining diffs are pre-existing codegen gaps outside this change). Move-semantics regression in Os MPU output caught and fixed by switching to copy semantics.

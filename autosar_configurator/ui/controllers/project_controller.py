@@ -435,6 +435,99 @@ class ProjectController:
         except Exception as e:
             QMessageBox.critical(self.win, "Error", f"Failed to add module:\n{str(e)}")
 
+    def import_value_file(self):
+        """Import an EB value file (.epc/.arxml/.xdm), replacing the current
+        module's configuration — the counterpart of Export EPC Files."""
+        from datetime import datetime
+
+        win = self.win
+        if not win.config_manager or not win.config_manager.module_def:
+            QMessageBox.warning(win, "Import Value File", "Please select a module first.")
+            return
+
+        module_name = win.config_manager.module_def.short_name
+
+        file_path, _ = QFileDialog.getOpenFileName(
+            win, f"Import Value File for {module_name}",
+            str(win.current_project.path.parent) if win.current_project and win.current_project.path else str(Path.home()),
+            "Value Files (*.epc *.arxml *.xdm);;EPC Files (*.epc);;ARXML Files (*.arxml);;All Files (*)"
+        )
+        if not file_path:
+            return
+        file_path = Path(file_path)
+
+        # Verify the file actually contains this module (standard value files;
+        # XDM configs are checked by the parser during load instead)
+        from ...core.config_manager import EpcFileScanner
+        contained = EpcFileScanner.list_module_names(file_path)
+        if contained and module_name not in contained:
+            QMessageBox.critical(
+                win, "Import Value File",
+                f"The file contains no configuration for module '{module_name}'.\n\n"
+                f"Modules found: {', '.join(contained)}"
+            )
+            return
+
+        reply = QMessageBox.question(
+            win, "Import Value File",
+            f"This will REPLACE the current configuration of '{module_name}' "
+            f"with the contents of:\n{file_path.name}\n\n"
+            "Unsaved changes to this module and the undo history will be lost. Continue?",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        try:
+            win.config_manager.load_configuration(file_path)
+        except Exception as e:
+            logger.error("Value file import failed: %s", e, exc_info=True)
+            QMessageBox.critical(win, "Import Value File", f"Import failed:\n{e}")
+            return
+
+        # The old configuration object is gone — stale undo entries would
+        # reference dangling containers.
+        win.undo_stack.clear()
+
+        # Record provenance and re-resolve cross-module references
+        if win.current_project:
+            source_epc = str(file_path)
+            eb_root = win.current_project.eb_source_root
+            if eb_root:
+                try:
+                    source_epc = str(file_path.relative_to(eb_root))
+                except ValueError:
+                    pass
+            win.current_project.module_provenance[module_name] = {
+                "origin": "eb-import",
+                "source_epc": source_epc,
+                "imported_at": datetime.now().isoformat(),
+            }
+            try:
+                win.current_project.resolve_all_references()
+                win.current_project.build_reverse_reference_index()
+            except Exception as e:
+                logger.warning("Reference resolution after value import failed: %s", e)
+            win.tree_view.set_project(win.current_project)
+
+        win.config_panel.clear()
+
+        # Surface unknown-parameter warnings from the import
+        unknown_count = 0
+        def _count_unknown(containers):
+            nonlocal unknown_count
+            for c in containers:
+                unknown_count += len(getattr(c, 'unknown_parameters', None) or {})
+                _count_unknown(c.sub_containers)
+        _count_unknown(win.config_manager.configuration.containers)
+
+        summary = f"Imported {file_path.name} into module '{module_name}'."
+        if unknown_count:
+            summary += (f"\n\n{unknown_count} parameter(s) are not in the loaded definition; "
+                        "they are preserved and marked with ⚠️ in the tree.")
+        QMessageBox.information(win, "Import Value File", summary)
+        win.statusbar.showMessage(f"Imported value file for {module_name}", 3000)
+
     def export_epc_files(self):
         """Export module configurations as EB Tresos-compatible .epc files"""
         if not self.win.workspace_manager.current_project:

@@ -233,6 +233,11 @@ class DaVinciMainWindow(QMainWindow):
         self.import_eb_project_action.setStatusTip("Batch import an EB Tresos project (auto-discover defines + EPC configs)")
         self.import_eb_project_action.triggered.connect(self.project_controller.import_eb_project)
 
+        self.import_value_action = QAction("Import Value File...", self)
+        self.import_value_action.setStatusTip("Replace the current module's configuration with an EB value file (.epc/.arxml/.xdm)")
+        self.import_value_action.setEnabled(False)
+        self.import_value_action.triggered.connect(self.project_controller.import_value_file)
+
         self.export_epc_action = QAction("Export EPC Files...", self)
         self.export_epc_action.setStatusTip("Export module configurations as EB Tresos-compatible .epc files")
         self.export_epc_action.setEnabled(False)
@@ -348,6 +353,7 @@ class DaVinciMainWindow(QMainWindow):
         file_menu.addAction(self.add_module_action)
         file_menu.addAction(self.load_recommended_action)
         file_menu.addAction(self.import_eb_project_action)
+        file_menu.addAction(self.import_value_action)
         file_menu.addAction(self.export_epc_action)
         # Open DEF removed - use Add Module
         file_menu.addSeparator()
@@ -640,6 +646,7 @@ class DaVinciMainWindow(QMainWindow):
             self.import_config_action.setEnabled(True)
             self.show_dep_graph_action.setEnabled(True)
             self.load_recommended_action.setEnabled(True)
+            self.import_value_action.setEnabled(True)
             self.export_epc_action.setEnabled(True)
 
             self.value_file_label.setText(f"Config: {manager.configuration.short_name}")
@@ -667,6 +674,7 @@ class DaVinciMainWindow(QMainWindow):
             self.template_action.setEnabled(True)
             self.import_config_action.setEnabled(True)
             self.show_dep_graph_action.setEnabled(True)
+            self.import_value_action.setEnabled(True)
             self.export_epc_action.setEnabled(True)
 
     def _on_parameter_changed(self, instance: EcucContainerValue, param_name: str, value: Any):
