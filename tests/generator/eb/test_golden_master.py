@@ -159,7 +159,6 @@ class TestGoldenMaster(unittest.TestCase):
         result = self.renderer.render(template, "Can").strip()
         
         # Assertions
-        with open("debug_can_cfg.h", "w") as f: f.write(result)
         # node:value() of a boolean returns the canonical XPath 'true'/'false'
         # (EB Tresos behaviour). Templates map to STD_ON/TRUE themselves.
         self.assertIn("#define CAN_DEV_ERROR_DETECT   true", result)

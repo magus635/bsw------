@@ -172,4 +172,4 @@ QT_QPA_PLATFORM=offscreen python -m pytest tests/ui -q
 - `QUICKSTART.md` 是第一次使用入口。
 - `HOW_TO_RUN.md` 是命令入口。
 - `DEBUG_GUIDE.md` 是排障入口。
-- 日期型审查报告和方案文档保留历史语境，不作为当前代码事实来源。
+- 过期的日期型审查报告、方案草案和一次性调试产物不再保留在仓库中。
