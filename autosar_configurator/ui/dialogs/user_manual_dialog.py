@@ -157,7 +157,7 @@ USER_MANUAL_MD = """
 使用 AI 功能前需配置 Google Gemini API Key：
 1. 获取 API Key: https://makersuite.google.com/app/apikey
 2. 设置环境变量: `export GEMINI_API_KEY="your-api-key"`
-3. 或在设置中配置: `Settings -> AI Configuration`
+3. 或打开 `View -> AI Assistant`，点击面板右上角 `Settings`
 
 ### 7.2 功能说明
 *   **AI 助手面板**: `Ctrl+Shift+A` 打开/关闭

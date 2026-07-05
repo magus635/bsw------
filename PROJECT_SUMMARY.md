@@ -1,402 +1,175 @@
-# AUTOSAR BSW配置工具 - 项目实施总结
+# 项目当前概览
 
-## 项目概述
-基于Python和PySide6开发的AUTOSAR BSW图形化配置工具，类似于Vector DaVinci Configurator Pro的功能。
+本文描述当前代码形态，替代早期 “MainWindow + TreeView + ConfigPanel” 阶段总结。
 
-## 已完成的阶段
+## 目标
 
-### ✅ 阶段1: 项目结构搭建与核心框架
+本项目是 AUTOSAR Classic BSW/MCAL 图形配置工具，重点能力包括：
 
-#### 1.1 目录结构
+- 导入 EB Tresos 工程。
+- 解析 AUTOSAR ARXML、EB XDM/EPC 配置。
+- 编辑模块定义和值实例。
+- 校验参数、引用和跨模块依赖。
+- 使用 EB Tresos 风格模板生成 C 配置代码。
+- 管理芯片硬件资源、模板、导入向导和 AI 辅助。
+
+## 当前入口
+
+```bash
+python davinci_main.py
 ```
+
+主窗口类：
+
+```text
+autosar_configurator/ui/davinci_main_window.py
+```
+
+旧入口 `main.py` 不存在，不再维护。
+
+## 主要架构
+
+```text
 autosar_configurator/
 ├── core/
-│   ├── model/          # 数据模型
-│   │   ├── observers.py    # 观察者模式
-│   │   ├── base.py         # ArxmlElement基类
-│   │   └── container.py    # Container和Parameter类
-│   ├── parser/         # ARXML解析器
-│   │   └── arxml_parser.py
-│   └── serializer/     # ARXML序列化器
-│       └── arxml_serializer.py
-├── ui/                 # 图形界面
-│   ├── main_window.py      # 主窗口
-│   └── widgets/
-│       ├── tree_view.py    # 导航树
-│       └── config_panel.py # 配置面板
-└── ...
-tests/                  # 测试代码
-├── core/
-│   ├── test_observers.py
-│   ├── test_base.py
-│   ├── test_container.py
-│   └── test_parser_serializer.py
+│   ├── model/          # 基础模型、ECUC 定义和值模型
+│   ├── parser/         # ARXML、ECUC 定义、XDM 配置解析
+│   ├── serializer/     # ARXML/ECUC 序列化
+│   ├── rules/          # 结构、引用、依赖和自定义验证规则
+│   ├── analysis/       # 影响分析
+│   ├── importers/      # CSV、Excel、DBC 导入器
+│   ├── hardware/       # 芯片资源、properties、XDM 提取、映射规则
+│   ├── ai/             # Gemini、RAG、提示词、依赖分析
+│   ├── config_manager.py
+│   └── workspace_manager.py
+├── generator/
+│   ├── generator.py
+│   ├── template_engine.py
+│   ├── eb_template_engine.py
+│   └── eb/
+├── ui/
+│   ├── davinci_main_window.py
+│   ├── controllers/
+│   ├── widgets/
+│   ├── wizards/
+│   └── dialogs/
+├── data/
+│   ├── chips/
+│   └── mapping_rules/
+└── utils/
 ```
 
-#### 1.2 核心数据模型
+## UI 分层
 
-**观察者模式 (observers.py)**
-- `Observer`: 观察者抽象基类
-- `Subject`: 被观察对象基类
-- 支持attach/detach/notify机制
+`DaVinciMainWindow` 负责窗口组装和共享状态。具体行为拆分到控制器：
 
-**基础类 (base.py)**
-- `ArxmlElement`: AUTOSAR元素基类
-  - UUID自动生成
-  - 层次结构管理（parent/child）
-  - 脏标记跟踪（dirty tracking）
-  - 线程安全（RLock）
-  - 路径生成
-  - 观察者集成
+- `ProjectController`：新建、打开、保存、EB 导入、模块添加、最近文件。
+- `EditController`：参数修改、容器创建/删除/移动/重命名、复制粘贴、Undo/Redo。
+- `ValidationController`：验证和自定义规则加载。
+- `GenerationController`：模板发现、异步生成和生成状态汇总。
+- `NavigationController`：搜索、跳转和引用导航。
+- `DependencyGraphController`：依赖图和 AI 辅助依赖分析。
+- `AiAssistantController`：AI 面板、异步问答和参数建议。
+- `WizardController`：快速配置、批量创建、硬件映射、模板和导入向导。
 
-**容器和参数 (container.py)**
-- `Parameter`: 参数类
-  - 类型支持：STRING, INTEGER, FLOAT, BOOLEAN, ENUM
-  - 约束验证：min/max值、枚举值
-  - 单位支持
-  - 完整验证逻辑
+## 模板和代码生成
 
-- `Container`: 容器类
-  - 嵌套子容器管理
-  - 参数管理
-  - 引用管理
-  - 多重性约束
-  - 线程安全的增删操作
+生成器当前原则：
 
-#### 1.3 测试结果
-- **58个核心测试**: 100%通过
-- **代码覆盖率**: 97%
-- **重要修复**: RLock死锁问题（从Lock改为RLock）
+- 只从项目模板目录和用户模板目录查找模板。
+- 没有模板时跳过该模块，不使用内置默认模板。
+- 支持 EB Tresos 语法和标准模板两种渲染路径。
+- 支持 variant、跨模块上下文、ECU resource 和 `.properties` 资源查询。
 
-### ✅ 阶段2: ARXML解析与序列化
+关键文件：
 
-#### 2.1 解析器 (ArxmlParser)
-**功能特性**:
-- 支持从文件和字符串解析
-- 兼容AUTOSAR命名空间
-- 自动识别AUTOSAR根结构
-- 递归解析嵌套容器
-- 完整参数属性解析（类型、约束、枚举、单位）
-- 模块定义提取
-
-**代码示例**:
-```python
-parser = ArxmlParser()
-container = parser.parse_file(Path("config.arxml"))
-# 或
-container = parser.parse_string(xml_string)
+```text
+autosar_configurator/generator/generator.py
+autosar_configurator/generator/eb_template_engine.py
+autosar_configurator/generator/eb/
 ```
 
-#### 2.2 序列化器 (ArxmlSerializer)
-**功能特性**:
-- 生成标准AUTOSAR 4.4.0格式XML
-- 可选命名空间和格式化
-- 支持完整容器层次结构
-- Multiplicity序列化
-- References序列化
-- Schema验证支持（可选）
+测试 fixture：
 
-**代码示例**:
-```python
-serializer = ArxmlSerializer(use_namespaces=True, pretty_print=True)
-serializer.serialize_to_file(container, Path("output.arxml"))
+```text
+tests/fixtures/templates/
 ```
 
-#### 2.3 测试结果
-- **19个解析/序列化测试**: 100%通过
-- **往返测试**: 完整通过（parse → serialize → parse）
-- **代码覆盖率**:
-  - 解析器: 67%
-  - 序列化器: 86%
-  - 整体: 82%
+## 项目与持久化
 
-### ✅ 阶段3: GUI基础框架
+项目保存为 `.dpa` 文件。`WorkspaceManager` 负责项目创建、保存、加载、EB 工程导入、芯片选择、模块管理和路径重映射。
 
-#### 3.1 主窗口 (MainWindow)
-**核心功能**:
-- 完整的菜单系统（File, Edit, View, Help）
-- 工具栏快捷操作
-- 状态栏消息显示
-- 文件操作：
-  - 新建配置
-  - 打开ARXML文件
-  - 保存/另存为
-  - 修改状态跟踪
-- 设置持久化（窗口大小、分割器位置）
-- 未保存更改提示
+关键文件：
 
-**信号系统**:
-```python
-file_opened = Signal(Path)
-file_saved = Signal(Path)
-container_changed = Signal(Container)
+```text
+autosar_configurator/core/workspace_manager.py
+autosar_configurator/core/config_manager.py
 ```
 
-#### 3.2 模块导航树 (ModuleTreeView)
-**核心功能**:
-- 层次化显示配置结构
-- Container和Parameter图标区分
-- 选择事件通知
-- 右键菜单：
-  - 添加Container
-  - 添加Parameter
-  - 删除元素
-  - 展开/折叠全部
-- 观察者模式集成（自动刷新）
-- 双向映射（Item ↔ Element）
+## 硬件资源
 
-**信号系统**:
-```python
-container_selected = Signal(Container)
-parameter_selected = Signal(Parameter)
+硬件资源支持：
+
+- THA 系列 YAML 示例芯片。
+- EB `.properties` 解析。
+- XDM 芯片资源提取。
+- 通用资源映射和 legacy mapper 兼容层。
+- UI 硬件映射向导。
+
+关键目录：
+
+```text
+autosar_configurator/core/hardware/
+autosar_configurator/data/chips/
+autosar_configurator/data/mapping_rules/
 ```
 
-#### 3.3 配置面板 (ConfigPanel)
-**核心功能**:
-- Container属性编辑：
-  - Short Name
-  - Description
-  - Path显示
+## 导入能力
 
-- Parameter属性编辑：
-  - Short Name
-  - Type（下拉选择）
-  - Value
-  - Min/Max值
-  - Unit
-  - Description
-  - 验证按钮
+当前导入路径：
 
-**特性**:
-- 实时编辑（即时保存）
-- 输入验证
-- 路径显示
-- 验证结果显示
+- EB Tresos 工程导入：`File -> Import EB Tresos Project...`
+- 单模块值文件导入：`File -> Import Value File...`
+- 配置数据导入向导：`Wizards -> Import Configuration...`
+- CSV、Excel、DBC 导入器：`autosar_configurator/core/importers/`
 
-**信号系统**:
-```python
-parameter_changed = Signal(Parameter)
-container_changed = Signal(Container)
-```
+## AI 能力
 
-#### 3.4 应用程序入口 (main.py)
-```python
-#!/usr/bin/env python3
-python3 main.py  # 启动应用
-```
+AI 功能使用 Gemini：
 
-## 技术架构
+- AI Assistant 面板问答。
+- 参数配置建议。
+- 跨模块依赖分析。
+- 文档知识库读取，支持文本、Markdown、PDF 和图片。
 
-### 设计模式
-1. **观察者模式**: 数据模型变更自动通知UI
-2. **MVC模式**: 模型-视图-控制器分离
-3. **单例模式**: QSettings持久化配置
+API Key 配置方式：
 
-### 线程安全
-- RLock可重入锁
-- 线程安全的容器操作
-- 观察者通知机制
-
-### 数据流
-```
-用户操作 → ConfigPanel → 数据模型更新 → 观察者通知 → TreeView自动刷新
-        ↓
-    MainWindow标记修改状态
-```
-
-## 测试覆盖
-
-### 单元测试统计
-| 模块 | 测试数 | 覆盖率 | 状态 |
-|------|--------|--------|------|
-| 观察者模式 | 7 | 94% | ✅ |
-| 基础类 | 16 | 96% | ✅ |
-| 容器和参数 | 35 | 97% | ✅ |
-| 解析器 | 8 | 67% | ✅ |
-| 序列化器 | 9 | 86% | ✅ |
-| 往返测试 | 2 | - | ✅ |
-| **总计** | **77** | **82%** | **✅** |
-
-### 功能测试清单
-- [x] 创建新配置
-- [x] 打开ARXML文件
-- [x] 保存配置
-- [x] 另存为新文件
-- [x] 树形导航
-- [x] 添加Container
-- [x] 添加Parameter
-- [x] 删除元素
-- [x] 编辑属性
-- [x] 参数验证
-- [x] 修改状态跟踪
-- [x] 未保存提示
-
-## 运行指南
-
-### 环境要求
 ```bash
-Python >= 3.8
-PySide6 >= 6.5.0
-lxml >= 4.9.0
-pytest >= 7.4.0
+export GEMINI_API_KEY="your-api-key"
 ```
 
-### 安装依赖
+或在应用中打开 `View -> AI Assistant`，点击面板 `Settings`。
+
+## 推荐验证
+
 ```bash
-pip install -r requirements.txt
+python -m pytest tests/core/test_observers.py -q
+python -m pytest tests/generator -q
+openspec validate --all --strict
 ```
 
-### 运行应用
+UI 测试建议：
+
 ```bash
-python3 main.py
+QT_QPA_PLATFORM=offscreen python -m pytest tests/ui -q
 ```
 
-### 运行测试
-```bash
-# 运行所有测试
-pytest tests/
+默认回归不要依赖外部网络或用户本机 EB 工程路径。需要真实 EB 工程的验证应显式配置路径并单独运行。
 
-# 运行特定模块测试
-pytest tests/core/test_container.py -v
+## 文档维护规则
 
-# 生成覆盖率报告
-pytest tests/ --cov=autosar_configurator --cov-report=html
-```
-
-## 核心功能演示
-
-### 1. 创建配置示例
-```python
-from autosar_configurator.core.model.container import Container, Parameter
-
-# 创建根容器
-root = Container(short_name="BswConfig")
-
-# 添加模块
-can = Container(short_name="Can")
-root.add_sub_container(can)
-
-# 添加参数
-baudrate = Parameter(
-    short_name="Baudrate",
-    value=500,
-    value_type="INTEGER",
-    min_value=125,
-    max_value=1000,
-    unit="kbps"
-)
-can.add_parameter(baudrate)
-```
-
-### 2. 解析和序列化
-```python
-from autosar_configurator.core.parser.arxml_parser import ArxmlParser
-from autosar_configurator.core.serializer.arxml_serializer import ArxmlSerializer
-
-# 解析
-parser = ArxmlParser()
-container = parser.parse_file(Path("input.arxml"))
-
-# 修改
-param = container.get_parameter("Baudrate")
-param.value = 1000
-
-# 保存
-serializer = ArxmlSerializer()
-serializer.serialize_to_file(container, Path("output.arxml"))
-```
-
-### 3. GUI操作
-1. 启动应用: `python3 main.py`
-2. 新建配置: File → New
-3. 在树中添加Container: 右键 → Add Container
-4. 添加Parameter: 右键 → Add Parameter
-5. 在右侧面板编辑属性
-6. 保存: File → Save
-
-## 已解决的技术问题
-
-### 1. RLock死锁问题
-**问题**: 使用普通Lock导致嵌套锁定时死锁
-**解决**: 改用RLock（可重入锁）
-
-```python
-# 修复前
-_lock: Lock = field(default_factory=Lock)
-
-# 修复后
-_lock: RLock = field(default_factory=RLock)
-```
-
-### 2. 解析器AUTOSAR根结构识别
-**问题**: 序列化器生成的AUTOSAR根结构无法被解析器识别
-**解决**: 解析器自动检测并导航到Container元素
-
-```python
-if 'AUTOSAR' in root.tag:
-    elements = root.find('.//ELEMENTS')
-    if elements is not None:
-        container_elem = elements.find('CONTAINER')
-        return self._parse_container(container_elem)
-```
-
-### 3. 观察者模式与UI更新
-**问题**: 数据模型更新后UI不同步
-**解决**: TreeView实现Observer接口，自动响应模型变更
-
-## 项目特色
-
-### 1. 完整的测试覆盖
-- 77个自动化测试
-- 82%代码覆盖率
-- 包含往返测试验证数据完整性
-
-### 2. 线程安全设计
-- RLock保护共享数据
-- 并发测试验证
-
-### 3. 观察者模式应用
-- 模型-视图自动同步
-- 松耦合设计
-
-### 4. 用户友好的UI
-- 直观的树形导航
-- 实时编辑反馈
-- 完整的菜单和快捷键
-
-### 5. AUTOSAR标准兼容
-- 支持AUTOSAR 4.4.0格式
-- 完整的命名空间支持
-- 符合标准的XML结构
-
-## 后续扩展方向
-
-### 短期优化
-1. 增加undo/redo功能
-2. 搜索和过滤功能
-3. 批量编辑支持
-4. 更多的参数类型支持
-
-### 中期功能
-1. 代码生成引擎
-2. 依赖关系分析
-3. 配置验证规则引擎
-4. 多文件项目支持
-
-### 长期愿景
-1. 插件系统
-2. 自定义模板
-3. 版本控制集成
-4. 协作编辑功能
-
-## 总结
-
-本项目成功实现了一个功能完整的AUTOSAR BSW配置工具基础框架，具有以下特点：
-
-- ✅ **健壮的数据模型**: 97%测试覆盖率
-- ✅ **完整的ARXML支持**: 解析和序列化功能齐全
-- ✅ **现代化的GUI**: 基于PySide6的响应式界面
-- ✅ **良好的代码质量**: 设计模式应用、线程安全
-- ✅ **可扩展架构**: 为未来功能预留接口
-
-项目已具备实际使用条件，可以进行AUTOSAR配置的创建、编辑和管理。
+- `README.md` 是项目事实入口。
+- `QUICKSTART.md` 是第一次使用入口。
+- `HOW_TO_RUN.md` 是命令入口。
+- `DEBUG_GUIDE.md` 是排障入口。
+- 日期型审查报告和方案文档保留历史语境，不作为当前代码事实来源。

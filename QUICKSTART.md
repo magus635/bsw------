@@ -1,211 +1,103 @@
-# 快速开始指南
+# 快速开始
 
-## 最简单的启动方式
+本文只覆盖当前有效工作流。旧文档中出现的 `main.py`、`verify.py`、桌面路径均已废弃。
 
-### 方式1: 使用启动脚本 (macOS/Linux)
+## 1. 准备环境
 
 ```bash
-cd <项目目录>
+cd /Users/qlwang/Documents/GitHub/bsw------
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
+
+如果本机已经有可用的 `venv/`，也可以改用：
+
+```bash
+source venv/bin/activate
+```
+
+## 2. 启动应用
+
+```bash
+python davinci_main.py
+```
+
+或使用脚本：
+
+```bash
 ./start.sh
 ```
 
-启动脚本会自动：
-- 检查 Python 版本
-- 检查并安装缺失的依赖
-- 启动应用程序
-
-### 方式2: 手动启动
+## 3. 验证安装
 
 ```bash
-# 1. 进入项目目录
-cd <项目目录>
-
-# 2. 安装依赖 (首次运行)
-pip3 install -r requirements.txt
-
-# 3. 运行应用 (推荐 DaVinci 风格界面)
-python3 davinci_main.py
-
-# 或使用旧版界面
-python3 main.py
+python -m pytest tests/core/test_observers.py -q
+python -m pytest tests/generator -q
+openspec validate --all --strict
 ```
 
----
+## 4. 创建或导入项目
 
-## 第一次使用
+### 新建项目
 
-### 步骤1: 验证安装
+1. 菜单 `File -> New Project...`
+2. 输入项目名。
+3. 选择 `Vector DaVinci` 或 `EB Tresos` 项目类型。
+4. 选择项目目录。
+5. 保存后会生成 `.dpa` 项目文件。
 
-运行测试确保一切正常：
+### 导入 EB Tresos 工程
+
+1. 菜单 `File -> Import EB Tresos Project...`
+2. 选择 EB 工程目录。
+3. 如果检测到多个芯片变体，选择目标芯片。
+4. 选择导入后的项目保存目录。
+5. 工具会扫描定义、配置值、模板和硬件资源。
+
+## 5. 基础配置流程
+
+1. 在项目树中选择模块或容器定义。
+2. 右键容器定义，选择 `Add Instance`。
+3. 在右侧配置面板编辑参数和引用。
+4. 使用 `Edit -> Validate Configuration` 或 `Ctrl+Shift+V` 验证。
+5. 使用 `File -> Save Project` 或 `Ctrl+Shift+S` 保存。
+6. 使用 `Generate -> Generate Code` 或 `Ctrl+G` 生成代码。
+
+## 6. 常用功能入口
+
+| 功能 | 菜单/入口 | 快捷键 |
+|------|-----------|--------|
+| 新建项目 | `File -> New Project...` | `Ctrl+Shift+N` |
+| 打开项目 | `File -> Open Project...` | `Ctrl+Shift+O` |
+| 保存项目 | `File -> Save Project` | `Ctrl+Shift+S` |
+| 导入 EB 工程 | `File -> Import EB Tresos Project...` | - |
+| 导入值文件 | `File -> Import Value File...` | - |
+| 导出 EPC | `File -> Export EPC Files...` | - |
+| 验证配置 | `Edit -> Validate Configuration` | `Ctrl+Shift+V` |
+| 搜索 | `View -> Search...` | `Ctrl+F` |
+| 依赖图 | `View -> Dependency Graph` | `Ctrl+D` |
+| AI 助手 | `View -> AI Assistant` | `Ctrl+Shift+A` |
+| 快速配置 | `Wizards -> Quick Configuration...` | `Ctrl+Q` |
+| 批量创建 | `Wizards -> Batch Create...` | `Ctrl+Shift+B` |
+| 硬件映射 | `Wizards -> Hardware Mapping...` | `Ctrl+Shift+H` |
+| 应用模板 | `Wizards -> Apply Template...` | `Ctrl+T` |
+| 配置导入向导 | `Wizards -> Import Configuration...` | `Ctrl+I` |
+| 使用手册 | `Help -> 使用手册` | `F1` |
+
+## 7. AI 功能
+
+设置环境变量：
 
 ```bash
-python3 -m pytest tests/core/test_observers.py -v
+export GEMINI_API_KEY="your-api-key"
+python davinci_main.py
 ```
 
-如果看到类似这样的输出，说明安装正确：
-```
-===== 7 passed in 0.01s =====
-```
+或启动应用后打开 `View -> AI Assistant`，点击面板右上角 `Settings` 配置 API Key。
 
-### 步骤2: 启动应用
+## 8. 模板与生成
 
-```bash
-python3 davinci_main.py
-```
+生成器只使用项目模板目录或用户模板目录中的模板。没有模板时模块会被标记为 skipped，不会使用内置默认模板生成代码。
 
-你应该会看到 DaVinci Configurator 主窗口打开！
-
-### 步骤3: 创建第一个配置
-
-1. **打开定义文件**
-   - 点击菜单 `File` → `Open Definition (.epd)`
-   - 选择一个 `.epd` 或 `.arxml` 定义文件
-   - 左侧树视图会显示模块定义结构
-
-2. **添加配置实例**
-   - 在树视图中找到需要配置的容器定义（灰色斜体）
-   - 右键点击 → `Add Instance`
-   - 新实例会出现在定义下方（加粗显示）
-
-3. **编辑参数**
-   - 点击刚创建的实例容器
-   - 右侧面板会显示所有可配置参数
-   - 修改参数值，系统会实时验证
-
-4. **验证配置**
-   - 点击工具栏 `Validate` 按钮或按 `Ctrl+Shift+V`
-   - 查看验证结果，修复任何错误
-
-5. **保存配置**
-   - 点击菜单 `File` → `Save Value File` 或按 `Ctrl+S`
-   - 选择保存位置，输入文件名如 `my_config.arxml`
-
-6. **生成代码** (可选)
-   - 点击菜单 `Generate` → `Generate All` 或按 `Ctrl+G`
-   - 代码将生成到配置的输出目录
-
-恭喜！你已经完成了第一个 AUTOSAR 配置！
-
----
-
-## 快捷键速查
-
-| 操作 | Windows/Linux | macOS |
-|------|---------------|-------|
-| 新建项目 | Ctrl+Shift+N | Cmd+Shift+N |
-| 打开项目 | Ctrl+Shift+O | Cmd+Shift+O |
-| 保存项目 | Ctrl+Shift+S | Cmd+Shift+S |
-| 新建配置 | Ctrl+N | Cmd+N |
-| 打开定义 | Ctrl+O | Cmd+O |
-| 保存配置 | Ctrl+S | Cmd+S |
-| 撤销 | Ctrl+Z | Cmd+Z |
-| 重做 | Ctrl+Y | Cmd+Shift+Z |
-| 验证 | Ctrl+Shift+V | Cmd+Shift+V |
-| 代码生成 | Ctrl+G | Cmd+G |
-| 搜索 | Ctrl+F | Cmd+F |
-| AI 助手 | Ctrl+Shift+A | Cmd+Shift+A |
-| 使用手册 | F1 | F1 |
-
----
-
-## 界面布局说明
-
-```
-+----------------------------------------------------------+
-| File  Edit  Project  Generate  View  Help                |
-+----------------------------------------------------------+
-| [New] [Open] [Save] | [Validate] [Generate] | [Search]   |
-+------------------+---------------------------------------+
-|                  |                                       |
-|  Module Tree     |  Configuration Panel                  |
-|  +-----------+   |  +-------------------------------+    |
-|  | Adc [Def] |   |  | Container: AdcGeneral        |    |
-|  |  +-Config |   |  | +---------------------------+ |    |
-|  |  +-Channel|   |  | | AdcDevErrorDetect: true   | |    |
-|  | Can [Def] |   |  | | AdcTimeoutDuration: 1000  | |    |
-|  |  +-Ctrl   |   |  | +---------------------------+ |    |
-|  +-----------+   |  +-------------------------------+    |
-|                  |                                       |
-|                  +---------------------------------------+
-|                  |  AI Assistant (Ctrl+Shift+A)          |
-|                  |  +-------------------------------+    |
-|                  |  | Ask me anything about config  |    |
-|                  |  +-------------------------------+    |
-+------------------+---------------------------------------+
-| Status: Ready | Errors: 0 | Warnings: 0                  |
-+----------------------------------------------------------+
-```
-
-### 区域说明
-
-| 区域 | 功能 |
-|------|------|
-| **菜单栏** | 文件、编辑、项目、生成、视图、帮助 |
-| **工具栏** | 常用操作的快捷按钮 |
-| **模块树** | 显示模块定义和配置实例的层次结构 |
-| **配置面板** | 编辑选中容器的参数 |
-| **AI 助手** | 自然语言查询和智能推荐 (可折叠) |
-| **状态栏** | 显示当前状态和错误/警告计数 |
-
----
-
-## AI 助手配置 (可选)
-
-使用 AI 功能前需配置 Google Gemini API Key：
-
-```bash
-# 设置环境变量
-export GEMINI_API_KEY="your-api-key-here"
-
-# 然后启动应用
-python3 davinci_main.py
-```
-
-获取 API Key: https://makersuite.google.com/app/apikey
-
----
-
-## 故障排除
-
-### 问题: 应用启动失败
-
-**检查 Python 版本**:
-```bash
-python3 --version
-# 需要 3.10 或更高版本
-```
-
-**检查依赖**:
-```bash
-pip3 list | grep -E "PySide6|lxml"
-```
-
-**重新安装依赖**:
-```bash
-pip3 install -r requirements.txt
-```
-
-### 问题: 窗口不显示
-
-- **macOS**: 确保有图形界面访问权限
-- **Linux**: 确保 X11 配置正确
-- **远程连接**: 需要 X11 转发或本地显示
-
-### 问题: 模块导入错误
-
-```bash
-# 从项目根目录运行
-cd <项目目录>
-python3 davinci_main.py
-```
-
----
-
-## 下一步
-
-- 按 `F1` 查看完整使用手册
-- 阅读 `README.md` 了解更多功能
-- 查看 `doc/` 目录下的技术文档
-- 运行测试: `pytest tests/ -v`
-
-祝使用愉快！
+测试模板位于 `tests/fixtures/templates/`，仅用于自动化测试。

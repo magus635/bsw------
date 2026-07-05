@@ -10,8 +10,11 @@ echo ""
 if [ -d ".venv" ]; then
     echo "发现虚拟环境 (.venv)，正在激活..."
     source .venv/bin/activate
+elif [ -d "venv" ]; then
+    echo "发现虚拟环境 (venv)，正在激活..."
+    source venv/bin/activate
 else
-    echo "未找到虚拟环境 (.venv)。尝试使用系统 Python..."
+    echo "未找到虚拟环境。尝试使用系统 Python..."
     echo "注意：如果遇到依赖问题，建议先创建虚拟环境: python3 -m venv .venv"
 fi
 
@@ -20,7 +23,7 @@ echo "检查Python版本..."
 python3 --version
 
 if [ $? -ne 0 ]; then
-    echo "错误: 未找到Python3，请先安装Python 3.8或更高版本"
+    echo "错误: 未找到Python3，请先安装Python 3.10或更高版本"
     exit 1
 fi
 
@@ -33,45 +36,39 @@ if [ ! -f "davinci_main.py" ]; then
 fi
 
 echo "检查依赖..."
+python3 - <<'PY'
+import importlib.util
+import sys
 
-# 检查PySide6
-python3 -c "import PySide6" 2>/dev/null
+required = {
+    "PySide6": "PySide6",
+    "lxml": "lxml",
+    "jinja2": "Jinja2",
+    "yaml": "PyYAML",
+}
+optional = {
+    "markdown": "markdown",
+    "google.generativeai": "google-generativeai",
+    "keyring": "keyring",
+    "pypdf": "pypdf",
+    "PIL": "Pillow",
+}
+missing = [package for module, package in required.items() if importlib.util.find_spec(module) is None]
+missing_optional = [package for module, package in optional.items() if importlib.util.find_spec(module) is None]
+if missing_optional:
+    print("可选依赖缺失: " + ", ".join(missing_optional))
+    print("如需 AI、keychain、PDF/图片知识库功能，请运行: python -m pip install -r requirements.txt")
+if missing:
+    print("缺少依赖: " + ", ".join(missing))
+    sys.exit(1)
+PY
 if [ $? -ne 0 ]; then
-    echo "PySide6未安装，尝试安装..."
-    pip install PySide6
+    echo "尝试安装 requirements.txt..."
+    python3 -m pip install -r requirements.txt
     if [ $? -ne 0 ]; then
-        echo "⚠️ 安装失败。如果您在受管环境(如Homebrew)下，请确保已激活虚拟环境。"
-        echo "您可能需要手动运行: source .venv/bin/activate && pip install -r requirements.txt"
+        echo "安装失败。请先激活虚拟环境后运行: python -m pip install -r requirements.txt"
         exit 1
     fi
-fi
-
-# 检查lxml
-python3 -c "import lxml" 2>/dev/null
-if [ $? -ne 0 ]; then
-    echo "lxml未安装，尝试安装..."
-    pip install lxml
-fi
-
-# 检查google-generativeai (AI功能需要)
-python3 -c "import google.generativeai" 2>/dev/null
-if [ $? -ne 0 ]; then
-    echo "AI功能依赖未安装，尝试安装 google-generativeai..."
-    pip install google-generativeai
-fi
-
-# 检查pypdf (PDF支持需要)
-python3 -c "import pypdf" 2>/dev/null
-if [ $? -ne 0 ]; then
-    echo "PDF支持依赖未安装，尝试安装 pypdf..."
-    pip install pypdf
-fi
-
-# 检查Pillow (OCR/图像处理需要)
-python3 -c "import PIL" 2>/dev/null
-if [ $? -ne 0 ]; then
-    echo "图像处理依赖未安装，尝试安装 Pillow..."
-    pip install Pillow
 fi
 
 echo ""
