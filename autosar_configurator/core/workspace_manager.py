@@ -3,6 +3,7 @@ Workspace Manager
 Manages the overall project workspace, including multiple BSW module configurations.
 """
 import json
+import os
 import shutil
 from typing import Any, Dict, List, Optional
 from pathlib import Path
@@ -49,6 +50,15 @@ class WorkspaceProject:
 
         # EB project import: original source root (kept read-only, separate from save location)
         self.eb_source_root: Optional[Path] = None
+
+        # EB import mode: 'copy' (self-contained, plugins copied into Def/plugins/)
+        # or 'link' (Def/plugins and templates/{Module} are symlinks into the
+        # original EB tree at eb_source_root)
+        self.import_mode: str = "copy"
+
+        # Per-module provenance: name -> {"origin": "native"|"eb-import",
+        # "source_epc": str|None (relative to eb_source_root), "imported_at": str|None}
+        self.module_provenance: Dict[str, Dict[str, Any]] = {}
 
         # ECU resources from .properties files (for ecu:get/ecu:list during UI and generation)
         self.ecu_resources: Dict[str, Any] = {}
@@ -582,9 +592,20 @@ class WorkspaceManager:
             return
         
         from datetime import datetime
-        
+
+        # Store eb_source_root relative to the project root when it lies
+        # inside it (portability); keep absolute otherwise (link mode with an
+        # external EB tree).
+        eb_source_root_str = None
+        if self.current_project.eb_source_root:
+            eb_root = Path(self.current_project.eb_source_root)
+            try:
+                eb_source_root_str = str(eb_root.relative_to(self.current_project.path.parent))
+            except ValueError:
+                eb_source_root_str = str(eb_root)
+
         data = {
-            "format_version": 6,  # Bumped version: removed has_base, use Default variant
+            "format_version": 7,  # v7: import_mode + per-module provenance
             "tool_version": "1.0.0",
             "project_type": self.current_project.project_type.value,
             "name": self.current_project.name,
@@ -599,7 +620,8 @@ class WorkspaceManager:
             "dependency_rules": self.current_project.dependency_rules,
             "available_chips": self.current_project.available_chips,
             "selected_chip": self.current_project.selected_chip,
-            "eb_source_root": str(self.current_project.eb_source_root) if self.current_project.eb_source_root else None,
+            "eb_source_root": eb_source_root_str,
+            "import_mode": self.current_project.import_mode,
             "modules": []
         }
         
@@ -628,20 +650,26 @@ class WorkspaceManager:
             except (ValueError, AttributeError):
                 save_def_path = str(def_path)
             
-            # Record in project file
+            # Record in project file (with provenance, v7)
+            provenance = self.current_project.module_provenance.get(name, {})
             data["modules"].append({
                 "name": name,
                 "def_path": save_def_path,
                 "config_path": relative_config_path,
-                "variant_overrides": manager.configuration.variant_overrides
+                "variant_overrides": manager.configuration.variant_overrides,
+                "origin": provenance.get("origin", "native"),
+                "source_epc": provenance.get("source_epc"),
+                "imported_at": provenance.get("imported_at"),
             })
-            
+
         # Write project file
         with open(self.current_project.path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2)
 
-        # Copy EB templates (generate_PB) to project save directory
-        if self.current_project.eb_source_root:
+        # Copy EB templates (generate_PB) to project save directory.
+        # Link mode never copies: templates/{Module} are symlinks into the
+        # original EB tree, created at import time.
+        if self.current_project.eb_source_root and self.current_project.import_mode == "copy":
             self._copy_eb_templates(project_dir)
 
     def _copy_eb_templates(self, project_dir: Path):
@@ -683,7 +711,13 @@ class WorkspaceManager:
                 )
 
     def _resolve_path(self, path_str: str, project_dir: Path) -> Path:
-        """Robustly resolve paths that might be relative or absolute from another platform"""
+        """Robustly resolve paths that might be relative or absolute from another platform.
+
+        The Windows-anchor guessing below is a LEGACY fallback only: projects
+        saved with format v7 store all paths relative to the project root (and
+        eb_source_root relative when inside it), so this code only triggers for
+        old project files carrying absolute paths from another machine.
+        """
         import re
         
         # 1. Normalize separators
@@ -729,9 +763,9 @@ class WorkspaceManager:
         with open(project_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         
-        # Check format version (Current version is 6, removed has_base)
+        # Check format version (Current version is 7: import_mode + provenance)
         format_version = data.get("format_version", 0)
-        if format_version > 6:
+        if format_version > 7:
             raise ValueError(
                 f"Unsupported project format version {format_version}. "
                 f"Please upgrade the tool."
@@ -786,10 +820,39 @@ class WorkspaceManager:
         project.available_chips = data.get("available_chips", [])
         project.selected_chip = data.get("selected_chip", None)
 
-        # Load EB source root (for imported EB projects)
+        # Load EB source root (for imported EB projects).
+        # Saved relative to the project root when inside it (v7); older
+        # projects may have absolute paths.
         eb_root = data.get("eb_source_root")
         if eb_root:
-            project.eb_source_root = Path(eb_root)
+            eb_root_path = Path(eb_root)
+            if not eb_root_path.is_absolute():
+                eb_root_path = project_path.parent / eb_root_path
+            project.eb_source_root = eb_root_path
+
+        # Load import mode (v7); older projects were always self-contained copies
+        project.import_mode = data.get("import_mode", "copy")
+
+        # Link mode: the project depends on the original EB tree — fail early
+        # with a clear message instead of per-module load errors.
+        if project.import_mode == "link" and project.eb_source_root \
+                and not project.eb_source_root.exists():
+            tresos_path = os.environ.get("TRESOS_PLUGINS_PATH", "")
+            if not (tresos_path and Path(tresos_path).exists()):
+                raise ValueError(
+                    f"EB source tree not found: {project.eb_source_root}\n"
+                    f"This project was imported in link mode and references the "
+                    f"original EB Tresos tree. Restore it at that path, or set "
+                    f"TRESOS_PLUGINS_PATH to the plugins directory."
+                )
+            # Repair the Def/plugins symlink to point at TRESOS_PLUGINS_PATH
+            plugins_link = project_path.parent / "Def" / "plugins"
+            if plugins_link.is_symlink() and not plugins_link.exists():
+                plugins_link.unlink()
+                os.symlink(Path(tresos_path), plugins_link, target_is_directory=True)
+                import logging
+                logging.getLogger(__name__).warning(
+                    "Relinked Def/plugins to TRESOS_PLUGINS_PATH: %s", tresos_path)
         
         # If no available chips in file, try to discover them
         if not project.available_chips:
@@ -804,6 +867,13 @@ class WorkspaceManager:
             name = module_data["name"]
             def_path_str = module_data["def_path"]
             config_path_str = module_data["config_path"]
+
+            # Provenance (v7; older projects default to native)
+            project.module_provenance[name] = {
+                "origin": module_data.get("origin", "native"),
+                "source_epc": module_data.get("source_epc"),
+                "imported_at": module_data.get("imported_at"),
+            }
             
             # Resolve paths robustly (handles cross-platform absolute paths)
             def_path = self._resolve_path(def_path_str, project_dir)
@@ -891,12 +961,18 @@ class WorkspaceManager:
 
     def import_eb_project(self, project_root: Path, chip_name: Optional[str] = None,
                           target_dir: Optional[Path] = None,
-                          progress_callback=None) -> tuple:
+                          progress_callback=None,
+                          mode: str = "copy") -> tuple:
         """Batch import an EB Tresos project: auto-discover defines + EPC configs
 
-        When *target_dir* is supplied the entire plugin directory tree
-        (including ``resource/*.properties``) is copied there first, so that
-        the resulting project is fully self-contained.
+        Import modes:
+        - "copy" (default): the plugin directory tree (including
+          ``resource/*.properties``) and ``generate_PB`` templates are copied
+          into the project, making it fully self-contained.
+        - "link": nothing is copied — ``Def/plugins`` and ``templates/{Module}``
+          are created as symlinks into the original EB tree, so definitions,
+          resources and templates always reflect the source. The project then
+          depends on the EB tree remaining available.
 
         Args:
             project_root: Root directory of the source EB project
@@ -904,13 +980,18 @@ class WorkspaceManager:
             target_dir: Optional target directory for the new project.
                         If None, the project is created inside *project_root*.
             progress_callback: Optional callable(message: str) for progress updates
+            mode: "copy" (self-contained) or "link" (reference original tree)
 
         Returns:
             tuple: (project, loaded_modules, failed_modules)
             loaded_modules: List of successfully loaded module names
             failed_modules: List of tuples (module_name, error_message)
         """
+        from datetime import datetime
         from .config_manager import EpcFileScanner, ProjectType
+
+        if mode not in ("copy", "link"):
+            raise ValueError(f"Unknown import mode: {mode!r} (expected 'copy' or 'link')")
 
         def _progress(msg):
             if progress_callback:
@@ -922,6 +1003,7 @@ class WorkspaceManager:
         project_name = project_dir.name
         project = WorkspaceProject(project_name, project_dir / f"{project_name}.dpa")
         project.project_type = ProjectType.EB_TRESOS
+        project.import_mode = mode
 
         loaded_modules = []
         failed_modules = []
@@ -985,44 +1067,75 @@ class WorkspaceManager:
         _progress(f"Found {len(define_map)} module definition(s)")
 
         # ------------------------------------------------------------------
-        # Step 1.5: Copy plugin directories to project_dir/Def/plugins/
-        # This makes the project self-contained (defines + resource/ +
-        # generate_PB/ + autosar/ all live under the project tree).
+        # Step 1.5: Materialize plugins under project_dir/Def/plugins/
+        #   copy mode: copy each plugin directory (self-contained project)
+        #   link mode: one symlink Def/plugins -> source plugins dir; all
+        #              downstream code (def loading, resource scan, template
+        #              lookup) works unchanged through the link
         # ------------------------------------------------------------------
         plugins_target = project_dir / "Def" / "plugins"
-        plugins_target.mkdir(parents=True, exist_ok=True)
-        copied_plugins: set[str] = set()
 
-        _progress("Copying plugin directories...")
+        # Common source root of all plugins (define_map paths sit at
+        # {plugins_root}/{PluginName}/(config|autosar)/File)
+        plugin_roots = {p.parent.parent.parent for p in define_map.values()}
+        plugins_source = plugin_roots.pop() if len(plugin_roots) == 1 else None
 
-        for module_name, def_path in list(define_map.items()):
-            # def_path is typically .../PluginName/config/Module.xdm
-            # or .../PluginName/autosar/Module.arxml
-            plugin_dir = def_path.parent.parent
-            plugin_name = plugin_dir.name
-            target_plugin = plugins_target / plugin_name
+        if not define_map:
+            pass  # EPC-only import (stub modules): nothing to copy or link
+        elif mode == "link":
+            _progress("Linking plugin directory...")
+            if plugins_source is None:
+                raise ValueError(
+                    "Link-mode import requires all plugins under one directory; "
+                    f"found several roots for {sorted(define_map)}"
+                )
+            if plugins_target.resolve() != plugins_source.resolve():
+                plugins_target.parent.mkdir(parents=True, exist_ok=True)
+                if plugins_target.is_symlink() or plugins_target.exists():
+                    raise ValueError(
+                        f"Cannot link plugins: {plugins_target} already exists. "
+                        f"Remove it or import in copy mode."
+                    )
+                os.symlink(plugins_source, plugins_target, target_is_directory=True)
+                _progress(f"  Def/plugins -> {plugins_source}")
+        else:
+            plugins_target.mkdir(parents=True, exist_ok=True)
+            copied_plugins: set[str] = set()
 
-            # Copy entire plugin directory (config/, resource/, autosar/,
-            # generate_PB/, etc.) if not already done and source != target
-            if plugin_name not in copied_plugins and plugin_dir.is_dir():
-                if plugin_dir.resolve() != target_plugin.resolve():
-                    try:
-                        shutil.copytree(plugin_dir, target_plugin, dirs_exist_ok=True)
-                        _progress(f"  Copied {plugin_name}")
-                    except Exception as e:
-                        _progress(f"  Warning: Failed to copy {plugin_name}: {e}")
-                copied_plugins.add(plugin_name)
+            _progress("Copying plugin directories...")
 
-            # Remap define_map entry to the new location
-            try:
-                relative = def_path.relative_to(plugin_dir)
-                new_path = target_plugin / relative
-                if new_path.exists():
-                    define_map[module_name] = new_path
-            except ValueError:
-                pass  # keep original path if remapping fails
+            for module_name, def_path in list(define_map.items()):
+                # def_path is typically .../PluginName/config/Module.xdm
+                # or .../PluginName/autosar/Module.arxml
+                plugin_dir = def_path.parent.parent
+                plugin_name = plugin_dir.name
+                target_plugin = plugins_target / plugin_name
 
-        _progress(f"Copied {len(copied_plugins)} plugin directory(ies) to Def/plugins/")
+                # Copy entire plugin directory (config/, resource/, autosar/,
+                # generate_PB/, etc.) if not already done and source != target
+                if plugin_name not in copied_plugins and plugin_dir.is_dir():
+                    if plugin_dir.resolve() != target_plugin.resolve():
+                        try:
+                            shutil.copytree(plugin_dir, target_plugin, dirs_exist_ok=True)
+                            _progress(f"  Copied {plugin_name}")
+                        except Exception as e:
+                            _progress(f"  Warning: Failed to copy {plugin_name}: {e}")
+                    copied_plugins.add(plugin_name)
+
+            _progress(f"Copied {len(copied_plugins)} plugin directory(ies) to Def/plugins/")
+
+        # Remap define_map entries into Def/plugins/ (works for both modes:
+        # real copies or paths through the symlink)
+        if plugins_source is not None or mode == "copy":
+            for module_name, def_path in list(define_map.items()):
+                plugin_dir = def_path.parent.parent
+                try:
+                    relative = def_path.relative_to(plugin_dir)
+                    new_path = plugins_target / plugin_dir.name / relative
+                    if new_path.exists():
+                        define_map[module_name] = new_path
+                except ValueError:
+                    pass  # keep original path if remapping fails
 
         # Step 2: Scan for EPC configuration files
         _progress("Scanning for EPC configuration files...")
@@ -1097,6 +1210,19 @@ class WorkspaceManager:
                 if actual_epc:
                     manager.load_configuration(actual_epc, skip_cleanup=not bool(def_path))
 
+                # Record provenance (source_epc relative to the EB source root)
+                source_epc_str = None
+                if actual_epc:
+                    try:
+                        source_epc_str = str(Path(actual_epc).relative_to(project_root))
+                    except ValueError:
+                        source_epc_str = str(actual_epc)
+                project.module_provenance[actual_name] = {
+                    "origin": "eb-import",
+                    "source_epc": source_epc_str,
+                    "imported_at": datetime.now().isoformat(),
+                }
+
                 loaded_modules.append(actual_name)
             except Exception as e:
                 error_str = str(e)
@@ -1120,6 +1246,20 @@ class WorkspaceManager:
                 logging.getLogger(__name__).warning(
                     f"Reference resolution failed during EB import: {e}", exc_info=True
                 )
+        # Link mode: templates/{Module} -> plugin generate_PB symlinks
+        # (copy mode copies them at save time via _copy_eb_templates)
+        if mode == "link":
+            templates_dir = project_dir / "templates"
+            templates_dir.mkdir(parents=True, exist_ok=True)
+            linked = 0
+            for name, def_path in project.module_defs.items():
+                generate_pb = def_path.parent.parent / "generate_PB"
+                link_path = templates_dir / name
+                if generate_pb.is_dir() and not (link_path.is_symlink() or link_path.exists()):
+                    os.symlink(generate_pb.resolve(), link_path, target_is_directory=True)
+                    linked += 1
+            _progress(f"Linked {linked} template directory(ies) into templates/")
+
         # Store chip info and EB source root
         chips = EpcFileScanner.detect_available_chips(project_root)
         project.available_chips = chips

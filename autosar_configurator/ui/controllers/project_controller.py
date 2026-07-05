@@ -491,6 +491,20 @@ class ProjectController:
         elif len(chips) == 1:
             chip_name = chips[0]
 
+        # Import mode: copy (self-contained) vs link (reference original tree)
+        mode_labels = [
+            "Copy (self-contained — plugins copied into the project, larger but portable)",
+            "Link (reference original EB tree — no copy, project depends on the source staying in place)",
+        ]
+        mode_choice, ok = QInputDialog.getItem(
+            self.win, "Import Mode",
+            "How should the EB plugin tree be brought into the project?",
+            mode_labels, 0, False
+        )
+        if not ok:
+            return
+        import_mode = "link" if mode_choice == mode_labels[1] else "copy"
+
         # Select target directory for the imported project
         target_dir_str = QFileDialog.getExistingDirectory(
             self.win,
@@ -519,7 +533,8 @@ class ProjectController:
                     progress_callback=lambda msg: (
                         self.win.statusbar.showMessage(msg),
                         QApplication.processEvents()
-                    )
+                    ),
+                    mode=import_mode
                 )
 
             self.win.current_project = project
@@ -558,7 +573,8 @@ class ProjectController:
             summary = (
                 f"EB Tresos project imported.\n\n"
                 f"Source: {project_root}\n"
-                f"Target: {target_dir}\n\n"
+                f"Target: {target_dir}\n"
+                f"Mode: {import_mode}\n\n"
                 f"Loaded: {len(loaded_modules)} module(s)\n"
                 f"Failed: {len(failed_modules)} module(s)"
             )
