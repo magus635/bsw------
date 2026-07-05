@@ -18,7 +18,7 @@ Use `@/openspec/AGENTS.md` to learn:
 - Spec format and conventions
 - Project structure and guidelines
 
-Keep this managed block unchanged so that the `openspec update` command can automatically refresh these instructions when the central OpenSpec changes.
+Keep this managed block so 'openspec update' can refresh the instructions.
 
 <!-- OPENSPEC:END -->
 
