@@ -530,9 +530,22 @@ class ProjectController:
 
     def export_epc_files(self):
         """Export module configurations as EB Tresos-compatible .epc files"""
-        if not self.win.workspace_manager.current_project:
+        project = self.win.workspace_manager.current_project
+        if not project:
             QMessageBox.warning(self.win, "Export EPC", "No project loaded.")
             return
+
+        # Scope selection: all modules or a single one
+        ALL = "All Modules"
+        choices = [ALL] + sorted(project.module_managers)
+        choice, ok = QInputDialog.getItem(
+            self.win, "Export EPC",
+            "Which module(s) to export?",
+            choices, 0, False
+        )
+        if not ok:
+            return
+        module_name = None if choice == ALL else choice
 
         output_dir = QFileDialog.getExistingDirectory(
             self.win, "Select EPC Output Directory",
@@ -543,15 +556,16 @@ class ProjectController:
             return
 
         try:
-            written = self.win.workspace_manager.export_epc(Path(output_dir))
+            written = self.win.workspace_manager.export_epc(Path(output_dir), module_name=module_name)
         except Exception as e:
             logger.error("EPC export failed: %s", e, exc_info=True)
             QMessageBox.critical(self.win, "Export EPC", f"Export failed:\n{e}")
             return
 
+        names = ", ".join(p.name for p in written[:10]) + (" …" if len(written) > 10 else "")
         QMessageBox.information(
             self.win, "Export EPC",
-            f"Exported {len(written)} EPC file(s) to:\n{output_dir}"
+            f"Exported {len(written)} EPC file(s) to:\n{output_dir}\n\n{names}"
         )
 
     def import_eb_project(self):
