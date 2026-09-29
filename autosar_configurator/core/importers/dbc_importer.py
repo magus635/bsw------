@@ -17,6 +17,7 @@ class DbcMessage:
     name: str
     dlc: int
     transmitter: str = ""
+    is_extended: bool = False
     signals: List['DbcSignal'] = None
 
     def __post_init__(self):
@@ -73,11 +74,17 @@ class DbcParser:
                     if current_message:
                         messages.append(current_message)
 
+                    raw_id = int(msg_match.group(1))
+                    # DBC encodes 29-bit extended frame IDs with bit 31 set
+                    is_extended = bool(raw_id & 0x80000000)
+                    can_id = raw_id & 0x1FFFFFFF if is_extended else raw_id
+
                     current_message = DbcMessage(
-                        id=int(msg_match.group(1)),
+                        id=can_id,
                         name=msg_match.group(2),
                         dlc=int(msg_match.group(3)),
-                        transmitter=msg_match.group(4) or ""
+                        transmitter=msg_match.group(4) or "",
+                        is_extended=is_extended
                     )
                     continue
 
@@ -148,7 +155,8 @@ class DbcImporter(BaseImporter):
             "MessageName",
             "DLC",
             "Transmitter",
-            "SignalCount"
+            "SignalCount",
+            "IdType"
         ]
 
     def get_signal_columns(self) -> List[str]:
@@ -173,12 +181,14 @@ class DbcImporter(BaseImporter):
 
         records = []
         for msg in messages[:limit]:
+            id_str = f"0x{msg.id:08X}" if msg.is_extended else f"0x{msg.id:03X}"
             records.append({
-                "MessageId": f"0x{msg.id:03X}",
+                "MessageId": id_str,
                 "MessageName": msg.name,
                 "DLC": msg.dlc,
                 "Transmitter": msg.transmitter,
-                "SignalCount": len(msg.signals)
+                "SignalCount": len(msg.signals),
+                "IdType": "EXTENDED" if msg.is_extended else "STANDARD"
             })
 
         return records
@@ -229,12 +239,14 @@ class DbcImporter(BaseImporter):
                     mapped_record = {}
 
                     # Map message-level fields
+                    id_hex = f"0x{msg.id:08X}" if msg.is_extended else f"0x{msg.id:03X}"
                     field_values = {
                         "MessageId": msg.id,
-                        "MessageIdHex": f"0x{msg.id:03X}",
+                        "MessageIdHex": id_hex,
                         "MessageName": msg.name,
                         "DLC": msg.dlc,
                         "Transmitter": msg.transmitter,
+                        "IdType": "EXTENDED" if msg.is_extended else "STANDARD",
                     }
 
                     for src_field, target_param in column_mapping.items():
