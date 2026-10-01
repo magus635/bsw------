@@ -874,20 +874,51 @@ class ConfigurationManager:
                 # warnings and export tooling.
                 for param_name, param_val in container.parameter_values.items():
                     if param_name not in container_def.parameters:
-                        container.unknown_parameters[param_name] = param_val
-                        preserved += 1
-                        logger.warning(
-                            "'%s' in '%s' is not in DEF '%s' — flagged in unknown_parameters (kept)",
-                            param_name, container.short_name, container_def.short_name)
+                        # Check if this parameter matches a reference definition (vendor pattern
+                        # where a reference is serialized as a textual parameter, e.g. RegionSelect
+                        # storing MemoryBlockRef target).
+                        is_vendor_ref = (
+                            param_name in container_def.references or
+                            (param_name == container_def.short_name and len(container_def.references) == 1)
+                        )
+                        if is_vendor_ref:
+                            ref_def_name = (
+                                param_name if param_name in container_def.references
+                                else list(container_def.references.keys())[0]
+                            )
+                            logger.debug(
+                                "'%s' in '%s' matches vendor reference '%s' in DEF '%s'",
+                                param_name, container.short_name, ref_def_name, container_def.short_name
+                            )
+                            if ref_def_name not in container.reference_values:
+                                ref_target = getattr(param_val, 'value', str(param_val))
+                                ref_def = container_def.references.get(ref_def_name)
+                                ref_definition_ref = (
+                                    ref_def.definition_ref if ref_def and ref_def.definition_ref
+                                    else f"{container.definition_ref}/{ref_def_name}"
+                                )
+                                container.set_reference_value(ref_def_name, ref_target, ref_definition_ref)
+                        else:
+                            container.unknown_parameters[param_name] = param_val
+                            preserved += 1
+                            logger.warning(
+                                "'%s' in '%s' is not in DEF '%s' — flagged in unknown_parameters (kept)",
+                                param_name, container.short_name, container_def.short_name)
 
                 # Same preservation guarantee for multi-valued parameters.
                 for param_name, param_list in container.multi_parameter_values.items():
                     if param_name not in container_def.parameters:
-                        container.unknown_parameters[param_name] = param_list
-                        preserved += 1
-                        logger.warning(
-                            "multi-param '%s' in '%s' is not in DEF '%s' — flagged in unknown_parameters (kept)",
-                            param_name, container.short_name, container_def.short_name)
+                        if param_name in container_def.references:
+                            logger.debug(
+                                "multi-param '%s' in '%s' matches multi-reference in DEF '%s'",
+                                param_name, container.short_name, container_def.short_name
+                            )
+                        else:
+                            container.unknown_parameters[param_name] = param_list
+                            preserved += 1
+                            logger.warning(
+                                "multi-param '%s' in '%s' is not in DEF '%s' — flagged in unknown_parameters (kept)",
+                                param_name, container.short_name, container_def.short_name)
 
             # Recursively process sub-containers
             for sub in container.sub_containers:

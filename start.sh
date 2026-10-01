@@ -6,16 +6,27 @@ echo "AUTOSAR BSW配置工具启动脚本"
 echo "========================================="
 echo ""
 
-# 0. 尝试激活虚拟环境
-if [ -d ".venv" ]; then
-    echo "发现虚拟环境 (.venv)，正在激活..."
-    source .venv/bin/activate
-elif [ -d "venv" ]; then
-    echo "发现虚拟环境 (venv)，正在激活..."
-    source venv/bin/activate
-else
-    echo "未找到虚拟环境。尝试使用系统 Python..."
-    echo "注意：如果遇到依赖问题，建议先创建虚拟环境: python3 -m venv .venv"
+activate_if_valid() {
+    local venv_path="$1"
+    if [ -d "$venv_path" ]; then
+        if [ -x "$venv_path/bin/python3" ] && "$venv_path/bin/python3" --version >/dev/null 2>&1; then
+            echo "发现有效虚拟环境 ($venv_path)，正在激活..."
+            source "$venv_path/bin/activate"
+            return 0
+        else
+            echo "警告: 检测到虚拟环境 ($venv_path) 但二进制无法执行（可能架构不兼容，如 x86_64 vs arm64）。正在跳过..."
+            return 1
+        fi
+    fi
+    return 1
+}
+
+# 0. 尝试激活有效虚拟环境
+if ! activate_if_valid ".venv"; then
+    if ! activate_if_valid "venv"; then
+        echo "未找到有效虚拟环境，使用当前系统 Python: $(which python3)"
+        echo "提示: 如需新建干净的本机虚拟环境，可执行: rm -rf venv .venv && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt"
+    fi
 fi
 
 # 检查Python版本

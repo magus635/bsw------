@@ -43,6 +43,7 @@ class BuiltinFunctions:
         # Variant name (will be set by renderer)
         self._variant_name = ""
         self.renderer = None
+        self.unimplemented_calls = set()
 
         # Proactively create EcuC stub module for cross-module references.
         # Os templates use count(/AUTOSAR/.../EcuC/.../EcucCoreDefinition/*) and
@@ -213,6 +214,7 @@ class BuiltinFunctions:
         """Call a function by name with arguments"""
         func = self._functions.get(name)
         if func is None:
+            self.unimplemented_calls.add(name)
             raise NameError(f"Unknown function: {name}")
         try:
             return func(*args)

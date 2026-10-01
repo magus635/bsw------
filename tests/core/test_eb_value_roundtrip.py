@@ -349,3 +349,68 @@ class TestEpcExport:
 
         with pytest.raises(ValueError):
             wm.export_epc(out, module_name="NotThere")
+
+    def test_vendor_textual_reference_normalization(self, tmp_path, caplog):
+        """Vendor textual parameter matching container reference shouldn't warn and maps to ref."""
+        from autosar_configurator.core.model.definition_model import EcucReferenceDef
+        import logging
+
+        # Module with container 'RegionSelect' containing reference 'MemoryBlockRef'
+        ref_def = EcucReferenceDef(
+            short_name="MemoryBlockRef",
+            destination_ref="/AUTOSAR/EcucDefs/MemMap/MemoryBlock",
+        )
+        container_def = EcucContainerDef(short_name="RegionSelect")
+        container_def.references["MemoryBlockRef"] = ref_def
+
+        module_def = EcucModuleDef(
+            short_name="MemMap",
+            definition_ref="/AUTOSAR/EcucDefs/MemMap",
+        )
+        module_def.containers["RegionSelect"] = container_def
+
+        config_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>MemMap_Config</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-CONFIGURATION-VALUES>
+          <SHORT-NAME>MemMap</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-MODULE-DEF">/AUTOSAR/EcucDefs/MemMap</DEFINITION-REF>
+          <CONTAINERS>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>RegionSelect</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR/EcucDefs/MemMap/RegionSelect</DEFINITION-REF>
+              <PARAMETER-VALUES>
+                <ECUC-TEXTUAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">/AUTOSAR/EcucDefs/MemMap/RegionSelect/RegionSelect</DEFINITION-REF>
+                  <VALUE>EX_CODE</VALUE>
+                </ECUC-TEXTUAL-PARAM-VALUE>
+              </PARAMETER-VALUES>
+            </ECUC-CONTAINER-VALUE>
+          </CONTAINERS>
+        </ECUC-MODULE-CONFIGURATION-VALUES>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>
+"""
+        config_path = tmp_path / "MemMap_Config.arxml"
+        config_path.write_text(config_xml, encoding="utf-8")
+
+        with caplog.at_level(logging.WARNING):
+            manager = ConfigurationManager(module_def)
+            manager.load_configuration(config_path)
+
+        # 1. No false-positive warning should be logged for RegionSelect
+        warnings = [r.message for r in caplog.records if r.levelno >= logging.WARNING and "RegionSelect" in r.message]
+        assert len(warnings) == 0, f"Expected 0 warnings, got: {warnings}"
+
+        # 2. Reference value should be set
+        container = manager.configuration.containers[0]
+        assert container.reference_values.get("MemoryBlockRef") is not None
+        assert container.reference_values.get("MemoryBlockRef").value_ref == "EX_CODE"
+        # 3. Parameter value is preserved for round-trip serialization
+        assert "RegionSelect" in container.parameter_values
+

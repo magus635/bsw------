@@ -19,6 +19,7 @@ from pathlib import Path
 from ..core.model.configuration_model import EcucModuleConfiguration, EcucContainerValue
 from ..core.model.definition_model import EcucModuleDef, EcucContainerDef, EcucParameterDef, EcucParameterType, ConfigClass
 from .eb_template_engine import EBTemplateEngine
+from .eb.errors import TemplateExecutionError
 from ..core.hardware.tresos_properties_parser import TresosPropertiesParser
 
 # Setup logger
@@ -572,6 +573,19 @@ class CodeGenerator:
                 context['all_modules'] = self.all_configurations
                 try:
                     rendered = eb_engine.render(template_content, context, ecu_resources=self.ecu_resources, template_file=original_path)
+                    if hasattr(eb_engine.renderer, '_builtins') and eb_engine.renderer._builtins:
+                        if eb_engine.renderer._builtins.unimplemented_calls:
+                            funcs = ", ".join(sorted(eb_engine.renderer._builtins.unimplemented_calls))
+                            logger.warning(
+                                f"Template {template_name} referenced unimplemented function(s): {funcs}. "
+                                "Fallbacks were used; please verify generated code."
+                            )
+                except TemplateExecutionError as e:
+                    logger.error(
+                        f"Template Error in {e.template_file or template_name}:{e.line}:{e.column}: {e.message}\n"
+                        f"  Directive: {e.source_snippet}"
+                    )
+                    return False
                 except Exception as e:
                     logger.error(f"CRITICAL ERROR rendering {template_name}: {e}", exc_info=True)
                     return False

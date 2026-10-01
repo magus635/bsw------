@@ -89,3 +89,35 @@ class XPathError(EBTemplateError):
         self.xpath = xpath
         self.reason = reason
         super().__init__(f"XPath error in '{xpath}': {reason}")
+
+
+class TemplateExecutionError(EBTemplateError):
+    """Raised when template runtime execution fails, containing precise source location."""
+    def __init__(
+        self,
+        message: str,
+        line: int = 0,
+        column: int = 0,
+        template_file: str = "",
+        source_snippet: str = "",
+        cause: object = None,
+    ):
+        self.message = message
+        self.line = line
+        self.column = column
+        self.template_file = template_file
+        self.source_snippet = source_snippet
+        self.cause = cause
+
+        loc_parts = []
+        if template_file:
+            loc_parts.append(f"in '{template_file}'")
+        if line > 0:
+            loc_parts.append(f"line {line}:{column}" if column > 0 else f"line {line}")
+        loc = " ".join(loc_parts)
+
+        formatted = f"Template execution error {loc}: {message}" if loc else f"Template execution error: {message}"
+        if source_snippet:
+            formatted += f"\n  --> {source_snippet}"
+        super().__init__(formatted)
+

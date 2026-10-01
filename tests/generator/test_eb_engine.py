@@ -85,6 +85,31 @@ class TestEBTemplateEngine(unittest.TestCase):
         # Test num:i
         self.assertEqual(self.engine.render(r'[!num:i(node)!]', ctx), '123')
 
+    def test_template_execution_error_location(self):
+        """Template errors should capture precise file, line, and snippet."""
+        from autosar_configurator.generator.eb.errors import TemplateExecutionError
+
+        template = (
+            "Line 1 text\n"
+            "Line 2 text\n"
+            "[!ERROR \"Intentional failure at line 3\"!]\n"
+            "Line 4 text"
+        )
+        with self.assertRaises(TemplateExecutionError) as cm:
+            self.engine.render(template, self.context, template_file="MyModule_Cfg.h.tpl")
+
+        err = cm.exception
+        self.assertEqual(err.line, 3)
+        self.assertEqual(err.template_file, "MyModule_Cfg.h.tpl")
+        self.assertIn("Intentional failure at line 3", str(err))
+
+    def test_unimplemented_function_tracking(self):
+        """Unimplemented function calls in non-strict mode are tracked in unimplemented_calls."""
+        template = "[!unknown:unsupportedFunction(1, 2)!]"
+        result = self.engine.render(template, self.context)
+        self.assertIn("unknown:unsupportedFunction", self.engine.renderer._builtins.unimplemented_calls)
+
 
 if __name__ == '__main__':
     unittest.main()
+

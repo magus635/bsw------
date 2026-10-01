@@ -4,7 +4,7 @@ These exercise the controller's pure dispatch logic with a stub window, with no
 QApplication required — demonstrating that AI behaviour is now testable in
 isolation from the 3500-line main window.
 """
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from autosar_configurator.ui.controllers.ai_assistant_controller import AiAssistantController
 
@@ -41,10 +41,10 @@ def test_cleanup_is_safe_without_process():
 
 def test_on_help_requested_without_api_key_shows_hint():
     win = MagicMock()
-    win.settings.value.return_value = None  # no gemini_api_key
     ctrl = AiAssistantController(win)
 
-    ctrl.on_help_requested("CanController", "CanBaudrate")
+    with patch("autosar_configurator.ui.controllers.ai_assistant_controller.get_api_key", return_value=""):
+        ctrl.on_help_requested("CanController", "CanBaudrate")
 
     win.config_panel.update_ai_help.assert_called_once()
     msg = win.config_panel.update_ai_help.call_args[0][0]

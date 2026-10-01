@@ -28,7 +28,7 @@ from .overlay_engine import OverlayEngine
 from .builtins import BuiltinFunctions
 from .xpath_engine import XPathEngine
 from .errors import (
-    EBTemplateError, TemplateParseError, 
+    EBTemplateError, TemplateParseError, TemplateExecutionError,
     UndefinedVariableError, XPathError, DanglingReferenceError
 )
 
@@ -76,6 +76,7 @@ class Renderer:
         self._variant: str = ""  # Default variant (no variant)
         self._generation_target: str = ""
         self._template_file: str = ""
+        self._current_token = None
         
         # Will be set per-render
         self._context_stack: Optional[ContextStack] = None
@@ -199,6 +200,7 @@ class Renderer:
         self._autospacing_active = False
         self._recursion_depth = 0
         self._template_file = template_file if template_file else ""
+        self._current_token = None
         
         # Add initial variables
         if initial_variables:
@@ -297,290 +299,304 @@ class Renderer:
         i = start
         while i < end:
             tok = tokens[i]
+            self._current_token = tok
             # print(f"DEBUG_TOK: Executing {tok.type} '{tok.content[:30]}...' (i={i}/{end})")
             
             # Check for BREAK flag
             if self._break_requested:
                 break
+            try:
 
-            # A VAR's own-line newline suppression (_suppress_next_newline) must NOT leak across
-            # a block-control directive. The flag is only meant to swallow the trailing newline of
-            # the VAR's own line; once we cross an IF/LOOP/SELECT/... boundary, any following blank
-            # line is intentional and must be preserved (e.g. the blank before the
-            # "/* ...mapped to Core0 */" block in Adc/Intc PBcfg.c).
-            if self._suppress_next_newline and tok.type in (
-                    TokenType.IF, TokenType.ELSEIF, TokenType.ELSE, TokenType.ENDIF,
-                    TokenType.LOOP, TokenType.ENDLOOP, TokenType.SELECT, TokenType.ENDSELECT,
-                    TokenType.FOR, TokenType.ENDFOR, TokenType.NOCODE, TokenType.ENDNOCODE,
-                    TokenType.CODE, TokenType.ENDCODE):
-                self._suppress_next_newline = False
-
-            if tok.type == TokenType.TEXT:
-                # Check for output suppression
-                if self._nocode_depth > 0 and not self._in_code_block:
-                    i += 1
-                    continue
-
-                content = tok.content
-
-                # Consume the line-ending newline of a directive-only line (e.g. VAR-only line).
-                if self._suppress_next_newline:
+                # A VAR's own-line newline suppression (_suppress_next_newline) must NOT leak across
+                # a block-control directive. The flag is only meant to swallow the trailing newline of
+                # the VAR's own line; once we cross an IF/LOOP/SELECT/... boundary, any following blank
+                # line is intentional and must be preserved (e.g. the blank before the
+                # "/* ...mapped to Core0 */" block in Adc/Intc PBcfg.c).
+                if self._suppress_next_newline and tok.type in (
+                        TokenType.IF, TokenType.ELSEIF, TokenType.ELSE, TokenType.ENDIF,
+                        TokenType.LOOP, TokenType.ENDLOOP, TokenType.SELECT, TokenType.ENDSELECT,
+                        TokenType.FOR, TokenType.ENDFOR, TokenType.NOCODE, TokenType.ENDNOCODE,
+                        TokenType.CODE, TokenType.ENDCODE):
                     self._suppress_next_newline = False
-                    if content.startswith('\r\n'):
-                        content = content[2:]
-                    elif content.startswith('\n') or content.startswith('\r'):
-                        content = content[1:]
-                    if not content:
+
+                if tok.type == TokenType.TEXT:
+                    # Check for output suppression
+                    if self._nocode_depth > 0 and not self._in_code_block:
                         i += 1
                         continue
 
-                # FIX: Special handling for text immediately following ENDINDENT
-                # If ENDINDENT was used (e.g. to close a block), and the next text is
-                # a closing brace '}' or bracket ']', or starts with whitespace (e.g. "    },"),
-                # it implies a new line indentation that was eaten by [!//.
-                # We force a newline here to restore standard C style formatting.
-                if self._just_ended_indent and not self._at_line_start:
-                    # Check for closing braces/brackets first, even if no leading whitespace
-                    if content and (content.lstrip().startswith('}') or content.lstrip().startswith(']')):
-                        _prev = self._output_buffer[-1] if self._output_buffer else ''
-                        # Only break before a closing brace when the preceding glued content was
-                        # real data — NOT when it was itself a closing brace. A template that
-                        # explicitly glues `}[!//]` followed by `};` intends `}};` (EB), so do not
-                        # insert a newline that would split it into `}\n};` (Msc glued-brace case).
-                        if (self._output_buffer and not _prev.endswith('\n')
-                                and not _prev.rstrip(' \t').endswith(('}', ']'))):
-                            self._output_buffer.append('\n')
-                            self._at_line_start = True
-                            self._indent_added_on_this_line = False
-                    # Otherwise, check for leading whitespace
-                    elif content and (content[0] == ' ' or content[0] == '\t'):
-                         if self._output_buffer and not self._output_buffer[-1].endswith('\n'):
-                            self._output_buffer.append('\n')
-                            self._at_line_start = True
-                            self._indent_added_on_this_line = False
+                    content = tok.content
+
+                    # Consume the line-ending newline of a directive-only line (e.g. VAR-only line).
+                    if self._suppress_next_newline:
+                        self._suppress_next_newline = False
+                        if content.startswith('\r\n'):
+                            content = content[2:]
+                        elif content.startswith('\n') or content.startswith('\r'):
+                            content = content[1:]
+                        if not content:
+                            i += 1
+                            continue
+
+                    # FIX: Special handling for text immediately following ENDINDENT
+                    # If ENDINDENT was used (e.g. to close a block), and the next text is
+                    # a closing brace '}' or bracket ']', or starts with whitespace (e.g. "    },"),
+                    # it implies a new line indentation that was eaten by [!//.
+                    # We force a newline here to restore standard C style formatting.
+                    if self._just_ended_indent and not self._at_line_start:
+                        # Check for closing braces/brackets first, even if no leading whitespace
+                        if content and (content.lstrip().startswith('}') or content.lstrip().startswith(']')):
+                            _prev = self._output_buffer[-1] if self._output_buffer else ''
+                            # Only break before a closing brace when the preceding glued content was
+                            # real data — NOT when it was itself a closing brace. A template that
+                            # explicitly glues `}[!//]` followed by `};` intends `}};` (EB), so do not
+                            # insert a newline that would split it into `}\n};` (Msc glued-brace case).
+                            if (self._output_buffer and not _prev.endswith('\n')
+                                    and not _prev.rstrip(' \t').endswith(('}', ']'))):
+                                self._output_buffer.append('\n')
+                                self._at_line_start = True
+                                self._indent_added_on_this_line = False
+                        # Otherwise, check for leading whitespace
+                        elif content and (content[0] == ' ' or content[0] == '\t'):
+                             if self._output_buffer and not self._output_buffer[-1].endswith('\n'):
+                                self._output_buffer.append('\n')
+                                self._at_line_start = True
+                                self._indent_added_on_this_line = False
                 
-                # Reset flag after checking
-                self._just_ended_indent = False
+                    # Reset flag after checking
+                    self._just_ended_indent = False
 
-                # AUTOSPACING: if active, strip leading whitespace/newlines to continue on same line
-                if self._autospacing_active:
-                    content = content.lstrip('\n\r \t')
-                    self._autospacing_active = False  # One-shot: reset after use
+                    # AUTOSPACING: if active, strip leading whitespace/newlines to continue on same line
+                    if self._autospacing_active:
+                        content = content.lstrip('\n\r \t')
+                        self._autospacing_active = False  # One-shot: reset after use
 
-                if tok.directive_only_line:
-                    # EB Tresos templates use [!// at end of directive lines to
-                    # suppress their trailing newlines. After [!// processing,
-                    # any remaining newlines in TEXT tokens on directive-only lines
-                    # represent intentional blank lines from the template.
-                    #
-                    # However, indentation whitespace (spaces/tabs before directives)
-                    # should be stripped to prevent unwanted output.
-                    if all(c in '\n\r' for c in content) and content:
-                        # Pure newlines — these are intentional blank lines.
-                        # Preserve them as-is.
-                        pass
-                    else:
-                        # Mixed newline(s) + indentation. The leading newline run is an
-                        # intentional blank line; only the trailing indentation belongs to the
-                        # next directive line and must be stripped. Previously this zeroed the
-                        # whole token (rstrip('\n\r') + strip()==''), destroying blank lines that
-                        # precede an indented directive (e.g. Intc_Cfg.h per-source separators).
-                        stripped = content.rstrip(' \t')
-                        if stripped.strip() == '':
-                            # Whitespace-only token: keep just the leading newline run.
-                            content = stripped  # '\n    '->'\n', '    '->'', '\n\n    '->'\n\n'
+                    if tok.directive_only_line:
+                        # EB Tresos templates use [!// at end of directive lines to
+                        # suppress their trailing newlines. After [!// processing,
+                        # any remaining newlines in TEXT tokens on directive-only lines
+                        # represent intentional blank lines from the template.
+                        #
+                        # However, indentation whitespace (spaces/tabs before directives)
+                        # should be stripped to prevent unwanted output.
+                        if all(c in '\n\r' for c in content) and content:
+                            # Pure newlines — these are intentional blank lines.
+                            # Preserve them as-is.
+                            pass
+                        else:
+                            # Mixed newline(s) + indentation. The leading newline run is an
+                            # intentional blank line; only the trailing indentation belongs to the
+                            # next directive line and must be stripped. Previously this zeroed the
+                            # whole token (rstrip('\n\r') + strip()==''), destroying blank lines that
+                            # precede an indented directive (e.g. Intc_Cfg.h per-source separators).
+                            stripped = content.rstrip(' \t')
+                            if stripped.strip() == '':
+                                # Whitespace-only token: keep just the leading newline run.
+                                content = stripped  # '\n    '->'\n', '    '->'', '\n\n    '->'\n\n'
 
-                # Strip trailing directive-line whitespace from TEXT tokens,
-                # but ONLY when next token is a context-establishing directive
-                # (CALL, CODE, INDENT, WS) that will restore correct indentation
-                # or explicitly control whitespace output.
-                # This prevents template nesting whitespace from leaking into
-                # output when macros/code blocks use their own INDENT directives,
-                # or when WS directives explicitly specify whitespace amounts.
-                # Branch/close directives (ENDIF/ELSE/...) are also context-establishing: a
-                # TEXT token of the form 'data,\n        ' (content + the indentation of the
-                # NEXT line's [!ENDIF!]) must have that trailing indent stripped, otherwise the
-                # leaked indent becomes a spurious whitespace/blank line between array elements
-                # (Gpt/Pwm/Ocu ChannelToCoreMap). Do NOT remove ENDLOOP/ENDFOR.
-                _CONTEXT_DIRECTIVES = {TokenType.CALL, TokenType.CODE, TokenType.INDENT, TokenType.WS,
-                                       TokenType.ENDLOOP, TokenType.ENDFOR,
-                                       TokenType.ENDIF, TokenType.ELSE, TokenType.ELSEIF,
-                                       TokenType.ENDSELECT, TokenType.ENDNOCODE, TokenType.ENDCODE}
-                if content:
-                    last_nl = content.rfind('\n')
-                    if last_nl == -1:
-                        last_nl = content.rfind('\r')
-                    if last_nl != -1:
-                        after_nl = content[last_nl + 1:]
-                        if after_nl and not after_nl.strip():
-                            next_idx = i + 1
-                            if next_idx < len(tokens):
-                                next_tok = tokens[next_idx]
-                                if next_tok.type in _CONTEXT_DIRECTIVES:
-                                    content = content[:last_nl + 1]
+                    # Strip trailing directive-line whitespace from TEXT tokens,
+                    # but ONLY when next token is a context-establishing directive
+                    # (CALL, CODE, INDENT, WS) that will restore correct indentation
+                    # or explicitly control whitespace output.
+                    # This prevents template nesting whitespace from leaking into
+                    # output when macros/code blocks use their own INDENT directives,
+                    # or when WS directives explicitly specify whitespace amounts.
+                    # Branch/close directives (ENDIF/ELSE/...) are also context-establishing: a
+                    # TEXT token of the form 'data,\n        ' (content + the indentation of the
+                    # NEXT line's [!ENDIF!]) must have that trailing indent stripped, otherwise the
+                    # leaked indent becomes a spurious whitespace/blank line between array elements
+                    # (Gpt/Pwm/Ocu ChannelToCoreMap). Do NOT remove ENDLOOP/ENDFOR.
+                    _CONTEXT_DIRECTIVES = {TokenType.CALL, TokenType.CODE, TokenType.INDENT, TokenType.WS,
+                                           TokenType.ENDLOOP, TokenType.ENDFOR,
+                                           TokenType.ENDIF, TokenType.ELSE, TokenType.ELSEIF,
+                                           TokenType.ENDSELECT, TokenType.ENDNOCODE, TokenType.ENDCODE}
+                    if content:
+                        last_nl = content.rfind('\n')
+                        if last_nl == -1:
+                            last_nl = content.rfind('\r')
+                        if last_nl != -1:
+                            after_nl = content[last_nl + 1:]
+                            if after_nl and not after_nl.strip():
+                                next_idx = i + 1
+                                if next_idx < len(tokens):
+                                    next_tok = tokens[next_idx]
+                                    if next_tok.type in _CONTEXT_DIRECTIVES:
+                                        content = content[:last_nl + 1]
 
-                # Apply indentation
-                content = self._apply_indent(content)
-                self._output_buffer.append(content)
-                i += 1
-                
-            elif tok.type == TokenType.OUTPUT:
-                # Check for output suppression
-                if self._nocode_depth > 0 and not self._in_code_block:
+                    # Apply indentation
+                    content = self._apply_indent(content)
+                    self._output_buffer.append(content)
                     i += 1
-                    continue
                 
-                # Reset flag
-                self._just_ended_indent = False
+                elif tok.type == TokenType.OUTPUT:
+                    # Check for output suppression
+                    if self._nocode_depth > 0 and not self._in_code_block:
+                        i += 1
+                        continue
+                
+                    # Reset flag
+                    self._just_ended_indent = False
 
-                # Strip outer quotes from the tag content before evaluating
-                raw_content = tok.content.strip()
-                was_quoted_output = (raw_content.startswith('"') and raw_content.endswith('"')) or \
-                                    (raw_content.startswith("'") and raw_content.endswith("'"))
-                expr = self._strip_tag_quotes(raw_content)
-                value = self._evaluate_expression(expr)
+                    # Strip outer quotes from the tag content before evaluating
+                    raw_content = tok.content.strip()
+                    was_quoted_output = (raw_content.startswith('"') and raw_content.endswith('"')) or \
+                                        (raw_content.startswith("'") and raw_content.endswith("'"))
+                    expr = self._strip_tag_quotes(raw_content)
+                    value = self._evaluate_expression(expr)
 
-                # If the original expression was quoted and evaluation returned nothing,
-                # treat the stripped content as a literal string (e.g. [!"World"!] → "World").
-                if value is None and was_quoted_output and expr and \
-                        not any(c in expr for c in ':/(.$@['):
-                    value = expr
+                    # If the original expression was quoted and evaluation returned nothing,
+                    # treat the stripped content as a literal string (e.g. [!"World"!] → "World").
+                    if value is None and was_quoted_output and expr and \
+                            not any(c in expr for c in ':/(.$@['):
+                        value = expr
 
-                # Ensure value is fully unwrapped (handles nested lists and ConfigurationNodes)
-                value = self._unwrap_value(value)
+                    # Ensure value is fully unwrapped (handles nested lists and ConfigurationNodes)
+                    value = self._unwrap_value(value)
 
-                output_str = self._builtins.to_string(value)
-                # Apply indentation if at line start
-                output_str = self._apply_indent(output_str)
-                self._output_buffer.append(output_str)
-                i += 1
+                    output_str = self._builtins.to_string(value)
+                    # Apply indentation if at line start
+                    output_str = self._apply_indent(output_str)
+                    self._output_buffer.append(output_str)
+                    i += 1
 
-            elif tok.type == TokenType.COMMENT:
-                # Skip comments entirely
-                i += 1
+                elif tok.type == TokenType.COMMENT:
+                    # Skip comments entirely
+                    i += 1
                 
-            elif tok.type == TokenType.VAR:
-                self._handle_var(tok.content)
-                # If VAR occupies its own line (buffer ends with \n or is empty),
-                # suppress the trailing newline of that line in the next TEXT token.
-                buf_tail = self._output_buffer[-1] if self._output_buffer else ''
-                if not buf_tail or buf_tail.endswith('\n') or buf_tail.endswith('\r'):
-                    self._suppress_next_newline = True
-                i += 1
+                elif tok.type == TokenType.VAR:
+                    self._handle_var(tok.content)
+                    # If VAR occupies its own line (buffer ends with \n or is empty),
+                    # suppress the trailing newline of that line in the next TEXT token.
+                    buf_tail = self._output_buffer[-1] if self._output_buffer else ''
+                    if not buf_tail or buf_tail.endswith('\n') or buf_tail.endswith('\r'):
+                        self._suppress_next_newline = True
+                    i += 1
                 
-            elif tok.type == TokenType.IF:
-                i = self._handle_if(tokens, i, end)
+                elif tok.type == TokenType.IF:
+                    i = self._handle_if(tokens, i, end)
                 
-            elif tok.type == TokenType.LOOP:
-                i = self._handle_loop(tokens, i, end)
+                elif tok.type == TokenType.LOOP:
+                    i = self._handle_loop(tokens, i, end)
                 
-            elif tok.type == TokenType.SELECT:
-                i = self._handle_select(tokens, i, end)
+                elif tok.type == TokenType.SELECT:
+                    i = self._handle_select(tokens, i, end)
                 
-            elif tok.type == TokenType.INCLUDE:
-                self._handle_include(tok.content)
-                i += 1
+                elif tok.type == TokenType.INCLUDE:
+                    self._handle_include(tok.content)
+                    i += 1
                 
-            elif tok.type == TokenType.FOR:
-                i = self._handle_for(tokens, i, end)
+                elif tok.type == TokenType.FOR:
+                    i = self._handle_for(tokens, i, end)
                 
-            elif tok.type == TokenType.TRACE:
-                self._handle_trace(tok.content)
-                i += 1
+                elif tok.type == TokenType.TRACE:
+                    self._handle_trace(tok.content)
+                    i += 1
                 
-            elif tok.type == TokenType.NOCODE:
+                elif tok.type == TokenType.NOCODE:
 
-                i = self._handle_nocode(tokens, i, end)
+                    i = self._handle_nocode(tokens, i, end)
                 
-            elif tok.type == TokenType.CODE:
-                i = self._handle_code(tokens, i, end)
+                elif tok.type == TokenType.CODE:
+                    i = self._handle_code(tokens, i, end)
                 
-            elif tok.type == TokenType.MACRO:
-                i = self._handle_macro_def(tokens, i, end)
+                elif tok.type == TokenType.MACRO:
+                    i = self._handle_macro_def(tokens, i, end)
             
-            elif tok.type == TokenType.CALL:
-                self._handle_macro_call(tok.content)
-                i += 1
+                elif tok.type == TokenType.CALL:
+                    self._handle_macro_call(tok.content)
+                    i += 1
                 
-            elif tok.type == TokenType.ASSERT:
-                i = self._handle_assert(tokens, i, end)
+                elif tok.type == TokenType.ASSERT:
+                    i = self._handle_assert(tokens, i, end)
                 
-            elif tok.type == TokenType.ERROR:
-                i = self._handle_error(tokens, i, end)
+                elif tok.type == TokenType.ERROR:
+                    i = self._handle_error(tokens, i, end)
             
-            elif tok.type == TokenType.BREAK:
-                self._break_requested = True
-                i += 1
+                elif tok.type == TokenType.BREAK:
+                    self._break_requested = True
+                    i += 1
             
-            elif tok.type == TokenType.INDENT:
-                # [!INDENT "n"!] - push absolute indentation level onto stack
-                try:
-                    raw_content = tok.content
-                    stripped = raw_content.strip().strip('"').strip("'")
-                    n = int(stripped)
-                    # INDENT specifies absolute indentation level, not delta
-                    self._indent_stack.append(n)
-                except (ValueError, TypeError):
-                    pass  # Invalid indent, skip
-                i += 1
+                elif tok.type == TokenType.INDENT:
+                    # [!INDENT "n"!] - push absolute indentation level onto stack
+                    try:
+                        raw_content = tok.content
+                        stripped = raw_content.strip().strip('"').strip("'")
+                        n = int(stripped)
+                        # INDENT specifies absolute indentation level, not delta
+                        self._indent_stack.append(n)
+                    except (ValueError, TypeError):
+                        pass  # Invalid indent, skip
+                    i += 1
 
-            elif tok.type == TokenType.ENDINDENT:
-                # [!ENDINDENT!] - pop indentation level from stack
-                if len(self._indent_stack) > 1:
-                    self._indent_stack.pop()
-                i += 1
+                elif tok.type == TokenType.ENDINDENT:
+                    # [!ENDINDENT!] - pop indentation level from stack
+                    if len(self._indent_stack) > 1:
+                        self._indent_stack.pop()
+                    i += 1
                 
-                # Set flag so next TEXT token can decide whether to newline
-                self._just_ended_indent = True
+                    # Set flag so next TEXT token can decide whether to newline
+                    self._just_ended_indent = True
                 
-                # After ENDINDENT, we are technically at the same line position as before,
-                # unless we force a newline later.
-                # self._at_line_start = True # DO NOT RESET THIS HERE
-                self._indent_added_on_this_line = False
+                    # After ENDINDENT, we are technically at the same line position as before,
+                    # unless we force a newline later.
+                    # self._at_line_start = True # DO NOT RESET THIS HERE
+                    self._indent_added_on_this_line = False
             
-            elif tok.type == TokenType.WS:
-                # [!WS "n"!] - output n whitespace characters
-                # Does NOT reset _at_line_start to allow explicit column positioning
-                try:
-                    n = int(tok.content.strip().strip('"').strip("'"))
-                    if n > 0:
-                        self._output_buffer.append(' ' * n)
-                        # Keep _at_line_start as-is: WS is explicit spacing, not content
-                        # This allows [!WS "4"!]Content to work as expected
-                except (ValueError, TypeError):
-                    pass  # Invalid WS count, skip
-                i += 1
+                elif tok.type == TokenType.WS:
+                    # [!WS "n"!] - output n whitespace characters
+                    # Does NOT reset _at_line_start to allow explicit column positioning
+                    try:
+                        n = int(tok.content.strip().strip('"').strip("'"))
+                        if n > 0:
+                            self._output_buffer.append(' ' * n)
+                            # Keep _at_line_start as-is: WS is explicit spacing, not content
+                            # This allows [!WS "4"!]Content to work as expected
+                    except (ValueError, TypeError):
+                        pass  # Invalid WS count, skip
+                    i += 1
             
-            elif tok.type == TokenType.AUTOSPACING:
-                # [!AUTOSPACING!] - suppress preceding whitespace for next TEXT output
-                # When set, the next TEXT content will not have leading whitespace stripped
-                # and will continue on the same line as previous content
-                self._autospacing_active = True
-                i += 1
+                elif tok.type == TokenType.AUTOSPACING:
+                    # [!AUTOSPACING!] - suppress preceding whitespace for next TEXT output
+                    # When set, the next TEXT content will not have leading whitespace stripped
+                    # and will continue on the same line as previous content
+                    self._autospacing_active = True
+                    i += 1
             
-            elif tok.type == TokenType.CR:
-                # [!CR!] - output carriage return/newline
-                self._output_buffer.append('\n')
-                self._at_line_start = True
-                self._indent_added_on_this_line = False
-                i += 1
+                elif tok.type == TokenType.CR:
+                    # [!CR!] - output carriage return/newline
+                    self._output_buffer.append('\n')
+                    self._at_line_start = True
+                    self._indent_added_on_this_line = False
+                    i += 1
 
-            elif tok.type == TokenType.AUTOGENERATE_WARNING:
-                # [!AUTOGENERATE_WARNING!] - output standard auto-generate warning comment
-                warning_text = """/*
- * This file is auto-generated. DO NOT MODIFY.
- * Any changes made to this file will be overwritten during code generation.
- */
-"""
-                self._output_buffer.append(warning_text)
-                self._at_line_start = True
-                self._indent_added_on_this_line = False
-                i += 1
+                elif tok.type == TokenType.AUTOGENERATE_WARNING:
+                    # [!AUTOGENERATE_WARNING!] - output standard auto-generate warning comment
+                    warning_text = """/*
+     * This file is auto-generated. DO NOT MODIFY.
+     * Any changes made to this file will be overwritten during code generation.
+     */
+    """
+                    self._output_buffer.append(warning_text)
+                    self._at_line_start = True
+                    self._indent_added_on_this_line = False
+                    i += 1
 
-            else:
-                # Unknown or end token - skip
-                i += 1
+                else:
+                    # Unknown or end token - skip
+                    i += 1
 
+            except TemplateExecutionError:
+                raise
+            except Exception as e:
+                snippet = tok.raw if tok.raw else tok.content
+                raise TemplateExecutionError(
+                    message=str(e),
+                    line=tok.line,
+                    column=tok.column,
+                    template_file=self._template_file,
+                    source_snippet=snippet,
+                    cause=e,
+                ) from e
         return i
 
     def _apply_indent(self, text: str) -> str:
@@ -1882,6 +1898,9 @@ class Renderer:
 
         if self.strict:
             raise NameError(f"Unknown function: {func_name}")
+        if self._builtins:
+            self._builtins.unimplemented_calls.add(func_name)
+        logger.warning(f"Unimplemented template function '{func_name}' called in non-strict mode — returning empty")
         return None
     
     def _evaluate_xpath(self, xpath: str, return_node: bool = False) -> Any:
@@ -2461,13 +2480,13 @@ class Renderer:
         return i  # After ENDASSERT
     
     def _handle_error(self, tokens: List[Token], start: int, end: int) -> int:
-        """Handle ERROR/ENDERROR block.
+        """Handle ERROR/ENDERROR block or single ERROR tag.
         
-        Syntax: [!ERROR!] error message [!ENDERROR!]
+        Syntax: 
+            [!ERROR!] error message [!ENDERROR!]
+            [!ERROR "error message"!]
         
         Always raises an error with the message.
-        
-        Returns index after ENDERROR (never reached, always raises).
         """
         # Find matching ENDERROR
         depth = 1
@@ -2484,8 +2503,20 @@ class Renderer:
                     error_end = i
             i += 1
         
+        # If no matching ENDERROR was found, treat as a single-tag directive
+        if depth > 0:
+            error_end = start
+
         # Collect error message from tokens in the block
         message_parts = []
+        start_tok = tokens[start]
+        if start_tok.content:
+            try:
+                val = self._evaluate_expression(start_tok.content)
+                message_parts.append(self._builtins.to_string(val))
+            except Exception:
+                message_parts.append(start_tok.content.strip('"\''))
+
         for j in range(start + 1, error_end):
             tok = tokens[j]
             if tok.type == TokenType.TEXT:
@@ -2496,12 +2527,10 @@ class Renderer:
         
         message = "".join(message_parts).strip()
         logger.error(f"ERROR: {message}")
-        if self.strict:
-            raise TemplateParseError(f"Template Error: {message}")
-        else:
-            # Non-strict: just log warning and continue
-            logger.warning(f"Template Error suppressed in non-strict mode: {message}")
-            # Optionally add a comment in output? No, standard behavior is skip/trace
-        
-        return i
-
+        raise TemplateExecutionError(
+            message=f"Template Error: {message}",
+            line=start_tok.line,
+            column=start_tok.column,
+            template_file=self._template_file,
+            source_snippet=start_tok.raw if start_tok.raw else start_tok.content,
+        )
