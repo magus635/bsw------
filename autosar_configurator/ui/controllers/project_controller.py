@@ -377,7 +377,10 @@ class ProjectController:
         if not self.win.current_project:
             return
         
-        from ..dialogs.project_properties_dialog import ProjectPropertiesDialog
+        import importlib
+        from ..dialogs import project_properties_dialog
+        importlib.reload(project_properties_dialog)
+        ProjectPropertiesDialog = project_properties_dialog.ProjectPropertiesDialog
         
         dialog = ProjectPropertiesDialog(self.win.current_project, self.win)
         if dialog.exec():
