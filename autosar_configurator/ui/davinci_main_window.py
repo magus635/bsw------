@@ -316,8 +316,9 @@ class DaVinciMainWindow(QMainWindow):
         self.template_action.setEnabled(False)
         self.template_action.triggered.connect(self.wizard_controller.launch_template_wizard)
 
-        self.import_config_action = QAction("Import Configuration...", self)
+        self.import_config_action = QAction("Import from Excel / CSV / DBC...", self)
         self.import_config_action.setShortcut(QKeySequence("Ctrl+I"))
+        self.import_config_action.setStatusTip("Batch import configuration data from Excel, CSV, or CAN DBC file")
         self.import_config_action.setEnabled(False)
         self.import_config_action.triggered.connect(self.wizard_controller.launch_import_wizard)
 
@@ -352,16 +353,23 @@ class DaVinciMainWindow(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction(self.add_module_action)
         file_menu.addAction(self.load_recommended_action)
-        file_menu.addAction(self.import_eb_project_action)
-        file_menu.addAction(self.import_value_action)
-        file_menu.addAction(self.export_epc_action)
-        # Open DEF removed - use Add Module
+        file_menu.addSeparator()
+
+        # Import submenu under File
+        self.import_menu = file_menu.addMenu("Import")
+        self.import_menu.addAction(self.import_eb_project_action)
+        self.import_menu.addAction(self.import_value_action)
+        self.import_menu.addSeparator()
+        self.import_menu.addAction(self.import_config_action)
+
+        # Export submenu under File
+        self.export_menu = file_menu.addMenu("Export")
+        self.export_menu.addAction(self.export_epc_action)
+
         file_menu.addSeparator()
         # Recent Files submenu
         self.recent_files_menu = file_menu.addMenu("Recent Files")
         self.project_controller._update_recent_files_menu()
-        # Single module actions removed - use Project workflow
-        file_menu.addSeparator()
         file_menu.addSeparator()
         file_menu.addAction(self.exit_action)
         

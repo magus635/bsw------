@@ -5,17 +5,11 @@
 ## 基础检查
 
 ```bash
-cd /Users/qlwang/Documents/GitHub/bsw------
+# 激活环境
 source .venv/bin/activate
 python --version
 python -m pip install -r requirements.txt
 python -m py_compile davinci_main.py
-```
-
-如果使用仓库已有 `venv/`：
-
-```bash
-source venv/bin/activate
 ```
 
 ## 启动调试日志

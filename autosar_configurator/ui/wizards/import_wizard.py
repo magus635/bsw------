@@ -555,7 +555,7 @@ class ImportWizard(ConfigWizard):
         self.parent_instance = parent_instance
         self.import_result: Optional[ImportResult] = None
 
-        super().__init__(parent, "Import Configuration Wizard")
+        super().__init__(parent, "Import from Excel / CSV / DBC Wizard")
         self.setMinimumSize(800, 600)
 
     def _setup_pages(self):

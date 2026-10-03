@@ -2,32 +2,39 @@
 
 当前应用入口是 `davinci_main.py`。不要再使用旧文档中的 `main.py` 或 `verify.py`。
 
-## 推荐方式
+## 启动方式
+
+### 方式一：使用启动脚本（推荐）
 
 ```bash
-cd /Users/qlwang/Documents/GitHub/bsw------
+./start.sh
+```
+
+脚本会优先检查并激活有效虚拟环境（自动识别架构不兼容问题），并在必要时提示安装依赖，然后启动 `davinci_main.py`。
+
+### 方式二：手动配置与运行
+
+首次使用创建虚拟环境与安装依赖：
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
 python davinci_main.py
 ```
 
-## 使用启动脚本
+日常启动：
 
 ```bash
-./start.sh
-```
-
-脚本会优先激活 `.venv/`，其次尝试 `venv/`，然后检查依赖并启动 `davinci_main.py`。
-
-## 使用已有 venv
-
-仓库中如果已有 `venv/`：
-
-```bash
-source venv/bin/activate
+source .venv/bin/activate
 python davinci_main.py
 ```
+
+> **macOS (Apple Silicon M 系列芯片) 架构兼容提示**：
+> 如果使用已有 `venv` 时遇到 `bad CPU type in executable: ./venv/bin/python`，说明此虚拟环境为历史 x86_64 二进制。请运行以下命令一键清理并重建原生 arm64 虚拟环境：
+> ```bash
+> rm -rf venv .venv && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt
+> ```
 
 ## 测试命令
 
@@ -49,10 +56,10 @@ OpenSpec 校验：
 openspec validate --all --strict
 ```
 
-更大范围测试：
+完整单元测试回归：
 
 ```bash
-QT_QPA_PLATFORM=offscreen python -m pytest tests autosar_configurator/tests -q
+QT_QPA_PLATFORM=offscreen python -m pytest tests/ -q
 ```
 
 注意：完整测试可能包含 UI、AI、真实 EB 工程兼容等场景。默认回归应避免触网；AI 相关测试应 mock Gemini 或显式配置 `GEMINI_API_KEY`。

@@ -78,17 +78,14 @@ autosar_configurator/
 
 ## 运行测试
 
-默认先激活虚拟环境：
+激活虚拟环境：
 
 ```bash
 source .venv/bin/activate
 ```
 
-如果仓库已有旧的 `venv/`，也可以使用：
-
-```bash
-source venv/bin/activate
-```
+> **提示**：如需新建干净环境或解决 macOS Apple Silicon 下旧 `venv` 的 `bad CPU type` 报错，可执行：
+> `rm -rf venv .venv && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`
 
 常用验证命令：
 

@@ -14,245 +14,195 @@ USER_MANUAL_MD = """
 
 ## 1. 快捷键速查表
 
-### 文件操作
-| 功能 | Windows/Linux | macOS |
-|------|---------------|-------|
-| 新建项目 | Ctrl+Shift+N | Cmd+Shift+N |
-| 打开项目 | Ctrl+Shift+O | Cmd+Shift+O |
-| 保存项目 | Ctrl+Shift+S | Cmd+Shift+S |
-| 新建配置 | Ctrl+N | Cmd+N |
-| 打开定义文件 | Ctrl+O | Cmd+O |
-| 保存配置 | Ctrl+S | Cmd+S |
-| 退出 | Ctrl+Q | Cmd+Q |
+### 文件与工程操作
+| 功能 | Windows/Linux | macOS | 菜单路径 |
+|------|---------------|-------|----------|
+| 新建项目 | Ctrl+Shift+N | Cmd+Shift+N | `File -> New Project...` |
+| 打开项目 | Ctrl+Shift+O | Cmd+Shift+O | `File -> Open Project...` |
+| 保存项目 | Ctrl+Shift+S | Cmd+Shift+S | `File -> Save Project` |
+| 工程属性 | - | - | `File -> Project Properties...` |
+| 变体管理 | - | - | `File -> Manage Variants...` |
+| 导入 EB 工程 | - | - | `File -> Import -> Import EB Tresos Project...` |
+| 导入值文件 | - | - | `File -> Import -> Import Value File...` |
+| 导入外部数据表 | Ctrl+I | Cmd+I | `File -> Import -> Import from Excel / CSV / DBC...` |
+| 导出 EPC 文件 | - | - | `File -> Export -> Export EPC Files...` |
 
-### 编辑操作
-| 功能 | Windows/Linux | macOS |
-|------|---------------|-------|
-| 撤销 | Ctrl+Z | Cmd+Z |
-| 重做 | Ctrl+Y | Cmd+Shift+Z |
-| 复制 | Ctrl+C | Cmd+C |
-| 粘贴 | Ctrl+V | Cmd+V |
+### 编辑与容器操作
+| 功能 | Windows/Linux | macOS | 菜单路径 |
+|------|---------------|-------|----------|
+| 撤销 (Undo) | Ctrl+Z | Cmd+Z | `Edit -> Undo` |
+| 重做 (Redo) | Ctrl+Y / Ctrl+Shift+Z | Cmd+Shift+Z | `Edit -> Redo` |
+| 复制容器 | Ctrl+C | Cmd+C | `Edit -> Copy` |
+| 粘贴容器 | Ctrl+V | Cmd+V | `Edit -> Paste` |
+| 验证配置 | Ctrl+Shift+V | Cmd+Shift+V | `Edit -> Validate Configuration` |
+| 加载自定义规则 | - | - | `Edit -> Load Custom Rules...` |
 
-### 工具与视图
-| 功能 | Windows/Linux | macOS |
-|------|---------------|-------|
-| 验证配置 | Ctrl+Shift+V | Cmd+Shift+V |
-| 代码生成 | Ctrl+G | Cmd+G |
-| 搜索 | Ctrl+F | Cmd+F |
-| 依赖关系图 | Ctrl+D | Cmd+D |
-| AI 助手 | Ctrl+Shift+A | Cmd+Shift+A |
-| 使用手册 | F1 | F1 |
+### 生成、分析与视图
+| 功能 | Windows/Linux | macOS | 菜单路径 |
+|------|---------------|-------|----------|
+| 代码生成 | Ctrl+G | Cmd+G | `Generate -> Generate Code` |
+| 跨模块依赖分析 | - | - | `Analysis -> 🔍 分析跨模块依赖...` |
+| 跨模块依赖验证 | - | - | `Analysis -> ✅ 验证跨模块依赖...` |
+| 依赖关系图 | Ctrl+D | Cmd+D | `View -> Dependency Graph` / `Analysis` |
+| 智能搜索面板 | Ctrl+F | Cmd+F | `View -> Search...` |
+| AI 智能助手 | Ctrl+Shift+A | Cmd+Shift+A | `View -> AI Assistant` |
+
+### 向导工具 (Wizards)
+| 功能 | Windows/Linux | macOS | 菜单路径 |
+|------|---------------|-------|----------|
+| 快速配置向导 | Ctrl+Q | Cmd+Q | `Wizards -> Quick Configuration...` |
+| 批量创建向导 | Ctrl+Shift+B | Cmd+Shift+B | `Wizards -> Batch Create...` |
+| 硬件映射向导 | Ctrl+Shift+H | Cmd+Shift+H | `Wizards -> Hardware Mapping...` |
+| 应用模板向导 | Ctrl+T | Cmd+T | `Wizards -> Apply Template...` |
+| 数据导入向导 | Ctrl+I | Cmd+I | `Wizards -> Import from Excel / CSV / DBC...` |
+| 使用手册 | F1 | F1 | `Help -> 使用手册 (User Manual)` |
 
 ---
 
 ## 2. 项目与模块管理
 
-### 2.1 项目操作
-*   **新建项目**: `File -> New Project` 或 `Ctrl+Shift+N`
-*   **打开项目**: `File -> Open Project` 或 `Ctrl+Shift+O`，支持 `.dpa` 项目文件
-*   **保存项目**: `File -> Save Project` 或 `Ctrl+Shift+S`
+### 2.1 项目工作流
+本工具统一采用**项目工作流**（基于 `.dpa` 工程文件）：
+*   **新建项目**: `File -> New Project...` (Ctrl+Shift+N)，可创建标准项目或初始化空项目。
+*   **打开项目**: `File -> Open Project...` (Ctrl+Shift+O)，打开现有 `.dpa` 工程。
+*   **保存项目**: `File -> Save Project` (Ctrl+Shift+S)，自动将模块定义、配置参数和芯片选择持久化。
+*   **工程属性**: `File -> Project Properties...`，查看项目基本信息、创建时间、项目完整路径（支持一键复制与在访达中定位）、已配置模块总数及完整清单，并可切换目标 ECU/芯片型号。
+*   **变体管理**: `File -> Manage Variants...`，配置并管理 AUTOSAR 配置变体（如 PreCompile / LinkTime / PostBuild）。
 
-### 2.2 模块定义文件
-*   **打开定义**: `File -> Open Definition (.epd)` 加载模块定义文件
-*   **定义文件来源**:
-    *   EB Tresos 安装目录: `<EB_ROOT>/plugins/<Module>/config/`
-    *   AUTOSAR 工具链提供的 `.arxml` 定义文件
-*   **支持格式**: `.epd` (EB Tresos), `.arxml` (AUTOSAR 标准)
+### 2.2 EB Tresos 工程导入
+*   **批量导入**: 菜单 `File -> Import EB Tresos Project...`
+*   自动扫描 EB Tresos 工程目录下的模块定义 (`.xdm`/`.epd`) 与实例值文件 (`.epc`/`.arxml`)。
+*   如果工程包含多种芯片变体，支持在弹窗中选择目标芯片。
+*   导入后自动将模板关联和硬件参数绑定到新工程中。
 
-### 2.3 配置文件
-*   **新建配置**: `File -> New Value File` 或 `Ctrl+N`
-*   **保存配置**: `File -> Save Value File` 或 `Ctrl+S`
-*   **属性编辑**: `Project -> Properties` 修改项目元数据
+### 2.3 配置文件导入导出
+*   **导入值文件**: `File -> Import Value File...`，用外部 `.epc` / `.arxml` / `.xdm` 替换当前选中模块的配置值。
+*   **导出 EPC 文件**: `File -> Export EPC Files...`，将工程配置导出为 EB Tresos 完全兼容的标准 `.epc` 文件。
 
 ---
 
 ## 3. 配置编辑与引用管理
 
 ### 3.1 双模式树视图
-*   **定义层 (灰色斜体)**: AUTOSAR 标准定义，不可直接编辑
-*   **实例层 (加粗)**: 您的具体配置实例
+*   **定义层 (灰色斜体)**: AUTOSAR 标准元模型定义，展示参数类型与约束，不可直接更改。
+*   **实例层 (常规/加粗)**: 您的实际配置实例，可自由增删与修改参数。
 
 ### 3.2 容器操作
 *   **添加实例**: 右键定义层容器 -> `Add Instance`
 *   **删除实例**: 右键实例层容器 -> `Delete`
-*   **复制/粘贴**: 选中容器后 `Ctrl+C` / `Ctrl+V`
+*   **复制/粘贴**: 选中容器后 `Ctrl+C` 复制，在父级容器上 `Ctrl+V` 粘贴
+*   **多选批量操作**: 在树视图中支持多选容器进行批量删除或编辑。
 
 ### 3.3 参数编辑
-*   选中容器后，右侧面板显示所有参数
-*   支持的参数类型：
-    *   **STRING**: 文本输入
-    *   **INTEGER/FLOAT**: 数值输入，支持范围验证
-    *   **BOOLEAN**: 开关选择
-    *   **ENUM**: 下拉选择
-    *   **ARRAY**: 逗号分隔的多值输入
-    *   **REFERENCE**: 智能引用选择器
+选中容器后，右侧面板根据参数类型动态渲染对应编辑器：
+*   **STRING**: 文本输入，支持正则与格式校验。
+*   **INTEGER / FLOAT**: 数值输入，支持十六进制自动转换及 Min/Max 范围检查。
+*   **BOOLEAN**: 复选框/开关选择。
+*   **ENUM**: 下拉菜单选择合法枚举值。
+*   **REFERENCE**: 智能引用选择器，支持树形选取目标容器并检查有效性。
 
-### 3.4 引用管理
-*   引用面板显示当前容器的所有引用关系
-*   点击跳转按钮可定位到被引用的容器
-*   引用解析状态图标：
-    *   ✅ 绿色: 解析成功
-    *   ⚠️ 黄色: 目标不存在
-    *   ❌ 红色: 路径格式错误
+### 3.4 引用管理与跳转
+*   参数面板中带有引用跳转按钮，点击可快速在左侧树视图中高亮定位被引用节点。
+*   引用状态标识：
+    *   ✅ 绿色: 引用目标已成功解析
+    *   ⚠️ 黄色: 目标容器尚未创建或路径失效
+    *   ❌ 红色: 引用路径语法错误
 
 ---
 
-## 4. 撤销/重做 (Undo/Redo)
+## 4. 撤销/重做 (Undo / Redo)
 
-本工具支持完整的撤销重做功能：
-*   **撤销**: `Ctrl+Z` (Windows) / `Cmd+Z` (macOS)
-*   **重做**: `Ctrl+Y` (Windows) / `Cmd+Shift+Z` (macOS)
-*   支持的操作：参数修改、容器增删、引用变更等
+本工具集成完整的撤销重做架构：
+*   **撤销**: `Ctrl+Z` (macOS: `Cmd+Z`)
+*   **重做**: `Ctrl+Y` / `Ctrl+Shift+Z` (macOS: `Cmd+Shift+Z`)
+*   支持的操作覆盖参数修改、容器新建、实例删除、容器移动及引用变更。
 
 ---
 
-## 5. 验证系统 (Validation)
+## 5. 验证系统与跨模块分析
 
-### 5.1 实时验证
-编辑参数时自动检查：
-*   数值范围 (Min/Max)
-*   正则表达式匹配
-*   必填项检查
-*   引用目标有效性
+### 5.1 配置验证
+*   **快捷执行**: 菜单 `Edit -> Validate Configuration` 或 `Ctrl+Shift+V`。
+*   底部 **Problems View** 实时显示验证结果，分为错误 (Error)、警告 (Warning) 与信息 (Info)。
+*   双击问题条目可直接跳转定位到对应的容器和参数。
 
-### 5.2 全局验证
-*   菜单 `Project -> Validate All` 或 `Ctrl+Shift+V`
-*   验证结果在底部面板显示
-
-### 5.3 错误标记
-*   树视图中错误项显示红色图标
-*   状态栏显示错误计数
-*   双击错误可跳转到问题位置
+### 5.2 跨模块依赖分析 (Analysis)
+*   **分析跨模块依赖**: `Analysis -> 🔍 分析跨模块依赖...`，扫描诸如 MCU 时钟配置、PORT 引脚映射对 CAN/SPI/ADC 等外设模块的依赖链。
+*   **验证跨模块依赖**: `Analysis -> ✅ 验证跨模块依赖...`，检查跨模块引用完整性。
+*   **依赖关系图**: `View -> Dependency Graph` 或 `Ctrl+D`，以交互式图形可视化呈现模块间的相互依赖。
 
 ---
 
 ## 6. 代码生成 (Code Generation)
 
 ### 6.1 生成操作
-*   **生成全部**: 菜单 `Generate -> Generate All` 或 `Ctrl+G`
-*   **生成单模块**: 右键模块 -> `Generate Code`
+*   **生成代码**: 菜单 `Generate -> Generate Code` 或快捷键 `Ctrl+G`。
+*   状态栏实时反馈生成进度与输出文件位置。
 
-### 6.2 模板引擎
-*   **EB Tresos Compatible**:
-    *   支持 `[!IF]`, `[!ELSE]`, `[!LOOP]`, `[!SELECT]`, `[!VAR]`
-    *   内置函数: `node:value()`, `node:ref()`, `num:inttohex()` 等
-*   **Standard (Jinja2)**: 通用 Python 模板语法
-
-### 6.3 输出文件
-*   `<Module>_Cfg.h`: 预编译配置头文件
-*   `<Module>_Lcfg.c`: 链接时配置
-*   `<Module>_PBcfg.c`: 后构建配置
-*   输出目录: 项目属性中配置，默认为 `./output/<Module>/`
-
-### 6.4 模板类型标记
-*   `[EB]` 蓝色: 使用 EB Tresos 模板
-*   `[Std]` 灰色: 使用 Jinja2 模板
-*   `[Mixed]` 琥珀色: 混合使用
+### 6.2 模板机制
+*   **安全原则**: 生成器**不使用内置默认模板**。仅当项目模板目录 (`templates/<ModuleName>/`) 或用户配置的模板目录中存在对应模板时才执行代码生成。
+*   没有模板的模块会被安全跳过 (Skipped)，避免生成与目标硬件芯片不兼容的错误代码。
+*   全面支持 EB Tresos 模板引擎语法（`[!IF]`、`[!LOOP]`、`[!SELECT]`、`[!MACRO]` 等）及常用内置 XPath 函数（`node:value()`、`node:ref()`、`ecu:get()`、`num:inttohex()` 等）。
 
 ---
 
-## 7. AI 智能辅助
+## 7. 向导功能 (Wizards)
 
-### 7.1 配置要求
-使用 AI 功能前需配置 Google Gemini API Key：
-1. 获取 API Key: https://makersuite.google.com/app/apikey
-2. 设置环境变量: `export GEMINI_API_KEY="your-api-key"`
-3. 或打开 `View -> AI Assistant`，点击面板右上角 `Settings`
-
-### 7.2 功能说明
-*   **AI 助手面板**: `Ctrl+Shift+A` 打开/关闭
-*   **自然语言查询**: 输入问题获取配置建议
-*   **错误诊断**: AI 分析验证错误并提供修复方案
-*   **配置推荐**: 基于上下文推荐参数值
-
-### 7.3 智能搜索
-*   `Ctrl+F` 打开搜索框
-*   支持正则表达式
-*   可按类型过滤 (容器/参数/引用)
+*   **快速配置向导 (`Ctrl+Q`)**: 引导式完成常见基础模块初始化配置。
+*   **批量创建向导 (`Ctrl+Shift+B`)**: 针对 Channel、Pin、Message 等大量重复实例，支持批量规则化创建。
+*   **硬件映射向导 (`Ctrl+Shift+H`)**: 通用数据驱动机制，将目标芯片硬件资源（引脚、通道、时钟等）自动绑定到 AUTOSAR 配置。
+*   **应用模板向导 (`Ctrl+T`)**: 将预设的标准配置方案快速应用到当前工程。
+*   **数据导入向导 (`Ctrl+I`)**: 位于 `File -> Import -> Import from Excel / CSV / DBC...` 或 `Wizards -> Import from Excel / CSV / DBC...`，支持从 Excel 表格、CSV、DBC (CAN 通信矩阵) 文件批量导入生成 AUTOSAR 容器与信号配置。
 
 ---
 
-## 8. 高级功能
+## 8. AI 智能助手 (AI Assistant)
 
-### 8.1 依赖关系图
-*   `Ctrl+D` 打开可视化依赖图
-*   显示模块间的引用关系
-*   支持缩放和拖拽
+### 8.1 配置 API Key
+使用 AI 功能需配置 Google Gemini API Key：
+1. 环境变量配置：`export GEMINI_API_KEY="your-api-key"`
+2. 或在软件界面中打开 `View -> AI Assistant` (Ctrl+Shift+A)，点击面板右上角 **Settings** 填入并保存（安全保存于操作系统 Keychain 中）。
 
-### 8.2 批量编辑
-1. 在树视图中按住 `Ctrl` 多选容器
-2. 右键选择 `Batch Edit`
-3. 在弹出对话框中修改共同属性
-
-### 8.3 变体管理 (Variant)
-*   `Project -> Variant Management` 打开变体管理器
-*   支持创建多个配置变体
-*   一键切换变体组合
-
-### 8.4 影响分析
-*   在参数编辑区点击"检查影响"按钮
-*   分析修改该值对其他模块的潜在影响
+### 8.2 功能说明
+*   **自然语言问答**: 针对 AUTOSAR 规范、参数含义及硬件配置疑问进行对话解答。
+*   **参数建议与诊断**: 点击参数旁的 AI 建议按钮，结合当前工程上下文提供推荐配置。
+*   **文档知识库 RAG**: 自动索引技术规范（支持 Markdown、PDF、文本），提供准确的知识检索。
 
 ---
 
-## 9. 故障排除
-
-### 常见问题
-
-**Q: 应用启动失败**
-*   检查 Python 版本 >= 3.10
-*   运行 `pip install -r requirements.txt` 重新安装依赖
-
-**Q: 无法加载 .epd 文件**
-*   确认文件格式正确 (XML)
-*   检查文件编码为 UTF-8
-
-**Q: 代码生成失败**
-*   检查模板文件路径是否正确
-*   查看生成日志获取详细错误信息
-
-**Q: AI 助手无响应**
-*   确认已配置 GEMINI_API_KEY 环境变量
-*   检查网络连接
-
-**Q: 引用解析失败**
-*   确认引用目标路径格式正确
-*   检查被引用的容器是否存在
-
----
-
-## 10. 界面布局
+## 9. 界面布局结构
 
 ```
-+----------------------------------------------------------+
-| File  Edit  Project  Generate  View  Help                |
-+----------------------------------------------------------+
-| [New] [Open] [Save] | [Validate] [Generate] | [Search]   |
-+------------------+---------------------------------------+
-|                  |                                       |
-|  Module Tree     |  Configuration Panel                  |
-|  +-----------+   |  +-------------------------------+    |
-|  | Adc       |   |  | Container: AdcGeneral        |    |
-|  |  +-Cfg    |   |  | +---------------------------+ |    |
-|  |  +-Channel|   |  | | AdcDevErrorDetect: true   | |    |
-|  | Can       |   |  | | AdcVersionInfoApi: false  | |    |
-|  |  +-Ctrl   |   |  | +---------------------------+ |    |
-|  +-----------+   |  +-------------------------------+    |
-|                  |                                       |
-|                  +---------------------------------------+
-|                  |  AI Assistant (Ctrl+Shift+A)          |
-|                  |  +-------------------------------+    |
-|                  |  | Ask me anything...            |    |
-|                  |  +-------------------------------+    |
-+------------------+---------------------------------------+
-| Status: Ready | Errors: 0 | Warnings: 2                  |
-+----------------------------------------------------------+
++-------------------------------------------------------------------+
+| File  Edit  View  Generate  Analysis  Wizards  Help               |
++-------------------------------------------------------------------+
+| [Save] | [Undo] [Redo] | [Copy] [Paste]                           |
++------------------+------------------------------------------------+
+|                  |                                                |
+|  Module Tree     |  Configuration Panel                           |
+|  +-----------+   |  +----------------------------------------+    |
+|  | Adc       |   |  | Container: AdcGeneral                  |    |
+|  |  +-Cfg    |   |  | +------------------------------------+ |    |
+|  |  +-Channel|   |  | | AdcDevErrorDetect: true            | |    |
+|  | Can       |   |  | | AdcVersionInfoApi: false           | |    |
+|  |  +-Ctrl   |   |  | +------------------------------------+ |    |
+|  +-----------+   |  +----------------------------------------+    |
+|                  |                                                |
+|                  +------------------------------------------------+
+|                  |  AI Assistant (Ctrl+Shift+A)                   |
+|                  |  +----------------------------------------+    |
+|                  |  | Ask me anything...                     |    |
+|                  |  +----------------------------------------+    |
++------------------+------------------------------------------------+
+| Problems View / Impact View (Bottom Dock)                         |
++-------------------------------------------------------------------+
+| Status: Ready | Errors: 0 | Warnings: 0 | Mode: Project           |
++-------------------------------------------------------------------+
 ```
 
 ---
 
 *版本: v2.0.0 | 基于 AUTOSAR 4.4.0 标准*
-*技术支持: 查看项目 README.md 或提交 Issue*
 """
 
 class UserManualDialog(QDialog):
