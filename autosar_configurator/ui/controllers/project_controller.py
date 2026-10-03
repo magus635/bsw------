@@ -27,60 +27,34 @@ class ProjectController:
         self.win = win
 
     def new_project(self):
-        """Create a new project"""
-        from PySide6.QtWidgets import QInputDialog, QComboBox, QDialog, QVBoxLayout, QDialogButtonBox, QFormLayout
+        """Create a new project using the guided NewProjectWizard"""
+        from ..wizards.new_project_wizard import NewProjectWizard
         from ...core.config_manager import ProjectType, ConfigLoader
-        
-        # Project type selection dialog
-        dialog = QDialog(self.win)
-        dialog.setWindowTitle("New Project")
-        layout = QVBoxLayout(dialog)
-        
-        form = QFormLayout()
-        
-        name_edit = QLineEdit()
-        form.addRow("Project Name:", name_edit)
-        
-        type_combo = QComboBox()
-        type_combo.addItem("Vector DaVinci", ProjectType.VECTOR)
-        type_combo.addItem("EB Tresos", ProjectType.EB_TRESOS)
-        form.addRow("Project Type:", type_combo)
-        
-        layout.addLayout(form)
-        
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
-        layout.addWidget(buttons)
-        
-        if dialog.exec() != QDialog.Accepted:
+
+        # Resolve chip database (reuse from chip_constraint_service if available)
+        chip_db = None
+        if hasattr(self.win, 'chip_constraint_service') and self.win.chip_constraint_service:
+            chip_db = getattr(self.win.chip_constraint_service, '_chip_database', None)
+
+        wizard = NewProjectWizard(chip_database=chip_db, parent=self.win)
+        if wizard.exec() != NewProjectWizard.Accepted:
             return
-            
-        name = name_edit.text().strip()
-        project_type = type_combo.currentData()
-        
-        if not name:
-            QMessageBox.warning(self.win, "Error", "Project name cannot be empty")
+
+        result = wizard.get_result()
+        name = result["project_name"]
+        project_type = result["project_type"]
+        folder = result["folder_path"]
+        selected_chip = result["selected_chip"]
+
+        if not name or not folder:
             return
-        
-        # Unified folder selection for both project types
-        folder_path = QFileDialog.getExistingDirectory(
-            self.win,
-            f"Select {project_type.value} Project Folder",
-            str(Path.home()),
-            QFileDialog.ShowDirsOnly
-        )
-        if not folder_path:
-            return
-        
-        folder = Path(folder_path)
+
         project_path = folder / f"{name}.dpa"
-        
+
         # Check if folder has existing content (warn user)
         existing_items = list(folder.iterdir()) if folder.exists() else []
-        # Filter out hidden files/folders
         visible_items = [f for f in existing_items if not f.name.startswith('.')]
-        
+
         if visible_items:
             reply = QMessageBox.question(
                 self.win,
@@ -93,31 +67,43 @@ class ProjectController:
             )
             if reply != QMessageBox.Yes:
                 return
-        
+
         # Create .tresos marker folder for EB projects
         if project_type == ProjectType.EB_TRESOS:
             tresos_marker = folder / ".tresos"
             tresos_marker.mkdir(exist_ok=True)
-            
+
         self.win.current_project = self.win.workspace_manager.create_project(name, project_path)
         self.win.current_project.project_type = project_type
         self.win.current_project.def_search_paths = ConfigLoader.get_def_search_paths(project_path.parent)
         self.win.current_project_file = project_path
         self.win.tree_view.set_project(self.win.current_project)
-        
+
+        # Apply selected chip
+        if selected_chip:
+            self.win.current_project.selected_chip = selected_chip
+            if hasattr(self.win, 'chip_constraint_service') and self.win.chip_constraint_service:
+                self.win.chip_constraint_service.set_project_path(folder)
+                self.win.chip_constraint_service.set_chip(selected_chip)
+                logger.info(f"New project chip constraint set to: {selected_chip}")
+
         self.win.save_project_action.setEnabled(True)
         self.win.add_module_action.setEnabled(True)
         self.win.manage_variants_action.setEnabled(True)
         self.win.manage_variants_btn.setEnabled(True)
         self.win.project_properties_action.setEnabled(True)
-        
+
         # Update variant selector
         self.win._update_variant_selector()
-        
+
         # Update mode label
         self.win.mode_label.setText(f"Project: {project_type.value}")
-        
-        self.win.statusbar.showMessage(f"Created {project_type.value} project: {name}", 3000)
+
+        # Update window title
+        self.win._update_window_title()
+
+        chip_info = f", Chip: {selected_chip}" if selected_chip else ""
+        self.win.statusbar.showMessage(f"Created {project_type.value} project: {name}{chip_info}", 5000)
         
     def open_project(self):
         """Open an existing project (Vector .dpa or EB folder)"""

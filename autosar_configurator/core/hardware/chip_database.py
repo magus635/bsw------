@@ -16,6 +16,10 @@ class PortPinDef:
     pin: int
     alternate_functions: List[str] = field(default_factory=list)
     default_direction: str = "INPUT"  # INPUT, OUTPUT, INOUT
+    # Hardware mode number -> function name (e.g. {0: "GPIO", 2: "CAN0_TX"}).
+    # Optional; when present it is authoritative for mode numbering, while
+    # alternate_functions stays a flat list for existing consumers.
+    alt_modes: Dict[int, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -110,6 +114,11 @@ class ChipDatabase:
         if data_dir:
             self._load_chips_from_directory(data_dir)
 
+    @property
+    def data_dir(self) -> Optional[Path]:
+        """Directory the chip YAML files were loaded from (None for in-memory DBs)"""
+        return self._data_dir
+
     def _load_chips_from_directory(self, data_dir: Path):
         """Load chip definitions from YAML files"""
         if not data_dir.exists():
@@ -147,7 +156,8 @@ class ChipDatabase:
                         port=port_name,
                         pin=p.get('pin', 0),
                         alternate_functions=p.get('alternate_functions', []),
-                        default_direction=p.get('default_direction', 'INPUT')
+                        default_direction=p.get('default_direction', 'INPUT'),
+                        alt_modes={int(k): str(v) for k, v in (p.get('modes') or {}).items()}
                     )
                     for p in pins_data
                 ]

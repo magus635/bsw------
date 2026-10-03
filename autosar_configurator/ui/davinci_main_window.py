@@ -322,6 +322,10 @@ class DaVinciMainWindow(QMainWindow):
         self.import_config_action.setEnabled(False)
         self.import_config_action.triggered.connect(self.wizard_controller.launch_import_wizard)
 
+        self.chip_designer_action = QAction("Chip Definition Designer...", self)
+        self.chip_designer_action.setStatusTip("Open Chip Definition Designer to author, edit, or import MCU hardware definitions")
+        self.chip_designer_action.triggered.connect(self._launch_chip_definition_designer)
+
         # View actions
         self.toggle_search_action = QAction("Search...", self)
         self.toggle_search_action.setShortcut(QKeySequence.Find)  # Ctrl+F
@@ -417,6 +421,11 @@ class DaVinciMainWindow(QMainWindow):
         wizards_menu.addAction(self.template_action)
         wizards_menu.addSeparator()
         wizards_menu.addAction(self.import_config_action)
+
+        # Tools menu
+        tools_menu = menubar.addMenu("Tools")
+        tools_menu.addAction(self.chip_designer_action)
+        tools_menu.addAction(self.hardware_mapping_action)
 
         # Help menu
         help_menu = menubar.addMenu("Help")
@@ -841,7 +850,25 @@ class DaVinciMainWindow(QMainWindow):
         # Hardware mapping needs a project
         self.hardware_mapping_action.setEnabled(is_project_mode)
 
-    
+    def _launch_chip_definition_designer(self):
+        """Open Chip Definition Designer dialog"""
+        from .dialogs.chip_definition_designer_dialog import ChipDefinitionDesignerDialog
+        initial_chip = None
+        if hasattr(self, 'chip_constraint_service') and self.chip_constraint_service:
+            initial_chip = self.chip_constraint_service.current_chip
+
+        dialog = ChipDefinitionDesignerDialog(initial_chip=initial_chip, parent=self)
+        dialog.chip_saved.connect(self._on_designer_chip_saved)
+        dialog.exec()
+
+    def _on_designer_chip_saved(self, chip_name: str):
+        """Handle new chip saved from designer"""
+        self.statusbar.showMessage(f"芯片库已更新: {chip_name}", 5000)
+        # Update chip constraint service if available
+        if hasattr(self, 'chip_constraint_service') and self.chip_constraint_service:
+            if self.current_project and self.current_project.path:
+                self.chip_constraint_service.set_project_path(self.current_project.path.parent)
+
     def closeEvent(self, event):
         """Handle window close event - check for unsaved changes"""
         unsaved_items = []

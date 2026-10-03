@@ -67,6 +67,10 @@ class ChipSelectionPage(WizardPage):
         load_btn.clicked.connect(self._load_chip_from_file)
         chip_select_layout.addWidget(load_btn)
 
+        new_chip_btn = QPushButton("➕ New Chip...")
+        new_chip_btn.clicked.connect(self._create_new_chip)
+        chip_select_layout.addWidget(new_chip_btn)
+
         chip_layout.addLayout(chip_select_layout)
         chip_group.setLayout(chip_layout)
         self.layout.addWidget(chip_group)
@@ -195,6 +199,22 @@ class ChipSelectionPage(WizardPage):
         except Exception as e:
             from PySide6.QtWidgets import QMessageBox
             QMessageBox.warning(parent_widget, "Load Error", f"Failed to load chip:\n{str(e)}")
+
+    def _create_new_chip(self):
+        """Open Chip Definition Designer to create a new chip on the fly"""
+        from ..dialogs.chip_definition_designer_dialog import ChipDefinitionDesignerDialog
+        parent_widget = self.wizard() if self.wizard() else self
+        dialog = ChipDefinitionDesignerDialog(chip_database=self.chip_database, parent=parent_widget)
+        if dialog.exec():
+            # Refresh chips from database
+            self._populate_chips()
+            # If a new chip was saved, auto-select it
+            if hasattr(dialog, '_last_saved_chip') and dialog._last_saved_chip:
+                new_chip_name = dialog._last_saved_chip
+                for i in range(self.chip_combo.count()):
+                    if self.chip_combo.itemData(i) == new_chip_name:
+                        self.chip_combo.setCurrentIndex(i)
+                        break
 
     def _on_chip_changed(self):
         """Handle chip selection change"""

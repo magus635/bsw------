@@ -61,6 +61,10 @@ from .tresos_properties_parser import (
     build_chip_from_properties
 )
 
+# Pinout table importer & Chip definition exporter
+from .pinout_importer import PinoutTableImporter, PinoutImportResult
+from .chip_exporter import ChipDefinitionExporter
+
 __all__ = [
     # Legacy chip database (primary API)
     'ChipDatabase',
@@ -115,4 +119,9 @@ __all__ = [
     'parse_tresos_properties',
     'find_properties_files',
     'build_chip_from_properties',
+
+    # Pinout importer and exporter
+    'PinoutTableImporter',
+    'PinoutImportResult',
+    'ChipDefinitionExporter',
 ]
