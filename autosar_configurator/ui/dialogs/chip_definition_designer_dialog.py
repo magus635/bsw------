@@ -4,18 +4,25 @@ Chip Definition Designer Dialog
 A graphical interface for semiconductor chip engineers and ECU integrators
 to author, edit, clone, validate, and export MCU chip hardware definitions.
 """
+import copy
+import re
+from collections import Counter
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Set, Tuple
 import logging
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit,
     QTextEdit, QLabel, QGroupBox, QWidget, QComboBox, QPushButton,
     QSpinBox, QCheckBox, QTabWidget, QTableWidget, QTableWidgetItem,
-    QHeaderView, QMessageBox, QFileDialog, QSplitter, QAbstractItemView
+    QHeaderView, QMessageBox, QFileDialog, QSplitter, QAbstractItemView,
+    QTableView
 )
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont, QGuiApplication
+from PySide6.QtCore import (
+    Qt, Signal, QAbstractTableModel, QModelIndex, QSortFilterProxyModel,
+    QRegularExpression
+)
+from PySide6.QtGui import QFont, QGuiApplication, QBrush, QColor
 
 from ...core.hardware.chip_database import (
     ChipDatabase, ChipDefinition, PortPinDef,
@@ -25,6 +32,176 @@ from ...core.hardware.pinout_importer import PinoutTableImporter
 from ...core.hardware.chip_exporter import ChipDefinitionExporter
 
 logger = logging.getLogger(__name__)
+
+ALL_PORTS_LABEL = "全部端口 (All Ports)"
+VALID_DIRECTIONS = ("INPUT", "OUTPUT", "INOUT")
+# Chip name doubles as the YAML file name: no path separators or leading dots.
+CHIP_NAME_PATTERN = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.\-]*$')
+_MODE_TOKEN = re.compile(r'^(\d+)\s*[:=]\s*(.+)$')
+
+
+def format_pin_functions(pin: PortPinDef) -> str:
+    """Render functions for editing: '0:GPIO, 2:CAN0_TX' when mode numbers are known"""
+    if pin.alt_modes:
+        return ", ".join(f"{m}:{pin.alt_modes[m]}" for m in sorted(pin.alt_modes))
+    return ", ".join(pin.alternate_functions)
+
+
+def parse_pin_functions(text: str) -> Tuple[List[str], Dict[int, str]]:
+    """Inverse of format_pin_functions -> (flat function list, mode number map)"""
+    afs: List[str] = []
+    modes: Dict[int, str] = {}
+    for token in (t.strip() for t in text.split(",")):
+        if not token:
+            continue
+        m = _MODE_TOKEN.match(token)
+        if m:
+            value = m.group(2).strip()
+            modes[int(m.group(1))] = value
+            names = [n.strip() for n in value.split("/") if n.strip()]
+        else:
+            names = [token]
+        for name in names:
+            if name not in afs:
+                afs.append(name)
+    return afs or ["GPIO"], modes
+
+
+class PinTableModel(QAbstractTableModel):
+    """Editable model over a flat list of PortPinDef; edits apply to the pins directly"""
+
+    COL_PORT, COL_PIN, COL_NAME, COL_DIR, COL_FUNCS = range(5)
+    HEADERS = [
+        "端口 (Port)", "引脚号 (Pin)", "引脚名称 (Name)", "默认方向 (Direction)",
+        "复用功能 (Functions, 逗号分隔; 模式号写作 2:CAN0_TX)"
+    ]
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._pins: List[PortPinDef] = []
+        self._duplicates: Set[Tuple[str, int]] = set()
+
+    # --- Qt model API -------------------------------------------------
+    def rowCount(self, parent=QModelIndex()):
+        return 0 if parent.isValid() else len(self._pins)
+
+    def columnCount(self, parent=QModelIndex()):
+        return 0 if parent.isValid() else len(self.HEADERS)
+
+    def headerData(self, section, orientation, role=Qt.DisplayRole):
+        if role == Qt.DisplayRole and orientation == Qt.Horizontal:
+            return self.HEADERS[section]
+        return None
+
+    def flags(self, index):
+        if not index.isValid():
+            return Qt.NoItemFlags
+        return Qt.ItemIsSelectable | Qt.ItemIsEnabled | Qt.ItemIsEditable
+
+    def data(self, index, role=Qt.DisplayRole):
+        if not index.isValid():
+            return None
+        pin = self._pins[index.row()]
+        col = index.column()
+        if role in (Qt.DisplayRole, Qt.EditRole):
+            if col == self.COL_PORT:
+                return pin.port
+            if col == self.COL_PIN:
+                return pin.pin if role == Qt.EditRole else str(pin.pin)
+            if col == self.COL_NAME:
+                return pin.name
+            if col == self.COL_DIR:
+                return pin.default_direction
+            if col == self.COL_FUNCS:
+                return format_pin_functions(pin)
+        if role == Qt.BackgroundRole and (pin.port, pin.pin) in self._duplicates:
+            return QBrush(QColor("#f8d7da"))
+        if role == Qt.ToolTipRole and (pin.port, pin.pin) in self._duplicates:
+            return f"重复引脚: {pin.port} / {pin.pin}"
+        return None
+
+    def setData(self, index, value, role=Qt.EditRole):
+        if role != Qt.EditRole or not index.isValid():
+            return False
+        pin = self._pins[index.row()]
+        col = index.column()
+        text = str(value).strip()
+        if col == self.COL_PORT:
+            if not text:
+                return False
+            pin.port = text
+        elif col == self.COL_PIN:
+            try:
+                pin_id = int(text)
+            except ValueError:
+                return False
+            if pin_id < 0:
+                return False
+            pin.pin = pin_id
+        elif col == self.COL_NAME:
+            if not text:
+                return False
+            pin.name = text
+        elif col == self.COL_DIR:
+            direction = text.upper()
+            if direction not in VALID_DIRECTIONS:
+                return False
+            pin.default_direction = direction
+        elif col == self.COL_FUNCS:
+            pin.alternate_functions, pin.alt_modes = parse_pin_functions(text)
+        else:
+            return False
+        self.dataChanged.emit(index, index, [role])
+        if col in (self.COL_PORT, self.COL_PIN):
+            self._update_duplicates()
+        return True
+
+    # --- Convenience API ----------------------------------------------
+    def set_pins(self, pins: List[PortPinDef]):
+        self.beginResetModel()
+        self._pins = sorted(copy.deepcopy(pins), key=lambda p: (p.port, p.pin))
+        self.endResetModel()
+        self._update_duplicates()
+
+    def add_pin(self, pin: PortPinDef) -> int:
+        row = len(self._pins)
+        self.beginInsertRows(QModelIndex(), row, row)
+        self._pins.append(pin)
+        self.endInsertRows()
+        self._update_duplicates()
+        return row
+
+    def remove_rows(self, rows: List[int]):
+        for row in sorted(set(rows), reverse=True):
+            if 0 <= row < len(self._pins):
+                self.beginRemoveRows(QModelIndex(), row, row)
+                del self._pins[row]
+                self.endRemoveRows()
+        self._update_duplicates()
+
+    def pins(self) -> List[PortPinDef]:
+        return self._pins
+
+    def ports_dict(self) -> Dict[str, List[PortPinDef]]:
+        """Pins grouped by port, sorted by port then pin (deterministic output)"""
+        result: Dict[str, List[PortPinDef]] = {}
+        for p in sorted(self._pins, key=lambda x: (x.port, x.pin)):
+            result.setdefault(p.port, []).append(p)
+        return result
+
+    def duplicates(self) -> Set[Tuple[str, int]]:
+        return set(self._duplicates)
+
+    def _update_duplicates(self):
+        counts = Counter((p.port, p.pin) for p in self._pins)
+        new_dups = {k for k, n in counts.items() if n > 1}
+        if new_dups != self._duplicates:
+            self._duplicates = new_dups
+            if self._pins:
+                self.dataChanged.emit(
+                    self.index(0, 0), self.index(len(self._pins) - 1, self.columnCount() - 1),
+                    [Qt.BackgroundRole, Qt.ToolTipRole]
+                )
 
 
 class ChipDefinitionDesignerDialog(QDialog):
@@ -38,8 +215,11 @@ class ChipDefinitionDesignerDialog(QDialog):
         self.exporter = ChipDefinitionExporter()
         self.importer = PinoutTableImporter()
 
-        # In-memory working copy
-        self.current_ports: Dict[str, List[PortPinDef]] = {}
+        # Chip the editor was loaded from: carries data the UI does not edit
+        # (intc_sources, metadata) so a save never silently drops it.
+        self._base_chip: Optional[ChipDefinition] = None
+        # Name of the chip whose file is being edited (None for new / cloned chips)
+        self._editing_name: Optional[str] = None
         self._last_saved_chip: Optional[str] = None
 
         self.setWindowTitle("Chip Definition Designer - 芯片定义设计器")
@@ -50,17 +230,22 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._setup_ui()
         self._populate_clone_dropdown()
 
-        if initial_chip:
-            self._load_chip_by_name(initial_chip)
-        else:
+        if not (initial_chip and self._load_chip_by_name(initial_chip)):
             self._init_default_fields()
 
+    @property
+    def current_ports(self) -> Dict[str, List[PortPinDef]]:
+        """Current pins grouped by port (live objects from the pin model)"""
+        return self.pin_model.ports_dict()
+
     def _get_default_data_dir(self) -> Path:
-        """Locate default data/chips directory"""
+        """Default data/chips directory inside the package"""
         pkg_dir = Path(__file__).resolve().parent.parent.parent
-        data_dir = pkg_dir / "data" / "chips"
-        data_dir.mkdir(parents=True, exist_ok=True)
-        return data_dir
+        return pkg_dir / "data" / "chips"
+
+    def _get_save_dir(self) -> Path:
+        """Save next to the database's own files so a reload finds the chip"""
+        return self.chip_database.data_dir or self._get_default_data_dir()
 
     def _setup_ui(self):
         """Construct multi-tab UI"""
@@ -90,7 +275,6 @@ class ChipDefinitionDesignerDialog(QDialog):
         self.tabs.currentChanged.connect(self._on_tab_changed)
         main_layout.addWidget(self.tabs, 1)
 
-        # Setup individual tabs
         self._setup_basic_tab()
         self._setup_peripherals_tab()
         self._setup_pinout_tab()
@@ -130,7 +314,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         form.setVerticalSpacing(10)
 
         self.name_edit = QLineEdit()
-        self.name_edit.setPlaceholderText("例: THA610X_LFBGA180")
+        self.name_edit.setPlaceholderText("例: THA610X_LFBGA180 (字母/数字/_ . -)")
         form.addRow("芯片型号 (Name)*:", self.name_edit)
 
         self.family_edit = QLineEdit()
@@ -141,7 +325,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         self.package_edit.setPlaceholderText("例: LFBGA180, LQFP176, BGA516")
         form.addRow("封装规格 (Package):", self.package_edit)
 
-        # CPU core specs
+        # CPU core specs (persisted under metadata['cores'])
         self.core_count_spin = QSpinBox()
         self.core_count_spin.setRange(1, 16)
         self.core_count_spin.setValue(2)
@@ -248,7 +432,6 @@ class ChipDefinitionDesignerDialog(QDialog):
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(12, 12, 12, 12)
 
-        # Action toolbar
         toolbar = QHBoxLayout()
         import_btn = QPushButton("📂 从 Excel / CSV 导入引脚表 (Import...)")
         import_btn.setStyleSheet("font-weight: bold; background-color: #2b579a; color: white; padding: 5px 12px;")
@@ -266,7 +449,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         toolbar.addSpacing(15)
         toolbar.addWidget(QLabel("端口过滤:"))
         self.port_filter_combo = QComboBox()
-        self.port_filter_combo.addItem("全部端口 (All Ports)")
+        self.port_filter_combo.addItem(ALL_PORTS_LABEL)
         self.port_filter_combo.currentTextChanged.connect(self._filter_pin_table)
         toolbar.addWidget(self.port_filter_combo)
 
@@ -276,18 +459,25 @@ class ChipDefinitionDesignerDialog(QDialog):
 
         layout.addLayout(toolbar)
 
-        # Pin table
-        self.pin_table = QTableWidget(0, 5)
-        self.pin_table.setHorizontalHeaderLabels([
-            "端口 (Port)", "引脚号 (Pin)", "引脚名称 (Name)", "默认方向 (Direction)", "复用功能清单 (Alternate Functions, 逗号分隔)"
-        ])
+        # Model/View: edits go straight into the model, so filtering,
+        # adding or deleting rows can never discard pending changes.
+        self.pin_model = PinTableModel(self)
+        self.pin_proxy = QSortFilterProxyModel(self)
+        self.pin_proxy.setSourceModel(self.pin_model)
+        self.pin_proxy.setFilterKeyColumn(PinTableModel.COL_PORT)
+
+        self.pin_table = QTableView()
+        self.pin_table.setModel(self.pin_proxy)
         header = self.pin_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(4, QHeaderView.Stretch)
+        for col in range(PinTableModel.COL_FUNCS):
+            header.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(PinTableModel.COL_FUNCS, QHeaderView.Stretch)
         self.pin_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.pin_table.verticalHeader().setVisible(False)
+
+        for sig in (self.pin_model.dataChanged, self.pin_model.modelReset,
+                    self.pin_model.rowsInserted, self.pin_model.rowsRemoved):
+            sig.connect(self._on_pin_model_changed)
 
         layout.addWidget(self.pin_table, 1)
         self.tabs.addTab(tab, "3. 引脚复用矩阵 (Pinout & Mux)")
@@ -300,7 +490,6 @@ class ChipDefinitionDesignerDialog(QDialog):
 
         splitter = QSplitter(Qt.Horizontal)
 
-        # Left: YAML
         yaml_box = QGroupBox("YAML 芯片模型定义 (data/chips/*.yaml)")
         yaml_layout = QVBoxLayout(yaml_box)
         self.yaml_preview = QTextEdit()
@@ -313,7 +502,6 @@ class ChipDefinitionDesignerDialog(QDialog):
         yaml_layout.addWidget(yaml_copy_btn)
         splitter.addWidget(yaml_box)
 
-        # Right: .properties
         prop_box = QGroupBox("EB Tresos 资源属性文件 (*.properties)")
         prop_layout = QVBoxLayout(prop_box)
         self.prop_preview = QTextEdit()
@@ -335,8 +523,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         """Populate the clone combo box with existing chips from database"""
         self.clone_combo.clear()
         self.clone_combo.addItem("-- 选择要克隆的芯片模版 --", None)
-        chips = self.chip_database.list_chips()
-        for chip_name in sorted(chips):
+        for chip_name in sorted(self.chip_database.list_chips()):
             self.clone_combo.addItem(chip_name, chip_name)
 
     def _on_clone_clicked(self):
@@ -346,64 +533,82 @@ class ChipDefinitionDesignerDialog(QDialog):
             QMessageBox.information(self, "提示", "请先从下拉菜单中选择一个要克隆的芯片型号。")
             return
 
-        self._load_chip_by_name(chip_name)
+        if not self._load_chip_by_name(chip_name):
+            return
+        # A clone is a new chip: saving must not silently overwrite the source
+        self._editing_name = None
         self.name_edit.setText(f"{chip_name}_COPY")
         self.status_label.setText(f"已克隆芯片模板: {chip_name}")
         QMessageBox.information(self, "克隆成功", f"已成功载入 {chip_name} 的全部规格与引脚定义，您可以直接在此基础上修改。")
 
-    def _load_chip_by_name(self, chip_name: str):
-        """Load chip by name into editor"""
+    def _load_chip_by_name(self, chip_name: str) -> bool:
+        """Load chip by name into editor; every field is reset, nothing leaks from the previous chip"""
         chip = self.chip_database.get_chip(chip_name)
         if not chip:
-            return
+            QMessageBox.warning(self, "未找到芯片", f"芯片库中不存在芯片: {chip_name}")
+            return False
+
+        self._base_chip = copy.deepcopy(chip)
+        self._editing_name = chip.name
 
         self.name_edit.setText(chip.name)
         self.family_edit.setText(chip.family)
         self.package_edit.setText(chip.package)
-        self.desc_edit.setText(chip.description)
+        self.desc_edit.setPlainText(chip.description)
 
-        # Peripherals
-        if chip.can_resources:
-            self.can_count_spin.setValue(len(chip.can_resources))
-            self.can_fd_check.setChecked(any(c.supports_fd for c in chip.can_resources))
-            for row, can in enumerate(chip.can_resources):
-                if row < self.can_table.rowCount():
-                    self.can_table.setItem(row, 0, QTableWidgetItem(str(can.controller_id)))
-                    self.can_table.setItem(row, 1, QTableWidgetItem(can.name))
-                    self.can_table.setItem(row, 2, QTableWidgetItem(str(can.max_baudrate)))
-                    self.can_table.setItem(row, 3, QTableWidgetItem(str(can.mailbox_count)))
+        cores = chip.metadata.get('cores') if isinstance(chip.metadata.get('cores'), dict) else {}
+        self.core_count_spin.blockSignals(True)
+        self.core_count_spin.setValue(int(cores.get('count', 2)))
+        self.core_count_spin.blockSignals(False)
+        available = cores.get('available') or [f"CORE{i}" for i in range(self.core_count_spin.value())]
+        self.avail_cores_edit.setText(", ".join(available))
+        self.master_core_edit.setText(cores.get('master', "CORE0"))
 
-        if chip.adc_resources:
-            self.adc_count_spin.setValue(len(chip.adc_resources))
-            for row, adc in enumerate(chip.adc_resources):
-                if row < self.adc_table.rowCount():
-                    self.adc_table.setItem(row, 0, QTableWidgetItem(str(adc.unit_id)))
-                    self.adc_table.setItem(row, 1, QTableWidgetItem(adc.name))
-                    self.adc_table.setItem(row, 2, QTableWidgetItem(str(adc.channel_count)))
-                    chs = ", ".join(str(c) for c in adc.channels)
-                    self.adc_table.setItem(row, 3, QTableWidgetItem(chs))
+        self._fill_can_table(chip.can_resources)
+        self._fill_adc_table(chip.adc_resources)
 
+        self.spi_count_spin.setValue(len(chip.spi_resources))
         if chip.spi_resources:
-            self.spi_count_spin.setValue(len(chip.spi_resources))
+            self.spi_baud_edit.setText(str(chip.spi_resources[0].max_baudrate))
+            self.spi_dma_check.setChecked(chip.spi_resources[0].supports_dma)
 
-        # Ports
-        self.current_ports = {
-            port: [
-                PortPinDef(
-                    name=p.name,
-                    port=p.port,
-                    pin=p.pin,
-                    alternate_functions=list(p.alternate_functions),
-                    default_direction=p.default_direction
-                )
-                for p in pins
-            ]
-            for port, pins in chip.ports.items()
-        }
-        self._refresh_pin_table()
+        self.pin_model.set_pins(chip.get_all_pins())
+        return True
+
+    def _fill_can_table(self, cans: List[CanResourceDef]):
+        cans = sorted(cans, key=lambda c: c.controller_id)
+        self.can_count_spin.blockSignals(True)
+        self.can_count_spin.setValue(len(cans))
+        self.can_count_spin.blockSignals(False)
+        self.can_table.setRowCount(0)
+        self.can_table.setRowCount(len(cans))
+        self.can_fd_check.setChecked(any(c.supports_fd for c in cans))
+        for row, can in enumerate(cans):
+            for col, val in enumerate((can.controller_id, can.name, can.max_baudrate, can.mailbox_count)):
+                self.can_table.setItem(row, col, QTableWidgetItem(str(val)))
+
+    def _fill_adc_table(self, adcs: List[AdcResourceDef]):
+        adcs = sorted(adcs, key=lambda a: a.unit_id)
+        self.adc_count_spin.blockSignals(True)
+        self.adc_count_spin.setValue(len(adcs))
+        self.adc_count_spin.blockSignals(False)
+        self.adc_table.setRowCount(0)
+        self.adc_table.setRowCount(len(adcs))
+        if adcs:
+            idx = self.adc_res_combo.findText(str(adcs[0].resolution_bits))
+            if idx == -1:
+                self.adc_res_combo.addItem(str(adcs[0].resolution_bits))
+                idx = self.adc_res_combo.count() - 1
+            self.adc_res_combo.setCurrentIndex(idx)
+        for row, adc in enumerate(adcs):
+            chs = ", ".join(str(c) for c in adc.channels)
+            for col, val in enumerate((adc.unit_id, adc.name, adc.channel_count, chs)):
+                self.adc_table.setItem(row, col, QTableWidgetItem(str(val)))
 
     def _init_default_fields(self):
         """Set up initial blank values"""
+        self._base_chip = None
+        self._editing_name = None
         self.name_edit.setText("NEW_MCU_SERIES")
         self.family_edit.setText("THA6")
         self.package_edit.setText("LQFP144")
@@ -442,243 +647,165 @@ class ChipDefinitionDesignerDialog(QDialog):
             self,
             "选择引脚分配表 (Select Pinout Table)",
             str(Path.home()),
-            "Pinout Tables (*.xlsx *.csv *.xls);;Excel Files (*.xlsx *.xls);;CSV Files (*.csv);;All Files (*)"
+            "Pinout Tables (*.xlsx *.xlsm *.csv);;Excel Files (*.xlsx *.xlsm);;CSV Files (*.csv);;All Files (*)"
         )
         if not file_path:
             return
+        self._import_pinout_file(Path(file_path))
 
-        result = self.importer.import_file(Path(file_path))
+    def _import_pinout_file(self, file_path: Path):
+        result = self.importer.import_file(file_path)
         if not result.success:
             err_msg = "\n".join(result.errors[:5])
             QMessageBox.critical(self, "导入失败", f"无法解析引脚表:\n{err_msg}")
             return
 
-        self.current_ports = result.ports
-        self._refresh_pin_table()
+        existing = len(self.pin_model.pins())
+        if existing:
+            reply = QMessageBox.question(
+                self, "替换现有引脚",
+                f"当前已有 {existing} 个引脚，导入将替换为表格中的 {result.total_pins} 个引脚。是否继续？",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            )
+            if reply != QMessageBox.Yes:
+                return
 
-        warn_info = f"\n警告: {len(result.warnings)} 条" if result.warnings else ""
+        self.pin_model.set_pins([p for pins in result.ports.values() for p in pins])
+
+        warn_info = ""
+        if result.warnings:
+            shown = "\n".join(result.warnings[:10])
+            more = f"\n... 另有 {len(result.warnings) - 10} 条" if len(result.warnings) > 10 else ""
+            warn_info = f"\n\n警告 {len(result.warnings)} 条:\n{shown}{more}"
         QMessageBox.information(
             self,
             "导入成功",
             f"成功导入 {result.total_pins} 个引脚，分布在 {len(result.ports)} 个端口中！{warn_info}"
         )
-        self.status_label.setText(f"成功导入引脚表: {Path(file_path).name} ({result.total_pins} 个引脚)")
+        self.status_label.setText(f"成功导入引脚表: {file_path.name} ({result.total_pins} 个引脚)")
 
-    def _refresh_pin_table(self):
-        """Reload pinout table from in-memory current_ports"""
-        # Update port filter combo
-        current_filter = self.port_filter_combo.currentText()
+    def _on_pin_model_changed(self, *args):
+        """Keep the port filter list and statistics in sync with the model"""
+        ports = sorted({p.port for p in self.pin_model.pins()})
+        current = self.port_filter_combo.currentText()
         self.port_filter_combo.blockSignals(True)
         self.port_filter_combo.clear()
-        self.port_filter_combo.addItem("全部端口 (All Ports)")
-        for port_name in sorted(self.current_ports.keys()):
-            self.port_filter_combo.addItem(port_name)
-
-        idx = self.port_filter_combo.findText(current_filter)
-        if idx != -1:
-            self.port_filter_combo.setCurrentIndex(idx)
-        else:
-            self.port_filter_combo.setCurrentIndex(0)
+        self.port_filter_combo.addItem(ALL_PORTS_LABEL)
+        self.port_filter_combo.addItems(ports)
+        idx = self.port_filter_combo.findText(current)
+        self.port_filter_combo.setCurrentIndex(idx if idx != -1 else 0)
         self.port_filter_combo.blockSignals(False)
-
         self._filter_pin_table(self.port_filter_combo.currentText())
 
+        total = len(self.pin_model.pins())
+        dups = self.pin_model.duplicates()
+        dup_info = f"，⚠ {len(dups)} 处重复" if dups else ""
+        self.pin_stats_label.setText(f"共 {len(ports)} 个端口，{total} 个引脚{dup_info}")
+
     def _filter_pin_table(self, filter_port: str):
-        """Filter and display rows in pin table"""
-        self.pin_table.setRowCount(0)
-        all_pins = []
-
-        target_ports = sorted(self.current_ports.keys())
-        if filter_port and filter_port != "全部端口 (All Ports)":
-            target_ports = [filter_port] if filter_port in self.current_ports else []
-
-        total_count = sum(len(pins) for pins in self.current_ports.values())
-        self.pin_stats_label.setText(f"共 {len(self.current_ports)} 个端口，{total_count} 个引脚")
-
-        for port_name in target_ports:
-            for p in self.current_ports[port_name]:
-                all_pins.append(p)
-
-        self.pin_table.setRowCount(len(all_pins))
-        for row, p in enumerate(all_pins):
-            self.pin_table.setItem(row, 0, QTableWidgetItem(p.port))
-            self.pin_table.setItem(row, 1, QTableWidgetItem(str(p.pin)))
-            self.pin_table.setItem(row, 2, QTableWidgetItem(p.name))
-            self.pin_table.setItem(row, 3, QTableWidgetItem(p.default_direction))
-            self.pin_table.setItem(row, 4, QTableWidgetItem(", ".join(p.alternate_functions)))
-
-    def _save_pin_table_edits(self):
-        """Gather edits from pin_table back into current_ports"""
-        for row in range(self.pin_table.rowCount()):
-            port_item = self.pin_table.item(row, 0)
-            pin_item = self.pin_table.item(row, 1)
-            name_item = self.pin_table.item(row, 2)
-            dir_item = self.pin_table.item(row, 3)
-            af_item = self.pin_table.item(row, 4)
-
-            if not port_item or not pin_item:
-                continue
-
-            port = port_item.text().strip()
-            try:
-                pin_id = int(pin_item.text().strip())
-            except ValueError:
-                continue
-
-            name = name_item.text().strip() if name_item else f"{port}_{pin_id}"
-            direction = dir_item.text().strip() if dir_item else "INPUT"
-            raw_af = af_item.text().strip() if af_item else "GPIO"
-            afs = [f.strip() for f in raw_af.split(",") if f.strip()]
-            if not afs:
-                afs = ["GPIO"]
-
-            if port not in self.current_ports:
-                self.current_ports[port] = []
-
-            # Update existing or append
-            found = False
-            for p in self.current_ports[port]:
-                if p.pin == pin_id:
-                    p.name = name
-                    p.default_direction = direction
-                    p.alternate_functions = afs
-                    found = True
-                    break
-            if not found:
-                self.current_ports[port].append(PortPinDef(
-                    name=name, port=port, pin=pin_id,
-                    alternate_functions=afs, default_direction=direction
-                ))
+        """Show only pins of the selected port (exact match, PORT_1 != PORT_10)"""
+        if not filter_port or filter_port == ALL_PORTS_LABEL:
+            self.pin_proxy.setFilterRegularExpression(QRegularExpression())
+        else:
+            self.pin_proxy.setFilterRegularExpression(
+                QRegularExpression(f"^{QRegularExpression.escape(filter_port)}$")
+            )
 
     def _on_add_pin_clicked(self):
         """Add a new pin row"""
         port = self.port_filter_combo.currentText()
-        if not port or port == "全部端口 (All Ports)":
+        if not port or port == ALL_PORTS_LABEL:
             port = "PORT_A"
 
-        if port not in self.current_ports:
-            self.current_ports[port] = []
-
-        existing_pins = [p.pin for p in self.current_ports[port]]
+        existing_pins = [p.pin for p in self.pin_model.pins() if p.port == port]
         next_pin = max(existing_pins) + 1 if existing_pins else 0
 
-        new_pin = PortPinDef(
+        row = self.pin_model.add_pin(PortPinDef(
             name=f"P{port.replace('PORT_', '')}{next_pin}",
             port=port,
             pin=next_pin,
             alternate_functions=["GPIO"],
             default_direction="INPUT"
-        )
-        self.current_ports[port].append(new_pin)
-        self._refresh_pin_table()
+        ))
+        proxy_index = self.pin_proxy.mapFromSource(self.pin_model.index(row, PinTableModel.COL_NAME))
+        if proxy_index.isValid():
+            self.pin_table.setCurrentIndex(proxy_index)
+            self.pin_table.scrollTo(proxy_index)
 
     def _on_delete_pin_clicked(self):
         """Delete selected rows"""
-        selected_rows = sorted(set(idx.row() for idx in self.pin_table.selectedIndexes()), reverse=True)
-        if not selected_rows:
-            return
+        rows = [
+            self.pin_proxy.mapToSource(idx).row()
+            for idx in self.pin_table.selectionModel().selectedRows()
+        ]
+        if rows:
+            self.pin_model.remove_rows(rows)
 
-        for row in selected_rows:
-            port_item = self.pin_table.item(row, 0)
-            pin_item = self.pin_table.item(row, 1)
-            if port_item and pin_item:
-                port = port_item.text().strip()
-                try:
-                    pin_id = int(pin_item.text().strip())
-                    if port in self.current_ports:
-                        self.current_ports[port] = [p for p in self.current_ports[port] if p.pin != pin_id]
-                        if not self.current_ports[port]:
-                            del self.current_ports[port]
-                except ValueError:
-                    pass
-
-        self._refresh_pin_table()
+    def _cell_int(self, table: QTableWidget, row: int, col: int, default: int) -> int:
+        item = table.item(row, col)
+        text = item.text().strip() if item else ""
+        return int(text) if text.isdigit() else default
 
     def _build_current_chip(self) -> ChipDefinition:
-        """Construct ChipDefinition from all tabs"""
-        self._save_pin_table_edits()
-
-        name = self.name_edit.text().strip()
-        family = self.family_edit.text().strip()
-        package = self.package_edit.text().strip()
-        desc = self.desc_edit.toPlainText().strip()
-
+        """Construct a ChipDefinition (independent copy) from all tabs"""
+        base = self._base_chip
         chip = ChipDefinition(
-            name=name or "UNNAMED_CHIP",
-            family=family,
-            package=package,
-            description=desc,
+            name=self.name_edit.text().strip() or "UNNAMED_CHIP",
+            family=self.family_edit.text().strip(),
+            package=self.package_edit.text().strip(),
+            description=self.desc_edit.toPlainText().strip(),
+            ports=copy.deepcopy(self.pin_model.ports_dict()),
+            # Not editable in the UI yet: carry over unchanged
+            intc_sources=copy.deepcopy(base.intc_sources) if base else [],
+            metadata=copy.deepcopy(base.metadata) if base else {},
         )
 
-        # Ports
-        chip.ports = self.current_ports
+        avail_cores = [c.strip() for c in self.avail_cores_edit.text().split(",") if c.strip()]
+        chip.metadata['cores'] = {
+            'count': self.core_count_spin.value(),
+            'available': avail_cores,
+            'master': self.master_core_edit.text().strip() or "CORE0",
+        }
 
-        # CAN
         can_res = []
         for r in range(self.can_table.rowCount()):
-            cid_item = self.can_table.item(r, 0)
+            cid = self._cell_int(self.can_table, r, 0, r)
             cname_item = self.can_table.item(r, 1)
-            cbaud_item = self.can_table.item(r, 2)
-            cmail_item = self.can_table.item(r, 3)
-
-            cid = int(cid_item.text()) if cid_item and cid_item.text().isdigit() else r
-            cname = cname_item.text() if cname_item else f"CAN{cid}"
-            cbaud = int(cbaud_item.text()) if cbaud_item and cbaud_item.text().isdigit() else 1000000
-            cmail = int(cmail_item.text()) if cmail_item and cmail_item.text().isdigit() else 32
-
             can_res.append(CanResourceDef(
-                name=cname,
+                name=cname_item.text().strip() if cname_item and cname_item.text().strip() else f"CAN{cid}",
                 controller_id=cid,
-                max_baudrate=cbaud,
+                max_baudrate=self._cell_int(self.can_table, r, 2, 1000000),
                 supports_fd=self.can_fd_check.isChecked(),
-                mailbox_count=cmail
+                mailbox_count=self._cell_int(self.can_table, r, 3, 32)
             ))
         chip.can_resources = can_res
 
-        # ADC
+        res_text = self.adc_res_combo.currentText()
+        res_bits = int(res_text) if res_text.isdigit() else 12
         adc_res = []
         for r in range(self.adc_table.rowCount()):
-            aid_item = self.adc_table.item(r, 0)
+            aid = self._cell_int(self.adc_table, r, 0, r)
             aname_item = self.adc_table.item(r, 1)
-            acnt_item = self.adc_table.item(r, 2)
+            acnt = self._cell_int(self.adc_table, r, 2, 8)
             achs_item = self.adc_table.item(r, 3)
-
-            aid = int(aid_item.text()) if aid_item and aid_item.text().isdigit() else r
-            aname = aname_item.text() if aname_item else f"SARADC{aid}"
-            acnt = int(acnt_item.text()) if acnt_item and acnt_item.text().isdigit() else 8
-
             channels = []
             if achs_item and achs_item.text():
-                for c in achs_item.text().split(","):
-                    c_clean = c.strip()
-                    if c_clean.isdigit():
-                        channels.append(int(c_clean))
-            if not channels:
-                channels = list(range(acnt))
-
-            res_bits = int(self.adc_res_combo.currentText()) if self.adc_res_combo.currentText().isdigit() else 12
-
+                channels = [int(c.strip()) for c in achs_item.text().split(",") if c.strip().isdigit()]
             adc_res.append(AdcResourceDef(
-                name=aname,
+                name=aname_item.text().strip() if aname_item and aname_item.text().strip() else f"SARADC{aid}",
                 unit_id=aid,
                 channel_count=acnt,
                 resolution_bits=res_bits,
-                channels=channels
+                channels=channels or list(range(acnt))
             ))
         chip.adc_resources = adc_res
 
-        # SPI
-        spi_res = []
-        spi_cnt = self.spi_count_spin.value()
         spi_baud = int(self.spi_baud_edit.text()) if self.spi_baud_edit.text().isdigit() else 10000000
-        for i in range(spi_cnt):
-            spi_res.append(SpiResourceDef(
-                name=f"SPI{i}",
-                unit_id=i,
-                max_baudrate=spi_baud,
-                supports_dma=self.spi_dma_check.isChecked()
-            ))
-        chip.spi_resources = spi_res
+        chip.spi_resources = [
+            SpiResourceDef(name=f"SPI{i}", unit_id=i, max_baudrate=spi_baud,
+                           supports_dma=self.spi_dma_check.isChecked())
+            for i in range(self.spi_count_spin.value())
+        ]
 
         return chip
 
@@ -686,16 +813,11 @@ class ChipDefinitionDesignerDialog(QDialog):
         """Update preview when tab 4 is selected"""
         if index == 3:  # Preview tab
             chip = self._build_current_chip()
-            yaml_str = self.exporter.to_yaml_string(chip)
-            self.yaml_preview.setPlainText(yaml_str)
-
-            num_cores = self.core_count_spin.value()
-            avail_cores = [c.strip() for c in self.avail_cores_edit.text().split(",") if c.strip()]
-            master_core = self.master_core_edit.text().strip() or "CORE0"
-            prop_str = self.exporter.to_properties_string(
-                chip, num_cores=num_cores, available_cores=avail_cores, master_core=master_core
-            )
-            self.prop_preview.setPlainText(prop_str)
+            self.yaml_preview.setPlainText(self.exporter.to_yaml_string(chip))
+            cores = chip.metadata['cores']
+            self.prop_preview.setPlainText(self.exporter.to_properties_string(
+                chip, num_cores=cores['count'], available_cores=cores['available'], master_core=cores['master']
+            ))
 
     def _copy_to_clipboard(self, text: str):
         """Copy string to system clipboard"""
@@ -705,24 +827,20 @@ class ChipDefinitionDesignerDialog(QDialog):
     def _on_export_properties_clicked(self):
         """Export .properties file via file dialog"""
         chip = self._build_current_chip()
-        default_filename = f"CotexR52_{chip.name}.properties"
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "导出 EB Tresos 属性文件",
-            default_filename,
+            f"CotexR52_{chip.name}.properties",
             "Properties Files (*.properties);;All Files (*)"
         )
         if not file_path:
             return
 
-        num_cores = self.core_count_spin.value()
-        avail_cores = [c.strip() for c in self.avail_cores_edit.text().split(",") if c.strip()]
-        master_core = self.master_core_edit.text().strip() or "CORE0"
-
+        cores = chip.metadata['cores']
         try:
             self.exporter.save_properties(
                 chip, Path(file_path),
-                num_cores=num_cores, available_cores=avail_cores, master_core=master_core
+                num_cores=cores['count'], available_cores=cores['available'], master_core=cores['master']
             )
             QMessageBox.information(self, "导出成功", f"成功导出属性文件:\n{file_path}")
             self.status_label.setText(f"已导出属性文件: {Path(file_path).name}")
@@ -730,12 +848,22 @@ class ChipDefinitionDesignerDialog(QDialog):
             QMessageBox.critical(self, "导出错误", f"导出失败:\n{str(e)}")
 
     def _on_save_clicked(self):
-        """Save the chip definition to data/chips/<name>.yaml and notify system"""
+        """Save the chip definition to <data dir>/<name>.yaml and register it"""
         chip = self._build_current_chip()
-        if not chip.name or chip.name == "UNNAMED_CHIP":
-            QMessageBox.warning(self, "验证失败", "请输入有效的芯片型号名称！")
+        if not CHIP_NAME_PATTERN.match(chip.name) or chip.name == "UNNAMED_CHIP":
+            QMessageBox.warning(
+                self, "验证失败",
+                "请输入有效的芯片型号名称！\n仅允许字母、数字、下划线、点和连字符，且不能以符号开头。"
+            )
             self.tabs.setCurrentIndex(0)
             self.name_edit.setFocus()
+            return
+
+        dups = self.pin_model.duplicates()
+        if dups:
+            listed = ", ".join(f"{port}/{pin}" for port, pin in sorted(dups)[:10])
+            QMessageBox.warning(self, "引脚重复", f"以下引脚重复定义（已标红），请修正后再保存:\n{listed}")
+            self.tabs.setCurrentIndex(2)
             return
 
         if not chip.ports:
@@ -750,25 +878,45 @@ class ChipDefinitionDesignerDialog(QDialog):
                 self.tabs.setCurrentIndex(2)
                 return
 
-        target_file = self._get_default_data_dir() / f"{chip.name}.yaml"
+        target_file = self._get_save_dir() / f"{chip.name}.yaml"
+        is_own_file = chip.name == self._editing_name
+        if not is_own_file and (target_file.exists() or self.chip_database.get_chip(chip.name)):
+            reply = QMessageBox.question(
+                self, "覆盖确认",
+                f"芯片 {chip.name} 已存在于芯片库中，是否覆盖？\n{target_file}",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            )
+            if reply != QMessageBox.Yes:
+                return
+
         try:
             self.exporter.save_yaml(chip, target_file)
-
-            # Register in database
-            self._last_saved_chip = chip.name
-            self.chip_database._chips[chip.name] = chip
-            self._populate_clone_dropdown()
-
-            self.status_label.setText(f"✅ 已成功保存芯片: {chip.name}")
-            self.status_label.setStyleSheet("color: #4caf50; font-weight: bold; font-size: 12px;")
-            self.chip_saved.emit(chip.name)
-
-            QMessageBox.information(
-                self,
-                "保存成功",
-                f"芯片定义已成功保存到系统数据库！\n\n文件路径: {target_file}\n"
-                f"在后续的硬件映射向导和配置面板中，可以直接选择此芯片。\n\n"
-                f"您可以继续编辑或导出 .properties 文件，也可以直接关闭。"
-            )
         except Exception as e:
+            logger.exception("Failed to save chip definition")
             QMessageBox.critical(self, "保存错误", f"保存芯片定义失败:\n{str(e)}")
+            return
+
+        self.chip_database.register_chip(copy.deepcopy(chip))
+        self._base_chip = copy.deepcopy(chip)
+        self._editing_name = chip.name
+        self._last_saved_chip = chip.name
+        self._populate_clone_dropdown()
+
+        self.status_label.setText(f"✅ 已成功保存芯片: {chip.name}")
+        self.status_label.setStyleSheet("color: #4caf50; font-weight: bold; font-size: 12px;")
+        self.chip_saved.emit(chip.name)
+
+        QMessageBox.information(
+            self,
+            "保存成功",
+            f"芯片定义已成功保存到系统数据库！\n\n文件路径: {target_file}\n"
+            f"在后续的硬件映射向导和配置面板中，可以直接选择此芯片。\n\n"
+            f"您可以继续编辑或导出 .properties 文件，也可以直接关闭。"
+        )
+
+    def reject(self):
+        """Closing after a successful save reports Accepted so callers using exec() refresh"""
+        if self._last_saved_chip:
+            self.accept()
+        else:
+            super().reject()

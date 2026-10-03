@@ -257,3 +257,244 @@ def test_designer_dialog_preview_and_save(qtbot, tmp_path: Path, monkeypatch):
     assert "MY_CUSTOM_CHIP" in saved_signal_received
     assert (tmp_path / "MY_CUSTOM_CHIP.yaml").exists()
     assert "MY_CUSTOM_CHIP" in db._chips
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for designer review fixes
+# ---------------------------------------------------------------------------
+import yaml as _yaml
+from autosar_configurator.core.hardware.chip_database import IntcSourceDef
+
+REPO_CHIPS_DIR = Path(__file__).resolve().parents[2] / "autosar_configurator" / "data" / "chips"
+
+
+def _rich_chip() -> ChipDefinition:
+    chip = ChipDefinition(name="RICH_1", family="THA6", package="BGA", description='Quote "x" # not comment: yes')
+    chip.ports["PORT_20"] = [
+        PortPinDef(name="P20.2", port="PORT_20", pin=2, alternate_functions=["GPIO", "ETH:MDIO", "#TST", "[x]"],
+                   default_direction="INOUT", alt_modes={0: "GPIO", 3: "ETH:MDIO"}),
+    ]
+    chip.intc_sources = [IntcSourceDef(name="IRQ_CAN0", vector_number=42, priority_bits=5, is_configurable=False)]
+    chip.metadata = {"cpu_frequency": 400000000, "cores": {"count": 2, "available": ["CORE0", "CORE1"], "master": "CORE0"}}
+    return chip
+
+
+def test_yaml_export_escapes_special_characters_and_is_lossless(tmp_path: Path):
+    chip = _rich_chip()
+    path = tmp_path / "RICH_1.yaml"
+    ChipDefinitionExporter().save_yaml(chip, path)
+
+    _yaml.safe_load(path.read_text(encoding="utf-8"))  # must parse
+    loaded = ChipDatabase(tmp_path).get_chip("RICH_1")
+    assert loaded == chip
+
+
+@pytest.mark.parametrize("yaml_file", sorted(REPO_CHIPS_DIR.glob("*.yaml")), ids=lambda p: p.stem)
+def test_repo_chip_yaml_roundtrip(tmp_path: Path, yaml_file: Path):
+    original = ChipDatabase()._load_chip_from_yaml(yaml_file)
+    if original is None:
+        pytest.skip("not a chip definition")
+    ChipDefinitionExporter().save_yaml(original, tmp_path / f"{original.name}.yaml")
+    assert ChipDatabase(tmp_path).get_chip(original.name) == original
+
+
+@pytest.mark.parametrize("raw, expected", [
+    ("INOUT", "INOUT"), ("In/Out", "INOUT"), ("I/O", "INOUT"), ("IO", "INOUT"), ("Bidirectional", "INOUT"),
+    ("OUT", "OUTPUT"), ("Output", "OUTPUT"), ("IN", "INPUT"), ("input", "INPUT"),
+])
+def test_importer_direction_normalization(raw, expected):
+    assert PinoutTableImporter._normalize_direction(raw) == expected
+
+
+def test_importer_keeps_mode_numbers_across_empty_af_columns():
+    rows = [
+        ["Pin Name", "AF0", "AF1", "AF2", "AF3"],
+        ["P20.2", "GPIO", "", "CAN0_TX", "SPI1_CS0 / SENT0"],
+    ]
+    result = PinoutTableImporter()._process_raw_table(rows)
+    pin = result.ports["PORT_20"][0]
+    assert pin.alt_modes == {0: "GPIO", 2: "CAN0_TX", 3: "SPI1_CS0/SENT0"}
+    assert pin.alternate_functions == ["GPIO", "CAN0_TX", "SPI1_CS0", "SENT0"]
+
+
+def test_importer_mode_numbers_follow_header_digits_not_column_order():
+    rows = [["Pin Name", "MUX1", "MUX2", "MUX5"], ["P0.1", "UART0_TX", "", "PWM3"]]
+    pin = PinoutTableImporter()._process_raw_table(rows).ports["PORT_0"][0]
+    assert pin.alt_modes == {1: "UART0_TX", 5: "PWM3"}
+
+
+def test_importer_duplicate_pins_counted_once():
+    rows = [["Pin Name", "Direction"], ["P20.2", "IN"], ["P20.2", "OUT"], ["P20.3", "IN"]]
+    result = PinoutTableImporter()._process_raw_table(rows)
+    assert result.total_pins == 2
+    assert result.ports["PORT_20"][0].default_direction == "OUTPUT"
+    assert any("Duplicate" in w for w in result.warnings)
+
+
+def test_importer_warns_on_missing_sheet(tmp_path: Path):
+    openpyxl = pytest.importorskip("openpyxl")
+    wb = openpyxl.Workbook()
+    wb.active.title = "Pins"
+    wb.active.append(["Pin Name", "AF0"])
+    wb.active.append(["P1.0", "GPIO"])
+    path = tmp_path / "pins.xlsx"
+    wb.save(path)
+    result = PinoutTableImporter().import_file(path, sheet_name="Missing")
+    assert result.success
+    assert "Missing" in result.warnings[0]
+
+
+# --- Dialog -----------------------------------------------------------------
+
+@pytest.fixture
+def silent_boxes(monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+    calls = {"question": QMessageBox.Yes, "warnings": []}
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: QMessageBox.Ok)
+    monkeypatch.setattr(QMessageBox, "critical", lambda *a, **k: QMessageBox.Ok)
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: calls["warnings"].append(a[2]) or QMessageBox.Ok)
+    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: calls["question"])
+    return calls
+
+
+def _make_dialog(qtbot, db):
+    from autosar_configurator.ui.dialogs.chip_definition_designer_dialog import ChipDefinitionDesignerDialog
+    dialog = ChipDefinitionDesignerDialog(chip_database=db)
+    qtbot.addWidget(dialog)
+    return dialog
+
+
+def _model_cell(dialog, port, pin, col):
+    model = dialog.pin_model
+    row = next(i for i, p in enumerate(model.pins()) if p.port == port and p.pin == pin)
+    return model.index(row, col)
+
+
+def test_dialog_edits_survive_filter_add_and_delete(qtbot, silent_boxes):
+    from autosar_configurator.ui.dialogs.chip_definition_designer_dialog import PinTableModel
+    db = ChipDatabase()
+    db.register_chip(_rich_chip())
+    dialog = _make_dialog(qtbot, db)
+    dialog._load_chip_by_name("RICH_1")
+
+    assert dialog.pin_model.setData(_model_cell(dialog, "PORT_20", 2, PinTableModel.COL_NAME), "RENAMED")
+    dialog.port_filter_combo.setCurrentText("PORT_20")
+    dialog._on_add_pin_clicked()
+    dialog.port_filter_combo.setCurrentIndex(0)
+
+    names = [p.name for p in dialog.current_ports["PORT_20"]]
+    assert "RENAMED" in names and len(names) == 2
+
+
+def test_dialog_changing_pin_id_does_not_leave_ghost_pin(qtbot, silent_boxes):
+    from autosar_configurator.ui.dialogs.chip_definition_designer_dialog import PinTableModel
+    db = ChipDatabase()
+    db.register_chip(_rich_chip())
+    dialog = _make_dialog(qtbot, db)
+    dialog._load_chip_by_name("RICH_1")
+
+    assert dialog.pin_model.setData(_model_cell(dialog, "PORT_20", 2, PinTableModel.COL_PIN), "7")
+    assert [p.pin for p in dialog.current_ports["PORT_20"]] == [7]
+    assert not dialog.pin_model.setData(_model_cell(dialog, "PORT_20", 7, PinTableModel.COL_PIN), "abc")
+    assert not dialog.pin_model.setData(_model_cell(dialog, "PORT_20", 7, PinTableModel.COL_DIR), "sideways")
+
+
+def test_dialog_functions_column_roundtrips_mode_numbers(qtbot, silent_boxes):
+    from autosar_configurator.ui.dialogs.chip_definition_designer_dialog import PinTableModel
+    db = ChipDatabase()
+    db.register_chip(_rich_chip())
+    dialog = _make_dialog(qtbot, db)
+    dialog._load_chip_by_name("RICH_1")
+
+    idx = _model_cell(dialog, "PORT_20", 2, PinTableModel.COL_FUNCS)
+    assert dialog.pin_model.data(idx) == "0:GPIO, 3:ETH:MDIO"
+    dialog.pin_model.setData(idx, "0:GPIO, 5:CAN1_RX")
+    pin = dialog.current_ports["PORT_20"][0]
+    assert pin.alt_modes == {0: "GPIO", 5: "CAN1_RX"}
+    assert pin.alternate_functions == ["GPIO", "CAN1_RX"]
+
+
+def test_dialog_duplicate_pins_block_save(qtbot, tmp_path, silent_boxes):
+    db = ChipDatabase(tmp_path)
+    dialog = _make_dialog(qtbot, db)
+    dialog.name_edit.setText("DUP_CHIP")
+    dialog._on_add_pin_clicked()
+    dialog._on_add_pin_clicked()
+    from autosar_configurator.ui.dialogs.chip_definition_designer_dialog import PinTableModel
+    dialog.pin_model.setData(dialog.pin_model.index(1, PinTableModel.COL_PIN), "0")
+
+    dialog._on_save_clicked()
+    assert not (tmp_path / "DUP_CHIP.yaml").exists()
+    assert any("PORT_A/0" in w for w in silent_boxes["warnings"])
+
+
+def test_dialog_clone_and_save_preserves_intc_and_metadata(qtbot, tmp_path, silent_boxes):
+    db = ChipDatabase(tmp_path)
+    db.register_chip(_rich_chip())
+    dialog = _make_dialog(qtbot, db)
+    dialog.clone_combo.setCurrentIndex(dialog.clone_combo.findData("RICH_1"))
+    dialog._on_clone_clicked()
+    dialog._on_save_clicked()
+
+    saved = ChipDatabase(tmp_path).get_chip("RICH_1_COPY")
+    assert saved.intc_sources == _rich_chip().intc_sources
+    assert saved.metadata["cpu_frequency"] == 400000000
+    assert saved.metadata["cores"]["count"] == 2
+    assert saved.ports["PORT_20"][0].alt_modes == {0: "GPIO", 3: "ETH:MDIO"}
+
+
+def test_dialog_load_resets_peripheral_tables(qtbot, silent_boxes):
+    db = ChipDatabase()
+    with_can = ChipDefinition(name="WITH_CAN")
+    with_can.can_resources = [CanResourceDef(name=f"CAN{i}", controller_id=i) for i in range(3)]
+    db.register_chip(with_can)
+    db.register_chip(ChipDefinition(name="NO_CAN"))
+    dialog = _make_dialog(qtbot, db)
+
+    dialog._load_chip_by_name("WITH_CAN")
+    assert dialog.can_table.rowCount() == 3
+    dialog._load_chip_by_name("NO_CAN")
+    assert dialog.can_table.rowCount() == 0
+    assert dialog._build_current_chip().can_resources == []
+
+
+def test_dialog_save_rejects_unsafe_name(qtbot, tmp_path, silent_boxes):
+    dialog = _make_dialog(qtbot, ChipDatabase(tmp_path))
+    dialog.name_edit.setText("../evil")
+    dialog._on_save_clicked()
+    assert not list(tmp_path.parent.glob("evil.yaml"))
+    assert silent_boxes["warnings"]
+
+
+def test_dialog_save_asks_before_overwriting_other_chip(qtbot, tmp_path, silent_boxes):
+    from PySide6.QtWidgets import QMessageBox
+    ChipDefinitionExporter().save_yaml(ChipDefinition(name="EXISTING", description="orig"), tmp_path / "EXISTING.yaml")
+    db = ChipDatabase(tmp_path)
+    dialog = _make_dialog(qtbot, db)
+    dialog.name_edit.setText("EXISTING")
+    dialog._on_add_pin_clicked()
+
+    silent_boxes["question"] = QMessageBox.No
+    dialog._on_save_clicked()
+    assert ChipDatabase(tmp_path).get_chip("EXISTING").description == "orig"
+
+    silent_boxes["question"] = QMessageBox.Yes
+    dialog._on_save_clicked()
+    assert ChipDatabase(tmp_path).get_chip("EXISTING").description != "orig"
+
+
+def test_dialog_saves_into_database_dir_and_close_reports_accepted(qtbot, tmp_path, silent_boxes):
+    from PySide6.QtWidgets import QDialog
+    db = ChipDatabase(tmp_path)
+    dialog = _make_dialog(qtbot, db)
+    dialog.name_edit.setText("SAVED_CHIP")
+    dialog._on_add_pin_clicked()
+    dialog._on_save_clicked()
+
+    assert (tmp_path / "SAVED_CHIP.yaml").exists()
+    saved = db.get_chip("SAVED_CHIP")
+    dialog._on_add_pin_clicked()  # editing after save must not mutate the DB copy
+    assert len(saved.get_all_pins()) == 1
+
+    dialog.reject()
+    assert dialog.result() == QDialog.Accepted
