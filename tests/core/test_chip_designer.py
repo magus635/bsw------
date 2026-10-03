@@ -498,3 +498,55 @@ def test_dialog_saves_into_database_dir_and_close_reports_accepted(qtbot, tmp_pa
 
     dialog.reject()
     assert dialog.result() == QDialog.Accepted
+
+
+def test_dialog_add_pin_picks_existing_port_when_on_all_ports(qtbot, silent_boxes):
+    from autosar_configurator.ui.dialogs.chip_definition_designer_dialog import ALL_PORTS_LABEL
+    db = ChipDatabase()
+    custom_chip = ChipDefinition(name="NUMERIC_PORTS")
+    custom_chip.ports["PORT_0"] = [PortPinDef(name="P0_0", port="PORT_0", pin=0, alternate_functions=["GPIO"])]
+    db.register_chip(custom_chip)
+
+    dialog = _make_dialog(qtbot, db)
+    dialog._load_chip_by_name("NUMERIC_PORTS")
+    dialog.port_filter_combo.setCurrentText(ALL_PORTS_LABEL)
+
+    dialog._on_add_pin_clicked()
+    all_pins = dialog.pin_model.pins()
+    assert len(all_pins) == 2
+    # Second pin must be in PORT_0, not PORT_A
+    assert all_pins[1].port == "PORT_0"
+    assert all_pins[1].pin == 1
+
+
+def test_dialog_new_chip_has_baseline_metadata(qtbot, silent_boxes):
+    dialog = _make_dialog(qtbot, ChipDatabase())
+    chip = dialog._build_current_chip()
+    assert "cpu_frequency" in chip.metadata
+    assert "flash_size" in chip.metadata
+    assert "ram_size" in chip.metadata
+    assert chip.metadata["cores"]["count"] == 2
+
+
+def test_model_batch_remove_rows(qtbot):
+    from autosar_configurator.ui.dialogs.chip_definition_designer_dialog import PinTableModel
+    model = PinTableModel()
+    model.set_pins([
+        PortPinDef(name=f"P{i}", port="PORT_0", pin=i, alternate_functions=["GPIO"])
+        for i in range(5)
+    ])
+    assert model.rowCount() == 5
+
+    # Delete 3 non-contiguous rows in batch
+    model.remove_rows([0, 2, 4])
+    assert model.rowCount() == 2
+    remaining_pins = [p.pin for p in model.pins()]
+    assert remaining_pins == [1, 3]
+
+
+def test_parse_int_handles_underscores_and_whitespace():
+    from autosar_configurator.ui.dialogs.chip_definition_designer_dialog import _parse_int
+    assert _parse_int(" 10_000_000 ", default=1000) == 10000000
+    assert _parse_int("bad", default=5000) == 5000
+    assert _parse_int(None, default=42) == 42
+    assert _parse_int(8000, default=0) == 8000

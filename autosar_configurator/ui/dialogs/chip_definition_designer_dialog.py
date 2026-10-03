@@ -8,7 +8,7 @@ import copy
 import re
 from collections import Counter
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 import logging
 
 from PySide6.QtWidgets import (
@@ -38,6 +38,17 @@ VALID_DIRECTIONS = ("INPUT", "OUTPUT", "INOUT")
 # Chip name doubles as the YAML file name: no path separators or leading dots.
 CHIP_NAME_PATTERN = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.\-]*$')
 _MODE_TOKEN = re.compile(r'^(\d+)\s*[:=]\s*(.+)$')
+
+
+def _parse_int(value: Any, default: int) -> int:
+    """Robust integer parser supporting strings with underscores, whitespace, etc."""
+    if value is None:
+        return default
+    try:
+        return int(str(value).replace('_', '').strip())
+    except (ValueError, TypeError):
+        return default
+
 
 
 def format_pin_functions(pin: PortPinDef) -> str:
@@ -172,11 +183,19 @@ class PinTableModel(QAbstractTableModel):
         return row
 
     def remove_rows(self, rows: List[int]):
-        for row in sorted(set(rows), reverse=True):
-            if 0 <= row < len(self._pins):
-                self.beginRemoveRows(QModelIndex(), row, row)
+        valid_rows = sorted({r for r in rows if 0 <= r < len(self._pins)}, reverse=True)
+        if not valid_rows:
+            return
+        if len(valid_rows) > 1:
+            self.beginResetModel()
+            for row in valid_rows:
                 del self._pins[row]
-                self.endRemoveRows()
+            self.endResetModel()
+        else:
+            row = valid_rows[0]
+            self.beginRemoveRows(QModelIndex(), row, row)
+            del self._pins[row]
+            self.endRemoveRows()
         self._update_duplicates()
 
     def pins(self) -> List[PortPinDef]:
@@ -715,7 +734,8 @@ class ChipDefinitionDesignerDialog(QDialog):
         """Add a new pin row"""
         port = self.port_filter_combo.currentText()
         if not port or port == ALL_PORTS_LABEL:
-            port = "PORT_A"
+            existing_ports = sorted({p.port for p in self.pin_model.pins()})
+            port = existing_ports[0] if existing_ports else "PORT_A"
 
         existing_pins = [p.pin for p in self.pin_model.pins() if p.port == port]
         next_pin = max(existing_pins) + 1 if existing_pins else 0
@@ -743,12 +763,18 @@ class ChipDefinitionDesignerDialog(QDialog):
 
     def _cell_int(self, table: QTableWidget, row: int, col: int, default: int) -> int:
         item = table.item(row, col)
-        text = item.text().strip() if item else ""
-        return int(text) if text.isdigit() else default
+        return _parse_int(item.text() if item else None, default)
 
     def _build_current_chip(self) -> ChipDefinition:
         """Construct a ChipDefinition (independent copy) from all tabs"""
         base = self._base_chip
+        default_metadata = {
+            'cpu_frequency': 80000000,
+            'flash_size': '512KB',
+            'ram_size': '64KB',
+        }
+        initial_metadata = copy.deepcopy(base.metadata) if base and base.metadata else default_metadata
+
         chip = ChipDefinition(
             name=self.name_edit.text().strip() or "UNNAMED_CHIP",
             family=self.family_edit.text().strip(),
@@ -757,7 +783,7 @@ class ChipDefinitionDesignerDialog(QDialog):
             ports=copy.deepcopy(self.pin_model.ports_dict()),
             # Not editable in the UI yet: carry over unchanged
             intc_sources=copy.deepcopy(base.intc_sources) if base else [],
-            metadata=copy.deepcopy(base.metadata) if base else {},
+            metadata=initial_metadata,
         )
 
         avail_cores = [c.strip() for c in self.avail_cores_edit.text().split(",") if c.strip()]
@@ -800,7 +826,7 @@ class ChipDefinitionDesignerDialog(QDialog):
             ))
         chip.adc_resources = adc_res
 
-        spi_baud = int(self.spi_baud_edit.text()) if self.spi_baud_edit.text().isdigit() else 10000000
+        spi_baud = _parse_int(self.spi_baud_edit.text(), 10000000)
         chip.spi_resources = [
             SpiResourceDef(name=f"SPI{i}", unit_id=i, max_baudrate=spi_baud,
                            supports_dma=self.spi_dma_check.isChecked())
