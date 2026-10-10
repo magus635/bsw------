@@ -1,0 +1,4303 @@
+{
+ "ArtiConstant": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiValues",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiConstantString": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiConstant",
+  "pbm": null,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiExpression": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiValues",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiExpressionString": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiExpression",
+  "pbm": null,
+  "pbv": true,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiGeneric": {
+  "container_mult": [
+   0,
+   1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": null,
+  "parent": "Arti",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiGenericComponentClass": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiGeneric",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiGenericComponentClassName": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiGenericComponentClass",
+  "pbm": null,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiGenericComponentClassParameter": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiGenericComponentClass",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiGenericComponentClassParameterName": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiGenericComponentClassParameter",
+  "pbm": null,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiGenericComponentClassParameterTypeMapRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiGenericComponentClassParameter",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiGenericComponentInstance": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiGeneric",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiGenericComponentInstanceClassRef": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiGenericComponentInstance",
+  "pbm": null,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiGenericComponentInstanceName": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiGenericComponentInstance",
+  "pbm": null,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiGenericComponentInstanceParameter": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiGenericComponentInstance",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiGenericComponentInstanceParameterClassParameterRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   -1
+  ],
+  "parent": "ArtiGenericComponentInstanceParameter",
+  "pbm": false,
+  "pbv": false,
+  "scope": null,
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiGenericComponentInstanceParameterConstantRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiGenericComponentInstanceParameter",
+  "pbm": false,
+  "pbv": false,
+  "scope": null,
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiGenericComponentInstanceParameterExpressionRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiGenericComponentInstanceParameter",
+  "pbm": false,
+  "pbv": false,
+  "scope": null,
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiGenericComponentInstanceParameterHookRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiGenericComponentInstanceParameter",
+  "pbm": false,
+  "pbv": false,
+  "scope": null,
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiHardware": {
+  "container_mult": [
+   0,
+   1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ],
+  "mult": null,
+  "parent": "Arti",
+  "pbm": true,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiHardwareCoreClass": {
+  "container_mult": [
+   0,
+   1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiHardware",
+  "pbm": true,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiHardwareCoreClassCurrentApplicationRef": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiHardwareCoreClass",
+  "pbm": null,
+  "pbv": true,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ]
+ },
+ "ArtiHardwareCoreClassCurrentIsrRef": {
+  "mc": [],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiHardwareCoreClass",
+  "pbm": null,
+  "pbv": true,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ]
+ },
+ "ArtiHardwareCoreClassCurrentTaskRef": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiHardwareCoreClass",
+  "pbm": null,
+  "pbv": true,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ]
+ },
+ "ArtiHardwareCoreClassGenericComponentRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiHardwareCoreClass",
+  "pbm": true,
+  "pbv": true,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ]
+ },
+ "ArtiHardwareCoreClassLastErrorRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiHardwareCoreClass",
+  "pbm": true,
+  "pbv": true,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ]
+ },
+ "ArtiHardwareCoreClassRunningTaskPriorityRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiHardwareCoreClass",
+  "pbm": true,
+  "pbv": true,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ]
+ },
+ "ArtiHardwareCoreInstance": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiHardware",
+  "pbm": true,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiHardwareCoreInstanceCoreId": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiHardwareCoreInstance",
+  "pbm": null,
+  "pbv": true,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ]
+ },
+ "ArtiHardwareCoreInstanceCurrentApplicationRef": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiHardwareCoreInstance",
+  "pbm": null,
+  "pbv": true,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ]
+ },
+ "ArtiHardwareCoreInstanceCurrentIsrRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiHardwareCoreInstance",
+  "pbm": true,
+  "pbv": true,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ]
+ },
+ "ArtiHardwareCoreInstanceCurrentTaskRef": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiHardwareCoreInstance",
+  "pbm": null,
+  "pbv": true,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ]
+ },
+ "ArtiHardwareCoreInstanceEcucCoreRef": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiHardwareCoreInstance",
+  "pbm": null,
+  "pbv": true,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ]
+ },
+ "ArtiHardwareCoreInstanceGenericComponentRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiHardwareCoreInstance",
+  "pbm": true,
+  "pbv": true,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ]
+ },
+ "ArtiHardwareCoreInstanceLastErrorRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiHardwareCoreInstance",
+  "pbm": true,
+  "pbv": true,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ]
+ },
+ "ArtiHardwareCoreInstanceRunningTaskPriorityRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiHardwareCoreInstance",
+  "pbm": true,
+  "pbv": true,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "POST-BUILD",
+    "VARIANT-POST-BUILD"
+   ]
+  ]
+ },
+ "ArtiHardwareCoreInstanceValidRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiHardwareCoreInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiHook": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiValues",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiHookAssociatedFunction": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiHook",
+  "pbm": false,
+  "pbv": false,
+  "scope": "LOCAL",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiHookClass": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiHook",
+  "pbm": null,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiHookContext": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiHook",
+  "pbm": null,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiHookEntryRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiHook",
+  "pbm": false,
+  "pbv": false,
+  "scope": "LOCAL",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiHookEventName": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiHook",
+  "pbm": null,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiHookEventParameterTypeRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiHook",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiHookFileName": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiHook",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiHookInstance": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiHook",
+  "pbm": null,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiHookInstanceParameterTypeRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiHook",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiObjectClassParameter": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiValues",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiObjectClassParameterTypeMapRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiObjectClassParameter",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiObjectInstanceParameter": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiValues",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiObjectInstanceParameterConstantRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiObjectInstanceParameter",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiObjectInstanceParameterExpressionRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiObjectInstanceParameter",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiObjectInstanceParameterHookRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiObjectInstanceParameter",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiOs": {
+  "container_mult": [
+   0,
+   1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "Arti",
+  "pbm": true,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiOsAlarmClass": {
+  "container_mult": [
+   0,
+   1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiOs",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiOsAlarmClassGenericComponentClassRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsAlarmClass",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsAlarmClassStateRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsAlarmClass",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsAlarmInstance": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiOs",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiOsAlarmInstanceAction": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsAlarmInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsAlarmInstanceAlarmTimeRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsAlarmInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsAlarmInstanceCounter": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsAlarmInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsAlarmInstanceCycleTimeRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsAlarmInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsAlarmInstanceEcuCRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsAlarmInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsAlarmInstanceGenericComponentInstanceRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsAlarmInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsAlarmInstanceStateRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsAlarmInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsAlarmInstanceValidRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsAlarmInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsClass": {
+  "container_mult": [
+   0,
+   1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiOs",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiOsClassAppModeRef": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiOsClass",
+  "pbm": null,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsClassGenericComponentRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsClass",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsClassServiceTraceRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsClass",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsContextClass": {
+  "container_mult": [
+   0,
+   1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiOs",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiOsContextClassGenericComponentClassRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsContextClass",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsContextInstance": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiOs",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiOsContextInstanceAddressRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsContextInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsContextInstanceGenericComponentInstanceRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsContextInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsContextInstanceSizeRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsContextInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsContextInstanceValidRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsContextInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsGenericComponentRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   -1
+  ],
+  "parent": "ArtiOs",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsInstance": {
+  "container_mult": [
+   0,
+   1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiOs",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiOsInstanceAppModeRef": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiOsInstance",
+  "pbm": null,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsInstanceEcucRef": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiOsInstance",
+  "pbm": null,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsInstanceGenericComponentRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsInstanceHookRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   -1
+  ],
+  "parent": "ArtiOsInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsInstanceServiceTraceRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsInstanceValidRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsIsrClass": {
+  "container_mult": [
+   0,
+   1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiOs",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiOsIsrClassGenericComponentRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsIsrClass",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsIsrInstance": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiOs",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiOsIsrInstanceCategory": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsIsrInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiOsIsrInstanceEcucRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsIsrInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsIsrInstanceFunction": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsIsrInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsIsrInstanceGenericComponentRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsIsrInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsIsrInstanceId": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiOsIsrInstance",
+  "pbm": null,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsIsrInstanceValidRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsIsrInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsMessageContainerClass": {
+  "container_mult": [
+   0,
+   1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiOs",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiOsMessageContainerClassGenericComponentClassRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsMessageContainerClass",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsMessageContainerInstance": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiOs",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiOsMessageContainerInstanceFirstElementRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsMessageContainerInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsMessageContainerInstanceGenericComponentInstanceRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsMessageContainerInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsMessageContainerInstanceMsgName": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsMessageContainerInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsMessageContainerInstanceMsgType": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsMessageContainerInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsMessageContainerInstanceQueueCountRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsMessageContainerInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsMessageContainerInstanceQueueSizeRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsMessageContainerInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsMessageContainerInstanceValidRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsMessageContainerInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsResourceClass": {
+  "container_mult": [
+   0,
+   1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiOs",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiOsResourceClassGenericComponentClassRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsResourceClass",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsResourceClassLockerRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsResourceClass",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsResourceClassStateRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsResourceClass",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsResourceInstance": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiOs",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiOsResourceInstanceEcuCRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsResourceInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsResourceInstanceGenericComponentInstanceRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsResourceInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsResourceInstanceLockerRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsResourceInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsResourceInstancePriority": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsResourceInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsResourceInstanceStateRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsResourceInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsResourceInstanceValidRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsResourceInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsStackClass": {
+  "container_mult": [
+   0,
+   1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiOs",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiOsStackClassGenericComponentClassRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsStackClass",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsStackInstance": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiOs",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiOsStackInstanceBaseAddressRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsStackInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsStackInstanceDirection": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsStackInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsStackInstanceFillPatternRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsStackInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsStackInstanceGenericComponentInstanceRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsStackInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsStackInstanceSizeRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsStackInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsStackInstanceValidRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsStackInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsTaskClass": {
+  "container_mult": [
+   0,
+   1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiOs",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiOsTaskClassClassGenericComponentRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsTaskClass",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsTaskClassContextRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsTaskClass",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsTaskClassCurrentTaskStateRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsTaskClass",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsTaskClassPriorityRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsTaskClass",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsTaskClassStackRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsTaskClass",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsTaskInstance": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiOs",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiOsTaskInstanceContextRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsTaskInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsTaskInstanceCurrentActivationsRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsTaskInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsTaskInstanceCurrentTaskStateRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsTaskInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsTaskInstanceEcucRef": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiOsTaskInstance",
+  "pbm": null,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsTaskInstanceFunction": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsTaskInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsTaskInstanceGenericComponentRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsTaskInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsTaskInstanceId": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiOsTaskInstance",
+  "pbm": null,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsTaskInstancePriorityRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsTaskInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsTaskInstanceStackRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsTaskInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiOsTaskInstanceValidRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiOsTaskInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiParameterTypeMap": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiValues",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiParameterTypeMapPair": {
+  "container_mult": [
+   1,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiParameterTypeMap",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiParameterTypeMapPairInput": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiParameterTypeMapPair",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiParameterTypeMapPairInputExpressionRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiParameterTypeMapPair",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiParameterTypeMapPairOutput": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiParameterTypeMapPair",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiParameterTypeMapPairOutputRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiParameterTypeMapPair",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiRte": {
+  "container_mult": [
+   0,
+   1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "Arti",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiRteHookRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   -1
+  ],
+  "parent": "ArtiRte",
+  "pbm": false,
+  "pbv": false,
+  "scope": null,
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiRteRunnableClass": {
+  "container_mult": [
+   0,
+   1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiRte",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiRteRunnableClassGenericComponentClassRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiRteRunnableClass",
+  "pbm": false,
+  "pbv": false,
+  "scope": null,
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiRteRunnableIdRef": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiRteRunnableClass",
+  "pbm": null,
+  "pbv": false,
+  "scope": null,
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiRteRunnableInstance": {
+  "container_mult": [
+   0,
+   1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiRte",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiRteRunnableInstanceBswRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiRteRunnableInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "LOCAL",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiRteRunnableInstanceGenericComponentInstanceRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiRteRunnableInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": null,
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiRteRunnableInstanceSymbol": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiRteRunnableInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiRteSchedulableClass": {
+  "container_mult": [
+   0,
+   1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiRte",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiRteSchedulableClassGenericComponentClassRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiRteSchedulableClass",
+  "pbm": false,
+  "pbv": false,
+  "scope": null,
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiRteSchedulableIdRef": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiRteSchedulableClass",
+  "pbm": null,
+  "pbv": false,
+  "scope": null,
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiRteSchedulableInstance": {
+  "container_mult": [
+   0,
+   1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiRte",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiRteSchedulableInstanceBswRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiRteSchedulableInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "LOCAL",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiRteSchedulableInstanceGenericComponentInstanceRef": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiRteSchedulableInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": null,
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiRteSchedulableInstanceSymbol": {
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ],
+  "mult": [
+   0,
+   1
+  ],
+  "parent": "ArtiRteSchedulableInstance",
+  "pbm": false,
+  "pbv": false,
+  "scope": "ECU",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "VARIANT-PRE-COMPILE"
+   ],
+   [
+    "LINK",
+    "VARIANT-LINK-TIME"
+   ]
+  ]
+ },
+ "ArtiRteVfbTraceHooks": {
+  "container_mult": [
+   1,
+   1
+  ],
+  "mc": [],
+  "mult": null,
+  "parent": "ArtiRte",
+  "pbm": null,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiStates": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiValues",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiStatesScheduleTableState": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiStates",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiStatesScheduleTableStateEnum": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiStatesScheduleTableState",
+  "pbm": null,
+  "pbv": false,
+  "scope": "LOCAL",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiStatesSpinlockOwnerType": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiStates",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiStatesSpinlockOwnerTypeEnum": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiStatesSpinlockOwnerType",
+  "pbm": null,
+  "pbv": false,
+  "scope": "LOCAL",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiStatesSpinlockState": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiStates",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiStatesSpinlockStateEnum": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiStatesSpinlockState",
+  "pbm": null,
+  "pbv": false,
+  "scope": "LOCAL",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiStatesTaskEnhanced": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiStates",
+  "pbm": null,
+  "pbv": false,
+  "scope": "LOCAL",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiStatesTaskState": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": null,
+  "parent": "ArtiStates",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ },
+ "ArtiStatesTaskStateEnum": {
+  "mc": [],
+  "mult": [
+   1,
+   1
+  ],
+  "parent": "ArtiStatesTaskState",
+  "pbm": null,
+  "pbv": false,
+  "scope": "LOCAL",
+  "vc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ]
+ },
+ "ArtiValues": {
+  "container_mult": [
+   0,
+   -1
+  ],
+  "mc": [
+   [
+    "PRE-COMPILE",
+    "All Variants"
+   ]
+  ],
+  "mult": null,
+  "parent": "Arti",
+  "pbm": false,
+  "pbv": null,
+  "scope": null,
+  "vc": []
+ }
+}

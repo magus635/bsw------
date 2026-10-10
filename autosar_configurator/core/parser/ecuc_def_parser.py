@@ -408,6 +408,11 @@ class EcucDefParser:
         
         return container_def
     
+    def _is_upper_multiplicity_infinite(self, element: etree._Element) -> bool:
+        """True if UPPER-MULTIPLICITY-INFINITE is set ('true' per the AUTOSAR schema; '1' also accepted)."""
+        value = self._get_child_text_value(element, 'UPPER-MULTIPLICITY-INFINITE')
+        return value is not None and value.strip().lower() in ('1', 'true')
+
     def _parse_parameter_def(self, element: etree._Element, parent_path:str = "") -> Optional[EcucParameterDef]:
         """Parse parameter definition element"""
         short_name = self._get_short_name(element)
@@ -444,6 +449,8 @@ class EcucDefParser:
         # Parse multiplicity (use direct child lookup)
         param_def.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)
         param_def.upper_multiplicity = self._get_child_int_value(element, 'UPPER-MULTIPLICITY', 1)
+        if self._is_upper_multiplicity_infinite(element):
+            param_def.upper_multiplicity = -1
         
         # Parse DEFAULT-VALUE
         default_val = self._get_text_value(element, 'DEFAULT-VALUE')
@@ -561,8 +568,7 @@ class EcucDefParser:
         ref_def.upper_multiplicity = self._get_child_int_value(element, 'UPPER-MULTIPLICITY', 1)
 
         # Check UPPER-MULTIPLICITY-INFINITE
-        infinite_val = self._get_child_text_value(element, 'UPPER-MULTIPLICITY-INFINITE')
-        if infinite_val is not None and infinite_val.strip() == '1':
+        if self._is_upper_multiplicity_infinite(element):
             ref_def.upper_multiplicity = -1  # -1 means infinite
 
         # Set definition reference path
@@ -607,8 +613,7 @@ class EcucDefParser:
         ref_def.upper_multiplicity = self._get_child_int_value(element, 'UPPER-MULTIPLICITY', 1)
 
         # Check UPPER-MULTIPLICITY-INFINITE
-        infinite_val = self._get_child_text_value(element, 'UPPER-MULTIPLICITY-INFINITE')
-        if infinite_val is not None and infinite_val.strip() == '1':
+        if self._is_upper_multiplicity_infinite(element):
             ref_def.upper_multiplicity = -1  # -1 means infinite
 
         # Set definition reference path
