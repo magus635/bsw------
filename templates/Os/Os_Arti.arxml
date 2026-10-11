@@ -1,0 +1,517 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FileName      : Os_Arti.arxml
+  BSW Module    : Os
+  brief         : ARTI debug description (ECUC values of /AUTOSAR/EcucDefs/Arti), generated
+                  from the Os configuration. Static debugging only (phase 1): no ArtiHook entries.
+  Spec          : AUTOSAR CP SWS ARTI R24-11 ch.10, SWS OS R21-11 10.4, EXP ARTI 2.4
+  Source        : kernel symbols and ID rules follow the ORTI template (Os_Trace.orti)
+
+  ASSUMPTIONS (to be verified against the real THA6 Os definition, Os_Cfg.h and kernel;
+  see openspec/changes/add-os-arti-description-template/design.md, Open Questions):
+  A1  Os_OrtiRunningData[] is indexed by OsCoreIdMappingConfig/OsPhysicalCoreId.
+  A2  TaskType = OsTask/@index, ISRType = OsIsr/@index (same rule as ORTI RUNNINGTASK/RUNNINGISR2);
+      the invalid IDs are "last index + 1" as in ORTI (NO_TASK / NO_ISR).
+  A3  No kernel variable for the current OS-Application: ArtiHardwareCoreInstanceCurrentApplicationRef
+      points to the constant K_CurrentApplication ("N/A").
+  A4  Os values live under /Os/Os, the Arti values written here under /Arti/Arti.
+  A5  Task state encoding RUNNING=0, READY=1, WAITING=2, SUSPENDED=3 (ORTI TASK.STATE).
+-->
+[!/* Template portability: only constructs also used by the ORTI template, so that EB tresos and
+     the configurator's EB engine render the same output. */!][!//
+[!VAR "OsValuePkg" = "'/Os/Os'"!][!//
+[!VAR "ArtiPkg" = "'/Arti/Arti'"!][!//
+[!VAR "Def" = "'/AUTOSAR/EcucDefs/Arti'"!][!//
+[!//
+[!/* ======================================================================================
+     Macros: one ECUC container value per call
+     ====================================================================================== */!][!//
+[!MACRO "ArtiRef", "RefDef" = "", "Target" = ""!][!//
+                <ECUC-REFERENCE-VALUE>
+                  <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">[!"$Def"!]/[!"$RefDef"!]</DEFINITION-REF>
+                  <VALUE-REF DEST="ECUC-CONTAINER-VALUE">[!"$Target"!]</VALUE-REF>
+                </ECUC-REFERENCE-VALUE>
+[!ENDMACRO!][!//
+[!/* AddressOf = 'true' prefixes the expression with "&". The "&amp;" must stay in template text:
+     inside an expression literal the configurator's engine decodes it to "&" while EB keeps "&amp;". */!][!//
+[!MACRO "ArtiExprIP", "Name" = "", "Str" = "", "AddressOf" = "'false'"!][!//
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>E_[!"$Name"!]</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiValues/ArtiExpression</DEFINITION-REF>
+              <PARAMETER-VALUES>
+                <ECUC-TEXTUAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">[!"$Def"!]/ArtiValues/ArtiExpression/ArtiExpressionString</DEFINITION-REF>
+                  <VALUE>[!IF "$AddressOf = 'true'"!]&amp;[!ENDIF!][!"$Str"!]</VALUE>
+                </ECUC-TEXTUAL-PARAM-VALUE>
+              </PARAMETER-VALUES>
+            </ECUC-CONTAINER-VALUE>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>IP_[!"$Name"!]</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiValues/ArtiObjectInstanceParameter</DEFINITION-REF>
+              <REFERENCE-VALUES>
+[!CALL "ArtiRef", "RefDef" = "'ArtiValues/ArtiObjectInstanceParameter/ArtiObjectInstanceParameterExpressionRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/E_', $Name)"!][!//
+              </REFERENCE-VALUES>
+            </ECUC-CONTAINER-VALUE>
+[!ENDMACRO!][!//
+[!MACRO "ArtiConstIP", "Name" = "", "Str" = ""!][!//
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>K_[!"$Name"!]</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiValues/ArtiConstant</DEFINITION-REF>
+              <PARAMETER-VALUES>
+                <ECUC-TEXTUAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">[!"$Def"!]/ArtiValues/ArtiConstant/ArtiConstantString</DEFINITION-REF>
+                  <VALUE>[!"$Str"!]</VALUE>
+                </ECUC-TEXTUAL-PARAM-VALUE>
+              </PARAMETER-VALUES>
+            </ECUC-CONTAINER-VALUE>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>IP_[!"$Name"!]</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiValues/ArtiObjectInstanceParameter</DEFINITION-REF>
+              <REFERENCE-VALUES>
+[!CALL "ArtiRef", "RefDef" = "'ArtiValues/ArtiObjectInstanceParameter/ArtiObjectInstanceParameterConstantRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/K_', $Name)"!][!//
+              </REFERENCE-VALUES>
+            </ECUC-CONTAINER-VALUE>
+[!ENDMACRO!][!//
+[!MACRO "ArtiCP", "Name" = "", "TypeMap" = ""!][!//
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>CP_[!"$Name"!]</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiValues/ArtiObjectClassParameter</DEFINITION-REF>
+[!IF "$TypeMap != ''"!][!//
+              <REFERENCE-VALUES>
+[!CALL "ArtiRef", "RefDef" = "'ArtiValues/ArtiObjectClassParameter/ArtiObjectClassParameterTypeMapRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/TM_', $TypeMap)"!][!//
+              </REFERENCE-VALUES>
+[!ENDIF!][!//
+            </ECUC-CONTAINER-VALUE>
+[!ENDMACRO!][!//
+[!/* TypeMap pair. Exactly one of Out / OutRef is used; In is a number, or InExpr names an E_ expression. */!][!//
+[!MACRO "ArtiPair", "Name" = "", "In" = "", "InExpr" = "", "Out" = "", "OutRef" = ""!][!//
+                <ECUC-CONTAINER-VALUE>
+                  <SHORT-NAME>[!"$Name"!]</SHORT-NAME>
+                  <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiValues/ArtiParameterTypeMap/ArtiParameterTypeMapPair</DEFINITION-REF>
+[!IF "$In != '' or $Out != ''"!][!//
+                  <PARAMETER-VALUES>
+[!IF "$In != ''"!][!//
+                    <ECUC-NUMERICAL-PARAM-VALUE>
+                      <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">[!"$Def"!]/ArtiValues/ArtiParameterTypeMap/ArtiParameterTypeMapPair/ArtiParameterTypeMapPairInput</DEFINITION-REF>
+                      <VALUE>[!"$In"!]</VALUE>
+                    </ECUC-NUMERICAL-PARAM-VALUE>
+[!ENDIF!][!//
+[!IF "$Out != ''"!][!//
+                    <ECUC-TEXTUAL-PARAM-VALUE>
+                      <DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">[!"$Def"!]/ArtiValues/ArtiParameterTypeMap/ArtiParameterTypeMapPair/ArtiParameterTypeMapPairOutput</DEFINITION-REF>
+                      <VALUE>[!"$Out"!]</VALUE>
+                    </ECUC-TEXTUAL-PARAM-VALUE>
+[!ENDIF!][!//
+                  </PARAMETER-VALUES>
+[!ENDIF!][!//
+[!IF "$InExpr != '' or $OutRef != ''"!][!//
+                  <REFERENCE-VALUES>
+[!IF "$InExpr != ''"!][!//
+                    <ECUC-REFERENCE-VALUE>
+                      <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">[!"$Def"!]/ArtiValues/ArtiParameterTypeMap/ArtiParameterTypeMapPair/ArtiParameterTypeMapPairInputExpressionRef</DEFINITION-REF>
+                      <VALUE-REF DEST="ECUC-CONTAINER-VALUE">[!"$ArtiPkg"!]/ArtiValues/E_[!"$InExpr"!]</VALUE-REF>
+                    </ECUC-REFERENCE-VALUE>
+[!ENDIF!][!//
+[!IF "$OutRef != ''"!][!//
+                    <ECUC-REFERENCE-VALUE>
+                      <DEFINITION-REF DEST="ECUC-CHOICE-REFERENCE-DEF">[!"$Def"!]/ArtiValues/ArtiParameterTypeMap/ArtiParameterTypeMapPair/ArtiParameterTypeMapPairOutputRef</DEFINITION-REF>
+                      <VALUE-REF DEST="ECUC-CONTAINER-VALUE">[!"$OutRef"!]</VALUE-REF>
+                    </ECUC-REFERENCE-VALUE>
+[!ENDIF!][!//
+                  </REFERENCE-VALUES>
+[!ENDIF!][!//
+                </ECUC-CONTAINER-VALUE>
+[!ENDMACRO!][!//
+[!MACRO "ArtiTypeMapOpen", "Name" = ""!][!//
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>TM_[!"$Name"!]</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiValues/ArtiParameterTypeMap</DEFINITION-REF>
+              <SUB-CONTAINERS>
+[!ENDMACRO!][!//
+[!MACRO "ArtiTypeMapClose"!][!//
+              </SUB-CONTAINERS>
+            </ECUC-CONTAINER-VALUE>
+[!ENDMACRO!][!//
+[!MACRO "ArtiTaskState", "Name" = "", "Literal" = ""!][!//
+                <ECUC-CONTAINER-VALUE>
+                  <SHORT-NAME>S_[!"$Name"!]</SHORT-NAME>
+                  <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiValues/ArtiStates/ArtiStatesTaskState</DEFINITION-REF>
+                  <PARAMETER-VALUES>
+                    <ECUC-TEXTUAL-PARAM-VALUE>
+                      <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">[!"$Def"!]/ArtiValues/ArtiStates/ArtiStatesTaskState/ArtiStatesTaskStateEnum</DEFINITION-REF>
+                      <VALUE>[!"$Literal"!]</VALUE>
+                    </ECUC-TEXTUAL-PARAM-VALUE>
+                  </PARAMETER-VALUES>
+                </ECUC-CONTAINER-VALUE>
+[!ENDMACRO!][!//
+[!/* Empty Class container (no class parameters needed) */!][!//
+[!MACRO "ArtiEmptyClass", "Kind" = ""!][!//
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>[!"$Kind"!]</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiOs/[!"$Kind"!]</DEFINITION-REF>
+            </ECUC-CONTAINER-VALUE>
+[!ENDMACRO!][!//
+[!MACRO "ArtiStack", "Name" = "", "Size" = ""!][!//
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>[!"$Name"!]_stack</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiOs/ArtiOsStackInstance</DEFINITION-REF>
+              <PARAMETER-VALUES>
+                <ECUC-TEXTUAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">[!"$Def"!]/ArtiOs/ArtiOsStackInstance/ArtiOsStackInstanceDirection</DEFINITION-REF>
+                  <VALUE>DOWN</VALUE>
+                </ECUC-TEXTUAL-PARAM-VALUE>
+              </PARAMETER-VALUES>
+              <REFERENCE-VALUES>
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsStackInstance/ArtiOsStackInstanceBaseAddressRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $Name, '_StackBase')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsStackInstance/ArtiOsStackInstanceFillPatternRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_StackFillPattern')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsStackInstance/ArtiOsStackInstanceSizeRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $Name, '_StackSize')"!][!//
+              </REFERENCE-VALUES>
+            </ECUC-CONTAINER-VALUE>
+[!ENDMACRO!][!//
+[!MACRO "ArtiContext", "Name" = ""!][!//
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>[!"$Name"!]_ContextInfo</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiOs/ArtiOsContextInstance</DEFINITION-REF>
+              <REFERENCE-VALUES>
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsContextInstance/ArtiOsContextInstanceAddressRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $Name, '_Context')"!][!//
+              </REFERENCE-VALUES>
+            </ECUC-CONTAINER-VALUE>
+[!ENDMACRO!][!//
+[!//
+[!/* Literal path, as in the ORTI template: the configurator's engine does not resolve a $variable here */!][!//
+[!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+[!IF "node:value(./OsOS/OsUseArti) = 'true'"!][!//
+[!/* ---- derived values (A2) ---- */!][!//
+[!VAR "NoTask" = "num:i(count(./OsTask/*))"!][!//
+[!VAR "NoIsr" = "0"!][!//
+[!LOOP "node:order(./OsIsr/*,'@index')"!][!IF "OsIsrCategory = 'CATEGORY_2'"!][!VAR "NoIsr" = "num:i(@index + 1)"!][!ENDIF!][!ENDLOOP!][!//
+[!VAR "FirstCore" = "''"!][!//
+[!LOOP "node:order(./OsCoreIdMappingConfig/*,'@index')"!][!IF "$FirstCore = ''"!][!VAR "FirstCore" = "concat('Core', num:i(node:value(./OsPhysicalCoreId)))"!][!ENDIF!][!ENDLOOP!][!//
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00047.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>Arti</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-CONFIGURATION-VALUES>
+          <SHORT-NAME>Arti</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-MODULE-DEF">[!"$Def"!]</DEFINITION-REF>
+          <IMPLEMENTATION-CONFIG-VARIANT>VARIANT-PRE-COMPILE</IMPLEMENTATION-CONFIG-VARIANT>
+          <CONTAINERS>
+<!-- ============================== ArtiValues ============================== -->
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>ArtiValues</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiValues</DEFINITION-REF>
+              <SUB-CONTAINERS>
+[!/* ---- States: standard task model, kernel has 4 task states (A5) ---- */!][!//
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>ArtiStates</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiValues/ArtiStates</DEFINITION-REF>
+              <PARAMETER-VALUES>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">[!"$Def"!]/ArtiValues/ArtiStates/ArtiStatesTaskEnhanced</DEFINITION-REF>
+                  <VALUE>false</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+              </PARAMETER-VALUES>
+              <SUB-CONTAINERS>
+[!CALL "ArtiTaskState", "Name" = "'TaskRunning'", "Literal" = "'ArtiTaskStateRunning'"!][!//
+[!CALL "ArtiTaskState", "Name" = "'TaskReady'", "Literal" = "'ArtiTaskStateReady'"!][!//
+[!CALL "ArtiTaskState", "Name" = "'TaskWaiting'", "Literal" = "'ArtiTaskStateWaiting'"!][!//
+[!CALL "ArtiTaskState", "Name" = "'TaskSuspended'", "Literal" = "'ArtiTaskStateSuspended'"!][!//
+              </SUB-CONTAINERS>
+            </ECUC-CONTAINER-VALUE>
+[!/* ---- TypeMaps ---- */!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'TaskId'"!][!//
+[!LOOP "node:order(./OsTask/*,'@index')"!][!//
+[!CALL "ArtiPair", "Name" = "node:name(.)", "In" = "num:i(@index)", "OutRef" = "concat($ArtiPkg, '/ArtiOs/', node:name(.))"!][!//
+[!ENDLOOP!][!//
+[!CALL "ArtiPair", "Name" = "'NO_TASK'", "In" = "$NoTask", "Out" = "'NO_TASK'"!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'TaskPriority'"!][!//
+[!LOOP "node:order(./OsTask/*,'@index')"!][!//
+[!CALL "ArtiPair", "Name" = "node:name(.)", "In" = "num:i(@index)", "Out" = "node:value(./OsTaskPriority)"!][!//
+[!ENDLOOP!][!//
+[!CALL "ArtiPair", "Name" = "'NO_TASK'", "In" = "$NoTask", "Out" = "'-'"!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'Isr2Id'"!][!//
+[!LOOP "node:order(./OsIsr/*,'@index')"!][!IF "OsIsrCategory = 'CATEGORY_2'"!][!//
+[!CALL "ArtiPair", "Name" = "node:name(.)", "In" = "num:i(@index)", "OutRef" = "concat($ArtiPkg, '/ArtiOs/', node:name(.))"!][!//
+[!ENDIF!][!ENDLOOP!][!//
+[!CALL "ArtiPair", "Name" = "'NO_ISR'", "In" = "$NoIsr", "Out" = "'NO_ISR'"!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'TaskState'"!][!//
+[!CALL "ArtiPair", "Name" = "'RUNNING'", "In" = "'0'", "OutRef" = "concat($ArtiPkg, '/ArtiValues/ArtiStates/S_TaskRunning')"!][!//
+[!CALL "ArtiPair", "Name" = "'READY'", "In" = "'1'", "OutRef" = "concat($ArtiPkg, '/ArtiValues/ArtiStates/S_TaskReady')"!][!//
+[!CALL "ArtiPair", "Name" = "'WAITING'", "In" = "'2'", "OutRef" = "concat($ArtiPkg, '/ArtiValues/ArtiStates/S_TaskWaiting')"!][!//
+[!CALL "ArtiPair", "Name" = "'SUSPENDED'", "In" = "'3'", "OutRef" = "concat($ArtiPkg, '/ArtiValues/ArtiStates/S_TaskSuspended')"!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'AppMode'"!][!//
+[!LOOP "node:order(./OsAppMode/*,'@index')"!][!//
+[!CALL "ArtiPair", "Name" = "node:name(.)", "In" = "num:i(@index + 1)", "OutRef" = "concat($OsValuePkg, '/', node:name(.))"!][!//
+[!ENDLOOP!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!/* Stacks and contexts: decode the address a task currently uses (ORTI TASK.STACK / TASK.CONTEXT) */!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'TaskStack'"!][!//
+[!LOOP "node:order(./OsTask/*,'@index')"!][!//
+[!CALL "ArtiPair", "Name" = "node:name(.)", "InExpr" = "concat(node:name(.), '_StackBase')", "OutRef" = "concat($ArtiPkg, '/ArtiOs/', node:name(.), '_stack')"!][!//
+[!ENDLOOP!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'TaskContext'"!][!//
+[!LOOP "node:order(./OsTask/*,'@index')"!][!//
+[!CALL "ArtiPair", "Name" = "node:name(.)", "InExpr" = "concat(node:name(.), '_Context')", "OutRef" = "concat($ArtiPkg, '/ArtiOs/', node:name(.), '_ContextInfo')"!][!//
+[!ENDLOOP!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'AlarmState'"!][!//
+[!CALL "ArtiPair", "Name" = "'ALARM_ENABLED'", "In" = "'0'", "Out" = "'ALARM_ENABLED'"!][!//
+[!CALL "ArtiPair", "Name" = "'ALARM_DISABLED'", "In" = "'1'", "Out" = "'ALARM_DISABLED'"!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'ResourceState'"!][!//
+[!CALL "ArtiPair", "Name" = "'UNLOCKED'", "In" = "'0'", "Out" = "'UNLOCKED'"!][!//
+[!CALL "ArtiPair", "Name" = "'LOCKED'", "In" = "'1'", "Out" = "'LOCKED'"!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'LastError'"!][!//
+[!VAR "Errors" = "'E_OK:0,E_OS_ACCESS:1,E_OS_CALLEVEL:2,E_OS_ID:3,E_OS_LIMIT:4,E_OS_NOFUNC:5,E_OS_RESOURCE:6,E_OS_STATE:7,E_OS_VALUE:8,E_OS_SERVICEID:9,E_OS_ILLEGAL_ADDRESS:10,E_OS_MISSINGEND:11,E_OS_DISABLEDINT:12,E_OS_STACKFAULT:13,E_OS_PROTECTION_MEMORY:14,E_OS_PROTECTION_TIME:15,E_OS_PROTECTION_ARRIVAL:16,E_OS_PROTECTION_LOCKED:17,E_OS_PROTECTION_EXCEPTION:18,E_OS_SPINLOCK:19,E_OS_INTERFERENCE_DEADLOCK:20,E_OS_NESTING_DEADLOCK:21,E_OS_CORE:22,E_OS_PARAM_POINTER:23,E_OS_SYS_API_ERROR:24,E_OS_STATUS_ACCESSRIGHTS:25,E_OS_SYS_UNDEFINED_IRQ:32,E_OS_NO_PRE_TASK:33'"!][!//
+[!LOOP "text:split($Errors, ',')"!][!//
+[!CALL "ArtiPair", "Name" = "text:split(., ':')[1]", "In" = "text:split(., ':')[2]", "Out" = "text:split(., ':')[1]"!][!//
+[!ENDLOOP!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'ServiceId'"!][!//
+[!VAR "Services" = "'NOSERVICE:0,GETAPPLICATIONID:2,GETISRID:4,CALLTRUSTEDFUNCTION:6,CHECKISRMEMORYACCESS:8,CHECKTASKMEMORYACCESS:10,CHECKOBJECTACCESS:12,CHECKOBJECTOWNERSHIP:14,STARTSCHEDULETABLEREL:16,STARTSCHEDULETABLEABS:18,STOPSCHEDULETABLE:20,NEXTSCHEDULETABLE:22,STARTSCHEDULETABLESYNCHRON:24,SYNCSCHEDULETABLE:26,SETSCHEDULETABLEASYNC:28,GETSCHEDULETABLESTATUS:30,INCREMENTCOUNTER:32,GETCOUNTERVALUE:34,GETELAPSEDVALUE:36,TERMINATEAPPLICATION:38,ALLOWACCESS:40,GETAPPLICATIONSTATE:42,GETNUMBEROFACTIVATEDCORES:44,GETCOREID:46,STARTCORE:48,GETSPINLOCK:52,RELEASESPINLOCK:54,TRYTOGETSPINLOCK:56,SHUTDOWNALLCORES:58,CONTROLIDLE:60,IOCSENDIOCIDSENDERID:62,IOCWRITEIOCIDSENDERID:64,IOCSENDGROUPIOCID:66,IOCWRITEGROUPIOCID:68,IOCRECEIVEIOCID:70,IOCREADIOCIDRECEIVERID:72,IOCRECEIVEGROUPIOCID:74,IOCREADGROUPIOCID:76,IOCEMPTYQUEUE:78,GETCURRENTAPPLICATIONID:80,READPERIPHERAL8:82,READPERIPHERAL16:84,READPERIPHERAL32:86,WRITEPERIPHERAL8:88,WRITEPERIPHERAL16:90,WRITEPERIPHERAL32:92,MODIFYPERIPHERAL8:94,MODIFYPERIPHERAL32:96,DISABLEINTERRUPTSOURCE:98,ENABLEINTERRUPTSOURCE:100,CLEARPENDINGINTERRUPT:102,ACTIVATETASKASYN:104,SETEVENTASYN:106,MODIFYPERIPHERAL16:108,ISOSSTARTED:110,STARTOS:418,GETACTIVATEAPPLICATIONMODE:422,DISABLEALLINTERRUPTS:424,ENABLEALLINTERRUPTS:426,SUSPENDALLINTERRUPTS:428,RESUMEALLINTERRUPTS:430,SUSPENDOSINTERRUPTS:432,RESUMEOSINTERRUPTS:434,ACTIVATETASK:436,TERMINATETASK:438,CHAINTASK:440,GETTASKID:442,GETTASKSTATE:444,SCHEDULE:446,SETEVENT:448,CLEAREVENT:450,GETEVENT:452,WAITEVENT:454,GETALARMBASE:456,GETALARM:458,SETRELALARM:460,SETABSALARM:462,CANCELALARM:464,GETRESOURCE:466,RELEASERESOURCE:468,POSTISR:470,IOCCALLCALLBACK:472,DOALARM:474,SHUTDOWNOS:476'"!][!//
+[!LOOP "text:split($Services, ',')"!][!//
+[!CALL "ArtiPair", "Name" = "text:split(., ':')[1]", "In" = "text:split(., ':')[2]", "Out" = "text:split(., ':')[1]"!][!//
+[!ENDLOOP!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!/* ---- Class parameters: which TypeMap decodes each attribute ---- */!][!//
+[!CALL "ArtiCP", "Name" = "'CurrentTask'", "TypeMap" = "'TaskId'"!][!//
+[!CALL "ArtiCP", "Name" = "'CurrentIsr'", "TypeMap" = "'Isr2Id'"!][!//
+[!CALL "ArtiCP", "Name" = "'CurrentApplication'"!][!//
+[!CALL "ArtiCP", "Name" = "'LastError'", "TypeMap" = "'LastError'"!][!//
+[!CALL "ArtiCP", "Name" = "'RunningTaskPriority'", "TypeMap" = "'TaskPriority'"!][!//
+[!CALL "ArtiCP", "Name" = "'AppMode'", "TypeMap" = "'AppMode'"!][!//
+[!CALL "ArtiCP", "Name" = "'ServiceTrace'", "TypeMap" = "'ServiceId'"!][!//
+[!CALL "ArtiCP", "Name" = "'TaskState'", "TypeMap" = "'TaskState'"!][!//
+[!CALL "ArtiCP", "Name" = "'TaskPriority'"!][!//
+[!CALL "ArtiCP", "Name" = "'TaskStack'", "TypeMap" = "'TaskStack'"!][!//
+[!CALL "ArtiCP", "Name" = "'TaskContext'", "TypeMap" = "'TaskContext'"!][!//
+[!CALL "ArtiCP", "Name" = "'AlarmState'", "TypeMap" = "'AlarmState'"!][!//
+[!CALL "ArtiCP", "Name" = "'ResourceState'", "TypeMap" = "'ResourceState'"!][!//
+[!/* ---- Expressions / constants with their instance parameters ---- */!][!//
+[!CALL "ArtiConstIP", "Name" = "'CurrentApplication'", "Str" = "'N/A'"!][!//
+[!CALL "ArtiConstIP", "Name" = "'StackFillPattern'", "Str" = "'0x00000000'"!][!//
+[!CALL "ArtiExprIP", "Name" = "'AppMode'", "Str" = "'Os_OrtiRunningData[0].CurrentAppMode'"!][!//
+[!LOOP "node:order(./OsCoreIdMappingConfig/*,'@index')"!][!//
+[!VAR "Rd" = "concat('Os_OrtiRunningData[', num:i(node:value(./OsPhysicalCoreId)), ']')"!][!//
+[!VAR "Cn" = "concat('Core', num:i(node:value(./OsPhysicalCoreId)))"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($Cn, '_RunningTask')", "Str" = "concat($Rd, '.RunningTaskType')"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($Cn, '_RunningIsr')", "Str" = "concat($Rd, '.RunningISRType')"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($Cn, '_LastError')", "Str" = "concat($Rd, '.LastError')"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($Cn, '_ServiceId')", "Str" = "concat($Rd, '.ServiceId')"!][!//
+[!ENDLOOP!][!//
+[!LOOP "node:order(./OsTask/*,'@index')"!][!//
+[!VAR "N" = "node:name(.)"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_State')", "Str" = "concat($N, '_RunningData.State')"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_Activations')", "Str" = "concat($N, '_RunningData.ActivationCount')"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_StackBase')", "Str" = "concat($N, '_stack[0]')", "AddressOf" = "'true'"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_Context')", "Str" = "concat($N, '_ContextInfo')", "AddressOf" = "'true'"!][!//
+[!CALL "ArtiConstIP", "Name" = "concat($N, '_StackSize')", "Str" = "num:i(node:value(./TaskStackSize))"!][!//
+[!CALL "ArtiConstIP", "Name" = "concat($N, '_Priority')", "Str" = "node:value(./OsTaskPriority)"!][!//
+[!ENDLOOP!][!//
+[!LOOP "node:order(./OsIsr/*,'@index')"!][!//
+[!VAR "N" = "node:name(.)"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_StackBase')", "Str" = "concat($N, '_stack[0]')", "AddressOf" = "'true'"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_Context')", "Str" = "concat($N, '_ContextInfo')", "AddressOf" = "'true'"!][!//
+[!CALL "ArtiConstIP", "Name" = "concat($N, '_StackSize')", "Str" = "num:i(node:value(./IsrStackSize))"!][!//
+[!ENDLOOP!][!//
+[!LOOP "node:order(./OsAlarm/*,'@index')"!][!//
+[!VAR "N" = "node:name(.)"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_State')", "Str" = "concat($N, '_RunningData.State')"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_Cycle')", "Str" = "concat($N, '_RunningData.Cycle')"!][!//
+[!ENDLOOP!][!//
+[!LOOP "node:order(./OsResource/*,'@index')"!][!//
+[!VAR "N" = "node:name(.)"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_State')", "Str" = "concat('Os_LockConfig_', $N, '.Previous == 0xFFFFFFFF ? 0:1')"!][!//
+[!ENDLOOP!][!//
+              </SUB-CONTAINERS>
+            </ECUC-CONTAINER-VALUE>
+<!-- ============================== ArtiOs ============================== -->
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>ArtiOs</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiOs</DEFINITION-REF>
+              <SUB-CONTAINERS>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>ArtiOsClass</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiOs/ArtiOsClass</DEFINITION-REF>
+              <REFERENCE-VALUES>
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsClass/ArtiOsClassAppModeRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_AppMode')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsClass/ArtiOsClassServiceTraceRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_ServiceTrace')"!][!//
+              </REFERENCE-VALUES>
+            </ECUC-CONTAINER-VALUE>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>Os</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiOs/ArtiOsInstance</DEFINITION-REF>
+              <REFERENCE-VALUES>
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsInstance/ArtiOsInstanceAppModeRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_AppMode')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsInstance/ArtiOsInstanceEcucRef'", "Target" = "concat($OsValuePkg, '/', node:name(./OsOS))"!][!//
+[!/* Service trace is per core in the kernel; the OS-level attribute shows core 0, as ORTI did */!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsInstance/ArtiOsInstanceServiceTraceRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $FirstCore, '_ServiceId')"!][!//
+              </REFERENCE-VALUES>
+            </ECUC-CONTAINER-VALUE>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>ArtiOsTaskClass</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiOs/ArtiOsTaskClass</DEFINITION-REF>
+              <REFERENCE-VALUES>
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsTaskClass/ArtiOsTaskClassContextRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_TaskContext')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsTaskClass/ArtiOsTaskClassCurrentTaskStateRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_TaskState')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsTaskClass/ArtiOsTaskClassPriorityRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_TaskPriority')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsTaskClass/ArtiOsTaskClassStackRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_TaskStack')"!][!//
+              </REFERENCE-VALUES>
+            </ECUC-CONTAINER-VALUE>
+[!LOOP "node:order(./OsTask/*,'@index')"!][!//
+[!VAR "N" = "node:name(.)"!][!//
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>[!"$N"!]</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiOs/ArtiOsTaskInstance</DEFINITION-REF>
+              <PARAMETER-VALUES>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">[!"$Def"!]/ArtiOs/ArtiOsTaskInstance/ArtiOsTaskInstanceId</DEFINITION-REF>
+                  <VALUE>[!"num:i(@index)"!]</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+              </PARAMETER-VALUES>
+              <REFERENCE-VALUES>
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsTaskInstance/ArtiOsTaskInstanceContextRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $N, '_Context')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsTaskInstance/ArtiOsTaskInstanceCurrentActivationsRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $N, '_Activations')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsTaskInstance/ArtiOsTaskInstanceCurrentTaskStateRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $N, '_State')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsTaskInstance/ArtiOsTaskInstanceEcucRef'", "Target" = "concat($OsValuePkg, '/', $N)"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsTaskInstance/ArtiOsTaskInstancePriorityRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $N, '_Priority')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsTaskInstance/ArtiOsTaskInstanceStackRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $N, '_StackBase')"!][!//
+              </REFERENCE-VALUES>
+            </ECUC-CONTAINER-VALUE>
+[!ENDLOOP!][!//
+[!CALL "ArtiEmptyClass", "Kind" = "'ArtiOsIsrClass'"!][!//
+[!LOOP "node:order(./OsIsr/*,'@index')"!][!//
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>[!"node:name(.)"!]</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiOs/ArtiOsIsrInstance</DEFINITION-REF>
+              <PARAMETER-VALUES>
+                <ECUC-TEXTUAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">[!"$Def"!]/ArtiOs/ArtiOsIsrInstance/ArtiOsIsrInstanceCategory</DEFINITION-REF>
+                  <VALUE>[!"node:value(./OsIsrCategory)"!]</VALUE>
+                </ECUC-TEXTUAL-PARAM-VALUE>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">[!"$Def"!]/ArtiOs/ArtiOsIsrInstance/ArtiOsIsrInstanceId</DEFINITION-REF>
+                  <VALUE>[!"num:i(@index)"!]</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+              </PARAMETER-VALUES>
+              <REFERENCE-VALUES>
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsIsrInstance/ArtiOsIsrInstanceEcucRef'", "Target" = "concat($OsValuePkg, '/', node:name(.))"!][!//
+              </REFERENCE-VALUES>
+            </ECUC-CONTAINER-VALUE>
+[!ENDLOOP!][!//
+[!CALL "ArtiEmptyClass", "Kind" = "'ArtiOsStackClass'"!][!//
+[!LOOP "node:order(./OsTask/*,'@index')"!][!CALL "ArtiStack", "Name" = "node:name(.)"!][!ENDLOOP!][!//
+[!LOOP "node:order(./OsIsr/*,'@index')"!][!CALL "ArtiStack", "Name" = "node:name(.)"!][!ENDLOOP!][!//
+[!CALL "ArtiEmptyClass", "Kind" = "'ArtiOsContextClass'"!][!//
+[!LOOP "node:order(./OsTask/*,'@index')"!][!CALL "ArtiContext", "Name" = "node:name(.)"!][!ENDLOOP!][!//
+[!LOOP "node:order(./OsIsr/*,'@index')"!][!CALL "ArtiContext", "Name" = "node:name(.)"!][!ENDLOOP!][!//
+[!IF "count(./OsAlarm/*) > 0"!][!//
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>ArtiOsAlarmClass</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiOs/ArtiOsAlarmClass</DEFINITION-REF>
+              <REFERENCE-VALUES>
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsAlarmClass/ArtiOsAlarmClassStateRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_AlarmState')"!][!//
+              </REFERENCE-VALUES>
+            </ECUC-CONTAINER-VALUE>
+[!ENDIF!][!//
+[!LOOP "node:order(./OsAlarm/*,'@index')"!][!//
+[!VAR "N" = "node:name(.)"!][!//
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>[!"$N"!]</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiOs/ArtiOsAlarmInstance</DEFINITION-REF>
+              <PARAMETER-VALUES>
+                <ECUC-TEXTUAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">[!"$Def"!]/ArtiOs/ArtiOsAlarmInstance/ArtiOsAlarmInstanceCounter</DEFINITION-REF>
+                  <VALUE>[!"node:name(node:ref(./OsAlarmCounterRef))"!]</VALUE>
+                </ECUC-TEXTUAL-PARAM-VALUE>
+              </PARAMETER-VALUES>
+              <REFERENCE-VALUES>
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsAlarmInstance/ArtiOsAlarmInstanceCycleTimeRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $N, '_Cycle')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsAlarmInstance/ArtiOsAlarmInstanceEcuCRef'", "Target" = "concat($OsValuePkg, '/', $N)"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsAlarmInstance/ArtiOsAlarmInstanceStateRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $N, '_State')"!][!//
+              </REFERENCE-VALUES>
+            </ECUC-CONTAINER-VALUE>
+[!ENDLOOP!][!//
+[!IF "count(./OsResource/*) > 0"!][!//
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>ArtiOsResourceClass</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiOs/ArtiOsResourceClass</DEFINITION-REF>
+              <REFERENCE-VALUES>
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsResourceClass/ArtiOsResourceClassStateRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_ResourceState')"!][!//
+              </REFERENCE-VALUES>
+            </ECUC-CONTAINER-VALUE>
+[!ENDIF!][!//
+[!LOOP "node:order(./OsResource/*,'@index')"!][!//
+[!VAR "N" = "node:name(.)"!][!//
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>[!"$N"!]</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiOs/ArtiOsResourceInstance</DEFINITION-REF>
+              <REFERENCE-VALUES>
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsResourceInstance/ArtiOsResourceInstanceEcuCRef'", "Target" = "concat($OsValuePkg, '/', $N)"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsResourceInstance/ArtiOsResourceInstanceStateRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $N, '_State')"!][!//
+              </REFERENCE-VALUES>
+            </ECUC-CONTAINER-VALUE>
+[!ENDLOOP!][!//
+              </SUB-CONTAINERS>
+            </ECUC-CONTAINER-VALUE>
+<!-- ============================== ArtiHardware ============================== -->
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>ArtiHardware</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiHardware</DEFINITION-REF>
+              <SUB-CONTAINERS>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>ArtiHardwareCoreClass</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiHardware/ArtiHardwareCoreClass</DEFINITION-REF>
+              <REFERENCE-VALUES>
+[!CALL "ArtiRef", "RefDef" = "'ArtiHardware/ArtiHardwareCoreClass/ArtiHardwareCoreClassCurrentApplicationRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_CurrentApplication')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiHardware/ArtiHardwareCoreClass/ArtiHardwareCoreClassCurrentIsrRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_CurrentIsr')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiHardware/ArtiHardwareCoreClass/ArtiHardwareCoreClassCurrentTaskRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_CurrentTask')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiHardware/ArtiHardwareCoreClass/ArtiHardwareCoreClassLastErrorRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_LastError')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiHardware/ArtiHardwareCoreClass/ArtiHardwareCoreClassRunningTaskPriorityRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_RunningTaskPriority')"!][!//
+              </REFERENCE-VALUES>
+            </ECUC-CONTAINER-VALUE>
+[!LOOP "node:order(./OsCoreIdMappingConfig/*,'@index')"!][!//
+[!VAR "Cn" = "concat('Core', num:i(node:value(./OsPhysicalCoreId)))"!][!//
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>[!"$Cn"!]</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiHardware/ArtiHardwareCoreInstance</DEFINITION-REF>
+              <PARAMETER-VALUES>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">[!"$Def"!]/ArtiHardware/ArtiHardwareCoreInstance/ArtiHardwareCoreInstanceCoreId</DEFINITION-REF>
+                  <VALUE>[!"num:i(node:value(./OsPhysicalCoreId))"!]</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+              </PARAMETER-VALUES>
+              <REFERENCE-VALUES>
+[!CALL "ArtiRef", "RefDef" = "'ArtiHardware/ArtiHardwareCoreInstance/ArtiHardwareCoreInstanceCurrentApplicationRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_CurrentApplication')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiHardware/ArtiHardwareCoreInstance/ArtiHardwareCoreInstanceCurrentIsrRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $Cn, '_RunningIsr')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiHardware/ArtiHardwareCoreInstance/ArtiHardwareCoreInstanceCurrentTaskRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $Cn, '_RunningTask')"!][!//
+[!/* EB stores reference values with an "ASPath:" prefix; strip it so both engines emit a plain path */!][!//
+[!IF "node:value(./OsCoreId) != ''"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiHardware/ArtiHardwareCoreInstance/ArtiHardwareCoreInstanceEcucCoreRef'", "Target" = "text:replace(node:value(./OsCoreId), 'ASPath:', '')"!][!//
+[!ENDIF!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiHardware/ArtiHardwareCoreInstance/ArtiHardwareCoreInstanceLastErrorRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $Cn, '_LastError')"!][!//
+[!/* Same expression as the current task; CP_RunningTaskPriority decodes it to a priority */!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiHardware/ArtiHardwareCoreInstance/ArtiHardwareCoreInstanceRunningTaskPriorityRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $Cn, '_RunningTask')"!][!//
+              </REFERENCE-VALUES>
+            </ECUC-CONTAINER-VALUE>
+[!ENDLOOP!][!//
+              </SUB-CONTAINERS>
+            </ECUC-CONTAINER-VALUE>
+          </CONTAINERS>
+        </ECUC-MODULE-CONFIGURATION-VALUES>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>
+[!ELSE!][!//
+<!-- OsUseArti is disabled: no ARTI description is generated. -->
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00047.xsd"/>
+[!ENDIF!][!//
+[!ENDSELECT!][!//
