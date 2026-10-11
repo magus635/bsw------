@@ -5,7 +5,7 @@ import pytest
 from pathlib import Path
 from autosar_configurator.generator.template_engine import TemplateEngine
 from autosar_configurator.generator.generator import CodeGenerator
-from autosar_configurator.core.model.definition_model import EcucModuleDef, EcucContainerDef, EcucParameterDef
+from autosar_configurator.core.model.definition_model import EcucModuleDef, EcucContainerDef, EcucParameterDef, EcucParameterType
 from autosar_configurator.core.config_manager import ConfigurationManager
 
 
@@ -114,6 +114,47 @@ def test_code_generation_with_explicit_templates(tmp_path):
 
     source_content = pbcfg_source.read_text()
     assert "TestContainer_0" in source_content
+
+
+def test_non_c_templates_are_generated_under_their_own_name(tmp_path):
+    """EB renders every file in a template dir; .arxml/.orti templates keep their name"""
+    # The EB engine needs the enum param type (the shared helper passes a plain string)
+    module = EcucModuleDef(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+    container_def = EcucContainerDef(short_name="TestContainer", definition_ref="/AUTOSAR/EcucDefs/Test/TestContainer")
+    container_def.add_parameter(EcucParameterDef(
+        short_name="TestParam", param_type=EcucParameterType.INTEGER,
+        definition_ref="/AUTOSAR/EcucDefs/Test/TestContainer/TestParam", config_class="PRE-COMPILE"))
+    module.add_container(container_def)
+    manager = ConfigurationManager(module)
+    manager.create_container_instance(container_def, instance_name="TestContainer_0")
+
+    mod_dir = tmp_path / "templates" / "Test"
+    mod_dir.mkdir(parents=True)
+    (mod_dir / "Test_Arti.arxml").write_text('<COUNT>[!"num:i(1 + 2)"!]</COUNT>\n', encoding="utf-8")
+    (mod_dir / "Test_Trace.orti").write_text('VERSION { KOIL = "[!"2.2"!]"; };\n', encoding="utf-8")
+
+    generator = CodeGenerator(module, manager.configuration, project_template_dir=tmp_path / "templates")
+    assert generator.generate_all(tmp_path / "out") is True
+
+    # Root-level non-C templates are not promoted into include/ or src/
+    out_dir = tmp_path / "out" / "Test"
+    assert (out_dir / "Test_Arti.arxml").read_text(encoding="utf-8").strip() == "<COUNT>3</COUNT>"
+    assert (out_dir / "Test_Trace.orti").read_text(encoding="utf-8").strip() == 'VERSION { KOIL = "2.2"; };'
+
+
+def test_unlisted_suffixes_are_not_templates(tmp_path):
+    """Only .c/.h/.tpl/.arxml/.orti count; other module-prefixed files are ignored"""
+    module, manager = _make_test_module()
+
+    mod_dir = tmp_path / "templates" / "Test"
+    mod_dir.mkdir(parents=True)
+    (mod_dir / "Test_Notes.txt").write_text("not a template", encoding="utf-8")
+    (mod_dir / "Test_Common.m").write_text("[!MACRO \"X\"!][!ENDMACRO!]", encoding="utf-8")
+    (mod_dir / "Test_Arti.arxml").write_text("<A/>\n", encoding="utf-8")
+
+    generator = CodeGenerator(module, manager.configuration, project_template_dir=tmp_path / "templates")
+    types = [t['type'] for t in generator._discover_template_types("Test")]
+    assert types == ["Arti.arxml"]
 
 
 def test_no_templates_module_is_skipped(tmp_path):

@@ -86,6 +86,20 @@ class TestCopyMode:
         assert dio_entry["source_epc"] == "Config/THA6206/output/Dio.epc"
         assert dio_entry["imported_at"]
 
+    def test_backslash_source_epc_normalized_on_load(self, eb_source_tree, tmp_path):
+        """Projects saved on Windows before the POSIX fix stored backslashes"""
+        manager, project, target = _import(eb_source_tree, tmp_path, "copy")
+        manager.save_project()
+
+        data = json.loads(project.path.read_text(encoding="utf-8"))
+        for m in data["modules"]:
+            if m["name"] == "Dio":
+                m["source_epc"] = "Config\\THA6206\\output\\Dio.epc"
+        project.path.write_text(json.dumps(data), encoding="utf-8")
+
+        loaded_project, failed = WorkspaceManager().load_project(project.path)
+        assert loaded_project.module_provenance["Dio"]["source_epc"] == "Config/THA6206/output/Dio.epc"
+
     def test_relocated_copy_project_still_loads(self, eb_source_tree, tmp_path):
         manager, project, target = _import(eb_source_tree, tmp_path, "copy")
         manager.save_project()

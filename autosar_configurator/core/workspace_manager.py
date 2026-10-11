@@ -868,10 +868,14 @@ class WorkspaceManager:
             def_path_str = module_data["def_path"]
             config_path_str = module_data["config_path"]
 
-            # Provenance (v7; older projects default to native)
+            # Provenance (v7; older projects default to native).
+            # Projects saved on Windows before the POSIX fix stored backslashes.
+            source_epc = module_data.get("source_epc")
+            if isinstance(source_epc, str):
+                source_epc = source_epc.replace("\\", "/")
             project.module_provenance[name] = {
                 "origin": module_data.get("origin", "native"),
-                "source_epc": module_data.get("source_epc"),
+                "source_epc": source_epc,
                 "imported_at": module_data.get("imported_at"),
             }
             
@@ -1214,9 +1218,9 @@ class WorkspaceManager:
                 source_epc_str = None
                 if actual_epc:
                     try:
-                        source_epc_str = str(Path(actual_epc).relative_to(project_root))
+                        source_epc_str = Path(actual_epc).relative_to(project_root).as_posix()
                     except ValueError:
-                        source_epc_str = str(actual_epc)
+                        source_epc_str = Path(actual_epc).as_posix()
                 project.module_provenance[actual_name] = {
                     "origin": "eb-import",
                     "source_epc": source_epc_str,

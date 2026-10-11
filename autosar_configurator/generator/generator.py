@@ -37,6 +37,11 @@ class CodeGenerator:
     than reporting the module as skipped.
     """
 
+    # Non-C outputs that EB's TemplateBasedCodeGenerator also renders under the
+    # template's own file name (e.g. Os_Arti.arxml, Os_Trace.orti). A whitelist,
+    # so other module-prefixed files in a plugin directory are not picked up.
+    NON_C_TEMPLATE_SUFFIXES = ('.arxml', '.orti')
+
     def __init__(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration,
                  project_template_dir: Optional[Path] = None,
                  user_template_dir: Optional[Path] = None, 
@@ -367,7 +372,7 @@ class CodeGenerator:
 
                             if suffix.endswith('.tpl'):
                                 t_type = suffix[:-4]
-                            elif suffix.endswith('.c') or suffix.endswith('.h'):
+                            elif suffix.endswith(('.c', '.h')) or suffix.lower().endswith(self.NON_C_TEMPLATE_SUFFIXES):
                                 t_type = suffix
                             else:
                                 continue

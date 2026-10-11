@@ -480,11 +480,11 @@ class ProjectController:
 
         # Record provenance and re-resolve cross-module references
         if win.current_project:
-            source_epc = str(file_path)
+            source_epc = file_path.as_posix()
             eb_root = win.current_project.eb_source_root
             if eb_root:
                 try:
-                    source_epc = str(file_path.relative_to(eb_root))
+                    source_epc = file_path.relative_to(eb_root).as_posix()
                 except ValueError:
                     pass
             win.current_project.module_provenance[module_name] = {
