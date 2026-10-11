@@ -345,7 +345,8 @@ def main(out):
            the OS delivery).
   Notes  : Descriptions are shortened from the specifications.
            The path of EcucCoreDefinition (ArtiHardwareCoreInstanceEcucCoreRef)
-           is assumed: SWS OS names the type but gives no path.
+           is not given by SWS OS; the standard EcuC module path
+           /AUTOSAR/EcucDefs/EcuC/EcucHardware/EcucCoreDefinition is used.
            Multiplicities, configuration classes, post-build flags and scopes
            come from the PDF tables (tools/arti/arti_spec.json, extracted by
            tools/arti/extract_arti_spec.py); generation fails if a multiplicity

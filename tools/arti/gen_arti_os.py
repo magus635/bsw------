@@ -9,8 +9,10 @@ GEN_CLS = G + "/ArtiGenericComponentClass"
 GEN_INST = G + "/ArtiGenericComponentInstance"
 CLS_PARAM = V + "/ArtiObjectClassParameter"
 INST_PARAM = V + "/ArtiObjectInstanceParameter"
-# EcucCoreDefinition: SWS OS names the type but gives no path; this path is assumed.
-ECUC_CORE = "/AUTOSAR/EcucDefs/EcucHardware/EcucCoreDefinition"
+# EcucCoreDefinition: SWS OS names the type but gives no path. In the standard ECUC parameter
+# definitions EcucHardware is a container of the EcuC module; THA6 Os configurations reference
+# cores as /EcuC/EcuC/EcucHardware/EcucCoreDefinition_N (OsCoreIdMappingConfig/OsCoreId).
+ECUC_CORE = "/AUTOSAR/EcucDefs/EcuC/EcucHardware/EcucCoreDefinition"
 ECUC_OS = "/AUTOSAR/EcucDefs/Os"
 
 U = 10 ** 9  # sentinel, unused
