@@ -51,6 +51,9 @@
 [!VAR "Total_Priority" = "num:i(count(text:split($PriorityCountList, $Separator)))"!][!//
 [!ENDINDENT!][!//
 [!VAR "CurrentAppObjectCnt" = "0"!][!//
+[!/* Defaults for NO_TASK / NO_ISR when there is no OsTask / no CATEGORY_2 OsIsr (EB aborts on undefined variables) */!][!//
+[!VAR "MaxTask" = "0"!][!//
+[!VAR "MaxIsr" = "0"!][!//
 VERSION {
   KOIL = "2.2";
   OSSEMANTICS = "ORTI", "2.2";
@@ -65,14 +68,17 @@ IMPLEMENTATION TMC_ORTI {
     OS {
         ENUM "CoreIdType" [
             [!INDENT "12"!][!//
-            "OS_CORE_ID_0" = 0,
-            [!IF "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative = 'Os_THA6206'"!][!//
-            "OS_CORE_ID_1" = 1
-            [!ELSEIF "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative = 'Os_THA6412'"!][!//
+            [!/* The comma after each item is written by the branch that adds the next one, so no
+                 derivative ends the list with a trailing comma. */!][!//
+            "OS_CORE_ID_0" = 0[!//
+[!IF "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative = 'Os_THA6206'"!],
+            "OS_CORE_ID_1" = 1[!//
+[!ELSEIF "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative = 'Os_THA6412'"!],
             "OS_CORE_ID_1" = 1,
-            "OS_CORE_ID_2" = 2, 
-            "OS_CORE_ID_3" = 3           
-            [!ENDIF!][!//
+            "OS_CORE_ID_2" = 2,
+            "OS_CORE_ID_3" = 3[!//
+[!ENDIF!]
+
             [!ENDINDENT!][!//
         ] COREID, "Current Core ID";
 
@@ -201,7 +207,7 @@ IMPLEMENTATION TMC_ORTI {
             "POSTISR"                     = 0x1d6,
             "IOCCALLCALLBACK"             = 0x1d8,
             "DOALARM"                     = 0x1da,
-            "SHUTDOWNOS"                  = 0x1dc,
+            "SHUTDOWNOS"                  = 0x1dc
         ] SERVICETRACE, "OS Services Watch";
         
         ENUM "uint8" [
@@ -238,8 +244,10 @@ IMPLEMENTATION TMC_ORTI {
         ENUM "uint8" [
             [!INDENT "12"!][!//
             [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+                [!VAR "ItemCnt" = "0"!][!VAR "ItemTotal" = "num:i(count(./OsAppMode/*))"!][!//
                 [!LOOP "node:order(./OsAppMode/*,"@index")"!][!//
-                    "[!"node:name(.)"!]" = [!"num:i(@index + 1)"!],
+                    [!VAR "ItemCnt" = "$ItemCnt + 1"!][!//
+                    "[!"node:name(.)"!]" = [!"num:i(@index + 1)"!][!IF "$ItemCnt < $ItemTotal"!],[!ENDIF!]
                 [!ENDLOOP!][!//
             [!ENDSELECT!][!//
             [!ENDINDENT!][!//
@@ -250,11 +258,13 @@ IMPLEMENTATION TMC_ORTI {
     TASK {
         ENUM "uint8" [
             [!INDENT "12"!][!//
+            [!VAR "ItemCnt" = "0"!][!VAR "ItemTotal" = "num:i(count(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsApplication/*/OsAppTaskRef/*))"!][!//
             [!LOOP "node:order(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsApplication/*,'@index')"!][!//
                 [!LOOP "node:order(./OsAppTaskRef/*,'@index')"!][!//
                 [!FOR "i" = "0" TO "$Total_Priority - 1"!][!//
                     [!IF "num:order(text:split($PriorityCountList, $Separator))[position() = $i+1] = node:ref(.)/OsTaskPriority"!][!//
-                        "[!"node:ref(.)/OsTaskPriority"!]" = [!"node:ref(.)/@index"!],
+                        [!VAR "ItemCnt" = "$ItemCnt + 1"!][!//
+                        "[!"node:ref(.)/OsTaskPriority"!]" = [!"node:ref(.)/@index"!][!IF "$ItemCnt < $ItemTotal"!],[!ENDIF!]
                     [!ENDIF!][!//
                 [!ENDFOR!][!//
             [!ENDLOOP!][!//
@@ -272,9 +282,11 @@ IMPLEMENTATION TMC_ORTI {
         ENUM "uint32 *" [
             [!INDENT "12"!][!//
             [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+                [!VAR "ItemCnt" = "0"!][!VAR "ItemTotal" = "num:i(count(./OsApplication/*/OsAppTaskRef/*))"!][!//
                 [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
                     [!LOOP "node:order(./OsAppTaskRef/*,'@index')"!][!//
-                        "[!"node:name(node:ref(.))"!]_stack" : [!"node:name(node:ref(.))"!]_stack = "&[!"node:name(node:ref(.))"!]_stack[0]",
+                        [!VAR "ItemCnt" = "$ItemCnt + 1"!][!//
+                        "[!"node:name(node:ref(.))"!]_stack" : [!"node:name(node:ref(.))"!]_stack = "&[!"node:name(node:ref(.))"!]_stack[0]"[!IF "$ItemCnt < $ItemTotal"!],[!ENDIF!]
                     [!ENDLOOP!][!//
                 [!ENDLOOP!][!//
             [!ENDSELECT!][!//
@@ -286,9 +298,11 @@ IMPLEMENTATION TMC_ORTI {
         ENUM "Os_ContextType *" [
             [!INDENT "12"!][!//
             [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+                [!VAR "ItemCnt" = "0"!][!VAR "ItemTotal" = "num:i(count(./OsApplication/*/OsAppTaskRef/*))"!][!//
                 [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
                     [!LOOP "node:order(./OsAppTaskRef/*,'@index')"!][!//
-                        "[!"node:name(node:ref(.))"!]_ContextInfo" : [!"node:name(node:ref(.))"!]_ContextInfo = "&[!"node:name(node:ref(.))"!]_ContextInfo",
+                        [!VAR "ItemCnt" = "$ItemCnt + 1"!][!//
+                        "[!"node:name(node:ref(.))"!]_ContextInfo" : [!"node:name(node:ref(.))"!]_ContextInfo = "&[!"node:name(node:ref(.))"!]_ContextInfo"[!IF "$ItemCnt < $ItemTotal"!],[!ENDIF!]
                     [!ENDLOOP!][!//
                 [!ENDLOOP!][!//
             [!ENDSELECT!][!//
@@ -352,7 +366,7 @@ IMPLEMENTATION TMC_ORTI {
             [!INDENT "12"!][!//
             [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
                 [!LOOP "node:order(./OsResource/*,'@index')"!][!//
-                    "[!"node:name(.)"!]" = "&Os_LockConfig_[!"node:name(.)"!]"
+                    "[!"node:name(.)"!]" = "&Os_LockConfig_[!"node:name(.)"!]",
                 [!ENDLOOP!][!//
                 "-" = 0xFFFFFFFF
             [!ENDSELECT!][!//
@@ -401,9 +415,11 @@ IMPLEMENTATION TMC_ORTI {
         ENUM "void *" [
             [!INDENT "12"!][!//
             [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+                [!VAR "ItemCnt" = "0"!][!VAR "ItemTotal" = "num:i(count(./OsApplication/*/OsAppIsrRef/*))"!][!//
                 [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
                     [!LOOP "node:order(./OsAppIsrRef/*,'@index')"!][!//
-                        "[!"node:name(node:ref(.))"!]_stack" : [!"node:name(node:ref(.))"!]_stack = "&[!"node:name(node:ref(.))"!]_stack[0]",
+                        [!VAR "ItemCnt" = "$ItemCnt + 1"!][!//
+                        "[!"node:name(node:ref(.))"!]_stack" : [!"node:name(node:ref(.))"!]_stack = "&[!"node:name(node:ref(.))"!]_stack[0]"[!IF "$ItemCnt < $ItemTotal"!],[!ENDIF!]
                     [!ENDLOOP!][!//
                 [!ENDLOOP!][!//
             [!ENDSELECT!][!//
@@ -413,9 +429,11 @@ IMPLEMENTATION TMC_ORTI {
         ENUM "Os_ContextType *" [
             [!INDENT "12"!][!//
             [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+                [!VAR "ItemCnt" = "0"!][!VAR "ItemTotal" = "num:i(count(./OsApplication/*/OsAppIsrRef/*))"!][!//
                 [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
                     [!LOOP "node:order(./OsAppIsrRef/*,'@index')"!][!//
-                        "[!"node:name(node:ref(.))"!]_ContextInfo" : [!"node:name(node:ref(.))"!]_ContextInfo = "&[!"node:name(node:ref(.))"!]_ContextInfo",
+                        [!VAR "ItemCnt" = "$ItemCnt + 1"!][!//
+                        "[!"node:name(node:ref(.))"!]_ContextInfo" : [!"node:name(node:ref(.))"!]_ContextInfo = "&[!"node:name(node:ref(.))"!]_ContextInfo"[!IF "$ItemCnt < $ItemTotal"!],[!ENDIF!]
                     [!ENDLOOP!][!//
                 [!ENDLOOP!][!//
             [!ENDSELECT!][!//
@@ -475,7 +493,7 @@ IMPLEMENTATION TMC_ORTI {
             [!INDENT "12"!][!//
             [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
                 [!LOOP "node:order(./OsResource/*,'@index')"!][!//
-                    "[!"node:name(.)"!]" = "&Os_LockConfig_[!"node:name(.)"!]"
+                    "[!"node:name(.)"!]" = "&Os_LockConfig_[!"node:name(.)"!]",
                 [!ENDLOOP!][!//
                 "-" = 0xFFFFFFFF
             [!ENDSELECT!][!//
@@ -617,7 +635,7 @@ RESOURCE [!"node:name(.)"!] {
     STATE = "Os_LockConfig_[!"node:name(.)"!].Previous == 0xFFFFFFFF ? 0:1";
     LOCKED = "Os_LockConfig_[!"node:name(.)"!].Previous";
     RESOURCE_OWNER = "Os_[!"node:name(.)"!]_RunningData.OwnerObjectID";
-    PRIORITY_TYPE = "Os_ResourceConfig_[!"node:name(.)"!].CeilingIsrLevel == 0xFFFFFFFF ? 0:1"
+    PRIORITY_TYPE = "Os_ResourceConfig_[!"node:name(.)"!].CeilingIsrLevel == 0xFFFFFFFF ? 0:1";
     PRIORITY = "Os_ResourceConfig_[!"node:name(.)"!].CeilingIsrLevel == 0xFFFFFFFF ? Os_ResourceConfig_[!"node:name(.)"!].CeilingPriority : Os_ResourceConfig_[!"node:name(.)"!].CeilingIsrLevel";
     [!ENDINDENT!][!//
 }; /* RESOURCE */

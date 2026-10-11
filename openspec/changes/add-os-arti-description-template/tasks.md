@@ -24,8 +24,8 @@
 - [ ] 3.6 （用户执行）在 EB tresos 中用同一配置生成，结果与 3.1 一致；用 TRACE32 加载，确认多核当前任务与任务状态显示正确
 
 ## 4. ORTI 模板语法修复（bug fix，可独立提交）
-- [ ] 4.1 `RESOURCE.LOCKED`、`SPINLOCK.LOCKED` 枚举项补逗号；`PRIORITY_TYPE` 补分号；单核派生型 `CoreIdType` 去掉多余逗号；`$MaxIsr` / `$MaxTask` 在集合为空时有默认值
-- [ ] 4.2 文件改名为 `Os_Trace.orti`（与文件头一致）
+- [x] 4.1 `RESOURCE.LOCKED`、`SPINLOCK.LOCKED` 枚举项补逗号；`PRIORITY_TYPE` 补分号；单核派生型 `CoreIdType` 去掉多余逗号；`$MaxIsr` / `$MaxTask` 在集合为空时有默认值。实施中另外发现并修复了 7 处 ENUM 末项多余逗号：`SERVICETRACE`、`CURRENTAPPMODE`、`TASK.PRIORITY`、`TASK.STACK`、`TASK.CONTEXT`、`ISR.STACK`、`ISR.CONTEXT`。由 `tests/generator/test_orti_template.py` 检查
+- [x] 4.2 文件改名为 `Os_Trace.orti`（与文件头一致），仍放在 `doc/ARTI/`：它 include 的 `Os_AppCommon.m` 不在本仓库
 
 ## 5. 文档
 - [x] 5.1 更新 `doc/2026-10-06_自研OS原生支持ARTI开发说明.md` 第十节：说明标准做法是由 OS 生成器导出 Arti 配置，手工配置只作为过渡方案

@@ -1,6 +1,6 @@
 ## Why
 
-自研 OS（THA6 Os 插件）目前只通过 ORTI 2.2 模板（`doc/ARTI/Os_Arti.arxml`，实为 ORTI 文本）向调试器描述内核，只覆盖 Core 0，且不是 ARTI 格式。按 EXP ARTI §2.4 Fig 2.1，ARTI EcuC 容器应由 OS 生成器导出，而不是用户手工填写。第一阶段先把 ORTI 已有的"停机调试"信息改为生成标准 ARTI ARXML，并补上多核。
+自研 OS（THA6 Os 插件）目前只通过 ORTI 2.2 模板（`doc/ARTI/Os_Trace.orti`，原名 `Os_Arti.arxml`）向调试器描述内核，只覆盖 Core 0，且不是 ARTI 格式。按 EXP ARTI §2.4 Fig 2.1，ARTI EcuC 容器应由 OS 生成器导出，而不是用户手工填写。第一阶段先把 ORTI 已有的"停机调试"信息改为生成标准 ARTI ARXML，并补上多核。
 
 ## What Changes
 

@@ -1,6 +1,6 @@
 ## Context
 
-- 现有 ORTI 模板 `doc/ARTI/Os_Arti.arxml`（文件头为 `Os_Trace.ORTI`，KOIL 2.2）是 OS 生成器对调试器描述内核的唯一来源，包含内核变量名、ID 规则和 Os 配置路径。
+- 现有 ORTI 模板 `doc/ARTI/Os_Trace.orti`（原名 `Os_Arti.arxml`，KOIL 2.2）是 OS 生成器对调试器描述内核的唯一来源，包含内核变量名、ID 规则和 Os 配置路径。
 - ARTI 定义 `definitions/Arti/Arti_ParamDef.arxml` 已入库，并通过 XSD 校验。
 - EB tresos 的 `TemplateBasedCodeGenerator` 会渲染模板目录（如 `generate_PB/`）下除 `.m` 以外的所有文件，输出名等于模板文件名（见 `test_import_project/Def/plugins/*/plugin.xml`）。
 - 本工具 `generator.py:_discover_template_types` 只接受 `<Module>_*.c`、`<Module>_*.h`、`*.tpl`（`generator.py:368-373`），`.arxml` 模板会被静默跳过。
