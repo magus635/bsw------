@@ -39,4 +39,4 @@
 ## Open Questions
 
 1. **已解决。** 本工具的引擎能执行真实的 `Os_AppCommon.m`（非内核应用与内核应用两条分支都试过，无告警），ARTI 与 ORTI 渲染出的编号一致，也与手算一致（App_Core0 含 2 个 Task、2 个 ISR、1 个计数器、1 个 Alarm、1 个调度表、3 个 Hook 对象 = 10，所以 App_Core1 从 10 开始）。
-2. **未解决。** 内核里 `ObjectIDIndex` 是否与 ORTI 的累计规则一致，需要用真实的 `Os_application_Cfg.h` 对象起点（`APPLICATION<n>_OBJECT_START_NUMBER`）交叉核对。目前只确认了 ARTI 与 ORTI 一致，没有确认 ORTI 与内核一致。
+2. **已核对。** 内核侧的编号规则与 ORTI 一致：插件 `application/Os_application_Cfg.h:80-112` 里 `APPLICATION<n>_OBJECT_START_NUMBER` 是各应用对象数的累加，每个应用的对象数 = Task + ISR + Alarm + 计数器 + 调度表 + IOC 回调 + Hook，Hook 的计数规则（非内核应用按各开关累加，内核应用按 `OsOS/OsHooks` 的开关累加再加 1）与 `Os_AppCommon.m` 逐条相同，也就是 ORTI 的 `CurrentAppObjectCnt`。`application/Os_application_Lcfg.c:287-350` 的对象表给每个对象顺序编号 `ObjectIDIndex`，一个应用内依次是 Task、ISR、计数器、Alarm、调度表、Hook；ISR 的 `ObjectID + 1` 在 `CATEGORY_2` 判断之外，所有 ISR 都占编号，与 ORTI 一致。**未逐项读**：IOC 回调对象的编号条目。

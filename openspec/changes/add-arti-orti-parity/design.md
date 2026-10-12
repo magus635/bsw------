@@ -55,6 +55,7 @@
 - ORTI 按核拆成 `Os_Trace_Core0.ORTI`、`Os_Trace_Core1.ORTI`，ARTI 一个文件含所有核。
 - ORTI 的 `ALARMTIME` 本来是常量 `0`（不支持），ARTI 同样输出常量 `0`。
 - 调试器对 ORTI 枚举的显示方式与对 ARTI TypeMap 的显示方式可能不同，需要真机确认。
+- `Os_SC300`：ORTI 不输出 Alarm、ScheduleTable、Spinlock，ARTI 输出（见 Open Questions 4）。
 
 ## Risks / Trade-offs
 
@@ -67,4 +68,4 @@
 1. 调试器（TRACE32 版本待定）是否显示 `ArtiGeneric` 通用组件，以及一个文件含多核是否可用。
 2. **已定。** Alarm 的 `ACTION` 用通用组件加 TypeMap，因为 ORTI 是运行时读取 `Alarm_<A>_ConfigRef.ActionType`；标准的 `ArtiOsAlarmInstanceAction`（静态字符串）没有使用。
 3. **已核对。** 插件 `isr/Os_isr_Lcfg.c:177` 生成 `static const Os_IsrConfigType <ISR 名> = {...}`，所以 `<I>.IsrHwConfig.priority` 是真实符号。同一文件 `:80-81` 显示 `<I>_RunningData` 只为 CATEGORY_2 ISR 生成，所以 ORTI 对 CATEGORY_1 ISR 输出的 `LOCKED`（以及 `STACK`、`CONTEXT`）引用了不存在的符号，ARTI 不输出（对照测试里对这三项做了 CATEGORY_1 豁免）。
-4. `Os_SC300` 条件在 ARTI 里如何处理。
+4. **已定。** 参考 ORTI（`Os_Trace_Core0/1.ORTI`，6 处 `OsResourceSubderivative != 'Os_SC300'`）对 SC300 不输出 Alarm、ScheduleTable、Spinlock，ARTI 不做此判断。依据：插件里生成这些对象运行时变量的模板（`alarm/`、`scheduletable/`、`spinlock/`）没有 SC300 条件，符号在 SC300 下也存在；`OsResourceSubderivative` 只出现在 context、isr、link、scatter 和 ORTI 模板里。因此 SC300 下 ARTI 比 ORTI 多输出这三类对象，作为已记录的差异（D6）。

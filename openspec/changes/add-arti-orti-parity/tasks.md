@@ -19,7 +19,7 @@
 
 ## 3. 收尾
 - [x] 3.1 对照测试缺口清单只剩例外清单中的项（`RESOURCE_OWNER`、`SPINLOCK_OWNER` 及 D6 所列）
-- [ ] 3.2 `Os_SC300` 条件：按 Open Questions 4 的结论处理，并有测试
+- [x] 3.2 `Os_SC300` 条件：ARTI 不判断，差异已记录（Open Questions 4 / D6）；不需要代码改动
 - [x] 3.3 更新 `doc/2026-10-06_自研OS原生支持ARTI开发说明.md`：ORTI 与 ARTI 覆盖对照表、差异清单、双轨交付说明
 - [x] 3.4 更新第一阶段 design.md 的 Non-Goals（`ArtiGeneric` 扩展已完成）
 - [x] 3.5 另起 change 处理 `RESOURCE_OWNER`、`SPINLOCK_OWNER`（ObjectID 编号）：已由 `add-arti-owner-object-ids` 完成

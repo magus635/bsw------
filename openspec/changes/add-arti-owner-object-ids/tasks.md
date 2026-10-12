@@ -1,6 +1,6 @@
 ## 1. 可行性
 - [x] 1.1 （已通过：引擎执行真实 `.m` 无告警，且数值与手算一致）在测试里用真实的 `doc/ARTI/Os_AppCommon.m` 渲染 ORTI（替换空桩），确认引擎能执行其中的宏；记录哪些构造不支持
-- [ ] 1.2 （未做，见 design.md Open Questions 2）对照内核：用真实 `Os_application_Cfg.h` 的 `APPLICATION<n>_OBJECT_START_NUMBER` 验证 ORTI 的累计规则，回写 design.md Open Questions 2
+- [x] 1.2 （已核对，见 design.md Open Questions 2）对照内核：用真实 `Os_application_Cfg.h` 的 `APPLICATION<n>_OBJECT_START_NUMBER` 验证 ORTI 的累计规则，回写 design.md Open Questions 2
 
 ## 2. 实现
 - [x] 2.1 夹具补充 Hook 开关、IOC 回调、计数器，使应用起点不为 0
