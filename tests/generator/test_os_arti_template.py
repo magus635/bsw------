@@ -26,8 +26,8 @@ NS = {"a": "http://autosar.org/schema/r4.0"}
 A = "{http://autosar.org/schema/r4.0}"
 
 
-def _render(tmp_path, use_arti=True, n_cores=2):
-    module_def, mgr = build_os_config(use_arti=use_arti, n_cores=n_cores)
+def _render(tmp_path, use_arti=True, n_cores=2, logical_ids=None):
+    module_def, mgr = build_os_config(use_arti=use_arti, n_cores=n_cores, logical_ids=logical_ids)
     tpl_dir = tmp_path / "tpl" / "Os"
     tpl_dir.mkdir(parents=True)
     shutil.copy(TEMPLATE, tpl_dir / TEMPLATE.name)
@@ -201,8 +201,17 @@ def test_task_and_isr_ids_follow_the_orti_rule(rendered):
     assert task_pairs == {**tasks, "NO_TASK": len(TASKS)}
     isr2_pairs = {_sn(p): int(_param(p, "ArtiParameterTypeMapPairInput"))
                   for p in tm["TM_Isr2Id"].xpath("a:SUB-CONTAINERS/*", namespaces=NS)}
-    # CATEGORY_1 ISRs are not in the ISR2 map; NO_ISR = last CATEGORY_2 index + 1
-    assert isr2_pairs == {"Isr_Timer0": 0, "Isr_Timer1": 2, "NO_ISR": 3}
+    # CATEGORY_1 ISRs are not in the ISR2 map; NO_ISR = INVALID_ISR = count of all ISRs (kernel Os_isr_Cfg.h)
+    assert isr2_pairs == {"Isr_Timer0": 0, "Isr_Timer1": 2, "NO_ISR": len(ISRS)}
+
+
+def test_category1_isr_has_no_stack_or_context(rendered):
+    """The kernel only defines <name>_stack / <name>_ContextInfo for Tasks and CATEGORY_2 ISRs."""
+    _, root, _ = rendered
+    names = {_sn(c) for c in root.iter(A + "ECUC-CONTAINER-VALUE")}
+    for name, cat, *_ in ISRS:
+        has = {f"{name}_stack", f"{name}_ContextInfo", f"E_{name}_StackBase", f"E_{name}_Context"} & names
+        assert bool(has) == (cat == "CATEGORY_2"), name
 
 
 def test_type_map_inputs_fit_16_bit(rendered):
@@ -224,6 +233,31 @@ def test_one_core_instance_per_os_core(tmp_path, n_cores):
         assert _ref(core, "ArtiHardwareCoreInstanceCurrentTaskRef") == f"/Arti/Arti/ArtiValues/IP_Core{i}_RunningTask"
         assert exprs[f"E_Core{i}_RunningTask"] == f"Os_OrtiRunningData[{i}].RunningTaskType"
         assert _ref(core, "ArtiHardwareCoreInstanceEcucCoreRef") == f"/EcuC/EcuC/EcucHardware/EcucCoreDefinition_{i}"
+
+
+def test_core_index_follows_logical_core_id(tmp_path):
+    """Os_OrtiRunningData[] is indexed by the logical core id (EcucCoreId), not OsPhysicalCoreId."""
+    _, root, _ = _render(tmp_path, logical_ids={0: 3, 1: 2})
+    cores = _containers(root, "ArtiHardwareCoreInstance")
+    assert sorted(int(_param(c, "ArtiHardwareCoreInstanceCoreId")) for c in cores) == [2, 3]
+    exprs = {_sn(e): _param(e, "ArtiExpressionString") for e in _containers(root, "ArtiExpression")}
+    assert exprs["E_Core3_RunningTask"] == "Os_OrtiRunningData[3].RunningTaskType"
+    assert exprs["E_Core2_RunningIsr"] == "Os_OrtiRunningData[2].RunningISRType"
+
+
+def test_current_application_is_read_from_the_kernel(rendered):
+    """A3: per-core Os_AppRunningTimeData_Core<N>.Current_ApplicationID, decoded to the application name."""
+    _, root, _ = rendered
+    exprs = {_sn(e): _param(e, "ArtiExpressionString") for e in _containers(root, "ArtiExpression")}
+    cores = _containers(root, "ArtiHardwareCoreInstance")
+    for i, core in enumerate(cores):
+        assert exprs[f"E_Core{i}_CurrentApplication"] == f"Os_AppRunningTimeData_Core{i}.Current_ApplicationID"
+        assert _ref(core, "ArtiHardwareCoreInstanceCurrentApplicationRef") ==             f"/Arti/Arti/ArtiValues/IP_Core{i}_CurrentApplication"
+    tm = {_sn(t): t for t in _containers(root, "ArtiParameterTypeMap")}
+    pairs = {_sn(p): (int(_param(p, "ArtiParameterTypeMapPairInput")), _param(p, "ArtiParameterTypeMapPairOutput"))
+             for p in tm["TM_ApplicationId"].xpath("a:SUB-CONTAINERS/*", namespaces=NS)}
+    assert pairs == {"App_Core0": (0, "App_Core0"), "App_Core1": (1, "App_Core1"),
+                     "NO_APPLICATION": (2, "NO_APPLICATION")}
 
 
 def test_address_expressions_are_xml_escaped_once(rendered):

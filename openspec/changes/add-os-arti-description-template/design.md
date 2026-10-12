@@ -52,15 +52,17 @@
 - 实现与上表的出入（第一阶段有意省略，等材料或第二阶段再补）：
   - `ArtiOsAlarmInstanceAction`、`AlarmTimeRef` 未输出：ORTI 的 Action 是运行时表达式，ARTI 要的是静态字符串，需要 OsAlarmAction 配置；AlarmTime 在 ORTI 中本来就标注"不支持"。
   - `ArtiOsResourceInstanceLockerRef`、`Priority` 未输出：Owner ObjectID 的编号依赖 `Os_AppCommon.m`。
-  - `ArtiOsIsrInstance` 对 CATEGORY_1 ISR 也输出（带 `Category`），便于调试器显示其栈；`TM_Isr2Id` 仍只含 CATEGORY_2。
+  - `ArtiOsIsrInstance` 对 CATEGORY_1 ISR 也输出（带 `Category`）；`TM_Isr2Id` 只含 CATEGORY_2。**栈和上下文只对 CATEGORY_2 ISR 输出**：内核只为 Task 和 CATEGORY_2 ISR 生成 `<名>_stack`、`<名>_ContextInfo`（插件 `context/Os_context_Lcfg.c:89-93`、`:157-162`），对 CATEGORY_1 输出会让调试器求值时找不到符号（Open Questions 7）。
+  - `LastError` 的表达式照常输出，但内核目前只在初始化时写 `E_OK`，之后不更新，调试器将一直显示 `E_OK`（Open Questions 6）。
   - `ArtiOsTaskInstanceFunction` 未输出：任务入口函数名的命名规则未知。
 - `ArtiStatesTaskEnhanced=false`：内核状态变量只有 4 态，没有 hook，第一阶段按标准模型声明。
 - `ArtiOsTaskInstanceId`：取 `OsTask/@index`（ORTI `RUNNINGTASK` 用同一规则），必须等于 `Os_Cfg.h` 的 `TaskType`，由 tasks 3.3 验证。
 - `ArtiOsIsrInstanceId`：取 `OsIsr/@index`，同上。
+- `NO_TASK`、`NO_ISR`：内核的无效值分别是 `INVALID_TASK = TOTAL_TASK_NUM = count(OsTask/*)` 和 `INVALID_ISR = OS_ISR_TOTAL_NUM = count(OsIsr/*)`（插件 `task/Os_task_Cfg.h`、`isr/Os_isr_Cfg.h:79-80`）。`NO_ISR` 统计**所有** ISR，含 CATEGORY_1，不是"最后一个 CATEGORY_2 的序号+1"。
 
 ### D4 多核
-- 核数取 Os 配置中的核数参数，每个核输出一个 `ArtiHardwareCoreInstance`，`CoreId` 为逻辑核号，表达式下标为 `[n]`。
-- 前提是 `Os_OrtiRunningData` 是按核索引的数组（ORTI 模板里只用了 `[0]`），需在 Open Questions 1 中确认。
+- 核数取 Os 配置中的核数参数，每个核输出一个 `ArtiHardwareCoreInstance`。
+- `Os_OrtiRunningData[]` 的下标是 `Os_Inf_GetCoreId()`，即 `Os_ConfigSet.CoreIDListPtr[物理核号]`（内核 `kernel/Os_kernel.h:206`），是**逻辑核号**。插件模板里按核命名的变量（`Os_SchedulerProperty_Core<N>` 等）也用 `OsCoreId` 所引用核定义的 `EcucCoreId` 作 `<N>`。所以表达式下标和 `CoreId` 取 `EcucCoreId`，取不到时回退到 `OsPhysicalCoreId`（Open Questions 1）。
 
 ### D5 开关
 - `OsUseArti` 关闭时输出合法 AUTOSAR 文档，但不含 `ECUC-MODULE-CONFIGURATION-VALUES`，使导入该文件的流程不报错。
@@ -80,8 +82,13 @@
 
 状态说明：**已有证据**指本工具对一份 THA6 Os 配置的通用导出 `output/Os/Os_PBcfg.c`（按容器列出参数和引用），可信度较高，但还没有对照 THA6 Os 定义文件和真实 `Os_Cfg.h` 核实。模板顶部注释里的 A1–A5 与下面各条对应。
 
-1. **部分有证据。** 核配置是 `OsCoreIdMappingConfig`（每核一条，含 `OsPhysicalCoreId`、`OsCoreId`）；任务和 ISR 所属核由 `OsApplication/OsApplicationCoreRef` 指向它。**仍未确认**：`Os_OrtiRunningData[]` 是否按核索引、下标是 `OsPhysicalCoreId` 还是映射序号。模板目前按 `OsPhysicalCoreId` 取下标（A1）。
+**第二轮核对（来源）**：目标内核源码 `D:/19_AutosarOS/02_THA6204/02_Software/01_Code/01_Trunk/00_CodeProject/tr002_THA6_OS_Project/Os/`，插件模板 `D:/19_AutosarOS/02_THA6204/02_Software/02_ConfiguratorPlugins/01_Trunk/eclipse/plugins/Os_THA6_ASR21/generate_PB/Os/`。下面标"已核对"的条目以它们为依据；`output/Os/` 里 `OS_STATUS_USEARTI` 为关闭，其产物不含 ORTI 数据，不能作为这部分的证据。
+
+1. **已核对（内核存在该数组），下标取值为强推断。** 核配置是 `OsCoreIdMappingConfig`（含 `OsPhysicalCoreId`、`OsCoreId`）。内核有 `Os_OrtiRunningData[OS_KERNEL_MAX_CORE_NUM]`（`orti/Os_orti.c`），下标是 `Os_Inf_GetCoreId()`，即 `CoreIDListPtr[物理核号]`，是逻辑核号；插件内核模板的 `<N>` 取 `EcucCoreId`。**仍未核实**：`CoreIDListPtr` 的内容由哪个模板生成，是否等于 `EcucCoreId`（A1，已改为取 `EcucCoreId`，回退 `OsPhysicalCoreId`）。
 2. **已有证据。** `OsUseArti` 是 `OsOS` 下的布尔参数，与 `OsStatus`（`STANDARD`/`EXTENDED`）是两个参数。开发说明里"`OsStatus = OsUseArti`"的说法有误，已更正。
-3. **未确认。** 当前 OS-Application 是否有内核变量可读。模板回退为指向常量 `K_CurrentApplication`（`"N/A"`）（A3）。
+3. **已核对，已修正模板。** 内核有每核的 `Os_AppRunningTimeData_Core<N>`（`Os_ApplicationRunningTimeDataType`，`kernel/Os_kernel_Lcfg.c:69`），其中 `Current_ApplicationID` 是当前 OS-Application（`application/Os_application_types.h:154`；`OsApp_GetCurrentApplicationID()` 读它）。`ApplicationType = OsApplication/@index`，无效值 `INVALID_OSAPPLICATION = count(OsApplication/*)`（插件 `application/Os_application_Cfg.h:76-77`、`:127`）。模板新增表达式 `E_Core<N>_CurrentApplication` 和 `TM_ApplicationId`，取代原来的常量 `"N/A"`。`ArtiParameterTypeMapPairOutputRef` 的目标里没有 `OsApplication`（见定义文件），所以该 TypeMap 的输出用应用名字符串，不用引用。
 4. **已有证据，并已修正定义文件。** 工程里有核定义容器，`OsCoreIdMappingConfig/OsCoreId` 引用 `/EcuC/EcuC/EcucHardware/EcucCoreDefinition_N`；模板直接沿用这个引用。同时发现 `Arti_ParamDef.arxml` 中 `ArtiHardwareCoreInstanceEcucCoreRef` 的目标路径少了 `EcuC` 一级（`/AUTOSAR/EcucDefs/EcucHardware/...`），已在 `tools/arti/gen_arti_os.py` 中改为标准路径 `/AUTOSAR/EcucDefs/EcuC/EcucHardware/EcucCoreDefinition` 并重新生成。
 5. **已有证据。** 导出中的引用形如 `&Os_Os_OsCoreIdMappingConfig_0_Config`，即 Os 值路径为 `/Os/Os/<容器>`；模板中 `$OsValuePkg = '/Os/Os'`（A4）。
+6. **已核对，待内核团队确认意图。** `LastError` 在内核里只有一处赋值：`OsOrti_OrtiInit` 把它置为 `E_OK`（`orti/Os_orti.c:90`，trunk 与 tag t006 一致）。`OsHook_CallErrorHook(Error)` 只把错误码传给 ErrorHook，没有写入 `Os_OrtiRunningData`。结果是 ARTI（和现有 ORTI）的 LastError 一直显示 `E_OK`。需要内核团队确认是遗漏还是有意不做；模板暂不处理。
+7. **已核对，已修正模板。** (a) `NO_ISR` 应为 `count(OsIsr/*)`（D3）。(b) 内核只为 Task 和 CATEGORY_2 ISR 生成 `_stack`、`_ContextInfo`，模板对 CATEGORY_1 ISR 输出这些表达式会引用不存在的符号，已改为只对 CATEGORY_2 输出。
+8. **已核对。** `TaskType = OsTask/@index`、`ISRType = OsIsr/@index`（插件 `task/Os_task_Cfg.h:64`、`isr/Os_isr_Cfg.h:75`），A2 成立。ServiceId 的写入编码为开始 `ServiceId*2+3`、结束 `&= ServiceId*2+2`、初值 `0x1A2`，与模板的 `TM_ServiceId`（值×2+2）一致。Task 状态枚举 `RUNNING/READY/WAITING/SUSPENDED = 0..3`（`task/Os_task_types.h:54-57`），A5 成立。栈：基址 `&<名>_stack[0]`、`StackBottomAddr = &<名>_stack[大小/4]`，内核在 `stack[0]`（`StackTopAddr`）放溢出监测字 `0xAA55AA55`（`context/Os_context_Lcfg.c:236`、`Os_context.c:203`），其余为清零的静态存储，所以栈方向 `DOWN`、填充模式 `0x00000000` 与内核一致。**仍未核对**：`CoreIDListPtr` 的内容（Open Questions 1）；各核 Hook 栈、`StartOsInitFunction` 栈等没有输出，属第一阶段范围之外。

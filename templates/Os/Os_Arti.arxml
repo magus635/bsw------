@@ -9,11 +9,16 @@
 
   ASSUMPTIONS (to be verified against the real THA6 Os definition, Os_Cfg.h and kernel;
   see openspec/changes/add-os-arti-description-template/design.md, Open Questions):
-  A1  Os_OrtiRunningData[] is indexed by OsCoreIdMappingConfig/OsPhysicalCoreId.
+  A1  Os_OrtiRunningData[] is indexed by the logical core id (kernel: Os_Inf_GetCoreId() =
+      CoreIDListPtr[physical id]), taken as EcucCoreId of the core OsCoreId refers to; falls back to
+      OsPhysicalCoreId when OsCoreId is not set. CoreIDListPtr's content is not yet verified.
   A2  TaskType = OsTask/@index, ISRType = OsIsr/@index (same rule as ORTI RUNNINGTASK/RUNNINGISR2);
-      the invalid IDs are "last index + 1" as in ORTI (NO_TASK / NO_ISR).
-  A3  No kernel variable for the current OS-Application: ArtiHardwareCoreInstanceCurrentApplicationRef
-      points to the constant K_CurrentApplication ("N/A").
+      the invalid IDs are NO_TASK = count(OsTask/*) and NO_ISR = count(OsIsr/*) (kernel INVALID_TASK /
+      INVALID_ISR). Verified against the Os_THA6_ASR21 plugin (Os_task_Cfg.h, Os_isr_Cfg.h).
+  A3  Current OS-Application = Os_AppRunningTimeData_Core<N>.Current_ApplicationID (kernel Os_kernel_Lcfg.c,
+      type Os_ApplicationRunningTimeDataType, N as in A1); ApplicationType = OsApplication/@index and the invalid
+      value is count(OsApplication/*) (plugin Os_application_Cfg.h). OutputRef cannot target OsApplication in
+      the Arti definition, so TM_ApplicationId maps to the application name as a string.
   A4  Os values live under /Os/Os, the Arti values written here under /Arti/Arti.
   A5  Task state encoding RUNNING=0, READY=1, WAITING=2, SUSPENDED=3 (ORTI TASK.STATE).
 -->
@@ -183,10 +188,10 @@
 [!IF "node:value(./OsOS/OsUseArti) = 'true'"!][!//
 [!/* ---- derived values (A2) ---- */!][!//
 [!VAR "NoTask" = "num:i(count(./OsTask/*))"!][!//
-[!VAR "NoIsr" = "0"!][!//
-[!LOOP "node:order(./OsIsr/*,'@index')"!][!IF "OsIsrCategory = 'CATEGORY_2'"!][!VAR "NoIsr" = "num:i(@index + 1)"!][!ENDIF!][!ENDLOOP!][!//
+[!/* kernel: INVALID_ISR = OS_ISR_TOTAL_NUM = count(OsIsr/*), CATEGORY_1 included */!][!//
+[!VAR "NoIsr" = "num:i(count(./OsIsr/*))"!][!//
 [!VAR "FirstCore" = "''"!][!//
-[!LOOP "node:order(./OsCoreIdMappingConfig/*,'@index')"!][!IF "$FirstCore = ''"!][!VAR "FirstCore" = "concat('Core', num:i(node:value(./OsPhysicalCoreId)))"!][!ENDIF!][!ENDLOOP!][!//
+[!LOOP "node:order(./OsCoreIdMappingConfig/*,'@index')"!][!IF "$FirstCore = ''"!][!VAR "CoreNo" = "num:i(node:value(./OsPhysicalCoreId))"!][!IF "node:value(./OsCoreId) != ''"!][!VAR "CoreNo" = "num:i(node:ref(./OsCoreId)/EcucCoreId)"!][!ENDIF!][!VAR "FirstCore" = "concat('Core', $CoreNo)"!][!ENDIF!][!ENDLOOP!][!//
 <AUTOSAR xmlns="http://autosar.org/schema/r4.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00047.xsd">
   <AR-PACKAGES>
     <AR-PACKAGE>
@@ -249,6 +254,12 @@
 [!CALL "ArtiPair", "Name" = "node:name(.)", "In" = "num:i(@index + 1)", "OutRef" = "concat($OsValuePkg, '/', node:name(.))"!][!//
 [!ENDLOOP!][!//
 [!CALL "ArtiTypeMapClose"!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'ApplicationId'"!][!//
+[!LOOP "node:order(./OsApplication/*,'@index')"!][!//
+[!CALL "ArtiPair", "Name" = "node:name(.)", "In" = "num:i(@index)", "Out" = "node:name(.)"!][!//
+[!ENDLOOP!][!//
+[!CALL "ArtiPair", "Name" = "'NO_APPLICATION'", "In" = "num:i(count(./OsApplication/*))", "Out" = "'NO_APPLICATION'"!][!//
+[!CALL "ArtiTypeMapClose"!][!//
 [!/* Stacks and contexts: decode the address a task currently uses (ORTI TASK.STACK / TASK.CONTEXT) */!][!//
 [!CALL "ArtiTypeMapOpen", "Name" = "'TaskStack'"!][!//
 [!LOOP "node:order(./OsTask/*,'@index')"!][!//
@@ -283,7 +294,7 @@
 [!/* ---- Class parameters: which TypeMap decodes each attribute ---- */!][!//
 [!CALL "ArtiCP", "Name" = "'CurrentTask'", "TypeMap" = "'TaskId'"!][!//
 [!CALL "ArtiCP", "Name" = "'CurrentIsr'", "TypeMap" = "'Isr2Id'"!][!//
-[!CALL "ArtiCP", "Name" = "'CurrentApplication'"!][!//
+[!CALL "ArtiCP", "Name" = "'CurrentApplication'", "TypeMap" = "'ApplicationId'"!][!//
 [!CALL "ArtiCP", "Name" = "'LastError'", "TypeMap" = "'LastError'"!][!//
 [!CALL "ArtiCP", "Name" = "'RunningTaskPriority'", "TypeMap" = "'TaskPriority'"!][!//
 [!CALL "ArtiCP", "Name" = "'AppMode'", "TypeMap" = "'AppMode'"!][!//
@@ -295,15 +306,16 @@
 [!CALL "ArtiCP", "Name" = "'AlarmState'", "TypeMap" = "'AlarmState'"!][!//
 [!CALL "ArtiCP", "Name" = "'ResourceState'", "TypeMap" = "'ResourceState'"!][!//
 [!/* ---- Expressions / constants with their instance parameters ---- */!][!//
-[!CALL "ArtiConstIP", "Name" = "'CurrentApplication'", "Str" = "'N/A'"!][!//
 [!CALL "ArtiConstIP", "Name" = "'StackFillPattern'", "Str" = "'0x00000000'"!][!//
 [!CALL "ArtiExprIP", "Name" = "'AppMode'", "Str" = "'Os_OrtiRunningData[0].CurrentAppMode'"!][!//
 [!LOOP "node:order(./OsCoreIdMappingConfig/*,'@index')"!][!//
-[!VAR "Rd" = "concat('Os_OrtiRunningData[', num:i(node:value(./OsPhysicalCoreId)), ']')"!][!//
-[!VAR "Cn" = "concat('Core', num:i(node:value(./OsPhysicalCoreId)))"!][!//
+[!VAR "CoreNo" = "num:i(node:value(./OsPhysicalCoreId))"!][!IF "node:value(./OsCoreId) != ''"!][!VAR "CoreNo" = "num:i(node:ref(./OsCoreId)/EcucCoreId)"!][!ENDIF!][!//
+[!VAR "Rd" = "concat('Os_OrtiRunningData[', $CoreNo, ']')"!][!//
+[!VAR "Cn" = "concat('Core', $CoreNo)"!][!//
 [!CALL "ArtiExprIP", "Name" = "concat($Cn, '_RunningTask')", "Str" = "concat($Rd, '.RunningTaskType')"!][!//
 [!CALL "ArtiExprIP", "Name" = "concat($Cn, '_RunningIsr')", "Str" = "concat($Rd, '.RunningISRType')"!][!//
 [!CALL "ArtiExprIP", "Name" = "concat($Cn, '_LastError')", "Str" = "concat($Rd, '.LastError')"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($Cn, '_CurrentApplication')", "Str" = "concat('Os_AppRunningTimeData_Core', $CoreNo, '.Current_ApplicationID')"!][!//
 [!CALL "ArtiExprIP", "Name" = "concat($Cn, '_ServiceId')", "Str" = "concat($Rd, '.ServiceId')"!][!//
 [!ENDLOOP!][!//
 [!LOOP "node:order(./OsTask/*,'@index')"!][!//
@@ -315,12 +327,13 @@
 [!CALL "ArtiConstIP", "Name" = "concat($N, '_StackSize')", "Str" = "num:i(node:value(./TaskStackSize))"!][!//
 [!CALL "ArtiConstIP", "Name" = "concat($N, '_Priority')", "Str" = "node:value(./OsTaskPriority)"!][!//
 [!ENDLOOP!][!//
-[!LOOP "node:order(./OsIsr/*,'@index')"!][!//
+[!/* The kernel only has <name>_stack / <name>_ContextInfo for Tasks and CATEGORY_2 ISRs */!][!//
+[!LOOP "node:order(./OsIsr/*,'@index')"!][!IF "OsIsrCategory = 'CATEGORY_2'"!][!//
 [!VAR "N" = "node:name(.)"!][!//
 [!CALL "ArtiExprIP", "Name" = "concat($N, '_StackBase')", "Str" = "concat($N, '_stack[0]')", "AddressOf" = "'true'"!][!//
 [!CALL "ArtiExprIP", "Name" = "concat($N, '_Context')", "Str" = "concat($N, '_ContextInfo')", "AddressOf" = "'true'"!][!//
 [!CALL "ArtiConstIP", "Name" = "concat($N, '_StackSize')", "Str" = "num:i(node:value(./IsrStackSize))"!][!//
-[!ENDLOOP!][!//
+[!ENDIF!][!ENDLOOP!][!//
 [!LOOP "node:order(./OsAlarm/*,'@index')"!][!//
 [!VAR "N" = "node:name(.)"!][!//
 [!CALL "ArtiExprIP", "Name" = "concat($N, '_State')", "Str" = "concat($N, '_RunningData.State')"!][!//
@@ -408,10 +421,10 @@
 [!ENDLOOP!][!//
 [!CALL "ArtiEmptyClass", "Kind" = "'ArtiOsStackClass'"!][!//
 [!LOOP "node:order(./OsTask/*,'@index')"!][!CALL "ArtiStack", "Name" = "node:name(.)"!][!ENDLOOP!][!//
-[!LOOP "node:order(./OsIsr/*,'@index')"!][!CALL "ArtiStack", "Name" = "node:name(.)"!][!ENDLOOP!][!//
+[!LOOP "node:order(./OsIsr/*,'@index')"!][!IF "OsIsrCategory = 'CATEGORY_2'"!][!CALL "ArtiStack", "Name" = "node:name(.)"!][!ENDIF!][!ENDLOOP!][!//
 [!CALL "ArtiEmptyClass", "Kind" = "'ArtiOsContextClass'"!][!//
 [!LOOP "node:order(./OsTask/*,'@index')"!][!CALL "ArtiContext", "Name" = "node:name(.)"!][!ENDLOOP!][!//
-[!LOOP "node:order(./OsIsr/*,'@index')"!][!CALL "ArtiContext", "Name" = "node:name(.)"!][!ENDLOOP!][!//
+[!LOOP "node:order(./OsIsr/*,'@index')"!][!IF "OsIsrCategory = 'CATEGORY_2'"!][!CALL "ArtiContext", "Name" = "node:name(.)"!][!ENDIF!][!ENDLOOP!][!//
 [!IF "count(./OsAlarm/*) > 0"!][!//
             <ECUC-CONTAINER-VALUE>
               <SHORT-NAME>ArtiOsAlarmClass</SHORT-NAME>
@@ -478,18 +491,19 @@
               </REFERENCE-VALUES>
             </ECUC-CONTAINER-VALUE>
 [!LOOP "node:order(./OsCoreIdMappingConfig/*,'@index')"!][!//
-[!VAR "Cn" = "concat('Core', num:i(node:value(./OsPhysicalCoreId)))"!][!//
+[!VAR "CoreNo" = "num:i(node:value(./OsPhysicalCoreId))"!][!IF "node:value(./OsCoreId) != ''"!][!VAR "CoreNo" = "num:i(node:ref(./OsCoreId)/EcucCoreId)"!][!ENDIF!][!//
+[!VAR "Cn" = "concat('Core', $CoreNo)"!][!//
             <ECUC-CONTAINER-VALUE>
               <SHORT-NAME>[!"$Cn"!]</SHORT-NAME>
               <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiHardware/ArtiHardwareCoreInstance</DEFINITION-REF>
               <PARAMETER-VALUES>
                 <ECUC-NUMERICAL-PARAM-VALUE>
                   <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">[!"$Def"!]/ArtiHardware/ArtiHardwareCoreInstance/ArtiHardwareCoreInstanceCoreId</DEFINITION-REF>
-                  <VALUE>[!"num:i(node:value(./OsPhysicalCoreId))"!]</VALUE>
+                  <VALUE>[!"$CoreNo"!]</VALUE>
                 </ECUC-NUMERICAL-PARAM-VALUE>
               </PARAMETER-VALUES>
               <REFERENCE-VALUES>
-[!CALL "ArtiRef", "RefDef" = "'ArtiHardware/ArtiHardwareCoreInstance/ArtiHardwareCoreInstanceCurrentApplicationRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_CurrentApplication')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiHardware/ArtiHardwareCoreInstance/ArtiHardwareCoreInstanceCurrentApplicationRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $Cn, '_CurrentApplication')"!][!//
 [!CALL "ArtiRef", "RefDef" = "'ArtiHardware/ArtiHardwareCoreInstance/ArtiHardwareCoreInstanceCurrentIsrRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $Cn, '_RunningIsr')"!][!//
 [!CALL "ArtiRef", "RefDef" = "'ArtiHardware/ArtiHardwareCoreInstance/ArtiHardwareCoreInstanceCurrentTaskRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $Cn, '_RunningTask')"!][!//
 [!/* EB stores reference values with an "ASPath:" prefix; strip it so both engines emit a plain path */!][!//

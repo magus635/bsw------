@@ -25,6 +25,7 @@ ISRS = [  # name, category, stack, core
     ("Isr_Timer0", "CATEGORY_2", 256, 0),
     ("Isr_Cat1", "CATEGORY_1", 128, 1),
     ("Isr_Timer1", "CATEGORY_2", 256, 1),
+    ("Isr_Cat1_Last", "CATEGORY_1", 128, 0),  # last ISR is CATEGORY_1: NO_ISR must still be count(OsIsr)
 ]
 
 
@@ -75,7 +76,7 @@ def build_os_def():
     return m
 
 
-def build_os_config(use_arti=True, n_cores=2):
+def build_os_config(use_arti=True, n_cores=2, logical_ids=None):
     """Returns (module_def, ConfigurationManager) with the layout in the module docstring."""
     m = build_os_def()
     mgr = ConfigurationManager(m)
@@ -90,7 +91,8 @@ def build_os_config(use_arti=True, n_cores=2):
     for i in range(n_cores):
         core = new(c["OsCoreIdMappingConfig"], None, f"OsCoreIdMappingConfig_{i}")
         mgr.set_parameter_value(core, "OsPhysicalCoreId", i)
-        core.set_reference_value("OsCoreId", f"/EcuC/EcuC/EcucHardware/EcucCoreDefinition_{i}",
+        core.set_reference_value("OsCoreId",
+                                 f"/EcuC/EcuC/EcucHardware/EcucCoreDefinition_{(logical_ids or {}).get(i, i)}",
                                  c["OsCoreIdMappingConfig"].references["OsCoreId"].definition_ref)
 
     for name, prio, stack, ttype, _ in TASKS:
