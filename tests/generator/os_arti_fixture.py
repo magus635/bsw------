@@ -54,6 +54,8 @@ def build_os_def():
     _p(os_os, "OsNumberOfCores", T.INTEGER)
     _p(os_os, "OsUseArti", T.BOOLEAN)
     _p(os_os, "OsStatus", T.ENUMERATION, literals=["STANDARD", "EXTENDED"])
+    _p(os_os, "OsScalabilityClass", T.ENUMERATION, literals=["SC1", "SC2", "SC3", "SC4"])
+    _p(os_os, "OsStackMonitoring", T.BOOLEAN)
     core = _c(m, "OsCoreIdMappingConfig")
     _p(core, "OsPhysicalCoreId", T.INTEGER)
     _r(core, "OsCoreId", "/AUTOSAR/EcucDefs/EcuC/EcucHardware/EcucCoreDefinition")
@@ -65,6 +67,7 @@ def build_os_def():
     _p(task, "OsTaskPriority", T.INTEGER)
     _p(task, "TaskStackSize", T.INTEGER)
     _p(task, "OsTaskType", T.ENUMERATION, literals=["BASIC", "EXTENDED"])
+    _p(task, "OsTaskSchedule", T.ENUMERATION, literals=["NON", "FULL"])
     isr = _c(m, "OsIsr")
     _p(isr, "OsIsrCategory", T.ENUMERATION, literals=["CATEGORY_1", "CATEGORY_2"])
     _p(isr, "IsrStackSize", T.INTEGER)
@@ -73,6 +76,11 @@ def build_os_def():
     alarm = _c(m, "OsAlarm")
     _r(alarm, "OsAlarmCounterRef", f"{OS}/OsCounter")
     _c(m, "OsResource")
+    event = _c(m, "OsEvent")
+    _p(event, "OsEventMask", T.INTEGER)
+    _c(m, "OsScheduleTable")
+    spin = _c(m, "OsSpinlock")
+    _p(spin, "OsSpinlockLockMethod", T.ENUMERATION, literals=["LOCK_NOTHING", "LOCK_ALL_INTERRUPTS"])
     return m
 
 
@@ -87,6 +95,8 @@ def build_os_config(use_arti=True, n_cores=2, logical_ids=None):
     mgr.set_parameter_value(os_os, "OsNumberOfCores", n_cores)
     mgr.set_parameter_value(os_os, "OsUseArti", use_arti)
     mgr.set_parameter_value(os_os, "OsStatus", "EXTENDED")
+    mgr.set_parameter_value(os_os, "OsScalabilityClass", "SC3")
+    mgr.set_parameter_value(os_os, "OsStackMonitoring", True)
 
     for i in range(n_cores):
         core = new(c["OsCoreIdMappingConfig"], None, f"OsCoreIdMappingConfig_{i}")
@@ -100,6 +110,7 @@ def build_os_config(use_arti=True, n_cores=2, logical_ids=None):
         mgr.set_parameter_value(t, "OsTaskPriority", prio)
         mgr.set_parameter_value(t, "TaskStackSize", stack)
         mgr.set_parameter_value(t, "OsTaskType", ttype)
+        mgr.set_parameter_value(t, "OsTaskSchedule", "FULL")
     for name, cat, stack, _ in ISRS:
         i = new(c["OsIsr"], None, name)
         mgr.set_parameter_value(i, "OsIsrCategory", cat)
@@ -130,4 +141,9 @@ def build_os_config(use_arti=True, n_cores=2, logical_ids=None):
     alarm.set_reference_value("OsAlarmCounterRef", "/Os/Os/SystemTick",
                               c["OsAlarm"].references["OsAlarmCounterRef"].definition_ref)
     new(c["OsResource"], None, "Res_Shared")
+    event_1 = new(c["OsEvent"], None, "Event_Wake")
+    mgr.set_parameter_value(event_1, "OsEventMask", 1)
+    new(c["OsScheduleTable"], None, "Sch_Main")
+    spin_1 = new(c["OsSpinlock"], None, "Spin_Shared")
+    mgr.set_parameter_value(spin_1, "OsSpinlockLockMethod", "LOCK_ALL_INTERRUPTS")
     return m, mgr

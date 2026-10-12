@@ -1,8 +1,8 @@
 ## 0. 前置与基线
-- [ ] 0.1 把插件的 `Os_Trace_Core0.ORTI`、`Os_Trace_Core1.ORTI` 同步到 `doc/ARTI/`（作为对照基准，保留原文件名），并在 `doc/ARTI/` 说明它们与 `Os_Trace.orti` 的差异
-- [ ] 0.2 扩展 `tests/generator/os_arti_fixture.py`：增加 OsEvent、OsScheduleTable、OsSpinlock、OsResource 的天花板配置、Task 的 `OsTaskSchedule` 和事件引用、Alarm 的 action 配置
-- [ ] 0.3 通用组件最小试验：为 Event 输出一个通用组件，通过 XSD 和 `Arti_ParamDef.arxml` 校验，本工具导入后引用全部解析
-- [ ] 0.4 `tests/generator/test_arti_orti_parity.py`：解析基准 ORTI 与渲染出的 ARTI，输出缺口清单，带显式例外清单；此时清单即当前缺口，测试以"缺口不增加"为准
+- [x] 0.1 把插件的 `Os_Trace_Core0.ORTI`、`Os_Trace_Core1.ORTI`、`Os_AppCommon.m` 同步到 `doc/ARTI/`作为参考副本，并在 `doc/ARTI/README.md` 说明它们与 `Os_Trace.orti` 的差异。对照测试实际用语法已修正的 `Os_Trace.orti` 渲染（内容与插件 Core0 相同，插件版有 ENUM 末项多余逗号等 KOIL 语法缺陷，见 README），因此测试能解析
+- [x] 0.2 扩展 `tests/generator/os_arti_fixture.py`：增加 OsEvent、OsScheduleTable、OsSpinlock、OsResource 的天花板配置、Task 的 `OsTaskSchedule` 和事件引用、Alarm 的 action 配置
+- [x] 0.3 通用组件最小试验：为 Event 输出一个通用组件，通过 XSD 和 `Arti_ParamDef.arxml` 校验，本工具导入后引用全部解析
+- [x] 0.4 `tests/generator/test_arti_orti_parity.py`：解析基准 ORTI 与渲染出的 ARTI，输出缺口清单，带显式例外清单；此时清单即当前缺口，测试以"缺口不增加"为准
 
 ## 1. 已有对象的属性补全
 - [ ] 1.1 Task：`OSTASKTYPE`、`OSTASKSCHEDULE`、`OSTASKMAXACTIVATION`、`REMAININGACTIVATIONS`、`EVENTMASK`、`EVENTSETFLAG`

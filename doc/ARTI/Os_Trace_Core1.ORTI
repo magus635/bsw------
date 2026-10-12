@@ -1,0 +1,691 @@
+/****************************************************************************************************
+*
+****************************************************************************************************/
+
+/****************************************************************************************************
+*   FileName              : Os_Trace.ORTI
+*
+*   Platform              : AUTOSAR
+*
+*   BSW Module            : Os
+*
+*   brief                 : xxx
+*
+*   Autosar Version       : R23-11
+*
+*   Build Version         : Cortex-R52/THA6206
+*
+*   Copyright (c) @#
+*   All Rights Reserved.
+*
+****************************************************************************************************/
+[!INCLUDE "Os_AppCommon.m"!][!//
+/****************************************************************************************************
+**                          Revision Control History                                               **
+****************************************************************************************************/
+/*
+*  -------------------------------------------------------------------------------------------------
+*  Version    Date           Author(ID)      SVN_Version         Description
+*  -------------------------------------------------------------------------------------------------
+*  V0.0.1   22-May-2024    zhangtr(30011)                        Initial Version
+*
+****************************************************************************************************/
+[!INDENT "0"!][!//
+[!VAR "Separator" = "','"!][!//
+[!VAR "PriorityCountList" = "''"!][!//
+[!VAR "EveryPriorityCountList" = "''"!][!//
+[!VAR "EveryMaxAllowed" = "''"!][!//
+[!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsApplication"!][!//
+[!LOOP "node:order(./*,'@index')"!][!//
+        [!LOOP "node:order(./OsAppTaskRef/*,'@index')"!][!//
+            [!VAR "EveryPriorityCountList" = "concat($EveryPriorityCountList, node:value(node:ref(.)/OsTaskPriority), $Separator)"!][!//
+            [!VAR "EveryMaxAllowed" =  "concat($EveryMaxAllowed, num:i(node:value(node:ref(.)/OsTaskActivation)), $Separator)"!][!//
+            [!VAR "PriorityIncludecomma" = "concat($Separator, node:value(node:ref(.)/OsTaskPriority), $Separator)"!][!//
+            [!IF "contains($PriorityCountList, $PriorityIncludecomma)"!][!//
+            [!ELSE!][!//
+                [!VAR "PriorityCountList" = "concat($PriorityCountList, node:value(node:ref(.)/OsTaskPriority), $Separator)"!][!//
+            [!ENDIF!][!//
+        [!ENDLOOP!][!//
+[!ENDLOOP!][!//
+[!ENDSELECT!][!//
+[!VAR "Total_Priority" = "num:i(count(text:split($PriorityCountList, $Separator)))"!][!//
+[!ENDINDENT!][!//
+[!VAR "CurrentAppObjectCnt" = "0"!][!//
+VERSION {
+  KOIL = "2.2";
+  OSSEMANTICS = "ORTI", "2.2";
+}; /* VERSION */
+
+/****************************************************************************************************
+**                              Global Variable Declarations                                       **
+****************************************************************************************************/
+
+IMPLEMENTATION TMC_ORTI {
+
+    OS {
+        ENUM "CoreIdType" [
+            [!INDENT "12"!][!//
+            "OS_CORE_ID_0" = 0,
+            [!IF "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative = 'Os_THA6206'"!][!//
+            "OS_CORE_ID_1" = 1
+            [!ELSEIF "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative = 'Os_THA6412'"!][!//
+            "OS_CORE_ID_1" = 1,
+            "OS_CORE_ID_2" = 2, 
+            "OS_CORE_ID_3" = 3           
+            [!ENDIF!][!//
+            [!ENDINDENT!][!//
+        ] COREID, "Current Core ID";
+
+        TOTRACE ENUM "TaskType" [
+            [!INDENT "12"!][!//
+            [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsTask"!][!//
+            [!LOOP "node:order(./*,"@index")"!][!//
+                "[!"node:name(.)"!]" = "[!"@index"!]",
+                [!VAR "MaxTask" = "@index + 1"!][!//
+            [!ENDLOOP!][!//
+            "NO_TASK" = "[!"num:i($MaxTask)"!]"
+            [!ENDSELECT!][!//
+            [!ENDINDENT!][!//
+        ] RUNNINGTASK, "Running Task Identification";
+
+        ENUM "TaskType" [
+            [!INDENT "12"!][!//
+            [!LOOP "node:order(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsApplication/*,'@index')"!][!//
+            [!LOOP "node:order(./OsAppTaskRef/*,'@index')"!][!//
+                [!FOR "i" = "0" TO "$Total_Priority - 1"!][!//
+                    [!IF "num:order(text:split($PriorityCountList, $Separator))[position() = $i+1] = node:ref(.)/OsTaskPriority"!][!//
+                        "[!"node:ref(.)/OsTaskPriority"!]" = "[!"node:ref(.)/@index"!]",
+                    [!ENDIF!][!//
+                [!ENDFOR!][!//
+            [!ENDLOOP!][!//
+            [!ENDLOOP!][!//
+            "-" = "[!"num:i($MaxTask)"!]"
+            [!ENDINDENT!][!//
+        ] RUNNINGTASKPRIORITY, "Priority of Running Task";
+
+        TOTRACE ENUM "Os_IsrConfigType *" [
+            [!INDENT "12"!][!//
+            [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+            [!LOOP "node:order(./OsIsr/*,'@index')"!][!//
+                [!IF "OsIsrCategory = 'CATEGORY_2'"!][!//
+                    "[!"node:name(.)"!]" = "[!"@index"!]",
+                    [!VAR "MaxIsr" = "@index + 1"!][!//
+                [!ENDIF!][!//
+            [!ENDLOOP!][!//
+            "NO_ISR" = "[!"num:i($MaxIsr)"!]"
+            [!ENDSELECT!][!//
+            [!ENDINDENT!][!//
+        ] RUNNINGISR2, "Running ISR of category 2";
+
+        TOTRACE ENUM "uint32" [
+            "NOSERVICE"                   = 0x00,
+            "GETAPPLICATIONID"            = 0x02,
+            "GETISRID"                    = 0x04,
+            "CALLTRUSTEDFUNCTION"         = 0x06,
+            "CHECKISRMEMORYACCESS"        = 0x08,
+            "CHECKTASKMEMORYACCESS"       = 0x0a,
+            "CHECKOBJECTACCESS"           = 0x0c,
+            "CHECKOBJECTOWNERSHIP"        = 0x0e,
+            "STARTSCHEDULETABLEREL"       = 0x10,
+            "STARTSCHEDULETABLEABS"       = 0x12,
+            "STOPSCHEDULETABLE"           = 0x14,
+            "NEXTSCHEDULETABLE"           = 0x16,
+            "STARTSCHEDULETABLESYNCHRON"  = 0x18,
+            "SYNCSCHEDULETABLE"           = 0x1a,
+            "SETSCHEDULETABLEASYNC"       = 0x1c,
+            "GETSCHEDULETABLESTATUS"      = 0x1e,
+            "INCREMENTCOUNTER"            = 0x20,
+            "GETCOUNTERVALUE"             = 0x22,
+            "GETELAPSEDVALUE"             = 0x24,
+            "TERMINATEAPPLICATION"        = 0x26,
+            "ALLOWACCESS"                 = 0x28,
+            "GETAPPLICATIONSTATE"         = 0x2a,
+            "GETNUMBEROFACTIVATEDCORES"   = 0x2c,
+            "GETCOREID"                   = 0x2e,
+            "STARTCORE"                   = 0x30,
+            "GETSPINLOCK"                 = 0x34,
+            "RELEASESPINLOCK"             = 0x36,
+            "TRYTOGETSPINLOCK"            = 0x38,
+            "SHUTDOWNALLCORES"            = 0x3a,
+            "CONTROLIDLE"                 = 0x3c,
+            "IOCSENDIOCIDSENDERID"        = 0x3e,
+            "IOCWRITEIOCIDSENDERID"       = 0x40,
+            "IOCSENDGROUPIOCID"           = 0x42,
+            "IOCWRITEGROUPIOCID"          = 0x44,
+            "IOCRECEIVEIOCID"             = 0x46,
+            "IOCREADIOCIDRECEIVERID"      = 0x48,
+            "IOCRECEIVEGROUPIOCID"        = 0x4a,
+            "IOCREADGROUPIOCID"           = 0x4c,
+            "IOCEMPTYQUEUE"               = 0x4e,
+            "GETCURRENTAPPLICATIONID"     = 0x50,
+            "READPERIPHERAL8"             = 0x52,
+            "READPERIPHERAL16"            = 0x54,
+            "READPERIPHERAL32"            = 0x56,
+            "WRITEPERIPHERAL8"            = 0x58,
+            "WRITEPERIPHERAL16"           = 0x5a,
+            "WRITEPERIPHERAL32"           = 0x5c,
+            "MODIFYPERIPHERAL8"           = 0x5e,
+            "MODIFYPERIPHERAL32"          = 0x60,
+            "DISABLEINTERRUPTSOURCE"      = 0x62,
+            "ENABLEINTERRUPTSOURCE"       = 0x64,
+            "CLEARPENDINGINTERRUPT"       = 0x66,
+            "ACTIVATETASKASYN"            = 0x68,
+            "SETEVENTASYN"                = 0x6a,
+            "MODIFYPERIPHERAL16"          = 0x6c,
+            "ISOSSTARTED"                 = 0x6e,
+            "STARTOS"                     = 0x1a2,
+            "GETACTIVATEAPPLICATIONMODE"  = 0x1a6,
+            "DISABLEALLINTERRUPTS"        = 0x1a8,
+            "ENABLEALLINTERRUPTS"         = 0x1aa,
+            "SUSPENDALLINTERRUPTS"        = 0x1ac,
+            "RESUMEALLINTERRUPTS"         = 0x1ae,
+            "SUSPENDOSINTERRUPTS"         = 0x1b0,
+            "RESUMEOSINTERRUPTS"          = 0x1b2,
+            "ACTIVATETASK"                = 0x1b4,
+            "TERMINATETASK"               = 0x1b6,
+            "CHAINTASK"                   = 0x1b8,
+            "GETTASKID"                   = 0x1ba,
+            "GETTASKSTATE"                = 0x1bc,
+            "SCHEDULE"                    = 0x1be,
+            "SETEVENT"                    = 0x1c0,
+            "CLEAREVENT"                  = 0x1c2,
+            "GETEVENT"                    = 0x1c4,
+            "WAITEVENT"                   = 0x1c6,
+            "GETALARMBASE"                = 0x1c8,
+            "GETALARM"                    = 0x1ca,
+            "SETRELALARM"                 = 0x1cc,
+            "SETABSALARM"                 = 0x1ce,
+            "CANCELALARM"                 = 0x1d0,
+            "GETRESOURCE"                 = 0x1d2,
+            "RELEASERESOURCE"             = 0x1d4,
+            "POSTISR"                     = 0x1d6,
+            "IOCCALLCALLBACK"             = 0x1d8,
+            "DOALARM"                     = 0x1da,
+            "SHUTDOWNOS"                  = 0x1dc,
+        ] SERVICETRACE, "OS Services Watch";
+        
+        ENUM "uint8" [
+            "E_OK"                       = 0x00,
+            "E_OS_ACCESS"                = 0x01,
+            "E_OS_CALLEVEL"              = 0x02,
+            "E_OS_ID"                    = 0x03,
+            "E_OS_LIMIT"                 = 0x04,
+            "E_OS_NOFUNC"                = 0x05,
+            "E_OS_RESOURCE"              = 0x06,
+            "E_OS_STATE"                 = 0x07,
+            "E_OS_VALUE"                 = 0x08,
+            "E_OS_SERVICEID"             = 0x09,
+            "E_OS_ILLEGAL_ADDRESS"       = 0x0A,
+            "E_OS_MISSINGEND"            = 0x0B,
+            "E_OS_DISABLEDINT"           = 0x0C,
+            "E_OS_STACKFAULT"            = 0x0D,
+            "E_OS_PROTECTION_MEMORY"     = 0x0E,
+            "E_OS_PROTECTION_TIME"       = 0x0F,
+            "E_OS_PROTECTION_ARRIVAL"    = 0x10,
+            "E_OS_PROTECTION_LOCKED"     = 0x11,
+            "E_OS_PROTECTION_EXCEPTION"  = 0x12,
+            "E_OS_SPINLOCK"              = 0x13,
+            "E_OS_INTERFERENCE_DEADLOCK" = 0x14,
+            "E_OS_NESTING_DEADLOCK"      = 0x15,
+            "E_OS_CORE"                  = 0x16,
+            "E_OS_PARAM_POINTER"         = 0x17,
+            "E_OS_SYS_API_ERROR"         = 0x18,
+            "E_OS_STATUS_ACCESSRIGHTS"   = 0x19,
+            "E_OS_SYS_UNDEFINED_IRQ"     = 0x20,
+            "E_OS_NO_PRE_TASK"           = 0x21
+        ] LASTERROR, "Last OSEK error";
+        
+        ENUM "uint8" [
+            [!INDENT "12"!][!//
+            [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+                [!LOOP "node:order(./OsAppMode/*,"@index")"!][!//
+                    "[!"node:name(.)"!]" = [!"num:i(@index + 1)"!],
+                [!ENDLOOP!][!//
+            [!ENDSELECT!][!//
+            [!ENDINDENT!][!//
+        ] CURRENTAPPMODE, "Current application mode";
+
+    }, "OS";
+
+    TASK {
+        ENUM "uint8" [
+            [!INDENT "12"!][!//
+            [!LOOP "node:order(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsApplication/*,'@index')"!][!//
+                [!LOOP "node:order(./OsAppTaskRef/*,'@index')"!][!//
+                [!FOR "i" = "0" TO "$Total_Priority - 1"!][!//
+                    [!IF "num:order(text:split($PriorityCountList, $Separator))[position() = $i+1] = node:ref(.)/OsTaskPriority"!][!//
+                        "[!"node:ref(.)/OsTaskPriority"!]" = [!"node:ref(.)/@index"!],
+                    [!ENDIF!][!//
+                [!ENDFOR!][!//
+            [!ENDLOOP!][!//
+            [!ENDLOOP!][!//
+            [!ENDINDENT!][!//
+        ] PRIORITY, "Actual Prio";
+
+        ENUM "TaskStateType" [
+            "RUNNING"=0,
+            "READY"=1,
+            "WAITING"=2,
+            "SUSPENDED"=3
+        ] STATE, "Current State";
+        
+        ENUM "uint32 *" [
+            [!INDENT "12"!][!//
+            [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+                [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
+                    [!LOOP "node:order(./OsAppTaskRef/*,'@index')"!][!//
+                        "[!"node:name(node:ref(.))"!]_stack" : [!"node:name(node:ref(.))"!]_stack = "&[!"node:name(node:ref(.))"!]_stack[0]",
+                    [!ENDLOOP!][!//
+                [!ENDLOOP!][!//
+            [!ENDSELECT!][!//
+            [!ENDINDENT!][!//
+        ] STACK, "Task Stack";
+        
+        CTYPE "uint8" REMAININGACTIVATIONS, "Remaining task activations";
+        
+        ENUM "Os_ContextType *" [
+            [!INDENT "12"!][!//
+            [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+                [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
+                    [!LOOP "node:order(./OsAppTaskRef/*,'@index')"!][!//
+                        "[!"node:name(node:ref(.))"!]_ContextInfo" : [!"node:name(node:ref(.))"!]_ContextInfo = "&[!"node:name(node:ref(.))"!]_ContextInfo",
+                    [!ENDLOOP!][!//
+                [!ENDLOOP!][!//
+            [!ENDSELECT!][!//
+            [!ENDINDENT!][!//
+        ] CONTEXT, "Task Context";
+
+        ENUM "Os_LockConfigType *" [
+            [!INDENT "12"!][!//
+            [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+                [!LOOP "node:order(./OsResource/*,'@index')"!][!//
+                    "[!"node:name(.)"!]" = "&Os_LockConfig_[!"node:name(.)"!]",
+                [!ENDLOOP!][!//
+                "-" = 0x0
+            [!ENDSELECT!][!//
+            [!ENDINDENT!][!//
+        ] LOCKED, "locked Resource and Spinlock";
+
+        ENUM "uint8" [
+            "BASIC" = 0,
+            "EXTENDED" = 1
+        ] OSTASKTYPE, "Task Type"; /* Basic or Extended Task */
+
+        STRING OSTASKSCHEDULE, "Schedule"; /* non preemptive or full preemptive */
+        CTYPE "uint32" EVENTMASK, "Wait Mask";
+        CTYPE "uint32" EVENTSETFLAG, "Event Flags";
+        CTYPE "uint32" OSTASKMAXACTIVATION, "Maxium Activations";
+    }, "Tasks";
+
+    STACK {
+        CTYPE "uint64" SIZE, "Stack Size (Byte)";
+        CTYPE "uint32 *" BASEADDRESS, "Base Address";
+        STRING STACKDIRECTION, "Stack Direction";
+        CTYPE "uint32" FILLPATTERN, "Stack Fill Pattern";
+    }, "Stacks"; /* STACK */
+[!IF "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative != 'Os_SC300'"!][!//
+
+    ALARM {
+        ENUM "AlarmState" [
+            "ALARM_ENABLED" = 0,
+            "ALARM_DISABLED" = 1
+        ] STATE, "Alarm State";
+        CTYPE "TickType" CYCLETIME, "Cycle Time (Ticks)";
+        CTYPE "TickType" ALARMTIME, "Alarm Time (Ticks)";
+        ENUM "Os_AlarmActionType" [
+            "ALARM_ACTIVATETASK" = 0,
+            "ALARM_SETEVENT" = 1,
+            "ALARM_CALLBACK" = 2,
+            "ALARM_INCREMENTCOUNTER" = 3
+        ]ACTION, "Action";
+        STRING COUNTER, "Counter";
+    }, "Alarms"; /* ALARM */
+[!ENDIF!][!//
+
+    RESOURCE {
+        ENUM "uint8" [
+            "UNLOCKED" = 0,
+            "LOCKED" = 1
+        ] STATE, "Resource State";
+
+        ENUM "Os_LockConfigType *" [
+            [!INDENT "12"!][!//
+            [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+                [!LOOP "node:order(./OsResource/*,'@index')"!][!//
+                    "[!"node:name(.)"!]" = "&Os_LockConfig_[!"node:name(.)"!]"
+                [!ENDLOOP!][!//
+                "-" = 0xFFFFFFFF
+            [!ENDSELECT!][!//
+            [!ENDINDENT!][!//
+        ] LOCKED, "Nested Resource or Spinlock";
+
+        ENUM "uint32" [
+            [!INDENT "12"!][!//
+            [!VAR "ObjectID" = "0"!][!//
+            [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+                [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
+                    [!LOOP "node:order(./OsAppTaskRef/*,'@index')"!][!//
+                        "Task [!"node:name(node:ref(.))"!]" = [!"num:i($ObjectID)"!],
+                        [!VAR "ObjectID" = "$ObjectID + 1"!][!//
+                    [!ENDLOOP!][!//
+                    [!LOOP "node:order(./OsAppIsrRef/*,'@index')"!][!//
+                        [!IF "node:ref(.)/OsIsrCategory = 'CATEGORY_2'"!][!//
+                            "ISR [!"node:name(node:ref(.))"!]" = [!"num:i($ObjectID)"!],
+                        [!ENDIF!][!//
+                        [!VAR "ObjectID" = "$ObjectID + 1"!][!//
+                    [!ENDLOOP!][!//
+                    [!VAR "AppID"="num:i(./@index)"!][!//
+                    [!VAR "IocCbkObjectIDCount"="0"!][!//
+                    [!CALL "Os_Calculate_IocCallBack_ObjectCount", "AppID"= "$AppID","IocCbkObjectIDCount" ="$IocCbkObjectIDCount"!][!//
+                    [!VAR "HookObjectIDCount"="0"!][!//
+                    [!CALL "Os_Calculate_Hook_ObjectCount", "AppID"= "$AppID","HookObjectIDCount" ="$HookObjectIDCount"!][!//
+                    [!VAR "CurrentAppObjectCnt" = "num:i($CurrentAppObjectCnt + count(./OsAppTaskRef/*) + count(./OsAppIsrRef/*) + count(./OsAppCounterRef/*) + count(./OsAppAlarmRef/*) + count(./OsAppScheduleTableRef/*) + num:i($HookObjectIDCount) + num:i($IocCbkObjectIDCount))"!][!//
+                    [!VAR "ObjectID" = "$CurrentAppObjectCnt"!][!//
+                [!ENDLOOP!][!//
+            [!ENDSELECT!][!//
+            "-" = 0xFFFFFFFF
+            [!ENDINDENT!][!//
+        ] RESOURCE_OWNER, "Resource Owner";
+
+        ENUM "uint32" [
+            "TASK" = 0,
+            "ISR" = 1
+        ] PRIORITY_TYPE, "Priority type ISR/Task";
+
+        CTYPE "uint32" PRIORITY, "Ceiling priority";
+    }, "Resources";
+
+    ISR {
+        CTYPE "uint32" PRIORITY, "Priority";
+
+        ENUM "void *" [
+            [!INDENT "12"!][!//
+            [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+                [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
+                    [!LOOP "node:order(./OsAppIsrRef/*,'@index')"!][!//
+                        "[!"node:name(node:ref(.))"!]_stack" : [!"node:name(node:ref(.))"!]_stack = "&[!"node:name(node:ref(.))"!]_stack[0]",
+                    [!ENDLOOP!][!//
+                [!ENDLOOP!][!//
+            [!ENDSELECT!][!//
+            [!ENDINDENT!][!//
+        ] STACK, "ISR Stack";
+
+        ENUM "Os_ContextType *" [
+            [!INDENT "12"!][!//
+            [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+                [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
+                    [!LOOP "node:order(./OsAppIsrRef/*,'@index')"!][!//
+                        "[!"node:name(node:ref(.))"!]_ContextInfo" : [!"node:name(node:ref(.))"!]_ContextInfo = "&[!"node:name(node:ref(.))"!]_ContextInfo",
+                    [!ENDLOOP!][!//
+                [!ENDLOOP!][!//
+            [!ENDSELECT!][!//
+            [!ENDINDENT!][!//
+        ] CONTEXT, "Task Context";
+
+        ENUM "Os_LockConfigType *" [
+            [!INDENT "12"!][!//
+            [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+                [!LOOP "node:order(./OsResource/*,'@index')"!][!//
+                    "[!"node:name(.)"!]" = "&Os_LockConfig_[!"node:name(.)"!]",
+                [!ENDLOOP!][!//
+                "-" = 0x0
+            [!ENDSELECT!][!//
+            [!ENDINDENT!][!//
+        ] LOCKED, "locked Resource and Spinlock";
+
+        STRING CATEGORY, "ISR CATEGORY";
+    }, "IsrS"; /* ISR */
+
+[!IF "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative != 'Os_SC300'"!][!//
+    SCHEDULETABLE {
+        ENUM "ScheduleTableStatusType" [
+            "STOPPED" = 0,
+            "NEXT" = 1,
+            "WAITING" = 2,
+            "RUNNING" = 3,
+            "RUNNING_AND_SYNCHRONOUS" = 4
+        ] STATE, "ScheduleTable Status";
+
+        ENUM "uint8" [
+            [!INDENT "12"!][!//
+            [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+                [!LOOP "node:order(./OsScheduleTable/*,'@index')"!][!//
+                    "[!"node:name(.)"!]" = [!"num:i(@index)"!],
+                [!ENDLOOP!][!//
+                "-" = 0xFF
+            [!ENDSELECT!][!//
+            [!ENDINDENT!][!//
+        ] SCHEDULETABLENEXT, "Next ScheduleTable";
+
+    }, "ScheduleTables"; /* SCHEDULETABLE */
+[!ENDIF!][!//
+
+    EVENT {
+        CTYPE "EventMaskType" EVENTMASK, "Event Mask";
+    }, "Events"; /* EVENT */
+
+[!IF "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative != 'Os_SC300'"!][!//
+    SPINLOCK {
+        ENUM "unsigned char" [
+            "LOCKED" = 1,
+            "UNLOCKED" = 0
+        ] STATE, "Spinlock State";
+
+        ENUM "Os_LockConfigType *" [
+            [!INDENT "12"!][!//
+            [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+                [!LOOP "node:order(./OsResource/*,'@index')"!][!//
+                    "[!"node:name(.)"!]" = "&Os_LockConfig_[!"node:name(.)"!]"
+                [!ENDLOOP!][!//
+                "-" = 0xFFFFFFFF
+            [!ENDSELECT!][!//
+            [!ENDINDENT!][!//
+        ] LOCKED, "Nested Resource or Spinlock";
+
+        ENUM "uint32" [
+            [!INDENT "12"!][!//
+            [!VAR "CurrentAppObjectCnt" = "0"!][!//
+            [!VAR "ObjectID" = "0"!][!//
+            [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+                [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
+                    [!LOOP "node:order(./OsAppTaskRef/*,'@index')"!][!//
+                        "Task [!"node:name(node:ref(.))"!]" = [!"num:i($ObjectID)"!],
+                        [!VAR "ObjectID" = "$ObjectID + 1"!][!//
+                    [!ENDLOOP!][!//
+                    [!LOOP "node:order(./OsAppIsrRef/*,'@index')"!][!//
+                        [!IF "node:ref(.)/OsIsrCategory = 'CATEGORY_2'"!][!//
+                            "ISR [!"node:name(node:ref(.))"!]" = [!"num:i($ObjectID)"!],
+                        [!ENDIF!][!//
+                        [!VAR "ObjectID" = "$ObjectID + 1"!][!//
+                    [!ENDLOOP!][!//
+                    [!VAR "AppID"="num:i(./@index)"!][!//
+                    [!VAR "IocCbkObjectIDCount"="0"!][!//
+                    [!CALL "Os_Calculate_IocCallBack_ObjectCount", "AppID"= "$AppID","IocCbkObjectIDCount" ="$IocCbkObjectIDCount"!][!//
+                    [!VAR "HookObjectIDCount"="0"!][!//
+                    [!CALL "Os_Calculate_Hook_ObjectCount", "AppID"= "$AppID","HookObjectIDCount" ="$HookObjectIDCount"!][!//
+                    [!VAR "CurrentAppObjectCnt" = "num:i($CurrentAppObjectCnt + count(./OsAppTaskRef/*) + count(./OsAppIsrRef/*) + count(./OsAppCounterRef/*) + count(./OsAppAlarmRef/*) + count(./OsAppScheduleTableRef/*) + num:i($HookObjectIDCount) + num:i($IocCbkObjectIDCount))"!][!//
+                    [!VAR "ObjectID" = "$CurrentAppObjectCnt"!][!//
+                [!ENDLOOP!][!//
+            [!ENDSELECT!][!//
+            "-" = 0xFFFFFFFF
+            [!ENDINDENT!][!//
+        ] SPINLOCK_OWNER, "Owner";
+        
+        ENUM "Os_SpinlockLockMethodType" [
+            "LOCK_ALL_INTERRUPTS" = 0,
+            "LOCK_CAT2_INTERRUPTS" = 1,
+            "LOCK_NOTHING" = 2,
+            "LOCK_WITH_RES_SCHEDULER" = 3
+        ]  LOCK_METHOD, "Lock Method";
+    }, "Spinlocks";  /* SPINLOCK */
+[!ENDIF!][!//
+
+    OS_CONFIG {
+        STRING ScalabilityClass, "Scalability Class";
+        STRING StatusLevel, "Status EXTENDED or STANDARD";
+        STRING OsStackMonitoring, "Using OsStackMonitor";
+    }, "OSConfiguration"; /* OS_CONFIG */
+
+}; /* IMPLEMENTATION */
+
+/****************************************************************************************************
+**                              Global Variable Definitions                                        **
+****************************************************************************************************/
+
+OS THA6xxx {
+    COREID = "0";
+    RUNNINGTASK = "Os_OrtiRunningData[1].RunningTaskType";
+    RUNNINGTASKPRIORITY = "Os_OrtiRunningData[1].RunningTaskType";
+    RUNNINGISR2 = "Os_OrtiRunningData[1].RunningISRType";
+    SERVICETRACE = "Os_OrtiRunningData[1].ServiceId";
+    LASTERROR = "Os_OrtiRunningData[1].LastError";
+    CURRENTAPPMODE = "Os_OrtiRunningData[1].CurrentAppMode";
+}; /* OS */
+
+[!INDENT "0"!][!//
+[!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+    [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
+        [!LOOP "node:order(./OsAppTaskRef/*,'@index')"!][!//
+TASK [!"node:name(node:ref(.))"!] {
+    [!INDENT "4"!][!//
+    PRIORITY = "[!"node:ref(.)/@index"!]";
+    STATE = "[!"node:name(node:ref(.))"!]_RunningData.State";
+    STACK = "&[!"node:name(node:ref(.))"!]_stack[0]";
+    CURRENTACTIVATIONS = "[!"node:name(node:ref(.))"!]_RunningData.ActivationCount";
+    CONTEXT = "&[!"node:name(node:ref(.))"!]_ContextInfo";
+    LOCKED = "[!"node:name(node:ref(.))"!]_RunningData.LockList";
+    OSTASKTYPE = "Task_[!"node:name(node:ref(.))"!]_ConfigRef.IsExtended";
+    OSTASKSCHEDULE = "[!"node:ref(.)/OsTaskSchedule"!]";
+    EVENTMASK = "[!"node:name(node:ref(.))"!]_RunningData.EventWait";
+    EVENTSETFLAG = "[!"node:name(node:ref(.))"!]_RunningData.EventSet";
+    OSTASKMAXACTIVATION = "Task_[!"node:name(node:ref(.))"!]_ConfigRef.MaxActivationCount";
+    REMAININGACTIVATIONS = "Task_[!"node:name(node:ref(.))"!]_ConfigRef.MaxActivationCount - [!"node:name(node:ref(.))"!]_RunningData.ActivationCount";
+    [!ENDINDENT!][!//
+}; /* TASK */
+
+        [!ENDLOOP!][!//
+    [!ENDLOOP!][!//
+[!ENDSELECT!][!//
+
+[!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+    [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
+        [!LOOP "node:order(./OsAppTaskRef/*,'@index')"!][!//
+STACK [!"node:name(node:ref(.))"!]_stack {
+    [!INDENT "4"!][!//
+    SIZE = "[!"num:i(node:value(node:ref(.)/TaskStackSize))"!]";
+    BASEADDRESS = "&[!"node:name(node:ref(.))"!]_stack[0]";
+    STACKDIRECTION = "DOWN";
+    FILLPATTERN = "0x00000000";
+    [!ENDINDENT!][!//
+}; /* STACK */
+
+        [!ENDLOOP!][!//
+        [!LOOP "node:order(./OsAppIsrRef/*,'@index')"!][!//
+STACK [!"node:name(node:ref(.))"!]_stack {
+    [!INDENT "4"!][!//
+    SIZE = "[!"num:i(node:value(node:ref(.)/IsrStackSize))"!]";
+    BASEADDRESS = "&[!"node:name(node:ref(.))"!]_stack[0]";
+    STACKDIRECTION = "DOWN";
+    FILLPATTERN = "0x00000000";
+    [!ENDINDENT!][!//
+}; /* STACK */
+
+        [!ENDLOOP!][!//
+    [!ENDLOOP!][!//
+[!ENDSELECT!][!//
+
+[!IF "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative != 'Os_SC300'"!][!//
+[!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+    [!LOOP "node:order(./OsAlarm/*,'@index')"!][!//
+ALARM [!"node:name(.)"!] {
+    [!INDENT "4"!][!//
+    STATE = "[!"node:name(.)"!]_RunningData.State";
+    CYCLETIME = "[!"node:name(.)"!]_RunningData.Cycle";
+    ALARMTIME = "0";        /* Not Supported */
+    ACTION = "Alarm_[!"node:name(.)"!]_ConfigRef.ActionType";
+    COUNTER = "[!"node:name(node:ref(./OsAlarmCounterRef))"!]";
+    [!ENDINDENT!][!//
+}; /* ALARM */
+    [!ENDLOOP!][!//
+[!ENDSELECT!][!//
+
+[!ENDIF!][!//
+[!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+    [!LOOP "node:order(./OsResource/*,'@index')"!][!//
+RESOURCE [!"node:name(.)"!] {
+    [!INDENT "4"!][!//
+    STATE = "Os_LockConfig_[!"node:name(.)"!].Previous == 0xFFFFFFFF ? 0:1";
+    LOCKED = "Os_LockConfig_[!"node:name(.)"!].Previous";
+    RESOURCE_OWNER = "Os_[!"node:name(.)"!]_RunningData.OwnerObjectID";
+    PRIORITY_TYPE = "Os_ResourceConfig_[!"node:name(.)"!].CeilingIsrLevel == 0xFFFFFFFF ? 0:1"
+    PRIORITY = "Os_ResourceConfig_[!"node:name(.)"!].CeilingIsrLevel == 0xFFFFFFFF ? Os_ResourceConfig_[!"node:name(.)"!].CeilingPriority : Os_ResourceConfig_[!"node:name(.)"!].CeilingIsrLevel";
+    [!ENDINDENT!][!//
+}; /* RESOURCE */
+    [!ENDLOOP!][!//
+[!ENDSELECT!][!//
+
+[!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+    [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
+        [!LOOP "node:order(./OsAppIsrRef/*,'@index')"!][!//
+ISR [!"node:name(node:ref(.))"!] {
+    [!INDENT "4"!][!//
+    PRIORITY = "[!"node:name(node:ref(.))"!].IsrHwConfig.priority";
+    STACK = "&[!"node:name(node:ref(.))"!]_stack[0]";
+    CONTEXT = "&[!"node:name(node:ref(.))"!]_ContextInfo";
+    LOCKED = "[!"node:name(node:ref(.))"!]_RunningData.LockList";
+    CATEGORY = "[!"node:value(node:ref(.)/OsIsrCategory)"!]";
+    [!ENDINDENT!][!//
+}; /* ISR */
+
+        [!ENDLOOP!][!//
+    [!ENDLOOP!][!//
+[!ENDSELECT!][!//
+
+[!IF "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative != 'Os_SC300'"!][!//
+[!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+    [!LOOP "node:order(./OsScheduleTable/*,'@index')"!][!//
+SCHEDULETABLE [!"node:name(.)"!] {
+    [!INDENT "4"!][!//
+    STATE = "Os_[!"node:name(.)"!]_RunningData.State";
+    SCHEDULETABLENEXT = "Os_[!"node:name(.)"!]_RunningData.NextSchTID";
+    [!ENDINDENT!][!//
+}; /* SCHEDULETABLE */
+    [!ENDLOOP!][!//
+[!ENDSELECT!][!//
+
+[!ENDIF!][!//
+[!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+    [!LOOP "node:order(./OsEvent/*,'@index')"!][!//
+EVENT [!"node:name(.)"!] {
+    [!INDENT "4"!][!//
+    EVENTMASK = "[!"num:i(node:value(OsEventMask))"!]";
+    [!ENDINDENT!][!//
+};  /* EVENT */
+    [!ENDLOOP!][!//
+[!ENDSELECT!][!//
+
+[!IF "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative != 'Os_SC300'"!][!//
+[!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+    [!LOOP "node:order(./OsSpinlock/*,'@index')"!][!//
+SPINLOCK [!"node:name(.)"!] {
+    [!INDENT "4"!][!//
+    STATE = "Os_LockStatus_[!"node:name(.)"!].lockStatus";
+    LOCKED = "Os_LockConfig_[!"node:name(.)"!].Previous";
+    SPINLOCK_OWNER = "Os_[!"node:name(.)"!]_RunningData.OwnerObjectID";
+    LOCK_METHOD = "Os_SpinlockConfig_[!"node:name(.)"!].OsSpinlockLockMethod";
+    [!ENDINDENT!][!//
+};  /* SPINLOCK */
+    [!ENDLOOP!][!//
+[!ENDSELECT!][!//
+
+[!ENDIF!][!//
+[!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+OS_CONFIG THA6xxx {
+    [!INDENT "4"!][!//
+    ScalabilityClass = "[!"node:value(./OsOS/OsScalabilityClass)"!]";
+    StatusLevel = "[!"node:value(./OsOS/OsStatus)"!]";
+    OsStackMonitoring = [!IF "node:value(./OsOS/OsStackMonitoring) = true"!]"TRUE"[!ELSE!]"FALSE"[!ENDIF!];
+    [!ENDINDENT!][!//
+}; /* OS Configuration of THA6xxx */
+[!ENDSELECT!][!//
+[!ENDINDENT!][!//

@@ -58,7 +58,7 @@
               </REFERENCE-VALUES>
             </ECUC-CONTAINER-VALUE>
 [!ENDMACRO!][!//
-[!MACRO "ArtiConstIP", "Name" = "", "Str" = ""!][!//
+[!MACRO "ArtiConst", "Name" = "", "Str" = ""!][!//
             <ECUC-CONTAINER-VALUE>
               <SHORT-NAME>K_[!"$Name"!]</SHORT-NAME>
               <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiValues/ArtiConstant</DEFINITION-REF>
@@ -69,6 +69,9 @@
                 </ECUC-TEXTUAL-PARAM-VALUE>
               </PARAMETER-VALUES>
             </ECUC-CONTAINER-VALUE>
+[!ENDMACRO!][!//
+[!MACRO "ArtiConstIP", "Name" = "", "Str" = ""!][!//
+[!CALL "ArtiConst", "Name" = "$Name", "Str" = "$Str"!][!//
             <ECUC-CONTAINER-VALUE>
               <SHORT-NAME>IP_[!"$Name"!]</SHORT-NAME>
               <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiValues/ArtiObjectInstanceParameter</DEFINITION-REF>
@@ -183,6 +186,93 @@
             </ECUC-CONTAINER-VALUE>
 [!ENDMACRO!][!//
 [!//
+[!/* ---- ArtiGeneric: components for ORTI objects that ARTI has no dedicated container for ----
+     One Class per object kind (GC_<Class>) with one ClassParameter per ORTI attribute
+     (GCP_<Class>_<ATTR>, named like the ORTI attribute); one Instance per object (GI_<Name>) whose
+     InstanceParameters (GIP_<Name>_<ATTR>) point to a constant (K_<Name>_<ATTR>) or an expression
+     (E_<Name>_<ATTR>). The object name is part of every SHORT-NAME: the ORTI parity test relies on it. */!][!//
+[!MACRO "ArtiGenClassOpen", "Class" = ""!][!//
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>GC_[!"$Class"!]</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiGeneric/ArtiGenericComponentClass</DEFINITION-REF>
+              <PARAMETER-VALUES>
+                <ECUC-TEXTUAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">[!"$Def"!]/ArtiGeneric/ArtiGenericComponentClass/ArtiGenericComponentClassName</DEFINITION-REF>
+                  <VALUE>[!"$Class"!]</VALUE>
+                </ECUC-TEXTUAL-PARAM-VALUE>
+              </PARAMETER-VALUES>
+              <SUB-CONTAINERS>
+[!ENDMACRO!][!//
+[!MACRO "ArtiGenClassParam", "Class" = "", "Param" = "", "TypeMap" = ""!][!//
+                <ECUC-CONTAINER-VALUE>
+                  <SHORT-NAME>GCP_[!"$Class"!]_[!"$Param"!]</SHORT-NAME>
+                  <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiGeneric/ArtiGenericComponentClass/ArtiGenericComponentClassParameter</DEFINITION-REF>
+                  <PARAMETER-VALUES>
+                    <ECUC-TEXTUAL-PARAM-VALUE>
+                      <DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">[!"$Def"!]/ArtiGeneric/ArtiGenericComponentClass/ArtiGenericComponentClassParameter/ArtiGenericComponentClassParameterName</DEFINITION-REF>
+                      <VALUE>[!"$Param"!]</VALUE>
+                    </ECUC-TEXTUAL-PARAM-VALUE>
+                  </PARAMETER-VALUES>
+[!IF "$TypeMap != ''"!][!//
+                  <REFERENCE-VALUES>
+                    <ECUC-REFERENCE-VALUE>
+                      <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">[!"$Def"!]/ArtiGeneric/ArtiGenericComponentClass/ArtiGenericComponentClassParameter/ArtiGenericComponentClassParameterTypeMapRef</DEFINITION-REF>
+                      <VALUE-REF DEST="ECUC-CONTAINER-VALUE">[!"$ArtiPkg"!]/ArtiValues/TM_[!"$TypeMap"!]</VALUE-REF>
+                    </ECUC-REFERENCE-VALUE>
+                  </REFERENCE-VALUES>
+[!ENDIF!][!//
+                </ECUC-CONTAINER-VALUE>
+[!ENDMACRO!][!//
+[!MACRO "ArtiGenClassClose"!][!//
+              </SUB-CONTAINERS>
+            </ECUC-CONTAINER-VALUE>
+[!ENDMACRO!][!//
+[!MACRO "ArtiGenInstOpen", "Class" = "", "Name" = ""!][!//
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>GI_[!"$Name"!]</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiGeneric/ArtiGenericComponentInstance</DEFINITION-REF>
+              <PARAMETER-VALUES>
+                <ECUC-TEXTUAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">[!"$Def"!]/ArtiGeneric/ArtiGenericComponentInstance/ArtiGenericComponentInstanceName</DEFINITION-REF>
+                  <VALUE>[!"$Name"!]</VALUE>
+                </ECUC-TEXTUAL-PARAM-VALUE>
+              </PARAMETER-VALUES>
+              <REFERENCE-VALUES>
+                <ECUC-REFERENCE-VALUE>
+                  <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">[!"$Def"!]/ArtiGeneric/ArtiGenericComponentInstance/ArtiGenericComponentInstanceClassRef</DEFINITION-REF>
+                  <VALUE-REF DEST="ECUC-CONTAINER-VALUE">[!"$ArtiPkg"!]/ArtiGeneric/GC_[!"$Class"!]</VALUE-REF>
+                </ECUC-REFERENCE-VALUE>
+              </REFERENCE-VALUES>
+              <SUB-CONTAINERS>
+[!ENDMACRO!][!//
+[!/* Kind = Expression (target E_<Name>_<Param>); empty = constant (target K_<Name>_<Param>) */!][!//
+[!MACRO "ArtiGenInstParam", "Class" = "", "Name" = "", "Param" = "", "Kind" = ""!][!//
+                <ECUC-CONTAINER-VALUE>
+                  <SHORT-NAME>GIP_[!"$Name"!]_[!"$Param"!]</SHORT-NAME>
+                  <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiGeneric/ArtiGenericComponentInstance/ArtiGenericComponentInstanceParameter</DEFINITION-REF>
+                  <REFERENCE-VALUES>
+                    <ECUC-REFERENCE-VALUE>
+                      <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">[!"$Def"!]/ArtiGeneric/ArtiGenericComponentInstance/ArtiGenericComponentInstanceParameter/ArtiGenericComponentInstanceParameterClassParameterRef</DEFINITION-REF>
+                      <VALUE-REF DEST="ECUC-CONTAINER-VALUE">[!"$ArtiPkg"!]/ArtiGeneric/GC_[!"$Class"!]/GCP_[!"$Class"!]_[!"$Param"!]</VALUE-REF>
+                    </ECUC-REFERENCE-VALUE>
+[!IF "$Kind = 'Expression'"!][!//
+                    <ECUC-REFERENCE-VALUE>
+                      <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">[!"$Def"!]/ArtiGeneric/ArtiGenericComponentInstance/ArtiGenericComponentInstanceParameter/ArtiGenericComponentInstanceParameterExpressionRef</DEFINITION-REF>
+                      <VALUE-REF DEST="ECUC-CONTAINER-VALUE">[!"$ArtiPkg"!]/ArtiValues/E_[!"$Name"!]_[!"$Param"!]</VALUE-REF>
+                    </ECUC-REFERENCE-VALUE>
+[!ELSE!][!//
+                    <ECUC-REFERENCE-VALUE>
+                      <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">[!"$Def"!]/ArtiGeneric/ArtiGenericComponentInstance/ArtiGenericComponentInstanceParameter/ArtiGenericComponentInstanceParameterConstantRef</DEFINITION-REF>
+                      <VALUE-REF DEST="ECUC-CONTAINER-VALUE">[!"$ArtiPkg"!]/ArtiValues/K_[!"$Name"!]_[!"$Param"!]</VALUE-REF>
+                    </ECUC-REFERENCE-VALUE>
+[!ENDIF!][!//
+                  </REFERENCE-VALUES>
+                </ECUC-CONTAINER-VALUE>
+[!ENDMACRO!][!//
+[!MACRO "ArtiGenInstClose"!][!//
+              </SUB-CONTAINERS>
+            </ECUC-CONTAINER-VALUE>
+[!ENDMACRO!][!//
 [!/* Literal path, as in the ORTI template: the configurator's engine does not resolve a $variable here */!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
 [!IF "node:value(./OsOS/OsUseArti) = 'true'"!][!//
@@ -343,12 +433,20 @@
 [!VAR "N" = "node:name(.)"!][!//
 [!CALL "ArtiExprIP", "Name" = "concat($N, '_State')", "Str" = "concat('Os_LockConfig_', $N, '.Previous == 0xFFFFFFFF ? 0:1')"!][!//
 [!ENDLOOP!][!//
+[!LOOP "node:order(./OsEvent/*,'@index')"!][!//
+[!CALL "ArtiConst", "Name" = "concat(node:name(.), '_EVENTMASK')", "Str" = "num:i(node:value(./OsEventMask))"!][!//
+[!ENDLOOP!][!//
               </SUB-CONTAINERS>
             </ECUC-CONTAINER-VALUE>
 <!-- ============================== ArtiOs ============================== -->
             <ECUC-CONTAINER-VALUE>
               <SHORT-NAME>ArtiOs</SHORT-NAME>
               <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiOs</DEFINITION-REF>
+[!IF "count(./OsEvent/*) > 0"!][!//
+              <REFERENCE-VALUES>
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsGenericComponentRef'", "Target" = "concat($ArtiPkg, '/ArtiGeneric/GC_OsEvent')"!][!//
+              </REFERENCE-VALUES>
+[!ENDIF!][!//
               <SUB-CONTAINERS>
             <ECUC-CONTAINER-VALUE>
               <SHORT-NAME>ArtiOsClass</SHORT-NAME>
@@ -518,6 +616,23 @@
 [!ENDLOOP!][!//
               </SUB-CONTAINERS>
             </ECUC-CONTAINER-VALUE>
+[!IF "count(./OsEvent/*) > 0"!][!//
+<!-- ============================== ArtiGeneric ============================== -->
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>ArtiGeneric</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiGeneric</DEFINITION-REF>
+              <SUB-CONTAINERS>
+[!CALL "ArtiGenClassOpen", "Class" = "'OsEvent'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsEvent'", "Param" = "'EVENTMASK'"!][!//
+[!CALL "ArtiGenClassClose"!][!//
+[!LOOP "node:order(./OsEvent/*,'@index')"!][!//
+[!CALL "ArtiGenInstOpen", "Class" = "'OsEvent'", "Name" = "node:name(.)"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsEvent'", "Name" = "node:name(.)", "Param" = "'EVENTMASK'"!][!//
+[!CALL "ArtiGenInstClose"!][!//
+[!ENDLOOP!][!//
+              </SUB-CONTAINERS>
+            </ECUC-CONTAINER-VALUE>
+[!ENDIF!][!//
           </CONTAINERS>
         </ECUC-MODULE-CONFIGURATION-VALUES>
       </ELEMENTS>
