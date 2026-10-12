@@ -22,7 +22,7 @@
 - [ ] 3.2 `Os_SC300` 条件：按 Open Questions 4 的结论处理，并有测试
 - [x] 3.3 更新 `doc/2026-10-06_自研OS原生支持ARTI开发说明.md`：ORTI 与 ARTI 覆盖对照表、差异清单、双轨交付说明
 - [x] 3.4 更新第一阶段 design.md 的 Non-Goals（`ArtiGeneric` 扩展已完成）
-- [ ] 3.5 另起 change 处理 `RESOURCE_OWNER`、`SPINLOCK_OWNER`（ObjectID 编号）
+- [x] 3.5 另起 change 处理 `RESOURCE_OWNER`、`SPINLOCK_OWNER`（ObjectID 编号）：已由 `add-arti-owner-object-ids` 完成
 
 ## 4. 真机验证（使用者执行，暂无 TRACE32 环境）
 - [ ] 4.1 调试器加载 ARTI，确认通用组件（Task 扩展属性、Event、ScheduleTable、Spinlock、OS_CONFIG）是否显示

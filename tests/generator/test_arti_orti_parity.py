@@ -23,19 +23,17 @@ import pytest
 from autosar_configurator.generator.generator import CodeGenerator
 
 from .os_arti_fixture import build_os_config
-from .test_orti_template import APP_COMMON_STUB, TEMPLATE as ORTI_TEMPLATE
+from .test_orti_template import TEMPLATE as ORTI_TEMPLATE
 
 etree = pytest.importorskip("lxml.etree")
 
 ROOT = Path(__file__).resolve().parents[2]
 ARTI_TEMPLATE = ROOT / "templates" / "Os" / "Os_Arti.arxml"
+APP_COMMON = ROOT / "doc" / "ARTI" / "Os_AppCommon.m"   # real Os plugin macros, shared by ORTI and ARTI
 NS = {"a": "http://autosar.org/schema/r4.0"}
 
 # Accepted differences, see openspec/changes/add-arti-orti-parity/design.md D5, D6.
-EXCEPTIONS = {
-    ("RESOURCE", "RESOURCE_OWNER"),   # ObjectID numbering via Os_AppCommon.m: follow-up change
-    ("SPINLOCK", "SPINLOCK_OWNER"),   # same
-}
+EXCEPTIONS = set()  # RESOURCE_OWNER / SPINLOCK_OWNER were closed by add-arti-owner-object-ids
 
 # Gaps still to close. Shrinks as the phases of the change are implemented.
 KNOWN_GAPS = set()
@@ -106,8 +104,9 @@ def arti_evidence(xml_text):
 
 
 def find_gaps(tmp_path):
-    orti = orti_attributes(_render(tmp_path / "orti", ORTI_TEMPLATE, {"Os_AppCommon.m": APP_COMMON_STUB}))
-    strings, params, pairs = arti_evidence(_render(tmp_path / "arti", ARTI_TEMPLATE))
+    macros = {APP_COMMON.name: APP_COMMON.read_text(encoding="utf-8", errors="replace")}
+    orti = orti_attributes(_render(tmp_path / "orti", ORTI_TEMPLATE, macros))
+    strings, params, pairs = arti_evidence(_render(tmp_path / "arti", ARTI_TEMPLATE, macros))
     categories = {n: v for k, n, a, v in orti if k == "ISR" and a == "CATEGORY"}
     gaps = []
     for kind, name, attr, value in orti:
@@ -160,3 +159,23 @@ def test_exceptions_are_real_gaps(parity):
     _, gaps = parity
     actual = {(k, a) for k, _, a, _ in gaps}
     assert EXCEPTIONS <= actual, "an exception is no longer a gap: remove it from EXCEPTIONS"
+
+
+def test_owner_numbers_equal_the_orti_enumeration(tmp_path):
+    """RESOURCE_OWNER / SPINLOCK_OWNER: every 'Task <n>' / 'ISR <n>' of the ORTI enum has the same number."""
+    macros = {APP_COMMON.name: APP_COMMON.read_text(encoding="utf-8", errors="replace")}
+    orti_text = _render(tmp_path / "orti", ORTI_TEMPLATE, macros)
+    end = orti_text.index("] RESOURCE_OWNER")
+    enum = orti_text[orti_text.rindex("ENUM", 0, end):end]
+    orti_owner = {m.group(1): int(m.group(2), 0) for m in re.finditer(r'"([^"]+)"\s*=\s*(\w+)', enum)}
+    assert orti_owner["Task Task_A"] == 0 and orti_owner["-"] == 0xFFFFFFFF
+
+    root = etree.fromstring(_render(tmp_path / "arti", ARTI_TEMPLATE, macros).encode("utf-8"))
+    (tm,) = [t for t in root.iter("{%s}ECUC-CONTAINER-VALUE" % NS["a"])
+             if t.findtext("a:SHORT-NAME", namespaces=NS) == "TM_ObjectOwner"]
+    arti_owner = {}
+    for p in tm.xpath("a:SUB-CONTAINERS/*", namespaces=NS):
+        values = {d.findtext("a:DEFINITION-REF", namespaces=NS).rsplit("/", 1)[-1]: d.findtext("a:VALUE", namespaces=NS)
+                  for d in p.xpath("a:PARAMETER-VALUES/*", namespaces=NS)}
+        arti_owner[values["ArtiParameterTypeMapPairOutput"]] = int(values["ArtiParameterTypeMapPairInput"])
+    assert arti_owner == orti_owner

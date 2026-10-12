@@ -49,7 +49,7 @@
 `tests/generator/test_arti_orti_parity.py` 渲染基准 ORTI 和 ARTI，解析 ORTI 的 `TASK` / `ISR` / `ALARM` 等对象及其属性赋值，对每个属性在 ARTI 输出里查找同名类参数与同一表达式字符串。测试输出缺口清单；允许一份显式的例外清单（D6），例外之外的缺口使测试失败。随阶段推进，缺口清单逐步归零。
 
 ### D5 推迟项
-`RESOURCE_OWNER` 和 `SPINLOCK_OWNER` 的 ObjectID 编号由 `Os_AppCommon.m` 的宏累加得到，逻辑复杂，容易与内核漂移。另起 change 处理，本 change 把它们列入例外清单。
+`RESOURCE_OWNER` 和 `SPINLOCK_OWNER` 的 ObjectID 编号由 `Os_AppCommon.m` 的宏累加得到，逻辑复杂，容易与内核漂移。另起 change 处理，本 change 把它们列入例外清单。（已由 `add-arti-owner-object-ids` 完成，例外清单现为空。）
 
 ### D6 无法完全一致的差异
 - ORTI 按核拆成 `Os_Trace_Core0.ORTI`、`Os_Trace_Core1.ORTI`，ARTI 一个文件含所有核。

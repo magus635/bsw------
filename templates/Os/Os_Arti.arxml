@@ -24,6 +24,13 @@
 -->
 [!/* Template portability: only constructs also used by the ORTI template, so that EB tresos and
      the configurator's EB engine render the same output. */!][!//
+[!/* Os_AppCommon.m (Os plugin, next to the ORTI template) numbers the Os objects; ORTI and ARTI share it */!][!//
+[!/* The .m sets ObjectID to 0. If it was not found the include is silent in the configurator, and the
+     object numbers would silently omit the hook / IOC callback objects: then the owner type map is left out
+     (the owner is shown as a plain number) instead of being wrong. */!][!//
+[!VAR "ObjectID" = "'unset'"!][!//
+[!INCLUDE "Os_AppCommon.m"!][!//
+[!VAR "OwnerTypeMap" = "''"!][!IF "$ObjectID != 'unset'"!][!VAR "OwnerTypeMap" = "'ObjectOwner'"!][!ENDIF!][!//
 [!VAR "OsValuePkg" = "'/Os/Os'"!][!//
 [!VAR "ArtiPkg" = "'/Arti/Arti'"!][!//
 [!VAR "Def" = "'/AUTOSAR/EcucDefs/Arti'"!][!//
@@ -393,6 +400,33 @@
 [!CALL "ArtiPair", "Name" = "'UNLOCKED'", "In" = "'0'", "Out" = "'UNLOCKED'"!][!//
 [!CALL "ArtiPair", "Name" = "'LOCKED'", "In" = "'1'", "Out" = "'LOCKED'"!][!//
 [!CALL "ArtiTypeMapClose"!][!//
+[!/* Owner of a resource / spinlock: the kernel stores the global ObjectIDIndex of the holder.
+     Same numbering as the ORTI RESOURCE_OWNER / SPINLOCK_OWNER enumeration, computed with the same
+     Os_AppCommon.m macros (per application: tasks, then ISRs - all of them take a number, only CATEGORY_2
+     ones are named - then the objects counted by CurrentAppObjectCnt). */!][!//
+[!IF "$OwnerTypeMap != ''"!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'ObjectOwner'"!][!//
+[!VAR "ObjectID" = "0"!][!VAR "CurrentAppObjectCnt" = "0"!][!//
+[!LOOP "node:order(./OsApplication/*,'@index')"!][!//
+[!LOOP "node:order(./OsAppTaskRef/*,'@index')"!][!//
+[!CALL "ArtiPair", "Name" = "concat('Task_', node:name(node:ref(.)))", "In" = "num:i($ObjectID)", "Out" = "concat('Task ', node:name(node:ref(.)))"!][!//
+[!VAR "ObjectID" = "$ObjectID + 1"!][!//
+[!ENDLOOP!][!//
+[!LOOP "node:order(./OsAppIsrRef/*,'@index')"!][!//
+[!IF "node:ref(.)/OsIsrCategory = 'CATEGORY_2'"!][!CALL "ArtiPair", "Name" = "concat('ISR_', node:name(node:ref(.)))", "In" = "num:i($ObjectID)", "Out" = "concat('ISR ', node:name(node:ref(.)))"!][!ENDIF!][!//
+[!VAR "ObjectID" = "$ObjectID + 1"!][!//
+[!ENDLOOP!][!//
+[!VAR "AppID" = "num:i(./@index)"!][!//
+[!VAR "IocCbkObjectIDCount" = "0"!][!//
+[!CALL "Os_Calculate_IocCallBack_ObjectCount", "AppID" = "$AppID", "IocCbkObjectIDCount" = "$IocCbkObjectIDCount"!][!//
+[!VAR "HookObjectIDCount" = "0"!][!//
+[!CALL "Os_Calculate_Hook_ObjectCount", "AppID" = "$AppID", "HookObjectIDCount" = "$HookObjectIDCount"!][!//
+[!VAR "CurrentAppObjectCnt" = "num:i($CurrentAppObjectCnt + count(./OsAppTaskRef/*) + count(./OsAppIsrRef/*) + count(./OsAppCounterRef/*) + count(./OsAppAlarmRef/*) + count(./OsAppScheduleTableRef/*) + num:i($HookObjectIDCount) + num:i($IocCbkObjectIDCount))"!][!//
+[!VAR "ObjectID" = "$CurrentAppObjectCnt"!][!//
+[!ENDLOOP!][!//
+[!CALL "ArtiPair", "Name" = "'NONE'", "In" = "'4294967295'", "Out" = "'-'"!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!ENDIF!][!//
 [!CALL "ArtiTypeMapOpen", "Name" = "'TaskType'"!][!//
 [!CALL "ArtiPair", "Name" = "'BASIC'", "In" = "'0'", "Out" = "'BASIC'"!][!//
 [!CALL "ArtiPair", "Name" = "'EXTENDED'", "In" = "'1'", "Out" = "'EXTENDED'"!][!//
@@ -515,6 +549,7 @@
 [!VAR "N" = "node:name(.)"!][!//
 [!CALL "ArtiExprIP", "Name" = "concat('LockAddr_', $N)", "Str" = "concat('Os_LockConfig_', $N)", "AddressOf" = "'true'"!][!//
 [!CALL "ArtiExprIP", "Name" = "concat($N, '_LOCKED')", "Str" = "concat('Os_LockConfig_', $N, '.Previous')"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_RESOURCE_OWNER')", "Str" = "concat('Os_', $N, '_RunningData.OwnerObjectID')"!][!//
 [!CALL "ArtiExprIP", "Name" = "concat($N, '_PRIORITY_TYPE')", "Str" = "concat('Os_ResourceConfig_', $N, '.CeilingIsrLevel == 0xFFFFFFFF ? 0:1')"!][!//
 [!CALL "ArtiExprIP", "Name" = "concat($N, '_PRIORITY')", "Str" = "concat('Os_ResourceConfig_', $N, '.CeilingIsrLevel == 0xFFFFFFFF ? Os_ResourceConfig_', $N, '.CeilingPriority : Os_ResourceConfig_', $N, '.CeilingIsrLevel')"!][!//
 [!ENDLOOP!][!//
@@ -543,6 +578,7 @@
 [!VAR "N" = "node:name(.)"!][!//
 [!CALL "ArtiExprIP", "Name" = "concat($N, '_STATE')", "Str" = "concat('Os_LockStatus_', $N, '.lockStatus')"!][!//
 [!CALL "ArtiExprIP", "Name" = "concat($N, '_LOCKED')", "Str" = "concat('Os_LockConfig_', $N, '.Previous')"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_SPINLOCK_OWNER')", "Str" = "concat('Os_', $N, '_RunningData.OwnerObjectID')"!][!//
 [!CALL "ArtiExprIP", "Name" = "concat($N, '_LOCK_METHOD')", "Str" = "concat('Os_SpinlockConfig_', $N, '.OsSpinlockLockMethod')"!][!//
 [!ENDLOOP!][!//
 [!/* OS_CONFIG: static settings of the Os, shown like the ORTI OS_CONFIG object */!][!//
@@ -821,6 +857,7 @@
 [!CALL "ArtiGenClassOpen", "Class" = "'OsSpinlock'"!][!//
 [!CALL "ArtiGenClassParam", "Class" = "'OsSpinlock'", "Param" = "'STATE'", "TypeMap" = "'SpinlockState'"!][!//
 [!CALL "ArtiGenClassParam", "Class" = "'OsSpinlock'", "Param" = "'LOCKED'", "TypeMap" = "'LockedByResource'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsSpinlock'", "Param" = "'SPINLOCK_OWNER'", "TypeMap" = "$OwnerTypeMap"!][!//
 [!CALL "ArtiGenClassParam", "Class" = "'OsSpinlock'", "Param" = "'LOCK_METHOD'", "TypeMap" = "'SpinlockLockMethod'"!][!//
 [!CALL "ArtiGenClassClose"!][!//
 [!LOOP "node:order(./OsSpinlock/*,'@index')"!][!//
@@ -828,6 +865,7 @@
 [!CALL "ArtiGenInstOpen", "Class" = "'OsSpinlock'", "Name" = "$N"!][!//
 [!CALL "ArtiGenInstParam", "Class" = "'OsSpinlock'", "Name" = "$N", "Param" = "'STATE'", "Kind" = "'Expression'"!][!//
 [!CALL "ArtiGenInstParam", "Class" = "'OsSpinlock'", "Name" = "$N", "Param" = "'LOCKED'", "Kind" = "'Expression'"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsSpinlock'", "Name" = "$N", "Param" = "'SPINLOCK_OWNER'", "Kind" = "'Expression'"!][!//
 [!CALL "ArtiGenInstParam", "Class" = "'OsSpinlock'", "Name" = "$N", "Param" = "'LOCK_METHOD'", "Kind" = "'Expression'"!][!//
 [!CALL "ArtiGenInstClose"!][!//
 [!ENDLOOP!][!//
@@ -859,6 +897,7 @@
 [!IF "count(./OsResource/*) > 0"!][!//
 [!CALL "ArtiGenClassOpen", "Class" = "'OsResource'"!][!//
 [!CALL "ArtiGenClassParam", "Class" = "'OsResource'", "Param" = "'LOCKED'", "TypeMap" = "'LockedByResource'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsResource'", "Param" = "'RESOURCE_OWNER'", "TypeMap" = "$OwnerTypeMap"!][!//
 [!CALL "ArtiGenClassParam", "Class" = "'OsResource'", "Param" = "'PRIORITY_TYPE'"!][!//
 [!CALL "ArtiGenClassParam", "Class" = "'OsResource'", "Param" = "'PRIORITY'"!][!//
 [!CALL "ArtiGenClassClose"!][!//
@@ -866,6 +905,7 @@
 [!VAR "N" = "node:name(.)"!][!//
 [!CALL "ArtiGenInstOpen", "Class" = "'OsResource'", "Name" = "$N"!][!//
 [!CALL "ArtiGenInstParam", "Class" = "'OsResource'", "Name" = "$N", "Param" = "'LOCKED'", "Kind" = "'Expression'"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsResource'", "Name" = "$N", "Param" = "'RESOURCE_OWNER'", "Kind" = "'Expression'"!][!//
 [!CALL "ArtiGenInstParam", "Class" = "'OsResource'", "Name" = "$N", "Param" = "'PRIORITY_TYPE'", "Kind" = "'Expression'"!][!//
 [!CALL "ArtiGenInstParam", "Class" = "'OsResource'", "Name" = "$N", "Param" = "'PRIORITY'", "Kind" = "'Expression'"!][!//
 [!CALL "ArtiGenInstClose"!][!//

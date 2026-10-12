@@ -41,6 +41,13 @@ def _r(container, name, dest, upper=1):
         definition_ref=f"{container.definition_ref}/{name}"))
 
 
+def _sub(parent, name):
+    c = EcucContainerDef(short_name=name, definition_ref=f"{parent.definition_ref}/{name}",
+                         lower_multiplicity=0, upper_multiplicity=1)
+    parent.add_sub_container(c)
+    return c
+
+
 def _c(module, name, upper=-1, lower=0):
     c = EcucContainerDef(short_name=name, definition_ref=f"{OS}/{name}",
                          lower_multiplicity=lower, upper_multiplicity=upper)
@@ -56,13 +63,23 @@ def build_os_def():
     _p(os_os, "OsStatus", T.ENUMERATION, literals=["STANDARD", "EXTENDED"])
     _p(os_os, "OsScalabilityClass", T.ENUMERATION, literals=["SC1", "SC2", "SC3", "SC4"])
     _p(os_os, "OsStackMonitoring", T.BOOLEAN)
+    os_hooks = _sub(os_os, "OsHooks")
+    for hook in ("OsErrorHook", "OsStartupHook", "OsShutdownHook", "OsProtectionHook"):
+        _p(os_hooks, hook, T.BOOLEAN)
     core = _c(m, "OsCoreIdMappingConfig")
     _p(core, "OsPhysicalCoreId", T.INTEGER)
     _r(core, "OsCoreId", "/AUTOSAR/EcucDefs/EcuC/EcucHardware/EcucCoreDefinition")
+    _r(core, "OsKernelApplication", f"{OS}/OsApplication")
     app = _c(m, "OsApplication")
     _r(app, "OsApplicationCoreRef", f"{OS}/OsCoreIdMappingConfig")
     _r(app, "OsAppTaskRef", f"{OS}/OsTask", upper=-1)
     _r(app, "OsAppIsrRef", f"{OS}/OsIsr", upper=-1)
+    _r(app, "OsAppCounterRef", f"{OS}/OsCounter", upper=-1)
+    _r(app, "OsAppAlarmRef", f"{OS}/OsAlarm", upper=-1)
+    _r(app, "OsAppScheduleTableRef", f"{OS}/OsScheduleTable", upper=-1)
+    app_hooks = _sub(app, "OsApplicationHooks")
+    for hook in ("OsAppErrorHook", "OsAppStartupHook", "OsAppShutdownHook"):
+        _p(app_hooks, hook, T.BOOLEAN)
     task = _c(m, "OsTask")
     _p(task, "OsTaskPriority", T.INTEGER)
     _p(task, "TaskStackSize", T.INTEGER)
@@ -97,6 +114,10 @@ def build_os_config(use_arti=True, n_cores=2, logical_ids=None):
     mgr.set_parameter_value(os_os, "OsStatus", "EXTENDED")
     mgr.set_parameter_value(os_os, "OsScalabilityClass", "SC3")
     mgr.set_parameter_value(os_os, "OsStackMonitoring", True)
+    os_hooks = new(c["OsOS"].sub_containers["OsHooks"], os_os, "OsHooks")
+    for hook, on in (("OsErrorHook", True), ("OsStartupHook", True), ("OsShutdownHook", False),
+                     ("OsProtectionHook", False)):
+        mgr.set_parameter_value(os_hooks, hook, on)
 
     for i in range(n_cores):
         core = new(c["OsCoreIdMappingConfig"], None, f"OsCoreIdMappingConfig_{i}")
@@ -104,6 +125,9 @@ def build_os_config(use_arti=True, n_cores=2, logical_ids=None):
         core.set_reference_value("OsCoreId",
                                  f"/EcuC/EcuC/EcucHardware/EcucCoreDefinition_{(logical_ids or {}).get(i, i)}",
                                  c["OsCoreIdMappingConfig"].references["OsCoreId"].definition_ref)
+        if i == 0:  # core 0 has a kernel application, the other cores do not (both Os_AppCommon.m branches)
+            core.set_reference_value("OsKernelApplication", "/Os/Os/App_Core0",
+                                     c["OsCoreIdMappingConfig"].references["OsKernelApplication"].definition_ref)
 
     for name, prio, stack, ttype, _ in TASKS:
         t = new(c["OsTask"], None, name)
@@ -133,6 +157,16 @@ def build_os_config(use_arti=True, n_cores=2, logical_ids=None):
                 app.add_multi_reference_value("OsAppIsrRef", f"/Os/Os/{name}",
                                               app_def.references["OsAppIsrRef"].definition_ref, k)
                 k += 1
+        # Objects that take object numbers but are not described by ARTI: counted before the next application
+        hooks = new(app_def.sub_containers["OsApplicationHooks"], app, "OsApplicationHooks")
+        if core_idx == 0:
+            for ref, target in (("OsAppCounterRef", "SystemTick"), ("OsAppAlarmRef", "Alarm_10ms"),
+                                ("OsAppScheduleTableRef", "Sch_Main")):
+                app.add_multi_reference_value(ref, f"/Os/Os/{target}", app_def.references[ref].definition_ref, 0)
+            mgr.set_parameter_value(hooks, "OsAppErrorHook", True)
+        else:
+            mgr.set_parameter_value(hooks, "OsAppStartupHook", True)
+            mgr.set_parameter_value(hooks, "OsAppShutdownHook", True)
 
     for mode in ("OSDEFAULTAPPMODE", "OSALLRUNNINGMODE"):
         new(c["OsAppMode"], None, mode)

@@ -21,16 +21,19 @@ etree = pytest.importorskip("lxml.etree")
 ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE = ROOT / "templates" / "Os" / "Os_Arti.arxml"
 ARTI_DEF = ROOT / "definitions" / "Arti" / "Arti_ParamDef.arxml"
+APP_COMMON = ROOT / "doc" / "ARTI" / "Os_AppCommon.m"
 XSD = ROOT / "doc" / "ARTI" / "AUTOSAR_00047.xsd"
 NS = {"a": "http://autosar.org/schema/r4.0"}
 A = "{http://autosar.org/schema/r4.0}"
 
 
-def _render(tmp_path, use_arti=True, n_cores=2, logical_ids=None):
+def _render(tmp_path, use_arti=True, n_cores=2, logical_ids=None, with_macros=True):
     module_def, mgr = build_os_config(use_arti=use_arti, n_cores=n_cores, logical_ids=logical_ids)
     tpl_dir = tmp_path / "tpl" / "Os"
     tpl_dir.mkdir(parents=True)
     shutil.copy(TEMPLATE, tpl_dir / TEMPLATE.name)
+    if with_macros:
+        shutil.copy(APP_COMMON, tpl_dir / APP_COMMON.name)  # the template includes the Os plugin's macros
     gen = CodeGenerator(module_def, mgr.configuration, project_template_dir=tmp_path / "tpl")
     assert gen.generate_all(tmp_path / "out") is True
     out = tmp_path / "out" / "Os" / "Os_Arti.arxml"
@@ -217,11 +220,12 @@ def test_category1_isr_has_no_stack_or_context(rendered):
 def test_type_map_inputs_fit_16_bit(rendered):
     """ECUC_Arti_00024: inputs used by hooks must be 0..65535; keep the maps within it.
 
-    TM_LockedByResource is exempt: its "no lock" input is 0xFFFFFFFF as in ORTI, and no hook uses it.
+    TM_LockedByResource and TM_ObjectOwner are exempt: their "none" input is 0xFFFFFFFF as in ORTI, and no
+    hook uses them.
     """
     _, root, _ = rendered
     for tm in _containers(root, "ArtiParameterTypeMap"):
-        if _sn(tm) == "TM_LockedByResource":
+        if _sn(tm) in ("TM_LockedByResource", "TM_ObjectOwner"):
             continue
         for p in tm.xpath("a:SUB-CONTAINERS/*", namespaces=NS):
             value = _param(p, "ArtiParameterTypeMapPairInput")
@@ -354,3 +358,29 @@ def test_every_os_object_has_one_generic_instance(rendered):
     expected = {t[0] for t in TASKS} | {i[0] for i in ISRS} | {"Alarm_10ms", "Res_Shared", "Event_Wake",
                                                                  "Sch_Main", "Spin_Shared", "OsConfig"}
     assert instances == expected
+
+
+def test_owner_object_numbers_count_every_object_of_the_previous_application(rendered):
+    """App_Core0 holds 2 tasks, 2 ISRs, a counter, an alarm, a schedule table and 3 hook objects (kernel
+    application: OsErrorHook + OsStartupHook + 1) = 10 objects, so App_Core1 starts at 10. CATEGORY_1 ISRs take
+    a number but get no name."""
+    _, root, _ = rendered
+    owner = {v[1]: v[0] for v in _pairs(root, "TM_ObjectOwner").values()}
+    assert owner == {"Task Task_A": 0, "Task Task_B": 1, "ISR Isr_Timer0": 2,
+                     "Task Task_C": 10, "ISR Isr_Timer1": 12, "-": 0xFFFFFFFF}
+
+
+def test_owner_expressions_and_generic_parameters(rendered):
+    _, root, _ = rendered
+    exprs = {_sn(e): _param(e, "ArtiExpressionString") for e in _containers(root, "ArtiExpression")}
+    assert exprs["E_Res_Shared_RESOURCE_OWNER"] == "Os_Res_Shared_RunningData.OwnerObjectID"
+    assert exprs["E_Spin_Shared_SPINLOCK_OWNER"] == "Os_Spin_Shared_RunningData.OwnerObjectID"
+
+
+def test_owner_type_map_is_left_out_when_the_os_macros_are_missing(tmp_path):
+    """Without Os_AppCommon.m the include is silent; wrong object numbers must not be emitted."""
+    _, root, _ = _render(tmp_path, with_macros=False)
+    assert not [t for t in _containers(root, "ArtiParameterTypeMap") if _sn(t) == "TM_ObjectOwner"]
+    owner_params = [c for c in _containers(root, "ArtiGenericComponentClassParameter")
+                    if _param(c, "ArtiGenericComponentClassParameterName") in ("RESOURCE_OWNER", "SPINLOCK_OWNER")]
+    assert owner_params and all(_ref(c, "ArtiGenericComponentClassParameterTypeMapRef") is None for c in owner_params)
