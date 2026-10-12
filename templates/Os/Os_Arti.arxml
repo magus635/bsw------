@@ -152,6 +152,19 @@
                   </PARAMETER-VALUES>
                 </ECUC-CONTAINER-VALUE>
 [!ENDMACRO!][!//
+[!/* Kind = ScheduleTable or Spinlock: ArtiStates<Kind>State with ArtiStates<Kind>StateEnum */!][!//
+[!MACRO "ArtiStateOf", "Kind" = "", "Name" = "", "Literal" = ""!][!//
+                <ECUC-CONTAINER-VALUE>
+                  <SHORT-NAME>S_[!"$Name"!]</SHORT-NAME>
+                  <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiValues/ArtiStates/ArtiStates[!"$Kind"!]State</DEFINITION-REF>
+                  <PARAMETER-VALUES>
+                    <ECUC-TEXTUAL-PARAM-VALUE>
+                      <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">[!"$Def"!]/ArtiValues/ArtiStates/ArtiStates[!"$Kind"!]State/ArtiStates[!"$Kind"!]StateEnum</DEFINITION-REF>
+                      <VALUE>[!"$Literal"!]</VALUE>
+                    </ECUC-TEXTUAL-PARAM-VALUE>
+                  </PARAMETER-VALUES>
+                </ECUC-CONTAINER-VALUE>
+[!ENDMACRO!][!//
 [!/* Empty Class container (no class parameters needed) */!][!//
 [!MACRO "ArtiEmptyClass", "Kind" = ""!][!//
             <ECUC-CONTAINER-VALUE>
@@ -312,6 +325,17 @@
 [!CALL "ArtiTaskState", "Name" = "'TaskReady'", "Literal" = "'ArtiTaskStateReady'"!][!//
 [!CALL "ArtiTaskState", "Name" = "'TaskWaiting'", "Literal" = "'ArtiTaskStateWaiting'"!][!//
 [!CALL "ArtiTaskState", "Name" = "'TaskSuspended'", "Literal" = "'ArtiTaskStateSuspended'"!][!//
+[!IF "count(./OsScheduleTable/*) > 0"!][!//
+[!CALL "ArtiStateOf", "Kind" = "'ScheduleTable'", "Name" = "'SchedTableStopped'", "Literal" = "'ArtiScheduleTableStateStopped'"!][!//
+[!CALL "ArtiStateOf", "Kind" = "'ScheduleTable'", "Name" = "'SchedTableNext'", "Literal" = "'ArtiScheduleTableStateNext'"!][!//
+[!CALL "ArtiStateOf", "Kind" = "'ScheduleTable'", "Name" = "'SchedTableWaiting'", "Literal" = "'ArtiScheduleTableStateWaiting'"!][!//
+[!CALL "ArtiStateOf", "Kind" = "'ScheduleTable'", "Name" = "'SchedTableRunning'", "Literal" = "'ArtiScheduleTableStateRunning'"!][!//
+[!CALL "ArtiStateOf", "Kind" = "'ScheduleTable'", "Name" = "'SchedTableRunningAndSynchronous'", "Literal" = "'ArtiScheduleTableStateRunningAndSynchronous'"!][!//
+[!ENDIF!][!//
+[!IF "count(./OsSpinlock/*) > 0"!][!//
+[!CALL "ArtiStateOf", "Kind" = "'Spinlock'", "Name" = "'SpinlockUnlocked'", "Literal" = "'ArtiSpinlockStateUnlocked'"!][!//
+[!CALL "ArtiStateOf", "Kind" = "'Spinlock'", "Name" = "'SpinlockLocked'", "Literal" = "'ArtiSpinlockStateLocked'"!][!//
+[!ENDIF!][!//
               </SUB-CONTAINERS>
             </ECUC-CONTAINER-VALUE>
 [!/* ---- TypeMaps ---- */!][!//
@@ -369,6 +393,56 @@
 [!CALL "ArtiPair", "Name" = "'UNLOCKED'", "In" = "'0'", "Out" = "'UNLOCKED'"!][!//
 [!CALL "ArtiPair", "Name" = "'LOCKED'", "In" = "'1'", "Out" = "'LOCKED'"!][!//
 [!CALL "ArtiTypeMapClose"!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'TaskType'"!][!//
+[!CALL "ArtiPair", "Name" = "'BASIC'", "In" = "'0'", "Out" = "'BASIC'"!][!//
+[!CALL "ArtiPair", "Name" = "'EXTENDED'", "In" = "'1'", "Out" = "'EXTENDED'"!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'AlarmAction'"!][!//
+[!CALL "ArtiPair", "Name" = "'ALARM_ACTIVATETASK'", "In" = "'0'", "Out" = "'ALARM_ACTIVATETASK'"!][!//
+[!CALL "ArtiPair", "Name" = "'ALARM_SETEVENT'", "In" = "'1'", "Out" = "'ALARM_SETEVENT'"!][!//
+[!CALL "ArtiPair", "Name" = "'ALARM_CALLBACK'", "In" = "'2'", "Out" = "'ALARM_CALLBACK'"!][!//
+[!CALL "ArtiPair", "Name" = "'ALARM_INCREMENTCOUNTER'", "In" = "'3'", "Out" = "'ALARM_INCREMENTCOUNTER'"!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!/* LOCKED: the value is the address of the Os_LockConfig_<resource> the object holds; "none" differs per object kind (ORTI) */!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'LockedByTask'"!][!//
+[!LOOP "node:order(./OsResource/*,'@index')"!][!//
+[!CALL "ArtiPair", "Name" = "node:name(.)", "InExpr" = "concat('LockAddr_', node:name(.))", "Out" = "node:name(.)"!][!//
+[!ENDLOOP!][!//
+[!CALL "ArtiPair", "Name" = "'NONE'", "In" = "'0'", "Out" = "'-'"!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'LockedByResource'"!][!//
+[!LOOP "node:order(./OsResource/*,'@index')"!][!//
+[!CALL "ArtiPair", "Name" = "node:name(.)", "InExpr" = "concat('LockAddr_', node:name(.))", "Out" = "node:name(.)"!][!//
+[!ENDLOOP!][!//
+[!CALL "ArtiPair", "Name" = "'NONE'", "In" = "'4294967295'", "Out" = "'-'"!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!IF "count(./OsScheduleTable/*) > 0"!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'ScheduleTableState'"!][!//
+[!CALL "ArtiPair", "Name" = "'STOPPED'", "In" = "'0'", "OutRef" = "concat($ArtiPkg, '/ArtiValues/ArtiStates/S_SchedTableStopped')"!][!//
+[!CALL "ArtiPair", "Name" = "'NEXT'", "In" = "'1'", "OutRef" = "concat($ArtiPkg, '/ArtiValues/ArtiStates/S_SchedTableNext')"!][!//
+[!CALL "ArtiPair", "Name" = "'WAITING'", "In" = "'2'", "OutRef" = "concat($ArtiPkg, '/ArtiValues/ArtiStates/S_SchedTableWaiting')"!][!//
+[!CALL "ArtiPair", "Name" = "'RUNNING'", "In" = "'3'", "OutRef" = "concat($ArtiPkg, '/ArtiValues/ArtiStates/S_SchedTableRunning')"!][!//
+[!CALL "ArtiPair", "Name" = "'RUNNING_AND_SYNCHRONOUS'", "In" = "'4'", "OutRef" = "concat($ArtiPkg, '/ArtiValues/ArtiStates/S_SchedTableRunningAndSynchronous')"!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'ScheduleTableNext'"!][!//
+[!LOOP "node:order(./OsScheduleTable/*,'@index')"!][!//
+[!CALL "ArtiPair", "Name" = "node:name(.)", "In" = "num:i(@index)", "Out" = "node:name(.)"!][!//
+[!ENDLOOP!][!//
+[!CALL "ArtiPair", "Name" = "'NONE'", "In" = "'255'", "Out" = "'-'"!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!ENDIF!][!//
+[!IF "count(./OsSpinlock/*) > 0"!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'SpinlockState'"!][!//
+[!CALL "ArtiPair", "Name" = "'UNLOCKED'", "In" = "'0'", "OutRef" = "concat($ArtiPkg, '/ArtiValues/ArtiStates/S_SpinlockUnlocked')"!][!//
+[!CALL "ArtiPair", "Name" = "'LOCKED'", "In" = "'1'", "OutRef" = "concat($ArtiPkg, '/ArtiValues/ArtiStates/S_SpinlockLocked')"!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!CALL "ArtiTypeMapOpen", "Name" = "'SpinlockLockMethod'"!][!//
+[!CALL "ArtiPair", "Name" = "'LOCK_ALL_INTERRUPTS'", "In" = "'0'", "Out" = "'LOCK_ALL_INTERRUPTS'"!][!//
+[!CALL "ArtiPair", "Name" = "'LOCK_CAT2_INTERRUPTS'", "In" = "'1'", "Out" = "'LOCK_CAT2_INTERRUPTS'"!][!//
+[!CALL "ArtiPair", "Name" = "'LOCK_NOTHING'", "In" = "'2'", "Out" = "'LOCK_NOTHING'"!][!//
+[!CALL "ArtiPair", "Name" = "'LOCK_WITH_RES_SCHEDULER'", "In" = "'3'", "Out" = "'LOCK_WITH_RES_SCHEDULER'"!][!//
+[!CALL "ArtiTypeMapClose"!][!//
+[!ENDIF!][!//
 [!CALL "ArtiTypeMapOpen", "Name" = "'LastError'"!][!//
 [!VAR "Errors" = "'E_OK:0,E_OS_ACCESS:1,E_OS_CALLEVEL:2,E_OS_ID:3,E_OS_LIMIT:4,E_OS_NOFUNC:5,E_OS_RESOURCE:6,E_OS_STATE:7,E_OS_VALUE:8,E_OS_SERVICEID:9,E_OS_ILLEGAL_ADDRESS:10,E_OS_MISSINGEND:11,E_OS_DISABLEDINT:12,E_OS_STACKFAULT:13,E_OS_PROTECTION_MEMORY:14,E_OS_PROTECTION_TIME:15,E_OS_PROTECTION_ARRIVAL:16,E_OS_PROTECTION_LOCKED:17,E_OS_PROTECTION_EXCEPTION:18,E_OS_SPINLOCK:19,E_OS_INTERFERENCE_DEADLOCK:20,E_OS_NESTING_DEADLOCK:21,E_OS_CORE:22,E_OS_PARAM_POINTER:23,E_OS_SYS_API_ERROR:24,E_OS_STATUS_ACCESSRIGHTS:25,E_OS_SYS_UNDEFINED_IRQ:32,E_OS_NO_PRE_TASK:33'"!][!//
 [!LOOP "text:split($Errors, ',')"!][!//
@@ -436,17 +510,63 @@
 [!LOOP "node:order(./OsEvent/*,'@index')"!][!//
 [!CALL "ArtiConst", "Name" = "concat(node:name(.), '_EVENTMASK')", "Str" = "num:i(node:value(./OsEventMask))"!][!//
 [!ENDLOOP!][!//
+[!/* ORTI attributes without a dedicated ARTI attribute: values read by the generic components */!][!//
+[!LOOP "node:order(./OsResource/*,'@index')"!][!//
+[!VAR "N" = "node:name(.)"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat('LockAddr_', $N)", "Str" = "concat('Os_LockConfig_', $N)", "AddressOf" = "'true'"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_LOCKED')", "Str" = "concat('Os_LockConfig_', $N, '.Previous')"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_PRIORITY_TYPE')", "Str" = "concat('Os_ResourceConfig_', $N, '.CeilingIsrLevel == 0xFFFFFFFF ? 0:1')"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_PRIORITY')", "Str" = "concat('Os_ResourceConfig_', $N, '.CeilingIsrLevel == 0xFFFFFFFF ? Os_ResourceConfig_', $N, '.CeilingPriority : Os_ResourceConfig_', $N, '.CeilingIsrLevel')"!][!//
+[!ENDLOOP!][!//
+[!LOOP "node:order(./OsTask/*,'@index')"!][!//
+[!VAR "N" = "node:name(.)"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_OSTASKTYPE')", "Str" = "concat('Task_', $N, '_ConfigRef.IsExtended')"!][!//
+[!CALL "ArtiConst", "Name" = "concat($N, '_OSTASKSCHEDULE')", "Str" = "node:value(./OsTaskSchedule)"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_OSTASKMAXACTIVATION')", "Str" = "concat('Task_', $N, '_ConfigRef.MaxActivationCount')"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_REMAININGACTIVATIONS')", "Str" = "concat('Task_', $N, '_ConfigRef.MaxActivationCount - ', $N, '_RunningData.ActivationCount')"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_EVENTMASK')", "Str" = "concat($N, '_RunningData.EventWait')"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_EVENTSETFLAG')", "Str" = "concat($N, '_RunningData.EventSet')"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_LOCKED')", "Str" = "concat($N, '_RunningData.LockList')"!][!//
+[!ENDLOOP!][!//
+[!LOOP "node:order(./OsIsr/*,'@index')"!][!//
+[!VAR "N" = "node:name(.)"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_PRIORITY')", "Str" = "concat($N, '.IsrHwConfig.priority')"!][!//
+[!/* <name>_RunningData exists for CATEGORY_2 ISRs only */!][!//
+[!IF "OsIsrCategory = 'CATEGORY_2'"!][!CALL "ArtiExprIP", "Name" = "concat($N, '_LOCKED')", "Str" = "concat($N, '_RunningData.LockList')"!][!ENDIF!][!//
+[!ENDLOOP!][!//
+[!LOOP "node:order(./OsScheduleTable/*,'@index')"!][!//
+[!VAR "N" = "node:name(.)"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_STATE')", "Str" = "concat('Os_', $N, '_RunningData.State')"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_SCHEDULETABLENEXT')", "Str" = "concat('Os_', $N, '_RunningData.NextSchTID')"!][!//
+[!ENDLOOP!][!//
+[!LOOP "node:order(./OsSpinlock/*,'@index')"!][!//
+[!VAR "N" = "node:name(.)"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_STATE')", "Str" = "concat('Os_LockStatus_', $N, '.lockStatus')"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_LOCKED')", "Str" = "concat('Os_LockConfig_', $N, '.Previous')"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_LOCK_METHOD')", "Str" = "concat('Os_SpinlockConfig_', $N, '.OsSpinlockLockMethod')"!][!//
+[!ENDLOOP!][!//
+[!/* OS_CONFIG: static settings of the Os, shown like the ORTI OS_CONFIG object */!][!//
+[!CALL "ArtiConst", "Name" = "'OsConfig_ScalabilityClass'", "Str" = "node:value(./OsOS/OsScalabilityClass)"!][!//
+[!CALL "ArtiConst", "Name" = "'OsConfig_StatusLevel'", "Str" = "node:value(./OsOS/OsStatus)"!][!//
+[!IF "node:value(./OsOS/OsStackMonitoring) = 'true'"!][!CALL "ArtiConst", "Name" = "'OsConfig_OsStackMonitoring'", "Str" = "'TRUE'"!][!ELSE!][!CALL "ArtiConst", "Name" = "'OsConfig_OsStackMonitoring'", "Str" = "'FALSE'"!][!ENDIF!][!//
+[!LOOP "node:order(./OsAlarm/*,'@index')"!][!//
+[!VAR "N" = "node:name(.)"!][!//
+[!CALL "ArtiExprIP", "Name" = "concat($N, '_ACTION')", "Str" = "concat('Alarm_', $N, '_ConfigRef.ActionType')"!][!//
+[!/* ORTI: ALARMTIME is not supported by the kernel */!][!//
+[!CALL "ArtiConst", "Name" = "concat($N, '_ALARMTIME')", "Str" = "'0'"!][!//
+[!ENDLOOP!][!//
               </SUB-CONTAINERS>
             </ECUC-CONTAINER-VALUE>
 <!-- ============================== ArtiOs ============================== -->
             <ECUC-CONTAINER-VALUE>
               <SHORT-NAME>ArtiOs</SHORT-NAME>
               <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiOs</DEFINITION-REF>
-[!IF "count(./OsEvent/*) > 0"!][!//
               <REFERENCE-VALUES>
-[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsGenericComponentRef'", "Target" = "concat($ArtiPkg, '/ArtiGeneric/GC_OsEvent')"!][!//
+[!IF "count(./OsEvent/*) > 0"!][!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsGenericComponentRef'", "Target" = "concat($ArtiPkg, '/ArtiGeneric/GC_OsEvent')"!][!ENDIF!][!//
+[!IF "count(./OsScheduleTable/*) > 0"!][!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsGenericComponentRef'", "Target" = "concat($ArtiPkg, '/ArtiGeneric/GC_OsScheduleTable')"!][!ENDIF!][!//
+[!IF "count(./OsSpinlock/*) > 0"!][!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsGenericComponentRef'", "Target" = "concat($ArtiPkg, '/ArtiGeneric/GC_OsSpinlock')"!][!ENDIF!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsGenericComponentRef'", "Target" = "concat($ArtiPkg, '/ArtiGeneric/GC_OsConfig')"!][!//
               </REFERENCE-VALUES>
-[!ENDIF!][!//
               <SUB-CONTAINERS>
             <ECUC-CONTAINER-VALUE>
               <SHORT-NAME>ArtiOsClass</SHORT-NAME>
@@ -454,6 +574,7 @@
               <REFERENCE-VALUES>
 [!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsClass/ArtiOsClassAppModeRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_AppMode')"!][!//
 [!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsClass/ArtiOsClassServiceTraceRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_ServiceTrace')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsClass/ArtiOsClassGenericComponentRef'", "Target" = "concat($ArtiPkg, '/ArtiGeneric/GC_OsConfig')"!][!//
               </REFERENCE-VALUES>
             </ECUC-CONTAINER-VALUE>
             <ECUC-CONTAINER-VALUE>
@@ -464,6 +585,7 @@
 [!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsInstance/ArtiOsInstanceEcucRef'", "Target" = "concat($OsValuePkg, '/', node:name(./OsOS))"!][!//
 [!/* Service trace is per core in the kernel; the OS-level attribute shows core 0, as ORTI did */!][!//
 [!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsInstance/ArtiOsInstanceServiceTraceRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $FirstCore, '_ServiceId')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsInstance/ArtiOsInstanceGenericComponentRef'", "Target" = "concat($ArtiPkg, '/ArtiGeneric/GI_OsConfig')"!][!//
               </REFERENCE-VALUES>
             </ECUC-CONTAINER-VALUE>
             <ECUC-CONTAINER-VALUE>
@@ -474,6 +596,7 @@
 [!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsTaskClass/ArtiOsTaskClassCurrentTaskStateRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_TaskState')"!][!//
 [!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsTaskClass/ArtiOsTaskClassPriorityRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_TaskPriority')"!][!//
 [!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsTaskClass/ArtiOsTaskClassStackRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_TaskStack')"!][!//
+[!IF "count(./OsTask/*) > 0"!][!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsTaskClass/ArtiOsTaskClassClassGenericComponentRef'", "Target" = "concat($ArtiPkg, '/ArtiGeneric/GC_OsTask')"!][!ENDIF!][!//
               </REFERENCE-VALUES>
             </ECUC-CONTAINER-VALUE>
 [!LOOP "node:order(./OsTask/*,'@index')"!][!//
@@ -494,10 +617,19 @@
 [!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsTaskInstance/ArtiOsTaskInstanceEcucRef'", "Target" = "concat($OsValuePkg, '/', $N)"!][!//
 [!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsTaskInstance/ArtiOsTaskInstancePriorityRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $N, '_Priority')"!][!//
 [!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsTaskInstance/ArtiOsTaskInstanceStackRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $N, '_StackBase')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsTaskInstance/ArtiOsTaskInstanceGenericComponentRef'", "Target" = "concat($ArtiPkg, '/ArtiGeneric/GI_', $N)"!][!//
               </REFERENCE-VALUES>
             </ECUC-CONTAINER-VALUE>
 [!ENDLOOP!][!//
-[!CALL "ArtiEmptyClass", "Kind" = "'ArtiOsIsrClass'"!][!//
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>ArtiOsIsrClass</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiOs/ArtiOsIsrClass</DEFINITION-REF>
+[!IF "count(./OsIsr/*) > 0"!][!//
+              <REFERENCE-VALUES>
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsIsrClass/ArtiOsIsrClassGenericComponentRef'", "Target" = "concat($ArtiPkg, '/ArtiGeneric/GC_OsIsr')"!][!//
+              </REFERENCE-VALUES>
+[!ENDIF!][!//
+            </ECUC-CONTAINER-VALUE>
 [!LOOP "node:order(./OsIsr/*,'@index')"!][!//
             <ECUC-CONTAINER-VALUE>
               <SHORT-NAME>[!"node:name(.)"!]</SHORT-NAME>
@@ -514,6 +646,7 @@
               </PARAMETER-VALUES>
               <REFERENCE-VALUES>
 [!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsIsrInstance/ArtiOsIsrInstanceEcucRef'", "Target" = "concat($OsValuePkg, '/', node:name(.))"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsIsrInstance/ArtiOsIsrInstanceGenericComponentRef'", "Target" = "concat($ArtiPkg, '/ArtiGeneric/GI_', node:name(.))"!][!//
               </REFERENCE-VALUES>
             </ECUC-CONTAINER-VALUE>
 [!ENDLOOP!][!//
@@ -529,6 +662,7 @@
               <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiOs/ArtiOsAlarmClass</DEFINITION-REF>
               <REFERENCE-VALUES>
 [!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsAlarmClass/ArtiOsAlarmClassStateRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_AlarmState')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsAlarmClass/ArtiOsAlarmClassGenericComponentClassRef'", "Target" = "concat($ArtiPkg, '/ArtiGeneric/GC_OsAlarm')"!][!//
               </REFERENCE-VALUES>
             </ECUC-CONTAINER-VALUE>
 [!ENDIF!][!//
@@ -547,6 +681,7 @@
 [!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsAlarmInstance/ArtiOsAlarmInstanceCycleTimeRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $N, '_Cycle')"!][!//
 [!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsAlarmInstance/ArtiOsAlarmInstanceEcuCRef'", "Target" = "concat($OsValuePkg, '/', $N)"!][!//
 [!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsAlarmInstance/ArtiOsAlarmInstanceStateRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $N, '_State')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsAlarmInstance/ArtiOsAlarmInstanceGenericComponentInstanceRef'", "Target" = "concat($ArtiPkg, '/ArtiGeneric/GI_', $N)"!][!//
               </REFERENCE-VALUES>
             </ECUC-CONTAINER-VALUE>
 [!ENDLOOP!][!//
@@ -556,6 +691,7 @@
               <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiOs/ArtiOsResourceClass</DEFINITION-REF>
               <REFERENCE-VALUES>
 [!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsResourceClass/ArtiOsResourceClassStateRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/CP_ResourceState')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsResourceClass/ArtiOsResourceClassGenericComponentClassRef'", "Target" = "concat($ArtiPkg, '/ArtiGeneric/GC_OsResource')"!][!//
               </REFERENCE-VALUES>
             </ECUC-CONTAINER-VALUE>
 [!ENDIF!][!//
@@ -567,6 +703,7 @@
               <REFERENCE-VALUES>
 [!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsResourceInstance/ArtiOsResourceInstanceEcuCRef'", "Target" = "concat($OsValuePkg, '/', $N)"!][!//
 [!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsResourceInstance/ArtiOsResourceInstanceStateRef'", "Target" = "concat($ArtiPkg, '/ArtiValues/IP_', $N, '_State')"!][!//
+[!CALL "ArtiRef", "RefDef" = "'ArtiOs/ArtiOsResourceInstance/ArtiOsResourceInstanceGenericComponentInstanceRef'", "Target" = "concat($ArtiPkg, '/ArtiGeneric/GI_', $N)"!][!//
               </REFERENCE-VALUES>
             </ECUC-CONTAINER-VALUE>
 [!ENDLOOP!][!//
@@ -616,12 +753,12 @@
 [!ENDLOOP!][!//
               </SUB-CONTAINERS>
             </ECUC-CONTAINER-VALUE>
-[!IF "count(./OsEvent/*) > 0"!][!//
 <!-- ============================== ArtiGeneric ============================== -->
             <ECUC-CONTAINER-VALUE>
               <SHORT-NAME>ArtiGeneric</SHORT-NAME>
               <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">[!"$Def"!]/ArtiGeneric</DEFINITION-REF>
               <SUB-CONTAINERS>
+[!IF "count(./OsEvent/*) > 0"!][!//
 [!CALL "ArtiGenClassOpen", "Class" = "'OsEvent'"!][!//
 [!CALL "ArtiGenClassParam", "Class" = "'OsEvent'", "Param" = "'EVENTMASK'"!][!//
 [!CALL "ArtiGenClassClose"!][!//
@@ -630,9 +767,112 @@
 [!CALL "ArtiGenInstParam", "Class" = "'OsEvent'", "Name" = "node:name(.)", "Param" = "'EVENTMASK'"!][!//
 [!CALL "ArtiGenInstClose"!][!//
 [!ENDLOOP!][!//
+[!ENDIF!][!//
+[!IF "count(./OsTask/*) > 0"!][!//
+[!CALL "ArtiGenClassOpen", "Class" = "'OsTask'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsTask'", "Param" = "'OSTASKTYPE'", "TypeMap" = "'TaskType'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsTask'", "Param" = "'OSTASKSCHEDULE'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsTask'", "Param" = "'OSTASKMAXACTIVATION'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsTask'", "Param" = "'REMAININGACTIVATIONS'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsTask'", "Param" = "'EVENTMASK'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsTask'", "Param" = "'EVENTSETFLAG'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsTask'", "Param" = "'LOCKED'", "TypeMap" = "'LockedByTask'"!][!//
+[!CALL "ArtiGenClassClose"!][!//
+[!LOOP "node:order(./OsTask/*,'@index')"!][!//
+[!VAR "N" = "node:name(.)"!][!//
+[!CALL "ArtiGenInstOpen", "Class" = "'OsTask'", "Name" = "$N"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsTask'", "Name" = "$N", "Param" = "'OSTASKTYPE'", "Kind" = "'Expression'"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsTask'", "Name" = "$N", "Param" = "'OSTASKSCHEDULE'"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsTask'", "Name" = "$N", "Param" = "'OSTASKMAXACTIVATION'", "Kind" = "'Expression'"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsTask'", "Name" = "$N", "Param" = "'REMAININGACTIVATIONS'", "Kind" = "'Expression'"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsTask'", "Name" = "$N", "Param" = "'EVENTMASK'", "Kind" = "'Expression'"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsTask'", "Name" = "$N", "Param" = "'EVENTSETFLAG'", "Kind" = "'Expression'"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsTask'", "Name" = "$N", "Param" = "'LOCKED'", "Kind" = "'Expression'"!][!//
+[!CALL "ArtiGenInstClose"!][!//
+[!ENDLOOP!][!//
+[!ENDIF!][!//
+[!IF "count(./OsIsr/*) > 0"!][!//
+[!CALL "ArtiGenClassOpen", "Class" = "'OsIsr'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsIsr'", "Param" = "'PRIORITY'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsIsr'", "Param" = "'LOCKED'", "TypeMap" = "'LockedByTask'"!][!//
+[!CALL "ArtiGenClassClose"!][!//
+[!LOOP "node:order(./OsIsr/*,'@index')"!][!//
+[!VAR "N" = "node:name(.)"!][!//
+[!CALL "ArtiGenInstOpen", "Class" = "'OsIsr'", "Name" = "$N"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsIsr'", "Name" = "$N", "Param" = "'PRIORITY'", "Kind" = "'Expression'"!][!//
+[!IF "OsIsrCategory = 'CATEGORY_2'"!][!CALL "ArtiGenInstParam", "Class" = "'OsIsr'", "Name" = "$N", "Param" = "'LOCKED'", "Kind" = "'Expression'"!][!ENDIF!][!//
+[!CALL "ArtiGenInstClose"!][!//
+[!ENDLOOP!][!//
+[!ENDIF!][!//
+[!IF "count(./OsScheduleTable/*) > 0"!][!//
+[!CALL "ArtiGenClassOpen", "Class" = "'OsScheduleTable'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsScheduleTable'", "Param" = "'STATE'", "TypeMap" = "'ScheduleTableState'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsScheduleTable'", "Param" = "'SCHEDULETABLENEXT'", "TypeMap" = "'ScheduleTableNext'"!][!//
+[!CALL "ArtiGenClassClose"!][!//
+[!LOOP "node:order(./OsScheduleTable/*,'@index')"!][!//
+[!VAR "N" = "node:name(.)"!][!//
+[!CALL "ArtiGenInstOpen", "Class" = "'OsScheduleTable'", "Name" = "$N"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsScheduleTable'", "Name" = "$N", "Param" = "'STATE'", "Kind" = "'Expression'"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsScheduleTable'", "Name" = "$N", "Param" = "'SCHEDULETABLENEXT'", "Kind" = "'Expression'"!][!//
+[!CALL "ArtiGenInstClose"!][!//
+[!ENDLOOP!][!//
+[!ENDIF!][!//
+[!IF "count(./OsSpinlock/*) > 0"!][!//
+[!CALL "ArtiGenClassOpen", "Class" = "'OsSpinlock'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsSpinlock'", "Param" = "'STATE'", "TypeMap" = "'SpinlockState'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsSpinlock'", "Param" = "'LOCKED'", "TypeMap" = "'LockedByResource'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsSpinlock'", "Param" = "'LOCK_METHOD'", "TypeMap" = "'SpinlockLockMethod'"!][!//
+[!CALL "ArtiGenClassClose"!][!//
+[!LOOP "node:order(./OsSpinlock/*,'@index')"!][!//
+[!VAR "N" = "node:name(.)"!][!//
+[!CALL "ArtiGenInstOpen", "Class" = "'OsSpinlock'", "Name" = "$N"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsSpinlock'", "Name" = "$N", "Param" = "'STATE'", "Kind" = "'Expression'"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsSpinlock'", "Name" = "$N", "Param" = "'LOCKED'", "Kind" = "'Expression'"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsSpinlock'", "Name" = "$N", "Param" = "'LOCK_METHOD'", "Kind" = "'Expression'"!][!//
+[!CALL "ArtiGenInstClose"!][!//
+[!ENDLOOP!][!//
+[!ENDIF!][!//
+[!/* OS_CONFIG: one instance, named OsConfig (an Os object with that name would clash on GI_OsConfig) */!][!//
+[!CALL "ArtiGenClassOpen", "Class" = "'OsConfig'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsConfig'", "Param" = "'ScalabilityClass'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsConfig'", "Param" = "'StatusLevel'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsConfig'", "Param" = "'OsStackMonitoring'"!][!//
+[!CALL "ArtiGenClassClose"!][!//
+[!CALL "ArtiGenInstOpen", "Class" = "'OsConfig'", "Name" = "'OsConfig'"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsConfig'", "Name" = "'OsConfig'", "Param" = "'ScalabilityClass'"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsConfig'", "Name" = "'OsConfig'", "Param" = "'StatusLevel'"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsConfig'", "Name" = "'OsConfig'", "Param" = "'OsStackMonitoring'"!][!//
+[!CALL "ArtiGenInstClose"!][!//
+[!IF "count(./OsAlarm/*) > 0"!][!//
+[!CALL "ArtiGenClassOpen", "Class" = "'OsAlarm'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsAlarm'", "Param" = "'ACTION'", "TypeMap" = "'AlarmAction'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsAlarm'", "Param" = "'ALARMTIME'"!][!//
+[!CALL "ArtiGenClassClose"!][!//
+[!LOOP "node:order(./OsAlarm/*,'@index')"!][!//
+[!VAR "N" = "node:name(.)"!][!//
+[!CALL "ArtiGenInstOpen", "Class" = "'OsAlarm'", "Name" = "$N"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsAlarm'", "Name" = "$N", "Param" = "'ACTION'", "Kind" = "'Expression'"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsAlarm'", "Name" = "$N", "Param" = "'ALARMTIME'"!][!//
+[!CALL "ArtiGenInstClose"!][!//
+[!ENDLOOP!][!//
+[!ENDIF!][!//
+[!IF "count(./OsResource/*) > 0"!][!//
+[!CALL "ArtiGenClassOpen", "Class" = "'OsResource'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsResource'", "Param" = "'LOCKED'", "TypeMap" = "'LockedByResource'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsResource'", "Param" = "'PRIORITY_TYPE'"!][!//
+[!CALL "ArtiGenClassParam", "Class" = "'OsResource'", "Param" = "'PRIORITY'"!][!//
+[!CALL "ArtiGenClassClose"!][!//
+[!LOOP "node:order(./OsResource/*,'@index')"!][!//
+[!VAR "N" = "node:name(.)"!][!//
+[!CALL "ArtiGenInstOpen", "Class" = "'OsResource'", "Name" = "$N"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsResource'", "Name" = "$N", "Param" = "'LOCKED'", "Kind" = "'Expression'"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsResource'", "Name" = "$N", "Param" = "'PRIORITY_TYPE'", "Kind" = "'Expression'"!][!//
+[!CALL "ArtiGenInstParam", "Class" = "'OsResource'", "Name" = "$N", "Param" = "'PRIORITY'", "Kind" = "'Expression'"!][!//
+[!CALL "ArtiGenInstClose"!][!//
+[!ENDLOOP!][!//
+[!ENDIF!][!//
               </SUB-CONTAINERS>
             </ECUC-CONTAINER-VALUE>
-[!ENDIF!][!//
           </CONTAINERS>
         </ECUC-MODULE-CONFIGURATION-VALUES>
       </ELEMENTS>

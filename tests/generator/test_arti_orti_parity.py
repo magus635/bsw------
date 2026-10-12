@@ -38,22 +38,13 @@ EXCEPTIONS = {
 }
 
 # Gaps still to close. Shrinks as the phases of the change are implemented.
-KNOWN_GAPS = {
-    ("ALARM", "ACTION"), ("ALARM", "ALARMTIME"),
-    ("ISR", "LOCKED"), ("ISR", "PRIORITY"),
-    ("OS_CONFIG", "OsStackMonitoring"), ("OS_CONFIG", "ScalabilityClass"), ("OS_CONFIG", "StatusLevel"),
-    ("RESOURCE", "LOCKED"), ("RESOURCE", "PRIORITY"), ("RESOURCE", "PRIORITY_TYPE"),
-    ("SCHEDULETABLE", "SCHEDULETABLENEXT"), ("SCHEDULETABLE", "STATE"),
-    ("SPINLOCK", "LOCKED"), ("SPINLOCK", "LOCK_METHOD"), ("SPINLOCK", "STATE"),
-    ("TASK", "EVENTMASK"), ("TASK", "EVENTSETFLAG"), ("TASK", "LOCKED"),
-    ("TASK", "OSTASKMAXACTIVATION"), ("TASK", "OSTASKSCHEDULE"), ("TASK", "OSTASKTYPE"),
-    ("TASK", "REMAININGACTIVATIONS"),
-}
+KNOWN_GAPS = set()
 
-# ORTI emits STACK / CONTEXT for CATEGORY_1 ISRs, but the kernel only defines <name>_stack and
-# <name>_ContextInfo for Tasks and CATEGORY_2 ISRs (plugin context/Os_context_Lcfg.c), so those
-# ORTI entries reference symbols that do not exist. ARTI deliberately leaves them out.
-CAT1_ISR_SKIPPED = {"STACK", "CONTEXT"}
+# ORTI emits STACK / CONTEXT / LOCKED for CATEGORY_1 ISRs, but the kernel only defines <name>_stack,
+# <name>_ContextInfo and <name>_RunningData for Tasks and CATEGORY_2 ISRs (plugin
+# context/Os_context_Lcfg.c, isr/Os_isr_Lcfg.c), so those ORTI entries reference symbols that do
+# not exist. ARTI deliberately leaves them out.
+CAT1_ISR_SKIPPED = {"STACK", "CONTEXT", "LOCKED"}
 
 # The ARTI string is shared between objects, so it carries no object name.
 NAME_AGNOSTIC = {("STACK", "FILLPATTERN")}
@@ -130,7 +121,7 @@ def find_gaps(tmp_path):
         elif (kind, attr) == ("TASK", "PRIORITY"):          # ORTI ENUM key = task index
             ok = value in pairs.get("TM_TaskPriority", set())
         else:
-            agnostic = kind == "OS" or (kind, attr) in NAME_AGNOSTIC
+            agnostic = kind in ("OS", "OS_CONFIG") or (kind, attr) in NAME_AGNOSTIC
             ok = any(s == value and (agnostic or obj in sn) for sn, s in strings)
         if not ok:
             gaps.append((kind, name, attr, value))

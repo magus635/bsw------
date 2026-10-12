@@ -215,12 +215,18 @@ def test_category1_isr_has_no_stack_or_context(rendered):
 
 
 def test_type_map_inputs_fit_16_bit(rendered):
-    """ECUC_Arti_00024: inputs used by hooks must be 0..65535; keep all maps within it."""
+    """ECUC_Arti_00024: inputs used by hooks must be 0..65535; keep the maps within it.
+
+    TM_LockedByResource is exempt: its "no lock" input is 0xFFFFFFFF as in ORTI, and no hook uses it.
+    """
     _, root, _ = rendered
-    for p in _containers(root, "ArtiParameterTypeMapPair"):
-        value = _param(p, "ArtiParameterTypeMapPairInput")
-        if value is not None:
-            assert 0 <= int(value) <= 65535, _sn(p)
+    for tm in _containers(root, "ArtiParameterTypeMap"):
+        if _sn(tm) == "TM_LockedByResource":
+            continue
+        for p in tm.xpath("a:SUB-CONTAINERS/*", namespaces=NS):
+            value = _param(p, "ArtiParameterTypeMapPairInput")
+            if value is not None:
+                assert 0 <= int(value) <= 65535, (_sn(tm), _sn(p))
 
 
 @pytest.mark.parametrize("n_cores", [1, 2, 4])
@@ -296,3 +302,55 @@ def test_output_imports_into_workspace_and_references_resolve(rendered):
     unresolved = [e for e in project.get_all_resolution_errors() if "/EcuC/" not in str(e)]
     assert resolved > 0
     assert not unresolved, "\n".join(str(e) for e in unresolved[:20])
+
+
+# --------------------------------------------------------------------------- ORTI parity (generic components)
+
+def _pairs(root, tm_name):
+    """{pair short name: (input, output string, output ref, input expression ref)} of one type map."""
+    (tm,) = [t for t in _containers(root, "ArtiParameterTypeMap") if _sn(t) == tm_name]
+    out = {}
+    for p in tm.xpath("a:SUB-CONTAINERS/*", namespaces=NS):
+        inp = _param(p, "ArtiParameterTypeMapPairInput")
+        out[_sn(p)] = (int(inp) if inp is not None else None,
+                       _param(p, "ArtiParameterTypeMapPairOutput"),
+                       _ref(p, "ArtiParameterTypeMapPairOutputRef"),
+                       _ref(p, "ArtiParameterTypeMapPairInputExpressionRef"))
+    return out
+
+
+def test_generic_type_maps_follow_the_orti_enumerations(rendered):
+    _, root, _ = rendered
+    assert {k: v[:2] for k, v in _pairs(root, "TM_TaskType").items()} == {
+        "BASIC": (0, "BASIC"), "EXTENDED": (1, "EXTENDED")}
+    assert {v[0]: v[1] for v in _pairs(root, "TM_AlarmAction").values()} == {
+        0: "ALARM_ACTIVATETASK", 1: "ALARM_SETEVENT", 2: "ALARM_CALLBACK", 3: "ALARM_INCREMENTCOUNTER"}
+    assert {v[0]: v[1] for v in _pairs(root, "TM_SpinlockLockMethod").values()} == {
+        0: "LOCK_ALL_INTERRUPTS", 1: "LOCK_CAT2_INTERRUPTS", 2: "LOCK_NOTHING", 3: "LOCK_WITH_RES_SCHEDULER"}
+    st = _pairs(root, "TM_ScheduleTableState")
+    assert [st[k][0] for k in ("STOPPED", "NEXT", "WAITING", "RUNNING", "RUNNING_AND_SYNCHRONOUS")] == [0, 1, 2, 3, 4]
+    assert st["RUNNING"][2] == "/Arti/Arti/ArtiValues/ArtiStates/S_SchedTableRunning"
+    sp = _pairs(root, "TM_SpinlockState")
+    assert (sp["UNLOCKED"][0], sp["LOCKED"][0]) == (0, 1)
+    assert sp["LOCKED"][2] == "/Arti/Arti/ArtiValues/ArtiStates/S_SpinlockLocked"
+    nxt = _pairs(root, "TM_ScheduleTableNext")
+    assert nxt["Sch_Main"][:2] == (0, "Sch_Main") and nxt["NONE"][:2] == (255, "-")
+
+
+def test_lock_type_maps_decode_resource_addresses(rendered):
+    """ORTI LOCKED: the value is &Os_LockConfig_<resource>; 'none' is 0 for tasks/ISRs, 0xFFFFFFFF otherwise."""
+    _, root, _ = rendered
+    exprs = {_sn(e): _param(e, "ArtiExpressionString") for e in _containers(root, "ArtiExpression")}
+    assert exprs["E_LockAddr_Res_Shared"] == "&Os_LockConfig_Res_Shared"
+    for tm, none in (("TM_LockedByTask", 0), ("TM_LockedByResource", 0xFFFFFFFF)):
+        pairs = _pairs(root, tm)
+        assert pairs["Res_Shared"][1:] == ("Res_Shared", None, "/Arti/Arti/ArtiValues/E_LockAddr_Res_Shared")
+        assert pairs["NONE"][:2] == (none, "-")
+
+
+def test_every_os_object_has_one_generic_instance(rendered):
+    _, root, _ = rendered
+    instances = {_param(c, "ArtiGenericComponentInstanceName") for c in _containers(root, "ArtiGenericComponentInstance")}
+    expected = {t[0] for t in TASKS} | {i[0] for i in ISRS} | {"Alarm_10ms", "Res_Shared", "Event_Wake",
+                                                                 "Sch_Main", "Spin_Shared", "OsConfig"}
+    assert instances == expected

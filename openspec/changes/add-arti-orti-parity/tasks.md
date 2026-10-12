@@ -5,23 +5,23 @@
 - [x] 0.4 `tests/generator/test_arti_orti_parity.py`：解析基准 ORTI 与渲染出的 ARTI，输出缺口清单，带显式例外清单；此时清单即当前缺口，测试以"缺口不增加"为准
 
 ## 1. 已有对象的属性补全
-- [ ] 1.1 Task：`OSTASKTYPE`、`OSTASKSCHEDULE`、`OSTASKMAXACTIVATION`、`REMAININGACTIVATIONS`、`EVENTMASK`、`EVENTSETFLAG`
-- [ ] 1.2 ISR：`PRIORITY`
-- [ ] 1.3 Alarm：`ACTION`（含 TypeMap）、`ALARMTIME`
-- [ ] 1.4 Resource：`PRIORITY_TYPE`、`PRIORITY`
-- [ ] 1.5 `LOCKED`（Task、ISR、Resource）：TypeMap 输入用 `&Os_LockConfig_<资源>` 地址表达式，空值输出 `-`
+- [x] 1.1 Task：`OSTASKTYPE`、`OSTASKSCHEDULE`、`OSTASKMAXACTIVATION`、`REMAININGACTIVATIONS`、`EVENTMASK`、`EVENTSETFLAG`
+- [x] 1.2 ISR：`PRIORITY`
+- [x] 1.3 Alarm：`ACTION`（含 TypeMap）、`ALARMTIME`
+- [x] 1.4 Resource：`PRIORITY_TYPE`、`PRIORITY`
+- [x] 1.5 `LOCKED`（Task、ISR、Resource）：TypeMap 输入用 `&Os_LockConfig_<资源>` 地址表达式，空值输出 `-`
 
 ## 2. 新对象
-- [ ] 2.1 Event
-- [ ] 2.2 ScheduleTable（`STATE` 映射到 ARTI 标准状态，`SCHEDULETABLENEXT`）
-- [ ] 2.3 Spinlock（`STATE` 映射到标准状态，`LOCKED`、`LOCK_METHOD`）
-- [ ] 2.4 OS_CONFIG（三个常量）
+- [x] 2.1 Event
+- [x] 2.2 ScheduleTable（`STATE` 映射到 ARTI 标准状态，`SCHEDULETABLENEXT`）
+- [x] 2.3 Spinlock（`STATE` 映射到标准状态，`LOCKED`、`LOCK_METHOD`）
+- [x] 2.4 OS_CONFIG（三个常量）
 
 ## 3. 收尾
-- [ ] 3.1 对照测试缺口清单只剩例外清单中的项（`RESOURCE_OWNER`、`SPINLOCK_OWNER` 及 D6 所列）
+- [x] 3.1 对照测试缺口清单只剩例外清单中的项（`RESOURCE_OWNER`、`SPINLOCK_OWNER` 及 D6 所列）
 - [ ] 3.2 `Os_SC300` 条件：按 Open Questions 4 的结论处理，并有测试
-- [ ] 3.3 更新 `doc/2026-10-06_自研OS原生支持ARTI开发说明.md`：ORTI 与 ARTI 覆盖对照表、差异清单、双轨交付说明
-- [ ] 3.4 更新第一阶段 design.md 的 Non-Goals（`ArtiGeneric` 扩展已完成）
+- [x] 3.3 更新 `doc/2026-10-06_自研OS原生支持ARTI开发说明.md`：ORTI 与 ARTI 覆盖对照表、差异清单、双轨交付说明
+- [x] 3.4 更新第一阶段 design.md 的 Non-Goals（`ArtiGeneric` 扩展已完成）
 - [ ] 3.5 另起 change 处理 `RESOURCE_OWNER`、`SPINLOCK_OWNER`（ObjectID 编号）
 
 ## 4. 真机验证（使用者执行，暂无 TRACE32 环境）

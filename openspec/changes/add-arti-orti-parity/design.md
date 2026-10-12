@@ -65,6 +65,6 @@
 ## Open Questions
 
 1. 调试器（TRACE32 版本待定）是否显示 `ArtiGeneric` 通用组件，以及一个文件含多核是否可用。
-2. Alarm 的 `ACTION`：用标准的 `ArtiOsAlarmInstanceAction`（静态字符串，需要 `OsAlarmAction` 配置）还是通用组件加 TypeMap。倾向后者，因为 ORTI 是运行时读取。
-3. ORTI 中 ISR `PRIORITY` 的表达式 `<I>.IsrHwConfig.priority` 是否对应真实符号（变量名里直接用 ISR 名）。需要内核确认。
+2. **已定。** Alarm 的 `ACTION` 用通用组件加 TypeMap，因为 ORTI 是运行时读取 `Alarm_<A>_ConfigRef.ActionType`；标准的 `ArtiOsAlarmInstanceAction`（静态字符串）没有使用。
+3. **已核对。** 插件 `isr/Os_isr_Lcfg.c:177` 生成 `static const Os_IsrConfigType <ISR 名> = {...}`，所以 `<I>.IsrHwConfig.priority` 是真实符号。同一文件 `:80-81` 显示 `<I>_RunningData` 只为 CATEGORY_2 ISR 生成，所以 ORTI 对 CATEGORY_1 ISR 输出的 `LOCKED`（以及 `STACK`、`CONTEXT`）引用了不存在的符号，ARTI 不输出（对照测试里对这三项做了 CATEGORY_1 豁免）。
 4. `Os_SC300` 条件在 ARTI 里如何处理。

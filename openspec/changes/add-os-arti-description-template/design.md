@@ -13,7 +13,7 @@
   - ID 与 ORTI 模板同规则，保证 ORTI、ARTI、`Os_Cfg.h` 三方一致。
 - Non-Goals（第二阶段）
   - `ArtiHook`、`Os_ArtiHooks.h`、内核插桩、`ArtiStatesTaskEnhanced=true`。
-  - `ArtiGeneric` 扩展：Spinlock、ScheduleTable、Event、OS_CONFIG 在 ArtiOs 里没有对应容器，第一阶段不输出，调试器仍可从 ORTI 获取这些信息。
+  - `ArtiGeneric` 扩展：Spinlock、ScheduleTable、Event、OS_CONFIG 在 ArtiOs 里没有对应容器，第一阶段不输出，调试器仍可从 ORTI 获取这些信息。（已在 `add-arti-orti-parity` 中补齐。）
   - 修改 ORTI 模板的输出内容（其语法缺陷按 bug fix 单独处理，见 tasks 4）。
 
 ## Decisions
