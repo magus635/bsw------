@@ -3,7 +3,8 @@
 Renders the reference ORTI (doc/ARTI/Os_Trace.orti: the plugin's Os_Trace_Core0.ORTI with its
 KOIL syntax defects fixed, same content) and the ARTI template from the same Os configuration,
 then checks that every ORTI object attribute has an ARTI counterpart carrying the same
-expression / value.
+expression / value. ORTI is no longer generated; the reference is a frozen baseline kept only
+so that this test can show the ARTI description is complete.
 
 Coverage rule for one ORTI attribute (kind, name, attr, value): some ARTI ArtiExpressionString or
 ArtiConstantString equals `value`, and, except for the OS block, the ARTI container that holds it
@@ -23,11 +24,11 @@ import pytest
 from autosar_configurator.generator.generator import CodeGenerator
 
 from .os_arti_fixture import build_os_config
-from .test_orti_template import TEMPLATE as ORTI_TEMPLATE
 
 etree = pytest.importorskip("lxml.etree")
 
 ROOT = Path(__file__).resolve().parents[2]
+ORTI_TEMPLATE = ROOT / "doc" / "ARTI" / "Os_Trace.orti"   # frozen reference, not generated any more
 ARTI_TEMPLATE = ROOT / "templates" / "Os" / "Os_Arti.arxml"
 APP_COMMON = ROOT / "doc" / "ARTI" / "Os_AppCommon.m"   # real Os plugin macros, shared by ORTI and ARTI
 NS = {"a": "http://autosar.org/schema/r4.0"}
