@@ -616,6 +616,13 @@ class ArxmlParser:
                 index_val = int(index_text)
             except (ValueError, TypeError):
                 index_val = 0
+            # EB Tresos writes the first element of a multi-valued reference without INDEX and the
+            # following ones with INDEX 1, 2, ...: the first one was stored as a single value and
+            # must join the list, otherwise iterating the reference misses it.
+            if ref_name in container.reference_values and ref_name not in container.multi_reference_values:
+                first = container.reference_values.pop(ref_name)
+                first.index = 0
+                container.multi_reference_values[ref_name] = [first]
             container.add_multi_reference_value(ref_name, target_ref, definition_ref, index_val)
             # Set dest_type on the newly added ref
             if dest_type and ref_name in container.multi_reference_values:
