@@ -156,6 +156,22 @@ def test_known_gaps_are_current(parity):
     assert not closed, f"gaps already closed, remove from KNOWN_GAPS: {closed}"
 
 
+def test_task_id_emits_task_name_string(tmp_path):
+    """TaskId maps numeric task ids to the task instance name string, not just a container ref."""
+    macros = {APP_COMMON.name: APP_COMMON.read_text(encoding="utf-8", errors="replace")}
+    root = etree.fromstring(_render(tmp_path / "arti", ARTI_TEMPLATE, macros).encode("utf-8"))
+    tm = next(t for t in root.iter("{%s}ECUC-CONTAINER-VALUE" % NS["a"]) if t.findtext("a:SHORT-NAME", namespaces=NS) == "TM_TaskId")
+    pair = next(
+        p for p in tm.xpath("a:SUB-CONTAINERS/*", namespaces=NS)
+        if p.findtext("a:SHORT-NAME", namespaces=NS) == "Task_A"
+    )
+    values = [
+        v.text for v in pair.xpath("a:PARAMETER-VALUES/*/a:VALUE", namespaces=NS)
+        if v.text is not None
+    ]
+    assert "Task_A" in values
+
+
 def test_exceptions_are_real_gaps(parity):
     _, gaps = parity
     actual = {(k, a) for k, _, a, _ in gaps}

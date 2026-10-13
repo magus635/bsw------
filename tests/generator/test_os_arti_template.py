@@ -22,18 +22,21 @@ ROOT = Path(__file__).resolve().parents[2]
 TEMPLATE = ROOT / "templates" / "Os" / "Os_Arti.arxml"
 ARTI_DEF = ROOT / "definitions" / "Arti" / "Arti_ParamDef.arxml"
 APP_COMMON = ROOT / "doc" / "ARTI" / "Os_AppCommon.m"
+ARTI_EVENTS = ROOT / "templates" / "Os" / "Os_ArtiEvents.m"
 XSD = ROOT / "doc" / "ARTI" / "AUTOSAR_00047.xsd"
 NS = {"a": "http://autosar.org/schema/r4.0"}
 A = "{http://autosar.org/schema/r4.0}"
 
 
-def _render(tmp_path, use_arti=True, n_cores=2, logical_ids=None, with_macros=True):
-    module_def, mgr = build_os_config(use_arti=use_arti, n_cores=n_cores, logical_ids=logical_ids)
+def _render(tmp_path, use_arti=True, n_cores=2, logical_ids=None, with_macros=True, with_events=True, arti=None):
+    module_def, mgr = build_os_config(use_arti=use_arti, n_cores=n_cores, logical_ids=logical_ids, arti=arti)
     tpl_dir = tmp_path / "tpl" / "Os"
     tpl_dir.mkdir(parents=True)
     shutil.copy(TEMPLATE, tpl_dir / TEMPLATE.name)
     if with_macros:
         shutil.copy(APP_COMMON, tpl_dir / APP_COMMON.name)  # the template includes the Os plugin's macros
+    if with_events:
+        shutil.copy(ARTI_EVENTS, tpl_dir / ARTI_EVENTS.name)  # the hook event list (add-arti-hook-tracing)
     gen = CodeGenerator(module_def, mgr.configuration, project_template_dir=tmp_path / "tpl")
     assert gen.generate_all(tmp_path / "out") is True
     out = tmp_path / "out" / "Os" / "Os_Arti.arxml"
@@ -279,10 +282,24 @@ def test_address_expressions_are_xml_escaped_once(rendered):
     assert "&amp;amp;" not in out.read_text(encoding="utf-8")
 
 
-def test_standard_task_state_model(rendered):
-    _, root, _ = rendered
+def _task_states(root):
     (states,) = _containers(root, "ArtiStates")
-    assert _param(states, "ArtiStatesTaskEnhanced") == "false"
+    return _param(states, "ArtiStatesTaskEnhanced"), {
+        _param(s, "ArtiStatesTaskStateEnum") for s in _containers(root, "ArtiStatesTaskState")}
+
+
+def test_enhanced_task_state_model_is_the_default(rendered):
+    """OsVendorArtiStateModel is not configured: its default ENHANCED applies (add-arti-hook-tracing D3)."""
+    enhanced, states = _task_states(rendered[1])
+    assert enhanced == "true"
+    assert {"ArtiTaskStateActivated", "ArtiTaskStatePreempted", "ArtiTaskStateReleased"} <= states
+
+
+def test_standard_task_state_model(tmp_path):
+    _, root, _ = _render(tmp_path, arti={"OsVendorArtiStateModel": "STANDARD"})
+    enhanced, states = _task_states(root)
+    assert enhanced == "false"
+    assert states == {"ArtiTaskStateRunning", "ArtiTaskStateReady", "ArtiTaskStateWaiting", "ArtiTaskStateSuspended"}
 
 
 def test_arti_disabled_emits_empty_document(tmp_path):

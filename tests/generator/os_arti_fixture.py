@@ -15,6 +15,7 @@ from autosar_configurator.core.model.definition_model import (
 
 OS = "/AUTOSAR/EcucDefs/Os"
 T = EcucParameterType
+ARTI_CLASSES = ("Application", "Task", "Cat2Isr", "ServiceCalls", "Spinlock", "Hook")
 
 TASKS = [  # name, priority, stack, type, core
     ("Task_A", 5, 1024, "BASIC", 0),
@@ -63,8 +64,14 @@ def build_os_def():
     _p(os_os, "OsStatus", T.ENUMERATION, literals=["STANDARD", "EXTENDED"])
     _p(os_os, "OsScalabilityClass", T.ENUMERATION, literals=["SC1", "SC2", "SC3", "SC4"])
     _p(os_os, "OsStackMonitoring", T.BOOLEAN)
+    _p(os_os, "OsUseResScheduler", T.BOOLEAN)
+    # vendor parameters of add-arti-hook-tracing (plugin Os.xdm)
+    _p(os_os, "OsVendorArtiStateModel", T.ENUMERATION, literals=["ENHANCED", "STANDARD"], default_value="ENHANCED")
+    for cls in ARTI_CLASSES:  # defaults as in Os.xdm: everything on except the service calls
+        _p(os_os, f"OsVendorArtiTrace{cls}", T.BOOLEAN, default_value=cls != "ServiceCalls")
     os_hooks = _sub(os_os, "OsHooks")
-    for hook in ("OsErrorHook", "OsStartupHook", "OsShutdownHook", "OsProtectionHook"):
+    for hook in ("OsErrorHook", "OsStartupHook", "OsShutdownHook", "OsProtectionHook", "OsPreTaskHook",
+                 "OsPostTaskHook"):
         _p(os_hooks, hook, T.BOOLEAN)
     core = _c(m, "OsCoreIdMappingConfig")
     _p(core, "OsPhysicalCoreId", T.INTEGER)
@@ -92,7 +99,11 @@ def build_os_def():
     _c(m, "OsCounter")
     alarm = _c(m, "OsAlarm")
     _r(alarm, "OsAlarmCounterRef", f"{OS}/OsCounter")
-    _c(m, "OsResource")
+    res = _c(m, "OsResource")
+    _p(res, "OsResourceProperty", T.ENUMERATION, literals=["STANDARD", "INTERNAL", "LINKED"])
+    _p(res, "OsResourceLinkedToResScheduler", T.BOOLEAN)
+    _r(res, "OsResourceCoreRef", f"{OS}/OsCoreIdMappingConfig")
+    _r(res, "OsResourceLinkedResourceRef", f"{OS}/OsResource")
     event = _c(m, "OsEvent")
     _p(event, "OsEventMask", T.INTEGER)
     _c(m, "OsScheduleTable")
@@ -101,8 +112,11 @@ def build_os_def():
     return m
 
 
-def build_os_config(use_arti=True, n_cores=2, logical_ids=None):
-    """Returns (module_def, ConfigurationManager) with the layout in the module docstring."""
+def build_os_config(use_arti=True, n_cores=2, logical_ids=None, arti=None):
+    """Returns (module_def, ConfigurationManager) with the layout in the module docstring.
+
+    arti: optional {OsOS parameter: value} for the add-arti-hook-tracing vendor parameters; parameters
+    not given are left out of the configuration, so the templates must apply the Os.xdm defaults."""
     m = build_os_def()
     mgr = ConfigurationManager(m)
     c = m.containers
@@ -114,6 +128,8 @@ def build_os_config(use_arti=True, n_cores=2, logical_ids=None):
     mgr.set_parameter_value(os_os, "OsStatus", "EXTENDED")
     mgr.set_parameter_value(os_os, "OsScalabilityClass", "SC3")
     mgr.set_parameter_value(os_os, "OsStackMonitoring", True)
+    for name, value in (arti or {}).items():
+        mgr.set_parameter_value(os_os, name, value)
     os_hooks = new(c["OsOS"].sub_containers["OsHooks"], os_os, "OsHooks")
     for hook, on in (("OsErrorHook", True), ("OsStartupHook", True), ("OsShutdownHook", False),
                      ("OsProtectionHook", False)):
@@ -174,7 +190,11 @@ def build_os_config(use_arti=True, n_cores=2, logical_ids=None):
     alarm = new(c["OsAlarm"], None, "Alarm_10ms")
     alarm.set_reference_value("OsAlarmCounterRef", "/Os/Os/SystemTick",
                               c["OsAlarm"].references["OsAlarmCounterRef"].definition_ref)
-    new(c["OsResource"], None, "Res_Shared")
+    res = new(c["OsResource"], None, "Res_Shared")
+    mgr.set_parameter_value(res, "OsResourceProperty", "STANDARD")
+    mgr.set_parameter_value(res, "OsResourceLinkedToResScheduler", False)
+    res.set_reference_value("OsResourceCoreRef", "/Os/Os/OsCoreIdMappingConfig_0",
+                            c["OsResource"].references["OsResourceCoreRef"].definition_ref)
     event_1 = new(c["OsEvent"], None, "Event_Wake")
     mgr.set_parameter_value(event_1, "OsEventMask", 1)
     new(c["OsScheduleTable"], None, "Sch_Main")
