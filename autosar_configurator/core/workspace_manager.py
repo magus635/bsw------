@@ -107,7 +107,7 @@ class WorkspaceProject:
         Returns:
             Flat dict mapping property keys (e.g. 'Adc.HwUnitId') to values.
         """
-        from .hardware.tresos_properties_parser import TresosPropertiesParser
+        from .hardware.tresos_properties_parser import TresosPropertiesParser, resource_file_matches_chip
         import logging
         logger = logging.getLogger(__name__)
 
@@ -163,9 +163,7 @@ class WorkspaceProject:
                 # underscore-delimited token in the stem, not as a substring.
                 # e.g. "THA6206" matches "Os_Resource_THA6206" but NOT "THA62060x".
                 if "resource" in str(pf.parent).lower():
-                    stem_tokens = set(pf.stem.lower().split('_'))
-                    chip_tokens = set(chip_lower.split('_'))
-                    if chip_tokens.issubset(stem_tokens):
+                    if resource_file_matches_chip(pf.stem, chip_lower):
                         filtered.append(pf)
                 else:
                     # Non-resource .properties (build configs, etc.) always loaded

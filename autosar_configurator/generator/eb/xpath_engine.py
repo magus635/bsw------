@@ -615,7 +615,7 @@ class XPathEngine:
 
         # NEW: Check if it's a known boolean function call (e.g., node:exists)
         # This is a heuristic and might need to be refined
-        if re.match(r'^(node:exists|variant:check|var:defined)\s*\(.+\)$', expr, re.IGNORECASE):
+        if re.match(r'^(node:exists?|variant:check|var:defined)\s*\(.+\)$', expr, re.IGNORECASE):
             return True
 
         return False

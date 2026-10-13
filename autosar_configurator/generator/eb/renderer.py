@@ -1768,6 +1768,8 @@ class Renderer:
         paren_idx = expr.find('(')
         if paren_idx == -1: return None
         func_name = expr[:paren_idx].strip()
+        if func_name == 'node:exist':
+            func_name = 'node:exists'
         args_str = expr[paren_idx + 1:-1].strip()
 
         # Handle XML entity escapes in args_str (e.g., &apos; -> ')

@@ -20,7 +20,7 @@ from ..core.model.configuration_model import EcucModuleConfiguration, EcucContai
 from ..core.model.definition_model import EcucModuleDef, EcucContainerDef, EcucParameterDef, EcucParameterType, ConfigClass
 from .eb_template_engine import EBTemplateEngine
 from .eb.errors import TemplateExecutionError
-from ..core.hardware.tresos_properties_parser import TresosPropertiesParser
+from ..core.hardware.tresos_properties_parser import TresosPropertiesParser, resource_file_matches_chip
 
 # Setup logger
 logger = logging.getLogger(__name__)
@@ -155,7 +155,7 @@ class CodeGenerator:
                         # Check if this is a chip resource file (in resource/ directory)
                         if "resource" in str(pf.parent).lower():
                             # Check if filename contains the selected chip identifier
-                            if self.selected_chip in pf.stem:
+                            if resource_file_matches_chip(pf.stem, self.selected_chip):
                                 filtered.append(pf)
                                 logger.info(f"Selected chip file: {pf.name}")
                         else:
@@ -174,14 +174,15 @@ class CodeGenerator:
             logger.info("No .properties files found for ECU resources.")
             return ecu_resources
 
+        # Each parse_file() call replaces the parser's previous result, so merge
+        # the per-file properties here (later files override earlier ones).
         for props_file in props_files:
             try:
                 logger.debug(f"Parsing ECU resources from: {props_file}")
-                parser.parse_file(props_file)
+                ecu_resources.update(parser.parse_file(props_file).properties)
             except Exception as e:
                 logger.warning(f"Failed to parse {props_file}: {e}")
 
-        ecu_resources = parser.get_ecu_resources_dict()
         if ecu_resources:
             logger.info(f"Loaded {len(ecu_resources)} ECU resources from {len(props_files)} files.")
 

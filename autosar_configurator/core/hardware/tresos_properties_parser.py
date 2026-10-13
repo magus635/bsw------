@@ -535,3 +535,16 @@ def _extract_intc_resources(props: TresosPropertiesFile) -> List['IntcSourceDef'
             ))
 
     return resources
+
+
+def resource_file_matches_chip(stem: str, chip: str) -> bool:
+    """Whole-token match of a resource file name against the selected chip.
+
+    The chip is ``<device>[_<package>]`` (e.g. ``THA6206_LFBGA292``).  A file
+    naming the full chip matches.  A file naming only the device
+    (``Os_Resource_THA6206``) also matches, because resources that do not
+    depend on the package are named after the device alone.
+    """
+    stem_tokens = set(stem.lower().split('_'))
+    chip_tokens = chip.lower().split('_')
+    return set(chip_tokens).issubset(stem_tokens) or chip_tokens[0] in stem_tokens

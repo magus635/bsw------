@@ -61,6 +61,8 @@ class BuiltinFunctions:
             'node:path': self.node_path,
             'node:ref': self.node_ref,
             'node:exists': self.node_exists,
+            'node:exist': self.node_exists,  # alias used by some vendor templates
+            'node:containsValue': self.node_contains_value,
             'node:empty': self.node_empty,
             'node:refexists': self.node_refexists,
             'node:current': self.node_current,
@@ -652,6 +654,24 @@ class BuiltinFunctions:
                         self.symbol_table._path_index[target_path_str] = res
 
         return res
+
+    def node_contains_value(self, nodes, value) -> bool:
+        """True if any node in the node-set has the given value (EB tresos node:containsValue)."""
+        if nodes is None:
+            return False
+        items = nodes if isinstance(nodes, (list, tuple, set)) else [nodes]
+        wanted = str(value).strip() if value is not None else None
+        for item in items:
+            if item is None:
+                continue
+            val = item.get_value() if hasattr(item, 'get_value') else item
+            if val is None:
+                continue
+            if isinstance(val, bool):
+                val = 'true' if val else 'false'
+            if str(val).strip() == wanted:
+                return True
+        return False
 
     def node_exists(self, path_or_node) -> bool:
         """Check if a path or node exists.
