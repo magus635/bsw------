@@ -18,7 +18,8 @@ ARTI 的停机调试描述已经完成（`add-os-arti-description-template`、`a
 
 - Affected specs: `os-arti-description`（新增 hook 描述要求）、`os-arti-hooks`（新能力：包装宏、内核插桩、零开销、验证）
 - Affected code:
-  - 仓库：`templates/Os/Os_Arti.arxml`、新增 `templates/Os/Os_ArtiEvents.m`、`Os_ArtiCfg.h`、`Os_ArtiHooks.h`、`Os_Arti_Mock.h`、`Os_Arti_Mock.c`、`tools/arti/check_event_stream.py`（新增）、`tests/generator/` 下的新测试与夹具、`doc/ARTI/ARTI_hook_tracing.md`（新增）、`doc/2026-10-06_自研OS原生支持ARTI开发说明.md`
+  - 模板（插件 `generate_PB/` 与工程 `templates/Os/`，不在本仓库）：`Os_Arti.arxml`、新增 `Os_ArtiEvents.m`、`Os_ArtiCfg.h`、`Os_ArtiHooks.h`、`Os_Arti_Mock.h`、`Os_Arti_Mock.c`
+  - 仓库：`tools/arti/check_event_stream.py`（新增）、`tests/generator/` 下的新测试与夹具、`doc/ARTI/ARTI_hook_tracing.md`（新增）、`doc/2026-10-06_自研OS原生支持ARTI开发说明.md`
   - 插件：`config/Os.xdm`、`generate_PB/Os/`（不在本仓库）
   - 内核：`task/`、`event/`、`isr/`、`spinlock/`、`application/`、`hook/`、`kernel/` 及各服务 API 所在模块（不在本仓库）
 - 依赖：`Os_AppCommon.m`（对象编号，已在用）；hook 的真实实现 `Arti.h` / `Os_Arti.h` 由 trace 工具提供，不在本变更内

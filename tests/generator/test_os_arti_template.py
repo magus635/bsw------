@@ -1,4 +1,4 @@
-"""templates/Os/Os_Arti.arxml rendered with a synthetic THA6-style Os configuration.
+"""The Os plugin template Os/Os_Arti.arxml (see os_templates.py) rendered with a synthetic THA6-style Os configuration.
 
 Checks the openspec change add-os-arti-description-template (phase 1):
 schema validity, conformance to definitions/Arti/Arti_ParamDef.arxml, ID rules,
@@ -15,14 +15,16 @@ from autosar_configurator.core.workspace_manager import WorkspaceProject
 from autosar_configurator.generator.generator import CodeGenerator
 
 from .os_arti_fixture import ISRS, TASKS, build_os_config
+from .os_templates import LAYOUT, ROOT as TEMPLATE_ROOT, requires_templates
 
 etree = pytest.importorskip("lxml.etree")
 
 ROOT = Path(__file__).resolve().parents[2]
-TEMPLATE = ROOT / "templates" / "Os" / "Os_Arti.arxml"
+pytestmark = requires_templates
+TEMPLATE = TEMPLATE_ROOT / LAYOUT["Os_Arti.arxml"] if TEMPLATE_ROOT else None
 ARTI_DEF = ROOT / "definitions" / "Arti" / "Arti_ParamDef.arxml"
 APP_COMMON = ROOT / "doc" / "ARTI" / "Os_AppCommon.m"
-ARTI_EVENTS = ROOT / "templates" / "Os" / "Os_ArtiEvents.m"
+ARTI_EVENTS = TEMPLATE_ROOT / LAYOUT["Os_ArtiEvents.m"] if TEMPLATE_ROOT else None
 XSD = ROOT / "doc" / "ARTI" / "AUTOSAR_00047.xsd"
 NS = {"a": "http://autosar.org/schema/r4.0"}
 A = "{http://autosar.org/schema/r4.0}"

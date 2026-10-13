@@ -1,6 +1,6 @@
 # doc/ARTI
 
-调试器只用 ARTI（`templates/Os/Os_Arti.arxml` 生成的 `Os_Arti.arxml`）。ORTI 已不再生成，插件 `generate_PB/Os/` 里的 `Os_Trace_Core0/1.ORTI` 模板已删除。下面的 ORTI 文件只作为**冻结的对照基线**保留，不参与交付。
+调试器只用 ARTI（Os 模板 `Os_Arti.arxml` 生成的描述；模板在插件 `Os_THA6_ASR21/generate_PB/`（`Os_ArtiEvents.m` 在根目录，`Os/Os_Arti.arxml`，`Os/kernel/` 下的头文件和 Mock）与工程模板目录（如 t1 的 `templates/Os/`，布局相同），本仓库不保存）。ORTI 已不再生成，插件 `generate_PB/Os/` 里的 `Os_Trace_Core0/1.ORTI` 模板已删除。下面的 ORTI 文件只作为**冻结的对照基线**保留，不参与交付。
 
 | 文件 | 作用 |
 | :--- | :--- |

@@ -108,7 +108,7 @@ Cat1 ISR 不经过 OS，不插桩（说明第五节第 2 条）。跨核服务 I
 
 ## D11 部署
 
-`Os_Arti.arxml`、`Os_ArtiHooks.h`、`Os_ArtiEvents.m`、`Os_Arti_Mock.h` 以仓库 `templates/Os/` 为准，复制到插件 `generate_PB/Os/` 和 t1 的 `templates/Os/Os/`。`Os_Arti.arxml` 目前只在 t1 里，插件中还没有，这次一并部署。插件的 SVN 提交由用户处理。
+~~以仓库 `templates/Os/` 为准~~（2026-10-13 按用户决定改为：模板只放在插件 `generate_PB/` 和工程的 `templates/Os/` 两处，以插件为准；仓库 `templates/` 已删除，测试经 `tests/generator/os_templates.py` 读插件目录或 `OS_TEMPLATE_DIR`）。`Os_Arti.arxml`、`Os_ArtiHooks.h`、`Os_ArtiEvents.m`、`Os_Arti_Mock.h` 部署到插件 `generate_PB/Os/` 和 t1 的 `templates/Os/Os/`。`Os_Arti.arxml` 目前只在 t1 里，插件中还没有，这次一并部署。插件的 SVN 提交由用户处理。
 
 ## 风险
 

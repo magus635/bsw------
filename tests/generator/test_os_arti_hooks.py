@@ -1,6 +1,6 @@
 """ARTI hook tracing (openspec change add-arti-hook-tracing): the ArtiHook description in Os_Arti.arxml,
 the kernel wrapper header Os_ArtiHooks.h and the strict mock Os_Arti_Mock.h, all generated from
-templates/Os/Os_ArtiEvents.m with the synthetic Os configuration of os_arti_fixture.
+the Os plugin template Os_ArtiEvents.m (see os_templates.py) with the synthetic Os configuration of os_arti_fixture.
 
 The compile checks use arm-none-eabi-gcc and are skipped when it is not installed.
 """
@@ -14,11 +14,12 @@ import pytest
 from autosar_configurator.generator.generator import CodeGenerator
 
 from .os_arti_fixture import build_os_config
+from .os_templates import copy_templates, requires_templates
 
 etree = pytest.importorskip("lxml.etree")
 
 ROOT = Path(__file__).resolve().parents[2]
-TPL = ROOT / "templates" / "Os"
+pytestmark = requires_templates
 APP_COMMON = ROOT / "doc" / "ARTI" / "Os_AppCommon.m"
 NS = {"a": "http://autosar.org/schema/r4.0"}
 A = "{http://autosar.org/schema/r4.0}"
@@ -47,8 +48,7 @@ def render(tmp_path, use_arti=True, **arti):
     module_def, mgr = build_os_config(use_arti=use_arti, arti=arti)
     tpl = tmp_path / "tpl" / "Os"
     tpl.mkdir(parents=True)
-    for name in FILES:
-        shutil.copy(TPL / name, tpl / name)
+    copy_templates(tpl, *FILES)
     shutil.copy(APP_COMMON, tpl / APP_COMMON.name)
     assert CodeGenerator(module_def, mgr.configuration, project_template_dir=tmp_path / "tpl").generate_all(
         tmp_path / "out")

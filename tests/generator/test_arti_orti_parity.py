@@ -1,4 +1,4 @@
-"""ORTI parity of templates/Os/Os_Arti.arxml (openspec change add-arti-orti-parity).
+"""ORTI parity of the Os plugin template Os/Os_Arti.arxml (see os_templates.py) (openspec change add-arti-orti-parity).
 
 Renders the reference ORTI (doc/ARTI/Os_Trace.orti: the plugin's Os_Trace_Core0.ORTI with its
 KOIL syntax defects fixed, same content) and the ARTI template from the same Os configuration,
@@ -24,12 +24,14 @@ import pytest
 from autosar_configurator.generator.generator import CodeGenerator
 
 from .os_arti_fixture import build_os_config
+from .os_templates import LAYOUT, ROOT as TEMPLATE_ROOT, requires_templates
 
 etree = pytest.importorskip("lxml.etree")
 
 ROOT = Path(__file__).resolve().parents[2]
 ORTI_TEMPLATE = ROOT / "doc" / "ARTI" / "Os_Trace.orti"   # frozen reference, not generated any more
-ARTI_TEMPLATE = ROOT / "templates" / "Os" / "Os_Arti.arxml"
+pytestmark = requires_templates
+ARTI_TEMPLATE = TEMPLATE_ROOT / LAYOUT["Os_Arti.arxml"] if TEMPLATE_ROOT else None
 APP_COMMON = ROOT / "doc" / "ARTI" / "Os_AppCommon.m"   # real Os plugin macros, shared by ORTI and ARTI
 NS = {"a": "http://autosar.org/schema/r4.0"}
 

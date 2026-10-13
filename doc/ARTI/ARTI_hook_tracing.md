@@ -13,7 +13,7 @@
 | `Os_Arti.h`、`Arti.h` | **trace 工具提供** | hook 的真实实现（SWS ARTI §7.2） |
 | 内核源码 | `tr002_THA6_OS_Project/Os` | 插桩点，见 design D5 |
 
-模板放在插件的 `generate_PB/` 下：`Os_ArtiEvents.m` 与 `Os_AppCommon.m` 同级，`Os/Os_Arti.arxml` 在 `Os/` 下，其余四个文件在 `Os/kernel/` 下。仓库 `templates/Os/` 下的是源版本。
+模板放在插件的 `generate_PB/` 下：`Os_ArtiEvents.m` 与 `Os_AppCommon.m` 同级，`Os/Os_Arti.arxml` 在 `Os/` 下，其余四个文件在 `Os/kernel/` 下；工程模板目录（如 t1 的 `templates/Os/`）布局相同。本仓库不保存模板：以插件为准，修改后同步到工程。仓库测试默认读插件目录，可用环境变量 `OS_TEMPLATE_DIR` 指向其它同布局目录，找不到时相关测试跳过（`tests/generator/os_templates.py`）。
 
 ## 2. 配置参数（`OsOS` 容器，本 OS 私有）
 
