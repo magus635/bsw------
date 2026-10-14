@@ -24,6 +24,14 @@ class ArxmlParser:
         'xsi': 'http://www.w3.org/2001/XMLSchema-instance'
     }
 
+    # Parameter definitions whose values are text: "true"/"false" in them is not converted to a bool
+    _STRING_PARAM_DESTS = frozenset({
+        'ECUC-STRING-PARAM-DEF',
+        'ECUC-MULTILINE-STRING-PARAM-DEF',
+        'ECUC-FUNCTION-NAME-DEF',
+        'ECUC-LINKER-SYMBOL-DEF',
+    })
+
     def __init__(self, schema_path: Optional[Path] = None):
         """Initialize parser
 
@@ -519,7 +527,10 @@ class ArxmlParser:
         # Or just try smart conversion based on content?
         # The element tag tells us if it's numerical or textual.
         # Try smart conversion for all parameter values (handle true/false strings)
-        if value is not None and isinstance(value, str):
+        # String-typed parameters keep their text: "TRUE" in an ArtiConstantString is a C constant, not a boolean
+        # (and writing it back as "true" would change it).
+        if (value is not None and isinstance(value, str)
+                and dest_type not in self._STRING_PARAM_DESTS):
             val_lower = value.strip().lower()
             if val_lower == 'true':
                 value = True

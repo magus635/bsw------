@@ -92,4 +92,30 @@ python -m tools.arti.check_event_stream --mock <生成目录>/Os/kernel/Os_Arti_
 ## 6. 发现的其它问题
 
 - **内核 ProtectionHook（已修，2026-10-13）**：`OsHook_CallProtectionHook` 原先丢弃 `OsHook_Internel_VerifyProtectionReaction()` 的返回值，按校验前的值处置；没有配置 ProtectionHook 时，局部的 `PRO_SHUTDOWN`（SWS_Os_00107）也没有被用上。现在按校验后的处置执行，并写回 `Os_HookDynPtr->ProtectionReaction`。同一函数里"可信函数中发生内存/异常保护错误则关机"的判断，原先拿处置值（`PRO_*`）和错误码比较，这个分支永远不成立；现改为检查 `FatalError`。修复前编译器把校验调用整个优化掉了（`OsHook_CallProtectionHook` 从 368 字节变为 476 字节），说明这个 bug 确实生效过。
+- **内核 `OsIsr_PostISR` 的错误分支（已修，2026-10-14）**：ISR 结束时若还持有资源、自旋锁或关着中断（SWS_Os_00368/00369），原代码只调用 ErrorHook 就结束，没有结束这个 ISR；ErrorHook 返回后走向取决于 `PostISR` 入口处的 `lr`，只有用户 ISR 是叶子函数时才会碰巧重入 `PostISR` 而正常结束，否则跳进用户 ISR 的中间。另外持有锁的分支在 `OsLock_ClearLockList` 清空链表之后又读 `LockList->LockType`，即读地址 0，ErrorHook 收到的错误码是随机的。现改为：先按链表头的类型确定错误码，再清理、调用 ErrorHook，之后重新关中断并走正常的 ISR 结束流程（EOI、`Stop`、调度或切回被打断的 ISR）。验证：把新旧两个版本编译成 ARM 代码，在 Unicorn 里配合桩函数运行 5 种场景、2 种 `lr` 状态；旧版本持有锁的场景读空指针出错、中断被关的场景在 `lr` 残留时跳到错误地址，新版本 10 个组合都正常结束，错误码分别为 6（资源）、19（自旋锁）、12（中断被关），EOI 时中断级别都是 20。
 - **`Os_memmap.h` 不完整**：原因不在配置工具的渲染。t1 的 Os 配置里没有 `MemoryBlock`、`MemorySection`、`OsMemoryMap`（EB 工程里分别是 1 个块列表、118 个段、94 个映射），模板循环为空，却仍然输出末尾的 `#endif`，生成的 C 代码因此不合法。插件模板已改为只在有映射时才输出 `#endif`，没有映射时由 `MEMMAP_ERROR` 报出明确的错误。2026-10-13 已从 EB 集成测试工程（`03_test/.../tr002_THA6_OS_Project/Os_Configuration/config/Os.xdm`）向 t1 导入 8 个 MemoryRegion、118 个 MemorySection、25 个 MemoryBlock、94 个 OsMemoryMap，t1 原有的 89 个容器内容不变。导入后 t1 生成的 `Os_memmap.h` 与内核工程里 EB 生成的版本逐行一致，内核用 t1 自己的生成代码可以编译通过。
+
+## 7. 把生成的 `Os_Arti.arxml` 导入 GUI 查看
+
+模板生成的 `Os_Arti.arxml` 是 `/AUTOSAR/EcucDefs/Arti` 的 ECUC value 文件，可以导入配置工具查看。
+
+- **方法一（只看，不动工程文件）**：打开工程，在左侧树选中 **Arti 模块**（工程里要已有 Arti 的定义 `definitions/Arti/Arti_ParamDef.arxml`），菜单 `File → Import → Import Value File...` 选 `Os_Arti.arxml`，确认"替换当前配置"。导入只改内存；不要保存工程，磁盘文件就不会变。
+- **方法二**：把生成文件复制或改名为工程的 `ConfigValue\Arti_Config.arxml`，再打开工程。注意这会替换同名的手工配置。
+- 同一个模块只有一份配置，导入是整体替换，不是合并。
+- 实测（t1，无界面渲染）：1075 个容器、866 个参数、940 条引用全部载入，引用全部解析，树和面板无异常；已设引用在下拉框中的选中数见下。
+- 2026-10-14 修复了两个显示和保存的问题：引用下拉框原先因为 `/Os/Os/...` 与 `/Os/...` 写法不同而全部显示"(Not set)"（现在 Arti 919 条引用中 917 条、Os 183 条中 175 条能选中）；STRING 参数的 `TRUE` 原先保存后变成 `true`（现保持原样）。
+- 2026-10-14 起，t1 里全部已设引用的下拉框都能选中（Arti 919、Os 183、EcuC 2、Can 2）。之前 12 条没有候选项，有三个原因，已分别处理：解析器只读 `<a:da name="REF" value=…>` 单值写法，读不到 `<a:v>` 多值写法（Os 的 AppMode 引用）；解析器写死了属性命名空间版本 16，读不到 `EcuC.xdm` 用的版本 10；t1 手写的 `EcuC.xdm` 把核容器叫 `EcucCore`，而 `Os.xdm`、Arti 定义和 Os 模板里的路径都是标准的 `EcucCoreDefinition`，现已在 t1 里改成标准名（实例 `EcucCoreDefinition_0`、`_1`，与 EB 项目一致）。保存工程仍会丢掉文件头的注释（A1 到 A5 假设说明）。
+
+## 8. 类型映射表里的名称字符串
+
+trace 工具把数字 ID 显示成名称，用的是 `ArtiParameterTypeMapPair` 的 `ArtiParameterTypeMapPairOutput`（字符串）。2026-10-14 起，凡是带 `ArtiParameterTypeMapPairOutputRef`（指向实例的引用）的 Pair，模板都同时生成这个字符串，值是该对象的原名，写法与 EXP ARTI Listing 6.1 一致（字符串和引用并存）：
+
+| 映射表 | 字符串 |
+| :--- | :--- |
+| `TM_TaskId`、`TM_Isr2Id` | 任务名、Cat2 ISR 名 |
+| `TM_TaskState` | `RUNNING`、`READY`、`WAITING`、`SUSPENDED` |
+| `TM_AppMode` | AppMode 名 |
+| `TM_TaskStack`、`TM_TaskContext` | 所属任务名（不是 `<任务>_stack` 容器名） |
+| 调度表状态、自旋锁状态 | 状态名 |
+
+其余映射表原来就有字符串。测试：`test_os_arti_template.py` 里的三个 `name_string` 用例，以及 `test_arti_orti_parity.py::test_task_id_emits_task_name_string`。

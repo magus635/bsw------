@@ -403,3 +403,45 @@ def test_owner_type_map_is_left_out_when_the_os_macros_are_missing(tmp_path):
     owner_params = [c for c in _containers(root, "ArtiGenericComponentClassParameter")
                     if _param(c, "ArtiGenericComponentClassParameterName") in ("RESOURCE_OWNER", "SPINLOCK_OWNER")]
     assert owner_params and all(_ref(c, "ArtiGenericComponentClassParameterTypeMapRef") is None for c in owner_params)
+
+
+# --------------------------------------------------------------------------- name strings next to the references
+
+def test_every_pair_with_an_output_reference_also_has_the_name_string(rendered):
+    """A trace tool maps an ID to a name through ArtiParameterTypeMapPairOutput; the reference alone is not enough
+    (EXP ARTI Listing 6.1 writes both). The string is the name of the object the pair stands for."""
+    _, root, _ = rendered
+    checked = 0
+    for tm in _containers(root, "ArtiParameterTypeMap"):
+        for name, (_, out, out_ref, _) in _pairs(root, _sn(tm)).items():
+            if out_ref is not None:
+                assert out == name, f"{_sn(tm)}/{name}: Output string {out!r}, reference {out_ref}"
+                checked += 1
+    # 3 tasks + 2 Cat2 ISRs + 4 task states + 2 AppModes + 3 stacks + 3 contexts + 5 schedule table states + 2 spinlock states
+    assert checked == 24
+
+
+def test_name_strings_of_the_id_and_state_maps(rendered):
+    _, root, _ = rendered
+    expect = {
+        "TM_TaskId": {t[0]: t[0] for t in TASKS},
+        "TM_Isr2Id": {i[0]: i[0] for i in ISRS if i[1] == "CATEGORY_2"},
+        "TM_TaskState": {s: s for s in ("RUNNING", "READY", "WAITING", "SUSPENDED")},
+        "TM_AppMode": {"OSDEFAULTAPPMODE": "OSDEFAULTAPPMODE", "OSALLRUNNINGMODE": "OSALLRUNNINGMODE"},
+        "TM_TaskStack": {t[0]: t[0] for t in TASKS},        # the owner task, not the <task>_stack container
+        "TM_TaskContext": {t[0]: t[0] for t in TASKS},
+        "TM_ScheduleTableState": {s: s for s in ("STOPPED", "NEXT", "WAITING", "RUNNING", "RUNNING_AND_SYNCHRONOUS")},
+        "TM_SpinlockState": {"UNLOCKED": "UNLOCKED", "LOCKED": "LOCKED"},
+    }
+    for tm, names in expect.items():
+        got = {k: v[1] for k, v in _pairs(root, tm).items() if v[2] is not None}   # pairs that have a reference
+        assert got == names, tm
+
+
+def test_references_next_to_the_name_strings_are_kept(rendered):
+    _, root, _ = rendered
+    pairs = _pairs(root, "TM_TaskId")
+    assert pairs["Task_A"][1:3] == ("Task_A", "/Arti/Arti/ArtiOs/Task_A")
+    assert _pairs(root, "TM_TaskState")["RUNNING"][1:3] == (
+        "RUNNING", "/Arti/Arti/ArtiValues/ArtiStates/S_TaskRunning")
+    assert _pairs(root, "TM_AppMode")["OSDEFAULTAPPMODE"][2] == "/Os/Os/OSDEFAULTAPPMODE"

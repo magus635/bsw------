@@ -1686,6 +1686,16 @@ class DaVinciConfigPanel(QWidget):
                         index = i
                         break
             
+            # EB-style reference "/<package>/<module>/<rest>" (e.g. /Os/Os/Task_A, /Arti/Arti/ArtiValues/X)
+            # versus this tool's container path "/<module>/<rest>": drop the package segment and look again.
+            # Only done when the second segment names a loaded module, so a tool-style path that merely points
+            # at a missing target cannot be mistaken for a different container.
+            if index < 0:
+                parts = current_value.split("/")          # ['', package, module, rest...]
+                modules = getattr(getattr(self, 'project', None), 'module_managers', None)
+                if len(parts) >= 4 and (modules is None or parts[2] in modules):
+                    index = combo.findData("/" + "/".join(parts[2:]))
+
             if index >= 0:
                 combo.setCurrentIndex(index)
             # If still not found, keep at "Not set" (index 0)

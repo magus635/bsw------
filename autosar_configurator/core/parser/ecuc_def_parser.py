@@ -34,10 +34,20 @@ class EcucDefParser:
         'a': 'http://www.tresos.de/_projects/DataModel2/16/attribute.xsd'
     }
     
+    # EB tresos writes the attribute namespace with the DataModel version of the plugin that produced the file
+    # (…/DataModel2/10/attribute.xsd, …/16/attribute.xsd, …): the class default is only a fallback
+    _ATTRIBUTE_NS = re.compile(r'^http://www\.tresos\.de/_projects/DataModel2/\d+/attribute\.xsd$')
+
     def __init__(self, constraints=None):
         """Initialize parser with optional chip constraints for resolving XDM expressions."""
         from .xdm_expression_resolver import XdmExpressionResolver
         self._resolver = XdmExpressionResolver(constraints or {})
+        self.NAMESPACES = dict(type(self).NAMESPACES)     # per instance: the 'a' entry follows the parsed file
+
+    def _use_attribute_namespace(self, root: etree._Element) -> None:
+        """Make the 'a' prefix point to the attribute.xsd version the file declares"""
+        declared = [uri for uri in root.nsmap.values() if uri and self._ATTRIBUTE_NS.match(uri)]
+        self.NAMESPACES['a'] = declared[0] if declared else type(self).NAMESPACES['a']
     
     def parse_module_def_file(self, file_path: Path) -> Optional[EcucModuleDef]:
         """Parse ECUC-MODULE-DEF from ARXML file
@@ -55,6 +65,7 @@ class EcucDefParser:
             _parser = etree.XMLParser(resolve_entities=False, no_network=True)
             tree = etree.parse(str(file_path), _parser)
             root = tree.getroot()
+            self._use_attribute_namespace(root)
             
             # Find ECUC-MODULE-DEF element using permissive search
             module_def_elem = self._find_descendant(root, 'ECUC-MODULE-DEF')
@@ -560,6 +571,22 @@ class EcucDefParser:
                 ref_def.destination_ref = raw_ref
                 ref_def.destination_type = 'ECUC-PARAM-CONF-CONTAINER-DEF'
 
+        # XDM: several allowed destinations, <a:da name="REF"><a:v>ASPathDataOfSchema:/…</a:v>…</a:da>
+        # (e.g. OsTaskAutostartAppModeRef: OsAppMode, OSDEFAULTAPPMODE, OSALLRUNNINGMODE)
+        if not ref_def.destination_ref:
+            ns_a = self.NAMESPACES['a']
+            destinations = []
+            for raw_ref in element.xpath("a:da[@name='REF']/a:v/text()", namespaces={'a': ns_a}):
+                raw_ref = raw_ref.strip()
+                # only container paths: other prefixes (ASTyped:…) name no container
+                if raw_ref.startswith('ASPathDataOfSchema:'):
+                    destinations.append(raw_ref[len('ASPathDataOfSchema:'):])
+            if destinations:
+                ref_def.destination_ref = destinations[0]
+                ref_def.destination_type = 'ECUC-PARAM-CONF-CONTAINER-DEF'
+                if len(destinations) > 1:
+                    ref_def.choice_destination_refs = destinations
+
         # XDM: extract a:a attributes for multiplicity, scope, origin
         self._parse_xdm_attributes(element, ref_def)
 
@@ -848,7 +875,7 @@ class EcucDefParser:
     def _get_description(self, element: etree._Element) -> str:
         """Extract DESC/L-2 from element (ARXML) or a:a/DESC attribute (XDM)"""
         # 1. Try XDM format: <a:a name="DESC" value="..." />
-        desc_attr = element.xpath("./a:a[@name='DESC']/@value", namespaces={'a': 'http://www.tresos.de/_projects/DataModel2/16/attribute.xsd'})
+        desc_attr = element.xpath("./a:a[@name='DESC']/@value", namespaces={'a': self.NAMESPACES['a']})
         if desc_attr:
             return desc_attr[0]
             
