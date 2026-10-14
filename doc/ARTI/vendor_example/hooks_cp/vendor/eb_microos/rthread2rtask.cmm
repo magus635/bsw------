@@ -1,0 +1,89 @@
+; --------------------------------------------------------------------------------
+; @Title: Convert ORTI "RUNNINGTHREAD" to "RUNNINGTASK"
+; @Description:
+;   This script converts an ORTI file containing "RUNNINGTHREAD" to an ORTI file
+;   containing "RUNNINGTASK", which is suitable to be used with ARTI
+;
+; @Keywords: AUTOSAR ARTI ORTI
+; @Author: DIE
+; @Copyright: (C) 1989-2023 Lauterbach GmbH, licensed for use with TRACE32(R) only
+; @Props: NoWelcome, NoIndex
+; --------------------------------------------------------------------------------
+; $Id: rthread2rtask.cmm 21062 2023-06-27 08:12:03Z rdienstbeck $
+
+
+PMACRO.EXPLICIT
+LOCAL &filesrc &filedst &filetmp &linesrc &linedst
+LOCAL &key &enumstarted &taskstarted
+LOCAL &taskid
+
+&filesrc="~~~~/os.orti"
+&filedst="~~~~/os_task.orti"
+&filetmp="~~~~/os_task.tmp"
+
+&enumstarted=FALSE()
+&taskstarted=FALSE()
+&taskid=1.
+
+OPEN #1 &filesrc /Read
+OPEN #2 &filedst /Write /Create
+
+READ #1 %LINE &linesrc
+WHILE !FILE.EOF(1)
+(
+    WRITE #2 "&linesrc"
+    &key=STRING.SPLIT(STRING.TRIM("&linesrc")," ", 0)
+    IF "&key"=="ENUM"
+    (
+        &enumstarted=TRUE()
+    )
+    ELSE IF (&enumstarted)&&("&key"=="""NO_THREAD""")
+    (
+        &taskstarted=TRUE()
+        OPEN #3 &filetmp /Write /Create
+        WRITE #3 "  ENUM ["
+    )
+    ELSE IF (&taskstarted)&&("&key"=="]")
+    (
+        WRITE #3 "    ""NO_THREAD"" = 0x0"
+        IF STRING.SPLIT(STRING.TRIM("&linesrc")," ", 1)=="vs_RUNNINGTHREAD[],"
+            WRITE #3 "  ] RUNNINGTASK[];"
+        ELSE
+            WRITE #3 "  ] RUNNINGTASK;"
+        CLOSE #3
+        OPEN #3 &filetmp /Read
+        READ #3 %LINE &linesrc
+        WHILE !FILE.EOF(3)
+        (
+            WRITE #2 "&linesrc"
+            READ #3 %LINE &linesrc
+        )
+        &taskstarted=FALSE()
+    )
+    ELSE IF &taskstarted
+    (
+        SPRINTF &linedst "    %s = %d," "&key" &taskid
+        WRITE #3 "&linedst"
+        &taskid=&taskid+1
+    )
+    ELSE IF "&key"=="vs_RUNNINGTHREAD"
+    (
+        WRITE #2 "  RUNNINGTASK = ""t32_runningtask[0]"";"
+    )
+    ELSE IF STRING.CUT("&key",-2)=="vs_RUNNINGTHREAD["
+    (
+        LOCAL &core
+        &core=STRING.MID("&key,",17.,1.)
+        SPRINTF &linedst "  RUNNINGTASK[%d] = ""t32_runningtask[%d]"";" &core &core
+        WRITE #2 "&linedst"
+    )
+    ELSE
+    (
+    )
+    READ #1 %LINE &linesrc
+)
+
+CLOSE #1
+CLOSE #2
+
+ENDDO

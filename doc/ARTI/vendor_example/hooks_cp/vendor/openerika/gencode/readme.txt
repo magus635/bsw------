@@ -1,0 +1,1 @@
+After generating the OS, copy the contents of this folder into out/Arti/gencode, overwriting the existing files.

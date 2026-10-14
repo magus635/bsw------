@@ -158,3 +158,15 @@ trace 工具把数字 ID 显示成名称，用的是 `ArtiParameterTypeMapPair` 
 | 调度表状态、自旋锁状态 | 状态名 |
 
 其余映射表原来就有字符串。测试：`test_os_arti_template.py` 里的三个 `name_string` 用例，以及 `test_arti_orti_parity.py::test_task_id_emits_task_name_string`。
+
+## 9. 接入 trace 厂商提供的文件
+
+厂商提供 `Arti.h`、`Os_Arti.h`、`Arti.c`（要求和示例见 `ARTI_vendor_requirements.md` 与 `vendor_example/`）。拿到后：
+
+1. **放进工程**：三个文件放在应用或 BSW 目录，不放进内核目录。存放 `Arti.h` 和 `Os_Arti.h` 的目录加入头文件路径，`Arti.c` 加入编译。内核要能找到 `Std_Types.h`。
+2. **去掉 Mock**：不要定义 `OS_ARTI_USE_MOCK`。`Os_Arti_Mock.h/.c` 可以留着，也可以从编译里剔除。
+3. **配置并重新生成**：`OsUseArti` 打开，按厂商工具支持的类选 `OsVendorArtiStateModel`（只支持基础类选 `STANDARD`，否则 `ENHANCED`），打开需要的 `OsVendorArtiTrace*`；重新生成 Os 代码。把生成的 `Os_Arti.arxml` 交给厂商的工具或调试器；厂商的 `Os_Arti.h` 应由它生成，或与它核对。
+4. **编译与缺宏**：厂商的 `Os_Arti.h` 缺某个事件的宏时，编译只给出"隐式声明"警告，链接时报 `undefined reference to ARTI_TRACE_<类>_<事件>`。对照 `Os_Arti.arxml` 的 `ArtiHook` 描述补齐。
+5. **调用 `Arti_Init`**：内核不调用它，由集成者在 `StartOS` 之前调用，每个被 trace 的核都要初始化，具体按厂商的要求。
+6. **先验证再上板**：先用 Mock 把内核编过、事件流检查通过，再换厂商文件。之后出问题，基本可以判断是厂商文件与描述不一致。`tools/arti/check_event_stream.py` 读 Mock 的日志格式，厂商工具输出的数据需要先转换成该格式；这一步没有验证过。上板用例见第 5 节。
+7. **注意**：打开 trace 后关中断的路径变长，时间保护的预算要重新标定；`NOSUSP` 事件在关中断下发出，厂商的宏必须很短、不调用 OS 服务；厂商的实现必须可重入，高优先级的 Cat1 ISR 仍可能打断 hook。

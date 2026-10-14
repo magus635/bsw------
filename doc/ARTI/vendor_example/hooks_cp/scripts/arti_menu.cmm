@@ -1,0 +1,310 @@
+; --------------------------------------------------------------------------------
+; @Title: Menu for ARTI timing analysis
+; @Description:
+;   This script adds a menu to perform a timing analyis with ARTI hooks
+;   based on AUTOSAR or ASAM specification
+; @Keywords: AUTOSAR ASAM ARTI
+; @Author: DIE
+; @Copyright: (C) 1989-2021 Lauterbach GmbH, licensed for use with TRACE32(R) only
+; --------------------------------------------------------------------------------
+; $Id: arti_menu.cmm 25314 2025-10-10 09:47:09Z rdienstbeck $
+
+PMACRO.EXPLICIT
+PRIVATE &corenumber &splitcore &joincore &ppd
+
+&corenumber=CORE.NUMBER()
+IF &corenumber>1.
+(
+    &splitcore="/SplitCORE"
+    &joincore="/JoinCORE"
+)
+&ppd=OS.PPD()
+
+MENU.ReProgram
+(&
+    ADD
+    MENU
+    (
+        POPUP "ARTI_Perf"
+        (
+            POPUP "Tasks and ISR2s"
+            (
+                MENUITEM "[:achart]Task State Show as &Timing" "Trace.Chart.TASKState &splitcore"
+                MENUITEM "[:perf]Task State Show &Numerical"   "Trace.STATistic.TASKState ARTI &splitcore"
+                MENUITEM "[:achart]ISR2s Show as &Timing"      "Trace.Chart.ISR &splitcore"
+                MENUITEM "[:perf]ISR2s Show &Numerical"        "Trace.STATistic.ISR &splitcore"
+                MENUITEM "[:achart]Tasks and ISR2s as &Timing" "Trace.Chart.TASKORISRState &splitcore"
+                MENUITEM "[:perf]Task Runtime Distribution..." "GOSUB showTaskRuntimeDistribution"
+            )
+            POPUP "Runnables"
+            (
+                MENUITEM "[:achart]Runnable Show as &Timing"        "Trace.Chart.RUNNABLE &splitcore"
+                MENUITEM "[:perf]Runnable Show &Numerical"          "Trace.STATistic.RUNNABLE &splitcore"
+                MENUITEM "[:perf]Runnable Runtime Distribution..."  "GOSUB showRunnableRuntimeDistribution"
+            )
+            SEPARATOR
+            POPUP "CPU Load"
+            (
+                MENUITEM "Set Idle Task..." "GOSUB setIdleTask"
+                MENUITEM "[:perf]Show Numerical"
+                (
+                    IF !GROUP.EXIST(idle)
+                    (
+                        DIALOG.OK "Please set idle task first!"
+                        ENDDO
+                    )
+                    GROUP.MERGE "idle"
+                    GROUP.MERGE "other"
+                    Trace.STATistic.TASK &splitcore
+                )
+                MENUITEM "[:aprochart]Show Profiling"
+                (
+                    IF !GROUP.EXIST(idle)
+                    (
+                        DIALOG.OK "Please set idle task first!"
+                        ENDDO
+                    )
+                    GROUP.MERGE "idle"
+                    GROUP.MERGE "other"
+                    Trace.PROfileChart.TASK &joincore
+                )
+                MENUITEM "Disable CPU Load View"
+                (
+                    GROUP.SEParate "idle"
+                    GROUP.SEParate "other"
+                )
+                MENUITEM "Enable CPU Load View"
+                (
+                    IF !GROUP.EXIST(idle)
+                    (
+                        DIALOG.OK "Please set idle task first!"
+                        ENDDO
+                    )
+                    GROUP.MERGE "idle"
+                    GROUP.MERGE "other"
+                )
+            )
+            SEPARATOR
+            MENUITEM "[:alist]Show ARTI Trace List"        "Trace.List ARTI DEFault"
+            MENUITEM "Export ARTI Trace as CSV"
+            (
+                PRIVATE &filename
+                WinPOS ,,,,,,,, "ARTI CSV export to..."
+                DIALOG.File.SAVE "*.csv"
+                ENTRY %LINE &filename
+                IF "&filename"!=""
+                    Trace.EXPORT.ARTI "&filename" /ENHanced
+            )
+            MENUITEM "Export ARTI Trace as MDF"
+            (
+                PRIVATE &filename
+                WinPOS ,,,,,,,, "ARTI MDF export to..."
+                DIALOG.File.SAVE "*.mf4"
+                ENTRY %LINE &filename
+                IF "&filename"!=""
+                    Trace.EXPORT.MDF "&filename" /ENHanced
+            )
+        )
+    )
+
+    SUBROUTINE showTaskRuntimeDistribution
+    (
+        PRIVATE &taskname &tasklist &firsttask &timepars &par
+
+        &timepars="IPT (Initial Pending Time)"
+        &timepars="&timepars"+",CET (Core Execution Time)"
+        &timepars="&timepars"+",GET (Gross Execution Time)"
+        &timepars="&timepars"+",RT (Response Time)"
+        &timepars="&timepars"+",DT (Delta Time)"
+        &timepars="&timepars"+",PER (Period)"
+        &timepars="&timepars"+",ST (Slack Time)"
+        &timepars="&timepars"+",NST (Net Slack Time)"
+        &timepars="&timepars"+",PRE (Preemption Time)"
+
+        DIALOG
+        (&
+            HEADER "Select Task and Parameter"
+            POS 0. 0. 24. 3.
+            BOX "Name of task"
+            POS 1. 1. 22. 1.
+            task: DYNPULLDOWN "" ""
+            POS 0. 3. 24. 3.
+            BOX "Parameter"
+            POS 1. 4. 22. 1.
+            par: PULLDOWN "&timepars" ""
+            POS 3. 6. 7. 1.
+            DEFBUTTON "OK"
+            (
+                CONTinue
+            )
+            POS 14. 6. 7. 1.
+            BUTTON "Cancel"
+            (
+                DIALOG.SET task ""
+                CONTinue
+            )
+        )
+
+        GOSUB getTaskList
+        RETURNVALUES &firsttask &tasklist
+        DIALOG.Set task "&firsttask" "&tasklist"
+        DIALOG.Set par "CET (core execution time)"
+        STOP
+
+        &taskname=dialog.string(task)
+        &par=dialog.string(par)
+        DIALOG.END
+        IF "&taskname"!=""
+        (
+            &par=STRing.SPLIT("&par"," ",0)
+            Trace.STATistic.TaskStateDURation "&taskname" &par /FLAT
+        )
+    )
+
+    SUBROUTINE showRunnableRuntimeDistribution
+    (
+        PRIVATE &line &i
+        PRIVATE &max &runnablelist &runnablefunction
+        LOCAL   &runnablename
+
+        &max=100.
+        Var.NEWLOCAL char[&max][256] \RunnableFunctions
+        Var.NEWLOCAL char[&max][256] \RunnableNames
+
+        GOSUB getRunnables "\RunnableFunctions" "\RunnableNames" "&max"
+        RETURNVALUES &runnablelist
+
+        DIALOG
+        (
+            header "Select Runnable"
+            pos 0. 0. 28. 3.
+            box "Name of Runnable"
+            pos 1. 1. 26. 1.
+            runnable:       dynpulldown "" ""
+            pos 3. 3. 7. 1.
+            defbutton "OK"
+            (
+                &runnablename=dialog.string(runnable)
+                CONTinue
+            )
+            pos 12. 3. 7. 1.
+            button "Cancel"
+            (
+                DIALOG.END
+                ENDDO ""
+            )
+        )
+        &runnablename=Var.STRing(\RunnableNames[0])
+        DIALOG.Set runnable "&runnablename" "&runnablelist"
+        STOP
+
+        DIALOG.END
+        &i=0
+        WHILE (&i<&max)&&(Var.STRing(\RunnableNames[&i])!="&runnablename")
+          &i=&i+1.
+        &runnablefunction=Var.STRing(\RunnableFunctions[&i])
+
+        Trace.STATistic.RUNNABLEDURation &runnablefunction
+    )
+
+    SUBROUTINE getTaskList
+    (
+        PRIVATE &task &taskname &firsttask &tasklist
+        &task=task.first()
+        &taskname=task.name(&task)
+        IF "&taskname"!="(other)"
+            &firsttask="&taskname"
+        WHILE "&taskname"!="(other)"
+        (
+            &tasklist="&tasklist"+"&taskname"
+            &task=task.next(&task)
+            &taskname=task.name(&task)
+            IF "&taskname"!="(other)"
+                &tasklist="&tasklist"+","
+        )
+        RETURN "&firsttask" "&tasklist"
+    )
+
+    SUBROUTINE getRunnables
+    (
+        PARAMETERS &arrayfuncs &arraynames &max
+        PRIVATE &line &i &runnablelist
+
+        PRinTer.FILE ~~~/runnables.tmp CSV
+        WinTABS 256. 8. 256. 8. 8. 8. 8.
+        SILENT.WinPrint.TASK.List.RUNNABLES
+        OPEN #1 ~~~/runnables.tmp
+
+        &i=0
+        READ #1 %LINE &line    // command
+        IF !FILE.EOF(1)
+          READ #1 %LINE &line  // header
+        IF !FILE.EOF(1)
+          READ #1 %LINE &line  // first entry
+        WHILE !FILE.EOF(1.)&&(&i<&max)&&("&line"!="")
+        (
+          PRIVATE &function &name
+          &function=STRING.SPLIT("&line",",",1.)
+          &name=STRING.SPLIT("&line",",",3.)
+          // Bug in WinPrint: if name starts with a digit, no quotes are set
+          IF STRing.CHAR("&name",0)!='"'
+            &name="""&name"""
+          SILENT.Var.set &arrayfuncs[&i] = &function
+          SILENT.Var.set &arraynames[&i] = &name
+          IF "&runnablelist"!=""
+            &runnablelist="&runnablelist"+","
+          &runnablelist="&runnablelist"+&name
+          &i=&i+1
+          READ #1 %LINE &line
+        )
+        CLOSE #1
+        RETURN "&runnablelist"
+    )
+
+    SUBROUTINE setIdleTask
+    (
+        dialog
+        (
+            header "Set Idle Task"
+            pos 0. 0. 24. 7.
+            box "Name of Idle Task"
+            pos 1. 1. 22. 5.
+idletask:   mlistbox "NO_THREAD" ""
+            pos 3. 7. 7. 1.
+            defbutton "OK"
+            (
+                LOCAL &idletask
+                &idletask=dialog.string(idletask)
+                &idletask=""""+STRing.Replace("&idletask",",",""" """,0)+""""
+                PRINT "&idletask"
+                GROUP.Delete "idle"
+                GROUP.CreateTASK "idle" &idletask
+                GROUP.COLOR "idle"  NONE
+                GROUP.COLOR "other" RED
+                GROUP.List
+                dialog.end
+            )
+            pos 14. 7. 7. 1.
+            button "Cancel" "dialog.end"
+        )
+        LOCAL &task &taskname &tasklist &idletask
+        &task=task.first()
+        &taskname=task.name(&task)
+        IF "&taskname"!="(other)"
+            &idletask="&taskname"
+        WHILE "&taskname"!="(other)"
+        (
+            &tasklist="&tasklist"+"&taskname"
+            IF ("&taskname"=="NO_TASK")||("&taskname"=="INVALID_TASK")||("&taskname"=="NO_THREAD")
+                &idletask="&taskname"
+            &task=task.next(&task)
+            &taskname=task.name(&task)
+            IF "&taskname"!="(other)"
+                &tasklist="&tasklist"+","
+        )
+        DIALOG.Set idletask "&idletask" "&tasklist"
+    )
+)
+
+
+ENDDO

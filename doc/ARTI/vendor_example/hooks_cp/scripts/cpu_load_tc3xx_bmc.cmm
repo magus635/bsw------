@@ -1,0 +1,48 @@
+; --------------------------------------------------------------------------------
+; @Title: Calculate CPU load with BMC
+; @Description:
+;   This script calculates the CPU load by counting instructions(!)
+;   with BMC on AURIX Gen2 (TC3xx). Note that this does not directly
+;   correlate to time measurement!
+;
+; @Keywords: AUTOSAR ARTI
+; @Author: DIE
+; @Copyright: (C) 1989-2023 Lauterbach GmbH, licensed for use with TRACE32(R) only
+; @Props: NoWelcome, NoIndex
+; --------------------------------------------------------------------------------
+; $Id: cpu_load_tc3xx_bmc.cmm 21062 2023-06-27 08:12:03Z rdienstbeck $
+
+
+; NOTE: BMC Event TC_NINST is only available with *full* MCDS implementation
+; (MCDSlight or miniMCDS is not sufficient)
+
+PRIVATE &core &idlethread
+
+; specify core on which to calculate CPU load
+&core="0"
+
+; specify the name of the idle thread
+&idlethread="NO_THREAD"
+
+Break.RESet
+BMC.RESet
+MCDS.RESet
+
+Break.Set task.config(magic:&core) /Write /Alpha /Data.Long task.magic("&idlethread")
+Break.Set task.config(magic:&core) /Write /Beta  /Data.Long !task.magic("&idlethread")
+
+BMC.PMNAgents Core&core
+BMC.ICNT.EVENT ON
+BMC.PMN0.EVENT TC_NINST
+BMC.PMN0.SIZE 32BIT
+BMC.PMN0.ATOB ON
+BMC.PMN0.RATIO X/ICNT
+
+BMC.Init
+BMC.AutoInit ON
+
+Go
+WAIT 1.s
+Break
+
+PRINTF "CPU Load by instructions on core &core: %3.2f%%" (CONV.INTTOFLOAT(bmc.counter.byname.core("PMN0",&core))/bmc.counter.byname.core("ICNT",&core))*100.

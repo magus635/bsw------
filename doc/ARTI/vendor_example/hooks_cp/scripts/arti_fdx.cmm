@@ -1,0 +1,78 @@
+; --------------------------------------------------------------------------------
+; @Title: Tracing ARTI Hooks via TRACE32 FDX
+; @Description:
+;   This script sets up the FDX feature of TRACE to trace the events generated
+;   by the TRACE32 specific instrumentation of ARTI trace. In particular,
+;   tracing of the variables arti_rte_trace and arti_os_trace is set.
+;
+; @Keywords: AUTOSAR ASAM ARTI
+; @Author: DIE
+; @Copyright: (C) 1989-2023 Lauterbach GmbH, licensed for use with TRACE32(R) only
+; @Props: NoWelcome, NoIndex
+; --------------------------------------------------------------------------------
+; $Id: arti_fdx.cmm 21062 2023-06-27 08:12:03Z rdienstbeck $
+
+
+; *** IMPORTANT: Please read the readme.txt file in the ARTI/Source/arti_t32_fdx directory
+
+
+LOCAL &timerfrequency
+
+; Specify the frequency of the timer used in arti_t32_fdx.h:ARTI_TIMERGET().
+; Specify the frequency as decimal value followed by a dot.
+; E.g. for 18MHz: &timerfrequency=18000000.
+
+;&timerfrequency=<DecimalValueOfTimerFrequency>.
+
+
+IF !Var.EXIST(arti_os_trace)
+(
+    PRINT %ERROR "Variable arti_os_trace does not exist!"
+    ENDDO
+)
+
+IF !Var.EXIST(FdxTraceSendBuffer)
+(
+    PRINT %ERROR "FDX target structure does not exist!"
+    ENDDO
+)
+
+IF "&timerfrequency"==""
+(
+    LOCAL &ppf
+    &ppf=OS.PresentPracticeFile()
+    PRINT %ERROR "Timer frequency not set! Set "+"&"+"timerfrequency in &ppf!"
+    ENDDO
+)
+
+IF Var.Value(fdxIsInitialized)==0
+(
+    ; FDX not yet initialized on target, wait for initialization
+    Go sYmbol.EXIT(Arti_Init)
+    WAIT !RUN()
+)
+
+; Set up FDX in TRACE32
+
+FDX.RESet
+
+; Set FDX Method:
+; If memory is accessible while CPU runs, use:
+    FDX.METHOD BUFFERE
+; If memory is only accessible while CPU is stopped, use:
+    ;FDX.METHOD BUFFERC T32_Fdx_Waiting
+    ;Break.Set T32_Fdx_Waiting
+
+FDX.SIZE 100000.                    ; FDX buffer size on host
+FDX.TraceChannel FdxTraceSendBuffer
+FDX.Mode Compress ON
+FDX.TimeStamp Rate &timerfrequency
+FDX.TimeStamp Up
+FDX.OFF
+Trace.METHOD FDX
+
+; After tracing, ensure that the trace did not stall on target side:
+;   PRINT FDX.TargetSTALLS()
+; If TRUE, the trace is most probably unusable due to time delays during the stalls.
+
+ENDDO

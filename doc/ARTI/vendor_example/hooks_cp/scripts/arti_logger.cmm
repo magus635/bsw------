@@ -1,0 +1,59 @@
+; --------------------------------------------------------------------------------
+; @Title: Tracing ARTI Hooks via TRACE32 LOGGER
+; @Description:
+;   This script sets up the LOGGER feature of TRACE to trace the events generated
+;   by the TRACE32 specific instrumentation of ARTI trace. In particular,
+;   tracing of the variables arti_rte_trace and arti_os_trace is set.
+;
+; @Keywords: AUTOSAR ASAM ARTI
+; @Author: DIE
+; @Copyright: (C) 1989-2023 Lauterbach GmbH, licensed for use with TRACE32(R) only
+; @Props: NoWelcome, NoIndex
+; --------------------------------------------------------------------------------
+; $Id: arti_logger.cmm 21062 2023-06-27 08:12:03Z rdienstbeck $
+
+
+; *** IMPORTANT: Please read the readme.txt file in the ARTI/Source/arti_t32_logger directory
+
+
+LOCAL &timerfrequency
+
+; Specify the frequency of the timer used in arti_t32_logger.h:ARTI_TIMERGET().
+; Specify the frequency as decimal value followed by a dot.
+; E.g. for 18MHz: &timerfrequency=18000000.
+
+;&timerfrequency=<DecimalValueOfTimerFrequency>.
+
+
+IF !Var.EXIST(arti_os_trace)
+(
+    PRINT %ERROR "Variable arti_os_trace does not exist!"
+    ENDDO
+)
+
+IF !Var.EXIST(T32_LoggerStruct)
+(
+    PRINT %ERROR "Logger structure does not exist!"
+    ENDDO
+)
+
+IF "&timerfrequency"==""
+(
+    LOCAL &ppf
+    &ppf=OS.PresentPracticeFile()
+    PRINT %ERROR "Timer frequency not set! Set &&timerfrequency in &ppf!"
+    ENDDO
+)
+
+; Set up LOGGER in TRACE32
+
+LOGGER.RESet
+LOGGER.ADDRESS ADDRESS.OFFSET(T32_LoggerStruct)
+LOGGER.TimeStamp Up
+LOGGER.TimeStamp Rate &timerfrequency
+LOGGER.OFF
+Trace.METHOD LOGGER
+
+LOGGER.ARM
+
+ENDDO

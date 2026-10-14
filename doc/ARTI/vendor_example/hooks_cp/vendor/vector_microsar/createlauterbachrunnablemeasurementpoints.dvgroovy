@@ -1,0 +1,99 @@
+/**********************************************************************************************************************
+ *  AUTHOR IDENTITY
+ *  -------------------------------------------------------------------------------------------------------------------
+ *  Name                          Initials      Company
+ *  -------------------------------------------------------------------------------------------------------------------
+ *  Sebastian Ziegler             virszi        Vector Informatik GmbH
+ *  -------------------------------------------------------------------------------------------------------------------
+ *  REVISION HISTORY
+ *  -------------------------------------------------------------------------------------------------------------------
+ *  Version      Date        Author  Change Id      Description
+ *  -------------------------------------------------------------------------------------------------------------------
+ *   1.00.00     2019-09-18  virszi  -              Script created
+ *   1.00.01     2022-12-20  virjpr  -              Improved error logging
+ *********************************************************************************************************************/
+ 
+import com.vector.cfg.automation.api.ScriptApi
+import com.vector.cfg.automation.model.ecuc.microsar.os.Os
+import com.vector.cfg.automation.model.ecuc.microsar.os.osos.osdebug.osortidebugsupport.EOsORTIDebugSupport
+import com.vector.cfg.automation.model.ecuc.microsar.os.osos.osdebug.osortidebugsupport.OsORTIDebugSupport
+import com.vector.cfg.automation.model.ecuc.microsar.rte.Rte
+import com.vector.cfg.automation.model.ecuc.microsar.rte.rtegeneration.RteGeneration
+import com.vector.cfg.model.access.DefRef
+import com.vector.cfg.model.mdf.MIObject
+import com.vector.cfg.model.mdf.model.autosar.ecucdescription.MIModuleConfiguration
+
+import java.nio.file.Path
+
+import static com.vector.cfg.automation.api.ScriptApi.daVinci
+import static com.vector.cfg.automation.api.ScriptApi.getActiveProject
+
+daVinci {
+
+    scriptTask("CreateLauterbachRunnableMeasurementPoints", DV_PROJECT) {
+
+        taskDescription """
+This script helps to configure the run-time measurement of runnables with Lauterbach T32.
+                        """
+        taskHelp """
+This script reads the runnables in the current project and inserts Lauterbach instrumentation for all runnables for which the RTE has configured VFB trace hooks. 
+These hooks have to be added manually in the RTE configuration. The RTE comfort editor provides an 'Import VFB Trace Functions Assistant' for this task.
+The script creates a source file Rte_Hook_t32.c with implementation of the VFB trace hooks to start and stop the RTM measurement points.
+
+The source file Rte_Hook_t32.c is generated in the template files folder (see project settings). The file is overwritten with each execution of this script.
+
+To generate the correct signature of the trace functions the script parses the file Rte_Hook.h in the module files folder (usually Appl\\GenData).
+        """
+        code {
+            createLauterbachRunnableMeasurementPoints()
+        }
+    }    
+    scriptTask("InitializeArtiOsTracing", DV_PROJECT) {
+        taskDescription "Enables OS tracing"
+
+        code {
+            // add OS hooks header and enable Debug Support
+            activeProject() {
+                transaction {
+                    def osModules = activeEcuc.modules(Os.DefRef)
+                    if (osModules.isEmpty()) {
+                        userInteractions.warnToUser("Os module is not part of the configuration")
+                        return
+                    } 
+                    else
+                    {
+                        Os os = bswmdModel(Os.DefRef).single
+                        
+                        if (os.getOsOS().existsOsDebug())
+                        {
+                            os.getOsOS().getOsDebug().single.getOsORTIDebugSupportOrCreate().setValue(EOsORTIDebugSupport.ORTI_23_ADDITIONAL)
+                            os.getOsOS().getOsDebug().single.getOsTimingHooksIncludeHeader().clear()
+                            def element = os.getOsOS().getOsDebug().single.getOsTimingHooksIncludeHeader().createAndAdd(0)
+                            element.setValue("vth_to_arti.h")
+                        }
+                        else
+                        {
+                            userInteractions.warnToUser("/Os/OsOs/OsDebug is not part of the configuration")
+                            return
+                        }
+                    }
+                }
+            }
+        }
+	}
+}
+
+
+void createLauterbachRunnableMeasurementPoints() {
+    activeProject() {
+        def pathDpa = paths.getDpaProjectFolder().toString()
+        def pathScript = pathDpa + '\\gen_vector_rte_hook.py'
+        println "Script location: ${pathScript}"
+        def process = new ProcessBuilder('python', '-u', pathScript)
+        def proc = process.start()
+        proc.waitFor()
+        println "exit value: ${proc.exitValue()}"
+        println "stdout: ${proc.in.text}"
+        println "stderr: ${proc.err.text}"
+    }
+}
