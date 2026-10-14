@@ -17,15 +17,53 @@
 
 ## 2. 配置参数（`OsOS` 容器，本 OS 私有）
 
-| 参数 | 默认值 | 说明 |
-| :--- | :--- | :--- |
-| `OsUseArti` | false | 标准参数，ARTI 总开关 |
-| `OsVendorArtiStateModel` | ENHANCED | 选 ENHANCED 时用 `AR_CP_OSARTI_TASK` / `AR_CP_OSARTI_CAT2ISR`，选 STANDARD 时用 `AR_CP_OS_TASK` / `AR_CP_OS_CAT2ISR`。同时决定 `ArtiStatesTaskEnhanced` |
-| `OsVendorArtiTraceApplication` / `Task` / `Cat2Isr` / `Spinlock` / `Hook` | true | 各类事件的开关 |
-| `OsVendorArtiTraceServiceCalls` | false | 每个 OS 服务的进入和退出都会产生事件，开销最大 |
+在 GUI 的 Os 模块里选中 `OsOS` 容器，在参数表中设置。七个 `OsVendorArti*` 参数只有在 `OsUseArti` 为 true 时才可编辑，也只在此时生效。它们都是 PreCompile 参数：改动后需要重新生成 Os 代码并重新编译内核。
 
-- **只做停机调试**（不接 trace 工具）：打开 `OsUseArti`，把六个 `OsVendorArtiTrace*` 全部关掉。这时不需要 `Os_Arti.h`，内核代码与没有 trace 时完全相同。
+### 2.1 总开关
+
+| 参数 | 默认 | 作用 |
+| :--- | :--- | :--- |
+| `OsUseArti` | false | 标准参数，ARTI 总开关。关闭时不生成 `Os_Arti.arxml`，内核不含任何 ARTI 代码（目标文件与未插桩的内核逐字节相同）。打开时生成静态描述（对象、栈、上下文等，供停机调试读取）；是否再产生运行时 trace 事件由下面六个开关决定 |
+
+### 2.2 状态模型
+
+| 参数 | 取值 | 默认 | 作用 |
+| :--- | :--- | :--- | :--- |
+| `OsVendorArtiStateModel` | `ENHANCED` / `STANDARD` | ENHANCED | 决定任务和 Cat2 ISR 的状态机以及事件集合 |
+
+- `ENHANCED`：使用 `AR_CP_OSARTI_TASK` 和 `AR_CP_OSARTI_CAT2ISR`（SWS OS R21-11 §7.17，推荐）。任务事件有 Activate、Start、Preempt、Resume、Wait、Release、Continue、Terminate；Cat2 ISR 事件有 Activate、Start、Preempt、Resume、Stop。能还原完整的调度时间线。
+- `STANDARD`：使用 `AR_CP_OS_TASK` 和 `AR_CP_OS_CAT2ISR`。事件集合小（任务没有 Resume 和 Continue，Cat2 ISR 只有 Start 和 Stop），适用于 trace 工具只支持基础类的情况。
+- 该选项同时写入 `Os_Arti.arxml` 的 `ArtiStatesTaskEnhanced`，让调试器知道任务状态用哪一套取值；内核里的影子状态取值（`Os_ArtiCfg.h`）也随它切换。
+- 只影响任务和 Cat2 ISR。应用、自旋锁、Hook、服务调用的事件与此项无关。
+
+### 2.3 事件类开关
+
+| 参数 | 默认 | 控制的事件类 | 产生的事件 | 开销 |
+| :--- | :--- | :--- | :--- | :--- |
+| `OsVendorArtiTraceTask` | true | 任务（`AR_CP_OSARTI_TASK` 或 `AR_CP_OS_TASK`） | 激活、启动、抢占、恢复、等待、释放、继续、终止（STANDARD 模型没有恢复和继续） | 中：每次任务切换都有事件，调度路径上多几次调用 |
+| `OsVendorArtiTraceCat2Isr` | true | Cat2 ISR（`AR_CP_OSARTI_CAT2ISR` 或 `AR_CP_OS_CAT2ISR`） | ISR 的激活、开始、被抢占、恢复、结束 | 中：每次 Cat2 中断进出各一次 |
+| `OsVendorArtiTraceApplication` | true | OS-Application（`AR_CP_OS_APPLICATION`） | 应用的 Start、Restart、AllowAccess、Terminate | 低：只在应用状态变化时 |
+| `OsVendorArtiTraceSpinlock` | true | 自旋锁（`AR_CP_OS_SPINLOCK`） | Locked、Released | 低到中：随 `GetSpinlock`、`ReleaseSpinlock` 的调用频率 |
+| `OsVendorArtiTraceHook` | true | Hook（`AR_CP_OS_HOOK`） | 已配置的 `OsErrorHook`、`OsPreTaskHook`、`OsPostTaskHook`、`OsProtectionHook`、`OsStartupHook`、`OsShutdownHook` 以及各应用的 Error、Startup、Shutdown Hook；每个 Hook 一对 Start 和 Return 事件，没有配置的 Hook 不产生事件 | 低：Hook 本来就是少数路径 |
+| `OsVendorArtiTraceServiceCalls` | false | 服务调用（`AR_CP_OS_SERVICECALLS`） | 每个 OS 服务（`ActivateTask`、`SetEvent`、`GetResource` 等）的进入（`_Start`）和退出（`_Return`），带参数和返回值 | **高**：每个服务调用多两个事件，且这类事件在管理态（`SPRVSR`）发出。默认关，只在需要看调用序列时打开 |
+
+- 开关只影响运行时 trace 事件，不影响 `Os_Arti.arxml` 里的静态描述。
+- 关闭一个类时，三处同时去掉：`Os_Arti.arxml` 不再有这类 `ArtiHook` 描述，`Os_ArtiHooks.h` 里对应的包装宏变为空，内核对应的插桩不编译进去。
+- 事件、参数与描述始终来自同一份事件表（`Os_ArtiEvents.m`），所以不会出现"内核发了描述里没有的事件"。
+
+### 2.4 常见配置
+
+| 目的 | 设置 |
+| :--- | :--- |
+| 不用 ARTI | `OsUseArti` = false |
+| 只做停机调试（不接 trace 工具） | `OsUseArti` = true，六个 `OsVendorArtiTrace*` 全关。不需要 `Os_Arti.h`，内核代码与没有 trace 时完全相同 |
+| 看任务和中断的调度时间线 | `OsUseArti` = true，只开 `Task` 和 `Cat2Isr`，模型选 ENHANCED |
+| trace 工具只支持基础状态机 | 模型选 STANDARD |
+| 看 OS 服务调用序列 | 在上面基础上再开 `ServiceCalls` |
+| 默认 | `OsUseArti` = true，ENHANCED，除 `ServiceCalls` 以外的五类开 |
+
 - 打开任意一类事件后，编译就需要 `Os_Arti.h`：可以用 trace 工具提供的版本，也可以定义 `OS_ARTI_USE_MOCK` 改用 Mock。
+- 打开 trace 后关中断的路径会变长，时间保护的预算需要在这个配置下重新标定。
 
 ## 3. 本 OS 的约定（写入集成手册）
 
@@ -52,7 +90,8 @@
 1. `OsUseArti` 关闭时，23 个目标文件的代码段、数据段、只读段和 bss 与改动前**逐字节相同**。
 2. `OsUseArti` 打开、六类事件全关时，也与改动前逐字节相同。
 3. 打开 trace 时，增强模型、标准模型、服务调用开关的各种组合都能用 Mock 编译通过，开 `-Wall -Wextra` 后与改动前相比没有新增警告。Mock 对四个字面 token 做拼接，所以内核代码里的事件与 `ArtiHook` 描述不一致时，编译会直接失败。
-4. 仓库测试 `tests/generator/test_os_arti_hooks.py` 检查描述、头文件、Mock 三者一致，以及开关和模型的效果；`tests/generator/test_arti_event_stream.py` 测试事件流检查脚本。
+4. 参数组合编译：`tools/arti/build_kernel_matrix.py` 对 23 个组合各生成一次 t1 的 Os 代码，用 `-Wall -Wextra` 和 Mock 编译全部内核源码（23 个目标文件）加 `Os_Arti_Mock.c`。23 个组合全部通过：都能编译，相对"原内核、同样 `OsUseArti` 状态"没有新增警告；`OsUseArti` 关闭和六类全关两种配置的目标文件与原内核逐字节相同。组合是：`OsUseArti` 关、六类全关、默认、默认加 STANDARD、全开（两种模型）、默认下各关掉五个类之一、六个类各自单独打开（两种模型）。用法见脚本开头的说明。`OsUseArti` 打开时内核自带的 orti 运行时会被编入。原内核的 `Os_orti.c` 把 `0x1A2`、`ServiceId*2+3` 这类最大到 `0x1dc` 的值写进 `Os_ServiceType` 枚举字段；枚举按最小类型存放时（`arm-none-eabi-gcc` 默认）只有 1 字节，值被截断，ARTI 的 `ServiceTrace` 对不上类型映射表。现已把 `Os_OrtiType.ServiceId` 改成 `uint16`（`orti/Os_orti_types.h`），警告消失。
+5. 仓库测试 `tests/generator/test_os_arti_hooks.py` 检查描述、头文件、Mock 三者一致，以及开关和模型的效果；`tests/generator/test_arti_event_stream.py` 测试事件流检查脚本。
 
 ## 5. 上板验证（需要在目标板上完成）
 
