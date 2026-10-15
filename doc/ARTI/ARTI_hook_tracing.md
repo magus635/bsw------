@@ -159,14 +159,26 @@ trace 工具把数字 ID 显示成名称，用的是 `ArtiParameterTypeMapPair` 
 
 其余映射表原来就有字符串。测试：`test_os_arti_template.py` 里的三个 `name_string` 用例，以及 `test_arti_orti_parity.py::test_task_id_emits_task_name_string`。
 
-## 9. 接入 trace 厂商提供的文件
+## 9. 接入 trace 工具的 hook 实现
 
-厂商提供 `Arti.h`、`Os_Arti.h`、`Arti.c`（要求和示例见 `ARTI_vendor_requirements.md` 与 `vendor_example/`）。拿到后：
+ARTI 的 hook 实现是三个文件：`Arti.h`、`Os_Arti.h`、`Arti.c`。我们提供一套完整的基准，在 `doc/ARTI/vendor_example/`，说明和需要厂商修改的地方见 `ARTI_vendor_requirements.md`。基准能直接编译运行：一个事件就是对全局变量 `arti_os_trace`（服务调用为 `arti_sc_trace`）写一次值，供 trace 工具捕获；事件编号和编码与 Lauterbach 的实现相同。
+
+接入步骤：
 
 1. **放进工程**：三个文件放在应用或 BSW 目录，不放进内核目录。存放 `Arti.h` 和 `Os_Arti.h` 的目录加入头文件路径，`Arti.c` 加入编译。内核要能找到 `Std_Types.h`。
 2. **去掉 Mock**：不要定义 `OS_ARTI_USE_MOCK`。`Os_Arti_Mock.h/.c` 可以留着，也可以从编译里剔除。
-3. **配置并重新生成**：`OsUseArti` 打开，按厂商工具支持的类选 `OsVendorArtiStateModel`（只支持基础类选 `STANDARD`，否则 `ENHANCED`），打开需要的 `OsVendorArtiTrace*`；重新生成 Os 代码。把生成的 `Os_Arti.arxml` 交给厂商的工具或调试器；厂商的 `Os_Arti.h` 应由它生成，或与它核对。
-4. **编译与缺宏**：厂商的 `Os_Arti.h` 缺某个事件的宏时，编译只给出"隐式声明"警告，链接时报 `undefined reference to ARTI_TRACE_<类>_<事件>`。对照 `Os_Arti.arxml` 的 `ArtiHook` 描述补齐。
-5. **调用 `Arti_Init`**：内核不调用它，由集成者在 `StartOS` 之前调用，每个被 trace 的核都要初始化，具体按厂商的要求。
-6. **先验证再上板**：先用 Mock 把内核编过、事件流检查通过，再换厂商文件。之后出问题，基本可以判断是厂商文件与描述不一致。`tools/arti/check_event_stream.py` 读 Mock 的日志格式，厂商工具输出的数据需要先转换成该格式；这一步没有验证过。上板用例见第 5 节。
-7. **注意**：打开 trace 后关中断的路径变长，时间保护的预算要重新标定；`NOSUSP` 事件在关中断下发出，厂商的宏必须很短、不调用 OS 服务；厂商的实现必须可重入，高优先级的 Cat1 ISR 仍可能打断 hook。
+3. **配置并重新生成**：`OsUseArti` 打开，按工具支持的类选 `OsVendorArtiStateModel`（只支持基础类选 `STANDARD`，否则 `ENHANCED`），打开需要的 `OsVendorArtiTrace*`；重新生成 Os 代码。`Os_Arti.arxml` 交给工具或调试器。
+4. **编译与缺宏**：事件的宏缺失时，编译只给出"隐式声明"警告，链接时报 `undefined reference to ARTI_TRACE_<类>`；事件名缺失时直接编译失败（`undeclared`）。对照 `Os_Arti.arxml` 的 `ArtiHook` 描述补齐。
+5. **调用 `Arti_Init`**：内核不调用它，由集成者在 `StartOS` 之前调用，每个被 trace 的核都要初始化，具体按工具的要求。
+6. **先验证再上板**：先用 Mock 把内核编过、事件流检查通过，再换基准或工具厂商的文件。之后出问题，基本可以判断是这些文件与描述不一致。`tools/arti/check_event_stream.py` 读 Mock 的日志格式，工具输出的数据需要先转换成该格式；这一步没有验证过。上板用例见第 5 节。
+7. **注意**：打开 trace 后关中断的路径变长，时间保护的预算要重新标定；`NOSUSP` 事件在关中断下发出，hook 的宏必须很短、不调用 OS 服务；实现必须可重入，高优先级的 Cat1 ISR 仍可能打断 hook。
+
+### 9.1 用 Lauterbach TRACE32
+
+Lauterbach 的应用笔记（`doc/trace32/app_autosar_cp_arti.pdf`）和它的 ARTI 实现（`doc/ARTI/vendor_example/hooks_cp`，TRACE32 安装目录 `~~/demo/kernel/arti/hooks_cp`）说明了做法。要点：
+
+- **两种用法**：
+  1. 直接用我们的基准：与 Lauterbach 的实现写入的值相同（44 个 OS 事件和它已定义的 14 个服务调用事件，在仿真器里逐个对比过），TRACE32 的 `arti_data_trace.cmm` 只依赖变量名，可以直接使用。
+  2. 用 Lauterbach 的包：把 `common` 复制进工程，`arti.c` 加入编译，在 `arti.h` 里选 trace 方法；`arti.h` 要打开自旋锁、应用、Hook、服务调用这几个类（默认被注释掉），关闭 RTE 开关，关闭 Det 或提供 `Det.h`；它缺我们的大部分服务调用事件和应用级 Hook 事件，打开这些类时需要另写 `Os_Arti.h` 补齐。
+- **trace 方法**：数据 trace（要求芯片能对变量写访问产生 trace）、LOGGER、FDX（后两种是软件方式，需要定时器和目标内存）。芯片支持哪种要确认。
+- **对象映射**：笔记写明，任务和 ISR2 的 ARTI ID 对应它们在 ORTI 文件里的序号，使用 ARTI 时仍要加载配套的 ORTI；TRACE32 也支持导入 ARTI 的 ARXML（`TASK.ARTI`），但笔记描述的功能仍依赖 ORTI。能否只用 `Os_Arti.arxml` 解码需要在 TRACE32 上实测。我们已经不再生成 ORTI，这一点要在上板前确认。

@@ -14,7 +14,11 @@ OsOS are set in memory, nothing is saved), then every kernel source is compiled 
 usage:
   python tools/arti/build_kernel_matrix.py --project <dir with *.dpa> --kernel <kernel Os dir> \
          [--reference-kernel <Os dir of the kernel without ARTI>] [--gcc <arm-none-eabi-gcc>] \
-         [--sdk <dir>] [--memmap <dir>] [--work <dir>] [--only <substring>]
+         [--sdk <dir>] [--memmap <dir>] [--work <dir>] [--only <substring>] [--vendor-dir <dir>]
+
+--vendor-dir: a directory with the Arti.h, Os_Arti.h and Arti.c of a trace tool (for example doc/ARTI/vendor_example).
+Without it the kernel is built against the strict Mock (-DOS_ARTI_USE_MOCK); with it OS_ARTI_USE_MOCK is not defined,
+the directory is on the include path and Arti.c is compiled.
 
 --reference-kernel defaults to --kernel (then OsUseArti off is the reference, which is also what the kernel
 guarantees).  The kernel is not modified.  Exit code = number of failing combinations.
@@ -45,6 +49,7 @@ def combinations():
         return {s: on.get(s, False) for s in SWITCHES}
 
     yield "arti-off", False, "ENHANCED", dict(DEFAULT_ON), True
+    yield "app-hooks", True, "ENHANCED", dict(DEFAULT_ON), False        # plus the hooks of every OS-Application
     yield "all-trace-off", True, "ENHANCED", sw(), True
     yield "default", True, "ENHANCED", dict(DEFAULT_ON), False
     yield "default-standard", True, "STANDARD", dict(DEFAULT_ON), False
@@ -70,6 +75,13 @@ def generate(project, combo, out):
     m.set_parameter_value(osos, "OsVendorArtiStateModel", model)
     for s, on in switches.items():
         m.set_parameter_value(osos, f"OsVendorArtiTrace{s}", on)
+    if combo[0] == "app-hooks":
+        for c in m.configuration.containers:
+            if c.definition_ref.endswith("/OsApplication"):
+                for sub in c.sub_containers:
+                    if sub.definition_ref.endswith("/OsApplicationHooks"):
+                        for hook in ("OsAppErrorHook", "OsAppStartupHook", "OsAppShutdownHook"):
+                            m.set_parameter_value(sub, hook, True)
     allc = {x.module_def.short_name: (x.module_def, x.configuration) for x in p.get_all_managers()}
     g = CodeGenerator(module_def=m.module_def, configuration=m.configuration,
                       project_template_dir=Path(project) / "templates", all_configurations=allc,
@@ -87,11 +99,14 @@ def include_dirs(kernel, config, sdk, memmap):
     return dirs
 
 
-def compile_all(gcc, kernel, config, sdk, memmap, objdir, extra_sources=()):
+def compile_all(gcc, kernel, config, sdk, memmap, objdir, extra_sources=(), also=None):
     """-> (failures {source: first error lines}, warnings Counter[(file, message)])"""
     objdir.mkdir(parents=True, exist_ok=True)
     args = [gcc] + CFLAGS
-    for d in include_dirs(kernel, config, sdk, memmap):
+    dirs = include_dirs(kernel, config, sdk, memmap)
+    if also and also != memmap:
+        dirs.insert(1, also)                    # behind the first directory, which comes first on the path
+    for d in dirs:
         args += ["-I", str(d)]
     failures, warnings = {}, collections.Counter()
     sources = [s for s in sorted(kernel.rglob("*.c")) if ".svn" not in s.parts] + list(extra_sources)
@@ -142,11 +157,15 @@ def main():
     ap.add_argument("--memmap", help="directory with a complete Os_memmap.h, placed first on the include path")
     ap.add_argument("--work", default=str(REPO / "build" / "arti_matrix"))
     ap.add_argument("--only", help="run only the combinations whose name contains this text")
+    ap.add_argument("--vendor-dir", help="Arti.h, Os_Arti.h and Arti.c of a trace tool, built instead of the Mock")
     a = ap.parse_args()
     logging.basicConfig(level=logging.ERROR)
 
     work = Path(a.work)
     shutil.rmtree(work, ignore_errors=True)
+    vendor = Path(a.vendor_dir).resolve() if a.vendor_dir else None
+    if vendor:
+        CFLAGS.remove("-DOS_ARTI_USE_MOCK")
     kernel = Path(a.kernel)
     ref_kernel = Path(a.reference_kernel) if a.reference_kernel else kernel
     sdk = Path(a.sdk) if a.sdk else None
@@ -176,8 +195,12 @@ def main():
         if a.only and a.only not in name:
             continue
         cfg = generate(a.project, combo, work / f"gen_{name}")
-        mock = [cfg / "kernel" / "Os_Arti_Mock.c"] if (cfg / "kernel" / "Os_Arti_Mock.c").exists() else []
-        fails, warn = compile_all(a.gcc, kernel, cfg, sdk, memmap, work / f"obj_{name}", mock)
+        if vendor:                                  # the files of the trace tool replace the Mock
+            extra, first = [vendor / "Arti.c"], vendor
+        else:
+            mock = cfg / "kernel" / "Os_Arti_Mock.c"
+            extra, first = ([mock] if mock.exists() else []), memmap
+        fails, warn = compile_all(a.gcc, kernel, cfg, sdk, first, work / f"obj_{name}", extra, memmap)
         added = warn - (ref_warn_on if combo[1] else ref_warn)
         problems = []
         if fails:

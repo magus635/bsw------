@@ -1,26 +1,27 @@
-/**********************************************************************************************************
- * Arti.c - EXAMPLE of the Arti API and of the storage of the trace variables.
- * To be replaced by the file of the trace tool; places a vendor has to adapt are marked "VENDOR".
- **********************************************************************************************************/
+/**********************************************************************************************************************
+ * Arti.c - baseline of the ARTI API and of the storage of the trace variables.
+ *
+ * One of the three files every trace tool vendor starts from (Arti.h, Os_Arti.h, Arti.c).
+ * Places a vendor may adapt are marked "VENDOR".
+ **********************************************************************************************************************/
 #include "Arti.h"
-#include "Os_Arti.h"
 
-/* VENDOR: the storage the trace tool observes.  Place it in the memory section the tool requires (for example
- * with the project's MemMap), and make sure the debugger or the trace hardware can reach it.
- * One 32 bit word per core: an aligned 32 bit write is atomic, so the macros are reentrant. */
-volatile uint32 arti_os_trace[ARTI_OS_CORES];
+#if (ARTI_DEV_ERROR_DETECT == STD_ON)
+#include "Det.h"
+#endif
 
-/* SWS_Arti_91004.  The kernel does not call it: VENDOR / integrator, call it once before the OS starts
- * (for example from the start-up code before StartOS), on every core that is traced. */
+/* VENDOR: the storage the trace tool watches.  Place it in the memory section the tool requires.  The writes are
+ * aligned 32 bit writes, atomic on the target, so the macros of Os_Arti.h are reentrant and need no lock. */
+volatile uint32 arti_os_trace;
+volatile uint32 arti_sc_trace;
+
+/* SWS_Arti_91004.  The kernel does not call it: the integrator calls it once on start-up, before the OS is started
+ * (for example from the start-up code before StartOS). */
 void Arti_Init(void)
 {
-    uint32 core;
-
-    for (core = 0U; core < ARTI_OS_CORES; core++)
-    {
-        arti_os_trace[core] = 0U;
-    }
-    /* VENDOR: initialise the tool's own resources here; on failure raise ARTI_E_INIT_FAILED (SWS_Arti_00009) */
+    arti_os_trace = 0U;
+    arti_sc_trace = 0U;
+    /* VENDOR: initialise the resources of the trace tool here; on failure raise ARTI_E_INIT_FAILED (SWS_Arti_00009) */
 }
 
 /* SWS_Arti_91005 */
@@ -28,7 +29,10 @@ void Arti_GetVersionInfo(Std_VersionInfoType *VersionInfoPtr)
 {
     if (VersionInfoPtr == ((void *)0))
     {
-        /* VENDOR: raise ARTI_E_PARAM_POINTER (SWS_Arti_00010), for example through the DET */
+#if (ARTI_DEV_ERROR_DETECT == STD_ON)
+        /* VENDOR: use the real instance and API IDs; SWS_Arti_00010 */
+        (void)Det_ReportError(ARTI_MODULE_ID, 0U, 0x01U, ARTI_E_PARAM_POINTER);
+#endif
         return;
     }
     VersionInfoPtr->vendorID = ARTI_VENDOR_ID;
