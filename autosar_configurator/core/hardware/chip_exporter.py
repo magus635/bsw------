@@ -320,7 +320,7 @@ class ChipDefinitionExporter:
             "#####################################################################################################",
             f"Adc.MaxControllers: {len(adc_units)}",
             f"Adc.HwUnitId: {', '.join(adc_units)}",
-            "Adc.MaxResolution: 12",
+            f"Adc.MaxResolution: {max((a.resolution_bits for a in chip.adc_resources), default=12)}",
             ""
         ])
 

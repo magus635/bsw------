@@ -217,3 +217,15 @@ class EcuResourceResolver:
                             key, value, merged[key])
             merged[key] = value
         return merged
+
+
+def library_other_chip_keys(chip_database: ChipDatabase, exclude_chip: Optional[str]) -> Dict[str, List[str]]:
+    """Lower-cased key -> chips of the library that define it, leaving out ``exclude_chip``."""
+    result: Dict[str, set] = {}
+    for name in chip_database.list_chips():
+        chip = chip_database.get_chip(name)
+        if chip is None or name == exclude_chip:
+            continue
+        for key in flatten_ecu_resources(chip.ecu_resources):
+            result.setdefault(key.lower(), set()).add(name)
+    return {key: sorted(chips) for key, chips in result.items()}

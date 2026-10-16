@@ -27,12 +27,14 @@ def _is_scalar(value: Any) -> bool:
     return isinstance(value, _SCALAR_TYPES)
 
 
-def expand_ranges(flat_key: str, mapping: Dict[Any, Any]) -> List[Any]:
+def expand_ranges(flat_key: str, mapping: Any) -> List[Any]:
     """Expand an index range mapping to the full list.
 
     Args:
         flat_key: Flat key of the entry (used in error messages)
-        mapping: ``{"0-15": 1, 16: 2, ...}`` - inclusive ranges or single indexes
+        mapping: ``{"0-15": 1, 16: 2, ...}`` - inclusive ranges or single indexes;
+            may also be a sequence of ``(range, value)`` pairs, where a repeated
+            range is reported as an overlap
 
     Raises:
         ValueError: on an invalid key, a non-scalar value, a gap or an overlap
@@ -41,7 +43,8 @@ def expand_ranges(flat_key: str, mapping: Dict[Any, Any]) -> List[Any]:
         raise ValueError(f"{flat_key}: empty index range mapping")
 
     runs: List[Tuple[int, int, Any]] = []
-    for raw_key, value in mapping.items():
+    pairs = mapping.items() if isinstance(mapping, dict) else mapping
+    for raw_key, value in pairs:
         m = _RANGE_KEY.match(str(raw_key))
         if not m:
             raise ValueError(
@@ -193,3 +196,115 @@ def describe_ecu_resources(resources: EcuResources, max_len: int = 100) -> str:
                 text = text[:max_len] + " ..."
         lines.append(f"{key}: {text}")
     return "\n".join(lines)
+
+
+# --- editing helpers (used by the chip designer's ECU resource page) -----------
+
+PLACEHOLDER = None        # value of an entry that still has to be filled in
+
+_TRUE_FALSE = {"true": True, "yes": True, "on": True, "false": False, "no": False, "off": False}
+
+
+def infer_scalar(text: str, keep_string: bool = False) -> Any:
+    """Typed scalar from entered text, by the same rules as ``.properties`` parsing.
+
+    Hexadecimal and plain integers, floats and booleans are converted; anything
+    else stays a string.  Empty text gives the placeholder (None).  With
+    ``keep_string`` the text is kept as it is (``007`` stays ``007``).
+    """
+    text = text.strip()
+    if not text:
+        return PLACEHOLDER
+    if keep_string:
+        return text
+    if text.lower().startswith("0x"):
+        try:
+            return int(text, 16)
+        except ValueError:
+            pass
+    try:
+        return int(text)
+    except ValueError:
+        pass
+    try:
+        return float(text)
+    except ValueError:
+        pass
+    if text.lower() in _TRUE_FALSE:
+        return _TRUE_FALSE[text.lower()]
+    return text
+
+
+def value_type_name(value: Any) -> str:
+    """Short type name shown next to a value in the editor."""
+    if value is None:
+        return "empty"
+    if isinstance(value, bool):
+        return "bool"
+    if isinstance(value, int):
+        return "int"
+    if isinstance(value, float):
+        return "float"
+    if isinstance(value, list):
+        return f"list[{len(value)}]"
+    return "string"
+
+
+def check_module_name(module: str) -> str:
+    module = (module or "").strip()
+    if not module or "." in module:
+        raise ValueError(f"'{module}' is not a valid module name (not empty, no '.')")
+    return module
+
+
+def check_key_name(name: str) -> str:
+    name = (name or "").strip()
+    if not name:
+        raise ValueError("a key name must not be empty")
+    return name
+
+
+def set_entry(resources: EcuResources, module: str, name: str, value: Any) -> None:
+    """Create or replace ``module.name``; the value is validated like a loaded one."""
+    module, name = check_module_name(module), check_key_name(name)
+    resources.setdefault(module, {})[name] = normalize_value(f"{module}.{name}", value)
+
+
+def delete_entry(resources: EcuResources, module: str, name: str) -> None:
+    resources.get(module, {}).pop(name, None)
+    if module in resources and not resources[module]:
+        del resources[module]
+
+
+def rename_entry(resources: EcuResources, module: str, old: str, new: str) -> None:
+    """Rename a key inside a module, keeping its position; refuses to overwrite."""
+    new = check_key_name(new)
+    entries = resources[module]
+    if new != old and new in entries:
+        raise ValueError(f"{module}.{new} already exists")
+    resources[module] = {(new if k == old else k): v for k, v in entries.items()}
+
+
+def rename_module(resources: EcuResources, old: str, new: str) -> None:
+    """Rename a module, keeping its position; refuses to merge into an existing one."""
+    new = check_module_name(new)
+    if new != old and new in resources:
+        raise ValueError(f"module {new} already exists")
+    renamed = {(new if m == old else m): e for m, e in resources.items()}
+    resources.clear()
+    resources.update(renamed)
+
+
+def list_to_range_rows(values: List[Any]) -> List[Tuple[str, Any]]:
+    """Rows ``(range text, value)`` of the range view of a list."""
+    return [(str(k), v) for k, v in compress_ranges(values).items()]
+
+
+def range_rows_to_list(flat_key: str, rows: List[Tuple[str, Any]]) -> List[Any]:
+    """Full list from range view rows (gap, overlap or bad range raises ValueError)."""
+    return expand_ranges(flat_key, list(rows))
+
+
+def count_placeholders(resources: EcuResources) -> int:
+    """Number of entries whose value is still the placeholder."""
+    return sum(1 for entries in resources.values() for v in entries.values() if v is PLACEHOLDER)

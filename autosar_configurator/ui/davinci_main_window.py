@@ -859,7 +859,7 @@ class DaVinciMainWindow(QMainWindow):
         if hasattr(self, 'chip_constraint_service') and self.chip_constraint_service:
             initial_chip = self.chip_constraint_service.current_chip
 
-        dialog = ChipDefinitionDesignerDialog(initial_chip=initial_chip, parent=self)
+        dialog = ChipDefinitionDesignerDialog(initial_chip=initial_chip, parent=self, project=self.current_project)
         dialog.chip_saved.connect(self._on_designer_chip_saved)
         dialog.exec()
 

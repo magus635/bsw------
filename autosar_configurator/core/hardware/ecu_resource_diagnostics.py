@@ -95,14 +95,12 @@ def _module_sources(project, module: str, def_path: Path) -> List[Path]:
     return files
 
 
-def collect_referenced_keys(project) -> Dict[str, Set[str]]:
-    """Map every literal ``ecu:get/ecu:list`` key to the modules referencing it."""
+def _collect(sources: Iterable[Tuple[str, List[Path]]]) -> Dict[str, Set[str]]:
+    """Literal ``ecu:get/ecu:list`` keys of ``(module, files)`` pairs -> referencing modules."""
     referenced: Dict[str, Set[str]] = {}
     seen: Set[Tuple[str, Path]] = set()
-    for module, def_path in sorted(getattr(project, "module_defs", {}).items()):
-        if not def_path:
-            continue
-        for f in _module_sources(project, module, def_path):
+    for module, files in sources:
+        for f in files:
             resolved = f.resolve()
             if (module, resolved) in seen:
                 continue
@@ -110,6 +108,34 @@ def collect_referenced_keys(project) -> Dict[str, Set[str]]:
             for key in _ECU_REF.findall(_read_text(f)):
                 referenced.setdefault(key, set()).add(module)
     return referenced
+
+
+def collect_referenced_keys(project) -> Dict[str, Set[str]]:
+    """Map every literal ``ecu:get/ecu:list`` key to the modules referencing it."""
+    return _collect(
+        (module, _module_sources(project, module, def_path))
+        for module, def_path in sorted(getattr(project, "module_defs", {}).items())
+        if def_path
+    )
+
+
+def collect_referenced_keys_in_dirs(directories: Iterable[Path]) -> Dict[str, Set[str]]:
+    """Same scan for plugin directories instead of a project.
+
+    Every ``config/<Module>.xdm`` found under a directory marks a plugin; the
+    plugin's xdm, ``generate_PB/`` and ``generate_PC/`` files belong to the
+    module named like the xdm.
+    """
+    sources: List[Tuple[str, List[Path]]] = []
+    for directory in directories:
+        directory = Path(directory)
+        if not directory.is_dir():
+            continue
+        for xdm in sorted(directory.rglob("*.xdm")):
+            if xdm.parent.name.lower() != "config":
+                continue
+            sources.append((xdm.stem, _module_sources(None, xdm.stem, xdm)))
+    return _collect(sources)
 
 
 # --- consistency rules --------------------------------------------------------

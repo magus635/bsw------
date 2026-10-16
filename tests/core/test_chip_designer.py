@@ -243,7 +243,7 @@ def test_designer_dialog_preview_and_save(qtbot, tmp_path: Path, monkeypatch):
     assert len(dialog.current_ports["PORT_A"]) == 1
 
     # Switch to Preview tab (index 3)
-    dialog.tabs.setCurrentIndex(3)
+    dialog.tabs.setCurrentIndex(4)
     yaml_text = dialog.yaml_preview.toPlainText()
     assert "name: MY_CUSTOM_CHIP" in yaml_text
     assert "family: THA6" in yaml_text

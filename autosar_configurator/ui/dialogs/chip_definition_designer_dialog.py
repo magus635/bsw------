@@ -30,9 +30,19 @@ from ...core.hardware.chip_database import (
 )
 from ...core.hardware.pinout_importer import PinoutTableImporter
 from ...core.hardware.chip_exporter import ChipDefinitionExporter
-from ...core.hardware.ecu_resource_data import EcuResources, describe_ecu_resources
+from ...core.hardware.ecu_resource_data import (
+    EcuResources, count_placeholders, describe_ecu_resources, flatten_ecu_resources,
+)
+from ...core.hardware.ecu_resource_diagnostics import check_consistency
+from .ecu_resource_editor import EcuResourceEditor
 
 logger = logging.getLogger(__name__)
+
+# Shown above the .properties preview of a chip that has no ECU resources
+FALLBACK_NOTE = (
+    "# 兜底推导，非权威数据: 本芯片没有 ECU 资源 (ecu_resources)，下列值由设计器字段推导或写死，\n"
+    "# 可能与真实芯片不符。请在 \"4. ECU 资源\" 页导入或填写后再导出。\n"
+)
 
 ALL_PORTS_LABEL = "全部端口 (All Ports)"
 VALID_DIRECTIONS = ("INPUT", "OUTPUT", "INOUT")
@@ -229,8 +239,12 @@ class ChipDefinitionDesignerDialog(QDialog):
 
     chip_saved = Signal(str)  # Emits chip_name when successfully saved
 
-    def __init__(self, chip_database: Optional[ChipDatabase] = None, initial_chip: Optional[str] = None, parent=None):
+    def __init__(self, chip_database: Optional[ChipDatabase] = None, initial_chip: Optional[str] = None,
+                 parent=None, project=None):
         super().__init__(parent)
+        # Project the designer was opened from (None when opened on its own): the
+        # needed-keys guide can scan the modules loaded in it
+        self._project = project
         self.chip_database = chip_database or ChipDatabase(self._get_default_data_dir())
         self.exporter = ChipDefinitionExporter()
         self.importer = PinoutTableImporter()
@@ -302,6 +316,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._setup_basic_tab()
         self._setup_peripherals_tab()
         self._setup_pinout_tab()
+        self._setup_ecu_tab()
         self._setup_preview_tab()
 
         # Bottom Button Bar
@@ -506,6 +521,23 @@ class ChipDefinitionDesignerDialog(QDialog):
         layout.addWidget(self.pin_table, 1)
         self.tabs.addTab(tab, "3. 引脚复用矩阵 (Pinout & Mux)")
 
+    def _setup_ecu_tab(self):
+        """Tab 4: ECU resources (every key of every module)"""
+        self.ecu_editor = EcuResourceEditor()
+        self.ecu_editor.set_context(self.chip_database, lambda: self.name_edit.text().strip(), self._project)
+        self.ecu_editor.import_requested.connect(self._on_import_properties_clicked)
+        self.ecu_editor.changed.connect(self._on_ecu_edited)
+        self.tabs.addTab(self.ecu_editor, "4. ECU 资源 (ECU Resources)")
+
+    def _on_ecu_edited(self):
+        self._ecu_resources = self.ecu_editor.resources()
+
+    def _set_ecu_resources(self, resources: EcuResources):
+        """Replace the chip's ECU resources everywhere they are shown."""
+        self._ecu_resources = resources
+        self.ecu_editor.set_resources(resources)
+        self.ecu_preview.setPlainText(describe_ecu_resources(resources))
+
     def _setup_preview_tab(self):
         """Tab 4: Preview & Export"""
         tab = QWidget()
@@ -550,13 +582,13 @@ class ChipDefinitionDesignerDialog(QDialog):
         self.ecu_preview.setMaximumHeight(170)
         ecu_layout.addWidget(self.ecu_preview)
 
-        ecu_import_btn = QPushButton("📥 导入 .properties 到 ECU 资源... (Import)")
-        ecu_import_btn.setToolTip("读取 EB Tresos .properties 文件的全部键，并入当前芯片的 ECU 资源（同名键以后导入的为准）")
-        ecu_import_btn.clicked.connect(self._on_import_properties_clicked)
-        ecu_layout.addWidget(ecu_import_btn)
+        self.consistency_label = QLabel()
+        self.consistency_label.setWordWrap(True)
+        self.consistency_label.setStyleSheet("color: #8a4b00;")
+        ecu_layout.addWidget(self.consistency_label)
         layout.addWidget(ecu_box)
 
-        self.tabs.addTab(tab, "4. 预览与导出 (Preview & Export)")
+        self.tabs.addTab(tab, "5. 预览与导出 (Preview & Export)")
 
     def _populate_clone_dropdown(self):
         """Populate the clone combo box with existing chips from database"""
@@ -589,7 +621,7 @@ class ChipDefinitionDesignerDialog(QDialog):
 
         self._base_chip = copy.deepcopy(chip)
         self._editing_name = chip.name
-        self._ecu_resources = copy.deepcopy(chip.ecu_resources)
+        self._set_ecu_resources(copy.deepcopy(chip.ecu_resources))
         self._resource_version = chip.resource_version
 
         self.name_edit.setText(chip.name)
@@ -650,7 +682,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         """Set up initial blank values"""
         self._base_chip = None
         self._editing_name = None
-        self._ecu_resources = {}
+        self._set_ecu_resources({})
         self._resource_version = ""
         self.name_edit.setText("NEW_MCU_SERIES")
         self.family_edit.setText("THA6")
@@ -863,14 +895,19 @@ class ChipDefinitionDesignerDialog(QDialog):
 
     def _on_tab_changed(self, index: int):
         """Update preview when tab 4 is selected"""
-        if index == 3:  # Preview tab
+        if index == 4:  # Preview tab
             chip = self._build_current_chip()
             self.yaml_preview.setPlainText(self.exporter.to_yaml_string(chip))
             cores = chip.metadata['cores']
-            self.prop_preview.setPlainText(self.exporter.to_properties_string(
+            text = self.exporter.to_properties_string(
                 chip, num_cores=cores['count'], available_cores=cores['available'], master_core=cores['master']
-            ))
+            )
+            if not chip.ecu_resources:
+                text = FALLBACK_NOTE + text
+            self.prop_preview.setPlainText(text)
             self.ecu_preview.setPlainText(describe_ecu_resources(chip.ecu_resources))
+            self.consistency_label.setText("\n".join(
+                check_consistency(flatten_ecu_resources(chip.ecu_resources))))
 
     def _copy_to_clipboard(self, text: str):
         """Copy string to system clipboard"""
@@ -896,8 +933,7 @@ class ChipDefinitionDesignerDialog(QDialog):
             QMessageBox.critical(self, "导入错误", f"无法解析属性文件:\n{str(e)}")
             return
 
-        self._ecu_resources = scratch.ecu_resources
-        self.ecu_preview.setPlainText(describe_ecu_resources(self._ecu_resources))
+        self._set_ecu_resources(scratch.ecu_resources)
         self.status_label.setText(f"已导入 {count} 个键（来自 {len(file_paths)} 个文件），保存芯片后写入 YAML")
 
     def _on_export_properties_clicked(self):
@@ -968,6 +1004,21 @@ class ChipDefinitionDesignerDialog(QDialog):
             )
             if reply != QMessageBox.Yes:
                 self.tabs.setCurrentIndex(2)
+                return
+
+        pending = count_placeholders(chip.ecu_resources)
+        if pending:
+            reply = QMessageBox.question(
+                self,
+                "ECU 资源待填写",
+                f"仍有 {pending} 个 ECU 资源条目的值为空（待填写）。\n"
+                "空值会让 ecu:get() 得到空结果，确定要保存吗？",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if reply != QMessageBox.Yes:
+                self.ecu_editor.filter_combo.setCurrentIndex(1)     # show only the entries to fill in
+                self.tabs.setCurrentIndex(3)
                 return
 
         target_file = self._get_save_dir() / f"{chip.name}.yaml"
