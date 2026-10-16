@@ -34,6 +34,10 @@ _CORE_FORM = re.compile(r"^CORE\d+$")
 class EcuResourceReport:
     """Outcome of one diagnosis run."""
     missing: Dict[str, List[str]] = field(default_factory=dict)   # key -> referencing modules
+    # Referenced, no value for the selected chip, but defined for other chips
+    # (key -> those chips).  Usually the template guards the use with a chip
+    # condition that a static scan cannot evaluate, so this is information only.
+    chip_specific: Dict[str, List[str]] = field(default_factory=dict)
     unused: List[str] = field(default_factory=list)
     consistency: List[str] = field(default_factory=list)
     note: str = DYNAMIC_KEYS_NOTE
@@ -51,6 +55,7 @@ class EcuResourceReport:
     def summary(self) -> str:
         return (f"ECU resources: {len(self.missing)} missing key(s), "
                 f"{len(self.consistency)} consistency warning(s), "
+                f"{len(self.chip_specific)} chip-specific key(s) not defined for this chip, "
                 f"{len(self.unused)} unreferenced key(s)")
 
 
@@ -160,8 +165,17 @@ def check_consistency(resources: Dict[str, Any]) -> List[str]:
 
 # --- diagnosis ----------------------------------------------------------------
 
-def diagnose(project, resources: Optional[Dict[str, Any]] = None) -> EcuResourceReport:
-    """Compare the keys the loaded modules reference with ``resources``."""
+def diagnose(project, resources: Optional[Dict[str, Any]] = None,
+             other_chip_keys: Optional[Dict[str, List[str]]] = None,
+             log: bool = True) -> EcuResourceReport:
+    """Compare the keys the loaded modules reference with ``resources``.
+
+    Args:
+        other_chip_keys: lower-cased key -> chips that define it, for every chip
+            except the selected one.  A referenced key found there is reported
+            as chip-specific information instead of a missing-key warning.
+        log: write the warnings and the summary to the log
+    """
     if resources is None:
         resources = getattr(project, "ecu_resources", {}) or {}
 
@@ -170,13 +184,27 @@ def diagnose(project, resources: Optional[Dict[str, Any]] = None) -> EcuResource
     wanted = {k.lower() for k in referenced}
 
     report = EcuResourceReport()
+    other_chip_keys = other_chip_keys or {}
     for key, modules in referenced.items():
-        if key.lower() not in have:
+        if key.lower() in have:
+            continue
+        if key.lower() in other_chip_keys:
+            report.chip_specific[key] = sorted(other_chip_keys[key.lower()])
+        else:
             report.missing[key] = sorted(modules)
     report.unused = sorted(k for k in resources if k.lower() not in wanted)
     report.consistency = check_consistency(resources)
 
+    if log:
+        log_report(report)
+    return report
+
+
+def log_report(report: EcuResourceReport) -> None:
+    """Write a report to the log: warnings, chip-specific notes, summary."""
     for line in report.warning_lines():
         logger.warning(line)
+    for key, chips in sorted(report.chip_specific.items()):
+        logger.info("ECU resource '%s' is not defined for this chip (defined for: %s); "
+                    "it is probably used only under a chip condition", key, ", ".join(chips))
     logger.info(report.summary())
-    return report

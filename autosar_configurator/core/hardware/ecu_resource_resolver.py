@@ -94,6 +94,46 @@ def scan_properties(project) -> Dict[str, Any]:
     return accumulated
 
 
+def other_chip_keys(project, chip_database: Optional[ChipDatabase] = None) -> Dict[str, List[str]]:
+    """Lower-cased key -> chips that define it, for every chip except the selected one.
+
+    Looks at resource ``.properties`` files that do not match the selected chip
+    and at the ``ecu_resources`` of the other chips in the chip database.
+    """
+    selected = getattr(project, "selected_chip", None)
+    result: Dict[str, set] = {}
+
+    project_dir = _project_dir(project)
+    if selected and project_dir is not None:
+        parser = TresosPropertiesParser()
+        seen = set()
+        for d in _search_dirs(project, project_dir):
+            for pf in d.rglob("*.properties"):
+                resolved = pf.resolve()
+                if resolved in seen or "resource" not in str(pf.parent).lower():
+                    continue
+                seen.add(resolved)
+                if resource_file_matches_chip(pf.stem, selected.lower()):
+                    continue
+                try:
+                    keys = parser.parse_file(pf).properties
+                except Exception as e:  # noqa: BLE001 - an unreadable file only means less information
+                    logger.debug("Skipping unreadable properties file %s: %s", pf, e)
+                    continue
+                for key in keys:
+                    result.setdefault(key.lower(), set()).add(pf.stem)
+
+    db = chip_database or getattr(project, "chip_database", None) or get_default_chip_database()
+    for name in db.list_chips():
+        chip = db.get_chip(name)
+        if chip is None or name == selected:
+            continue
+        for key in flatten_ecu_resources(chip.ecu_resources):
+            result.setdefault(key.lower(), set()).add(name)
+
+    return {key: sorted(chips) for key, chips in result.items()}
+
+
 class EcuResourceResolver:
     """Builds the ECU resource dict of a project from properties files and chip YAML."""
 

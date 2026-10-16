@@ -128,9 +128,18 @@ class WorkspaceProject:
         change rather than before every generation.  Never raises.
         """
         from .hardware.ecu_resource_diagnostics import diagnose
+        from .hardware.ecu_resource_resolver import other_chip_keys
 
         try:
-            self.ecu_resource_report = diagnose(self, self.ecu_resources)
+            previous = self.ecu_resource_report
+            report = diagnose(self, self.ecu_resources,
+                              other_chip_keys=other_chip_keys(self, self.chip_database),
+                              log=False)
+            # The same finding is not logged again on every reload
+            if previous is None or previous.warning_lines() != report.warning_lines():
+                from .hardware.ecu_resource_diagnostics import log_report
+                log_report(report)
+            self.ecu_resource_report = report
         except Exception:  # noqa: BLE001 - diagnostics must never break project loading
             import logging
             logging.getLogger(__name__).exception("ECU resource diagnosis failed")

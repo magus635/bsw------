@@ -120,3 +120,42 @@ def test_project_stores_report(tmp_path):
     report = project.diagnose_ecu_resources()
     assert report is project.ecu_resource_report
     assert "Os.Missing" in report.missing
+
+
+def test_key_defined_only_for_other_chips_is_information_not_warning(tmp_path):
+    project = _project_with_xdm(tmp_path, "ecu:get('Port.AvailableGTMModule') ecu:get('Port.Gone')")
+    report = diagnose(project, {}, other_chip_keys={"port.availablegtmmodule": ["CotexR52_THA610X"]})
+    assert report.chip_specific == {"Port.AvailableGTMModule": ["CotexR52_THA610X"]}
+    assert list(report.missing) == ["Port.Gone"]
+    assert not any("AvailableGTMModule" in line for line in report.warning_lines())
+
+
+def test_other_chip_keys_come_from_unselected_resource_files_and_chip_yaml(tmp_path):
+    from autosar_configurator.core.hardware.chip_database import ChipDatabase, ChipDefinition
+    from autosar_configurator.core.hardware.ecu_resource_resolver import other_chip_keys
+
+    res = tmp_path / "Def" / "plugins" / "R" / "resource"
+    res.mkdir(parents=True)
+    (res / "CotexR52_THA610X_LFBGA180.properties").write_text("Port.OnlySmall: _1_\n", encoding="utf-8")
+    (res / "CotexR52_THA6412_BGA516.properties").write_text("Port.Own: 1\n", encoding="utf-8")
+    db = ChipDatabase()
+    db.register_chip(ChipDefinition(name="OTHER", ecu_resources={"Os": {"Extra": 1}}))
+    db.register_chip(ChipDefinition(name="THA6412_BGA516", ecu_resources={"Os": {"Mine": 1}}))
+
+    project = WorkspaceProject("p", tmp_path / "p.dpa")
+    project.selected_chip = "THA6412_BGA516"
+    keys = other_chip_keys(project, db)
+    assert keys["port.onlysmall"] == ["CotexR52_THA610X_LFBGA180"]
+    assert keys["os.extra"] == ["OTHER"]
+    assert "port.own" not in keys and "os.mine" not in keys
+
+
+def test_same_findings_are_not_logged_twice(tmp_path, caplog):
+    import logging
+
+    project = _project_with_xdm(tmp_path, "ecu:get('Os.Missing')")
+    project.ecu_resources = {}
+    with caplog.at_level(logging.WARNING):
+        project.diagnose_ecu_resources()
+        project.diagnose_ecu_resources()
+    assert sum("Os.Missing" in r.message for r in caplog.records) == 1
