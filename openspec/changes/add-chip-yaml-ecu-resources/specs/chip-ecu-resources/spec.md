@@ -75,6 +75,33 @@ The system SHALL build `project.ecu_resources` through a single resolver that me
 - **WHEN** an EB project whose chips have no `ecu_resources` is opened
 - **THEN** `project.ecu_resources` equals the value computed before this change and generated output and fingerprints are unchanged
 
+### Requirement: Project-Local Chip Definition
+Each project SHALL keep its own copy of the selected chip's YAML under `<project dir>/chips/<chip>.yaml`, written when the chip is selected for a new project or changed, and the resolver SHALL read the chip's `ecu_resources` from that copy, falling back to the packaged chip library only when the project has no copy. Changes to the packaged chip library SHALL NOT change an existing project's resources until the user explicitly updates the project's copy.
+
+#### Scenario: New project stores its chip
+- **WHEN** a project is created with chip `THA6412_BGA516` selected
+- **THEN** `<project dir>/chips/THA6412_BGA516.yaml` exists and `project.ecu_resources` is built from it
+
+#### Scenario: Project moved to another directory
+- **WHEN** the project directory is copied to a new location and opened there
+- **THEN** `project.ecu_resources` is identical and no absolute path is stored in the project file
+
+#### Scenario: Library change does not affect existing project
+- **WHEN** the packaged YAML of the selected chip is edited after the project stored its copy
+- **THEN** the project's resources stay unchanged until the user runs the explicit update
+
+#### Scenario: Old project keeps reading the library until the user acts
+- **WHEN** a project without a `chips/` directory is opened, used and saved
+- **THEN** nothing is written to `<project dir>/chips/`, the chip data is read from the library, and the status bar says the chip is not saved in the project yet
+
+#### Scenario: User saves the chip to the project
+- **WHEN** the user chooses "Save Chip to Project" for the selected chip
+- **THEN** the library's YAML (or, if the library lacks the chip, a chip built from the project's resource `.properties` files without build configs) is written to `<project dir>/chips/<chip>.yaml` and later loads use it
+
+#### Scenario: User updates the copy from the library
+- **WHEN** the user chooses "Update from Library"
+- **THEN** the dialog lists the ECU resource keys that differ and replaces the project's copy only after confirmation
+
 ### Requirement: Generator Uses Project ECU Resources
 Every code generation entry that has a project SHALL pass `project.ecu_resources` to `CodeGenerator`, and `CodeGenerator` SHALL NOT rescan `.properties` files when `ecu_resources` is provided.
 
@@ -94,12 +121,20 @@ When modules are loaded, the system SHALL collect the keys referenced by `ecu:ge
 - **THEN** a consistency warning names both keys and both values
 
 #### Scenario: Master core outside the core list
-- **WHEN** `OsResource.AvailableCores` is `CORE0..CORE3` and `OsResource.MasterCore` is `CORE5`
+- **WHEN** `OsResource.AvailableCores` is `CORE0..CORE3` and `OsResource.MasterCore` is `OS_CORE_ID_5`
 - **THEN** a consistency warning names `OsResource.MasterCore` and lists the available cores
 
-#### Scenario: Master core in another notation
-- **WHEN** `OsResource.MasterCore` is `OS_CORE_ID_0`
-- **THEN** a warning states that the value is not in `CORE<n>` form, and the stored value is not changed
+#### Scenario: Os master core in the Os macro notation
+- **WHEN** `OsResource.AvailableCores` is `CORE0, CORE1` and `OsResource.MasterCore` is `OS_CORE_ID_0`
+- **THEN** no warning is raised, because the Os templates emit the value verbatim as a C macro name
+
+#### Scenario: Os master core in CORE notation
+- **WHEN** `OsResource.MasterCore` is `CORE0`
+- **THEN** a warning states that the value is not in `OS_CORE_ID_<n>` form, and the stored value is not changed
+
+#### Scenario: Resource master core
+- **WHEN** `Resource.MasterCore` is `OS_CORE_ID_0`
+- **THEN** a warning states that the value is not in `CORE<n>` form
 
 #### Scenario: Dynamically built key
 - **WHEN** a template builds a key by string concatenation

@@ -3,11 +3,12 @@ Project Properties Dialog
 Allows editing project metadata
 """
 from pathlib import Path
+from types import SimpleNamespace
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
     QLineEdit, QTextEdit, QDialogButtonBox, QLabel, QGroupBox,
     QWidget, QComboBox, QPushButton, QScrollArea, QAbstractItemView,
-    QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView
+    QTabWidget, QTableWidget, QTableWidgetItem, QHeaderView, QMessageBox
 )
 from PySide6.QtCore import Qt, QUrl, QTimer
 from PySide6.QtGui import QGuiApplication, QDesktopServices, QColor
@@ -118,7 +119,7 @@ class ProjectPropertiesDialog(QDialog):
         
         # Chip Selection group
         chip_group = QGroupBox("ECU/Chip Selection")
-        chip_layout = QHBoxLayout(chip_group)
+        chip_layout = QHBoxLayout()
         chip_layout.setContentsMargins(10, 10, 10, 10)
         chip_layout.setSpacing(8)
         
@@ -134,6 +135,28 @@ class ProjectPropertiesDialog(QDialog):
         chip_layout.addWidget(self.refresh_chips_btn)
         
         chip_layout.addStretch()
+
+        # Where the chip's ECU resources come from, and the two explicit actions
+        chip_outer = QVBoxLayout(chip_group)
+        chip_outer.addLayout(chip_layout)
+        self.chip_source_label = QLabel()
+        self.chip_source_label.setWordWrap(True)
+        chip_outer.addWidget(self.chip_source_label)
+        chip_actions = QHBoxLayout()
+        self.adopt_chip_btn = QPushButton("Save Chip to Project")
+        self.adopt_chip_btn.setToolTip(
+            "Keep a copy of the chip definition in the project's chips/ folder, "
+            "so the project no longer depends on the chip library")
+        self.adopt_chip_btn.clicked.connect(self._adopt_chip)
+        chip_actions.addWidget(self.adopt_chip_btn)
+        self.update_chip_btn = QPushButton("Update from Library")
+        self.update_chip_btn.setToolTip(
+            "Replace the project's copy of the chip with the library's current version")
+        self.update_chip_btn.clicked.connect(self._update_chip_from_library)
+        chip_actions.addWidget(self.update_chip_btn)
+        chip_actions.addStretch()
+        chip_outer.addLayout(chip_actions)
+        self.chip_combo.currentIndexChanged.connect(self._refresh_chip_status)
         general_tab_layout.addWidget(chip_group)
         
         # Description group
@@ -226,6 +249,8 @@ class ProjectPropertiesDialog(QDialog):
         # Load chip selection
         self._populate_chip_combo()
             
+        self._refresh_chip_status()
+
         # --- Populate Templates Table ---
         from ...generator.generator import CodeGenerator
         
@@ -269,9 +294,17 @@ class ProjectPropertiesDialog(QDialog):
         self.chip_combo.clear()
         self.chip_combo.addItem("(Auto-detect / All)", None)
         
-        # Read available chips from project
-        available = getattr(self.project, 'available_chips', []) or []
-        for chip in available:
+        # Chips from the project's own chips/ folder, the chip library and the
+        # resource .properties file names of the project
+        names = set(getattr(self.project, 'available_chips', []) or [])
+        store = getattr(self.project, 'chip_store', None)
+        if store is not None:
+            names.update(store.list_names())
+        try:
+            names.update(self.project._chip_library().list_chips())
+        except Exception:  # noqa: BLE001 - the list is best-effort
+            pass
+        for chip in sorted(names):
             self.chip_combo.addItem(chip, chip)
         
         # Set current selection
@@ -286,6 +319,75 @@ class ProjectPropertiesDialog(QDialog):
         if hasattr(self.project, 'discover_available_chips'):
             self.project.discover_available_chips()
         self._populate_chip_combo()
+        self._refresh_chip_status()
+
+    def _source_of(self, chip_name):
+        """Where chip_name's resources would come from for this project."""
+        from ...core.hardware.ecu_resource_resolver import chip_for_project
+
+        probe = SimpleNamespace(path=self.project.path, selected_chip=chip_name,
+                                chip_database=getattr(self.project, 'chip_database', None))
+        return chip_for_project(probe, probe.chip_database)[0]
+
+    def _refresh_chip_status(self, *_):
+        """Show the source of the chip data and enable the matching action."""
+        from ...core.hardware.project_chip_store import (
+            SOURCE_LIBRARY, SOURCE_NONE, SOURCE_PROJECT,
+        )
+
+        chosen = self.chip_combo.currentData()
+        applied = getattr(self.project, 'selected_chip', None)
+        source = self._source_of(chosen)
+        texts = {
+            SOURCE_NONE: "No chip selected.",
+            SOURCE_PROJECT: f"Chip data: project copy chips/{chosen}.yaml (saved in the project).",
+            SOURCE_LIBRARY: "Chip data: chip library - the project has no copy of its own yet. "
+                            "Use 'Save Chip to Project' to keep one.",
+        }
+        text = texts.get(
+            source, "No chip YAML found; only the project's .properties files apply. "
+                    "'Save Chip to Project' can build one from them.")
+        pending = chosen != applied
+        if pending and chosen:
+            text += "  Press OK to apply the new chip first."
+        self.chip_source_label.setText(text)
+        has_location = bool(getattr(self.project, 'path', None))
+        self.adopt_chip_btn.setEnabled(
+            has_location and not pending and source not in (SOURCE_NONE, SOURCE_PROJECT))
+        self.update_chip_btn.setEnabled(
+            has_location and not pending and source == SOURCE_PROJECT
+            and self.project._chip_library().get_chip(chosen) is not None)
+
+    def _adopt_chip(self):
+        try:
+            path = self.project.adopt_selected_chip()
+        except ValueError as e:
+            QMessageBox.warning(self, "Save Chip to Project", str(e))
+            return
+        QMessageBox.information(self, "Save Chip to Project", f"Saved: {path}")
+        self._refresh_chip_status()
+
+    def _update_chip_from_library(self):
+        lines, total = self.project.chip_update_differences()
+        if lines:
+            detail = "\n".join(lines)
+            if total > len(lines):
+                detail += f"\n... and {total - len(lines)} more"
+        else:
+            detail = "No difference in ECU resources."
+        reply = QMessageBox.question(
+            self, "Update from Library",
+            f"Replace the project's copy of {self.project.selected_chip} with the "
+            f"library's version?\n\n{detail}",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply != QMessageBox.Yes:
+            return
+        try:
+            self.project.update_chip_from_library()
+        except ValueError as e:
+            QMessageBox.warning(self, "Update from Library", str(e))
+            return
+        self._refresh_chip_status()
     
     def _copy_path(self):
         """Copy project path to clipboard"""

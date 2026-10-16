@@ -74,24 +74,39 @@ def test_count_mismatch_names_both_keys_and_values():
     assert "4" in msgs[0] and "3" in msgs[0]
 
 
-def test_master_core_outside_core_list():
+def test_os_master_core_outside_core_list():
     msgs = check_consistency({
         "OsResource.AvailableCores": ["CORE0", "CORE1", "CORE2", "CORE3"],
-        "OsResource.MasterCore": "CORE5",
+        "OsResource.MasterCore": "OS_CORE_ID_5",
     })
     assert len(msgs) == 1
     assert "OsResource.MasterCore" in msgs[0] and "CORE0" in msgs[0]
 
 
-def test_master_core_in_other_notation_warns_and_is_not_converted():
-    resources = {
+def test_os_master_core_in_os_macro_form_is_accepted():
+    assert check_consistency({
         "OsResource.AvailableCores": ["CORE0", "CORE1"],
         "OsResource.MasterCore": "OS_CORE_ID_0",
+    }) == []
+
+
+def test_os_master_core_in_core_form_warns_because_templates_emit_it_verbatim():
+    resources = {
+        "OsResource.AvailableCores": ["CORE0", "CORE1"],
+        "OsResource.MasterCore": "CORE0",
     }
     msgs = check_consistency(resources)
     assert len(msgs) == 1
-    assert "not in CORE<n> form" in msgs[0]
-    assert resources["OsResource.MasterCore"] == "OS_CORE_ID_0"
+    assert "not in OS_CORE_ID_<n> form" in msgs[0]
+    assert resources["OsResource.MasterCore"] == "CORE0"      # never converted
+
+
+def test_resource_master_core_must_be_core_form():
+    msgs = check_consistency({
+        "Resource.AvailableCores": ["CORE0", "CORE1"],
+        "Resource.MasterCore": "OS_CORE_ID_0",
+    })
+    assert len(msgs) == 1 and "not in CORE<n> form" in msgs[0]
 
 
 def test_resource_master_core_list_checks_every_element():

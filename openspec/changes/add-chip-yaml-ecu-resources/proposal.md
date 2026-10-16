@@ -16,6 +16,7 @@
 - **`ChipDefinition` 增加 `ecu_resources`**：`ChipDatabase._load_chip_from_yaml` 与 `ChipDefinitionExporter.to_yaml_dict` 无损往返；没有建模的键原样保存，不丢弃。
 - **properties → YAML 导入**：复用 `TresosPropertiesParser`，把一个或多个 properties 文件的全部键并入芯片的 `ecu_resources`，不按模块硬编码建模。
 - **YAML → properties 导出**：按模块各写一个文件，内容只来自 `ecu_resources`，不再混入硬编码常量（如 `Can.MaxHwObjects: 512`）。旧的 `to_properties_string` 在芯片没有 `ecu_resources` 时保持原输出。
+- **芯片 YAML 跟随项目**：项目自己保存一份所选芯片的 YAML（`<项目目录>/chips/<芯片名>.yaml`），Resolver 读取项目内的这份；软件包 `data/chips/` 只是新建项目、更换芯片时的"芯片库"（复制来源），不再是运行时的数据来源。已有项目保存时补写这份快照。
 - **统一解析入口 `EcuResourceResolver`**：合并"插件 properties（低）→ 芯片 YAML（高）"，结果存入 `project.ecu_resources`。在新建项目、打开项目、导入 EB 项目、添加模块、更换芯片五个时机调用。
 - **生成器使用项目已有的字典**：四个调用点传入 `ecu_resources=project.ecu_resources`；生成器自己的扫描仅保留给没有项目的场景。
 - **缺键与一致性诊断**：加载模块时收集 xdm 和模板里引用的 `ecu:get/ecu:list` 键（复用 `extract_xdm_resources`），与 `ecu_resources` 比对，向用户报告缺失键与未使用键；并对已知键做一致性检查（核数与核名个数、主核在核名之内且使用 `CORE<n>` 写法、`*Num` 与列表长度）。诊断只提示，不阻断生成。

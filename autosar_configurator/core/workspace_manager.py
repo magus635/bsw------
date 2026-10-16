@@ -120,6 +120,122 @@ class WorkspaceProject:
         self.ecu_resources = EcuResourceResolver(self.chip_database).resolve(self)
         return self.ecu_resources
 
+    # --- project-local chip definition (<project dir>/chips/<chip>.yaml) -------------
+
+    @property
+    def chip_store(self):
+        """The project's chip directory, or None while the project has no location."""
+        if not self.path:
+            return None
+        from .hardware.project_chip_store import ProjectChipStore
+
+        path = Path(self.path)
+        return ProjectChipStore(path.parent if path.suffix == ".dpa" else path)
+
+    def _chip_library(self):
+        from .hardware.chip_database import get_default_chip_database
+
+        return self.chip_database or get_default_chip_database()
+
+    def chip_source(self) -> str:
+        """Where the selected chip's resources come from: 'project', 'library',
+        'properties' (no chip YAML anywhere) or 'none' (no chip selected)."""
+        from .hardware.ecu_resource_resolver import chip_for_project
+
+        return chip_for_project(self, self.chip_database)[0]
+
+    def adopt_selected_chip(self):
+        """Save the selected chip as the project's own copy (chips/<chip>.yaml).
+
+        The copy comes from the chip library; if the library does not have the
+        chip, it is built from the project's resource .properties files.  Does
+        nothing and returns the existing path when the project already has a copy.
+
+        Raises:
+            ValueError: no chip selected, project has no location, or no data to copy
+        """
+        import copy
+
+        from .hardware.ecu_resource_resolver import chip_for_project, scan_properties
+        from .hardware.project_chip_store import (
+            SOURCE_LIBRARY, SOURCE_NONE, SOURCE_PROJECT, chip_from_properties,
+        )
+
+        store = self.chip_store
+        if store is None:
+            raise ValueError("The project has no location yet; save it first")
+        source, chip = chip_for_project(self, self.chip_database)
+        if source == SOURCE_NONE:
+            raise ValueError("No chip is selected")
+        if source == SOURCE_PROJECT:
+            return store.path_for(self.selected_chip)
+        if source == SOURCE_LIBRARY:
+            new_chip = copy.deepcopy(chip)
+        else:
+            flat = scan_properties(self, resource_only=True)
+            if not flat:
+                raise ValueError(
+                    f"No chip definition for {self.selected_chip} in the library and no "
+                    f"resource .properties file in the project to build one from")
+            new_chip = chip_from_properties(self.selected_chip, flat)
+        path = store.save(new_chip)
+        self.load_ecu_resources()
+        return path
+
+    def chip_update_differences(self):
+        """(lines, total) describing how the project's copy differs from the library's chip.
+
+        Empty when the project has no copy or the library has no such chip.
+        """
+        from .hardware.project_chip_store import describe_differences
+
+        store = self.chip_store
+        if store is None or not self.selected_chip:
+            return [], 0
+        local = store.load(self.selected_chip)
+        library = self._chip_library().get_chip(self.selected_chip)
+        if local is None or library is None:
+            return [], 0
+        return describe_differences(local, library)
+
+    def update_chip_from_library(self):
+        """Replace the project's copy of the selected chip with the library's version.
+
+        Raises:
+            ValueError: no chip selected, no location, or the library lacks the chip
+        """
+        import copy
+
+        store = self.chip_store
+        if store is None:
+            raise ValueError("The project has no location yet; save it first")
+        if not self.selected_chip:
+            raise ValueError("No chip is selected")
+        library = self._chip_library().get_chip(self.selected_chip)
+        if library is None:
+            raise ValueError(f"The chip library has no chip {self.selected_chip}")
+        path = store.save(copy.deepcopy(library))
+        self.load_ecu_resources()
+        return path
+
+    def chip_changed(self):
+        """Call after ``selected_chip`` changed: keep the project's chips/ in step and recompute.
+
+        A project that already keeps its chips in ``chips/`` gets the newly
+        selected chip copied there from the library; a project without a
+        ``chips/`` directory is left as it is (the user can adopt the chip
+        explicitly).  The ECU resources are always recomputed from scratch.
+        """
+        import copy
+
+        store = self.chip_store
+        if (self.selected_chip and store is not None and store.exists()
+                and not store.has(self.selected_chip)):
+            library = self._chip_library().get_chip(self.selected_chip)
+            if library is not None:
+                store.save(copy.deepcopy(library))
+        return self.load_ecu_resources()
+
     def diagnose_ecu_resources(self):
         """Report ecu:get()/ecu:list() keys the loaded modules need but the project lacks.
 

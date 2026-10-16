@@ -40,6 +40,17 @@ ecu_resources:
 
 `插件 properties（低） < 芯片 YAML（高）`，同键冲突时 YAML 胜出，并记录一条 INFO 级日志（键、两个值）。理由：YAML 是权威。properties 的作用是 EB 导入项目里已有的内容，以及 YAML 尚未覆盖某模块时的后备，使迁移可以渐进。
 
+### D8 芯片 YAML 属于项目（Project-local chip definition）
+
+芯片库（`autosar_configurator/data/chips/`）是**模板来源**，不是项目的运行时数据：
+
+- 新建项目选芯片、更换芯片时，把该芯片的 YAML 复制到 `<项目目录>/chips/<芯片名>.yaml`（相对项目根目录，随项目保存，可整体搬迁）。
+- Resolver 的第二来源改为项目内的 `chips/<selected_chip>.yaml`；项目里没有这份文件时才退回芯片库，并写 INFO 日志。
+- 之后芯片库升级不会自动改变已有项目的结果；要更新必须由用户显式执行（"从芯片库更新本项目的芯片"），不做静默同步。
+- 打开没有 `chips/` 的旧项目：按芯片库读取（行为不变），不自动写文件；状态栏提示"芯片数据尚未保存到项目"。用户在"项目属性"里点"Save Chip to Project"才写入，之后项目自包含。更换芯片时，仅当项目已有 `chips/` 才自动把新芯片复制进去。
+- 导入 EB 项目时，可把所选芯片的 properties 导入成项目内的 `chips/<芯片名>.yaml`，数据从此跟着项目走，不污染软件包的芯片库。
+- 项目属性里的芯片下拉框合并列出：项目内芯片、芯片库芯片、properties 文件名中的芯片。
+
 ### D3 统一入口 EcuResourceResolver
 
 输入：项目（路径、模块定义路径、`selected_chip`）与 `ChipDatabase`。输出：扁平字典，赋给 `project.ecu_resources`。
@@ -83,7 +94,8 @@ Os:
 2. **比对**：`R − keys` = 缺失键（会静默生成空值，提示用户）；`keys − R` = 未被引用键（仅信息，不当作错误，因为同一文件里还有给其他模块用的键）。
 3. **一致性检查**：只针对明确的规则，以表的形式声明，新增规则不改流程：
    - `OsResource.NumOfCores` 等于 `OsResource.AvailableCores` 的元素个数；
-   - `OsResource.MasterCore`（以及 `Resource.MasterCore` 的每个元素）必须是 `CORE<n>` 写法，并且属于 `AvailableCores`；不是该写法的值（例如 `OS_CORE_ID_0`）报告"不是 CORE<n> 形式"，**不做静默转换**；
+   - `Resource.MasterCore` 的每个值必须是 `CORE<n>` 写法并属于 `AvailableCores`；
+   - `OsResource.MasterCore` 必须是 `OS_CORE_ID_<n>` 写法，且 `CORE<n>` 属于 `AvailableCores`。原因（在 T1 项目中验证）：Os 模板 `Os_kernel_Cfg.h` 把该值原样输出为 C 宏名（`#define OS_CORE_ID_MASTER (OS_CORE_ID_0)`），改成 `CORE0` 会生成未定义标识符。其他写法只报警，**不做静默转换**；
    - `Os.IocPrimitiveDataTypeNum` 等于 `Os.IocPrimitiveDataType` 的元素个数。
 4. 诊断只提示，不阻断生成。
 
@@ -94,7 +106,7 @@ Os:
 ## Risks / Trade-offs
 
 - **双份数据漂移。** 导出的 properties 若被人手改，下一次导入会被 YAML 覆盖，反过来也一样。缓解：约定 properties 为生成物，文件头写明"由 YAML 生成，请勿手改"。
-- **主核写法与 Os 模板。** 厂商的 `Os_Resource_THA6412.properties` 里 `OsResource.MasterCore` 是 `OS_CORE_ID_0`，而本设计要求 `CORE<n>` 写法。导入时值原样保存，会触发"不是 CORE<n> 形式"的警告；如果 Os 模板（不在本仓库）按 `OS_CORE_ID_<n>` 取值，把 YAML 里的值改成 `CORE0` 会改变生成结果。因此该值是否改写，必须在带 Os 插件的真实项目里对照生成结果后再定（见 tasks 8.4），本变更不自动转换。
+- **主核写法。** `OsResource.MasterCore` 保持 `OS_CORE_ID_<n>`（Os 模板原样输出为 C 宏名），`Resource.MasterCore` 用 `CORE<n>`（`Mcall_Cfg.h` 用 `text:split(..., 'CORE')` 取数字）。两个键同名异义，规则分开写。Os 模板另外只定义了 `OS_CORE_ID_0/1`，4 核芯片会出现未定义的 `OS_CORE_ID_2/3`，这是模板问题，不在本变更内。
 - **键名拼写不可修正。** 模板里写死了原文拼写（`Clsuter`），保持原样。
 - **指纹。** 来源优先级变化可能改变某个已有 EB 项目的 `ecu:get()` 结果。缓解：对导入路径做黄金对比，`verify_fingerprints.py` 必须无变化。
 - **诊断误报。** 模板里用拼接构造的键（如 `'Adc.SyncGroup.' + $unit`）无法静态扫描，会被误判为未引用。缓解：扫描器只负责"缺失"提示，把"未引用"降到 INFO，并在日志说明静态扫描的局限。
@@ -110,11 +122,10 @@ Os:
 ## Resolved Decisions
 
 1. 首批导入与往返验证只覆盖 `Os_Resource_*.properties` 与 `CotexR52_*.properties` 两类；其他模块的资源文件以后再扩展。
-2. 主核统一用 `CORE<n>` 写法；不是该写法的值只报警，不自动转换（见 D6、Risks）。
+2. 主核写法按模块区分：`OsResource.MasterCore` 用 `OS_CORE_ID_<n>`，`Resource.MasterCore` 用 `CORE<n>`；不符合的值只报警，不自动转换（见 D6、Risks）。
 3. 长列表允许区间写法（见 D1a）。
 4. 客户不会在 EB Tresos 里使用导出的 properties，`plugin.xml` 的 `ecuresource` 不在范围内，也不需要后续提案。
 
 ## Open Questions
 
-1. `OsResource.MasterCore` 在 Os 模板中实际按哪种写法读取？需要在带 Os 插件的项目上确认（tasks 8.4）。
-2. 区间写法的导出阈值（≥ 16 项且条目数更少）是否合适，可在实现时用真实数据调整。
+1. 区间写法的导出阈值（≥ 16 项且条目数更少）是否合适，可在实现时用真实数据调整。

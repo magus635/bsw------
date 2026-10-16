@@ -52,6 +52,17 @@ ecu_resources:
 - 导出的 `.properties` 是**生成物**，文件头已注明"由 YAML 生成，请勿手改"。改数据请改 YAML。
 - 往返校验：properties → YAML → properties → 再导入，得到的键值必须完全相同（`tests/core/test_chip_ecu_resources.py`）。
 
+## 芯片 YAML 属于项目（`chips/`）
+
+软件包里的 `autosar_configurator/data/chips/` 是**芯片库**，只是复制来源。每个项目在自己的目录里保存所选芯片的一份 YAML：`<项目目录>/chips/<芯片名>.yaml`。Resolver 读取项目里的这份，没有时才退回芯片库（日志里有 INFO）。
+
+- **新建项目**选了芯片：自动写入 `chips/`。
+- **更换芯片**：项目已有 `chips/` 时，自动把新芯片从芯片库复制进去。
+- **旧项目**（没有 `chips/`）：不会自动写文件，状态栏提示"芯片数据尚未保存到项目"。在"项目属性 → ECU/Chip Selection"里点 **Save Chip to Project**：芯片库有该芯片就复制；没有就由项目 `resource/` 目录下匹配所选芯片的 `.properties` 生成（build 配置等文件不会进来）。
+- **Update from Library**：用芯片库当前版本替换项目里的副本，先列出有差异的键并确认。芯片库升级**不会**自动影响已有项目。
+- 项目整体搬到别的目录后结果不变，项目文件里不记录绝对路径。
+- 芯片下拉框合并列出项目内的芯片、芯片库的芯片和 properties 文件名里的芯片。
+
 ## 项目里何时生效
 
 `WorkspaceProject.ecu_resources` 由 `EcuResourceResolver` 统一构建（来源优先级：插件 `.properties` < 所选芯片的 YAML，同键冲突 YAML 胜出并写 INFO 日志），在以下时机整体重算：
@@ -72,9 +83,10 @@ ecu_resources:
 - **未引用键**（信息）：有值但没有任何地方引用。只扫描字面量，字符串拼接构造的键（如 `'Adc.SyncGroup.' & $unit`）不会被发现，所以这里的"未引用"仅供参考。
 - **一致性规则**（警告，表在 `ecu_resource_diagnostics.CONSISTENCY_RULES`）：
   - `OsResource.NumOfCores` / `Resource.NumOfCores` 等于对应 `AvailableCores` 的元素个数
-  - `OsResource.MasterCore` / `Resource.MasterCore` 的每个值是 `CORE<n>` 写法，且属于 `AvailableCores`；其他写法（如 `OS_CORE_ID_0`）只报警，**不自动转换**
+  - `Resource.MasterCore` 的每个值是 `CORE<n>` 写法；`OsResource.MasterCore` 是 `OS_CORE_ID_<n>` 写法（Os 模板把它原样输出为 C 宏名，写成 `CORE0` 会生成未定义标识符）；都必须属于 `AvailableCores`。其他写法只报警，**不自动转换**
   - `Os.IocPrimitiveDataTypeNum` 等于 `Os.IocPrimitiveDataType` 的元素个数
 
-## 待确认
+## 已知限制
 
-`OsResource.MasterCore` 在 Os 模板中实际按 `OS_CORE_ID_<n>` 还是 `CORE<n>` 读取，需要在带 Os 插件的真实项目上对照生成结果确认（OpenSpec 任务 8.4）后，再决定 YAML 里写哪种。
+- Os 模板只定义了 `OS_CORE_ID_0/1`，4 核芯片的 `OS_CORE_ID_2/3` 在模板里是未定义的（模板问题，不在本功能内）。
+- 芯片设计器目前只能导入 `.properties` 并只读预览 `ecu_resources`，不能逐项编辑；改值要改 YAML，或改 properties 后重新导入。

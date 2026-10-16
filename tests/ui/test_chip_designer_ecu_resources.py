@@ -86,6 +86,7 @@ def test_project_controller_status_reports_missing_keys():
     win = MagicMock()
     report = MagicMock(has_warnings=True, missing={"A.b": ["Os"]}, consistency=["x"])
     win.current_project.diagnose_ecu_resources.return_value = report
+    win.current_project.selected_chip = None        # no chip: no "not saved" hint
     text = ProjectController(win)._ecu_resource_status()
     assert "1 missing" in text and "1 warning" in text
 
@@ -143,3 +144,68 @@ def test_new_project_with_chip_gets_ecu_resources(tmp_path):
     project = win.current_project
     assert project.selected_chip == "THA6412_BGA516"
     assert project.ecu_resources == {"OsResource.NumOfCores": 4}
+    assert (folder / "chips" / "THA6412_BGA516.yaml").is_file()   # the project keeps its own copy
+
+
+def _props_dialog(qtbot, project):
+    from autosar_configurator.ui.dialogs.project_properties_dialog import ProjectPropertiesDialog
+
+    dialog = ProjectPropertiesDialog(project)
+    qtbot.addWidget(dialog)
+    return dialog
+
+
+def _library_project(tmp_path, chip="C"):
+    from autosar_configurator.core.hardware.chip_database import ChipDefinition
+    from autosar_configurator.core.workspace_manager import WorkspaceProject
+
+    db = ChipDatabase()
+    db.register_chip(ChipDefinition(name="C", ecu_resources={"Os": {"A": 1}}))
+    db.register_chip(ChipDefinition(name="D", ecu_resources={"Os": {"A": 2}}))
+    project = WorkspaceProject("p", tmp_path / "p.dpa")
+    project.chip_database = db
+    project.selected_chip = chip
+    return project
+
+
+def test_properties_dialog_lists_library_chips_and_shows_source(qtbot, tmp_path):
+    project = _library_project(tmp_path)
+    dialog = _props_dialog(qtbot, project)
+    assert {dialog.chip_combo.itemData(i) for i in range(dialog.chip_combo.count())} >= {None, "C", "D"}
+    assert "chip library" in dialog.chip_source_label.text()
+    assert dialog.adopt_chip_btn.isEnabled()
+    assert not dialog.update_chip_btn.isEnabled()
+
+
+def test_properties_dialog_save_chip_to_project_then_update(qtbot, tmp_path, monkeypatch):
+    _quiet_dialogs(monkeypatch)
+    project = _library_project(tmp_path)
+    dialog = _props_dialog(qtbot, project)
+
+    dialog.adopt_chip_btn.click()
+    assert (tmp_path / "chips" / "C.yaml").is_file()
+    assert "project copy" in dialog.chip_source_label.text()
+    assert not dialog.adopt_chip_btn.isEnabled()
+    assert dialog.update_chip_btn.isEnabled()
+
+    project.chip_database.get_chip("C").ecu_resources = {"Os": {"A": 5}}
+    dialog.update_chip_btn.click()
+    assert project.ecu_resources == {"Os.A": 5}
+
+
+def test_properties_dialog_actions_wait_for_a_pending_chip_change(qtbot, tmp_path):
+    project = _library_project(tmp_path)
+    dialog = _props_dialog(qtbot, project)
+    dialog.chip_combo.setCurrentIndex(dialog.chip_combo.findData("D"))
+    assert not dialog.adopt_chip_btn.isEnabled()
+    assert "Press OK" in dialog.chip_source_label.text()
+
+
+def test_status_bar_hints_until_the_chip_is_saved_in_the_project(tmp_path):
+    project = _library_project(tmp_path)
+    win = MagicMock()
+    win.current_project = project
+    ctrl = ProjectController(win)
+    assert "not saved in the project" in ctrl._ecu_resource_status()
+    project.adopt_selected_chip()
+    assert "not saved in the project" not in ctrl._ecu_resource_status()

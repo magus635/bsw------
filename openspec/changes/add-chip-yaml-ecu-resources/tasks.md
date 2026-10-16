@@ -33,15 +33,25 @@
 - [x] 6.1 键需求扫描：对已加载模块的 xdm 和 `templates/{Module}/` 收集 `ecu:get/ecu:list` 引用的键
 - [x] 6.2 比对并生成报告：缺失键（警告）、未引用键（信息）；在 UI 状态栏或日志面板展示，不阻断生成
 - [x] 6.3 一致性检查表：`NumOfCores` ↔ `AvailableCores` 个数；`MasterCore` 必须是 `CORE<n>` 写法且属于 `AvailableCores`（其他写法只报警，不转换）；`IocPrimitiveDataTypeNum` ↔ `IocPrimitiveDataType` 个数；规则以表声明
-- [x] 6.4 测试：缺失键、多余键、个数不一致、主核不在核名内、主核写法为 `OS_CORE_ID_0` 各一例；动态拼接键不产生缺失误报
+- [x] 6.4 测试：缺失键、多余键、个数不一致、主核不在核名内、Os 主核为 `CORE0`、Resource 主核为 `OS_CORE_ID_0` 各一例；动态拼接键不产生缺失误报
 
 ## 7. 设计器与文档
 - [x] 7.1 `ChipDefinitionDesignerDialog` 增加"导入 properties"和"ECU 资源"只读预览（编辑留待后续）；保存时写入 `ecu_resources`
 - [x] 7.2 `ChipDefinitionDesignerDialog` 导出 properties 使用 D5 的新路径
 - [x] 7.3 文档：YAML `ecu_resources` 格式、与 properties 的关系、"properties 为生成物"的约定
 
+## 9. 芯片 YAML 跟随项目（D8）
+- [x] 9.1 `WorkspaceProject` 增加项目内芯片库：目录 `<项目目录>/chips/`；`chips/<芯片名>.yaml` 的读取、写入（复用 `ChipDefinitionExporter.save_yaml`）
+- [x] 9.2 Resolver 第二来源改为项目内的芯片 YAML，缺失时退回芯片库并写 INFO 日志
+- [x] 9.3 新建项目选芯片、项目属性更换芯片时，把芯片库中的 YAML 复制到项目的 `chips/`
+- [x] 9.4 旧项目（无 `chips/`）不自动写文件，状态栏提示"芯片数据尚未保存到项目"；"项目属性"里的 "Save Chip to Project" 显式写入（芯片库有则复制，没有则由资源 `.properties` 生成，不含 build 配置）
+- [x] 9.5 "项目属性"里的 "Update from Library" 显式操作（不自动同步），更新前列出差异键并确认
+- [x] 9.6 芯片库没有所选芯片时，"Save Chip to Project" 由项目的资源 `.properties` 生成项目内 YAML（只取 `resource/` 下匹配所选芯片的文件）
+- [x] 9.7 项目属性的芯片下拉框合并列出项目内、芯片库、properties 三类来源
+- [x] 9.8 测试：新建项目后项目内 YAML 存在；项目搬迁到新目录后结果不变；芯片库修改不影响已有项目；旧项目不被自动写入；更新操作按预期替换；芯片名不能逃出 `chips/`
+
 ## 8. 验证
-- [ ] 8.1 `python -m pytest tests/core/test_parser_serializer.py tests/core/test_command.py -q`
-- [ ] 8.2 `python -m pytest tests/generator -q`、`QT_QPA_PLATFORM=offscreen python -m pytest tests/ui -q`
-- [ ] 8.3 `openspec validate add-chip-yaml-ecu-resources --strict`
-- [ ] 8.4 用带有 Os 插件的真实项目运行诊断，据结果确认 `Os.*`、`OsResource.*` 各键哪些必须、哪些无用；并对照生成结果确认 `OsResource.MasterCore` 改成 `CORE0` 写法后输出是否变化，把结论写回文档
+- [x] 8.1 `python -m pytest tests/core/test_parser_serializer.py tests/core/test_command.py -q`
+- [x] 8.2 `python -m pytest tests/generator -q`、`QT_QPA_PLATFORM=offscreen python -m pytest tests/ui -q`
+- [x] 8.3 `openspec validate add-chip-yaml-ecu-resources --strict`
+- [ ] 8.4 用带有 Os 插件的真实项目运行诊断，据结果确认 `Os.*`、`OsResource.*` 各键哪些必须、哪些无用，把结论写回文档（`OsResource.MasterCore` 的写法已在 T1 验证，见 D6）

@@ -36,10 +36,13 @@ class ProjectController:
         if not project:
             return ""
         report = project.diagnose_ecu_resources()
+        hint = ""
+        if project.selected_chip and project.chip_source() != "project":
+            hint = "  |  Chip data is not saved in the project yet (Project Properties > Save Chip to Project)"
         if not report or not report.has_warnings:
-            return ""
+            return hint
         return (f"  |  ECU resources: {len(report.missing)} missing key(s), "
-                f"{len(report.consistency)} warning(s) - see log")
+                f"{len(report.consistency)} warning(s) - see log{hint}")
 
     def new_project(self):
         """Create a new project using the guided NewProjectWizard"""
@@ -105,6 +108,12 @@ class ProjectController:
         # Chips imported or created in the wizard live in its database; build
         # ecu:get()/ecu:list() data from the selected chip's YAML resources.
         self.win.current_project.chip_database = wizard.chip_database
+        if selected_chip:
+            # A new project keeps its own copy of the chip from the start
+            try:
+                self.win.current_project.adopt_selected_chip()
+            except ValueError as e:
+                logger.warning(f"Chip {selected_chip} was not saved in the project: {e}")
         self.win.current_project.load_ecu_resources()
         ecu_status = self._ecu_resource_status()
 
@@ -401,7 +410,7 @@ class ProjectController:
             self.win.current_project.description = data['description']
             self.win.current_project.selected_chip = data.get('selected_chip')
             # A different chip means different ECU resources: recompute from scratch
-            self.win.current_project.load_ecu_resources()
+            self.win.current_project.chip_changed()
 
             # Update tree header
             self.win.tree_view.setHeaderLabel(f"Project: {self.win.current_project.name}")

@@ -6,7 +6,9 @@ The single place that builds ``project.ecu_resources`` (the flat dict behind
 
 1. ``*.properties`` files found in the project and in the plugin directories of
    the loaded modules (resource files must match the selected chip).
-2. The ``ecu_resources`` section of the selected chip's YAML definition.
+2. The ``ecu_resources`` section of the selected chip's YAML definition: the
+   project's own copy (``<project dir>/chips/<chip>.yaml``) if it has one,
+   otherwise the packaged chip library.
 
 On a conflicting key the chip YAML wins and the difference is logged.
 """
@@ -16,6 +18,13 @@ from typing import Any, Dict, List, Optional
 
 from .chip_database import ChipDatabase, get_default_chip_database
 from .ecu_resource_data import flatten_ecu_resources
+from .project_chip_store import (
+    SOURCE_LIBRARY,
+    SOURCE_NONE,
+    SOURCE_PROJECT,
+    SOURCE_PROPERTIES,
+    ProjectChipStore,
+)
 from .tresos_properties_parser import TresosPropertiesParser, resource_file_matches_chip
 
 logger = logging.getLogger(__name__)
@@ -49,8 +58,14 @@ def _search_dirs(project, project_dir: Path) -> List[Path]:
     return dirs
 
 
-def scan_properties(project) -> Dict[str, Any]:
-    """Flat key/value dict from the ``*.properties`` files that apply to ``project``."""
+def scan_properties(project, resource_only: bool = False) -> Dict[str, Any]:
+    """Flat key/value dict from the ``*.properties`` files that apply to ``project``.
+
+    Args:
+        resource_only: take only resource files (``.../resource/*.properties``),
+            leaving out build configs and similar files that are always loaded
+            for ``ecu:get()`` but do not describe the chip
+    """
     project_dir = _project_dir(project)
     if project_dir is None:
         return {}
@@ -79,9 +94,11 @@ def scan_properties(project) -> Dict[str, Any]:
             if "resource" in str(pf.parent).lower():
                 if resource_file_matches_chip(pf.stem, chip_lower):
                     filtered.append(pf)
-            else:
+            elif not resource_only:
                 filtered.append(pf)
         all_props = filtered
+    elif resource_only:
+        all_props = [pf for pf in all_props if "resource" in str(pf.parent).lower()]
 
     parser = TresosPropertiesParser()
     accumulated: Dict[str, Any] = {}
@@ -124,14 +141,46 @@ def other_chip_keys(project, chip_database: Optional[ChipDatabase] = None) -> Di
                     result.setdefault(key.lower(), set()).add(pf.stem)
 
     db = chip_database or getattr(project, "chip_database", None) or get_default_chip_database()
+    other_chips = {}
     for name in db.list_chips():
         chip = db.get_chip(name)
-        if chip is None or name == selected:
-            continue
+        if chip is not None and name != selected:
+            other_chips[name] = chip
+    if project_dir is not None:
+        store = ProjectChipStore(project_dir)
+        for name in store.list_names():
+            chip = store.load(name)
+            if chip is not None and name != selected:
+                other_chips[name] = chip       # the project's own copy wins over the library's
+    for name, chip in other_chips.items():
         for key in flatten_ecu_resources(chip.ecu_resources):
             result.setdefault(key.lower(), set()).add(name)
 
     return {key: sorted(chips) for key, chips in result.items()}
+
+
+def chip_for_project(project, chip_database: Optional[ChipDatabase] = None):
+    """The chip definition that supplies the project's chip resources.
+
+    Returns:
+        ``(source, chip)`` where ``source`` is SOURCE_PROJECT (the project's own
+        copy), SOURCE_LIBRARY (only the packaged library has the chip),
+        SOURCE_PROPERTIES (no chip YAML anywhere, only .properties files apply)
+        or SOURCE_NONE (no chip selected).  ``chip`` is None for the last two.
+    """
+    selected = getattr(project, "selected_chip", None)
+    if not selected:
+        return SOURCE_NONE, None
+    project_dir = _project_dir(project)
+    if project_dir is not None:
+        local = ProjectChipStore(project_dir).load(selected)
+        if local is not None:
+            return SOURCE_PROJECT, local
+    db = chip_database or getattr(project, "chip_database", None) or get_default_chip_database()
+    chip = db.get_chip(selected)
+    if chip is not None:
+        return SOURCE_LIBRARY, chip
+    return SOURCE_PROPERTIES, None
 
 
 class EcuResourceResolver:
@@ -147,14 +196,16 @@ class EcuResourceResolver:
 
     def chip_resources(self, project) -> Dict[str, Any]:
         """Flat ``ecu_resources`` of the project's selected chip (empty if none)."""
-        selected_chip = getattr(project, "selected_chip", None)
-        if not selected_chip:
+        source, chip = chip_for_project(project, self._database(project))
+        if source == SOURCE_NONE:
             return {}
-        chip = self._database(project).get_chip(selected_chip)
         if chip is None:
-            logger.info("Selected chip %s is not in the chip database; "
-                        "no chip ECU resources applied", selected_chip)
+            logger.info("Selected chip %s has no chip YAML (project or library); "
+                        "only .properties files apply", project.selected_chip)
             return {}
+        if source == SOURCE_LIBRARY:
+            logger.info("Chip %s is read from the chip library; it is not yet saved in "
+                        "the project's chips/ directory", project.selected_chip)
         return flatten_ecu_resources(chip.ecu_resources)
 
     def resolve(self, project) -> Dict[str, Any]:

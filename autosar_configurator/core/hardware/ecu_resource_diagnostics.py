@@ -28,6 +28,7 @@ DYNAMIC_KEYS_NOTE = ("Keys built by string concatenation in templates are not sc
 _ECU_REF = re.compile(r"""ecu:(?:get|list)\s*\(\s*['"]([^'"]+)['"]\s*\)""")
 _MAX_SCAN_BYTES = 2 * 1024 * 1024
 _CORE_FORM = re.compile(r"^CORE\d+$")
+_OS_CORE_ID_FORM = re.compile(r"^OS_CORE_ID_(\d+)$")
 
 
 @dataclass
@@ -130,16 +131,34 @@ def _count_rule(num_key: str, list_key: str) -> Callable[[Dict[str, Any]], List[
     return check
 
 
-def _master_core_rule(master_key: str, cores_key: str) -> Callable[[Dict[str, Any]], List[str]]:
+def _master_core_rule(master_key: str, cores_key: str,
+                      os_macro_form: bool = False) -> Callable[[Dict[str, Any]], List[str]]:
+    """The master core must be one of the available cores.
+
+    ``os_macro_form`` selects the notation: ``OS_CORE_ID_<n>`` for the Os module,
+    whose templates emit the value verbatim as a C macro name (so ``CORE0`` would
+    be an undefined identifier there), or ``CORE<n>`` for the Resource module.
+    """
     def check(res: Dict[str, Any]) -> List[str]:
         if master_key not in res or cores_key not in res:
             return []
         cores = [str(c) for c in _as_list(res[cores_key])]
         messages: List[str] = []
         for master in (str(m) for m in _as_list(res[master_key])):
-            if not _CORE_FORM.match(master):
-                messages.append(f"{master_key} value '{master}' is not in CORE<n> form")
-            elif master not in cores:
+            if os_macro_form:
+                m = _OS_CORE_ID_FORM.match(master)
+                if not m:
+                    messages.append(
+                        f"{master_key} value '{master}' is not in OS_CORE_ID_<n> form "
+                        f"(the Os templates emit it verbatim as a C macro name)")
+                    continue
+                core_name = f"CORE{int(m.group(1))}"
+            else:
+                if not _CORE_FORM.match(master):
+                    messages.append(f"{master_key} value '{master}' is not in CORE<n> form")
+                    continue
+                core_name = master
+            if core_name not in cores:
                 messages.append(f"{master_key} value '{master}' is not one of "
                                 f"{cores_key}: {cores}")
         return messages
@@ -151,7 +170,7 @@ CONSISTENCY_RULES: List[Callable[[Dict[str, Any]], List[str]]] = [
     _count_rule("OsResource.NumOfCores", "OsResource.AvailableCores"),
     _count_rule("Resource.NumOfCores", "Resource.AvailableCores"),
     _count_rule("Os.IocPrimitiveDataTypeNum", "Os.IocPrimitiveDataType"),
-    _master_core_rule("OsResource.MasterCore", "OsResource.AvailableCores"),
+    _master_core_rule("OsResource.MasterCore", "OsResource.AvailableCores", os_macro_form=True),
     _master_core_rule("Resource.MasterCore", "Resource.AvailableCores"),
 ]
 
