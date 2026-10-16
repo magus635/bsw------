@@ -26,6 +26,21 @@ class ProjectController:
     def __init__(self, win):
         self.win = win
 
+    def _ecu_resource_status(self) -> str:
+        """Run the ECU resource diagnosis for the current project.
+
+        Returns a short suffix for the status bar ("" when nothing is wrong).
+        The details (missing keys, consistency problems) are written to the log.
+        """
+        project = self.win.current_project
+        if not project:
+            return ""
+        report = project.diagnose_ecu_resources()
+        if not report or not report.has_warnings:
+            return ""
+        return (f"  |  ECU resources: {len(report.missing)} missing key(s), "
+                f"{len(report.consistency)} warning(s) - see log")
+
     def new_project(self):
         """Create a new project using the guided NewProjectWizard"""
         from ..wizards.new_project_wizard import NewProjectWizard
@@ -87,6 +102,12 @@ class ProjectController:
                 self.win.chip_constraint_service.set_chip(selected_chip)
                 logger.info(f"New project chip constraint set to: {selected_chip}")
 
+        # Chips imported or created in the wizard live in its database; build
+        # ecu:get()/ecu:list() data from the selected chip's YAML resources.
+        self.win.current_project.chip_database = wizard.chip_database
+        self.win.current_project.load_ecu_resources()
+        ecu_status = self._ecu_resource_status()
+
         self.win.save_project_action.setEnabled(True)
         self.win.add_module_action.setEnabled(True)
         self.win.manage_variants_action.setEnabled(True)
@@ -103,7 +124,8 @@ class ProjectController:
         self.win._update_window_title()
 
         chip_info = f", Chip: {selected_chip}" if selected_chip else ""
-        self.win.statusbar.showMessage(f"Created {project_type.value} project: {name}{chip_info}", 5000)
+        self.win.statusbar.showMessage(
+            f"Created {project_type.value} project: {name}{chip_info}{ecu_status}", 5000)
         
     def open_project(self):
         """Open an existing project (Vector .dpa or EB folder)"""
@@ -268,6 +290,7 @@ class ProjectController:
                 )
                 status_msg += f" ({len(failed_modules)} errors)"
             
+            status_msg += self._ecu_resource_status()
             self.win.statusbar.showMessage(status_msg, 5000)
             
             # Auto-select first module
@@ -377,11 +400,14 @@ class ProjectController:
             self.win.current_project.author = data['author']
             self.win.current_project.description = data['description']
             self.win.current_project.selected_chip = data.get('selected_chip')
-            
+            # A different chip means different ECU resources: recompute from scratch
+            self.win.current_project.load_ecu_resources()
+
             # Update tree header
             self.win.tree_view.setHeaderLabel(f"Project: {self.win.current_project.name}")
             
-            self.win.statusbar.showMessage("Project properties updated", 3000)
+            self.win.statusbar.showMessage(
+                f"Project properties updated{self._ecu_resource_status()}", 3000)
 
     
     def manage_variants(self):
@@ -419,8 +445,11 @@ class ProjectController:
                 self.win.def_parser._resolver.set_constraints(constraints)
             module_def = self.win.def_parser.parse_module_def_file(Path(file_path))
             self.win.current_project.add_module(module_def, Path(file_path))
+            # The new module may ship its own .properties resources
+            self.win.current_project.load_ecu_resources()
             self.win.tree_view.set_project(self.win.current_project)
-            self.win.statusbar.showMessage(f"Added module: {module_def.short_name}", 3000)
+            self.win.statusbar.showMessage(
+                f"Added module: {module_def.short_name}{self._ecu_resource_status()}", 3000)
         except Exception as e:
             QMessageBox.critical(self.win, "Error", f"Failed to add module:\n{str(e)}")
 
@@ -689,7 +718,8 @@ class ProjectController:
 
             QMessageBox.information(self.win, "EB Project Imported", summary)
             self.win.statusbar.showMessage(
-                f"Imported: {len(loaded_modules)} modules to {target_dir.name}", 5000
+                f"Imported: {len(loaded_modules)} modules to {target_dir.name}"
+                f"{self._ecu_resource_status()}", 5000
             )
 
         except Exception as e:

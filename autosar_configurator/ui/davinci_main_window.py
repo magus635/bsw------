@@ -737,6 +737,8 @@ class DaVinciMainWindow(QMainWindow):
         # Update project's selected_chip field
         if self.current_project and chip_name:
             self.current_project.selected_chip = chip_name
+            self.current_project.load_ecu_resources()
+            self.current_project.diagnose_ecu_resources()  # details go to the log
             self._has_unsaved_changes = True
 
     

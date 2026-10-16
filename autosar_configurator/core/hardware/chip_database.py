@@ -5,7 +5,14 @@ Manages chip definitions and provides chip information for hardware mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Dict, Optional, Any
+import logging
 import yaml
+
+from .ecu_resource_data import (
+    EcuResources, parse_ecu_resources, flatten_ecu_resources, nest_flat_resources,
+)
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -79,6 +86,11 @@ class ChipDefinition:
 
     # Additional metadata
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+    # ECU resources for ecu:get()/ecu:list(): {module: {name: value}}.  The flat
+    # key "<module>.<name>" equals the key of the matching .properties entry.
+    ecu_resources: EcuResources = field(default_factory=dict)
+    resource_version: str = ""
 
     def get_port_pins(self, port_name: str) -> List[PortPinDef]:
         """Get pins for a specific port"""
@@ -214,7 +226,45 @@ class ChipDatabase:
 
         chip.metadata = data.get('metadata', {})
 
+        try:
+            chip.ecu_resources = parse_ecu_resources(data.get('ecu_resources'))
+        except ValueError as e:
+            raise ValueError(f"{yaml_path}: {e}") from e
+        chip.resource_version = str(data.get('resource_version', '') or '')
+
         return chip
+
+    def import_ecu_resources_from_properties(self, chip: ChipDefinition,
+                                             properties_paths: List[Path]) -> int:
+        """Merge the keys of one or more .properties files into chip.ecu_resources.
+
+        Every key is kept (grouped by the text before its first dot); no
+        peripheral modelling is involved.  Later files replace earlier values
+        of the same key and the change is logged.
+
+        Returns:
+            Number of keys read from the files (keys without a module prefix
+            cannot be represented and are skipped with a warning)
+        """
+        from .tresos_properties_parser import TresosPropertiesParser
+
+        parser = TresosPropertiesParser()
+        existing = flatten_ecu_resources(chip.ecu_resources)
+        total = 0
+        for path in properties_paths:
+            props = parser.parse_file(Path(path)).properties
+            nested, skipped = nest_flat_resources(props)
+            for key in skipped:
+                logger.warning("%s: key '%s' has no module prefix and was skipped", path, key)
+            for key, value in flatten_ecu_resources(nested).items():
+                if key in existing and existing[key] != value:
+                    logger.info("ECU resource %s replaced: %r -> %r (from %s)",
+                                key, existing[key], value, Path(path).name)
+                existing[key] = value
+                total += 1
+        merged, _ = nest_flat_resources(existing)
+        chip.ecu_resources = merged
+        return total
 
     def register_chip(self, chip: ChipDefinition):
         """Register a chip definition"""
@@ -469,3 +519,30 @@ class ChipDatabase:
                                 return chip
 
         return None
+
+
+_default_db_cache: Dict[str, Any] = {"signature": None, "db": None}
+
+
+def default_chips_dir() -> Path:
+    """The chip YAML directory shipped with the package (autosar_configurator/data/chips)"""
+    return Path(__file__).resolve().parent.parent.parent / "data" / "chips"
+
+
+def get_default_chip_database() -> ChipDatabase:
+    """Shared database over the packaged chip directory.
+
+    Reloaded automatically when a YAML file in the directory is added, removed
+    or modified, so chips saved by the designer are picked up.
+    """
+    data_dir = default_chips_dir()
+    try:
+        signature = tuple(sorted(
+            (f.name, f.stat().st_mtime_ns) for f in data_dir.glob("*.yaml")
+        ))
+    except OSError:
+        signature = ()
+    if _default_db_cache["db"] is None or _default_db_cache["signature"] != signature:
+        _default_db_cache["db"] = ChipDatabase(data_dir)
+        _default_db_cache["signature"] = signature
+    return _default_db_cache["db"]

@@ -242,7 +242,8 @@ class ProjectPropertiesDialog(QDialog):
             generator = CodeGenerator(
                 manager.module_def,
                 manager.configuration,
-                project_template_dir=project_template_dir if project_template_dir and project_template_dir.exists() else None
+                project_template_dir=project_template_dir if project_template_dir and project_template_dir.exists() else None,
+                ecu_resources=self.project.ecu_resources or None
             )
             
             infos = generator.get_template_info(module_name)

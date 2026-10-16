@@ -11,10 +11,15 @@ from typing import Dict, List, Optional, Any
 import yaml
 
 from .chip_database import ChipDefinition
+from .ecu_resource_data import serialize_value
 
 
 class _FlowMap(dict):
     """Mapping emitted in YAML flow style ({ k: v }) - one pin per line."""
+
+
+class _BlockMap(dict):
+    """Mapping emitted in YAML block style (index range notation, one range per line)."""
 
 
 class _ChipYamlDumper(yaml.SafeDumper):
@@ -24,6 +29,12 @@ class _ChipYamlDumper(yaml.SafeDumper):
 _ChipYamlDumper.add_representer(
     _FlowMap,
     lambda dumper, data: dumper.represent_mapping('tag:yaml.org,2002:map', data.items(), flow_style=True),
+)
+
+
+_ChipYamlDumper.add_representer(
+    _BlockMap,
+    lambda dumper, data: dumper.represent_mapping('tag:yaml.org,2002:map', data.items(), flow_style=False),
 )
 
 
@@ -40,6 +51,52 @@ def _atomic_write_text(target_path: Path, content: str):
         if os.path.exists(tmp):
             os.unlink(tmp)
         raise
+
+
+_PROPS_LINE_WIDTH = 100
+
+
+def _format_scalar(value: Any) -> str:
+    """One scalar as it appears in a .properties file (re-parses to an equal value)."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)
+
+
+def _format_property_line(key: str, value: Any) -> List[str]:
+    """Lines of one ``key: value`` entry; long lists use backslash continuation lines."""
+    if not isinstance(value, list):
+        text = _format_scalar(value)
+        if text[:1].isspace() and len(text) - len(text.lstrip()) == 1:
+            # A value written as "key: \" + continuation line reads back with one
+            # leading space, which templates rely on (contains(ecu:get(..), 'X ')).
+            # A plain "key: value" line would lose it.
+            return [f"{key}: \\", " " * (len(key) + 2) + text.lstrip()]
+        return [f"{key}: {text}" if text else f"{key}:"]
+
+    if not value:
+        return [f"{key}: ,"]           # parses back to an empty list
+    items = [_format_scalar(v) for v in value]
+    if len(items) == 1:
+        return [f"{key}: {items[0]},"]  # trailing comma keeps it a one-element list
+
+    prefix = f"{key}: "
+    indent = " " * len(prefix)
+    lines: List[str] = []
+    current = prefix
+    first_on_line = True
+    for i, item in enumerate(items):
+        piece = item + (", " if i < len(items) - 1 else "")
+        if not first_on_line and len(current) + len(piece) > _PROPS_LINE_WIDTH:
+            lines.append(current.rstrip() + " \\")
+            current = indent
+            first_on_line = True
+        current += piece
+        first_on_line = False
+    lines.append(current.rstrip())
+    return lines
 
 
 class ChipDefinitionExporter:
@@ -124,6 +181,19 @@ class ChipDefinitionExporter:
         if chip.metadata:
             data['metadata'] = dict(chip.metadata)
 
+        if chip.resource_version:
+            data['resource_version'] = chip.resource_version
+
+        if chip.ecu_resources:
+            ecu: Dict[str, Any] = {}
+            for module, entries in chip.ecu_resources.items():
+                params: Dict[str, Any] = {}
+                for name, value in entries.items():
+                    out = serialize_value(value)
+                    params[name] = _BlockMap(out) if isinstance(out, dict) else out
+                ecu[module] = params
+            data['ecu_resources'] = ecu
+
         return data
 
     def to_yaml_string(self, chip: ChipDefinition) -> str:
@@ -141,6 +211,37 @@ class ChipDefinitionExporter:
         """Save ChipDefinition to YAML file"""
         _atomic_write_text(Path(target_path), self.to_yaml_string(chip))
 
+    def module_properties_strings(self, chip: ChipDefinition) -> Dict[str, str]:
+        """One .properties text per module, taken only from ``chip.ecu_resources``.
+
+        Modules and keys keep the order of the YAML; nothing is added or defaulted.
+        The result maps ``<Module>_<chip>.properties`` to the file content.
+        """
+        files: Dict[str, str] = {}
+        for module, entries in chip.ecu_resources.items():
+            lines = [
+                "#####################################################################################################",
+                f"# Generated from chip definition {chip.name}"
+                + (f" (resource_version {chip.resource_version})" if chip.resource_version else ""),
+                "# Do not edit: the chip YAML is the source of this file.",
+                "#####################################################################################################",
+            ]
+            for name, value in entries.items():
+                lines.extend(_format_property_line(f"{module}.{name}", value))
+            files[f"{module}_{chip.name}.properties"] = "\n".join(lines) + "\n"
+        return files
+
+    def save_module_properties(self, chip: ChipDefinition, target_dir: Path) -> List[Path]:
+        """Write one .properties file per module into ``target_dir``; returns the paths."""
+        target_dir = Path(target_dir)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        written: List[Path] = []
+        for file_name, content in self.module_properties_strings(chip).items():
+            path = target_dir / file_name
+            _atomic_write_text(path, content)
+            written.append(path)
+        return written
+
     def to_properties_string(
         self,
         chip: ChipDefinition,
@@ -148,7 +249,16 @@ class ChipDefinitionExporter:
         available_cores: Optional[List[str]] = None,
         master_core: str = "CORE0"
     ) -> str:
-        """Convert ChipDefinition to EB Tresos compatible .properties resource file"""
+        """Convert ChipDefinition to EB Tresos compatible .properties resource file
+
+        When the chip has ``ecu_resources`` the text is built from them only (all
+        modules one after another, for preview); otherwise the legacy output.
+        """
+        if chip.ecu_resources:
+            return "\n".join(
+                f"# ---- {file_name} ----\n{content}"
+                for file_name, content in self.module_properties_strings(chip).items()
+            )
         if available_cores is None:
             available_cores = [f"CORE{i}" for i in range(num_cores)]
 
@@ -233,6 +343,13 @@ class ChipDefinitionExporter:
         available_cores: Optional[List[str]] = None,
         master_core: str = "CORE0"
     ):
-        """Save ChipDefinition to EB Tresos .properties file"""
+        """Save ChipDefinition to EB Tresos .properties file
+
+        When the chip has ``ecu_resources``, one file per module is written next
+        to ``target_path`` instead (see save_module_properties).
+        """
+        if chip.ecu_resources:
+            self.save_module_properties(chip, Path(target_path).parent)
+            return
         content = self.to_properties_string(chip, num_cores, available_cores, master_core)
         _atomic_write_text(Path(target_path), content)

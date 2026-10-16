@@ -60,8 +60,16 @@ class WorkspaceProject:
         # "source_epc": str|None (relative to eb_source_root), "imported_at": str|None}
         self.module_provenance: Dict[str, Dict[str, Any]] = {}
 
-        # ECU resources from .properties files (for ecu:get/ecu:list during UI and generation)
+        # ECU resources from .properties files and the chip YAML (for ecu:get/ecu:list
+        # during UI and generation); see load_ecu_resources()
         self.ecu_resources: Dict[str, Any] = {}
+
+        # Chip database used to look up selected_chip's ecu_resources; None means
+        # the shared database over the packaged data/chips directory
+        self.chip_database = None
+
+        # Last EcuResourceReport from diagnose_ecu_resources() (None until run)
+        self.ecu_resource_report = None
     
     def discover_available_chips(self) -> List[str]:
         """Scan project for available chip .properties files.
@@ -97,91 +105,37 @@ class WorkspaceProject:
         return self.available_chips
 
     def load_ecu_resources(self) -> Dict[str, Any]:
-        """Scan project and module definition paths for .properties files and load ECU resources.
+        """Build ``self.ecu_resources`` for ecu:get() / ecu:list().
 
-        This makes ecu:get() / ecu:list() data available during UI browsing
-        (not only during code generation).  The result is stored in
-        ``self.ecu_resources`` so that the generator and chip-constraint
-        service can share the same data.
+        Delegates to EcuResourceResolver: .properties files of the project and
+        of the loaded module plugins (lower priority) merged with the selected
+        chip's YAML ``ecu_resources`` (higher priority).  The whole dict is
+        recomputed, so keys of a previously selected chip never linger.
 
         Returns:
             Flat dict mapping property keys (e.g. 'Adc.HwUnitId') to values.
         """
-        from .hardware.tresos_properties_parser import TresosPropertiesParser, resource_file_matches_chip
-        import logging
-        logger = logging.getLogger(__name__)
+        from .hardware.ecu_resource_resolver import EcuResourceResolver
 
-        self.ecu_resources = {}
-        if not self.path:
-            return self.ecu_resources
-
-        project_dir = self.path.parent if self.path.suffix == '.dpa' else self.path
-
-        # Collect all directories to search
-        search_dirs: list[Path] = []
-        
-        # 1. Primary: Def/plugins/ (project local)
-        def_plugins = project_dir / "Def" / "plugins"
-        if def_plugins.exists():
-            search_dirs.append(def_plugins)
-        
-        # 2. Legacy/Fallback: Def/ (project local)
-        def_dir = project_dir / "Def"
-        if def_dir.exists() and def_dir != def_plugins:
-            search_dirs.append(def_dir)
-            
-        # 3. Module Definition Paths (handles external plugins like Os)
-        for def_path in self.module_defs.values():
-            if not def_path:
-                continue
-            # Scan the plugin root (parent of 'config' or 'autosar')
-            # Typical EB path: plugin_dir/config/module.xdm
-            plugin_dir = def_path.parent.parent
-            if plugin_dir.exists() and plugin_dir not in search_dirs:
-                search_dirs.append(plugin_dir)
-
-        if not search_dirs:
-            return self.ecu_resources
-
-        parser = TresosPropertiesParser()
-        all_props: list[Path] = []
-        seen: set[Path] = set()
-        for d in search_dirs:
-            for pf in d.rglob("*.properties"):
-                resolved = pf.resolve()
-                if resolved not in seen:
-                    seen.add(resolved)
-                    all_props.append(pf)
-
-        # Filter by selected chip if applicable
-        if self.selected_chip:
-            filtered = []
-            chip_lower = self.selected_chip.lower()
-            for pf in all_props:
-                # If it's a resource properties file, it MUST match selected chip.
-                # Use whole-token matching: the chip name must appear as a complete
-                # underscore-delimited token in the stem, not as a substring.
-                # e.g. "THA6206" matches "Os_Resource_THA6206" but NOT "THA62060x".
-                if "resource" in str(pf.parent).lower():
-                    if resource_file_matches_chip(pf.stem, chip_lower):
-                        filtered.append(pf)
-                else:
-                    # Non-resource .properties (build configs, etc.) always loaded
-                    filtered.append(pf)
-            all_props = filtered
-
-        accumulated = {}
-        for pf in all_props:
-            try:
-                result = parser.parse_file(pf)
-                # Accumulate: later files override earlier ones for same key
-                accumulated.update(result.properties)
-            except Exception as e:
-                logger.warning(f"Failed to parse properties file {pf}: {e}")
-
-        self.ecu_resources = accumulated
-
+        self.ecu_resources = EcuResourceResolver(self.chip_database).resolve(self)
         return self.ecu_resources
+
+    def diagnose_ecu_resources(self):
+        """Report ecu:get()/ecu:list() keys the loaded modules need but the project lacks.
+
+        Stores the EcuResourceReport in ``self.ecu_resource_report`` and returns it.
+        Scans module xdm files and templates, so call it when modules or the chip
+        change rather than before every generation.  Never raises.
+        """
+        from .hardware.ecu_resource_diagnostics import diagnose
+
+        try:
+            self.ecu_resource_report = diagnose(self, self.ecu_resources)
+        except Exception:  # noqa: BLE001 - diagnostics must never break project loading
+            import logging
+            logging.getLogger(__name__).exception("ECU resource diagnosis failed")
+            self.ecu_resource_report = None
+        return self.ecu_resource_report
 
     def ensure_default_variant(self):
         """Ensure Default variant exists for all modules

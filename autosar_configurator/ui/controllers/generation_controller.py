@@ -8,7 +8,7 @@ thread_pool, statusbar) and Qt parenting.
 """
 import logging
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
@@ -34,6 +34,23 @@ class GenerationController:
                 if manager.module_def and manager.configuration:
                     all_configs[name] = (manager.module_def, manager.configuration)
         return all_configs
+
+    def _project_ecu_resources(self) -> Optional[Dict[str, Any]]:
+        """Fresh ecu:get()/ecu:list() data of the current project for the generators.
+
+        Recomputed here so edits to chip YAML or .properties files since the
+        project was opened are picked up.  None (no project, or nothing found)
+        lets the generator fall back to scanning for .properties itself.
+        """
+        project = self.win.current_project
+        if not project:
+            return None
+        try:
+            resources = project.load_ecu_resources()
+        except Exception:  # noqa: BLE001 - generation falls back to its own scan
+            logger.exception("Could not resolve ECU resources; generator will scan itself")
+            return None
+        return dict(resources) if resources else None
 
     def generate_code(self):
         """Generate C/C++ code for current module or entire project."""
@@ -97,7 +114,8 @@ class GenerationController:
                 project_template_dir=project_template_dir,
                 variant_overrides=variant_overrides,
                 all_configurations=self._get_all_project_configurations(),
-                selected_chip=win.current_project.selected_chip if win.current_project else None
+                selected_chip=win.current_project.selected_chip if win.current_project else None,
+                ecu_resources=self._project_ecu_resources()
             )
 
             # Pass parent output directory; generator.generate_all() handles the ModuleName/ subdir
@@ -163,7 +181,7 @@ class GenerationController:
             finished = Signal(str, str, str)  # module_name, status (GEN/SKIP/FAIL), message
 
         class GenWorker(QRunnable):
-            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None, project_template_dir=None, all_configs=None, selected_chip=None):
+            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None, project_template_dir=None, all_configs=None, selected_chip=None, ecu_resources=None):
                 super().__init__()
                 self.name = name
                 self.manager = manager
@@ -173,6 +191,7 @@ class GenerationController:
                 self.project_template_dir = project_template_dir
                 self.all_configs = all_configs
                 self.selected_chip = selected_chip
+                self.ecu_resources = ecu_resources
                 self.signals = GenSignals()
 
             @Slot()
@@ -190,7 +209,8 @@ class GenerationController:
                         variant_overrides=self.variant_overrides,
                         variant_name=self.variant_name,
                         all_configurations=self.all_configs,
-                        selected_chip=self.selected_chip
+                        selected_chip=self.selected_chip,
+                        ecu_resources=self.ecu_resources
                     )
                     # Pass parent output path; generator.generate_all() handles the ModuleName/ subdir
                     variant_to_use = self.variant_name if self.variant_name else "Default"
@@ -322,6 +342,7 @@ class GenerationController:
         # Keep references to prevent garbage collection
         self._gen_workers = []
         all_configs = self._get_all_project_configurations()
+        ecu_resources = self._project_ecu_resources()
 
         for name, manager in modules:
             if not manager.configuration:
@@ -341,7 +362,8 @@ class GenerationController:
                 variant_overrides=mod_variant_overrides,
                 project_template_dir=project_template_dir,
                 all_configs=all_configs,
-                selected_chip=win.current_project.selected_chip if win.current_project else None
+                selected_chip=win.current_project.selected_chip if win.current_project else None,
+                ecu_resources=ecu_resources
             )
             worker.setAutoDelete(False)  # Prevent automatic deletion
             # Use QueuedConnection for cross-thread signal delivery

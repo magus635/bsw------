@@ -30,6 +30,7 @@ from ...core.hardware.chip_database import (
 )
 from ...core.hardware.pinout_importer import PinoutTableImporter
 from ...core.hardware.chip_exporter import ChipDefinitionExporter
+from ...core.hardware.ecu_resource_data import EcuResources, describe_ecu_resources
 
 logger = logging.getLogger(__name__)
 
@@ -240,6 +241,10 @@ class ChipDefinitionDesignerDialog(QDialog):
         # Name of the chip whose file is being edited (None for new / cloned chips)
         self._editing_name: Optional[str] = None
         self._last_saved_chip: Optional[str] = None
+        # ECU resources (ecu:get/ecu:list data) and their version: not edited
+        # field by field; filled by "Import properties" or loaded with the chip.
+        self._ecu_resources: EcuResources = {}
+        self._resource_version: str = ""
 
         self.setWindowTitle("Chip Definition Designer - 芯片定义设计器")
         self.resize(920, 700)
@@ -536,6 +541,21 @@ class ChipDefinitionDesignerDialog(QDialog):
         splitter.setSizes([450, 450])
         layout.addWidget(splitter, 1)
 
+        ecu_box = QGroupBox("ECU 资源 (ecu_resources，只读预览；来自 YAML 或导入的 .properties)")
+        ecu_layout = QVBoxLayout(ecu_box)
+        self.ecu_preview = QTextEdit()
+        self.ecu_preview.setFont(QFont("Menlo, Monaco, Consolas, Courier New", 10))
+        self.ecu_preview.setReadOnly(True)
+        self.ecu_preview.setPlaceholderText("尚无 ECU 资源。可通过下方按钮导入 .properties 文件。")
+        self.ecu_preview.setMaximumHeight(170)
+        ecu_layout.addWidget(self.ecu_preview)
+
+        ecu_import_btn = QPushButton("📥 导入 .properties 到 ECU 资源... (Import)")
+        ecu_import_btn.setToolTip("读取 EB Tresos .properties 文件的全部键，并入当前芯片的 ECU 资源（同名键以后导入的为准）")
+        ecu_import_btn.clicked.connect(self._on_import_properties_clicked)
+        ecu_layout.addWidget(ecu_import_btn)
+        layout.addWidget(ecu_box)
+
         self.tabs.addTab(tab, "4. 预览与导出 (Preview & Export)")
 
     def _populate_clone_dropdown(self):
@@ -569,6 +589,8 @@ class ChipDefinitionDesignerDialog(QDialog):
 
         self._base_chip = copy.deepcopy(chip)
         self._editing_name = chip.name
+        self._ecu_resources = copy.deepcopy(chip.ecu_resources)
+        self._resource_version = chip.resource_version
 
         self.name_edit.setText(chip.name)
         self.family_edit.setText(chip.family)
@@ -628,6 +650,8 @@ class ChipDefinitionDesignerDialog(QDialog):
         """Set up initial blank values"""
         self._base_chip = None
         self._editing_name = None
+        self._ecu_resources = {}
+        self._resource_version = ""
         self.name_edit.setText("NEW_MCU_SERIES")
         self.family_edit.setText("THA6")
         self.package_edit.setText("LQFP144")
@@ -784,6 +808,8 @@ class ChipDefinitionDesignerDialog(QDialog):
             # Not editable in the UI yet: carry over unchanged
             intc_sources=copy.deepcopy(base.intc_sources) if base else [],
             metadata=initial_metadata,
+            ecu_resources=copy.deepcopy(self._ecu_resources),
+            resource_version=self._resource_version,
         )
 
         avail_cores = [c.strip() for c in self.avail_cores_edit.text().split(",") if c.strip()]
@@ -844,15 +870,55 @@ class ChipDefinitionDesignerDialog(QDialog):
             self.prop_preview.setPlainText(self.exporter.to_properties_string(
                 chip, num_cores=cores['count'], available_cores=cores['available'], master_core=cores['master']
             ))
+            self.ecu_preview.setPlainText(describe_ecu_resources(chip.ecu_resources))
 
     def _copy_to_clipboard(self, text: str):
         """Copy string to system clipboard"""
         QGuiApplication.clipboard().setText(text)
         self.status_label.setText("已复制到剪贴板！")
 
+    def _on_import_properties_clicked(self):
+        """Merge the keys of one or more .properties files into the chip's ECU resources"""
+        file_paths, _ = QFileDialog.getOpenFileNames(
+            self, "导入 EB Tresos 属性文件", str(Path.home()),
+            "Properties Files (*.properties);;All Files (*)"
+        )
+        if not file_paths:
+            return
+
+        scratch = ChipDefinition(name=self.name_edit.text().strip() or "UNNAMED_CHIP",
+                                 ecu_resources=copy.deepcopy(self._ecu_resources))
+        try:
+            count = self.chip_database.import_ecu_resources_from_properties(
+                scratch, [Path(p) for p in file_paths])
+        except Exception as e:
+            logger.exception("Failed to import properties")
+            QMessageBox.critical(self, "导入错误", f"无法解析属性文件:\n{str(e)}")
+            return
+
+        self._ecu_resources = scratch.ecu_resources
+        self.ecu_preview.setPlainText(describe_ecu_resources(self._ecu_resources))
+        self.status_label.setText(f"已导入 {count} 个键（来自 {len(file_paths)} 个文件），保存芯片后写入 YAML")
+
     def _on_export_properties_clicked(self):
         """Export .properties file via file dialog"""
         chip = self._build_current_chip()
+        if chip.ecu_resources:
+            # One file per module, content only from the chip's ecu_resources
+            target_dir = QFileDialog.getExistingDirectory(
+                self, "选择导出目录（每个模块一个 .properties 文件）", str(Path.home()))
+            if not target_dir:
+                return
+            try:
+                written = self.exporter.save_module_properties(chip, Path(target_dir))
+            except Exception as e:
+                QMessageBox.critical(self, "导出错误", f"导出失败:\n{str(e)}")
+                return
+            QMessageBox.information(
+                self, "导出成功",
+                "成功导出属性文件:\n" + "\n".join(str(p) for p in written))
+            self.status_label.setText(f"已导出 {len(written)} 个属性文件")
+            return
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "导出 EB Tresos 属性文件",

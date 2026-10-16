@@ -7,13 +7,13 @@ undo_stack, tree_view, config_panel, thread_pool) and Qt parenting.
 """
 import logging
 
-from PySide6.QtCore import Qt, QProcess, QProcessEnvironment
+from PySide6.QtCore import QProcess, QProcessEnvironment, Qt
 from PySide6.QtWidgets import QDockWidget
 
-from ..async_workers import AIWorker
-from ..widgets.ai_assistant import AIAssistantWidget
 from ...core.ai.nlp_processor import NaturalLanguageProcessor
 from ...utils.secret_store import get_api_key
+from ..async_workers import AIWorker
+from ..widgets.ai_assistant import AIAssistantWidget
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +100,7 @@ class AiAssistantController:
                 context_instance = win.tree_view.get_selected_instance()
             else:
                 logger.debug("tree_view missing get_selected_instance")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - context is best-effort
             logger.debug(f"Context error: {e}")
 
         worker = AIWorker(self.ai_processor, text, context_instance)
@@ -207,8 +207,8 @@ except Exception as e:
 
             try:
                 if self._ai_help_process:
-                    output = self._ai_help_process.readAllStandardOutput().data().decode('utf-8').strip()
-                    error = self._ai_help_process.readAllStandardError().data().decode('utf-8').strip()
+                    output = self._ai_help_process.readAllStandardOutput().data().decode('utf-8', errors='replace').strip()
+                    error = self._ai_help_process.readAllStandardError().data().decode('utf-8', errors='replace').strip()
 
                     if exit_code == 0 and output:
                         win.config_panel.update_ai_help(output)
@@ -237,6 +237,9 @@ except Exception as e:
         # exposed in the process listing to other local users.
         env = QProcessEnvironment.systemEnvironment()
         env.insert("GEMINI_API_KEY", api_key)
+        # On Windows a piped child writes in the ANSI code page (GBK), not UTF-8.
+        env.insert("PYTHONIOENCODING", "utf-8")
+        env.insert("PYTHONUTF8", "1")
         process.setProcessEnvironment(env)
 
         # Start subprocess (api_key intentionally NOT passed as an argument).
@@ -245,7 +248,9 @@ except Exception as e:
     # ----- teardown ----------------------------------------------------------
     def cleanup(self):
         """Terminate any in-flight AI help subprocess (called on window close)."""
-        if self._ai_help_process is not None:
-            if self._ai_help_process.state() != QProcess.NotRunning:
-                self._ai_help_process.terminate()
-                self._ai_help_process.waitForFinished(1000)
+        if (
+            self._ai_help_process is not None
+            and self._ai_help_process.state() != QProcess.NotRunning
+        ):
+            self._ai_help_process.terminate()
+            self._ai_help_process.waitForFinished(1000)
