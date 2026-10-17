@@ -28,3 +28,4 @@ run_*.py
 generateCode_debug/
 debug_*.txt
 
+.DS_Store
