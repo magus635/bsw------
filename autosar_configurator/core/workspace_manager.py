@@ -12,6 +12,15 @@ from .config_manager import ConfigurationManager
 from .model.definition_model import EcucModuleDef
 from .parser.ecuc_def_parser import EcucDefParser
 
+def _chip_selector_values(project):
+    """Selector values declared by the chip library and the project's chips/ (never raises)."""
+    try:
+        from .hardware.ecu_resource_resolver import selector_values
+        return selector_values(project)
+    except Exception:  # noqa: BLE001 - parsing must not fail because of chip data
+        return None
+
+
 class WorkspaceProject:
     """Represents a DaVinci-style project containing multiple modules"""
     
@@ -70,6 +79,11 @@ class WorkspaceProject:
 
         # Last EcuResourceReport from diagnose_ecu_resources() (None until run)
         self.ecu_resource_report = None
+
+        # {name, resource_version, checksum} of the chip data the project uses,
+        # saved in the project file; set when the chip is saved into or updated
+        # in the project (see record_chip_data)
+        self.chip_data_record = None
     
     def discover_available_chips(self) -> List[str]:
         """Scan project for available chip .properties files.
@@ -179,8 +193,50 @@ class WorkspaceProject:
                     f"resource .properties file in the project to build one from")
             new_chip = chip_from_properties(self.selected_chip, flat)
         path = store.save(new_chip)
+        self.record_chip_data()
         self.load_ecu_resources()
         return path
+
+    def record_chip_data(self):
+        """Remember name, version and checksum of the chip data the project now uses."""
+        from .hardware.chip_exporter import chip_checksum
+        from .hardware.ecu_resource_resolver import chip_for_project
+
+        chip = chip_for_project(self, self.chip_database)[1]
+        self.chip_data_record = None if chip is None else {
+            "name": chip.name,
+            "resource_version": chip.resource_version,
+            "checksum": chip_checksum(chip),
+        }
+        return self.chip_data_record
+
+    def chip_data_findings(self):
+        """Problems with the integrity of the chip data, as messages (empty when fine).
+
+        Reports a project copy changed outside the designer or no longer matching
+        the recorded checksum, and a library chip that differs from the copy.
+        """
+        from .hardware.chip_exporter import chip_checksum
+        from .hardware.ecu_resource_resolver import chip_for_project
+        from .hardware.project_chip_store import SOURCE_LIBRARY, SOURCE_PROJECT
+
+        messages = []
+        source, chip = chip_for_project(self, self.chip_database)
+        if chip is None:
+            return messages
+        current = chip_checksum(chip)
+        if source == SOURCE_PROJECT:
+            record = self.chip_data_record or {}
+            if chip.content_modified or (record.get("checksum") and record["checksum"] != current):
+                messages.append(f"The project's chip data chips/{chip.name}.yaml was modified "
+                                f"after it was saved into the project")
+            library = self._chip_library().get_chip(chip.name)
+            if library is not None and chip_checksum(library) != current:
+                messages.append(f"The chip library has a different version of {chip.name} "
+                                f"(Project Properties > Update from Library)")
+        elif source == SOURCE_LIBRARY and chip.content_modified:
+            messages.append(f"The chip library's {chip.name} was modified outside the chip designer")
+        return messages
 
     def chip_update_differences(self):
         """(lines, total) describing how the project's copy differs from the library's chip.
@@ -215,6 +271,7 @@ class WorkspaceProject:
         if library is None:
             raise ValueError(f"The chip library has no chip {self.selected_chip}")
         path = store.save(copy.deepcopy(library))
+        self.record_chip_data()
         self.load_ecu_resources()
         return path
 
@@ -234,6 +291,7 @@ class WorkspaceProject:
             library = self._chip_library().get_chip(self.selected_chip)
             if library is not None:
                 store.save(copy.deepcopy(library))
+                self.record_chip_data()
         return self.load_ecu_resources()
 
     def diagnose_ecu_resources(self):
@@ -247,10 +305,15 @@ class WorkspaceProject:
         from .hardware.ecu_resource_resolver import other_chip_keys
 
         try:
+            from .hardware.ecu_resource_diagnostics import check_selectors
+            from .hardware.ecu_resource_resolver import chip_for_project
+
             previous = self.ecu_resource_report
             report = diagnose(self, self.ecu_resources,
                               other_chip_keys=other_chip_keys(self, self.chip_database),
                               log=False)
+            report.consistency.extend(check_selectors(self, chip_for_project(self, self.chip_database)[1]))
+            report.consistency.extend(self.chip_data_findings())
             # The same finding is not logged again on every reload
             if previous is None or previous.warning_lines() != report.warning_lines():
                 from .hardware.ecu_resource_diagnostics import log_report
@@ -697,6 +760,7 @@ class WorkspaceManager:
             "dependency_rules": self.current_project.dependency_rules,
             "available_chips": self.current_project.available_chips,
             "selected_chip": self.current_project.selected_chip,
+            "chip_data": self.current_project.chip_data_record or self.current_project.record_chip_data(),
             "eb_source_root": eb_source_root_str,
             "import_mode": self.current_project.import_mode,
             "modules": []
@@ -896,6 +960,7 @@ class WorkspaceManager:
         # Load chip selection (new in format v7)
         project.available_chips = data.get("available_chips", [])
         project.selected_chip = data.get("selected_chip", None)
+        project.chip_data_record = data.get("chip_data") or None
 
         # Load EB source root (for imported EB projects).
         # Saved relative to the project root when inside it (v7); older
@@ -978,7 +1043,8 @@ class WorkspaceManager:
             
             if def_path.exists():
                 try:
-                    # Load definition
+                    # Load definition (selector enumerations include the project's own chips)
+                    self.def_parser.set_selector_values(_chip_selector_values(project))
                     module_def = self.def_parser.parse_module_def_file(def_path)
                     
                     # Create manager
@@ -1257,7 +1323,8 @@ class WorkspaceManager:
             try:
                 actual_name = module_name
                 if def_path:
-                    # Parse definition
+                    # Parse definition (selector enumerations include the project's own chips)
+                    self.def_parser.set_selector_values(_chip_selector_values(project))
                     module_def = self.def_parser.parse_module_def_file(def_path)
                     actual_name = module_def.short_name
     

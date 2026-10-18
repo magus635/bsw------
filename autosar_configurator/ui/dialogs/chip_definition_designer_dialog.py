@@ -33,7 +33,10 @@ from ...core.hardware.chip_exporter import ChipDefinitionExporter
 from ...core.hardware.ecu_resource_data import (
     EcuResources, count_placeholders, describe_ecu_resources, flatten_ecu_resources,
 )
-from ...core.hardware.ecu_resource_diagnostics import check_consistency
+from ...core.hardware.ecu_resource_data import parse_selectors
+from ...core.hardware.ecu_resource_diagnostics import (
+    check_consistency, typed_field_differences, typed_fields_from_ecu,
+)
 from .ecu_resource_editor import EcuResourceEditor
 
 logger = logging.getLogger(__name__)
@@ -383,8 +386,94 @@ class ChipDefinitionDesignerDialog(QDialog):
         form.addRow("描述 (Description):", self.desc_edit)
 
         layout.addWidget(form_group)
+
+        # Where the typed core fields disagree with the ECU resources (which prevail)
+        diff_row = QHBoxLayout()
+        self.typed_diff_label = QLabel()
+        self.typed_diff_label.setWordWrap(True)
+        self.typed_diff_label.setStyleSheet("color: #8a4b00;")
+        diff_row.addWidget(self.typed_diff_label, 1)
+        self.typed_diff_btn = QPushButton("用 ECU 资源覆盖表单")
+        self.typed_diff_btn.setToolTip("ECU 资源是模板实际读取的数据；把核数、可用核、主核改成 ECU 资源里的值")
+        self.typed_diff_btn.clicked.connect(self._overwrite_typed_fields_from_ecu)
+        diff_row.addWidget(self.typed_diff_btn)
+        layout.addLayout(diff_row)
+
+        # Chip selectors: value of each module's selector parameter for this chip
+        sel_group = QGroupBox("芯片选择器 (Selectors)：本芯片在各模块选择器参数上的取值")
+        sel_layout = QVBoxLayout(sel_group)
+        sel_hint = QLabel("例：Resource.ResourceSubderivative → THA6412_BGA516；"
+                          "Os.OsResourceSubderivative → Os_THA6412。新芯片无需修改模块定义文件即可被选择。")
+        sel_hint.setWordWrap(True)
+        sel_layout.addWidget(sel_hint)
+        self.selectors_table = QTableWidget(0, 2)
+        self.selectors_table.setHorizontalHeaderLabels(["模块.参数 (Module.Parameter)", "取值 (Value)"])
+        self.selectors_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.selectors_table.setMaximumHeight(130)
+        sel_layout.addWidget(self.selectors_table)
+        sel_buttons = QHBoxLayout()
+        add_sel = QPushButton("增加一行")
+        add_sel.clicked.connect(lambda: self.selectors_table.insertRow(self.selectors_table.rowCount()))
+        sel_buttons.addWidget(add_sel)
+        del_sel = QPushButton("删除所选行")
+        del_sel.clicked.connect(self._remove_selector_rows)
+        sel_buttons.addWidget(del_sel)
+        sel_buttons.addStretch()
+        sel_layout.addLayout(sel_buttons)
+        layout.addWidget(sel_group)
+
         layout.addStretch()
         self.tabs.addTab(tab, "1. 基础信息 (Basic Info)")
+
+    # --- selectors ------------------------------------------------------------
+
+    def _set_selectors(self, selectors: Dict[str, str]):
+        self.selectors_table.setRowCount(0)
+        for key in sorted(selectors):
+            row = self.selectors_table.rowCount()
+            self.selectors_table.insertRow(row)
+            self.selectors_table.setItem(row, 0, QTableWidgetItem(key))
+            self.selectors_table.setItem(row, 1, QTableWidgetItem(selectors[key]))
+
+    def _remove_selector_rows(self):
+        for row in sorted({i.row() for i in self.selectors_table.selectedItems()}, reverse=True):
+            self.selectors_table.removeRow(row)
+
+    def _selectors_from_table(self) -> Dict[str, str]:
+        """The selectors entered in the table; raises ValueError naming a bad row."""
+        raw = {}
+        for row in range(self.selectors_table.rowCount()):
+            key_item, value_item = self.selectors_table.item(row, 0), self.selectors_table.item(row, 1)
+            key = key_item.text().strip() if key_item else ""
+            value = value_item.text().strip() if value_item else ""
+            if not key and not value:
+                continue
+            if key in raw:
+                raise ValueError(f"selectors: '{key}' appears twice")
+            raw[key] = value
+        return parse_selectors(raw)
+
+    # --- typed fields vs ECU resources ------------------------------------------
+
+    def _refresh_typed_differences(self):
+        if not hasattr(self, "pin_model") or not hasattr(self, "ecu_editor"):
+            return []       # tab change signals fire while the tabs are still being built
+        messages = typed_field_differences(self._build_current_chip())
+        self.typed_diff_label.setText("\n".join(messages))
+        self.typed_diff_btn.setEnabled(bool(messages))
+        return messages
+
+    def _overwrite_typed_fields_from_ecu(self):
+        values = typed_fields_from_ecu(self._build_current_chip())
+        if "count" in values and isinstance(values["count"], int):
+            self.core_count_spin.blockSignals(True)
+            self.core_count_spin.setValue(values["count"])
+            self.core_count_spin.blockSignals(False)
+        if "available" in values:
+            self.avail_cores_edit.setText(", ".join(values["available"]))
+        if "master" in values:
+            self.master_core_edit.setText(values["master"])
+        self._refresh_typed_differences()
 
     def _setup_peripherals_tab(self):
         """Tab 2: Peripheral Capacities"""
@@ -531,6 +620,7 @@ class ChipDefinitionDesignerDialog(QDialog):
 
     def _on_ecu_edited(self):
         self._ecu_resources = self.ecu_editor.resources()
+        self._refresh_typed_differences()
 
     def _set_ecu_resources(self, resources: EcuResources):
         """Replace the chip's ECU resources everywhere they are shown."""
@@ -623,6 +713,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._editing_name = chip.name
         self._set_ecu_resources(copy.deepcopy(chip.ecu_resources))
         self._resource_version = chip.resource_version
+        self._set_selectors(chip.selectors)
 
         self.name_edit.setText(chip.name)
         self.family_edit.setText(chip.family)
@@ -684,6 +775,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._editing_name = None
         self._set_ecu_resources({})
         self._resource_version = ""
+        self._set_selectors({})
         self.name_edit.setText("NEW_MCU_SERIES")
         self.family_edit.setText("THA6")
         self.package_edit.setText("LQFP144")
@@ -843,6 +935,10 @@ class ChipDefinitionDesignerDialog(QDialog):
             ecu_resources=copy.deepcopy(self._ecu_resources),
             resource_version=self._resource_version,
         )
+        try:
+            chip.selectors = self._selectors_from_table()
+        except ValueError:
+            chip.selectors = {}
 
         avail_cores = [c.strip() for c in self.avail_cores_edit.text().split(",") if c.strip()]
         chip.metadata['cores'] = {
@@ -907,7 +1003,10 @@ class ChipDefinitionDesignerDialog(QDialog):
             self.prop_preview.setPlainText(text)
             self.ecu_preview.setPlainText(describe_ecu_resources(chip.ecu_resources))
             self.consistency_label.setText("\n".join(
-                check_consistency(flatten_ecu_resources(chip.ecu_resources))))
+                check_consistency(flatten_ecu_resources(chip.ecu_resources))
+                + typed_field_differences(chip)))
+        elif index == 0:
+            self._refresh_typed_differences()
 
     def _copy_to_clipboard(self, text: str):
         """Copy string to system clipboard"""
@@ -1005,6 +1104,13 @@ class ChipDefinitionDesignerDialog(QDialog):
             if reply != QMessageBox.Yes:
                 self.tabs.setCurrentIndex(2)
                 return
+
+        try:
+            self._selectors_from_table()
+        except ValueError as e:
+            QMessageBox.warning(self, "选择器无效", str(e))
+            self.tabs.setCurrentIndex(0)
+            return
 
         pending = count_placeholders(chip.ecu_resources)
         if pending:

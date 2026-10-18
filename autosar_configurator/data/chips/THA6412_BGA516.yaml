@@ -125,3 +125,8 @@ metadata:
   cpu_frequency: 200000000
   flash_size: 4MB
   ram_size: 512KB
+
+# Chip selectors: value of each module's selector parameter for this chip
+selectors:
+  Os.OsResourceSubderivative: Os_THA6412
+  Resource.ResourceSubderivative: THA6412_BGA516

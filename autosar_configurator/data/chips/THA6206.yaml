@@ -227,3 +227,8 @@ metadata:
   flash_size: 4194304
   ram_size: 524288
   vendor: "ChipowerTech"
+
+# Chip selectors: value of each module's selector parameter for this chip
+selectors:
+  Os.OsResourceSubderivative: Os_THA6206
+  Resource.ResourceSubderivative: THA6206_LFBGA292

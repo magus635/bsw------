@@ -9,7 +9,8 @@ import logging
 import yaml
 
 from .ecu_resource_data import (
-    EcuResources, parse_ecu_resources, flatten_ecu_resources, nest_flat_resources,
+    EcuResources, parse_ecu_resources, parse_selectors, flatten_ecu_resources,
+    nest_flat_resources,
 )
 
 logger = logging.getLogger(__name__)
@@ -91,6 +92,15 @@ class ChipDefinition:
     # key "<module>.<name>" equals the key of the matching .properties entry.
     ecu_resources: EcuResources = field(default_factory=dict)
     resource_version: str = ""
+
+    # Value of each selector parameter of a module definition for this chip,
+    # keyed "<Module>.<parameter>" (e.g. "Os.OsResourceSubderivative": "Os_THA6412")
+    selectors: Dict[str, str] = field(default_factory=dict)
+
+    # Checksum stored in the YAML and whether the content no longer matches it
+    # (set when loading; content_modified is not written back)
+    checksum: str = field(default="", compare=False)
+    content_modified: bool = field(default=False, compare=False)
 
     def get_port_pins(self, port_name: str) -> List[PortPinDef]:
         """Get pins for a specific port"""
@@ -231,6 +241,18 @@ class ChipDatabase:
         except ValueError as e:
             raise ValueError(f"{yaml_path}: {e}") from e
         chip.resource_version = str(data.get('resource_version', '') or '')
+        try:
+            chip.selectors = parse_selectors(data.get('selectors'))
+        except ValueError as e:
+            raise ValueError(f"{yaml_path}: {e}") from e
+
+        chip.checksum = str(data.get('checksum', '') or '')
+        if chip.checksum:
+            from .chip_exporter import chip_checksum
+            if chip_checksum(chip) != chip.checksum:
+                chip.content_modified = True
+                logger.warning("%s: content does not match its checksum; the chip data was "
+                               "changed outside the chip designer", yaml_path)
 
         return chip
 

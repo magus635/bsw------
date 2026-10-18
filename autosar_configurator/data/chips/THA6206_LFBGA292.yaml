@@ -115,3 +115,8 @@ metadata:
   cpu_frequency: 120000000
   flash_size: 1MB
   ram_size: 128KB
+
+# Chip selectors: value of each module's selector parameter for this chip
+selectors:
+  Os.OsResourceSubderivative: Os_THA6206
+  Resource.ResourceSubderivative: THA6206_LFBGA292

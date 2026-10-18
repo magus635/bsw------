@@ -229,3 +229,41 @@ def library_other_chip_keys(chip_database: ChipDatabase, exclude_chip: Optional[
         for key in flatten_ecu_resources(chip.ecu_resources):
             result.setdefault(key.lower(), set()).add(name)
     return {key: sorted(chips) for key, chips in result.items()}
+
+
+def available_chip_names(project, chip_database: Optional[ChipDatabase] = None,
+                         extra: Optional[List[str]] = None) -> List[str]:
+    """Chips a project can select: the chip library, the project's own chips/ and the
+    chip names found in the project's resource .properties files (``available_chips``)."""
+    names = set(getattr(project, "available_chips", None) or [])
+    names.update(extra or [])
+    project_dir = _project_dir(project)
+    if project_dir is not None:
+        names.update(ProjectChipStore(project_dir).list_names())
+    db = chip_database or getattr(project, "chip_database", None) or get_default_chip_database()
+    names.update(db.list_chips())
+    return sorted(n for n in names if n)
+
+
+def selector_values(project=None, chip_database: Optional[ChipDatabase] = None) -> Dict[str, List[str]]:
+    """"<Module>.<parameter>" -> values declared by the chips of the library (and the
+    project's own chips/), sorted, for extending selector enumerations."""
+    chips = {}
+    db = chip_database or (getattr(project, "chip_database", None) if project is not None else None) \
+        or get_default_chip_database()
+    for name in db.list_chips():
+        chip = db.get_chip(name)
+        if chip is not None:
+            chips[name] = chip
+    project_dir = _project_dir(project) if project is not None else None
+    if project_dir is not None:
+        store = ProjectChipStore(project_dir)
+        for name in store.list_names():
+            chip = store.load(name)
+            if chip is not None:
+                chips[name] = chip
+    values: Dict[str, set] = {}
+    for chip in chips.values():
+        for key, value in chip.selectors.items():
+            values.setdefault(key, set()).add(value)
+    return {key: sorted(v) for key, v in values.items()}

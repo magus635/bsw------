@@ -296,15 +296,13 @@ class ProjectPropertiesDialog(QDialog):
         
         # Chips from the project's own chips/ folder, the chip library and the
         # resource .properties file names of the project
-        names = set(getattr(self.project, 'available_chips', []) or [])
-        store = getattr(self.project, 'chip_store', None)
-        if store is not None:
-            names.update(store.list_names())
+        from ...core.hardware.ecu_resource_resolver import available_chip_names
+
         try:
-            names.update(self.project._chip_library().list_chips())
+            names = available_chip_names(self.project)
         except Exception:  # noqa: BLE001 - the list is best-effort
-            pass
-        for chip in sorted(names):
+            names = sorted(getattr(self.project, 'available_chips', []) or [])
+        for chip in names:
             self.chip_combo.addItem(chip, chip)
         
         # Set current selection

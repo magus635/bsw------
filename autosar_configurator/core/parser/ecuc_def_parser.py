@@ -43,6 +43,50 @@ class EcucDefParser:
         from .xdm_expression_resolver import XdmExpressionResolver
         self._resolver = XdmExpressionResolver(constraints or {})
         self.NAMESPACES = dict(type(self).NAMESPACES)     # per instance: the 'a' entry follows the parsed file
+        # "<Module>.<parameter>" -> extra enumeration values declared by chips
+        # (None: use the packaged chip library)
+        self._selector_values = None
+
+    def set_selector_values(self, values):
+        """Extra values of chip selector parameters, keyed "<Module>.<parameter>"."""
+        self._selector_values = values
+
+    def _apply_selector_values(self, module_def: EcucModuleDef) -> None:
+        """Add the values chips declare for a selector parameter to its enumeration.
+
+        The definition's own values stay first and in their order; the default is
+        not touched, so existing projects keep generating the same code.
+        """
+        values = self._selector_values
+        if values is None:
+            try:
+                from ..hardware.ecu_resource_resolver import selector_values
+                values = selector_values()
+            except Exception:  # noqa: BLE001 - a broken chip library must not stop parsing
+                values = {}
+        if not values:
+            return
+        prefix = module_def.short_name + "."
+        wanted = {k[len(prefix):]: v for k, v in values.items() if k.startswith(prefix)}
+        if not wanted:
+            return
+
+        def extend(param_def):
+            extra = wanted.get(param_def.short_name)
+            if extra and param_def.param_type == EcucParameterType.ENUMERATION:
+                literals = list(param_def.literals or [])
+                param_def.literals = literals + [v for v in extra if v not in literals]
+
+        def walk(container_def):
+            for param_def in container_def.parameters.values():
+                extend(param_def)
+            for sub in container_def.sub_containers.values():
+                walk(sub)
+
+        for param_def in module_def.parameters.values():
+            extend(param_def)
+        for container_def in module_def.containers.values():
+            walk(container_def)
 
     def _use_attribute_namespace(self, root: etree._Element) -> None:
         """Make the 'a' prefix point to the attribute.xsd version the file declares"""
@@ -200,7 +244,8 @@ class EcucDefParser:
         
         # Set module definition reference
         module_def.definition_ref = f"/AUTOSAR/EcucDefs/{module_def.short_name}"
-        
+
+        self._apply_selector_values(module_def)
         return module_def
     
     def _parse_container_def(self, element: etree._Element, parent_path: str = "", is_choice: bool = False) -> Optional[EcucContainerDef]:

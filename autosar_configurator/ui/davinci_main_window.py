@@ -869,7 +869,7 @@ class DaVinciMainWindow(QMainWindow):
         # Update chip constraint service if available
         if hasattr(self, 'chip_constraint_service') and self.chip_constraint_service:
             if self.current_project and self.current_project.path:
-                self.chip_constraint_service.set_project_path(self.current_project.path.parent)
+                self.chip_constraint_service.set_project(self.current_project)
 
     def closeEvent(self, event):
         """Handle window close event - check for unsaved changes"""

@@ -99,6 +99,29 @@ def _format_property_line(key: str, value: Any) -> List[str]:
     return lines
 
 
+def _canonical(obj: Any) -> Any:
+    """Order-independent form of exported chip data for hashing."""
+    if isinstance(obj, dict):
+        return sorted(([str(k), _canonical(v)] for k, v in obj.items()), key=lambda kv: kv[0])
+    if isinstance(obj, (list, tuple)):
+        return [_canonical(v) for v in obj]
+    return obj
+
+
+def chip_checksum(chip: ChipDefinition) -> str:
+    """SHA-256 over the chip's content (as exported, without the checksum itself).
+
+    Computed from the parsed data rather than the YAML text, so formatting and
+    the order of keys do not matter; any change of a value does.
+    """
+    import hashlib
+    import json
+
+    data = ChipDefinitionExporter().to_yaml_dict(chip)
+    text = json.dumps(_canonical(data), ensure_ascii=False, separators=(",", ":"), default=str)
+    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 class ChipDefinitionExporter:
     """Exporter for ChipDefinition to YAML and EB Tresos .properties"""
 
@@ -184,6 +207,9 @@ class ChipDefinitionExporter:
         if chip.resource_version:
             data['resource_version'] = chip.resource_version
 
+        if chip.selectors:
+            data['selectors'] = {k: chip.selectors[k] for k in sorted(chip.selectors)}
+
         if chip.ecu_resources:
             ecu: Dict[str, Any] = {}
             for module, entries in chip.ecu_resources.items():
@@ -197,9 +223,14 @@ class ChipDefinitionExporter:
         return data
 
     def to_yaml_string(self, chip: ChipDefinition) -> str:
-        """Convert ChipDefinition to YAML text (properly quoted/escaped by PyYAML)"""
+        """Convert ChipDefinition to YAML text (properly quoted/escaped by PyYAML).
+
+        A fresh ``checksum`` of the content is always written last.
+        """
+        data = self.to_yaml_dict(chip)
+        data['checksum'] = chip_checksum(chip)
         return yaml.dump(
-            self.to_yaml_dict(chip),
+            data,
             Dumper=_ChipYamlDumper,
             sort_keys=False,
             allow_unicode=True,

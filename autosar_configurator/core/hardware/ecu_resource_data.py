@@ -308,3 +308,21 @@ def range_rows_to_list(flat_key: str, rows: List[Tuple[str, Any]]) -> List[Any]:
 def count_placeholders(resources: EcuResources) -> int:
     """Number of entries whose value is still the placeholder."""
     return sum(1 for entries in resources.values() for v in entries.values() if v is PLACEHOLDER)
+
+
+def parse_selectors(data: Any) -> Dict[str, str]:
+    """Validate the ``selectors`` section: ``{"<Module>.<parameter>": "<value>"}``."""
+    if data is None:
+        return {}
+    if not isinstance(data, dict):
+        raise ValueError("selectors must be a mapping of '<Module>.<parameter>' -> value")  # noqa: TRY004 - callers handle ValueError only
+    result: Dict[str, str] = {}
+    for key, value in data.items():
+        key = str(key).strip()
+        module, _, param = key.partition(".")
+        if not module or not param or "." in param:
+            raise ValueError(f"selectors: '{key}' is not '<Module>.<parameter>'")
+        if not isinstance(value, (str, int)) or isinstance(value, bool) or str(value).strip() == "":
+            raise ValueError(f"selectors.{key} must be a non-empty string")
+        result[key] = str(value).strip()
+    return result

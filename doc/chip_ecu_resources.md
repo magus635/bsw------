@@ -104,8 +104,45 @@ ecu_resources:
 - **一致性提示**：编辑页底部和预览页显示一致性检查结果，只提示，不阻止保存。
 - **旧推导的标注**：芯片没有 `ecu_resources` 时，`.properties` 预览顶部会写明"兜底推导，非权威数据"；该路径里 `Adc.MaxResolution` 取界面上的 ADC 分辨率。`Port.MaxAvailablePortID`（取了端口个数）、Cluster 等旧推导仍有已知问题，所以请在 ECU 资源页导入或填写后再导出。
 
+## 一个 YAML 就够：选择器、一致性与校验和
+
+### 界面约束与生成用同一份数据
+
+打开项目后，界面里由 `ecu:get` / `ecu:list` 算出的限制（最大值、取值范围、实例数）取自项目的 ECU 资源，与代码生成完全相同：芯片 YAML 加项目里的 `.properties`。只有芯片 YAML、没有任何 `.properties` 的项目，界面约束同样完整。芯片可选列表合并芯片库、项目 `chips/` 和 properties 文件名。
+
+### 芯片选择器（`selectors`）
+
+模块定义里有"选择器"参数，模板按它分支，例如 `Resource.ResourceSubderivative`、`Os.OsResourceSubderivative`。新芯片在自己的 YAML 里声明取值即可被选择，**不用改定义文件**：
+
+```yaml
+selectors:
+  Resource.ResourceSubderivative: THA6412_BGA516
+  Os.OsResourceSubderivative: Os_THA6412     # Os 的取值命名与芯片名不同，必须显式写
+```
+
+- 解析定义时，选择器的可选值 = 定义里原有的值 + 芯片库（及项目 `chips/`）里所有芯片声明的值；原有值保留，默认值不变。
+- 用户配置里的选择器取值与所选芯片声明不符时，诊断给出警告，**不会自动改配置**。
+- 设计器"基础信息"页的"芯片选择器"表格编辑这一段；有非法行（不是 `模块.参数`、取值为空、重复）时不能保存。
+- 内置芯片已声明两个选择器：`Resource.ResourceSubderivative` 取芯片名；`Os.OsResourceSubderivative` 为 `THA610X_LFBGA180 → Os_THA610X`、`THA6206_LFBGA292 → Os_THA6206`、`THA6412_BGA516 → Os_THA6412`。`Os_THA610X` 不在原 `Os.xdm` 的取值范围里，由芯片声明补进去。
+- `Os_SC300` 对应芯片 SC300，它目前不在芯片库中（没有 SC300 的芯片 YAML），所以没有芯片声明它；它仍在 `Os.xdm` 原有的取值里，可以照常选择。
+
+### 以 ECU 资源为准
+
+核数、可用核、主核在设计器表单（`metadata.cores`）和 ECU 资源（`OsResource.*`、`Resource.*`）里各有一份。模板只读 ECU 资源，所以以它为准：
+
+- 两者不一致时，"基础信息"页和预览页给出提示；"用 ECU 资源覆盖表单"把表单改成 ECU 资源的值。
+- ECU 资源里没有对应键时不比较。`OsResource.MasterCore` 的 `OS_CORE_ID_<n>` 按编号与 `CORE<n>` 比较。
+
+### 校验和与项目记录
+
+- 保存芯片 YAML 时总会写入 `checksum: sha256:...`，按内容计算（与键的顺序、排版无关）。
+- 加载时内容与校验和不符（在设计器之外被手改），会提示"已被修改"，但仍然加载。没有 `checksum` 的旧文件不提示。
+- 项目文件记录所用芯片的 `{name, resource_version, checksum}`（不含路径），在固化到项目、从芯片库更新、更换芯片时更新。打开项目后，诊断会提示：项目副本在记录之后被改过；芯片库有不同版本（可用 Update from Library）。
+- 校验和只用于发现改动，不防恶意篡改。
+
 ## 已知限制
 
 - Os 模板只定义了 `OS_CORE_ID_0/1`，4 核芯片的 `OS_CORE_ID_2/3` 在模板里是未定义的（模板问题，不在本功能内）。
 - 设计器重新保存时，多个 CAN/ADC/SPI 各自的个性化设置会被全局设置覆盖，`intc_sources` 只能原样带过。
 - 不能从引脚表生成 `Port.*` 的模式列表（`InputModes*`、`OutputModes*` 等）。
+- 定义里的选择器取值范围在**解析定义时**确定：切换芯片或新增芯片后，已加载的模块要重新加载才会看到新的可选值。

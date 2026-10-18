@@ -253,3 +253,108 @@ def log_report(report: EcuResourceReport) -> None:
         logger.info("ECU resource '%s' is not defined for this chip (defined for: %s); "
                     "it is probably used only under a chip condition", key, ", ".join(chips))
     logger.info(report.summary())
+
+
+def _find_parameter_values(containers, name: str) -> List[Any]:
+    """Configured values of every parameter called ``name`` in a container tree."""
+    found: List[Any] = []
+    for container in containers or []:
+        param = container.parameter_values.get(name)
+        if param is not None and getattr(param, "value", None) not in (None, ""):
+            found.append(param.value)
+        found.extend(_find_parameter_values(getattr(container, "sub_containers", []), name))
+    return found
+
+
+def check_selectors(project, chip) -> List[str]:
+    """Selector parameters configured differently from what the selected chip declares.
+
+    Only reports; the configuration is the user's and is never changed here.
+    """
+    if chip is None or not getattr(chip, "selectors", None):
+        return []
+    messages: List[str] = []
+    managers = getattr(project, "module_managers", {}) or {}
+    for key, declared in sorted(chip.selectors.items()):
+        module, _, param = key.partition(".")
+        manager = managers.get(module)
+        configuration = getattr(manager, "configuration", None) if manager else None
+        if configuration is None:
+            continue
+        for value in _find_parameter_values(configuration.containers, param):
+            if str(value) != declared:
+                messages.append(f"{key} is configured as '{value}' but the selected chip "
+                                f"{chip.name} declares '{declared}'")
+    return messages
+
+
+# --- typed designer fields vs ecu_resources (ecu_resources prevails) -----------
+
+def _os_core_to_core(value: Any) -> Any:
+    m = _OS_CORE_ID_FORM.match(str(value))
+    return f"CORE{int(m.group(1))}" if m else value
+
+
+def _first(value: Any) -> Any:
+    return value[0] if isinstance(value, list) and value else value
+
+
+# typed field -> [(ecu_resources key, function giving the comparable value)]
+TYPED_FIELD_MAP = {
+    "metadata.cores.count": [("OsResource.NumOfCores", lambda v: v),
+                             ("Resource.NumOfCores", lambda v: v)],
+    "metadata.cores.available": [("OsResource.AvailableCores", lambda v: [str(x) for x in _as_list(v)]),
+                                 ("Resource.AvailableCores", lambda v: [str(x) for x in _as_list(v)])],
+    "metadata.cores.master": [("Resource.MasterCore", lambda v: str(_first(v))),
+                              ("OsResource.MasterCore", lambda v: str(_os_core_to_core(v)))],
+}
+
+
+def _typed_value(chip, field_path: str) -> Any:
+    cores = (getattr(chip, "metadata", None) or {}).get("cores") or {}
+    leaf = field_path.rsplit(".", 1)[-1]
+    if leaf not in cores:
+        return None
+    value = cores[leaf]
+    if leaf == "available":
+        return [str(x) for x in _as_list(value)]
+    if leaf == "master":
+        return str(value)
+    return value
+
+
+def typed_field_differences(chip) -> List[str]:
+    """Differences between the designer's typed fields and ``ecu_resources``.
+
+    Compared only where ``ecu_resources`` has the mapped key; ``ecu_resources``
+    is the data templates read, so it is the one that counts.
+    """
+    from .ecu_resource_data import flatten_ecu_resources
+
+    flat = flatten_ecu_resources(getattr(chip, "ecu_resources", {}) or {})
+    messages: List[str] = []
+    for field_path, keys in TYPED_FIELD_MAP.items():
+        typed = _typed_value(chip, field_path)
+        if typed is None:
+            continue
+        for key, convert in keys:
+            if key not in flat:
+                continue
+            ecu_value = convert(flat[key])
+            if ecu_value != typed:
+                messages.append(f"{field_path} is {typed!r} but ECU resource {key} gives {ecu_value!r}")
+    return messages
+
+
+def typed_fields_from_ecu(chip) -> Dict[str, Any]:
+    """Values for the typed core fields taken from ``ecu_resources`` (only where a key exists)."""
+    from .ecu_resource_data import flatten_ecu_resources
+
+    flat = flatten_ecu_resources(getattr(chip, "ecu_resources", {}) or {})
+    result: Dict[str, Any] = {}
+    for field_path, keys in TYPED_FIELD_MAP.items():
+        for key, convert in keys:
+            if key in flat:
+                result[field_path.rsplit(".", 1)[-1]] = convert(flat[key])
+                break
+    return result

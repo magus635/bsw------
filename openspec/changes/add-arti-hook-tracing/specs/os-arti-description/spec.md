@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
-### Requirement: ARTI Hook Descriptions
-The generated `Os_Arti.arxml` SHALL contain one `ArtiHook` container for every enabled (class, event) combination of SWS OS R21-11 §7.17, with `ArtiHookContext`, `ArtiHookClass`, `ArtiHookInstance` and `ArtiHookEventName` equal to the literal tokens used by the kernel, `ArtiHookInstanceParameterTypeRef` referring to a type map from the OS core index to the core name, and `ArtiHookEventParameterTypeRef` referring to the type map of the event parameter where one exists. The `ArtiOsInstance` SHALL reference every generated hook through `ArtiOsInstanceHookRef`.
+### Requirement: ARTI Hook Containers
+The generated `Os_Arti.arxml` SHALL contain one `ArtiHook` container for every enabled (class, event) combination of SWS OS R21-11 §7.17, with `ArtiHookContext`, `ArtiHookClass`, `ArtiHookInstance` and `ArtiHookEventName` equal to the literal tokens used by the kernel.
 
 #### Scenario: Enhanced task model
 - **WHEN** `OsUseArti` is true and `OsVendorArtiStateModel` is `ENHANCED`
@@ -20,6 +20,18 @@ The generated `Os_Arti.arxml` SHALL contain one `ArtiHook` container for every e
 #### Scenario: ARTI disabled
 - **WHEN** `OsUseArti` is false
 - **THEN** no `ArtiHook` is generated
+
+### Requirement: ARTI Hook Parameter And Instance References
+Each `ArtiHook` SHALL have `ArtiHookInstanceParameterTypeRef` referring to a type map from the OS core index to the core name, and `ArtiHookEventParameterTypeRef` referring to the type map of the event parameter where the event has one. The `ArtiOsInstance` SHALL reference every generated hook through `ArtiOsInstanceHookRef`.
+
+#### Scenario: Hook references
+- **WHEN** `Os_Arti.arxml` is generated with at least one enabled hook
+- **THEN** every `ArtiHook` refers through `ArtiHookInstanceParameterTypeRef` to the core index type map
+- **AND** every `ArtiHook` whose event has a parameter refers through `ArtiHookEventParameterTypeRef` to the type map of that parameter
+
+#### Scenario: Instance lists every hook
+- **WHEN** `Os_Arti.arxml` is generated
+- **THEN** `ArtiOsInstanceHookRef` of the `ArtiOsInstance` contains one reference for each generated `ArtiHook` and no other
 
 ### Requirement: Hook Type Maps Within 16 Bits
 Every `ArtiParameterTypeMap` referenced by an `ArtiHook` SHALL have all `ArtiParameterTypeMapPairInput` values within 0..65535 (ECUC_Arti_00024), and object IDs in these maps SHALL equal the IDs the kernel passes as event parameter (`TaskType`, `ISRType`, `ApplicationType`, `SpinlockIdType`).

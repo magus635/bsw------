@@ -101,7 +101,7 @@ class ProjectController:
         if selected_chip:
             self.win.current_project.selected_chip = selected_chip
             if hasattr(self.win, 'chip_constraint_service') and self.win.chip_constraint_service:
-                self.win.chip_constraint_service.set_project_path(folder)
+                self.win.chip_constraint_service.set_project(self.win.current_project)
                 self.win.chip_constraint_service.set_chip(selected_chip)
                 logger.info(f"New project chip constraint set to: {selected_chip}")
 
@@ -313,8 +313,7 @@ class ProjectController:
             
             # Initialize chip constraint service with project path
             if self.win.current_project:
-                project_dir = self.win.current_project_file.parent if self.win.current_project_file else project_root
-                self.win.chip_constraint_service.set_project_path(project_dir)
+                self.win.chip_constraint_service.set_project(self.win.current_project)
                 
                 # Read current chip from project settings or ResourceSubderivative parameter
                 initial_chip = self.win.current_project.selected_chip
@@ -452,6 +451,8 @@ class ProjectController:
             constraints = self.win.chip_constraint_service.get_all_constraints()
             if constraints:
                 self.win.def_parser._resolver.set_constraints(constraints)
+            from ...core.hardware.ecu_resource_resolver import selector_values
+            self.win.def_parser.set_selector_values(selector_values(self.win.current_project))
             module_def = self.win.def_parser.parse_module_def_file(Path(file_path))
             self.win.current_project.add_module(module_def, Path(file_path))
             # The new module may ship its own .properties resources

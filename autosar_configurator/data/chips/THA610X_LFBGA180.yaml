@@ -75,3 +75,8 @@ metadata:
   cpu_frequency: 80000000
   flash_size: 512KB
   ram_size: 64KB
+
+# Chip selectors: value of each module's selector parameter for this chip
+selectors:
+  Os.OsResourceSubderivative: Os_THA610X
+  Resource.ResourceSubderivative: THA610X_LFBGA180

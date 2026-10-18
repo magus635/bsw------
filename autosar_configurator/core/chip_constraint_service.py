@@ -4,14 +4,22 @@ Chip Constraint Service
 Manages chip-specific ECU resource constraints for the UI.
 When ResourceSubderivative changes, this service reloads constraints
 for the selected chip and notifies UI components to refresh.
+
+With a project attached (set_project), the constraints are the project's
+``ecu_resources`` - the same data code generation uses (chip YAML merged with
+the project's .properties).  Without a project the service falls back to
+scanning ``Def/plugins/*/resource/*.properties`` as before.
 """
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Callable
-from PySide6.QtCore import QObject, Signal
-import logging
+from typing import Any, Dict, List, Optional
 
-from .hardware.tresos_properties_parser import TresosPropertiesParser, find_properties_files
+from PySide6.QtCore import QObject, Signal
+
+from .hardware.tresos_properties_parser import (
+    TresosPropertiesParser,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +77,7 @@ class ChipConstraintService(QObject):
         self._constraints_cache: Dict[str, ChipConstraints] = {}
         self._all_chips: List[str] = []
         self._parser = TresosPropertiesParser()
+        self._project = None
     
     @property
     def current_chip(self) -> Optional[str]:
@@ -81,9 +90,22 @@ class ChipConstraintService(QObject):
     @property
     def current_constraints(self) -> ChipConstraints:
         """Get constraints for the currently selected chip"""
+        project = self._project
+        if (project is not None and self._current_chip
+                and self._current_chip == getattr(project, "selected_chip", None)):
+            # Live: recomputed by the project whenever its chip, modules or chip data change
+            return ChipConstraints(chip_name=self._current_chip,
+                                   constraints=project.ecu_resources)
         if self._current_chip and self._current_chip in self._constraints_cache:
             return self._constraints_cache[self._current_chip]
         return ChipConstraints(chip_name="")
+
+    def set_project(self, project):
+        """Attach the open project: constraints then come from its ECU resources."""
+        self._project = project
+        path = Path(project.path) if project is not None and project.path else None
+        self._project_path = path.parent if path is not None and path.suffix == ".dpa" else path
+        self._discover_chips()
     
     def set_project_path(self, project_path: Path):
         """Set project path and discover available chips"""
@@ -126,12 +148,19 @@ class ChipConstraintService(QObject):
         return self.current_constraints.constraints
     
     def _discover_chips(self):
-        """Discover available chip variants from .properties files"""
-        if not self._project_path:
-            return
-        
+        """Discover available chip variants from .properties files (and, with a
+        project, from the chip library and the project's chips/ directory)"""
         self._all_chips = []
         self._constraints_cache = {}
+        if self._project is not None:
+            from .hardware.ecu_resource_resolver import available_chip_names
+
+            self._all_chips = available_chip_names(
+                self._project, extra=self._chip_names_in_properties())
+            logger.info(f"Discovered {len(self._all_chips)} chip variants: {self._all_chips}")
+            return
+        if not self._project_path:
+            return
         
         # Find .properties files in Def/plugins/*/resource/
         def_path = self._project_path / "Def" / "plugins"
@@ -155,6 +184,16 @@ class ChipConstraintService(QObject):
         self._all_chips.sort()
         logger.info(f"Discovered {len(self._all_chips)} chip variants: {self._all_chips}")
     
+    def _chip_names_in_properties(self) -> List[str]:
+        """Chip names in the file names of Def/plugins/*/resource/*.properties."""
+        if not self._project_path:
+            return []
+        def_path = Path(self._project_path) / "Def" / "plugins"
+        if not def_path.exists():
+            return []
+        names = {self._extract_chip_name(f.stem) for f in def_path.rglob("resource/*.properties")}
+        return sorted(n for n in names if n)
+
     def _extract_chip_name(self, filename: str) -> Optional[str]:
         """Extract chip name from properties filename"""
         if '_' not in filename:
@@ -172,7 +211,23 @@ class ChipConstraintService(QObject):
             return
         
         constraints = ChipConstraints(chip_name=chip_name)
-        
+
+        if self._project is not None:
+            # Same resolution as code generation, for a chip other than the
+            # project's current one (e.g. while the selection is changing)
+            from types import SimpleNamespace
+
+            from .hardware.ecu_resource_resolver import EcuResourceResolver
+
+            project = self._project
+            probe = SimpleNamespace(
+                path=project.path, module_defs=getattr(project, "module_defs", {}),
+                selected_chip=chip_name, chip_database=getattr(project, "chip_database", None),
+                available_chips=getattr(project, "available_chips", []))
+            constraints.constraints = EcuResourceResolver(probe.chip_database).resolve(probe)
+            self._constraints_cache[chip_name] = constraints
+            return
+
         if not self._project_path:
             self._constraints_cache[chip_name] = constraints
             return
