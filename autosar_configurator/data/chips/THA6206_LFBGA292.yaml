@@ -80,16 +80,620 @@ resources:
   - {resource_id: Spi_7, display_name: SPI Unit 7, properties: {unit_id: 7, max_baudrate: 20000000, supports_dma: true}}
   - {resource_id: Spi_8, display_name: SPI Unit 8, properties: {unit_id: 8, max_baudrate: 20000000, supports_dma: true}}
   intc_source:
-  - {resource_id: CAN0_IRQ, properties: {vector_number: 32, priority_bits: 4, is_configurable: true}}
-  - {resource_id: CAN1_IRQ, properties: {vector_number: 33, priority_bits: 4, is_configurable: true}}
-  - {resource_id: CAN2_IRQ, properties: {vector_number: 34, priority_bits: 4, is_configurable: true}}
-  - {resource_id: ADC0_IRQ, properties: {vector_number: 40, priority_bits: 4, is_configurable: true}}
-  - {resource_id: ADC1_IRQ, properties: {vector_number: 41, priority_bits: 4, is_configurable: true}}
-  - {resource_id: SPI0_IRQ, properties: {vector_number: 48, priority_bits: 4, is_configurable: true}}
-  - {resource_id: SPI1_IRQ, properties: {vector_number: 49, priority_bits: 4, is_configurable: true}}
-  - {resource_id: SPI2_IRQ, properties: {vector_number: 50, priority_bits: 4, is_configurable: true}}
-  - {resource_id: TIM0_IRQ, properties: {vector_number: 56, priority_bits: 4, is_configurable: true}}
-  - {resource_id: TIM1_IRQ, properties: {vector_number: 57, priority_bits: 4, is_configurable: true}}
+  - {resource_id: CPU0_SGI0, properties: {vector_number: 0, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU0_SGI1, properties: {vector_number: 1, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU0_SGI2, properties: {vector_number: 2, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU0_SGI3, properties: {vector_number: 3, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU0_SGI4, properties: {vector_number: 4, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU0_SGI5, properties: {vector_number: 5, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU0_SGI6, properties: {vector_number: 6, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU0_SGI7, properties: {vector_number: 7, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU0_SGI8, properties: {vector_number: 8, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU0_SGI9, properties: {vector_number: 9, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU0_SGI10, properties: {vector_number: 10, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU0_SGI11, properties: {vector_number: 11, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU0_SGI12, properties: {vector_number: 12, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU0_SGI13, properties: {vector_number: 13, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU0_SGI14, properties: {vector_number: 14, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU0_SGI15, properties: {vector_number: 15, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU1_SGI0, properties: {vector_number: 0, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU1_SGI1, properties: {vector_number: 1, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU1_SGI2, properties: {vector_number: 2, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU1_SGI3, properties: {vector_number: 3, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU1_SGI4, properties: {vector_number: 4, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU1_SGI5, properties: {vector_number: 5, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU1_SGI6, properties: {vector_number: 6, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU1_SGI7, properties: {vector_number: 7, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU1_SGI8, properties: {vector_number: 8, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU1_SGI9, properties: {vector_number: 9, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU1_SGI10, properties: {vector_number: 10, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU1_SGI11, properties: {vector_number: 11, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU1_SGI12, properties: {vector_number: 12, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU1_SGI13, properties: {vector_number: 13, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU1_SGI14, properties: {vector_number: 14, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU1_SGI15, properties: {vector_number: 15, is_configurable: false, int_class: GIC_SGI}}
+  - {resource_id: CPU0_GIPCINT0, properties: {vector_number: 16, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU0_GIPCINT1, properties: {vector_number: 17, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU0_GIPCINT2, properties: {vector_number: 18, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU0_DBGCCI, properties: {vector_number: 22, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU0_PMCOINT, properties: {vector_number: 23, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU0_CTIINT, properties: {vector_number: 24, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU0_VCPUIMINT, properties: {vector_number: 25, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU0_HTINT, properties: {vector_number: 26, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU0_VTINT, properties: {vector_number: 27, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU0_NSPTINT, properties: {vector_number: 30, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU1_GIPCINT0, properties: {vector_number: 16, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU1_GIPCINT1, properties: {vector_number: 17, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU1_GIPCINT2, properties: {vector_number: 18, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU1_DBGCCI, properties: {vector_number: 22, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU1_PMCOINT, properties: {vector_number: 23, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU1_CTIINT, properties: {vector_number: 24, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU1_VCPUIMINT, properties: {vector_number: 25, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU1_HTINT, properties: {vector_number: 26, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU1_VTINT, properties: {vector_number: 27, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU1_NSPTINT, properties: {vector_number: 30, is_configurable: false, int_class: GIC_PPI}}
+  - {resource_id: CPU0WDT_INT, properties: {vector_number: 32, is_configurable: true, int_class: CPUWDT}}
+  - {resource_id: CPUWDT_ENDINIT, properties: {vector_number: 33, is_configurable: true, int_class: CPUWDT}}
+  - {resource_id: CPU1WDT_INT, properties: {vector_number: 34, is_configurable: true, int_class: CPUWDT}}
+  - {resource_id: SAFEWDT_INT, properties: {vector_number: 36, is_configurable: true, int_class: SAFEWDT}}
+  - {resource_id: SAFEWDT_ENDINIT, properties: {vector_number: 37, is_configurable: true, int_class: SAFEWDT}}
+  - {resource_id: CLUSTER_COMMRX0, properties: {vector_number: 40, is_configurable: true, int_class: CLUSTER}}
+  - {resource_id: CLUSTER_COMMTX0, properties: {vector_number: 41, is_configurable: true, int_class: CLUSTER}}
+  - {resource_id: CLUSTER_COMMRX1, properties: {vector_number: 42, is_configurable: true, int_class: CLUSTER}}
+  - {resource_id: CLUSTER_COMMTX1, properties: {vector_number: 43, is_configurable: true, int_class: CLUSTER}}
+  - {resource_id: RCC_WARMRESET, properties: {vector_number: 52, is_configurable: true, int_class: RCC}}
+  - {resource_id: PWRC_VOLCURESR_INT, properties: {vector_number: 53, is_configurable: true, int_class: PWRC}}
+  - {resource_id: PWRC_CORESLEEP_INT, properties: {vector_number: 55, is_configurable: true, int_class: PWRC}}
+  - {resource_id: INTC_CPU0SOFTINT0, properties: {vector_number: 56, is_configurable: false, int_class: INTC_SOFTINT}}
+  - {resource_id: INTC_CPU0SOFTINT1, properties: {vector_number: 57, is_configurable: false, int_class: INTC_SOFTINT}}
+  - {resource_id: INTC_CPU0SOFTINT2, properties: {vector_number: 58, is_configurable: false, int_class: INTC_SOFTINT}}
+  - {resource_id: INTC_CPU0SOFTINT3, properties: {vector_number: 59, is_configurable: false, int_class: INTC_SOFTINT}}
+  - {resource_id: INTC_CPU1SOFTINT0, properties: {vector_number: 89, is_configurable: false, int_class: INTC_SOFTINT}}
+  - {resource_id: INTC_CPU1SOFTINT1, properties: {vector_number: 90, is_configurable: false, int_class: INTC_SOFTINT}}
+  - {resource_id: INTC_CPU1SOFTINT2, properties: {vector_number: 91, is_configurable: false, int_class: INTC_SOFTINT}}
+  - {resource_id: INTC_CPU1SOFTINT3, properties: {vector_number: 92, is_configurable: false, int_class: INTC_SOFTINT}}
+  - {resource_id: SAC_IRQ0, properties: {vector_number: 62, is_configurable: true, int_class: SAC}}
+  - {resource_id: SAC_IRQ1, properties: {vector_number: 63, is_configurable: true, int_class: SAC}}
+  - {resource_id: SAC_IRQ2, properties: {vector_number: 64, is_configurable: true, int_class: SAC}}
+  - {resource_id: SAC_IRQ3, properties: {vector_number: 65, is_configurable: true, int_class: SAC}}
+  - {resource_id: OVC_CPU0_INT, properties: {vector_number: 68, is_configurable: true, int_class: OVC}}
+  - {resource_id: OVC_CPU1_INT, properties: {vector_number: 69, is_configurable: true, int_class: OVC}}
+  - {resource_id: SBD_INT, properties: {vector_number: 72, is_configurable: true, int_class: ETH}}
+  - {resource_id: SBD_PERCH_TX_INT0, properties: {vector_number: 73, is_configurable: true, int_class: ETH}}
+  - {resource_id: SBD_PERCH_TX_INT1, properties: {vector_number: 74, is_configurable: true, int_class: ETH}}
+  - {resource_id: SBD_PERCH_TX_INT2, properties: {vector_number: 75, is_configurable: true, int_class: ETH}}
+  - {resource_id: SBD_PERCH_TX_INT3, properties: {vector_number: 76, is_configurable: true, int_class: ETH}}
+  - {resource_id: SBD_PERCH_RX_INT0, properties: {vector_number: 77, is_configurable: true, int_class: ETH}}
+  - {resource_id: SBD_PERCH_RX_INT1, properties: {vector_number: 78, is_configurable: true, int_class: ETH}}
+  - {resource_id: SBD_PERCH_RX_INT2, properties: {vector_number: 79, is_configurable: true, int_class: ETH}}
+  - {resource_id: SBD_PERCH_RX_INT3, properties: {vector_number: 80, is_configurable: true, int_class: ETH}}
+  - {resource_id: LPI, properties: {vector_number: 81, is_configurable: true, int_class: ETH}}
+  - {resource_id: DMA0_CH_INT0, properties: {vector_number: 95, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA0_CH_INT1, properties: {vector_number: 96, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA0_CH_INT2, properties: {vector_number: 97, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA0_CH_INT3, properties: {vector_number: 98, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA0_CH_INT4, properties: {vector_number: 99, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA0_CH_INT5, properties: {vector_number: 100, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA0_CH_INT6, properties: {vector_number: 101, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA0_CH_INT7, properties: {vector_number: 102, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT0, properties: {vector_number: 149, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT1, properties: {vector_number: 150, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT2, properties: {vector_number: 151, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT3, properties: {vector_number: 152, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT4, properties: {vector_number: 153, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT5, properties: {vector_number: 154, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT6, properties: {vector_number: 155, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT7, properties: {vector_number: 156, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT8, properties: {vector_number: 157, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT9, properties: {vector_number: 158, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT10, properties: {vector_number: 159, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT11, properties: {vector_number: 160, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT12, properties: {vector_number: 161, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT13, properties: {vector_number: 162, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT14, properties: {vector_number: 163, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT15, properties: {vector_number: 164, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT16, properties: {vector_number: 165, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT17, properties: {vector_number: 166, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT18, properties: {vector_number: 167, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT19, properties: {vector_number: 168, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT20, properties: {vector_number: 169, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT21, properties: {vector_number: 170, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT22, properties: {vector_number: 171, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT23, properties: {vector_number: 172, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT24, properties: {vector_number: 173, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT25, properties: {vector_number: 174, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT26, properties: {vector_number: 175, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT27, properties: {vector_number: 176, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT28, properties: {vector_number: 177, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT29, properties: {vector_number: 178, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT30, properties: {vector_number: 179, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT31, properties: {vector_number: 180, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT32, properties: {vector_number: 181, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT33, properties: {vector_number: 182, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT34, properties: {vector_number: 183, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT35, properties: {vector_number: 184, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT36, properties: {vector_number: 185, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT37, properties: {vector_number: 186, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT38, properties: {vector_number: 187, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA1_CH_INT39, properties: {vector_number: 188, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA2_CH_INT0, properties: {vector_number: 115, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA2_CH_INT1, properties: {vector_number: 116, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA2_CH_INT2, properties: {vector_number: 117, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA2_CH_INT3, properties: {vector_number: 118, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA2_CH_INT4, properties: {vector_number: 119, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA2_CH_INT5, properties: {vector_number: 120, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA2_CH_INT6, properties: {vector_number: 121, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA2_CH_INT7, properties: {vector_number: 122, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA3_CH_INT0, properties: {vector_number: 129, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA3_CH_INT1, properties: {vector_number: 130, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA3_CH_INT2, properties: {vector_number: 131, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA3_CH_INT3, properties: {vector_number: 132, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA3_CH_INT4, properties: {vector_number: 133, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA3_CH_INT5, properties: {vector_number: 134, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA3_CH_INT6, properties: {vector_number: 135, is_configurable: true, int_class: DMA}}
+  - {resource_id: DMA3_CH_INT7, properties: {vector_number: 136, is_configurable: true, int_class: DMA}}
+  - {resource_id: PFLASH0_FINISH, properties: {vector_number: 195, is_configurable: true, int_class: NVM}}
+  - {resource_id: PFLASH0_ERROR, properties: {vector_number: 196, is_configurable: true, int_class: NVM}}
+  - {resource_id: PFLASH1_FINISH, properties: {vector_number: 197, is_configurable: true, int_class: NVM}}
+  - {resource_id: PFLASH1_ERROR, properties: {vector_number: 198, is_configurable: true, int_class: NVM}}
+  - {resource_id: DFLASH0_FINISH, properties: {vector_number: 227, is_configurable: true, int_class: NVM}}
+  - {resource_id: DFLASH0_ERROR, properties: {vector_number: 228, is_configurable: true, int_class: NVM}}
+  - {resource_id: PASSWORD_ERROR, properties: {vector_number: 234, is_configurable: true, int_class: NVM}}
+  - {resource_id: HSM2HOST_INT0, properties: {vector_number: 235, is_configurable: true, int_class: HSM}}
+  - {resource_id: HSM2HOST_INT1, properties: {vector_number: 236, is_configurable: true, int_class: HSM}}
+  - {resource_id: HSM2HOST_INT2, properties: {vector_number: 237, is_configurable: true, int_class: HSM}}
+  - {resource_id: HSM2HOST_INT3, properties: {vector_number: 238, is_configurable: true, int_class: HSM}}
+  - {resource_id: HSM_WDT_INT, properties: {vector_number: 239, is_configurable: true, int_class: HSM}}
+  - {resource_id: HSM_MUX_INT, properties: {vector_number: 240, is_configurable: true, int_class: HSM}}
+  - {resource_id: BASETIM0_INT, properties: {vector_number: 246, is_configurable: true, int_class: BASETIM}}
+  - {resource_id: BASETIM1_INT, properties: {vector_number: 247, is_configurable: true, int_class: BASETIM}}
+  - {resource_id: BASETIM2_INT, properties: {vector_number: 248, is_configurable: true, int_class: BASETIM}}
+  - {resource_id: BASETIM3_INT, properties: {vector_number: 249, is_configurable: true, int_class: BASETIM}}
+  - {resource_id: BASETIM4_INT, properties: {vector_number: 250, is_configurable: true, int_class: BASETIM}}
+  - {resource_id: BASETIM5_INT, properties: {vector_number: 251, is_configurable: true, int_class: BASETIM}}
+  - {resource_id: CAN02_INT0, properties: {vector_number: 252, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN02_INT1, properties: {vector_number: 253, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN01_INT0, properties: {vector_number: 254, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN01_INT1, properties: {vector_number: 255, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN00_INT0, properties: {vector_number: 256, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN00_INT1, properties: {vector_number: 257, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN0_DMU0_INT, properties: {vector_number: 258, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN0_DMU1_INT, properties: {vector_number: 259, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN0_DMU2_INT, properties: {vector_number: 260, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN0_ROUTE0, properties: {vector_number: 261, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN0_ROUTE1, properties: {vector_number: 262, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN0_ROUTE2, properties: {vector_number: 263, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN0_ROUTE3, properties: {vector_number: 264, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN0_ROUTE4, properties: {vector_number: 265, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN0_ROUTE5, properties: {vector_number: 266, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN0_ROUTE6, properties: {vector_number: 267, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN0_ROUTE7, properties: {vector_number: 268, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN0_ROUTE8, properties: {vector_number: 269, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN0_ROUTE9, properties: {vector_number: 270, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN0_ROUTE10, properties: {vector_number: 271, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN0_ROUTE11, properties: {vector_number: 272, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN0_ROUTE12, properties: {vector_number: 273, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN0_ROUTE13, properties: {vector_number: 274, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN0_ROUTE14, properties: {vector_number: 275, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN0_ROUTE15, properties: {vector_number: 276, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN12_INT0, properties: {vector_number: 293, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN12_INT1, properties: {vector_number: 294, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN11_INT0, properties: {vector_number: 295, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN11_INT1, properties: {vector_number: 296, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN10_INT0, properties: {vector_number: 297, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN10_INT1, properties: {vector_number: 298, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN1_DMU0_INT, properties: {vector_number: 299, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN1_DMU1_INT, properties: {vector_number: 300, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN1_DMU2_INT, properties: {vector_number: 301, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN1_ROUTE0, properties: {vector_number: 302, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN1_ROUTE1, properties: {vector_number: 303, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN1_ROUTE2, properties: {vector_number: 304, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN1_ROUTE3, properties: {vector_number: 305, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN1_ROUTE4, properties: {vector_number: 306, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN1_ROUTE5, properties: {vector_number: 307, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN1_ROUTE6, properties: {vector_number: 308, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN1_ROUTE7, properties: {vector_number: 309, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN1_ROUTE8, properties: {vector_number: 310, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN1_ROUTE9, properties: {vector_number: 311, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN1_ROUTE10, properties: {vector_number: 312, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN1_ROUTE11, properties: {vector_number: 313, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN1_ROUTE12, properties: {vector_number: 314, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN1_ROUTE13, properties: {vector_number: 315, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN1_ROUTE14, properties: {vector_number: 316, is_configurable: true, int_class: CAN}}
+  - {resource_id: CAN1_ROUTE15, properties: {vector_number: 317, is_configurable: true, int_class: CAN}}
+  - {resource_id: SARADC0_G0SR0, properties: {vector_number: 377, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC0_G0SR1, properties: {vector_number: 378, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC0_G0SR2, properties: {vector_number: 379, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC0_G0SR3, properties: {vector_number: 380, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC1_G1SR0, properties: {vector_number: 383, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC1_G1SR1, properties: {vector_number: 384, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC1_G1SR2, properties: {vector_number: 385, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC1_G1SR3, properties: {vector_number: 386, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC2_G2SR0, properties: {vector_number: 389, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC2_G2SR1, properties: {vector_number: 390, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC2_G2SR2, properties: {vector_number: 391, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC2_G2SR3, properties: {vector_number: 392, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC3_G3SR0, properties: {vector_number: 395, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC3_G3SR1, properties: {vector_number: 396, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC3_G3SR2, properties: {vector_number: 397, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC3_G3SR3, properties: {vector_number: 398, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC8_G8SR0, properties: {vector_number: 401, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC8_G8SR1, properties: {vector_number: 402, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC8_G8SR2, properties: {vector_number: 403, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC8_G8SR3, properties: {vector_number: 404, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC9_G9SR0, properties: {vector_number: 407, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC9_G9SR1, properties: {vector_number: 408, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC9_G9SR2, properties: {vector_number: 409, is_configurable: true, int_class: SARADC}}
+  - {resource_id: SARADC9_G9SR3, properties: {vector_number: 410, is_configurable: true, int_class: SARADC}}
+  - {resource_id: FC0_INT, properties: {vector_number: 425, is_configurable: true, int_class: FC}}
+  - {resource_id: FC1_INT, properties: {vector_number: 427, is_configurable: true, int_class: FC}}
+  - {resource_id: SAR_FC_C0SR0, properties: {vector_number: 431, is_configurable: true, int_class: SARADC_FC}}
+  - {resource_id: SAR_FC_C0SR1, properties: {vector_number: 432, is_configurable: true, int_class: SARADC_FC}}
+  - {resource_id: SAR_FC_C0SR2, properties: {vector_number: 433, is_configurable: true, int_class: SARADC_FC}}
+  - {resource_id: SAR_FC_C0SR3, properties: {vector_number: 434, is_configurable: true, int_class: SARADC_FC}}
+  - {resource_id: SAR_FC_C1SR0, properties: {vector_number: 435, is_configurable: true, int_class: SARADC_FC}}
+  - {resource_id: SAR_FC_C1SR1, properties: {vector_number: 436, is_configurable: true, int_class: SARADC_FC}}
+  - {resource_id: SAR_FC_C1SR2, properties: {vector_number: 437, is_configurable: true, int_class: SARADC_FC}}
+  - {resource_id: SAR_FC_C1SR3, properties: {vector_number: 438, is_configurable: true, int_class: SARADC_FC}}
+  - {resource_id: DSADC0_SRA, properties: {vector_number: 439, is_configurable: true, int_class: DSADC}}
+  - {resource_id: DSADC0_SRM, properties: {vector_number: 440, is_configurable: true, int_class: DSADC}}
+  - {resource_id: DSADC1_SRA, properties: {vector_number: 441, is_configurable: true, int_class: DSADC}}
+  - {resource_id: DSADC1_SRM, properties: {vector_number: 442, is_configurable: true, int_class: DSADC}}
+  - {resource_id: DSADC2_SRA, properties: {vector_number: 443, is_configurable: true, int_class: DSADC}}
+  - {resource_id: DSADC2_SRM, properties: {vector_number: 444, is_configurable: true, int_class: DSADC}}
+  - {resource_id: DSADC3_SRA, properties: {vector_number: 445, is_configurable: true, int_class: DSADC}}
+  - {resource_id: DSADC3_SRM, properties: {vector_number: 446, is_configurable: true, int_class: DSADC}}
+  - {resource_id: TSENSOR0_INT, properties: {vector_number: 455, is_configurable: true, int_class: TSENSOR}}
+  - {resource_id: TSENSOR1_INT, properties: {vector_number: 457, is_configurable: true, int_class: TSENSOR}}
+  - {resource_id: ECRC_ERROR_INT, properties: {vector_number: 463, is_configurable: true, int_class: ECRC}}
+  - {resource_id: ESPI0_TX_INT, properties: {vector_number: 464, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI0_RX_INT, properties: {vector_number: 465, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI0_ERR_INT, properties: {vector_number: 466, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI0_PT_INT, properties: {vector_number: 467, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI0_U_INT, properties: {vector_number: 468, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI0_HC_INT, properties: {vector_number: 469, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI0_SEF_INT, properties: {vector_number: 470, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI1_TX_INT, properties: {vector_number: 473, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI1_RX_INT, properties: {vector_number: 474, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI1_ERR_INT, properties: {vector_number: 475, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI1_PT_INT, properties: {vector_number: 476, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI1_U_INT, properties: {vector_number: 477, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI1_HC_INT, properties: {vector_number: 478, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI1_SEF_INT, properties: {vector_number: 479, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI2_TX_INT, properties: {vector_number: 482, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI2_RX_INT, properties: {vector_number: 483, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI2_ERR_INT, properties: {vector_number: 484, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI2_PT_INT, properties: {vector_number: 485, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI2_U_INT, properties: {vector_number: 486, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI2_HC_INT, properties: {vector_number: 487, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI2_SEF_INT, properties: {vector_number: 488, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI3_TX_INT, properties: {vector_number: 491, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI3_RX_INT, properties: {vector_number: 492, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI3_ERR_INT, properties: {vector_number: 493, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI3_PT_INT, properties: {vector_number: 494, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI3_U_INT, properties: {vector_number: 495, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI3_HC_INT, properties: {vector_number: 496, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI3_SEF_INT, properties: {vector_number: 497, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI4_TX_INT, properties: {vector_number: 500, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI4_RX_INT, properties: {vector_number: 501, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI4_ERR_INT, properties: {vector_number: 502, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI4_PT_INT, properties: {vector_number: 503, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI4_U_INT, properties: {vector_number: 504, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI4_HC_INT, properties: {vector_number: 505, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI4_SEF_INT, properties: {vector_number: 506, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI5_TX_INT, properties: {vector_number: 509, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI5_RX_INT, properties: {vector_number: 510, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI5_ERR_INT, properties: {vector_number: 511, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI5_PT_INT, properties: {vector_number: 512, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI5_U_INT, properties: {vector_number: 513, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI5_HC_INT, properties: {vector_number: 514, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI5_SEF_INT, properties: {vector_number: 515, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI6_TX_INT, properties: {vector_number: 518, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI6_RX_INT, properties: {vector_number: 519, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI6_ERR_INT, properties: {vector_number: 520, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI6_PT_INT, properties: {vector_number: 521, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI6_U_INT, properties: {vector_number: 522, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI6_HC_INT, properties: {vector_number: 523, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI6_SEF_INT, properties: {vector_number: 524, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI7_TX_INT, properties: {vector_number: 527, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI7_RX_INT, properties: {vector_number: 528, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI7_ERR_INT, properties: {vector_number: 529, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI7_PT_INT, properties: {vector_number: 530, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI7_U_INT, properties: {vector_number: 531, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI7_HC_INT, properties: {vector_number: 532, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI7_SEF_INT, properties: {vector_number: 533, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI8_TX_INT, properties: {vector_number: 536, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI8_RX_INT, properties: {vector_number: 537, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI8_ERR_INT, properties: {vector_number: 538, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI8_PT_INT, properties: {vector_number: 539, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI8_U_INT, properties: {vector_number: 540, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI8_HC_INT, properties: {vector_number: 541, is_configurable: true, int_class: ESPI}}
+  - {resource_id: ESPI8_SEF_INT, properties: {vector_number: 542, is_configurable: true, int_class: ESPI}}
+  - {resource_id: MSC0_SR0, properties: {vector_number: 552, is_configurable: true, int_class: MSC}}
+  - {resource_id: MSC0_SR1, properties: {vector_number: 553, is_configurable: true, int_class: MSC}}
+  - {resource_id: MSC0_SR2, properties: {vector_number: 554, is_configurable: true, int_class: MSC}}
+  - {resource_id: MSC0_SR3, properties: {vector_number: 555, is_configurable: true, int_class: MSC}}
+  - {resource_id: MSC0_SR4, properties: {vector_number: 556, is_configurable: true, int_class: MSC}}
+  - {resource_id: SENT0_RX_ERROR, properties: {vector_number: 572, is_configurable: true, int_class: SENT}}
+  - {resource_id: SENT0_RX_VALID, properties: {vector_number: 573, is_configurable: true, int_class: SENT}}
+  - {resource_id: SENT1_RX_ERROR, properties: {vector_number: 576, is_configurable: true, int_class: SENT}}
+  - {resource_id: SENT1_RX_VALID, properties: {vector_number: 577, is_configurable: true, int_class: SENT}}
+  - {resource_id: SENT2_RX_ERROR, properties: {vector_number: 580, is_configurable: true, int_class: SENT}}
+  - {resource_id: SENT2_RX_VALID, properties: {vector_number: 581, is_configurable: true, int_class: SENT}}
+  - {resource_id: SENT3_RX_ERROR, properties: {vector_number: 584, is_configurable: true, int_class: SENT}}
+  - {resource_id: SENT3_RX_VALID, properties: {vector_number: 585, is_configurable: true, int_class: SENT}}
+  - {resource_id: SENT4_RX_ERROR, properties: {vector_number: 588, is_configurable: true, int_class: SENT}}
+  - {resource_id: SENT4_RX_VALID, properties: {vector_number: 589, is_configurable: true, int_class: SENT}}
+  - {resource_id: SENT5_RX_ERROR, properties: {vector_number: 592, is_configurable: true, int_class: SENT}}
+  - {resource_id: SENT5_RX_VALID, properties: {vector_number: 593, is_configurable: true, int_class: SENT}}
+  - {resource_id: SENT6_RX_ERROR, properties: {vector_number: 596, is_configurable: true, int_class: SENT}}
+  - {resource_id: SENT6_RX_VALID, properties: {vector_number: 597, is_configurable: true, int_class: SENT}}
+  - {resource_id: SENT7_RX_ERROR, properties: {vector_number: 600, is_configurable: true, int_class: SENT}}
+  - {resource_id: SENT7_RX_VALID, properties: {vector_number: 601, is_configurable: true, int_class: SENT}}
+  - {resource_id: SENT8_RX_ERROR, properties: {vector_number: 604, is_configurable: true, int_class: SENT}}
+  - {resource_id: SENT8_RX_VALID, properties: {vector_number: 605, is_configurable: true, int_class: SENT}}
+  - {resource_id: SENT9_RX_ERROR, properties: {vector_number: 608, is_configurable: true, int_class: SENT}}
+  - {resource_id: SENT9_RX_VALID, properties: {vector_number: 609, is_configurable: true, int_class: SENT}}
+  - {resource_id: I2C0_ERR_INT, properties: {vector_number: 622, is_configurable: true, int_class: I2C}}
+  - {resource_id: I2C0_EVENT_INT, properties: {vector_number: 623, is_configurable: true, int_class: I2C}}
+  - {resource_id: QSPI0_INTERRUPT, properties: {vector_number: 630, is_configurable: true, int_class: QSPI}}
+  - {resource_id: ASI0_RX, properties: {vector_number: 631, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI0_TX, properties: {vector_number: 632, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI0_ERROR, properties: {vector_number: 633, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI0_ALL, properties: {vector_number: 634, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI1_RX, properties: {vector_number: 636, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI1_TX, properties: {vector_number: 637, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI1_ERROR, properties: {vector_number: 638, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI1_ALL, properties: {vector_number: 639, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI2_RX, properties: {vector_number: 641, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI2_TX, properties: {vector_number: 642, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI2_ERROR, properties: {vector_number: 643, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI2_ALL, properties: {vector_number: 644, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI3_RX, properties: {vector_number: 646, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI3_TX, properties: {vector_number: 647, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI3_ERROR, properties: {vector_number: 648, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI3_ALL, properties: {vector_number: 649, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI4_RX, properties: {vector_number: 651, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI4_TX, properties: {vector_number: 652, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI4_ERROR, properties: {vector_number: 653, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI4_ALL, properties: {vector_number: 654, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI5_RX, properties: {vector_number: 656, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI5_TX, properties: {vector_number: 657, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI5_ERROR, properties: {vector_number: 658, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI5_ALL, properties: {vector_number: 659, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI6_RX, properties: {vector_number: 661, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI6_TX, properties: {vector_number: 662, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI6_ERROR, properties: {vector_number: 663, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI6_ALL, properties: {vector_number: 664, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI7_RX, properties: {vector_number: 666, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI7_TX, properties: {vector_number: 667, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI7_ERROR, properties: {vector_number: 668, is_configurable: true, int_class: ASI}}
+  - {resource_id: ASI7_ALL, properties: {vector_number: 669, is_configurable: true, int_class: ASI}}
+  - {resource_id: EXTI0_IOUT0, properties: {vector_number: 671, is_configurable: true, int_class: EXTI}}
+  - {resource_id: EXTI0_IOUT1, properties: {vector_number: 672, is_configurable: true, int_class: EXTI}}
+  - {resource_id: EXTI0_IOUT2, properties: {vector_number: 673, is_configurable: true, int_class: EXTI}}
+  - {resource_id: EXTI0_IOUT3, properties: {vector_number: 674, is_configurable: true, int_class: EXTI}}
+  - {resource_id: EXTI0_IOUT4, properties: {vector_number: 675, is_configurable: true, int_class: EXTI}}
+  - {resource_id: EXTI0_IOUT5, properties: {vector_number: 676, is_configurable: true, int_class: EXTI}}
+  - {resource_id: EXTI0_IOUT6, properties: {vector_number: 677, is_configurable: true, int_class: EXTI}}
+  - {resource_id: EXTI0_IOUT7, properties: {vector_number: 678, is_configurable: true, int_class: EXTI}}
+  - {resource_id: GTM_ERR_INT, properties: {vector_number: 687, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_CMP_INT, properties: {vector_number: 688, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_AEI_INT, properties: {vector_number: 689, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_ARU_INT0, properties: {vector_number: 690, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_ARU_INT1, properties: {vector_number: 691, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_ARU_INT2, properties: {vector_number: 692, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_BRC_INT, properties: {vector_number: 693, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_SPE0_INT, properties: {vector_number: 694, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_SPE1_INT, properties: {vector_number: 695, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_SPE2_INT, properties: {vector_number: 696, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM0_INT0, properties: {vector_number: 697, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM0_INT1, properties: {vector_number: 698, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM0_INT2, properties: {vector_number: 699, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM0_INT3, properties: {vector_number: 700, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM0_INT4, properties: {vector_number: 701, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM0_INT5, properties: {vector_number: 702, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM0_INT6, properties: {vector_number: 703, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM0_INT7, properties: {vector_number: 704, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM1_INT0, properties: {vector_number: 705, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM1_INT1, properties: {vector_number: 706, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM1_INT2, properties: {vector_number: 707, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM1_INT3, properties: {vector_number: 708, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM1_INT4, properties: {vector_number: 709, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM1_INT5, properties: {vector_number: 710, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM1_INT6, properties: {vector_number: 711, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM1_INT7, properties: {vector_number: 712, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM2_INT0, properties: {vector_number: 713, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM2_INT1, properties: {vector_number: 714, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM2_INT2, properties: {vector_number: 715, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM2_INT3, properties: {vector_number: 716, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM2_INT4, properties: {vector_number: 717, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM2_INT5, properties: {vector_number: 718, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM2_INT6, properties: {vector_number: 719, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_PSM2_INT7, properties: {vector_number: 720, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT0, properties: {vector_number: 721, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT1, properties: {vector_number: 722, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT2, properties: {vector_number: 723, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT3, properties: {vector_number: 724, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT4, properties: {vector_number: 725, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT5, properties: {vector_number: 726, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT6, properties: {vector_number: 727, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT7, properties: {vector_number: 728, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT8, properties: {vector_number: 729, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT9, properties: {vector_number: 730, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT10, properties: {vector_number: 731, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT11, properties: {vector_number: 732, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT12, properties: {vector_number: 733, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT13, properties: {vector_number: 734, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT14, properties: {vector_number: 735, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT15, properties: {vector_number: 736, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT16, properties: {vector_number: 737, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT17, properties: {vector_number: 738, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT18, properties: {vector_number: 739, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT19, properties: {vector_number: 740, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT20, properties: {vector_number: 741, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT21, properties: {vector_number: 742, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT22, properties: {vector_number: 743, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT23, properties: {vector_number: 744, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT24, properties: {vector_number: 745, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT25, properties: {vector_number: 746, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_DPLL_INT26, properties: {vector_number: 747, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM0_INT0, properties: {vector_number: 748, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM0_INT1, properties: {vector_number: 749, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM0_INT2, properties: {vector_number: 750, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM0_INT3, properties: {vector_number: 751, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM0_INT4, properties: {vector_number: 752, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM0_INT5, properties: {vector_number: 753, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM0_INT6, properties: {vector_number: 754, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM0_INT7, properties: {vector_number: 755, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM1_INT0, properties: {vector_number: 756, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM1_INT1, properties: {vector_number: 757, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM1_INT2, properties: {vector_number: 758, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM1_INT3, properties: {vector_number: 759, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM1_INT4, properties: {vector_number: 760, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM1_INT5, properties: {vector_number: 761, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM1_INT6, properties: {vector_number: 762, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM1_INT7, properties: {vector_number: 763, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM2_INT0, properties: {vector_number: 764, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM2_INT1, properties: {vector_number: 765, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM2_INT2, properties: {vector_number: 766, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM2_INT3, properties: {vector_number: 767, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM2_INT4, properties: {vector_number: 768, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM2_INT5, properties: {vector_number: 769, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM2_INT6, properties: {vector_number: 770, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIM2_INT7, properties: {vector_number: 771, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM0_INT0, properties: {vector_number: 772, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM0_INT1, properties: {vector_number: 773, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM0_INT2, properties: {vector_number: 774, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM0_INT3, properties: {vector_number: 775, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM0_INT4, properties: {vector_number: 776, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM0_INT5, properties: {vector_number: 777, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM0_INT6, properties: {vector_number: 778, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM0_INT7, properties: {vector_number: 779, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM1_INT0, properties: {vector_number: 780, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM1_INT1, properties: {vector_number: 781, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM1_INT2, properties: {vector_number: 782, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM1_INT3, properties: {vector_number: 783, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM1_INT4, properties: {vector_number: 784, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM1_INT5, properties: {vector_number: 785, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM1_INT6, properties: {vector_number: 786, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM1_INT7, properties: {vector_number: 787, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM2_INT0, properties: {vector_number: 788, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM2_INT1, properties: {vector_number: 789, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM2_INT2, properties: {vector_number: 790, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM2_INT3, properties: {vector_number: 791, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM2_INT4, properties: {vector_number: 792, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM2_INT5, properties: {vector_number: 793, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM2_INT6, properties: {vector_number: 794, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TOM2_INT7, properties: {vector_number: 795, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_ATOM0_INT0, properties: {vector_number: 796, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_ATOM0_INT1, properties: {vector_number: 797, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_ATOM0_INT2, properties: {vector_number: 798, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_ATOM0_INT3, properties: {vector_number: 799, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_ATOM1_INT0, properties: {vector_number: 800, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_ATOM1_INT1, properties: {vector_number: 801, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_ATOM1_INT2, properties: {vector_number: 802, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_ATOM1_INT3, properties: {vector_number: 803, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_ATOM2_INT0, properties: {vector_number: 804, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_ATOM2_INT1, properties: {vector_number: 805, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_ATOM2_INT2, properties: {vector_number: 806, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_ATOM2_INT3, properties: {vector_number: 807, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_ATOM3_INT0, properties: {vector_number: 808, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_ATOM3_INT1, properties: {vector_number: 809, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_ATOM3_INT2, properties: {vector_number: 810, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_ATOM3_INT3, properties: {vector_number: 811, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO1_INT0, properties: {vector_number: 812, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO1_INT1, properties: {vector_number: 813, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO1_INT2, properties: {vector_number: 814, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO1_INT3, properties: {vector_number: 815, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO1_INT4, properties: {vector_number: 816, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO1_INT5, properties: {vector_number: 817, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO1_INT6, properties: {vector_number: 818, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO1_INT7, properties: {vector_number: 819, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO2_INT0, properties: {vector_number: 820, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO2_INT1, properties: {vector_number: 821, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO2_INT2, properties: {vector_number: 822, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO2_INT3, properties: {vector_number: 823, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO2_INT4, properties: {vector_number: 824, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO2_INT5, properties: {vector_number: 825, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO2_INT6, properties: {vector_number: 826, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO2_INT7, properties: {vector_number: 827, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO3_INT0, properties: {vector_number: 828, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO3_INT1, properties: {vector_number: 829, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO3_INT2, properties: {vector_number: 830, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO3_INT3, properties: {vector_number: 831, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO3_INT4, properties: {vector_number: 832, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO3_INT5, properties: {vector_number: 833, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO3_INT6, properties: {vector_number: 834, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_TIO3_INT7, properties: {vector_number: 835, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS0_INT0, properties: {vector_number: 836, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS0_INT1, properties: {vector_number: 837, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS0_INT2, properties: {vector_number: 838, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS0_INT3, properties: {vector_number: 839, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS0_INT4, properties: {vector_number: 840, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS0_INT5, properties: {vector_number: 841, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS0_INT6, properties: {vector_number: 842, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS0_INT7, properties: {vector_number: 843, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS1_INT0, properties: {vector_number: 844, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS1_INT1, properties: {vector_number: 845, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS1_INT2, properties: {vector_number: 846, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS1_INT3, properties: {vector_number: 847, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS1_INT4, properties: {vector_number: 848, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS1_INT5, properties: {vector_number: 849, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS1_INT6, properties: {vector_number: 850, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS1_INT7, properties: {vector_number: 851, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS2_INT0, properties: {vector_number: 852, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS2_INT1, properties: {vector_number: 853, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS2_INT2, properties: {vector_number: 854, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS2_INT3, properties: {vector_number: 855, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS2_INT4, properties: {vector_number: 856, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS2_INT5, properties: {vector_number: 857, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS2_INT6, properties: {vector_number: 858, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS2_INT7, properties: {vector_number: 859, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS3_INT0, properties: {vector_number: 860, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS3_INT1, properties: {vector_number: 861, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS3_INT2, properties: {vector_number: 862, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS3_INT3, properties: {vector_number: 863, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS3_INT4, properties: {vector_number: 864, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS3_INT5, properties: {vector_number: 865, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS3_INT6, properties: {vector_number: 866, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS3_INT7, properties: {vector_number: 867, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS0_S_INT0, properties: {vector_number: 868, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS0_S_INT1, properties: {vector_number: 869, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS0_S_INT2, properties: {vector_number: 870, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS0_S_INT3, properties: {vector_number: 871, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS0_S_INT4, properties: {vector_number: 872, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS0_S_INT5, properties: {vector_number: 873, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS0_S_INT6, properties: {vector_number: 874, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS0_S_INT7, properties: {vector_number: 875, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS1_S_INT0, properties: {vector_number: 876, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS1_S_INT1, properties: {vector_number: 877, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS1_S_INT2, properties: {vector_number: 878, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS1_S_INT3, properties: {vector_number: 879, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS1_S_INT4, properties: {vector_number: 880, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS1_S_INT5, properties: {vector_number: 881, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS1_S_INT6, properties: {vector_number: 882, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS1_S_INT7, properties: {vector_number: 883, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS2_S_INT0, properties: {vector_number: 884, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS2_S_INT1, properties: {vector_number: 885, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS2_S_INT2, properties: {vector_number: 886, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS2_S_INT3, properties: {vector_number: 887, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS2_S_INT4, properties: {vector_number: 888, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS2_S_INT5, properties: {vector_number: 889, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS2_S_INT6, properties: {vector_number: 890, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS2_S_INT7, properties: {vector_number: 891, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS3_S_INT0, properties: {vector_number: 892, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS3_S_INT1, properties: {vector_number: 893, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS3_S_INT2, properties: {vector_number: 894, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS3_S_INT3, properties: {vector_number: 895, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS3_S_INT4, properties: {vector_number: 896, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS3_S_INT5, properties: {vector_number: 897, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS3_S_INT6, properties: {vector_number: 898, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_MCS3_S_INT7, properties: {vector_number: 899, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_WRAPPER_INT0, properties: {vector_number: 900, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_WRAPPER_INT1, properties: {vector_number: 901, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_WRAPPER_INT2, properties: {vector_number: 902, is_configurable: true, int_class: GTM}}
+  - {resource_id: GTM_WRAPPER_INT3, properties: {vector_number: 903, is_configurable: true, int_class: GTM}}
   clock_source:
   - {resource_id: PLL0, display_name: PLL 0, properties: {type: PLL, frequency: 400000000, max_frequency: 400000000}}
   - {resource_id: XTAL, display_name: Crystal Oscillator, properties: {type: XTAL, frequency: 20000000}}
@@ -965,4 +1569,129 @@ ecu_resources:
     EthPhyIntf: [RMII, MII, RGMII]
     EthSpeed: [ETH_10MBPS, ETH_100MBPS, ETH_1000MBPS]
     FifoNum: 4
-checksum: sha256:87d9cce4c995d9be46bf1cd245c7f172c3ac3b4cf0644093f3d2be2b1f35cc98
+  OsResource:
+    NumOfCores: 2
+    AvailableCores: [CORE0, CORE1]
+    MultiCoreModules: [ADC, PWM, GPT, CAN, SPI, ETH, LIN, ICU, OCU, UART, MSC, DMA, IOM, SENT, DSADC, I2C]
+    MasterCore: OS_CORE_ID_0
+    SupportProcessor: THA6206
+  Os:
+    IsrTriggerMethodList:
+      0-15: 1
+      16-18: 2
+      19-21: 4
+      22-27: 2
+      28-29: 4
+      30: 2
+      31: 4
+      32-34: 2
+      35: 4
+      36-37: 2
+      38-39: 4
+      40-43: 2
+      44-51: 4
+      52-59: 2
+      60-61: 4
+      62-65: 2
+      66-67: 4
+      68-69: 2
+      70-71: 4
+      72: 2
+      73-80: 3
+      81: 2
+      82-88: 4
+      89-92: 2
+      93-94: 4
+      95-104: 2
+      105-108: 4
+      109-112: 2
+      113-114: 4
+      115-124: 2
+      125-128: 4
+      129-138: 2
+      139-142: 4
+      143-146: 2
+      147-148: 4
+      149-190: 2
+      191-194: 4
+      195-240: 2
+      241-245: 4
+      246-276: 2
+      277-292: 4
+      293-317: 2
+      318-333: 4
+      334-358: 2
+      359-376: 4
+      377-380: 2
+      381-382: 4
+      383-386: 2
+      387-388: 4
+      389-392: 2
+      393-394: 4
+      395-398: 2
+      399-400: 4
+      401-404: 2
+      405-406: 4
+      407-410: 2
+      411-424: 4
+      425: 2
+      426: 4
+      427: 2
+      428: 4
+      429-430: 2
+      431-438: 3
+      439-446: 2
+      447-448: 4
+      449-454: 2
+      455: 1
+      456: 4
+      457: 1
+      458-462: 4
+      463-470: 2
+      471-472: 4
+      473-479: 2
+      480-481: 4
+      482-488: 2
+      489-490: 4
+      491-497: 2
+      498-499: 4
+      500-506: 2
+      507-508: 4
+      509-515: 2
+      516-517: 4
+      518-524: 2
+      525-526: 4
+      527-533: 2
+      534-535: 4
+      536-542: 2
+      543-551: 4
+      552-556: 2
+      557-571: 4
+      572-611: 2
+      612-621: 4
+      622-634: 2
+      635: 4
+      636-639: 2
+      640: 4
+      641-644: 2
+      645: 4
+      646-649: 2
+      650: 4
+      651-654: 2
+      655: 4
+      656-659: 2
+      660: 4
+      661-664: 2
+      665: 4
+      666-669: 2
+      670: 4
+      671-678: 1
+      679-686: 4
+      687-899: 3
+      900-903: 2
+      904-991: 4
+    GicIntTriggerMethod: [EDGE, LEVEL]
+    AppModeDefaultName: [OSDEFAULTAPPMODE, OSALLRUNNINGMODE]
+    IocPrimitiveDataType: [uint8, uint16, uint32, uint64, boolean, AppModeType, ApplicationType, CoreIdType, IdleModeType, TickType, Os_TickDiffType, AlarmType, CounterType, sint8, sint16, sint32, sint64, float32, float64, ISRType, ResourceType, SpinlockIdType, TaskType]
+    IocPrimitiveDataTypeNum: 23
+checksum: sha256:d558da38044707ddfc07b62bc1259ce8408e733b12874ba90a306178aa9473fb

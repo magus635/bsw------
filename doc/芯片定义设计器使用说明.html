@@ -1,0 +1,751 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>芯片定义设计器使用说明</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap">
+<style>
+/* Layout: engineering manual. Sticky contents rail on the left, one reading column on the right;
+   tables and the data-flow strip may run wider than the prose. Cool board-grey neutrals,
+   solder-mask teal for structure, copper only for files the designer writes. */
+:root {
+  --bg: #f4f7f7;
+  --surface: #ffffff;
+  --ink: #16232a;
+  --muted: #56676f;
+  --line: #d6dfe1;
+  --accent: #0d666c;
+  --accent-soft: #e0eeee;
+  --copper: #93531f;
+  --copper-soft: #f5e9de;
+  --warn: #7f5300;
+  --warn-soft: #faf0d9;
+  --code-bg: #ebf0f1;
+  --font-display: "Noto Serif SC", "Songti SC", "STSong", serif;
+  --font-body: "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --step--1: 0.8125rem;
+  --step-0: 0.9375rem;
+  --step-1: 1.125rem;
+  --step-2: 1.5rem;
+  --step-3: 2.125rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1417; --surface: #141f24; --ink: #d9e5e8; --muted: #91a3aa; --line: #253740;
+    --accent: #5bbfc3; --accent-soft: #123137; --copper: #e2a673; --copper-soft: #36271b;
+    --warn: #efc26b; --warn-soft: #352b15; --code-bg: #1a272c; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1417; --surface: #141f24; --ink: #d9e5e8; --muted: #91a3aa; --line: #253740;
+  --accent: #5bbfc3; --accent-soft: #123137; --copper: #e2a673; --copper-soft: #36271b;
+  --warn: #efc26b; --warn-soft: #352b15; --code-bg: #1a272c; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  line-height: 1.75;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 64px;
+}
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+:not(pre) > code {
+  background: var(--code-bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+pre {
+  margin: 0;
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: var(--step--1);
+  line-height: 1.6;
+}
+
+/* ---- masthead ---- */
+.masthead {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-block: 48px 28px;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 14px;
+}
+.eyebrow {
+  font-size: var(--step--1);
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  font-weight: 500;
+}
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+h1 {
+  font-family: var(--font-display);
+  font-size: var(--step-3);
+  line-height: 1.25;
+  font-weight: 700;
+}
+.lede { max-width: 44rem; margin: 0; color: var(--muted); font-size: var(--step-1); line-height: 1.7; }
+.meta-row { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: var(--step--1); color: var(--muted); }
+.meta-row span strong { color: var(--ink); font-weight: 500; }
+
+/* ---- page grid ---- */
+.page {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 196px minmax(0, 1fr);
+  gap: 48px;
+  padding-top: 32px;
+}
+.toc {
+  position: sticky;
+  top: calc(env(safe-area-inset-top, 0px) + 20px);
+  align-self: start;
+  font-size: var(--step--1);
+}
+.toc p { margin: 0 0 8px; color: var(--muted); letter-spacing: 0.06em; }
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; border-left: 1px solid var(--line); }
+.toc li a {
+  display: block;
+  padding: 4px 0 4px 12px;
+  color: var(--ink);
+  text-decoration: none;
+  margin-left: -1px;
+  border-left: 2px solid transparent;
+}
+.toc li a:hover { border-left-color: var(--accent); color: var(--accent); }
+.toc li.sub a { padding-left: 24px; color: var(--muted); }
+
+main { min-width: 0; display: grid; gap: 56px; }
+section { display: grid; gap: 16px; min-width: 0; }
+section > p, section > ul, section > ol, .prose { max-width: 44rem; margin: 0; }
+h2 {
+  font-family: var(--font-display);
+  font-size: var(--step-2);
+  font-weight: 700;
+  line-height: 1.35;
+  padding-top: 4px;
+}
+h3 { font-size: var(--step-1); font-weight: 700; line-height: 1.45; }
+.sec-num { font-family: var(--font-mono); font-size: 0.7em; color: var(--accent); margin-right: 10px; font-weight: 500; vertical-align: 0.12em; }
+ul, ol { padding-left: 1.3em; }
+li + li { margin-top: 4px; }
+
+/* UI control labels, written exactly as the designer shows them */
+.ui {
+  font-family: var(--font-body);
+  font-size: 0.88em;
+  font-weight: 500;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 0 6px;
+  white-space: normal;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.file {
+  font-family: var(--font-mono);
+  font-size: 0.84em;
+  color: var(--copper);
+  background: var(--copper-soft);
+  padding: 1px 6px;
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+
+/* callouts */
+.note, .warn {
+  max-width: 44rem;
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-size: var(--step-0);
+}
+.note { background: var(--accent-soft); }
+.warn { background: var(--warn-soft); }
+.note strong, .warn strong { font-weight: 700; }
+.warn strong { color: var(--warn); }
+.note p, .warn p { margin: 0; }
+.note p + p, .warn p + p { margin-top: 6px; }
+
+/* entry points */
+.entries { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.entry {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 14px 16px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+.entry .where { font-size: var(--step--1); color: var(--muted); }
+.entry .how { font-weight: 700; }
+.entry p { margin: 0; font-size: var(--step--1); color: var(--muted); line-height: 1.65; }
+
+/* data flow strip */
+.flow-wrap { overflow-x: auto; }
+.flow {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) 28px minmax(150px, 1fr) 28px minmax(170px, 1.1fr) 28px minmax(190px, 1.3fr);
+  align-items: stretch;
+  min-width: 0;
+}
+.flow-col { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.flow-col h4 {
+  margin: 0;
+  font-size: var(--step--1);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.flow-box {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: var(--step--1);
+  line-height: 1.55;
+}
+.flow-box b { display: block; font-weight: 700; color: var(--ink); }
+.flow-box span { color: var(--muted); }
+.flow-box.is-designer { border-color: var(--accent); background: var(--accent-soft); }
+.flow-box.is-file { border-color: var(--copper); background: var(--copper-soft); }
+.flow-box.is-file b { color: var(--copper); }
+.flow-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  font-size: 1.2rem;
+  padding-top: 26px;
+}
+
+/* designer window sketch */
+.window {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+  font-size: var(--step--1);
+  max-width: 44rem;
+}
+.win-title {
+  background: var(--code-bg);
+  border-bottom: 1px solid var(--line);
+  padding: 6px 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+}
+.win-title i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); display: inline-block; }
+.win-body { padding: 12px; display: grid; gap: 10px; }
+.zone {
+  position: relative;
+  border: 1px dashed var(--line);
+  border-radius: 5px;
+  padding: 8px 10px 8px 38px;
+  line-height: 1.6;
+}
+.zone .tag {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--surface);
+  font: 700 11px/20px var(--font-mono);
+  text-align: center;
+}
+.tabs-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.tabs-row span {
+  border: 1px solid var(--line);
+  border-bottom: none;
+  border-radius: 5px 5px 0 0;
+  padding: 2px 8px;
+  background: var(--bg);
+}
+.tabs-row span:first-child { background: var(--surface); border-color: var(--accent); color: var(--accent); }
+.zone.bottom { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.legend { display: grid; gap: 8px; max-width: 44rem; margin: 0; padding: 0; list-style: none; }
+.legend li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px; margin: 0; }
+.legend .tag {
+  width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: var(--surface);
+  font: 700 11px/20px var(--font-mono); text-align: center; margin-top: 4px;
+}
+
+/* steps: a real sequence */
+.steps { list-style: none; padding: 0; margin: 0; counter-reset: step; display: grid; gap: 10px; max-width: 44rem; }
+.steps li {
+  counter-increment: step;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  margin: 0;
+}
+.steps li::before {
+  content: counter(step);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  font-size: var(--step--1);
+  margin-top: 1px;
+}
+
+/* tab chapters */
+.tab-chapter {
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.tab-chapter h3 .tab-no { font-family: var(--font-mono); color: var(--accent); margin-right: 8px; }
+.tab-chapter h3 .en { font-weight: 400; color: var(--muted); font-size: 0.82em; margin-left: 6px; }
+.tab-chapter > p, .tab-chapter > ul { max-width: 44rem; margin: 0; }
+
+/* tables */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: var(--step--1); line-height: 1.6; }
+th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: none; }
+th { font-weight: 500; color: var(--muted); background: var(--code-bg); white-space: nowrap; letter-spacing: 0.02em; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td .muted { color: var(--muted); }
+.pill {
+  display: inline-block;
+  font-size: 0.85em;
+  padding: 0 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.pill.block { background: var(--warn-soft); color: var(--warn); }
+.pill.ask { background: var(--accent-soft); color: var(--accent); }
+
+/* impact grid */
+.impact { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.impact article {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 6px;
+  padding: 14px 16px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  min-width: 0;
+}
+.impact h3 { font-size: var(--step-0); }
+.impact p { margin: 0; font-size: var(--step--1); line-height: 1.7; color: var(--muted); }
+.impact p code { color: var(--ink); }
+
+footer.colophon {
+  max-width: 44rem;
+  font-size: var(--step--1);
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+footer.colophon p { margin: 0; }
+footer.colophon p + p { margin-top: 4px; }
+
+@media (max-width: 900px) {
+  .page { grid-template-columns: minmax(0, 1fr); gap: 24px; padding-top: 20px; }
+  .toc { position: static; }
+  .toc ol { display: flex; flex-wrap: wrap; gap: 6px; border-left: none; }
+  .toc li a { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; margin: 0; background: var(--surface); }
+  .toc li.sub { display: none; }
+  .entries { grid-template-columns: minmax(0, 1fr); }
+  .impact { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 720px) {
+  .flow { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .flow-arrow { transform: rotate(90deg); padding: 6px 0; height: 32px; }
+  h1 { font-size: 1.75rem; }
+  .masthead { padding-block: 32px 22px; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="eyebrow">AUTOSAR 配置工具 · 硬件数据</div>
+  <h1>芯片定义设计器使用说明</h1>
+  <p class="lede">芯片定义设计器用来维护一颗 MCU 的全部硬件数据，保存为一个芯片 YAML 文件。项目选中这颗芯片后，硬件映射、配置界面的参数约束和代码生成都从这个文件取数，不再依赖 EB Tresos 插件里的 .properties 文件。</p>
+  <div class="meta-row">
+    <span>窗口标题 <strong>Chip Definition Designer - 芯片定义设计器</strong></span>
+    <span>源码 <strong class="mono">ui/dialogs/chip_definition_designer_dialog.py</strong></span>
+    <span>依据日期 <strong class="mono">2026-10-19</strong></span>
+  </div>
+</header>
+
+<div class="page">
+  <nav class="toc" aria-label="目录">
+    <p>目录</p>
+    <ol>
+      <li><a href="#open">打开方式</a></li>
+      <li><a href="#flow">数据流向</a></li>
+      <li><a href="#ui">界面使用说明</a></li>
+      <li class="sub"><a href="#workflow">新建芯片的步骤</a></li>
+      <li class="sub"><a href="#tabs">五个页签</a></li>
+      <li class="sub"><a href="#save">保存时的检查</a></li>
+      <li><a href="#outputs">输出文件给谁用</a></li>
+      <li><a href="#impact">影响了什么</a></li>
+      <li><a href="#builtin">内置芯片现状</a></li>
+      <li><a href="#limits">已知限制</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <section id="open">
+      <h2><span class="sec-num">01</span>打开方式</h2>
+      <p>设计器有三个入口。保存成功后，三个入口都能马上用上新芯片，不需要重启软件。</p>
+      <div class="entries">
+        <div class="entry">
+          <span class="where">主窗口菜单</span>
+          <span class="how">Tools › Chip Definition Designer...</span>
+          <p>已打开项目时自动载入项目当前的芯片，ECU 资源页可以扫描项目模块所需的键。保存后状态栏提示“芯片库已更新”，界面约束随之刷新。</p>
+        </div>
+        <div class="entry">
+          <span class="where">新建项目向导 · 芯片页</span>
+          <span class="how"><span class="ui">🆕 新建芯片...</span></span>
+          <p>保存后关闭设计器，向导刷新芯片列表并自动选中刚保存的芯片。</p>
+        </div>
+        <div class="entry">
+          <span class="where">硬件映射向导 · 芯片页</span>
+          <span class="how"><span class="ui">➕ New Chip...</span></span>
+          <p>保存后关闭设计器，向导刷新芯片下拉框并自动选中刚保存的芯片。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="flow">
+      <h2><span class="sec-num">02</span>数据流向</h2>
+      <p>设计器把几种来源的数据合成一个芯片 YAML，写进芯片库。项目再从芯片库复制一份到自己的目录，下游功能读的是项目里的这份。</p>
+      <div class="flow-wrap">
+        <div class="flow" role="img" aria-label="数据来源经设计器写成芯片 YAML，再被项目和各功能使用">
+          <div class="flow-col">
+            <h4>数据来源</h4>
+            <div class="flow-box"><b>厂商 .properties</b><span>Resource 插件里的 CotexR52_&lt;芯片&gt;.properties 等</span></div>
+            <div class="flow-box"><b>引脚分配表</b><span>Excel 或 CSV</span></div>
+            <div class="flow-box"><b>已有芯片</b><span>克隆同系列芯片</span></div>
+            <div class="flow-box"><b>手工填写</b><span>五个页签直接编辑</span></div>
+          </div>
+          <div class="flow-arrow" aria-hidden="true">→</div>
+          <div class="flow-col">
+            <h4>设计器</h4>
+            <div class="flow-box is-designer"><b>五个页签</b><span>基础信息、外设、引脚复用矩阵、ECU 资源、预览与导出</span></div>
+            <div class="flow-box is-designer"><b>保存到芯片库</b><span>校验后原子写入，附 sha256 校验和</span></div>
+          </div>
+          <div class="flow-arrow" aria-hidden="true">→</div>
+          <div class="flow-col">
+            <h4>输出文件</h4>
+            <div class="flow-box is-file"><b>芯片 YAML</b><span>data/chips/&lt;型号&gt;.yaml</span></div>
+            <div class="flow-box"><b>项目副本</b><span>&lt;项目&gt;/chips/&lt;型号&gt;.yaml，由项目功能复制</span></div>
+            <div class="flow-box is-file"><b>.properties 导出</b><span>可选，每个模块一个文件</span></div>
+          </div>
+          <div class="flow-arrow" aria-hidden="true">→</div>
+          <div class="flow-col">
+            <h4>使用方</h4>
+            <div class="flow-box"><b>代码生成</b><span>模板里的 ecu:get / ecu:list</span></div>
+            <div class="flow-box"><b>配置界面约束</b><span>最大值、取值范围、实例数</span></div>
+            <div class="flow-box"><b>模块定义选择器</b><span>新芯片出现在下拉可选值里</span></div>
+            <div class="flow-box"><b>硬件映射向导</b><span>按外设和引脚生成模块容器</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="ui">
+      <h2><span class="sec-num">03</span>界面使用说明</h2>
+      <p>窗口分四个区域。上方是克隆模板，中间是五个页签，下方是状态栏和保存按钮。</p>
+      <div class="window" aria-label="设计器窗口布局示意">
+        <div class="win-title"><i></i><i></i><i></i><span>Chip Definition Designer - 芯片定义设计器</span></div>
+        <div class="win-body">
+          <div class="zone"><span class="tag">A</span>快速模板 (Quick Template)：从已有芯片克隆 [ 下拉 ] <span class="ui">📋 克隆并载入 (Clone &amp; Apply)</span></div>
+          <div class="zone"><span class="tag">B</span>
+            <div class="tabs-row">
+              <span>1. 基础信息</span><span>2. 外设</span><span>3. 引脚复用矩阵</span><span>4. ECU 资源</span><span>5. 预览与导出</span>
+            </div>
+          </div>
+          <div class="zone bottom"><span class="tag">C</span><span>就绪</span><span><span class="ui">💾 保存到芯片库 (Save to Database)</span> <span class="ui">关闭 (Close)</span></span></div>
+        </div>
+      </div>
+      <ul class="legend">
+        <li><span class="tag">A</span><span>选一颗已有芯片再点克隆，全部规格、外设、引脚和 ECU 资源都会载入。型号自动改成 <code>&lt;原型号&gt;_COPY</code>，保存时不会覆盖原芯片。</span></li>
+        <li><span class="tag">B</span><span>五个页签分别编辑芯片 YAML 的不同段落，详见下文。切换页签不会丢失未保存的修改。</span></li>
+        <li><span class="tag">C</span><span>左侧状态栏显示最近一次操作的结果，例如导入了多少个键。点保存才会写文件，导入和推导只改界面里的数据。</span></li>
+      </ul>
+
+      <h3 id="workflow">新建一颗芯片的步骤</h3>
+      <ol class="steps">
+        <li><span>用 A 区克隆同系列的芯片，或者直接在默认值上修改。默认型号是 <code>NEW_MCU_SERIES</code>。</span></li>
+        <li><span>在 <b>1. 基础信息</b> 填写型号、系列、封装和描述，并在“芯片选择器”表格里写上本芯片在各模块选择器参数上的取值。</span></li>
+        <li><span>在 <b>4. ECU 资源</b> 点 <span class="ui">📥 导入 .properties…</span>，选中厂商的属性文件，可以多选。</span></li>
+        <li><span>回到 <b>1. 基础信息</b>。如果页面提示核信息与 ECU 资源不一致，点 <span class="ui">用 ECU 资源覆盖表单</span>。</span></li>
+        <li><span>在 <b>2. 外设</b> 点 <span class="ui">🔄 从 ECU 资源推导外设</span>，再手工补上推导不出来的类型，例如 PWM 和 ICU。</span></li>
+        <li><span>在 <b>3. 引脚复用矩阵</b> 点 <span class="ui">📂 从 Excel / CSV 导入引脚表 (Import...)</span>，修正标红的重复引脚。</span></li>
+        <li><span>在 <b>5. 预览与导出</b> 检查 YAML 内容和一致性提示，然后点 <span class="ui">💾 保存到芯片库 (Save to Database)</span>。</span></li>
+      </ol>
+
+      <h3 id="tabs">五个页签</h3>
+
+      <div class="tab-chapter">
+        <h3><span class="tab-no">1</span>基础信息<span class="en">Basic Info</span></h3>
+        <ul>
+          <li><b>芯片型号 (Name)*</b>：必填，只能用字母、数字和 <code>_ . -</code>，不能以符号开头。型号同时是文件名 <span class="file">&lt;型号&gt;.yaml</span>。</li>
+          <li><b>芯片系列、封装规格、描述</b>：在芯片列表和向导里显示，不参与生成。</li>
+          <li><b>CPU 核数、可用核心列表、主核</b>：改核数会自动重填 <code>CORE0</code> 到 <code>CORE&lt;n-1&gt;</code>。模板只读 ECU 资源里的核信息，所以两边不一致时以 ECU 资源为准，页面会给出提示，点 <span class="ui">用 ECU 资源覆盖表单</span> 即可对齐。</li>
+          <li><b>芯片选择器 (Selectors)</b>：每行一个 <code>模块.参数</code> 和取值，例如 <code>Resource.ResourceSubderivative</code> 取 <code>THA6412_BGA516</code>，<code>Os.OsResourceSubderivative</code> 取 <code>Os_THA6412</code>。用 <span class="ui">增加一行</span> 和 <span class="ui">删除所选行</span> 编辑。格式不对、取值为空或重复的行会阻止保存。</li>
+        </ul>
+      </div>
+
+      <div class="tab-chapter">
+        <h3><span class="tab-no">2</span>外设<span class="en">Peripherals</span></h3>
+        <ul>
+          <li><b>左侧是外设类型</b>，带实例数和对应模块。<span class="ui">新增类型</span> 可以从硬件映射规则里选，也可以直接输入新的类型名。引脚类型不在这里编辑。</li>
+          <li><b>右侧是实例表</b>，列出 <code>resource_id</code>、<code>display_name</code> 和每个属性。映射规则会读取的属性列名带 <code>*</code>，缺值时标黄，页底提示“硬件映射向导将拿不到 X”。</li>
+          <li><b>实例操作</b>：<span class="ui">增加实例</span> <span class="ui">复制实例</span> <span class="ui">删除实例</span> <span class="ui">批量添加…</span> <span class="ui">增加属性</span> <span class="ui">删除属性</span>。批量添加按前缀、起始编号和个数生成，例如 <code>CAN0</code> 到 <code>CAN5</code>，以 <code>_id</code> 结尾的属性自动填编号。</li>
+          <li><b>单元格类型按输入推断</b>：<code>0x0C</code> 存为整数 12，<code>true</code> 存为布尔，逗号分隔存为列表。</li>
+        </ul>
+        <p><span class="ui">🔄 从 ECU 资源推导外设</span> 按第 4 页的硬件常量生成实例，编号直接用厂商的硬件单元名。已有实例且内容会改变的类型，会先列出来请你确认，默认选“否”，选“否”就什么都不改。只新增类型时不弹窗。</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>外设类型</th><th>实例取自</th><th>对应模块</th></tr></thead>
+            <tbody>
+              <tr><td><code>can_controller</code></td><td><code>Can.HwUnitNode</code>，例如 CAN_CONTROLLER_00</td><td>Can</td></tr>
+              <tr><td><code>adc_unit</code></td><td><code>Adc.HwUnitId</code>；通道数取 <code>Adc.AdcChannels_Adc&lt;n&gt;</code></td><td>Adc</td></tr>
+              <tr><td><code>spi_unit</code></td><td><code>Spi.HwUnitList</code></td><td>Spi</td></tr>
+              <tr><td><code>eth_controller</code></td><td><code>Eth.MaxControllers</code>；速率和接口取 <code>Eth.EthSpeed</code>、<code>Eth.EthPhyIntf</code></td><td>Eth</td></tr>
+              <tr><td><code>wdg_unit</code></td><td><code>Wdg.WdgInstance</code></td><td>Wdg</td></tr>
+              <tr><td><code>clock_source</code></td><td><code>Mcu.SysPllClkMaxFrequency</code>、<code>HSEClkFrequency</code>、<code>HSIClkFrequency</code></td><td>Mcu</td></tr>
+              <tr><td><code>gpt_channel</code></td><td><code>Basetimer.HwUnitList</code>，与 Gpt 插件读取的键相同</td><td>Gpt</td></tr>
+              <tr><td><code>lin_channel</code></td><td><code>Asi.AvailableHWUnit</code>，与 Lin 插件读取的键相同</td><td>Lin</td></tr>
+              <tr><td><code>intc_source</code></td><td><code>Intc.IntSrcClass</code> 下各类、各子类的 <code>IntName</code> 和 <code>IntID</code>；每个核私有的类标为不可配置</td><td>Intc</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>没有名称列表时按数量键生成编号，例如 <code>Can.MaxModules</code> 为 2 时生成 CAN0 和 CAN1。厂商文件里没有的属性只填协议默认值：CAN 标称 1 Mbit/s、SPI 20 MHz、LIN 20 kbit/s。报文对象数、看门狗超时范围这类芯片参数不会被编造。中断源的向量号取自 <code>IntID</code>，厂商文件里重名的中断只保留第一个。</p>
+      </div>
+
+      <div class="tab-chapter">
+        <h3><span class="tab-no">3</span>引脚复用矩阵<span class="en">Pinout &amp; Mux</span></h3>
+        <ul>
+          <li><span class="ui">📂 从 Excel / CSV 导入引脚表 (Import...)</span> 按表头识别列，中英文表头都认，例如“端口 / Port”“引脚号 / Pin”“引脚名称 / Signal”“方向 / Direction”“复用功能 / AF”。</li>
+          <li><span class="ui">➕ 添加引脚 (Add Pin)</span> 和 <span class="ui">➖ 删除选中 (Delete)</span> 逐行编辑。“端口过滤”只显示某个端口，右侧统计端口数和引脚数。</li>
+          <li>表格有五列：端口、引脚号、引脚名称、默认方向、复用功能。复用功能用逗号分隔，带模式号时写成 <code>2:CAN0_TX</code>。</li>
+          <li>同一端口下重复的引脚号会标红，保存时被拦下。引脚表为空时保存会再问一次。</li>
+          <li>每个端口会变成一个 <code>gpio_port</code>，每个引脚变成一个 <code>gpio_pin</code>，供 Port 和 Dio 模块的硬件映射使用。</li>
+        </ul>
+      </div>
+
+      <div class="tab-chapter">
+        <h3><span class="tab-no">4</span>ECU 资源<span class="en">ECU Resources</span></h3>
+        <p>这一页编辑模板和 xdm 中 <code>ecu:get()</code>、<code>ecu:list()</code> 读取的常量，例如核数、主核、ISR 触发方式和各外设的硬件单元表。键名与 .properties 文件里的完全相同，形如 <code>&lt;模块&gt;.&lt;名字&gt;</code>。</p>
+        <ul>
+          <li><span class="ui">📥 导入 .properties…</span> 可以多选文件。全部键按第一个点分到模块里并入，后导入的文件覆盖先导入的同名键，没有点的键会被跳过。</li>
+          <li><b>左侧是按模块分组的键树</b>，可以新增模块、新增键、重命名和删除。模块名不能含点，键名可以，例如 <code>SyncGroup.Master.SARADC0</code>。</li>
+          <li><b>右侧编辑值</b>，点 <span class="ui">应用 (Apply)</span> 后才写入。标量的类型自动推断，勾选 <span class="ui">按字符串保存 (Keep as string)</span> 可以保留 <code>007</code> 这类文本。列表可以逐项增删和排序，用 <span class="ui">转为标量</span>、<span class="ui">转为列表</span> 互换。长字符串用多行编辑，前导空格原样保留。</li>
+          <li><span class="ui">区间视图 (Range view)</span> 把长列表显示成“下标区间 / 值”。例如 992 项的 <code>Os.IsrTriggerMethodList</code> 只有几行，有缺口或重叠时会被拒绝。</li>
+          <li><b>搜索与过滤</b>：按键名或值搜索，可只看“待填写”或“有问题”的条目。</li>
+          <li><span class="ui">扫描项目模块所需键</span> 和 <span class="ui">从插件目录扫描所需键…</span> 列出 xdm 和模板里以字面量引用、本芯片还没有值的键，勾选后加入为黄色的待填写条目。拼接出来的键扫不到，列出的键也不一定都需要。</li>
+          <li>页底显示一致性检查结果，只提示，不阻止保存。规则包括核数等于 <code>AvailableCores</code> 的个数、<code>OsResource.MasterCore</code> 必须写成 <code>OS_CORE_ID_&lt;n&gt;</code>。</li>
+        </ul>
+      </div>
+
+      <div class="tab-chapter">
+        <h3><span class="tab-no">5</span>预览与导出<span class="en">Preview &amp; Export</span></h3>
+        <ul>
+          <li><b>YAML 预览</b>：显示将要保存的完整内容，<span class="ui">📋 复制 YAML (Copy)</span> 复制到剪贴板。</li>
+          <li><b>.properties 预览</b>：<span class="ui">📄 导出 .properties 文件... (Export)</span>。芯片有 ECU 资源时选择一个目录，每个模块写一个 <span class="file">&lt;模块&gt;_&lt;型号&gt;.properties</span>，内容只来自 ECU 资源。没有 ECU 资源时只导出一个 <span class="file">CotexR52_&lt;型号&gt;.properties</span>，内容是兜底推导，不是权威数据。</li>
+          <li><b>ECU 资源预览</b>：只读，下方显示一致性提示。</li>
+        </ul>
+      </div>
+
+      <h3 id="save">保存时的检查</h3>
+      <p>点保存后按下表顺序检查。拦下时会自动跳到出问题的页签。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>检查项</th><th>不通过时</th><th>跳到</th></tr></thead>
+          <tbody>
+            <tr><td>型号名合法</td><td><span class="pill block">阻止保存</span></td><td>1. 基础信息</td></tr>
+            <tr><td>引脚没有重复</td><td><span class="pill block">阻止保存</span></td><td>3. 引脚复用矩阵</td></tr>
+            <tr><td>引脚表不为空</td><td><span class="pill ask">询问是否继续</span></td><td>3. 引脚复用矩阵</td></tr>
+            <tr><td>选择器格式正确</td><td><span class="pill block">阻止保存</span></td><td>1. 基础信息</td></tr>
+            <tr><td>外设 <code>resource_id</code> 不为空且不重复</td><td><span class="pill block">阻止保存</span></td><td>2. 外设</td></tr>
+            <tr><td>ECU 资源没有待填写的空值</td><td><span class="pill ask">询问是否继续</span></td><td>4. ECU 资源，只显示待填写</td></tr>
+            <tr><td>芯片库里已有同名的其他芯片</td><td><span class="pill ask">询问是否覆盖</span></td><td><span class="muted">不跳转</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>检查通过后，YAML 以原子方式写入芯片库并附上 <code>checksum: sha256:…</code>，同时注册到内存中的芯片库。设计器关闭后，打开它的窗口会刷新芯片列表。</p>
+    </section>
+
+    <section id="outputs">
+      <h2><span class="sec-num">04</span>输出文件给谁用</h2>
+      <p>设计器自己只写芯片库里的 YAML 和可选的 .properties 导出。项目目录里的副本由项目功能从芯片库复制，不由设计器直接写。</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>文件</th><th>位置</th><th>何时产生</th><th>谁使用</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><b>芯片 YAML</b></td>
+              <td><span class="file">autosar_configurator/data/chips/&lt;型号&gt;.yaml</span></td>
+              <td><span class="ui">💾 保存到芯片库</span></td>
+              <td>新建项目向导的芯片列表、项目属性的芯片下拉框、硬件映射向导、设计器的克隆列表。也是项目副本的复制来源。</td>
+            </tr>
+            <tr>
+              <td><b>项目芯片副本</b></td>
+              <td><span class="file">&lt;项目目录&gt;/chips/&lt;型号&gt;.yaml</span></td>
+              <td>新建项目时选了芯片、更换芯片，或在项目属性点 <span class="ui">Save Chip to Project</span>、<span class="ui">Update from Library</span></td>
+              <td>该项目的 ECU 资源解析、配置界面约束和硬件映射向导。项目文件记录芯片名、<code>resource_version</code> 和 <code>checksum</code>，不记路径。</td>
+            </tr>
+            <tr>
+              <td><b>模块 .properties</b></td>
+              <td>导出时选择的目录</td>
+              <td>第 5 页导出</td>
+              <td>主要用于往返校验和迁移对照（本工具按文件名中的芯片名扫描，可正常读取；EB Tresos 按 <code>plugin.xml</code> 固定文件名登记，读不到按模块拆出的文件）。这是生成物，文件头注明了“请勿手改”，要改数据请改 YAML。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>YAML 各段由谁读取</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>YAML 段</th><th>编辑位置</th><th>读取方</th><th>用来做什么</th></tr></thead>
+          <tbody>
+            <tr><td><code>name</code> <code>family</code> <code>package</code> <code>description</code></td><td>1. 基础信息</td><td>芯片列表、各向导</td><td>显示和选择芯片</td></tr>
+            <tr><td><code>metadata.cores</code></td><td>1. 基础信息</td><td>设计器表单</td><td>与 ECU 资源比对。模板不读这一段</td></tr>
+            <tr><td><code>selectors</code></td><td>1. 基础信息</td><td>模块定义解析、项目诊断</td><td>把取值加入选择器参数的可选值；用户配置与芯片声明不符时给出警告，不自动修改</td></tr>
+            <tr><td><code>resources</code></td><td>2. 外设</td><td>硬件映射向导，按 <code>data/mapping_rules/*.yaml</code></td><td>为每个实例生成 Can、Adc、Spi、Lin、Gpt、Wdg、Eth、Mcu、Intc、Pwm 等模块的容器</td></tr>
+            <tr><td><code>ports</code></td><td>3. 引脚复用矩阵</td><td>硬件映射向导</td><td>推导 <code>gpio_port</code> 和 <code>gpio_pin</code>，生成 Port 和 Dio 的容器</td></tr>
+            <tr><td><code>ecu_resources</code></td><td>4. ECU 资源</td><td>ECU 资源解析，结果存为项目的 ECU 资源</td><td>代码生成模板取值、配置界面约束、缺键与一致性诊断</td></tr>
+            <tr><td><code>resource_version</code> <code>checksum</code></td><td>保存时自动写入</td><td>项目记录、项目诊断</td><td>发现文件在设计器之外被手改；提示芯片库有不同版本</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <pre><code>name: THA6412_BGA516
+selectors:
+  Resource.ResourceSubderivative: THA6412_BGA516
+  Os.OsResourceSubderivative: Os_THA6412
+resources:
+  can_controller:
+  - {resource_id: CAN_CONTROLLER_00, display_name: CAN Controller 0,
+     properties: {controller_id: 0, max_baudrate: 1000000, supports_fd: true}}
+ecu_resources:
+  OsResource:
+    NumOfCores: 4
+    AvailableCores: [CORE0, CORE1, CORE2, CORE3]
+  Os:
+    IsrTriggerMethodList:   # 下标区间写法，加载时展开
+      0-15: 1
+      16-18: 2
+checksum: sha256:…</code></pre>
+    </section>
+
+    <section id="impact">
+      <h2><span class="sec-num">05</span>影响了什么</h2>
+      <p>芯片 YAML 是一颗芯片在本工具里的唯一数据源。改动它，会影响下面五个地方。</p>
+      <div class="impact">
+        <article>
+          <h3>代码生成</h3>
+          <p>模板和 xdm 中 <code>ecu:get('OsResource.NumOfCores')</code> 这类调用的结果。生成前会重新解析一次 ECU 资源再交给生成器。缺键不会阻断生成，但对应位置会静默得到空值。</p>
+        </article>
+        <article>
+          <h3>配置界面的参数约束</h3>
+          <p>由 <code>ecu:get</code> 算出的参数最大值、枚举范围和容器实例数上限，取自同一份 ECU 资源，与生成结果一致。只有芯片 YAML、没有任何 .properties 的项目，约束同样完整。</p>
+        </article>
+        <article>
+          <h3>模块定义的可选值</h3>
+          <p>选择器取值会并入 <code>Resource.ResourceSubderivative</code> 等参数的枚举，新芯片不用改 .xdm 就能被选中。已加载的模块要重新加载才能看到新值。</p>
+        </article>
+        <article>
+          <h3>硬件映射结果</h3>
+          <p>生成哪些容器、生成多少个、叫什么名字，都跟着外设实例和引脚表走，例如 <code>CanConfigSet/CanController_CAN_CONTROLLER_00</code>。改了 <code>resource_id</code>，新映射出的容器名会随之改变。</p>
+        </article>
+        <article>
+          <h3>项目诊断</h3>
+          <p>缺失键、未引用键、一致性规则、选择器与配置不符、校验和不符、芯片库有新版本，都会写入日志并在状态栏给出摘要。</p>
+        </article>
+        <article>
+          <h3>已有项目</h3>
+          <p>保存到芯片库不会改动已有项目，项目用的是自己 <code>chips/</code> 下的副本。要同步，在项目属性点 <span class="ui">Update from Library</span>，它会先列出有差异的键请你确认。</p>
+        </article>
+      </div>
+      <div class="note">
+        <p><strong>项目的 ECU 资源怎么算出来。</strong>先合并插件目录里的 .properties，再合并所选芯片的 YAML，同名键以 YAML 为准并记 INFO 日志。</p>
+        <p><strong>什么时候重新计算。</strong>新建项目、打开项目、导入 EB 项目、添加模块、更换芯片时整体重算，生成代码前还会再算一次。</p>
+      </div>
+    </section>
+
+    <section id="builtin">
+      <h2><span class="sec-num">06</span>内置芯片现状</h2>
+      <p>芯片库自带三颗芯片。ECU 资源取自 <code>test_import_project</code> 中 Resource 插件的厂商属性文件，THA6206 和 THA6412 另外合并了各自的 Os 资源文件。外设段和中断源都由 ECU 资源推导，测试保证两者一致。</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>芯片</th><th class="num">核数</th><th class="num">ECU 资源键</th><th>Os 资源</th><th class="num">CAN</th><th class="num">ADC</th><th class="num">SPI</th><th class="num">LIN</th><th class="num">GPT</th><th>其他外设</th><th>引脚表</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="mono">THA610X_LFBGA180</td><td class="num">2</td><td class="num">1260</td><td>缺失</td><td class="num">6</td><td class="num">4</td><td class="num">6</td><td class="num">12</td><td class="num">4</td><td>ETH 1、WDG 1、时钟 3、中断源 382</td><td>2 个端口，32 个引脚</td></tr>
+            <tr><td class="mono">THA6206_LFBGA292</td><td class="num">2</td><td class="num">1544</td><td>已导入</td><td class="num">6</td><td class="num">6</td><td class="num">9</td><td class="num">8</td><td class="num">6</td><td>ETH 1、WDG 1、时钟 3、PWM 6、中断源 614</td><td>3 个端口，48 个引脚</td></tr>
+            <tr><td class="mono">THA6412_BGA516</td><td class="num">4</td><td class="num">2460</td><td>已导入</td><td class="num">12</td><td class="num">12</td><td class="num">9</td><td class="num">24</td><td class="num">6</td><td>ETH 1、WDG 1、时钟 3、中断源 1068</td><td>4 个端口，64 个引脚</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="warn">
+        <p><strong>仍是示例数据的部分。</strong>三颗芯片的引脚表和 THA6206 的 PWM 实例还是早期的演示数据，引脚统一是每个端口 16 个。拿到真实的引脚分配表后，请在第 3 页导入替换。</p>
+        <p><strong>Os 资源待补。</strong>THA610X 没有厂商的 Os 资源文件，Os 模块读取的核数、主核和 ISR 触发方式在这颗芯片上是空的。THA6206 的 ISR 触发方式表与 THA6412 逐项相同，已原样导入，等待厂商确认。</p>
+      </div>
+    </section>
+
+    <section id="limits">
+      <h2><span class="sec-num">07</span>已知限制</h2>
+      <ul>
+        <li>不能从引脚表生成 <code>Port.InputModes*</code>、<code>Port.OutputModes*</code> 等模式列表，这些键需要从 .properties 导入。</li>
+        <li>外设推导只覆盖上表的九种类型。PWM、ICU 等需要在第 2 页手工维护。</li>
+        <li>硬件映射向导的 Intc 页默认勾选全部中断源，THA6412 按默认设置会生成 942 个中断源容器。只配置用到的中断时，请先取消勾选。</li>
+        <li>所需键扫描只认字面量，拼接出来的键扫不到，结果仅供参考。</li>
+        <li>选择器的可选值在解析模块定义时确定。新增或更换芯片后，已加载的模块要重新加载才能看到新值。</li>
+        <li>Os 模板只定义了 <code>OS_CORE_ID_0</code> 和 <code>OS_CORE_ID_1</code>，4 核芯片的 2 号和 3 号核在模板里没有定义。这是模板问题，不在设计器范围内。</li>
+        <li>校验和只用来发现改动，不能防止恶意篡改。</li>
+      </ul>
+    </section>
+
+    <footer class="colophon">
+      <p>本说明依据 2026-10-19 的代码编写，包含提交 <span class="mono">c7f3763</span> 之后的中断源推导和 THA6206 Os 资源导入。</p>
+      <p>更细的格式规则见 <span class="file">doc/chip_ecu_resources.md</span>，硬件映射规则见 <span class="file">doc/Hardware_Mapping硬件映射使用说明.md</span>。</p>
+    </footer>
+  </main>
+</div>
+</body>
+</html>

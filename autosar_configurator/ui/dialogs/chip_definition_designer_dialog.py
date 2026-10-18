@@ -477,7 +477,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         if not derived:
             QMessageBox.information(
                 self, "无可用推导数据",
-                "当前芯片尚未加载 ECU 资源（或 ECU 资源中不包含 Can/Adc/Spi/Eth/Wdg/Mcu/Gpt/Lin 等外设信息）。\n"
+                "当前芯片尚未加载 ECU 资源（或 ECU 资源中不包含 Can/Adc/Spi/Eth/Wdg/Mcu/Gpt/Lin/Intc 等外设信息）。\n"
                 "请先在“4. ECU 资源”页导入 .properties 文件或填写相关键值。"
             )
             return

@@ -144,7 +144,7 @@ class PeripheralEditor(QWidget):
         intro.setWordWrap(True)
         top_bar.addWidget(intro, 1)
         self.sync_ecu_btn = QPushButton("🔄 从 ECU 资源推导外设")
-        self.sync_ecu_btn.setToolTip("根据第 4 页 ECU 资源 (Can/Adc/Spi/Eth/Wdg/Mcu/Gpt/Lin 等) 自动生成外设实例")
+        self.sync_ecu_btn.setToolTip("根据第 4 页 ECU 资源 (Can/Adc/Spi/Eth/Wdg/Mcu/Gpt/Lin/Intc 等) 自动生成外设实例")
         self.sync_ecu_btn.clicked.connect(self.sync_from_ecu_requested.emit)
         top_bar.addWidget(self.sync_ecu_btn)
         layout.addLayout(top_bar)

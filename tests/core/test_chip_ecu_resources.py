@@ -262,3 +262,28 @@ def test_export_without_ecu_resources_keeps_legacy_output():
     chip = ChipDefinition(name="OLD", family="THA6", package="BGA1")
     text = ChipDefinitionExporter().to_properties_string(chip)
     assert "Resource.NumOfCores: 2" in text
+
+
+# --- built-in chips: ecu_resources are exactly the vendor files ----------------------
+
+_VENDOR_RESOURCE_DIR = (Path(__file__).resolve().parents[2] / "test_import_project" / "Def"
+                        / "plugins" / "Resource_THA6_AS440" / "resource")
+_BUILTIN_SOURCES = {
+    # THA610X has no Os_Resource file from the vendor yet
+    "THA610X_LFBGA180": [_VENDOR_RESOURCE_DIR / "CotexR52_THA610X_LFBGA180.properties"],
+    "THA6206_LFBGA292": [_VENDOR_RESOURCE_DIR / "CotexR52_THA6206_LFBGA292.properties",
+                         FIXTURES / "Os_Resource_THA6206.properties"],
+    "THA6412_BGA516": [_VENDOR_RESOURCE_DIR / "CotexR52_THA6412_BGA516.properties",
+                       FIXTURES / "Os_Resource_THA6412.properties"],
+}
+
+
+@pytest.mark.parametrize("name", sorted(_BUILTIN_SOURCES))
+def test_builtin_chip_ecu_resources_equal_vendor_files(name):
+    from autosar_configurator.core.hardware.chip_database import default_chips_dir
+
+    db = ChipDatabase()
+    chip = db._load_chip_from_yaml(default_chips_dir() / f"{name}.yaml")
+    fresh = ChipDefinition(name=name)
+    db.import_ecu_resources_from_properties(fresh, _BUILTIN_SOURCES[name])
+    assert flatten_ecu_resources(chip.ecu_resources) == flatten_ecu_resources(fresh.ecu_resources)

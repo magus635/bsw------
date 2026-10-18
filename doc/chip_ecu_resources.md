@@ -178,7 +178,7 @@ resources:
 - 左边是外设类型（带实例数和对应模块），"新增类型"可选规则里的类型，也可直接输入新类型名；引脚类型不在这里编辑。
 - 右边是实例表：`resource_id`、`display_name` 和每个属性一列，规则会读的属性列名带 `*`，缺值时标黄，页底提示"硬件映射向导将拿不到 X"。
 - "增加实例 / 复制实例 / 删除实例 / 增加属性 / 删除属性"；"批量添加…"按前缀、起始编号、个数生成（如 `CAN0`…`CAN5`），规则里以 `_id` 结尾的属性自动填编号。
-- **"🔄 从 ECU 资源推导外设"**：可根据第 4 页 `ecu_resources` 中的硬件常量（`Can`、`Adc`、`Spi`、`Eth`、`Wdg`、`Mcu`、`Gpt`/`Basetimer`、`Lin`/`Asi` 等）一键生成并更新对应的外设实例，同时保留其他自定义外设类型（如 `intc_source`）。已有实例且内容不同的类型会被整类替换，替换前会列出这些类型并要求确认，选“否”则不做任何改动。实例编号和数量取自 ECU 资源（如 `Can.HwUnitNode`、`Adc.HwUnitId`、`Asi.AvailableHWUnit`、`Basetimer.HwUnitList`）；厂商文件里没有的属性只填协议默认值（CAN 1 Mbit/s、SPI 20 MHz、LIN 20 kbit/s），不编造邮箱数、超时范围等芯片参数。内置的三颗芯片的外设段已按此方式从 ECU 资源生成，测试会检查两者保持一致。
+- **"🔄 从 ECU 资源推导外设"**：可根据第 4 页 `ecu_resources` 中的硬件常量（`Can`、`Adc`、`Spi`、`Eth`、`Wdg`、`Mcu`、`Gpt`/`Basetimer`、`Lin`/`Asi`、`Intc` 等）一键生成并更新对应的外设实例，同时保留其他自定义外设类型（如 `intc_source`）。已有实例且内容不同的类型会被整类替换，替换前会列出这些类型并要求确认，选“否”则不做任何改动。实例编号和数量取自 ECU 资源（如 `Can.HwUnitNode`、`Adc.HwUnitId`、`Asi.AvailableHWUnit`、`Basetimer.HwUnitList`）；厂商文件里没有的属性只填协议默认值（CAN 1 Mbit/s、SPI 20 MHz、LIN 20 kbit/s），不编造邮箱数、超时范围等芯片参数。中断源 `intc_source` 按 `Intc.IntSrcClass` → `Intc.<类>.SubClassName` → `Intc.<类>.<子类>.IntName` / `IntID` 逐个列出，`vector_number` 取 `IntID`；`Intc.CoreFixedIntClass` 里的类（每个核私有的 SGI/PPI/软中断）`is_configurable` 为 false，映射规则会跳过；厂商文件里重名的中断只保留第一个并写警告（THA6412 的 `CPU3_PPI` 前 6 个名字误写成 `CPU0_` 开头）。内置的三颗芯片的外设段（含中断源）已按此方式从 ECU 资源生成，测试会检查两者保持一致。
 - 单元格值按输入推断类型（`0x0C` → 12、`true` → 布尔），逗号分隔即列表；未改动的单元格保留原值。
 - `resource_id` 为空或重复时不能保存。
 
@@ -190,6 +190,8 @@ resources:
 ## 已知限制
 
 - Os 模板只定义了 `OS_CORE_ID_0/1`，4 核芯片的 `OS_CORE_ID_2/3` 在模板里是未定义的（模板问题，不在本功能内）。
-- 不能从引脚表生成 `Port.*` 的模式列表（`InputModes*`、`OutputModes*` 等）。
+- 不能从引脚表生成 `Port.*` 的模式列表（`InputModes*`、`OutputModes*` 等）；内置芯片的引脚表仍是示例数据。
+- 硬件映射向导的 Intc 页默认勾选全部中断源，THA6412 按默认设置会生成 942 个 `IntcSource_*` 容器；只配置用到的中断时请先取消勾选。
+- 内置芯片的 Os 资源：THA6206、THA6412 已导入各自的 `Os_Resource_*.properties`（`tests/fixtures/ecu_resources/`）；THA610X 没有厂商 Os 资源文件，`OsResource.*`、`Os.*` 键缺失，Os 模块需要项目自带的 .properties。THA6206 的 `Os.IsrTriggerMethodList` 与 THA6412 逐项相同，导入时未改动，待厂商确认。
 - 定义里的选择器取值范围在**解析定义时**确定：切换芯片或新增芯片后，已加载的模块要重新加载才会看到新的可选值。
 

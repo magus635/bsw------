@@ -380,7 +380,8 @@ def peripherals_from_ecu(ecu_resources: Dict[str, Dict[str, Any]]) -> Dict[str, 
     Returns a dict ``{resource_type: [GenericResourceDef, ...]}`` for resource types
     whose hardware quantities/names are present in ``ecu_resources``.  Instance names
     and counts come from the ECU resources; properties the vendor files do not
-    describe get protocol defaults (CAN 1 Mbit/s nominal, SPI 20 MHz, LIN 20 kbit/s)
+    describe get protocol defaults (CAN 1 Mbit/s nominal, SPI 20 MHz, LIN 20 kbit/s);
+    interrupt sources come from the Intc class/subclass lists
     and nothing else is made up.
     """
     from .generic_resource import GenericResourceDef
@@ -553,5 +554,57 @@ def peripherals_from_ecu(ecu_resources: Dict[str, Dict[str, Any]]) -> Dict[str, 
             for i, name in enumerate(lin_units)
         ]
 
+    # 9. Interrupt sources (Intc.<class>.<subclass>.IntName / IntID)
+    intc_sources = _intc_sources(ecu_resources.get("Intc") or {})
+    if intc_sources:
+        derived["intc_source"] = intc_sources
+
     return derived
+
+
+def _intc_sources(intc: Dict[str, Any]) -> List[Any]:
+    """Interrupt sources listed by the vendor Intc resources, in vendor order.
+
+    ``Intc.IntSrcClass`` names the classes, ``Intc.<class>.SubClassName`` their
+    subclasses, and ``Intc.<class>.<sub>.IntName`` / ``.IntID`` the sources.  Classes
+    in ``Intc.CoreFixedIntClass`` (per-core SGI/PPI/soft interrupts) are kept but
+    marked not configurable, so the Intc mapping rule skips them.  A name that
+    appears twice (a typo in the vendor file) keeps its first occurrence.
+    """
+    from .generic_resource import GenericResourceDef
+
+    core_fixed = {str(c) for c in _as_list(intc.get("CoreFixedIntClass"))}
+    sources: List[GenericResourceDef] = []
+    seen: Set[str] = set()
+    skipped: List[str] = []
+    for int_class in (str(c) for c in _as_list(intc.get("IntSrcClass"))):
+        for sub in (str(s) for s in _as_list(intc.get(f"{int_class}.SubClassName"))):
+            names = _as_list(intc.get(f"{int_class}.{sub}.IntName"))
+            ids = _as_list(intc.get(f"{int_class}.{sub}.IntID"))
+            if len(names) != len(ids):
+                logger.warning("Intc.%s.%s: %d names but %d IDs; subclass skipped",
+                               int_class, sub, len(names), len(ids))
+                continue
+            for name, vector in zip(names, ids):
+                name = str(name).strip()
+                if not name or not isinstance(vector, int) or isinstance(vector, bool):
+                    continue
+                if name in seen:
+                    skipped.append(f"{int_class}.{sub}.{name}")
+                    continue
+                seen.add(name)
+                sources.append(GenericResourceDef(
+                    resource_type="intc_source",
+                    resource_id=name,
+                    display_name=name,
+                    properties={
+                        "vector_number": vector,
+                        "is_configurable": int_class not in core_fixed,
+                        "int_class": int_class,
+                    },
+                ))
+    if skipped:
+        logger.warning("Intc: duplicate interrupt names kept once, later ones skipped: %s",
+                       ", ".join(skipped))
+    return sources
 

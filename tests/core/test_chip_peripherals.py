@@ -361,8 +361,37 @@ def test_builtin_chip_peripherals_agree_with_ecu_resources(name):
 
     chip = ChipDatabase()._load_chip_from_yaml(default_chips_dir() / f"{name}.yaml")
     derived = peripherals_from_ecu(chip.ecu_resources)
-    assert {"can_controller", "adc_unit", "spi_unit"} <= set(derived)
+    assert {"can_controller", "adc_unit", "spi_unit", "intc_source"} <= set(derived)
     for res_type, instances in derived.items():
         expected = [(r.resource_id, r.properties) for r in instances]
         actual = [(r.resource_id, r.properties) for r in chip.resources.get(res_type, [])]
         assert actual == expected, res_type
+
+
+def test_interrupt_sources_derived_from_intc_resources():
+    from autosar_configurator.core.hardware.ecu_resource_diagnostics import (
+        peripherals_from_ecu,
+    )
+
+    ecu = {"Intc": {
+        "IntSrcClass": ["GIC_PPI", "CAN", "EXTI", "BAD"],
+        "CoreFixedIntClass": ["GIC_PPI"],
+        "GIC_PPI.SubClassName": ["CPU0_PPI", "CPU1_PPI"],
+        "GIC_PPI.CPU0_PPI.IntName": ["CPU0_TIMER"], "GIC_PPI.CPU0_PPI.IntID": [30],
+        # vendor typo: CPU1's source reuses CPU0's name; the first one is kept
+        "GIC_PPI.CPU1_PPI.IntName": ["CPU0_TIMER"], "GIC_PPI.CPU1_PPI.IntID": [30],
+        "CAN.SubClassName": ["CAN0"],
+        "CAN.CAN0.IntName": ["CAN00_INT0", "CAN00_INT1"], "CAN.CAN0.IntID": [256, 257],
+        "EXTI.SubClassName": "EXTI0",                       # a single subclass is a scalar
+        "EXTI.EXTI0.IntName": "EXTI0_IOUT0", "EXTI.EXTI0.IntID": 671,
+        "BAD.SubClassName": ["X"],                          # names and IDs do not pair up
+        "BAD.X.IntName": ["A", "B"], "BAD.X.IntID": [1],
+    }}
+    sources = peripherals_from_ecu(ecu)["intc_source"]
+    assert [(s.resource_id, s.properties) for s in sources] == [
+        ("CPU0_TIMER", {"vector_number": 30, "is_configurable": False, "int_class": "GIC_PPI"}),
+        ("CAN00_INT0", {"vector_number": 256, "is_configurable": True, "int_class": "CAN"}),
+        ("CAN00_INT1", {"vector_number": 257, "is_configurable": True, "int_class": "CAN"}),
+        ("EXTI0_IOUT0", {"vector_number": 671, "is_configurable": True, "int_class": "EXTI"}),
+    ]
+
