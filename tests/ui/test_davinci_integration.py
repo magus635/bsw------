@@ -1,6 +1,7 @@
 
 import pytest
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QMessageBox
 from autosar_configurator.ui.widgets.davinci_tree_view import DaVinciTreeView
 from autosar_configurator.ui.davinci_main_window import DaVinciMainWindow
 from autosar_configurator.core.config_manager import ConfigurationManager
@@ -53,10 +54,15 @@ class TestDaVinciIntegration:
         assert blocker.args[1] == container_def
         assert blocker.args[2] == manager
 
-    def test_main_window_integration(self, qtbot, mock_data):
+    def test_main_window_integration(self, monkeypatch, qtbot, mock_data):
         """Test that main window updates context on signal"""
         module_def, manager, instance, container_def = mock_data
-        
+        # mock_data leaves the configuration modified, so closing the window asks
+        # whether to save.  Answer it here: a real modal box blocks offscreen runs.
+        # (monkeypatch is requested before qtbot so it is still active when qtbot
+        # closes the window during teardown.)
+        monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.Discard)
+
         window = DaVinciMainWindow()
         qtbot.addWidget(window)
         
@@ -75,3 +81,5 @@ class TestDaVinciIntegration:
         # Verify actions enabled
         assert window.show_dep_graph_action.isEnabled()
         assert window.validate_action.isEnabled()
+
+        assert window.close()

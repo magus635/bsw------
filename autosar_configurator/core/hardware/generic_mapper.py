@@ -71,6 +71,20 @@ def _safe_ast_eval(expr: str) -> Any:
                     return False
                 left = right
             return True
+        if isinstance(node, ast.List):
+            return [_eval(elt) for elt in node.elts]
+        if isinstance(node, ast.Tuple):
+            return tuple(_eval(elt) for elt in node.elts)
+        if isinstance(node, ast.Call):
+            if (isinstance(node.func, ast.Name) and node.func.id == "range"
+                    and not node.keywords and 1 <= len(node.args) <= 3):
+                args = [_eval(a) for a in node.args]
+                if all(isinstance(a, int) and not isinstance(a, bool) for a in args):
+                    r = range(*args)
+                    if len(r) > 4096:
+                        raise ValueError(f"range() too large: {len(r)}")
+                    return r
+            raise ValueError(f"Unsupported function call: {ast.dump(node.func)}")
         raise ValueError(f"Unsupported AST node: {type(node).__name__}")
 
     tree = ast.parse(expr, mode='eval')
@@ -153,9 +167,8 @@ class ExpressionEvaluator:
         if expression is None:
             return None
 
-        # Handle simple variable references
-        if expression.startswith('resource.') or expression.startswith('user.') or \
-           expression.startswith('chip.') or expression in ('index', 'index1'):
+        # Handle simple variable references (pure dotted path, no operators/spaces)
+        if re.fullmatch(r'(?:resource|user|chip)(?:\.[a-zA-Z_][a-zA-Z0-9_]*)+|index1?', expression):
             return self._resolve_path(expression)
 
         # Handle template strings with {var} placeholders
@@ -386,7 +399,7 @@ class GenericResourceMapper:
         # Handle iteration
         if container_rule.iterate:
             iterate_value = evaluator.evaluate(container_rule.iterate)
-            if iterate_value is None:
+            if not isinstance(iterate_value, (list, tuple, range)):
                 return actions
 
             for item_index, item in enumerate(iterate_value):

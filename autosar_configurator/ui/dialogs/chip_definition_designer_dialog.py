@@ -34,7 +34,7 @@ from ...core.hardware.ecu_resource_data import (
 )
 from ...core.hardware.ecu_resource_data import parse_selectors
 from ...core.hardware.ecu_resource_diagnostics import (
-    check_consistency, typed_field_differences, typed_fields_from_ecu,
+    check_consistency, peripherals_from_ecu, typed_field_differences, typed_fields_from_ecu,
 )
 from .ecu_resource_editor import EcuResourceEditor
 from .peripheral_editor import PeripheralEditor
@@ -468,7 +468,45 @@ class ChipDefinitionDesignerDialog(QDialog):
     def _setup_peripherals_tab(self):
         """Tab 2: peripheral instances of any type (chip YAML "resources")"""
         self.peripheral_editor = PeripheralEditor(requirements=rule_resource_requirements())
+        self.peripheral_editor.sync_from_ecu_requested.connect(self._sync_peripherals_from_ecu)
         self.tabs.addTab(self.peripheral_editor, "2. 外设 (Peripherals)")
+
+    def _sync_peripherals_from_ecu(self):
+        """Derive peripheral instances from the current ECU resources and merge into editor"""
+        derived = peripherals_from_ecu(self._ecu_resources)
+        if not derived:
+            QMessageBox.information(
+                self, "无可用推导数据",
+                "当前芯片尚未加载 ECU 资源（或 ECU 资源中不包含 Can/Adc/Spi/Eth/Wdg/Mcu/Gpt/Lin 等外设信息）。\n"
+                "请先在“4. ECU 资源”页导入 .properties 文件或填写相关键值。"
+            )
+            return
+        current = self.peripheral_editor.resources()
+
+        def _key(instances):
+            return [(r.resource_id, r.properties) for r in instances]
+
+        replaced = [t for t, lst in derived.items()
+                    if current.get(t) and _key(current[t]) != _key(lst)]
+        if replaced:
+            lines = "\n".join(f"  • {t}: {len(current[t])} 个实例 → {len(derived[t])} 个实例"
+                              for t in replaced)
+            reply = QMessageBox.question(
+                self, "替换已有外设",
+                "以下外设类型的现有实例将被 ECU 资源推导结果整体替换，"
+                f"手工修改的编号和属性会丢失：\n{lines}\n\n其他外设类型保持不变。是否继续？",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+            )
+            if reply != QMessageBox.Yes:
+                self.status_label.setText("已取消从 ECU 资源推导外设，外设实例未改动")
+                return
+        count = self.peripheral_editor.merge_resources(derived)
+        types_str = ", ".join(f"{k}({len(v)})" for k, v in derived.items())
+        self.status_label.setText(f"已从 ECU 资源同步 {len(derived)} 类共 {count} 个外设实例: {types_str}")
+        QMessageBox.information(
+            self, "外设同步完成",
+            f"已根据 ECU 资源自动生成并更新 {len(derived)} 类（共 {count} 个）外设实例：\n{types_str}"
+        )
 
     def _setup_pinout_tab(self):
         """Tab 3: Pinout & Multiplexing Matrix"""

@@ -173,3 +173,84 @@ def test_invalid_instance_blocks_saving(qtbot, tmp_path, boxes):
     assert not (tmp_path / "NEW.yaml").exists()
     assert dialog.tabs.currentIndex() == 1
     assert any("resource_id" in w for w in boxes["warning"])
+
+
+def test_sync_peripherals_from_ecu_in_designer(qtbot, tmp_path, boxes):
+    (tmp_path / "C.yaml").write_text("""name: C
+resources:
+  intc_source:
+    - {resource_id: IRQ0, properties: {vector_number: 10, is_configurable: true}}
+ecu_resources:
+  Can:
+    HwUnitNode: [CAN0, CAN1]
+    FDSupport: true
+  Wdg:
+    WdgInstance: WDOG0
+""", encoding="utf-8")
+    dialog = ChipDefinitionDesignerDialog(chip_database=ChipDatabase(tmp_path), initial_chip="C")
+    qtbot.addWidget(dialog)
+    dialog.peripheral_editor.sync_ecu_btn.click()
+    res = dialog.peripheral_editor.resources()
+    assert [r.resource_id for r in res["can_controller"]] == ["CAN0", "CAN1"]
+    assert [r.resource_id for r in res["wdg_unit"]] == ["WDOG0"]
+    assert [r.resource_id for r in res["intc_source"]] == ["IRQ0"]   # preserved
+
+
+_CHIP_WITH_CAN = """name: C
+resources:
+  can_controller:
+    - {resource_id: CAN0, properties: {controller_id: 0, supports_fd: false, note: tuned}}
+  intc_source:
+    - {resource_id: IRQ0, properties: {vector_number: 10, is_configurable: true}}
+ecu_resources:
+  Can:
+    HwUnitNode: [CAN_CONTROLLER_00, CAN_CONTROLLER_01]
+  Wdg:
+    WdgInstance: WDOG0
+"""
+
+
+def _designer_with_can(qtbot, tmp_path, monkeypatch, answer):
+    asked = []
+    monkeypatch.setattr(QMessageBox, "question",
+                        lambda *a, **k: asked.append(a[2]) or answer)
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: QMessageBox.Ok)
+    (tmp_path / "C.yaml").write_text(_CHIP_WITH_CAN, encoding="utf-8")
+    dialog = ChipDefinitionDesignerDialog(chip_database=ChipDatabase(tmp_path), initial_chip="C")
+    qtbot.addWidget(dialog)
+    return dialog, asked
+
+
+def test_sync_from_ecu_keeps_existing_peripherals_when_declined(qtbot, tmp_path, monkeypatch):
+    dialog, asked = _designer_with_can(qtbot, tmp_path, monkeypatch, QMessageBox.No)
+    dialog.peripheral_editor.sync_ecu_btn.click()
+    assert len(asked) == 1 and "can_controller" in asked[0] and "wdg_unit" not in asked[0]
+    res = dialog.peripheral_editor.resources()
+    assert [r.resource_id for r in res["can_controller"]] == ["CAN0"]
+    assert res["can_controller"][0].properties["note"] == "tuned"
+    assert "wdg_unit" not in res          # nothing is applied when declined
+
+
+def test_sync_from_ecu_replaces_existing_peripherals_when_confirmed(qtbot, tmp_path, monkeypatch):
+    dialog, asked = _designer_with_can(qtbot, tmp_path, monkeypatch, QMessageBox.Yes)
+    dialog.peripheral_editor.sync_ecu_btn.click()
+    assert len(asked) == 1
+    res = dialog.peripheral_editor.resources()
+    assert [r.resource_id for r in res["can_controller"]] == ["CAN_CONTROLLER_00", "CAN_CONTROLLER_01"]
+    assert [r.resource_id for r in res["wdg_unit"]] == ["WDOG0"]
+    assert [r.resource_id for r in res["intc_source"]] == ["IRQ0"]
+
+
+def test_sync_from_ecu_does_not_ask_when_only_new_types_are_added(qtbot, tmp_path, monkeypatch):
+    dialog, asked = _designer_with_can(qtbot, tmp_path, monkeypatch, QMessageBox.No)
+    dialog.peripheral_editor.set_resources({
+        "can_controller": [GenericResourceDef(
+            resource_type="can_controller", resource_id=f"CAN_CONTROLLER_0{i}",
+            display_name=f"CAN Controller {i}",
+            properties={"controller_id": i, "max_baudrate": 1000000, "supports_fd": False})
+            for i in range(2)],
+    })
+    dialog.peripheral_editor.sync_ecu_btn.click()
+    assert asked == []                    # can_controller already matches, wdg_unit is new
+    assert [r.resource_id for r in dialog.peripheral_editor.resources()["wdg_unit"]] == ["WDOG0"]
+

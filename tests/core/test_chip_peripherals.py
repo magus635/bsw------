@@ -180,9 +180,11 @@ def test_mapping_unchanged_after_migration(tmp_path, name):
     as_before = ChipDefinition(name=name, ports=legacy.ports)
     for res in legacy.effective_resources().get("can_controller", []):
         p = res.properties
+        # mailbox_count is not read by the Can rule; absent, the legacy default applies
+        extra = {"mailbox_count": p["mailbox_count"]} if "mailbox_count" in p else {}
         as_before.can_resources.append(CanResourceDef(
             name=res.resource_id, controller_id=p["controller_id"], max_baudrate=p["max_baudrate"],
-            supports_fd=p["supports_fd"], mailbox_count=p["mailbox_count"]))
+            supports_fd=p["supports_fd"], **extra))
     migrated = _roundtrip(legacy, tmp_path)
     assert _actions(migrated)["Can"] == _actions(as_before)["Can"]
     assert _actions(migrated) == _actions(legacy)
@@ -283,3 +285,84 @@ def test_pin_table_takes_precedence_over_pin_resources():
     ports = {r.resource_id: r for r in convert_legacy_chip(chip).get_resources("gpio_port")}
     assert ports["PORT_A"].properties["pin_count"] == 1        # from the pin table
     assert ports["PORT_B"].properties["pin_count"] == 8        # only in resources
+
+
+def test_port_mapping_rule_generates_pin_subcontainers():
+    chip = ChipDefinition(
+        name="C",
+        ports={
+            "PORT_A": [PortPinDef(name=f"PA{i}", port="PORT_A", pin=i) for i in range(3)],
+            "PORT_B": [PortPinDef(name=f"PB{i}", port="PORT_B", pin=i) for i in range(2)],
+        },
+    )
+    mapper = GenericResourceMapper(chip=convert_legacy_chip(chip), rule_loader=get_default_rule_loader())
+    actions = [str(a) for a in mapper.generate_mapping("Port")]
+    assert "[CREATE] PortConfigSet/PortContainer_PORT_A" in actions
+    assert "[CREATE] PortConfigSet/PortContainer_PORT_A/PortPin_PORT_A2" in actions
+    assert "[CREATE] PortConfigSet/PortContainer_PORT_B/PortPin_PORT_B1" in actions
+    assert "  [SET] PortPinId = 17" in actions  # port_index(1) * 16 + item_index(1)
+
+
+def test_peripherals_derived_from_ecu_resources():
+    from autosar_configurator.core.hardware.ecu_resource_diagnostics import (
+        peripherals_from_ecu,
+    )
+
+    ecu = {
+        "Can": {"HwUnitNode": ["CAN0", "CAN1"], "FDSupport": True, "MaxHwObjects": 64},
+        "Adc": {"HwUnitId": ["SARADC0"], "MaxResolution": 12, "AdcChannels_Adc0": ["AN0", "AN1", "AN2"]},
+        "Spi": {"HwUnitList": ["Spi_0", "Spi_1"], "DmaSupport": True},
+        "Eth": {"MaxControllers": 1, "EthPhyIntf": ["RGMII"], "EthSpeed": ["ETH_1000MBPS"]},
+        "Wdg": {"WdgInstance": "WDOG0"},
+        "Mcu": {"SysPllClkMaxFrequency": 400000000, "HSEClkFrequency": 20000000},
+        "Basetimer": {"HwUnitList": ["BASETIMER0", "BASETIMER1"]},
+        "Asi": {"AvailableHWUnit": ["ASI0", "ASI1", "ASI2"]},
+    }
+    derived = peripherals_from_ecu(ecu)
+    assert [r.resource_id for r in derived["can_controller"]] == ["CAN0", "CAN1"]
+    assert derived["adc_unit"][0].properties["channel_count"] == 3
+    assert [r.resource_id for r in derived["spi_unit"]] == ["Spi_0", "Spi_1"]
+    assert derived["eth_controller"][0].properties["max_speed"] == 1000
+    assert [r.resource_id for r in derived["wdg_unit"]] == ["WDOG0"]
+    assert [r.resource_id for r in derived["clock_source"]] == ["PLL0", "XTAL"]
+    assert [r.resource_id for r in derived["gpt_channel"]] == ["BASETIMER0", "BASETIMER1"]
+    assert [r.resource_id for r in derived["lin_channel"]] == ["ASI0", "ASI1", "ASI2"]
+    # Can.MaxHwObjects is a driver-wide limit and the vendor files give no
+    # watchdog timeout range: neither is turned into a per-instance property
+    assert "mailbox_count" not in derived["can_controller"][0].properties
+    assert derived["wdg_unit"][0].properties == {"unit_id": 0}
+
+
+@pytest.mark.parametrize("name", ["THA610X_LFBGA180", "THA6206_LFBGA292", "THA6412_BGA516"])
+def test_builtin_chips_carry_ecu_resources_and_pass_consistency(name):
+    from autosar_configurator.core.hardware.ecu_resource_data import (
+        flatten_ecu_resources,
+    )
+    from autosar_configurator.core.hardware.ecu_resource_diagnostics import (
+        check_consistency,
+        typed_field_differences,
+    )
+
+    chip = ChipDatabase()._load_chip_from_yaml(default_chips_dir() / f"{name}.yaml")
+    assert chip is not None
+    assert not chip.content_modified
+    assert chip.ecu_resources
+    assert typed_field_differences(chip) == []
+    assert check_consistency(flatten_ecu_resources(chip.ecu_resources)) == []
+
+
+@pytest.mark.parametrize("name", ["THA610X_LFBGA180", "THA6206_LFBGA292", "THA6412_BGA516"])
+def test_builtin_chip_peripherals_agree_with_ecu_resources(name):
+    """The hardware mapping wizard (resources) and code generation (ecu_resources)
+    must see the same peripherals for every type the ECU resources describe."""
+    from autosar_configurator.core.hardware.ecu_resource_diagnostics import (
+        peripherals_from_ecu,
+    )
+
+    chip = ChipDatabase()._load_chip_from_yaml(default_chips_dir() / f"{name}.yaml")
+    derived = peripherals_from_ecu(chip.ecu_resources)
+    assert {"can_controller", "adc_unit", "spi_unit"} <= set(derived)
+    for res_type, instances in derived.items():
+        expected = [(r.resource_id, r.properties) for r in instances]
+        actual = [(r.resource_id, r.properties) for r in chip.resources.get(res_type, [])]
+        assert actual == expected, res_type

@@ -83,8 +83,9 @@ def test_resource_properties_must_match_selected_chip(tmp_path):
 
 def test_default_database_is_used_when_project_has_none(tmp_path):
     project = _project(tmp_path, "THA6412_BGA516", None)
-    # packaged chips carry no ecu_resources yet: nothing is added, nothing fails
-    assert project.load_ecu_resources() == {}
+    resources = project.load_ecu_resources()
+    assert resources.get("Resource.NumOfCores") == 4
+    assert resources.get("OsResource.NumOfCores") == 4
 
 
 def test_imported_eb_project_resources_equal_generator_scan():

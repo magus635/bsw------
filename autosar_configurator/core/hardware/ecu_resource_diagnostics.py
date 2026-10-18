@@ -358,3 +358,200 @@ def typed_fields_from_ecu(chip) -> Dict[str, Any]:
                 result[field_path.rsplit(".", 1)[-1]] = convert(flat[key])
                 break
     return result
+
+
+def _unit_list(mod_dict: Dict[str, Any], list_keys: Tuple[str, ...],
+               count_keys: Tuple[str, ...], prefix: str) -> List[str]:
+    for k in list_keys:
+        if k in mod_dict and mod_dict[k] is not None:
+            items = [str(x).strip() for x in _as_list(mod_dict[k]) if str(x).strip()]
+            if items:
+                return items
+    for k in count_keys:
+        val = mod_dict.get(k)
+        if isinstance(val, int) and not isinstance(val, bool) and val > 0:
+            return [f"{prefix}{i}" for i in range(val)]
+    return []
+
+
+def peripherals_from_ecu(ecu_resources: Dict[str, Dict[str, Any]]) -> Dict[str, List[Any]]:
+    """Derive peripheral instances (``resources``) from ``ecu_resources`` where possible.
+
+    Returns a dict ``{resource_type: [GenericResourceDef, ...]}`` for resource types
+    whose hardware quantities/names are present in ``ecu_resources``.  Instance names
+    and counts come from the ECU resources; properties the vendor files do not
+    describe get protocol defaults (CAN 1 Mbit/s nominal, SPI 20 MHz, LIN 20 kbit/s)
+    and nothing else is made up.
+    """
+    from .generic_resource import GenericResourceDef
+
+    if not ecu_resources:
+        return {}
+    derived: Dict[str, List[GenericResourceDef]] = {}
+
+    # 1. CAN controllers
+    can = ecu_resources.get("Can") or {}
+    can_units = _unit_list(can, ("HwUnitNode", "HwUnitList"), ("MaxModules",), "CAN")
+    if can_units:
+        # The vendor files have no FD flag; M_CAN modules (Can.MCAN0...) are FD capable.
+        fd_val = can.get("FDSupport", "MCAN0" in can)
+        supports_fd = fd_val if isinstance(fd_val, bool) else True
+        # Can.MaxHwObjects limits the whole driver, not one controller, so no
+        # per-controller mailbox count is derived.
+        derived["can_controller"] = [
+            GenericResourceDef(
+                resource_type="can_controller",
+                resource_id=name,
+                display_name=f"CAN Controller {i}",
+                properties={
+                    "controller_id": i,
+                    "max_baudrate": 1000000,
+                    "supports_fd": supports_fd,
+                },
+            )
+            for i, name in enumerate(can_units)
+        ]
+
+    # 2. ADC units
+    adc = ecu_resources.get("Adc") or {}
+    adc_units = _unit_list(adc, ("HwUnitId", "HwUnitList"), ("MaxControllers", "MaxHwUnits"), "ADC")
+    if adc_units:
+        res_val = adc.get("MaxResolution", 12)
+        resolution = int(res_val) if isinstance(res_val, int) and not isinstance(res_val, bool) else 12
+        adc_list = []
+        for i, name in enumerate(adc_units):
+            m = re.search(r"(\d+)$", name)
+            suffix = m.group(1) if m else str(i)
+            ch_raw = adc.get(f"AdcChannels_Adc{suffix}", adc.get("AdcChannels_Adcx"))
+            ch_count = len(_as_list(ch_raw)) if ch_raw is not None else 16
+            if ch_count <= 0:
+                ch_count = 16
+            adc_list.append(GenericResourceDef(
+                resource_type="adc_unit",
+                resource_id=name,
+                display_name=f"ADC Unit {i}",
+                properties={
+                    "unit_id": i,
+                    "channel_count": ch_count,
+                    "resolution_bits": resolution,
+                    "channels": list(range(ch_count)),
+                },
+            ))
+        derived["adc_unit"] = adc_list
+
+    # 3. SPI units
+    spi = ecu_resources.get("Spi") or {}
+    spi_units = _unit_list(spi, ("HwUnitList", "HwUnitId"), ("MaxHwUnit", "MaxHwUnits"), "SPI")
+    if spi_units:
+        dma_val = spi.get("DmaSupport", True)
+        supports_dma = bool(dma_val) if isinstance(dma_val, bool) else True
+        derived["spi_unit"] = [
+            GenericResourceDef(
+                resource_type="spi_unit",
+                resource_id=name,
+                display_name=f"SPI Unit {i}",
+                properties={
+                    "unit_id": i,
+                    "max_baudrate": 20000000,
+                    "supports_dma": supports_dma,
+                },
+            )
+            for i, name in enumerate(spi_units)
+        ]
+
+    # 4. Ethernet controllers
+    eth = ecu_resources.get("Eth") or {}
+    eth_units = _unit_list(eth, ("HwUnitList",), ("MaxControllers", "MaxHwUnits"), "ETH")
+    if eth_units:
+        intf = [str(x).upper() for x in _as_list(eth.get("EthPhyIntf"))]
+        supports_rgmii = ("RGMII" in intf) if intf else True
+        speeds = [str(x) for x in _as_list(eth.get("EthSpeed"))]
+        max_speed = 1000 if any("1000" in s for s in speeds) else 100
+        derived["eth_controller"] = [
+            GenericResourceDef(
+                resource_type="eth_controller",
+                resource_id=name,
+                display_name=f"Ethernet Controller {i}",
+                properties={
+                    "controller_id": i,
+                    "max_speed": max_speed,
+                    "supports_rgmii": supports_rgmii,
+                },
+            )
+            for i, name in enumerate(eth_units)
+        ]
+
+    # 5. Watchdog units
+    wdg = ecu_resources.get("Wdg") or {}
+    wdg_units = _unit_list(wdg, ("WdgInstance", "HwUnitList"), ("MaxHwUnit",), "WDG")
+    if wdg_units:
+        derived["wdg_unit"] = [
+            GenericResourceDef(
+                resource_type="wdg_unit",
+                resource_id=name,
+                display_name=f"Watchdog {i}",
+                properties={"unit_id": i},
+            )
+            for i, name in enumerate(wdg_units)
+        ]
+
+    # 6. Clock sources
+    mcu = ecu_resources.get("Mcu") or {}
+    clocks = []
+    pll_freq = mcu.get("SysPllClkMaxFrequency")
+    if isinstance(pll_freq, int) and not isinstance(pll_freq, bool):
+        clocks.append(GenericResourceDef(
+            resource_type="clock_source",
+            resource_id="PLL0",
+            display_name="PLL 0",
+            properties={"type": "PLL", "frequency": pll_freq, "max_frequency": pll_freq},
+        ))
+    hse_freq = mcu.get("HSEClkFrequency")
+    if isinstance(hse_freq, int) and not isinstance(hse_freq, bool):
+        clocks.append(GenericResourceDef(
+            resource_type="clock_source",
+            resource_id="XTAL",
+            display_name="Crystal Oscillator",
+            properties={"type": "XTAL", "frequency": hse_freq},
+        ))
+    hsi_freq = mcu.get("HSIClkFrequency")
+    if isinstance(hsi_freq, int) and not isinstance(hsi_freq, bool):
+        clocks.append(GenericResourceDef(
+            resource_type="clock_source",
+            resource_id="IRC",
+            display_name="Internal RC Oscillator",
+            properties={"type": "IRC", "frequency": hsi_freq},
+        ))
+    if clocks:
+        derived["clock_source"] = clocks
+
+    # 7. GPT channels (from Gpt or Basetimer)
+    gpt = ecu_resources.get("Gpt") or ecu_resources.get("Basetimer") or {}
+    gpt_units = _unit_list(gpt, ("HwUnitList",), ("MaxChannels", "MaxHwUnit"), "GPT")
+    if gpt_units:
+        derived["gpt_channel"] = [
+            GenericResourceDef(
+                resource_type="gpt_channel",
+                resource_id=name,
+                display_name=f"GPT Channel {i}",
+                properties={"channel_id": i},
+            )
+            for i, name in enumerate(gpt_units)
+        ]
+
+    # 8. LIN channels (from Lin or Asi)
+    lin = ecu_resources.get("Lin") or ecu_resources.get("Asi") or {}
+    lin_units = _unit_list(lin, ("AvailableHWUnit", "HwUnitList"), ("MaxHwUnit", "MaxChannels"), "LIN")
+    if lin_units:
+        derived["lin_channel"] = [
+            GenericResourceDef(
+                resource_type="lin_channel",
+                resource_id=name,
+                display_name=f"LIN Channel {i}",
+                properties={"channel_id": i, "max_baudrate": 20000},
+            )
+            for i, name in enumerate(lin_units)
+        ]
+
+    return derived
+

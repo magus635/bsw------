@@ -67,6 +67,7 @@ class PeripheralEditor(QWidget):
     """Resource types on the left, the instances of the selected type on the right."""
 
     changed = Signal()
+    sync_from_ecu_requested = Signal()
 
     def __init__(self, requirements: Optional[Dict[str, Dict[str, Any]]] = None, parent=None):
         """
@@ -101,6 +102,22 @@ class PeripheralEditor(QWidget):
         self._current = None
         self._refresh_types()
 
+    def merge_resources(self, derived: Dict[str, List[GenericResourceDef]]) -> int:
+        """Replace or add resource types from ``derived``, keeping other existing types."""
+        count = 0
+        for res_type, instances in (derived or {}).items():
+            if res_type in PIN_TYPES or not instances:
+                continue
+            rows = [{"id": r.resource_id,
+                     "name": r.display_name if r.display_name != r.resource_id else "",
+                     "props": copy.deepcopy(r.properties)} for r in instances]
+            self._data[res_type] = rows
+            self._columns[res_type] = self._column_order(res_type, rows)
+            count += len(rows)
+        self._refresh_types()
+        self.changed.emit()
+        return count
+
     def resources(self) -> Dict[str, List[GenericResourceDef]]:
         """Instances as entered; rows without a usable id are left out."""
         return self._build(strict=False)
@@ -121,10 +138,16 @@ class PeripheralEditor(QWidget):
     def _build_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
+        top_bar = QHBoxLayout()
         intro = QLabel("外设实例（任意类型）。可选类型来自硬件映射规则；规则需要的属性会预填，"
                        "缺少时标黄。引脚在“引脚复用矩阵”页编辑。")
         intro.setWordWrap(True)
-        layout.addWidget(intro)
+        top_bar.addWidget(intro, 1)
+        self.sync_ecu_btn = QPushButton("🔄 从 ECU 资源推导外设")
+        self.sync_ecu_btn.setToolTip("根据第 4 页 ECU 资源 (Can/Adc/Spi/Eth/Wdg/Mcu/Gpt/Lin 等) 自动生成外设实例")
+        self.sync_ecu_btn.clicked.connect(self.sync_from_ecu_requested.emit)
+        top_bar.addWidget(self.sync_ecu_btn)
+        layout.addLayout(top_bar)
 
         splitter = QSplitter(Qt.Horizontal)
 
