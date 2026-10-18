@@ -140,9 +140,56 @@ selectors:
 - 项目文件记录所用芯片的 `{name, resource_version, checksum}`（不含路径），在固化到项目、从芯片库更新、更换芯片时更新。打开项目后，诊断会提示：项目副本在记录之后被改过；芯片库有不同版本（可用 Update from Library）。
 - 校验和只用于发现改动，不防恶意篡改。
 
+## 外设实例（`resources`）
+
+芯片的外设实例写在 `resources` 段，类型不限，每个实例的属性各自独立：
+
+```yaml
+resources:
+  can_controller:
+    - {resource_id: CAN0, display_name: CAN Controller 0, properties: {controller_id: 0, supports_fd: true}}
+    - {resource_id: CAN1, properties: {controller_id: 1, supports_fd: false}}
+  gpt_channel:
+    - {resource_id: GPT0, properties: {channel_id: 0}}
+```
+
+- `resource_id` 不能为空，同一类型下不能重复；属性值是标量或标量列表。`display_name` 缺省时取 `resource_id`。
+- 旧格式的 `can_resources`、`adc_resources`、`spi_resources`、`intc_sources` 仍可读取，加载时转成 `can_controller`、`adc_unit`、`spi_unit`、`intc_source`；保存时只写 `resources`。两种写法都存在时以 `resources` 为准并警告。内置芯片已迁移为新格式（迁移前后数据逐项相同）。
+- 引脚仍在 `ports`（设计器"引脚复用矩阵"页）；硬件映射用的 `gpio_port` / `gpio_pin` 由引脚表推导。`resources` 里若直接写了引脚类型的实例（没有引脚表的芯片），会原样保留并参与映射，引脚表推导出的同名实例优先。
+
+### 与硬件映射规则的关系
+
+`data/mapping_rules/*.yaml` 的每条规则对应一种外设类型，并通过 `resource.properties.<名>` 读取实例属性：
+
+| 类型 | 模块 | 规则读取的属性 |
+|---|---|---|
+| `can_controller` | Can | `controller_id`、`supports_fd` |
+| `adc_unit` | Adc | `unit_id`、`resolution_bits`、`channels`、`channel_count` |
+| `spi_unit` | Spi | `unit_id`、`supports_dma`、`max_baudrate` |
+| `intc_source` | Intc | `is_configurable`、`vector_number` |
+| `eth_controller` | Eth | `controller_id` |
+| `gpt_channel` / `icu_channel` / `lin_channel` / `pwm_channel` | Gpt / Icu / Lin / Pwm | `channel_id` |
+| `wdg_unit` | Wdg | `unit_id` |
+| `clock_source` | Mcu | `frequency`、`type` |
+| `gpio_port` / `gpio_pin` | Port / Dio | 由引脚表推导 |
+
+### 设计器"外设"页
+
+- 左边是外设类型（带实例数和对应模块），"新增类型"可选规则里的类型，也可直接输入新类型名；引脚类型不在这里编辑。
+- 右边是实例表：`resource_id`、`display_name` 和每个属性一列，规则会读的属性列名带 `*`，缺值时标黄，页底提示"硬件映射向导将拿不到 X"。
+- "增加实例 / 复制实例 / 删除实例 / 增加属性 / 删除属性"；"批量添加…"按前缀、起始编号、个数生成（如 `CAN0`…`CAN5`），规则里以 `_id` 结尾的属性自动填编号。
+- 单元格值按输入推断类型（`0x0C` → 12、`true` → 布尔），逗号分隔即列表；未改动的单元格保留原值。
+- `resource_id` 为空或重复时不能保存。
+
+### 硬件映射向导
+
+- 打开项目时，向导的芯片来自项目：项目 `chips/` 里的副本优先，其次芯片库；默认选中项目的芯片。
+- "Load from File…" 读取芯片 YAML 时会带上引脚表。
+
 ## 已知限制
 
 - Os 模板只定义了 `OS_CORE_ID_0/1`，4 核芯片的 `OS_CORE_ID_2/3` 在模板里是未定义的（模板问题，不在本功能内）。
 - 设计器重新保存时，多个 CAN/ADC/SPI 各自的个性化设置会被全局设置覆盖，`intc_sources` 只能原样带过。
 - 不能从引脚表生成 `Port.*` 的模式列表（`InputModes*`、`OutputModes*` 等）。
+- Port 模块的映射规则目前无法生成动作（规则的 `iterate` 求值得到布尔值）；这是已有问题，与外设实例格式无关。
 - 定义里的选择器取值范围在**解析定义时**确定：切换芯片或新增芯片后，已加载的模块要重新加载才会看到新的可选值。

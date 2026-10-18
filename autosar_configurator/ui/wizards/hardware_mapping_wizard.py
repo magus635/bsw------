@@ -5,31 +5,45 @@ Configure AUTOSAR modules based on chip hardware resources
 Version 2.0 - Generic/Data-driven implementation using YAML mapping rules
 """
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
 
-from PySide6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QLabel, QComboBox, QLineEdit,
-    QFormLayout, QSpinBox, QCheckBox, QTextEdit, QTableWidget,
-    QTableWidgetItem, QHeaderView, QGroupBox, QListWidget,
-    QListWidgetItem, QTabWidget, QWidget, QTreeWidget,
-    QTreeWidgetItem, QPushButton, QDoubleSpinBox, QScrollArea
-)
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QComboBox,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QPushButton,
+    QSpinBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
+)
 
-from .wizard_base import ConfigWizard, WizardPage
-from ...core.model.definition_model import EcucModuleDef
-from ...core.model.configuration_model import EcucContainerValue
 from ...core.config_manager import ConfigurationManager
 from ...core.hardware import (
     # Legacy types (for backward compatibility with properties files)
-    ChipDatabase, ChipDefinition,
-    # New generic types
-    GenericChipDefinition, GenericResourceDef,
-    GenericResourceMapper, GenericMappingAction, GenericMappingActionType,
+    ChipDatabase,
+    GenericChipDefinition,
+    GenericMappingAction,
+    GenericMappingActionType,
+    GenericResourceDef,
+    GenericResourceMapper,
     MappingResult,
-    MappingRuleLoader, get_default_rule_loader,
-    ChipDefinitionLoader, convert_legacy_chip
+    MappingRuleLoader,
+    convert_legacy_chip,
+    get_default_rule_loader,
 )
+from .wizard_base import ConfigWizard, WizardPage
 
 
 class ChipSelectionPage(WizardPage):
@@ -37,9 +51,13 @@ class ChipSelectionPage(WizardPage):
 
     chip_selected = Signal(object)  # GenericChipDefinition
 
-    def __init__(self, chip_database: ChipDatabase, project_path: Optional[Path] = None):
+    def __init__(self, chip_database: ChipDatabase, project_path: Optional[Path] = None,
+                 project=None):
         self.chip_database = chip_database
         self.project_path = project_path
+        # Open project: its own chip copies are offered (and win over the library)
+        # and its selected chip is chosen by default
+        self.project = project
         self.chip_combo = QComboBox()
         self.chip_info_text = QTextEdit()
         self.selected_chip: Optional[GenericChipDefinition] = None
@@ -98,6 +116,7 @@ class ChipSelectionPage(WizardPage):
         """Populate chip combo box with available chips"""
         self.chip_combo.clear()
         self._generic_chips.clear()
+        self._add_project_chips()
 
         # Load chips from database and convert to generic format
         for chip_name in self.chip_database.list_chips():
@@ -111,24 +130,33 @@ class ChipSelectionPage(WizardPage):
                     label += f" - {generic_chip.description[:40]}"
                 self.chip_combo.addItem(label, chip_name)
 
-        # Also load from YAML chip directory
-        chip_yaml_dir = Path(__file__).parent.parent.parent / "data" / "chips"
-        if chip_yaml_dir.exists():
-            loader = ChipDefinitionLoader()
-            for yaml_file in chip_yaml_dir.glob("*.yaml"):
-                try:
-                    generic_chip = loader.load_from_yaml(yaml_file)
-                    if generic_chip and generic_chip.name not in self._generic_chips:
-                        self._generic_chips[generic_chip.name] = generic_chip
-                        label = f"{generic_chip.name}"
-                        if generic_chip.description:
-                            label += f" - {generic_chip.description[:40]}"
-                        self.chip_combo.addItem(label, generic_chip.name)
-                except Exception as e:
-                    print(f"Warning: Failed to load chip from {yaml_file}: {e}")
+        # data/chips is already in the chip database (pins included)
 
+        selected = getattr(self.project, "selected_chip", None) if self.project else None
+        index = self.chip_combo.findData(selected) if selected else -1
+        if index >= 0:
+            self.chip_combo.setCurrentIndex(index)
         if self.chip_combo.count() > 0:
             self._on_chip_changed()
+
+    def _add_project_chips(self):
+        """Put the project's chips into the wizard's database: the project's own copy
+        (chips/<chip>.yaml) first, then the project's chip library."""
+        if self.project is None:
+            return
+        from types import SimpleNamespace
+
+        from ...core.hardware.ecu_resource_resolver import (
+            available_chip_names,
+            chip_for_project,
+        )
+
+        for name in available_chip_names(self.project):
+            probe = SimpleNamespace(path=self.project.path, selected_chip=name,
+                                    chip_database=getattr(self.project, "chip_database", None))
+            chip = chip_for_project(probe, probe.chip_database)[1]
+            if chip is not None:
+                self.chip_database.register_chip(chip)
 
     def _detect_chip(self):
         """Try to detect chip from project"""
@@ -188,8 +216,9 @@ class ChipSelectionPage(WizardPage):
                 legacy_chip = build_chip_from_properties(path)
                 generic_chip = convert_legacy_chip(legacy_chip)
             else:
-                loader = ChipDefinitionLoader()
-                generic_chip = loader.load_from_yaml(path)
+                # chip YAML (pins, peripheral resources and legacy sections)
+                legacy_chip = ChipDatabase()._load_chip_from_yaml(path)
+                generic_chip = convert_legacy_chip(legacy_chip) if legacy_chip else None
 
             if generic_chip:
                 self._generic_chips[generic_chip.name] = generic_chip
@@ -202,7 +231,9 @@ class ChipSelectionPage(WizardPage):
 
     def _create_new_chip(self):
         """Open Chip Definition Designer to create a new chip on the fly"""
-        from ..dialogs.chip_definition_designer_dialog import ChipDefinitionDesignerDialog
+        from ..dialogs.chip_definition_designer_dialog import (
+            ChipDefinitionDesignerDialog,
+        )
         parent_widget = self.wizard() if self.wizard() else self
         dialog = ChipDefinitionDesignerDialog(chip_database=self.chip_database, parent=parent_widget)
         if dialog.exec():
@@ -864,9 +895,11 @@ class HardwareMappingWizard(ConfigWizard):
     def __init__(self, config_manager: Optional[ConfigurationManager] = None,
                  project_path: Optional[Path] = None,
                  undo_stack=None,
-                 parent=None):
+                 parent=None,
+                 project=None):
         self.config_manager = config_manager
         self.project_path = project_path
+        self.project = project
         self.undo_stack = undo_stack
 
         # Create chip database (legacy format for backward compatibility)
@@ -897,7 +930,7 @@ class HardwareMappingWizard(ConfigWizard):
                 return
 
             # Fall back to XDM extraction
-            from ...core.hardware import extract_chip_from_project, XdmChipExtractor
+            from ...core.hardware import XdmChipExtractor, extract_chip_from_project
 
             extracted = extract_chip_from_project(project_path)
             if extracted:
@@ -921,7 +954,7 @@ class HardwareMappingWizard(ConfigWizard):
     def _setup_pages(self):
         """Setup wizard pages"""
         # Page 1: Chip selection
-        self.chip_page = ChipSelectionPage(self.chip_database, self.project_path)
+        self.chip_page = ChipSelectionPage(self.chip_database, self.project_path, self.project)
         self.addPage(self.chip_page)
 
         # Page 2: Module selection (with rule loader)
@@ -989,7 +1022,9 @@ class HardwareMappingWizard(ConfigWizard):
         """
         from ...core.hardware.generic_mapper import MappingActionType, MappingResult
         from ..commands import (
-            CreateContainerCommand, SetParameterCommand, SetReferenceCommand
+            CreateContainerCommand,
+            SetParameterCommand,
+            SetReferenceCommand,
         )
 
         result = MappingResult()

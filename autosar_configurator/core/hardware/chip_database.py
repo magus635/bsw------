@@ -2,16 +2,33 @@
 Chip Database
 Manages chip definitions and provides chip information for hardware mapping
 """
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Dict, Optional, Any
-import logging
+from typing import Any, Dict, List, Optional
+
 import yaml
 
 from .ecu_resource_data import (
-    EcuResources, parse_ecu_resources, parse_selectors, flatten_ecu_resources,
+    EcuResources,
+    flatten_ecu_resources,
     nest_flat_resources,
+    normalize_value,
+    parse_ecu_resources,
+    parse_selectors,
 )
+from .generic_resource import GenericResourceDef
+
+# Peripheral instances: {resource type: [GenericResourceDef, ...]}
+PeripheralResources = Dict[str, List[GenericResourceDef]]
+
+# Legacy chip YAML sections and the resource type each one becomes
+LEGACY_SECTIONS = {
+    'can_resources': 'can_controller',
+    'adc_resources': 'adc_unit',
+    'spi_resources': 'spi_unit',
+    'intc_sources': 'intc_source',
+}
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +96,12 @@ class ChipDefinition:
     # Port resources
     ports: Dict[str, List[PortPinDef]] = field(default_factory=dict)
 
-    # Peripheral resources
+    # Peripheral instances of any type (YAML section "resources").  The typed
+    # lists below are the legacy form: still accepted when a chip is built in
+    # code, converted into resources when read through effective_resources().
+    resources: PeripheralResources = field(default_factory=dict)
+
+    # Legacy peripheral resources
     intc_sources: List[IntcSourceDef] = field(default_factory=list)
     can_resources: List[CanResourceDef] = field(default_factory=list)
     adc_resources: List[AdcResourceDef] = field(default_factory=list)
@@ -113,12 +135,92 @@ class ChipDefinition:
             pins.extend(port_pins)
         return pins
 
-    def get_can_controller(self, controller_id: int) -> Optional[CanResourceDef]:
-        """Get CAN controller by ID"""
-        for can in self.can_resources:
-            if can.controller_id == controller_id:
-                return can
-        return None
+    def effective_resources(self) -> PeripheralResources:
+        """All peripheral instances: ``resources`` plus the legacy typed lists
+        converted, where ``resources`` wins for a type it already has."""
+        result: PeripheralResources = {t: list(lst) for t, lst in self.resources.items()}
+        for res_type, instances in legacy_resources(self).items():
+            if res_type not in result and instances:
+                result[res_type] = instances
+        return result
+
+    def peripheral_counts(self) -> Dict[str, int]:
+        """Number of instances per peripheral type."""
+        return {t: len(lst) for t, lst in self.effective_resources().items() if lst}
+
+
+def legacy_resources(chip: 'ChipDefinition') -> PeripheralResources:
+    """The legacy typed lists of a chip as generic peripheral instances."""
+    result: PeripheralResources = {}
+    if chip.can_resources:
+        result['can_controller'] = [GenericResourceDef(
+            resource_type='can_controller', resource_id=c.name,
+            display_name=f"CAN Controller {c.controller_id}",
+            properties={'controller_id': c.controller_id, 'max_baudrate': c.max_baudrate,
+                        'supports_fd': c.supports_fd, 'mailbox_count': c.mailbox_count})
+            for c in chip.can_resources]
+    if chip.adc_resources:
+        result['adc_unit'] = [GenericResourceDef(
+            resource_type='adc_unit', resource_id=a.name,
+            display_name=f"ADC Unit {a.unit_id}",
+            properties={'unit_id': a.unit_id, 'channel_count': a.channel_count,
+                        'resolution_bits': a.resolution_bits, 'channels': list(a.channels)})
+            for a in chip.adc_resources]
+    if chip.spi_resources:
+        result['spi_unit'] = [GenericResourceDef(
+            resource_type='spi_unit', resource_id=s.name,
+            display_name=f"SPI Unit {s.unit_id}",
+            properties={'unit_id': s.unit_id, 'max_baudrate': s.max_baudrate,
+                        'supports_dma': s.supports_dma})
+            for s in chip.spi_resources]
+    if chip.intc_sources:
+        result['intc_source'] = [GenericResourceDef(
+            resource_type='intc_source', resource_id=i.name, display_name=i.name,
+            properties={'vector_number': i.vector_number, 'priority_bits': i.priority_bits,
+                        'is_configurable': i.is_configurable})
+            for i in chip.intc_sources]
+    return result
+
+
+def parse_peripheral_resources(data: Any) -> PeripheralResources:
+    """Validate the ``resources`` section of a chip YAML.
+
+    Raises:
+        ValueError: naming the resource type and instance at fault
+    """
+    if data is None:
+        return {}
+    if not isinstance(data, dict):
+        raise ValueError("resources must be a mapping of resource type -> list of instances")
+    result: PeripheralResources = {}
+    for res_type, instances in data.items():
+        res_type = str(res_type).strip()
+        if not res_type:
+            raise ValueError("resources: a resource type must not be empty")
+        if not isinstance(instances, list):
+            raise ValueError(f"resources.{res_type} must be a list of instances")
+        seen = set()
+        parsed = []
+        for index, item in enumerate(instances):
+            if not isinstance(item, dict):
+                raise ValueError(f"resources.{res_type}[{index}] must be a mapping")
+            rid = str(item.get('resource_id', '') or '').strip()
+            if not rid:
+                raise ValueError(f"resources.{res_type}[{index}]: resource_id must not be empty")
+            if rid in seen:
+                raise ValueError(f"resources.{res_type}: resource_id '{rid}' appears twice")
+            seen.add(rid)
+            props = item.get('properties') or {}
+            if not isinstance(props, dict):
+                raise ValueError(f"resources.{res_type}.{rid}: properties must be a mapping")
+            parsed.append(GenericResourceDef(
+                resource_type=res_type, resource_id=rid,
+                display_name=str(item.get('display_name') or rid),
+                properties={str(k): normalize_value(f"resources.{res_type}.{rid}.{k}", v)
+                            for k, v in props.items()},
+            ))
+        result[res_type] = parsed
+    return result
 
 
 class ChipDatabase:
@@ -235,6 +337,25 @@ class ChipDatabase:
             ]
 
         chip.metadata = data.get('metadata', {})
+
+        try:
+            chip.resources = parse_peripheral_resources(data.get('resources'))
+        except ValueError as e:
+            raise ValueError(f"{yaml_path}: {e}") from e
+        # Legacy sections become resources; the typed lists are not kept, so a
+        # loaded chip has one form only and saving writes "resources"
+        for section, res_type in LEGACY_SECTIONS.items():
+            if section not in data:
+                continue
+            if res_type in chip.resources:
+                logger.warning("%s: '%s' is ignored because resources.%s is present",
+                               yaml_path, section, res_type)
+                continue
+            converted = legacy_resources(chip).get(res_type)
+            if converted:
+                chip.resources[res_type] = converted
+        chip.can_resources, chip.adc_resources = [], []
+        chip.spi_resources, chip.intc_sources = [], []
 
         try:
             chip.ecu_resources = parse_ecu_resources(data.get('ecu_resources'))

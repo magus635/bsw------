@@ -91,7 +91,8 @@ class WizardController:
             config_manager=win.config_manager,
             project_path=project_path,
             undo_stack=win.undo_stack,
-            parent=win
+            parent=win,
+            project=win.current_project,
         )
         wizard.wizard_completed.connect(self._on_hardware_wizard_completed)
         wizard.exec()

@@ -8,13 +8,13 @@ import copy
 import re
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 import logging
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit,
     QTextEdit, QLabel, QGroupBox, QWidget, QComboBox, QPushButton,
-    QSpinBox, QCheckBox, QTabWidget, QTableWidget, QTableWidgetItem,
+    QSpinBox, QTabWidget, QTableWidget, QTableWidgetItem,
     QHeaderView, QMessageBox, QFileDialog, QSplitter, QAbstractItemView,
     QTableView
 )
@@ -25,8 +25,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QFont, QGuiApplication, QBrush, QColor
 
 from ...core.hardware.chip_database import (
-    ChipDatabase, ChipDefinition, PortPinDef,
-    CanResourceDef, AdcResourceDef, SpiResourceDef
+    ChipDatabase, ChipDefinition, PortPinDef
 )
 from ...core.hardware.pinout_importer import PinoutTableImporter
 from ...core.hardware.chip_exporter import ChipDefinitionExporter
@@ -38,6 +37,8 @@ from ...core.hardware.ecu_resource_diagnostics import (
     check_consistency, typed_field_differences, typed_fields_from_ecu,
 )
 from .ecu_resource_editor import EcuResourceEditor
+from .peripheral_editor import PeripheralEditor
+from ...core.hardware.mapping_rule import rule_resource_requirements
 
 logger = logging.getLogger(__name__)
 
@@ -52,17 +53,6 @@ VALID_DIRECTIONS = ("INPUT", "OUTPUT", "INOUT")
 # Chip name doubles as the YAML file name: no path separators or leading dots.
 CHIP_NAME_PATTERN = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.\-]*$')
 _MODE_TOKEN = re.compile(r'^(\d+)\s*[:=]\s*(.+)$')
-
-
-def _parse_int(value: Any, default: int) -> int:
-    """Robust integer parser supporting strings with underscores, whitespace, etc."""
-    if value is None:
-        return default
-    try:
-        return int(str(value).replace('_', '').strip())
-    except (ValueError, TypeError):
-        return default
-
 
 
 def format_pin_functions(pin: PortPinDef) -> str:
@@ -476,83 +466,9 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._refresh_typed_differences()
 
     def _setup_peripherals_tab(self):
-        """Tab 2: Peripheral Capacities"""
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-        layout.setContentsMargins(14, 14, 14, 14)
-
-        # CAN
-        can_group = QGroupBox("CAN 控制器配置 (CAN Controllers)")
-        can_layout = QVBoxLayout(can_group)
-        can_top = QHBoxLayout()
-        can_top.addWidget(QLabel("控制器数量:"))
-        self.can_count_spin = QSpinBox()
-        self.can_count_spin.setRange(0, 16)
-        self.can_count_spin.setValue(2)
-        self.can_count_spin.valueChanged.connect(self._on_can_count_changed)
-        can_top.addWidget(self.can_count_spin)
-
-        self.can_fd_check = QCheckBox("支持 CAN-FD (Support CAN-FD)")
-        can_top.addWidget(self.can_fd_check)
-        can_top.addStretch()
-        can_layout.addLayout(can_top)
-
-        self.can_table = QTableWidget(0, 4)
-        self.can_table.setHorizontalHeaderLabels(["控制器 ID", "名称", "最大波特率 (bps)", "邮箱数 (Mailboxes)"])
-        self.can_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.can_table.setMaximumHeight(140)
-        can_layout.addWidget(self.can_table)
-        layout.addWidget(can_group)
-
-        # ADC
-        adc_group = QGroupBox("ADC 转换器配置 (ADC Units)")
-        adc_layout = QVBoxLayout(adc_group)
-        adc_top = QHBoxLayout()
-        adc_top.addWidget(QLabel("ADC 单元数量:"))
-        self.adc_count_spin = QSpinBox()
-        self.adc_count_spin.setRange(0, 16)
-        self.adc_count_spin.setValue(4)
-        self.adc_count_spin.valueChanged.connect(self._on_adc_count_changed)
-        adc_top.addWidget(self.adc_count_spin)
-
-        adc_top.addWidget(QLabel("分辨率 (bits):"))
-        self.adc_res_combo = QComboBox()
-        self.adc_res_combo.addItems(["12", "10", "14", "16"])
-        adc_top.addWidget(self.adc_res_combo)
-        adc_top.addStretch()
-        adc_layout.addLayout(adc_top)
-
-        self.adc_table = QTableWidget(0, 4)
-        self.adc_table.setHorizontalHeaderLabels(["单元 ID", "单元名称", "通道数量", "通道列表 (0..N)"])
-        self.adc_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.adc_table.setMaximumHeight(140)
-        adc_layout.addWidget(self.adc_table)
-        layout.addWidget(adc_group)
-
-        # SPI
-        spi_group = QGroupBox("SPI 控制器配置 (SPI Units)")
-        spi_top = QHBoxLayout(spi_group)
-        spi_top.addWidget(QLabel("SPI 硬件模块数量:"))
-        self.spi_count_spin = QSpinBox()
-        self.spi_count_spin.setRange(0, 32)
-        self.spi_count_spin.setValue(6)
-        spi_top.addWidget(self.spi_count_spin)
-
-        spi_top.addWidget(QLabel("最大时钟 (Hz):"))
-        self.spi_baud_edit = QLineEdit("10000000")
-        spi_top.addWidget(self.spi_baud_edit)
-
-        self.spi_dma_check = QCheckBox("支持 DMA (Support DMA)")
-        self.spi_dma_check.setChecked(True)
-        spi_top.addWidget(self.spi_dma_check)
-        spi_top.addStretch()
-        layout.addWidget(spi_group)
-
-        layout.addStretch()
-        self.tabs.addTab(tab, "2. 外设规格 (Peripherals)")
-
-        self._on_can_count_changed(self.can_count_spin.value())
-        self._on_adc_count_changed(self.adc_count_spin.value())
+        """Tab 2: peripheral instances of any type (chip YAML "resources")"""
+        self.peripheral_editor = PeripheralEditor(requirements=rule_resource_requirements())
+        self.tabs.addTab(self.peripheral_editor, "2. 外设 (Peripherals)")
 
     def _setup_pinout_tab(self):
         """Tab 3: Pinout & Multiplexing Matrix"""
@@ -728,46 +644,10 @@ class ChipDefinitionDesignerDialog(QDialog):
         self.avail_cores_edit.setText(", ".join(available))
         self.master_core_edit.setText(cores.get('master', "CORE0"))
 
-        self._fill_can_table(chip.can_resources)
-        self._fill_adc_table(chip.adc_resources)
-
-        self.spi_count_spin.setValue(len(chip.spi_resources))
-        if chip.spi_resources:
-            self.spi_baud_edit.setText(str(chip.spi_resources[0].max_baudrate))
-            self.spi_dma_check.setChecked(chip.spi_resources[0].supports_dma)
+        self.peripheral_editor.set_resources(copy.deepcopy(chip.effective_resources()))
 
         self.pin_model.set_pins(chip.get_all_pins())
         return True
-
-    def _fill_can_table(self, cans: List[CanResourceDef]):
-        cans = sorted(cans, key=lambda c: c.controller_id)
-        self.can_count_spin.blockSignals(True)
-        self.can_count_spin.setValue(len(cans))
-        self.can_count_spin.blockSignals(False)
-        self.can_table.setRowCount(0)
-        self.can_table.setRowCount(len(cans))
-        self.can_fd_check.setChecked(any(c.supports_fd for c in cans))
-        for row, can in enumerate(cans):
-            for col, val in enumerate((can.controller_id, can.name, can.max_baudrate, can.mailbox_count)):
-                self.can_table.setItem(row, col, QTableWidgetItem(str(val)))
-
-    def _fill_adc_table(self, adcs: List[AdcResourceDef]):
-        adcs = sorted(adcs, key=lambda a: a.unit_id)
-        self.adc_count_spin.blockSignals(True)
-        self.adc_count_spin.setValue(len(adcs))
-        self.adc_count_spin.blockSignals(False)
-        self.adc_table.setRowCount(0)
-        self.adc_table.setRowCount(len(adcs))
-        if adcs:
-            idx = self.adc_res_combo.findText(str(adcs[0].resolution_bits))
-            if idx == -1:
-                self.adc_res_combo.addItem(str(adcs[0].resolution_bits))
-                idx = self.adc_res_combo.count() - 1
-            self.adc_res_combo.setCurrentIndex(idx)
-        for row, adc in enumerate(adcs):
-            chs = ", ".join(str(c) for c in adc.channels)
-            for col, val in enumerate((adc.unit_id, adc.name, adc.channel_count, chs)):
-                self.adc_table.setItem(row, col, QTableWidgetItem(str(val)))
 
     def _init_default_fields(self):
         """Set up initial blank values"""
@@ -776,6 +656,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._set_ecu_resources({})
         self._resource_version = ""
         self._set_selectors({})
+        self.peripheral_editor.set_resources({})
         self.name_edit.setText("NEW_MCU_SERIES")
         self.family_edit.setText("THA6")
         self.package_edit.setText("LQFP144")
@@ -787,26 +668,6 @@ class ChipDefinitionDesignerDialog(QDialog):
         self.avail_cores_edit.setText(", ".join(cores))
         if self.master_core_edit.text() not in cores:
             self.master_core_edit.setText("CORE0")
-
-    def _on_can_count_changed(self, count: int):
-        """Update CAN controller table rows"""
-        self.can_table.setRowCount(count)
-        for i in range(count):
-            if not self.can_table.item(i, 0):
-                self.can_table.setItem(i, 0, QTableWidgetItem(str(i)))
-                self.can_table.setItem(i, 1, QTableWidgetItem(f"CAN{i}"))
-                self.can_table.setItem(i, 2, QTableWidgetItem("1000000"))
-                self.can_table.setItem(i, 3, QTableWidgetItem("32"))
-
-    def _on_adc_count_changed(self, count: int):
-        """Update ADC controller table rows"""
-        self.adc_table.setRowCount(count)
-        for i in range(count):
-            if not self.adc_table.item(i, 0):
-                self.adc_table.setItem(i, 0, QTableWidgetItem(str(i)))
-                self.adc_table.setItem(i, 1, QTableWidgetItem(f"SARADC{i}"))
-                self.adc_table.setItem(i, 2, QTableWidgetItem("8"))
-                self.adc_table.setItem(i, 3, QTableWidgetItem("0, 1, 2, 3, 4, 5, 6, 7"))
 
     def _on_import_pinout_clicked(self):
         """Launch file dialog to import pinout Excel/CSV"""
@@ -909,10 +770,6 @@ class ChipDefinitionDesignerDialog(QDialog):
         if rows:
             self.pin_model.remove_rows(rows)
 
-    def _cell_int(self, table: QTableWidget, row: int, col: int, default: int) -> int:
-        item = table.item(row, col)
-        return _parse_int(item.text() if item else None, default)
-
     def _build_current_chip(self) -> ChipDefinition:
         """Construct a ChipDefinition (independent copy) from all tabs"""
         base = self._base_chip
@@ -929,8 +786,7 @@ class ChipDefinitionDesignerDialog(QDialog):
             package=self.package_edit.text().strip(),
             description=self.desc_edit.toPlainText().strip(),
             ports=copy.deepcopy(self.pin_model.ports_dict()),
-            # Not editable in the UI yet: carry over unchanged
-            intc_sources=copy.deepcopy(base.intc_sources) if base else [],
+            resources=self.peripheral_editor.resources(),
             metadata=initial_metadata,
             ecu_resources=copy.deepcopy(self._ecu_resources),
             resource_version=self._resource_version,
@@ -946,46 +802,6 @@ class ChipDefinitionDesignerDialog(QDialog):
             'available': avail_cores,
             'master': self.master_core_edit.text().strip() or "CORE0",
         }
-
-        can_res = []
-        for r in range(self.can_table.rowCount()):
-            cid = self._cell_int(self.can_table, r, 0, r)
-            cname_item = self.can_table.item(r, 1)
-            can_res.append(CanResourceDef(
-                name=cname_item.text().strip() if cname_item and cname_item.text().strip() else f"CAN{cid}",
-                controller_id=cid,
-                max_baudrate=self._cell_int(self.can_table, r, 2, 1000000),
-                supports_fd=self.can_fd_check.isChecked(),
-                mailbox_count=self._cell_int(self.can_table, r, 3, 32)
-            ))
-        chip.can_resources = can_res
-
-        res_text = self.adc_res_combo.currentText()
-        res_bits = int(res_text) if res_text.isdigit() else 12
-        adc_res = []
-        for r in range(self.adc_table.rowCount()):
-            aid = self._cell_int(self.adc_table, r, 0, r)
-            aname_item = self.adc_table.item(r, 1)
-            acnt = self._cell_int(self.adc_table, r, 2, 8)
-            achs_item = self.adc_table.item(r, 3)
-            channels = []
-            if achs_item and achs_item.text():
-                channels = [int(c.strip()) for c in achs_item.text().split(",") if c.strip().isdigit()]
-            adc_res.append(AdcResourceDef(
-                name=aname_item.text().strip() if aname_item and aname_item.text().strip() else f"SARADC{aid}",
-                unit_id=aid,
-                channel_count=acnt,
-                resolution_bits=res_bits,
-                channels=channels or list(range(acnt))
-            ))
-        chip.adc_resources = adc_res
-
-        spi_baud = _parse_int(self.spi_baud_edit.text(), 10000000)
-        chip.spi_resources = [
-            SpiResourceDef(name=f"SPI{i}", unit_id=i, max_baudrate=spi_baud,
-                           supports_dma=self.spi_dma_check.isChecked())
-            for i in range(self.spi_count_spin.value())
-        ]
 
         return chip
 
@@ -1110,6 +926,13 @@ class ChipDefinitionDesignerDialog(QDialog):
         except ValueError as e:
             QMessageBox.warning(self, "选择器无效", str(e))
             self.tabs.setCurrentIndex(0)
+            return
+
+        try:
+            self.peripheral_editor.validated_resources()
+        except ValueError as e:
+            QMessageBox.warning(self, "外设实例无效", str(e))
+            self.tabs.setCurrentIndex(1)
             return
 
         pending = count_placeholders(chip.ecu_resources)

@@ -3,7 +3,6 @@ Hardware Module - Chip database and resource mapping for AUTOSAR configuration
 
 This module provides:
 - ChipDatabase: Manages chip definitions (from YAML or built-in)
-- HardwareResourceMapper: Maps chip resources to AUTOSAR configuration (legacy)
 - GenericResourceMapper: Generic data-driven mapper using YAML rules
 - EcuResourceParser: Parses ECU resources from EB Tresos files
 - XdmChipExtractor: Extracts chip definitions from XDM module files
@@ -17,7 +16,6 @@ from .chip_database import (
 )
 
 # Legacy resource mapper (primary API for backward compatibility)
-from .resource_mapper import HardwareResourceMapper, MappingAction, MappingActionType, MappingResult as LegacyMappingResult
 
 # New generic resource model (use GenericChipDefinition to avoid confusion)
 from .generic_resource import (
@@ -76,9 +74,6 @@ __all__ = [
     'SpiResourceDef',
 
     # Legacy resource mapper (primary API)
-    'HardwareResourceMapper',
-    'MappingAction',
-    'MappingActionType',
 
     # New generic resource model
     'GenericResourceDef',

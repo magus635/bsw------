@@ -1,122 +1,102 @@
 name: THA6206_LFBGA292
 family: THA6
 package: LFBGA292
-description: "THA6206 Series - Mid-range automotive MCU"
-
+description: THA6206 Series - Mid-range automotive MCU
 ports:
   PORT_A:
-    - { pin: 0, name: PA0, alternate_functions: [GPIO, ADC0_CH0, TIM0_CH0] }
-    - { pin: 1, name: PA1, alternate_functions: [GPIO, ADC0_CH1, TIM0_CH1] }
-    - { pin: 2, name: PA2, alternate_functions: [GPIO, ADC0_CH2, TIM0_CH2] }
-    - { pin: 3, name: PA3, alternate_functions: [GPIO, ADC0_CH3, TIM0_CH3] }
-    - { pin: 4, name: PA4, alternate_functions: [GPIO, SPI0_MOSI] }
-    - { pin: 5, name: PA5, alternate_functions: [GPIO, SPI0_MISO] }
-    - { pin: 6, name: PA6, alternate_functions: [GPIO, SPI0_SCK] }
-    - { pin: 7, name: PA7, alternate_functions: [GPIO, SPI0_CS] }
-    - { pin: 8, name: PA8, alternate_functions: [GPIO, UART0_TX] }
-    - { pin: 9, name: PA9, alternate_functions: [GPIO, UART0_RX] }
-    - { pin: 10, name: PA10, alternate_functions: [GPIO, CAN0_TX] }
-    - { pin: 11, name: PA11, alternate_functions: [GPIO, CAN0_RX] }
-    - { pin: 12, name: PA12, alternate_functions: [GPIO, CAN1_TX] }
-    - { pin: 13, name: PA13, alternate_functions: [GPIO, CAN1_RX] }
-    - { pin: 14, name: PA14, alternate_functions: [GPIO, CAN2_TX] }
-    - { pin: 15, name: PA15, alternate_functions: [GPIO, CAN2_RX] }
+  - {pin: 0, name: PA0, alternate_functions: [GPIO, ADC0_CH0, TIM0_CH0]}
+  - {pin: 1, name: PA1, alternate_functions: [GPIO, ADC0_CH1, TIM0_CH1]}
+  - {pin: 2, name: PA2, alternate_functions: [GPIO, ADC0_CH2, TIM0_CH2]}
+  - {pin: 3, name: PA3, alternate_functions: [GPIO, ADC0_CH3, TIM0_CH3]}
+  - {pin: 4, name: PA4, alternate_functions: [GPIO, SPI0_MOSI]}
+  - {pin: 5, name: PA5, alternate_functions: [GPIO, SPI0_MISO]}
+  - {pin: 6, name: PA6, alternate_functions: [GPIO, SPI0_SCK]}
+  - {pin: 7, name: PA7, alternate_functions: [GPIO, SPI0_CS]}
+  - {pin: 8, name: PA8, alternate_functions: [GPIO, UART0_TX]}
+  - {pin: 9, name: PA9, alternate_functions: [GPIO, UART0_RX]}
+  - {pin: 10, name: PA10, alternate_functions: [GPIO, CAN0_TX]}
+  - {pin: 11, name: PA11, alternate_functions: [GPIO, CAN0_RX]}
+  - {pin: 12, name: PA12, alternate_functions: [GPIO, CAN1_TX]}
+  - {pin: 13, name: PA13, alternate_functions: [GPIO, CAN1_RX]}
+  - {pin: 14, name: PA14, alternate_functions: [GPIO, CAN2_TX]}
+  - {pin: 15, name: PA15, alternate_functions: [GPIO, CAN2_RX]}
   PORT_B:
-    - { pin: 0, name: PB0, alternate_functions: [GPIO, ADC0_CH4] }
-    - { pin: 1, name: PB1, alternate_functions: [GPIO, ADC0_CH5] }
-    - { pin: 2, name: PB2, alternate_functions: [GPIO, ADC0_CH6] }
-    - { pin: 3, name: PB3, alternate_functions: [GPIO, ADC0_CH7] }
-    - { pin: 4, name: PB4, alternate_functions: [GPIO, ADC1_CH0] }
-    - { pin: 5, name: PB5, alternate_functions: [GPIO, ADC1_CH1] }
-    - { pin: 6, name: PB6, alternate_functions: [GPIO, ADC1_CH2] }
-    - { pin: 7, name: PB7, alternate_functions: [GPIO, ADC1_CH3] }
-    - { pin: 8, name: PB8, alternate_functions: [GPIO, SPI1_MOSI] }
-    - { pin: 9, name: PB9, alternate_functions: [GPIO, SPI1_MISO] }
-    - { pin: 10, name: PB10, alternate_functions: [GPIO, SPI1_SCK] }
-    - { pin: 11, name: PB11, alternate_functions: [GPIO, SPI1_CS] }
-    - { pin: 12, name: PB12, alternate_functions: [GPIO] }
-    - { pin: 13, name: PB13, alternate_functions: [GPIO] }
-    - { pin: 14, name: PB14, alternate_functions: [GPIO] }
-    - { pin: 15, name: PB15, alternate_functions: [GPIO] }
+  - {pin: 0, name: PB0, alternate_functions: [GPIO, ADC0_CH4]}
+  - {pin: 1, name: PB1, alternate_functions: [GPIO, ADC0_CH5]}
+  - {pin: 2, name: PB2, alternate_functions: [GPIO, ADC0_CH6]}
+  - {pin: 3, name: PB3, alternate_functions: [GPIO, ADC0_CH7]}
+  - {pin: 4, name: PB4, alternate_functions: [GPIO, ADC1_CH0]}
+  - {pin: 5, name: PB5, alternate_functions: [GPIO, ADC1_CH1]}
+  - {pin: 6, name: PB6, alternate_functions: [GPIO, ADC1_CH2]}
+  - {pin: 7, name: PB7, alternate_functions: [GPIO, ADC1_CH3]}
+  - {pin: 8, name: PB8, alternate_functions: [GPIO, SPI1_MOSI]}
+  - {pin: 9, name: PB9, alternate_functions: [GPIO, SPI1_MISO]}
+  - {pin: 10, name: PB10, alternate_functions: [GPIO, SPI1_SCK]}
+  - {pin: 11, name: PB11, alternate_functions: [GPIO, SPI1_CS]}
+  - {pin: 12, name: PB12, alternate_functions: [GPIO]}
+  - {pin: 13, name: PB13, alternate_functions: [GPIO]}
+  - {pin: 14, name: PB14, alternate_functions: [GPIO]}
+  - {pin: 15, name: PB15, alternate_functions: [GPIO]}
   PORT_C:
-    - { pin: 0, name: PC0, alternate_functions: [GPIO, TIM1_CH0] }
-    - { pin: 1, name: PC1, alternate_functions: [GPIO, TIM1_CH1] }
-    - { pin: 2, name: PC2, alternate_functions: [GPIO, TIM1_CH2] }
-    - { pin: 3, name: PC3, alternate_functions: [GPIO, TIM1_CH3] }
-    - { pin: 4, name: PC4, alternate_functions: [GPIO] }
-    - { pin: 5, name: PC5, alternate_functions: [GPIO] }
-    - { pin: 6, name: PC6, alternate_functions: [GPIO] }
-    - { pin: 7, name: PC7, alternate_functions: [GPIO] }
-    - { pin: 8, name: PC8, alternate_functions: [GPIO] }
-    - { pin: 9, name: PC9, alternate_functions: [GPIO] }
-    - { pin: 10, name: PC10, alternate_functions: [GPIO] }
-    - { pin: 11, name: PC11, alternate_functions: [GPIO] }
-    - { pin: 12, name: PC12, alternate_functions: [GPIO] }
-    - { pin: 13, name: PC13, alternate_functions: [GPIO] }
-    - { pin: 14, name: PC14, alternate_functions: [GPIO] }
-    - { pin: 15, name: PC15, alternate_functions: [GPIO] }
-
-can_resources:
-  - name: CAN0
-    controller_id: 0
-    max_baudrate: 1000000
-    supports_fd: true
-    mailbox_count: 64
-  - name: CAN1
-    controller_id: 1
-    max_baudrate: 1000000
-    supports_fd: true
-    mailbox_count: 64
-  - name: CAN2
-    controller_id: 2
-    max_baudrate: 1000000
-    supports_fd: false
-    mailbox_count: 32
-
-adc_resources:
-  - name: ADC0
-    unit_id: 0
-    channel_count: 16
-    resolution_bits: 12
-    channels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-  - name: ADC1
-    unit_id: 1
-    channel_count: 16
-    resolution_bits: 12
-    channels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-
-spi_resources:
-  - name: SPI0
-    unit_id: 0
-    max_baudrate: 20000000
-    supports_dma: true
-  - name: SPI1
-    unit_id: 1
-    max_baudrate: 20000000
-    supports_dma: true
-  - name: SPI2
-    unit_id: 2
-    max_baudrate: 10000000
-    supports_dma: true
-
-intc_sources:
-  - { name: CAN0_IRQ, vector_number: 32, priority_bits: 4 }
-  - { name: CAN1_IRQ, vector_number: 33, priority_bits: 4 }
-  - { name: CAN2_IRQ, vector_number: 34, priority_bits: 4 }
-  - { name: ADC0_IRQ, vector_number: 40, priority_bits: 4 }
-  - { name: ADC1_IRQ, vector_number: 41, priority_bits: 4 }
-  - { name: SPI0_IRQ, vector_number: 48, priority_bits: 4 }
-  - { name: SPI1_IRQ, vector_number: 49, priority_bits: 4 }
-  - { name: SPI2_IRQ, vector_number: 50, priority_bits: 4 }
-  - { name: TIM0_IRQ, vector_number: 56, priority_bits: 4 }
-  - { name: TIM1_IRQ, vector_number: 57, priority_bits: 4 }
-
-metadata:
-  cpu_frequency: 120000000
-  flash_size: 1MB
-  ram_size: 128KB
-
-# Chip selectors: value of each module's selector parameter for this chip
-selectors:
-  Os.OsResourceSubderivative: Os_THA6206
-  Resource.ResourceSubderivative: THA6206_LFBGA292
+  - {pin: 0, name: PC0, alternate_functions: [GPIO, TIM1_CH0]}
+  - {pin: 1, name: PC1, alternate_functions: [GPIO, TIM1_CH1]}
+  - {pin: 2, name: PC2, alternate_functions: [GPIO, TIM1_CH2]}
+  - {pin: 3, name: PC3, alternate_functions: [GPIO, TIM1_CH3]}
+  - {pin: 4, name: PC4, alternate_functions: [GPIO]}
+  - {pin: 5, name: PC5, alternate_functions: [GPIO]}
+  - {pin: 6, name: PC6, alternate_functions: [GPIO]}
+  - {pin: 7, name: PC7, alternate_functions: [GPIO]}
+  - {pin: 8, name: PC8, alternate_functions: [GPIO]}
+  - {pin: 9, name: PC9, alternate_functions: [GPIO]}
+  - {pin: 10, name: PC10, alternate_functions: [GPIO]}
+  - {pin: 11, name: PC11, alternate_functions: [GPIO]}
+  - {pin: 12, name: PC12, alternate_functions: [GPIO]}
+  - {pin: 13, name: PC13, alternate_functions: [GPIO]}
+  - {pin: 14, name: PC14, alternate_functions: [GPIO]}
+  - {pin: 15, name: PC15, alternate_functions: [GPIO]}
+resources:
+  can_controller:
+  - {resource_id: CAN0, display_name: CAN Controller 0, properties: {controller_id: 0, max_baudrate: 1000000, supports_fd: true, mailbox_count: 64}}
+  - {resource_id: CAN1, display_name: CAN Controller 1, properties: {controller_id: 1, max_baudrate: 1000000, supports_fd: true, mailbox_count: 64}}
+  - {resource_id: CAN2, display_name: CAN Controller 2, properties: {controller_id: 2, max_baudrate: 1000000, supports_fd: false, mailbox_count: 32}}
+  adc_unit:
+  - {resource_id: ADC0, display_name: ADC Unit 0, properties: {unit_id: 0, channel_count: 16, resolution_bits: 12, channels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]}}
+  - {resource_id: ADC1, display_name: ADC Unit 1, properties: {unit_id: 1, channel_count: 16, resolution_bits: 12, channels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]}}
+  spi_unit:
+  - {resource_id: SPI0, display_name: SPI Unit 0, properties: {unit_id: 0, max_baudrate: 20000000, supports_dma: true}}
+  - {resource_id: SPI1, display_name: SPI Unit 1, properties: {unit_id: 1, max_baudrate: 20000000, supports_dma: true}}
+  - {resource_id: SPI2, display_name: SPI Unit 2, properties: {unit_id: 2, max_baudrate: 10000000, supports_dma: true}}
+  intc_source:
+  - {resource_id: CAN0_IRQ, properties: {vector_number: 32, priority_bits: 4, is_configurable: true}}
+  - {resource_id: CAN1_IRQ, properties: {vector_number: 33, priority_bits: 4, is_configurable: true}}
+  - {resource_id: CAN2_IRQ, properties: {vector_number: 34, priority_bits: 4, is_configurable: true}}
+  - {resource_id: ADC0_IRQ, properties: {vector_number: 40, priority_bits: 4, is_configurable: true}}
+  - {resource_id: ADC1_IRQ, properties: {vector_number: 41, priority_bits: 4, is_configurable: true}}
+  - {resource_id: SPI0_IRQ, properties: {vector_number: 48, priority_bits: 4, is_configurable: true}}
+  - {resource_id: SPI1_IRQ, properties: {vector_number: 49, priority_bits: 4, is_configurable: true}}
+  - {resource_id: SPI2_IRQ, properties: {vector_number: 50, priority_bits: 4, is_configurable: true}}
+  - {resource_id: TIM0_IRQ, properties: {vector_number: 56, priority_bits: 4, is_configurable: true}}
+  - {resource_id: TIM1_IRQ, properties: {vector_number: 57, priority_bits: 4, is_configurable: true}}
+  clock_source:
+  - {resource_id: PLL0, display_name: PLL 0, properties: {type: PLL, frequency: 200000000, max_frequency: 200000000}}
+  - {resource_id: XTAL, display_name: Crystal Oscillator, properties: {type: XTAL, frequency: 40000000}}
+  - {resource_id: IRC, display_name: Internal RC Oscillator, properties: {type: IRC, frequency: 16000000}}
+  gpt_channel:
+  - {resource_id: GPT0, display_name: GPT Channel 0, properties: {channel_id: 0}}
+  - {resource_id: GPT1, display_name: GPT Channel 1, properties: {channel_id: 1}}
+  - {resource_id: GPT2, display_name: GPT Channel 2, properties: {channel_id: 2}}
+  lin_channel:
+  - {resource_id: LIN0, display_name: LIN Channel 0, properties: {channel_id: 0, max_baudrate: 20000}}
+  - {resource_id: LIN1, display_name: LIN Channel 1, properties: {channel_id: 1, max_baudrate: 20000}}
+  pwm_channel:
+  - {resource_id: PWM0_CH0, display_name: PWM0 Channel 0, properties: {unit_id: 0, channel_id: 0}}
+  - {resource_id: PWM0_CH1, display_name: PWM0 Channel 1, properties: {unit_id: 0, channel_id: 1}}
+  - {resource_id: PWM0_CH2, display_name: PWM0 Channel 2, properties: {unit_id: 0, channel_id: 2}}
+  - {resource_id: PWM0_CH3, display_name: PWM0 Channel 3, properties: {unit_id: 0, channel_id: 3}}
+  - {resource_id: PWM1_CH0, display_name: PWM1 Channel 0, properties: {unit_id: 1, channel_id: 0}}
+  - {resource_id: PWM1_CH1, display_name: PWM1 Channel 1, properties: {unit_id: 1, channel_id: 1}}
+  wdg_unit:
+  - {resource_id: WDG0, display_name: Watchdog 0, properties: {unit_id: 0, timeout_range: [1, 65535]}}
+metadata: {cpu_frequency: 120000000, flash_size: 1MB, ram_size: 128KB, vendor: ChipowerTech}
+selectors: {Os.OsResourceSubderivative: Os_THA6206, Resource.ResourceSubderivative: THA6206_LFBGA292}
+checksum: sha256:f02a4a81ee9c838d9777f340fbc569e8d90fe8b454c6b3e74ce936aafdc93d22

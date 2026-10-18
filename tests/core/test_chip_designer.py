@@ -140,10 +140,12 @@ def test_export_chip_yaml_and_roundtrip(tmp_path: Path):
     assert len(loaded_chip.ports["PORT_A"]) == 2
     assert loaded_chip.ports["PORT_A"][0].name == "PA0"
     assert "ADC0_CH0" in loaded_chip.ports["PORT_A"][0].alternate_functions
-    assert len(loaded_chip.can_resources) == 1
-    assert loaded_chip.can_resources[0].supports_fd is True
-    assert len(loaded_chip.adc_resources) == 1
-    assert loaded_chip.adc_resources[0].channels == [0, 1, 2, 3, 4, 5, 6, 7]
+    # legacy typed lists are saved as generic peripheral instances
+    cans = loaded_chip.resources["can_controller"]
+    assert len(cans) == 1 and cans[0].properties["supports_fd"] is True
+    adcs = loaded_chip.resources["adc_unit"]
+    assert len(adcs) == 1 and adcs[0].properties["channels"] == [0, 1, 2, 3, 4, 5, 6, 7]
+    assert loaded_chip.effective_resources() == chip.effective_resources()
 
 
 def test_export_properties_file(tmp_path: Path):
@@ -286,7 +288,10 @@ def test_yaml_export_escapes_special_characters_and_is_lossless(tmp_path: Path):
 
     _yaml.safe_load(path.read_text(encoding="utf-8"))  # must parse
     loaded = ChipDatabase(tmp_path).get_chip("RICH_1")
-    assert loaded == chip
+    # the legacy intc_sources come back as "resources"; everything else is identical
+    assert loaded.effective_resources() == chip.effective_resources()
+    assert (loaded.name, loaded.description, loaded.ports, loaded.metadata) == \
+        (chip.name, chip.description, chip.ports, chip.metadata)
 
 
 @pytest.mark.parametrize("yaml_file", sorted(REPO_CHIPS_DIR.glob("*.yaml")), ids=lambda p: p.stem)
@@ -437,7 +442,7 @@ def test_dialog_clone_and_save_preserves_intc_and_metadata(qtbot, tmp_path, sile
     dialog._on_save_clicked()
 
     saved = ChipDatabase(tmp_path).get_chip("RICH_1_COPY")
-    assert saved.intc_sources == _rich_chip().intc_sources
+    assert saved.effective_resources()["intc_source"] == _rich_chip().effective_resources()["intc_source"]
     assert saved.metadata["cpu_frequency"] == 400000000
     assert saved.metadata["cores"]["count"] == 2
     assert saved.ports["PORT_20"][0].alt_modes == {0: "GPIO", 3: "ETH:MDIO"}
@@ -452,10 +457,10 @@ def test_dialog_load_resets_peripheral_tables(qtbot, silent_boxes):
     dialog = _make_dialog(qtbot, db)
 
     dialog._load_chip_by_name("WITH_CAN")
-    assert dialog.can_table.rowCount() == 3
+    assert len(dialog.peripheral_editor.resources()["can_controller"]) == 3
     dialog._load_chip_by_name("NO_CAN")
-    assert dialog.can_table.rowCount() == 0
-    assert dialog._build_current_chip().can_resources == []
+    assert dialog.peripheral_editor.resources() == {}
+    assert dialog._build_current_chip().effective_resources() == {}
 
 
 def test_dialog_save_rejects_unsafe_name(qtbot, tmp_path, silent_boxes):
@@ -542,11 +547,3 @@ def test_model_batch_remove_rows(qtbot):
     assert model.rowCount() == 2
     remaining_pins = [p.pin for p in model.pins()]
     assert remaining_pins == [1, 3]
-
-
-def test_parse_int_handles_underscores_and_whitespace():
-    from autosar_configurator.ui.dialogs.chip_definition_designer_dialog import _parse_int
-    assert _parse_int(" 10_000_000 ", default=1000) == 10000000
-    assert _parse_int("bad", default=5000) == 5000
-    assert _parse_int(None, default=42) == 42
-    assert _parse_int(8000, default=0) == 8000

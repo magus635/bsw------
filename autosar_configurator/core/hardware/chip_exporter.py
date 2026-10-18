@@ -7,7 +7,8 @@ and EB Tresos compatible .properties resource files.
 import os
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
+
 import yaml
 
 from .chip_database import ChipDefinition
@@ -99,6 +100,16 @@ def _format_property_line(key: str, value: Any) -> List[str]:
     return lines
 
 
+def _instance_dict(res) -> Dict[str, Any]:
+    """One peripheral instance as written to YAML (display_name only when it differs)."""
+    entry = _FlowMap(resource_id=res.resource_id)
+    if res.display_name and res.display_name != res.resource_id:
+        entry['display_name'] = res.display_name
+    if res.properties:
+        entry['properties'] = _FlowMap(res.properties)
+    return entry
+
+
 def _canonical(obj: Any) -> Any:
     """Order-independent form of exported chip data for hashing."""
     if isinstance(obj, dict):
@@ -155,51 +166,12 @@ class ChipDefinitionExporter:
                 ports_dict[port_name] = pins_data
             data['ports'] = ports_dict
 
-        if chip.can_resources:
-            data['can_resources'] = [
-                {
-                    'name': c.name,
-                    'controller_id': c.controller_id,
-                    'max_baudrate': c.max_baudrate,
-                    'supports_fd': c.supports_fd,
-                    'mailbox_count': c.mailbox_count
-                }
-                for c in sorted(chip.can_resources, key=lambda x: x.controller_id)
-            ]
-
-        if chip.adc_resources:
-            data['adc_resources'] = [
-                {
-                    'name': a.name,
-                    'unit_id': a.unit_id,
-                    'channel_count': a.channel_count,
-                    'resolution_bits': a.resolution_bits,
-                    'channels': list(a.channels)
-                }
-                for a in sorted(chip.adc_resources, key=lambda x: x.unit_id)
-            ]
-
-        if chip.spi_resources:
-            data['spi_resources'] = [
-                {
-                    'name': s.name,
-                    'unit_id': s.unit_id,
-                    'max_baudrate': s.max_baudrate,
-                    'supports_dma': s.supports_dma
-                }
-                for s in sorted(chip.spi_resources, key=lambda x: x.unit_id)
-            ]
-
-        if chip.intc_sources:
-            data['intc_sources'] = [
-                {
-                    'name': i.name,
-                    'vector_number': i.vector_number,
-                    'priority_bits': i.priority_bits,
-                    'is_configurable': i.is_configurable
-                }
-                for i in sorted(chip.intc_sources, key=lambda x: x.vector_number)
-            ]
+        resources = chip.effective_resources()
+        if resources:
+            data['resources'] = {
+                res_type: [_instance_dict(r) for r in instances]
+                for res_type, instances in resources.items() if instances
+            }
 
         if chip.metadata:
             data['metadata'] = dict(chip.metadata)
@@ -332,26 +304,31 @@ class ChipDefinitionExporter:
             ""
         ])
 
+        resources = chip.effective_resources()
+        cans = resources.get('can_controller', [])
+        adcs = resources.get('adc_unit', [])
+        spis = resources.get('spi_unit', [])
+
         # CAN
         lines.extend([
             "#####################################################################################################",
             "##                                            Can module                                           ##",
             "#####################################################################################################",
-            f"Can.MaxModules: {len(chip.can_resources)}",
-            f"Can.MaxNodes: {len(chip.can_resources)}",
+            f"Can.MaxModules: {len(cans)}",
+            f"Can.MaxNodes: {len(cans)}",
             "Can.MaxHwObjects: 512",
             ""
         ])
 
         # ADC
-        adc_units = [a.name for a in chip.adc_resources] if chip.adc_resources else ["SARADC0", "SARADC1"]
+        adc_units = [a.resource_id for a in adcs] if adcs else ["SARADC0", "SARADC1"]
         lines.extend([
             "#####################################################################################################",
             "##                                            Adc module                                           ##",
             "#####################################################################################################",
             f"Adc.MaxControllers: {len(adc_units)}",
             f"Adc.HwUnitId: {', '.join(adc_units)}",
-            f"Adc.MaxResolution: {max((a.resolution_bits for a in chip.adc_resources), default=12)}",
+            f"Adc.MaxResolution: {max((a.get_property('resolution_bits', 12) for a in adcs), default=12)}",
             ""
         ])
 
@@ -360,7 +337,7 @@ class ChipDefinitionExporter:
             "#####################################################################################################",
             "##                                            Spi module                                           ##",
             "#####################################################################################################",
-            f"Spi.MaxHwUnit: {len(chip.spi_resources) if chip.spi_resources else 6}",
+            f"Spi.MaxHwUnit: {len(spis) if spis else 6}",
             ""
         ])
 

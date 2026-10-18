@@ -2,9 +2,11 @@
 Mapping Rule Model and Loader
 Defines the structure for hardware-to-AUTOSAR mapping rules and loads them from YAML
 """
+import re
 from dataclasses import dataclass, field
-from typing import Dict, List, Any, Optional
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 import yaml
 
 
@@ -245,3 +247,43 @@ def get_default_rule_loader() -> MappingRuleLoader:
             _default_rule_loader.load_from_directory(builtin_rules_dir)
 
     return _default_rule_loader
+
+
+def builtin_rules_dir() -> Path:
+    """Directory of the mapping rules shipped with the package."""
+    return Path(__file__).parent.parent.parent / "data" / "mapping_rules"
+
+
+_PROPERTY_REF = re.compile(r"resource\.properties\.([A-Za-z_][A-Za-z0-9_]*)")
+
+
+def rule_resource_requirements(directory: Optional[Path] = None) -> Dict[str, Dict[str, Any]]:
+    """What the mapping rules expect from a chip's peripheral instances.
+
+    Returns:
+        ``{resource_type: {"modules": [module, ...], "properties": [name, ...]}}``
+        where ``properties`` are the instance properties any rule of that type
+        reads (``resource.properties.<name>`` anywhere in the rule: sources,
+        conditions, ``enabled_when``, iterations, columns), in first-seen order.
+    """
+    directory = Path(directory) if directory else builtin_rules_dir()
+    result: Dict[str, Dict[str, Any]] = {}
+    if not directory.is_dir():
+        return result
+    for rule_file in sorted(directory.glob("*.yaml")):
+        try:
+            text = rule_file.read_text(encoding="utf-8")
+            data = yaml.safe_load(text) or {}
+        except (OSError, yaml.YAMLError):
+            continue
+        res_type = str(data.get("resource_type") or "").strip()
+        if not res_type:
+            continue
+        entry = result.setdefault(res_type, {"modules": [], "properties": []})
+        module = str(data.get("module") or rule_file.stem)
+        if module not in entry["modules"]:
+            entry["modules"].append(module)
+        for name in _PROPERTY_REF.findall(text):
+            if name not in entry["properties"]:
+                entry["properties"].append(name)
+    return result

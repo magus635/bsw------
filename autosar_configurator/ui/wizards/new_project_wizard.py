@@ -248,19 +248,14 @@ class ChipSelectionPage(QWizardPage):
             f"引脚总数: {total_pins}",
         ]
 
-        if chip.can_resources:
-            can_names = ", ".join(c.name for c in chip.can_resources)
-            fd_support = "是" if any(c.supports_fd for c in chip.can_resources) else "否"
-            info_lines.append(f"CAN 控制器: {len(chip.can_resources)} ({can_names})")
-            info_lines.append(f"  CAN-FD 支持: {fd_support}")
-
-        if chip.adc_resources:
-            adc_names = ", ".join(a.name for a in chip.adc_resources)
-            info_lines.append(f"ADC 单元: {len(chip.adc_resources)} ({adc_names})")
-
-        if chip.spi_resources:
-            spi_names = ", ".join(s.name for s in chip.spi_resources)
-            info_lines.append(f"SPI 模块: {len(chip.spi_resources)} ({spi_names})")
+        # Peripheral instances of every type the chip describes
+        for res_type, instances in sorted(chip.effective_resources().items()):
+            if not instances:
+                continue
+            names = ", ".join(r.resource_id for r in instances[:8])
+            if len(instances) > 8:
+                names += ", ..."
+            info_lines.append(f"{res_type}: {len(instances)} ({names})")
 
         if chip.ports:
             info_lines.append("")
@@ -398,10 +393,9 @@ class ProjectSummaryPage(QWizardPage):
                     f"    芯片系列: {chip_def.family}",
                     f"    封装规格: {chip_def.package}",
                     f"    端口/引脚: {len(chip_def.ports)} 个端口, {total_pins} 个引脚",
-                    f"    CAN: {len(chip_def.can_resources)} 个控制器",
-                    f"    ADC: {len(chip_def.adc_resources)} 个单元",
-                    f"    SPI: {len(chip_def.spi_resources)} 个模块",
                 ])
+                for res_type, count in sorted(chip_def.peripheral_counts().items()):
+                    lines.append(f"    {res_type}: {count}")
 
         self.summary_text.setPlainText("\n".join(lines))
 
