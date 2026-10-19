@@ -29,6 +29,8 @@ class EBTemplateEngine:
             
         self.renderer = Renderer(strict=strict, template_dir=template_dir, include_search_paths=search_paths)
         self.initialized_modules = set()
+        # Result of the definition ENABLE conditions (applied once, before the first render)
+        self.enable_result = None
         
     def add_module(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration, variant: Optional[str] = None):
         """Add a module to the engine's symbol table for cross-module access."""
@@ -82,7 +84,13 @@ class EBTemplateEngine:
         if configuration and module_def:
             self.add_module(module_def, configuration, variant=active_variant)
 
-            
+        # Items whose definition ENABLE condition is false are not visible to templates
+        if self.enable_result is None:
+            from .eb.enable_conditions import apply_enable_conditions
+            defs = [m_def for m_def, _ in (all_modules or {}).values()] + [module_def]
+            self.enable_result = apply_enable_conditions(
+                self.renderer, [d for d in defs if d is not None], ecu_resources)
+
         # Extract extra variables from context (excluding model objects)
         # Keep 'configuration' if 'module_def' is not present (e.g. mock context in unit tests)
         extra_vars = {k: v for k, v in context.items()

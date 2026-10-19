@@ -157,6 +157,24 @@ def test_unlisted_suffixes_are_not_templates(tmp_path):
     assert types == ["Arti.arxml"]
 
 
+def test_scatter_script_is_generated_under_its_own_name(tmp_path):
+    """EB generates linker/scatter scripts (Os "scatter.scat") without the module prefix"""
+    module = EcucModuleDef(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+    module.add_container(EcucContainerDef(short_name="TestContainer",
+                                          definition_ref="/AUTOSAR/EcucDefs/Test/TestContainer"))
+    manager = ConfigurationManager(module)
+
+    mod_dir = tmp_path / "templates" / "Test"
+    (mod_dir / "Test").mkdir(parents=True)
+    (mod_dir / "Test" / "scatter.scat").write_text('LR [!"num:i(2 + 2)"!]\n', encoding="utf-8")
+    (mod_dir / "notes.txt").write_text("not a template", encoding="utf-8")
+
+    generator = CodeGenerator(module, manager.configuration, project_template_dir=tmp_path / "templates")
+    assert [t['type'] for t in generator._discover_template_types("Test")] == ["scatter.scat"]
+    assert generator.generate_all(tmp_path / "out") is True
+    assert (tmp_path / "out" / "Test" / "Test" / "scatter.scat").read_text(encoding="utf-8").strip() == "LR 4"
+
+
 def test_no_templates_module_is_skipped(tmp_path):
     """BREAKING behavior: no templates -> no files, skipped status, no fallback"""
     module, manager = _make_test_module()

@@ -540,7 +540,8 @@ class OverlayEngine:
             definition_ref=container_def.definition_ref,
             lower_multiplicity=container_def.lower_multiplicity,
             upper_multiplicity=container_def.upper_multiplicity,
-            index=getattr(config_instance, 'index', 0)
+            index=getattr(config_instance, 'index', 0),
+            source=config_instance
         )
         
         # CHOICE Container Support: In EB Tresos, a choice container evaluates to the name
@@ -583,7 +584,8 @@ class OverlayEngine:
                         value=param_val.value,
                         definition_ref=param_def.definition_ref,
                         index=idx,
-                        param_type=param_def.param_type.value if param_def.param_type else ""
+                        param_type=param_def.param_type.value if param_def.param_type else "",
+                        source=param_val
                     )
                     wrapper_node.add_child(child_node)
                 node.add_child(wrapper_node)
@@ -662,7 +664,8 @@ class OverlayEngine:
                         path=f"{path}/{ref_name}/{idx}",
                         value=ref_val.value_ref,
                         definition_ref=ref_def.definition_ref,
-                        index=idx
+                        index=idx,
+                        source=ref_val
                     )
                     wrapper_node.add_child(child_node)
                 node.add_child(wrapper_node)
@@ -774,11 +777,12 @@ class OverlayEngine:
             definition_ref=param_def.definition_ref,
             param_type=param_def.param_type.value if param_def.param_type else "",
             lower_multiplicity=param_def.lower_multiplicity,
-            upper_multiplicity=param_def.upper_multiplicity
+            upper_multiplicity=param_def.upper_multiplicity,
+            source=param_value
         )
 
 
-    
+
     def _create_reference_node(
         self,
         ref_def: EcucReferenceDef,
@@ -795,7 +799,8 @@ class OverlayEngine:
             value=value,
             definition_ref=ref_def.definition_ref,
             lower_multiplicity=ref_def.lower_multiplicity,
-            upper_multiplicity=ref_def.upper_multiplicity
+            upper_multiplicity=ref_def.upper_multiplicity,
+            source=ref_value
         )
     
     def validate_multiplicity(self, root: ConfigurationNode) -> list:

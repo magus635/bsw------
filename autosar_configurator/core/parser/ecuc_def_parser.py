@@ -230,9 +230,12 @@ class EcucDefParser:
 
                 # If lst, the actual ctr is inside
                 target_elems = [container_elem] if tag_local == 'ctr' else container_elem.xpath("v:ctr", namespaces=self.NAMESPACES)
+                lst_enable = self._xdm_enable_expr(container_elem) if tag_local == 'lst' else None
                 for target in target_elems:
                     container_def = self._parse_container_def(target)
                     if container_def:
+                        container_def.list_enable_expr = lst_enable
+                        container_def.in_list = tag_local == 'lst'
                         # Apply v:lst multiplicity to container definition
                         if lst_lower is not None:
                             container_def.lower_multiplicity = lst_lower
@@ -272,7 +275,8 @@ class EcucDefParser:
             description=self._get_description(element),
             is_choice=is_choice
         )
-        
+        container_def.enable_expr = self._xdm_enable_expr(element)
+
         # Parse multiplicity (use direct child lookup to avoid finding sub-container's multiplicity)
         container_def.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)
 
@@ -395,6 +399,7 @@ class EcucDefParser:
                 lst_lower = None
                 lst_upper = None
                 lst_upper_expr = None
+                lst_enable = self._xdm_enable_expr(sub_elem)
                 if min_da:
                     try: lst_lower = int(min_da[0])
                     except ValueError: pass
@@ -417,6 +422,8 @@ class EcucDefParser:
                 for ctr_child in ctr_children:
                     sub_container_def = self._parse_container_def(ctr_child, current_path)
                     if sub_container_def:
+                        sub_container_def.list_enable_expr = lst_enable
+                        sub_container_def.in_list = True
                         # Apply v:lst multiplicity to the container def
                         if lst_lower is not None:
                             sub_container_def.lower_multiplicity = lst_lower
@@ -432,6 +439,8 @@ class EcucDefParser:
                 for var_child in var_children:
                     param_def = self._parse_parameter_def(var_child, current_path)
                     if param_def:
+                        # the list's condition covers all its values (same parent as the list)
+                        param_def.enable_expr = param_def.enable_expr or lst_enable
                         if lst_lower is not None:
                             param_def.lower_multiplicity = lst_lower
                         if lst_upper is not None:
@@ -446,6 +455,7 @@ class EcucDefParser:
                 for ref_child in ref_children:
                     ref_def = self._parse_reference_def(ref_child, current_path)
                     if ref_def:
+                        ref_def.enable_expr = ref_def.enable_expr or lst_enable
                         if lst_lower is not None:
                             ref_def.lower_multiplicity = lst_lower
                         if lst_upper is not None:
@@ -460,6 +470,8 @@ class EcucDefParser:
                 for target in target_elems:
                     sub_container_def = self._parse_container_def(target, current_path)
                     if sub_container_def:
+                        sub_container_def.list_enable_expr = lst_enable
+                        sub_container_def.in_list = True
                         if lst_lower is not None:
                             sub_container_def.lower_multiplicity = lst_lower
                         if lst_upper is not None:
@@ -476,6 +488,31 @@ class EcucDefParser:
         
         return container_def
     
+    def _xdm_enable_expr(self, element: etree._Element) -> Optional[str]:
+        """The XDM ENABLE condition of a definition element, or None.
+
+        ``<a:da name="ENABLE" type="XPath" expr="..."/>`` (or its first ``a:tst/@expr``)
+        gives the expression. Its ``true``/``false`` attributes map the result to the
+        enable state: ``true="false" false="true"`` (Os ``OsAppErrorHook``) enables the
+        item when the expression is false, so the condition becomes ``not (...)``.
+        A fixed ``value="false"`` is not a condition: it is the initial state of a new
+        optional item, and the value file records the actual state
+        (``<a:a name="ENABLE">``, applied on XDM import).
+        """
+        ns = {'a': self.NAMESPACES['a']}
+        for attr in element.xpath("a:da[@name='ENABLE'][@type='XPath']", namespaces=ns):
+            expr = attr.get('expr') or next(iter(attr.xpath("a:tst/@expr", namespaces=ns)), None)
+            if not expr or not expr.strip():
+                continue
+            when_true = (attr.get('true') or 'true').strip().lower()
+            when_false = (attr.get('false') or 'false').strip().lower()
+            if when_true == when_false:
+                return None if when_true == 'true' else 'false()'
+            if when_true == 'false':
+                return f"not ({expr.strip()})"
+            return expr.strip()
+        return None
+
     def _is_upper_multiplicity_infinite(self, element: etree._Element) -> bool:
         """True if UPPER-MULTIPLICITY-INFINITE is set ('true' per the AUTOSAR schema; '1' also accepted)."""
         value = self._get_child_text_value(element, 'UPPER-MULTIPLICITY-INFINITE')
@@ -594,6 +631,7 @@ class EcucDefParser:
         # --- XDM: Parse a:a attributes and a:da data attributes ---
         self._parse_xdm_attributes(element, param_def)
         self._parse_xdm_data_attributes(element, param_def, param_type)
+        param_def.enable_expr = self._xdm_enable_expr(element)
 
         # Set definition reference path
         param_def.definition_ref = f"{parent_path}/{short_name}"
@@ -646,6 +684,7 @@ class EcucDefParser:
 
         # XDM: extract a:a attributes for multiplicity, scope, origin
         self._parse_xdm_attributes(element, ref_def)
+        ref_def.enable_expr = self._xdm_enable_expr(element)
 
         # Parse multiplicity (use direct child lookup)
         ref_def.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)

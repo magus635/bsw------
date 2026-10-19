@@ -692,12 +692,15 @@ class WorkspaceManager:
         """Close current project"""
         self.current_project = None
 
-    def export_epc(self, output_dir: Path, module_name: Optional[str] = None) -> List[Path]:
+    def export_epc(self, output_dir: Path, module_name: Optional[str] = None,
+                   skip: Optional[set] = None) -> List[Path]:
         """Export module configuration(s) as EB Tresos-compatible .epc files.
 
         Args:
             output_dir: Directory to write {Module}.epc files into
             module_name: Export only this module; None exports all modules
+            skip: id() of configuration objects to leave out (items whose
+                definition ENABLE condition is false; computed by the caller)
 
         Returns:
             List of written file paths (sorted by module name)
@@ -722,7 +725,7 @@ class WorkspaceManager:
         written = []
         for name in sorted(selected):
             epc_path = output_dir / f"{name}.epc"
-            serializer.export_epc(selected[name].configuration, epc_path)
+            serializer.export_epc(selected[name].configuration, epc_path, skip=skip)
             written.append(epc_path)
         return written
         

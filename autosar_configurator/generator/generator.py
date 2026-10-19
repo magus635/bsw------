@@ -41,6 +41,11 @@ class CodeGenerator:
     # template's own file name (e.g. Os_Arti.arxml, Os_Trace.orti). A whitelist,
     # so other module-prefixed files in a plugin directory are not picked up.
     NON_C_TEMPLATE_SUFFIXES = ('.arxml', '.orti')
+    # Templates generated under their own file name, without the "<Module>_" prefix
+    UNPREFIXED_TEMPLATE_SUFFIXES = ('.scat', '.sct', '.ld', '.lsl', '.icf', '.lcf')
+    # Part of the fingerprint: changes when the generator produces different output
+    # for the same configuration and templates (2: definition ENABLE conditions)
+    GENERATOR_VERSION = 2
 
     def __init__(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration,
                  project_template_dir: Optional[Path] = None,
@@ -75,7 +80,10 @@ class CodeGenerator:
         # Outcome of the last generate_all() call:
         # 'generated' | 'skipped' (no templates) | 'failed' | None (not run yet)
         self.last_status: Optional[str] = None
-        
+        # Warnings of the last generate_all() call (e.g. ENABLE conditions that could
+        # not be evaluated), each once
+        self.warnings: List[str] = []
+
         # Load ECU resources from .properties files in the project (if not provided)
         if ecu_resources is not None:
             self.ecu_resources = ecu_resources
@@ -218,6 +226,7 @@ class CodeGenerator:
         """Generate all code files by discovering templates in search directories"""
         output_dir = Path(output_dir)
         module_name = self.configuration.short_name
+        self.warnings = []
 
         # Update variant_name if provided - this ensures _prepare_context() gets the correct value
         if variant:
@@ -260,13 +269,14 @@ class CodeGenerator:
                 elif t_type.endswith('.c'):
                     rel_dir = 'src'
 
+            out_name = t_info.get('output_name') or f"{module_name}_{t_type}"
             if rel_dir == '.':
                 target_parent = out_module_dir
-                rel_path = f"{module_name}_{t_type}"
+                rel_path = out_name
             else:
                 target_parent = out_module_dir / rel_dir
                 target_parent.mkdir(parents=True, exist_ok=True)
-                rel_path = f"{rel_dir}/{module_name}_{t_type}"
+                rel_path = f"{rel_dir}/{out_name}"
 
             # Generate the file
             if self._generate_single_file(t_info, target_parent):
@@ -358,7 +368,22 @@ class CodeGenerator:
                         name_lower = f.name.lower()
                         prefix_lower = f"{module_name}_".lower()
 
-                        if name_lower.startswith(prefix_lower) or name_lower.startswith("module_"):
+                        if (not name_lower.startswith((prefix_lower, "module_"))
+                                and name_lower.endswith(self.UNPREFIXED_TEMPLATE_SUFFIXES)):
+                            # Linker / scatter scripts (Os "scatter.scat"): generated
+                            # under their own name, as EB does
+                            rel_dir = str(f.parent.relative_to(md)).replace('\\', '/')
+                            dedup_key = f"{rel_dir}/{f.name}"
+                            if dedup_key not in template_dict:
+                                template_dict[dedup_key] = {
+                                    'type': f.name,
+                                    'rel_dir': rel_dir,
+                                    'template_name': f.name,
+                                    'output_name': f.name,
+                                    'original_path': str(f.resolve()),
+                                    'source_dir': str(md.resolve())
+                                }
+                        elif name_lower.startswith(prefix_lower) or name_lower.startswith("module_"):
                             try:
                                 rel_path = f.parent.relative_to(md)
                             except ValueError:
@@ -579,6 +604,10 @@ class CodeGenerator:
                 context['all_modules'] = self.all_configurations
                 try:
                     rendered = eb_engine.render(template_content, context, ecu_resources=self.ecu_resources, template_file=original_path)
+                    for warning in getattr(eb_engine.enable_result, 'warnings', None) or []:
+                        if warning not in self.warnings:
+                            self.warnings.append(warning)
+                            logger.warning(warning)
                     if hasattr(eb_engine.renderer, '_builtins') and eb_engine.renderer._builtins:
                         if eb_engine.renderer._builtins.unimplemented_calls:
                             funcs = ", ".join(sorted(eb_engine.renderer._builtins.unimplemented_calls))
@@ -609,7 +638,7 @@ class CodeGenerator:
             logger.error(f"No template content available for {template_type} (module {module_name})")
             return False
 
-        output_file = output_parent / f"{module_name}_{template_type}"
+        output_file = output_parent / (t_info.get('output_name') or f"{module_name}_{template_type}")
         try:
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write(rendered)
@@ -642,8 +671,8 @@ class CodeGenerator:
         """Calculate a hash of the current configuration content and templates"""
         import hashlib
         # We build a stable string representation of the config
-        parts = []
-        
+        parts = [f"Generator:{self.GENERATOR_VERSION}"]
+
         # Add template info (to detect template changes)
         if template_types:
             for t_info in sorted(template_types, key=lambda x: f"{x['rel_dir']}/{x['type']}"):

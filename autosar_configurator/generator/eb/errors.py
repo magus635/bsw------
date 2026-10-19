@@ -83,6 +83,11 @@ class EcuParameterNotFoundError(EBTemplateError):
         super().__init__(msg)
 
 
+class UnevaluableCondition(EBTemplateError):
+    """Raised when a definition ENABLE condition cannot be evaluated"""
+    pass
+
+
 class XPathError(EBTemplateError):
     """Raised when XPath evaluation fails"""
     def __init__(self, xpath: str, reason: str):

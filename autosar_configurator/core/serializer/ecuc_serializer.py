@@ -3,7 +3,7 @@ ECUC Value Serializer
 Serializes EcucModuleConfiguration to ARXML format
 """
 from lxml import etree
-from typing import Optional
+from typing import Optional, Set
 from pathlib import Path
 from ..model.configuration_model import (
     normalize_config_variant,
@@ -51,7 +51,9 @@ class EcucValueSerializer:
         """
         self.use_namespaces = use_namespaces
         self.pretty_print = pretty_print
-        
+        # id() of configuration objects left out of the current export (export_epc skip)
+        self._skip = frozenset()
+
         if use_namespaces:
             self.nsmap = {
                 None: self.AUTOSAR_NS,
@@ -78,19 +80,28 @@ class EcucValueSerializer:
             pretty_print=self.pretty_print
         )
 
-    def export_epc(self, configuration: EcucModuleConfiguration, file_path: Path, encoding: str = 'utf-8'):
+    def export_epc(self, configuration: EcucModuleConfiguration, file_path: Path, encoding: str = 'utf-8',
+                   skip: Optional[Set[int]] = None):
         """Export configuration as an EB Tresos-compatible .epc value file.
 
         Matches the layout EB Tresos itself produces: the AR-PACKAGE short-name
         is the module name (not '{Module}_Config') and the schemaLocation is
         AUTOSAR_00046.xsd. Element structure and ordering are identical to
         serialize_to_file (deterministic: same configuration → same bytes).
+
+        Args:
+            skip: id() of containers / parameter values / reference values to leave
+                out, e.g. items whose definition ENABLE condition is false
         """
-        root = self._create_arxml_root(
-            configuration,
-            package_name=configuration.short_name,
-            schema_file='AUTOSAR_00046.xsd',
-        )
+        self._skip = frozenset(skip or ())
+        try:
+            root = self._create_arxml_root(
+                configuration,
+                package_name=configuration.short_name,
+                schema_file='AUTOSAR_00046.xsd',
+            )
+        finally:
+            self._skip = frozenset()
         tree = etree.ElementTree(root)
         tree.write(
             str(file_path),
@@ -159,7 +170,7 @@ class EcucValueSerializer:
         
         # Serialize top-level containers
         # Note: configuration.containers only has top-level containers
-        for container in configuration.containers:
+        for container in self._kept(configuration.containers):
             self._serialize_container(container, containers_elem)
             
         return root
@@ -188,13 +199,14 @@ class EcucValueSerializer:
         
         # Parameters - create wrapper once
         param_values_elem = None
-        if container.parameter_values:
+        params = self._kept(container.parameter_values.values())
+        if params:
             param_values_elem = etree.SubElement(container_elem, 'PARAMETER-VALUES')
-            for param in container.parameter_values.values():
+            for param in params:
                 self._serialize_parameter(param, param_values_elem)
 
         # Multi-valued parameters (with INDEX)
-        multi_params = getattr(container, 'multi_parameter_values', None)
+        multi_params = self._kept_lists(getattr(container, 'multi_parameter_values', None))
         if multi_params:
             if param_values_elem is None:
                 param_values_elem = etree.SubElement(container_elem, 'PARAMETER-VALUES')
@@ -223,13 +235,14 @@ class EcucValueSerializer:
 
         # References - create wrapper once
         ref_values_elem = None
-        if container.reference_values:
+        refs = self._kept(container.reference_values.values())
+        if refs:
             ref_values_elem = etree.SubElement(container_elem, 'REFERENCE-VALUES')
-            for ref in container.reference_values.values():
+            for ref in refs:
                 self._serialize_reference(ref, ref_values_elem)
 
         # Multi-valued references (with INDEX)
-        multi_refs = getattr(container, 'multi_reference_values', None)
+        multi_refs = self._kept_lists(getattr(container, 'multi_reference_values', None))
         if multi_refs:
             if ref_values_elem is None:
                 ref_values_elem = etree.SubElement(container_elem, 'REFERENCE-VALUES')
@@ -246,10 +259,26 @@ class EcucValueSerializer:
                     value_elem.text = ref_val.value_ref
 
         # Sub-containers
-        if container.sub_containers:
+        sub_containers = self._kept(container.sub_containers)
+        if sub_containers:
             sub_containers_elem = etree.SubElement(container_elem, 'SUB-CONTAINERS')
-            for sub_container in container.sub_containers:
+            for sub_container in sub_containers:
                 self._serialize_container(sub_container, sub_containers_elem)
+
+    def _kept(self, items) -> list:
+        """Items not in the export's skip set (see export_epc)."""
+        return [item for item in items if id(item) not in self._skip]
+
+    def _kept_lists(self, lists):
+        """name -> values without skipped values; names whose values were all skipped go."""
+        if not lists:
+            return lists
+        out = {}
+        for name, values in lists.items():
+            kept = self._kept(values)
+            if kept or not values:
+                out[name] = kept
+        return out
 
     def _serialize_parameter(self, param: EcucParameterValue, param_values_elem: etree._Element,
                              include_index: bool = False):

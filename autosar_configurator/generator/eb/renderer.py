@@ -29,7 +29,7 @@ from .builtins import BuiltinFunctions
 from .xpath_engine import XPathEngine
 from .errors import (
     EBTemplateError, TemplateParseError, TemplateExecutionError,
-    UndefinedVariableError, XPathError, DanglingReferenceError
+    UndefinedVariableError, XPathError, DanglingReferenceError, UnevaluableCondition
 )
 
 def _debug_log(msg: str):
@@ -139,10 +139,43 @@ class Renderer:
         if not loaded:
             logger.warning(f"load_module: WARNING - Module '{module_name}' was NOT registered!")
 
-    
+    def evaluate_condition_at(self, node, expression: str,
+                              ecu_resources: Optional[Dict[str, Any]] = None) -> bool:
+        """Evaluate an XPath condition (as in [!IF!]) with ``node`` as context node.
+
+        Used for definition ENABLE conditions. Raises ``UnevaluableCondition`` when
+        the expression calls a function the engine does not implement.
+        """
+        self._context_stack = ContextStack(node)
+        if self._builtins is None:
+            self._builtins = BuiltinFunctions(self.symbol_table, self._context_stack, ecu_resources=ecu_resources)
+        else:
+            self._builtins.symbol_table = self.symbol_table
+            self._builtins.context_stack = self._context_stack
+            if ecu_resources:
+                self._builtins.ecu_resources = ecu_resources
+        self._builtins.renderer = self
+        if self._variant:
+            self._builtins.set_variant(self._variant)
+        self._xpath_engine = XPathEngine(self.symbol_table, self._context_stack, function_handler=self._builtins)
+
+        # collect this expression's unsupported calls in a fresh set (the set persists
+        # across evaluations, so a second evaluation would not see a new entry); the
+        # template's own set is restored untouched - these calls are not the template's
+        earlier = getattr(self._builtins, 'unimplemented_calls', set())
+        self._builtins.unimplemented_calls = set()
+        try:
+            result = self._evaluate_condition(expression)
+            unsupported = set(self._builtins.unimplemented_calls)
+        finally:
+            self._builtins.unimplemented_calls = earlier
+        if unsupported:
+            raise UnevaluableCondition("unsupported function(s): " + ", ".join(sorted(unsupported)))
+        return bool(result)
+
     def render(
-        self, 
-        template: str, 
+        self,
+        template: str,
         module_name: Optional[str] = None,
         context_path: Optional[str] = None,
         initial_variables: Optional[Dict[str, Any]] = None,
@@ -1186,6 +1219,9 @@ class Renderer:
                 if char in ('(', '['): depth += 1
                 elif char in (')', ']'): depth -= 1
                 elif depth == 0:
+                    # The '=' of '!=', '<=', '>=', '==' is not an operator of its own
+                    if s[i] == '=' and i > 0 and s[i-1] in '!<>=':
+                        continue
                     # Check for operators
                     for op in ops:
                         if s[i:].startswith(op):
@@ -1228,17 +1264,19 @@ class Renderer:
                                     if (before.isalpha() or before == '_') and (after.isalpha() or after == '_'):
                                         continue  # Skip, this is part of a function name
                                 last_found = (op, s[:i], s[i+len(op):])
+                                break   # longest operator at this position ('>=' not '>')
 
             return last_found
 
-        # 3. Logical Operators (Top-level only, lowest precedence)
-        and_parts = self._split_top_level(expr, [' and '])
-        if len(and_parts) > 1:  # Only if we actually split on 'and'
-            return all(self._evaluate_condition(p) for p in and_parts)
-
+        # 3. Logical Operators (Top-level only). 'or' binds loosest, so split on it
+        # first: "a or b and c" is "a or (b and c)"
         or_parts = self._split_top_level(expr, [' or '])
         if len(or_parts) > 1:  # Only if we actually split on 'or'
             return any(self._evaluate_condition(p) for p in or_parts)
+
+        and_parts = self._split_top_level(expr, [' and '])
+        if len(and_parts) > 1:  # Only if we actually split on 'and'
+            return all(self._evaluate_condition(p) for p in and_parts)
 
         # 4. Arithmetic and Comparison Operations (Top-level only)
         # Split on lowest precedence first
@@ -1267,26 +1305,44 @@ class Renderer:
                         vs = str(v).lower()
                         return vs in ('true', '1', 'yes', 'on', 'std_on')
 
-                    # Check if either side looks like a boolean value
+                    # Boolean comparison only when a side is a boolean or a boolean word
+                    # ('true', 'STD_ON', ...). 0 and 1 alone are numbers: '100' = 0 is
+                    # false, as in XPath (booleans configured as 1/0 still compare
+                    # equal to 'true'/'false' through the word on the other side).
                     def is_bool_like(v):
                         if isinstance(v, bool): return True
-                        if isinstance(v, int) and v in (0, 1): return True
                         if isinstance(v, str):
-                            return v.lower() in ('true', 'false', '0', '1', 'yes', 'no', 'on', 'off', 'std_on', 'std_off')
+                            return v.lower() in ('true', 'false', 'yes', 'no', 'on', 'off', 'std_on', 'std_off')
                         return False
 
-                    if check_op in ('==', '='):
-                        # Use boolean comparison if either value looks boolean
-                        if is_bool_like(left_val) or is_bool_like(right_val):
-                            res = to_bool(left_val) == to_bool(right_val)
-                        else:
-                            res = str(left_val) == str(right_val)
+                    def as_number(v):
+                        if isinstance(v, bool) or v is None: return None
+                        if isinstance(v, (int, float)): return v
+                        try:
+                            return float(str(v).strip())
+                        except ValueError:
+                            return None
 
-                        return res
+                    def equal(lv, rv):
+                        if is_bool_like(lv) or is_bool_like(rv):
+                            return to_bool(lv) == to_bool(rv)
+                        if lv is None or rv is None:
+                            return False            # empty selection equals nothing
+                        ln, rn = as_number(lv), as_number(rv)
+                        if ln is not None and rn is not None:
+                            return ln == rn
+                        return str(lv) == str(rv)
+
+                    if check_op in ('==', '='):
+                        return equal(left_val, right_val)
                     elif check_op == '!=':
-                        if is_bool_like(left_val) or is_bool_like(right_val):
-                            return to_bool(left_val) != to_bool(right_val)
-                        return str(left_val) != str(right_val)
+                        if (left_val is None or right_val is None) and not (
+                                is_bool_like(left_val) or is_bool_like(right_val)):
+                            other = right_val if left_val is None else left_val
+                            if as_number(other) is not None:
+                                return False        # empty selection != number: false, as in XPath
+                            return str(left_val) != str(right_val)   # unchanged for text
+                        return not equal(left_val, right_val)
                     
                     # Numeric comparisons
                     try:
@@ -1420,6 +1476,7 @@ class Renderer:
                             if idx_val is not None and isinstance(result, list):
                                 if 0 <= idx_val < len(result):
                                     return result[idx_val]
+                                return None             # index past the end: empty, as in XPath
                         return result
 
         # 5. XPath or Node Access
@@ -1556,14 +1613,15 @@ class Renderer:
             return res
 
         # Handle 'and' / 'or' with unified parenthesis-aware splitting
-        # (Logical operators have lower precedence than comparisons)
-        and_parts = self._split_top_level(condition, ['and'])
-        if len(and_parts) > 1:  # Only if we actually split on 'and'
-            return all(self._evaluate_condition(p) for p in and_parts)
-
+        # (Logical operators have lower precedence than comparisons; 'or' binds
+        # loosest, so "a or b and c" is "a or (b and c)")
         or_parts = self._split_top_level(condition, ['or'])
         if len(or_parts) > 1:  # Only if we actually split on 'or'
             return any(self._evaluate_condition(p) for p in or_parts)
+
+        and_parts = self._split_top_level(condition, ['and'])
+        if len(and_parts) > 1:  # Only if we actually split on 'and'
+            return all(self._evaluate_condition(p) for p in and_parts)
 
         # Handle comparison operators (after logical operators)
         # Use a single pass with robust splitting for all comparison types

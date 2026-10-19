@@ -43,6 +43,10 @@ class ConfigurationNode:
     # Is this a wrapper node (OverlayEngine implementation detail)?
     is_wrapper: bool = False
 
+    # Configuration object the node was built from (EcucContainerValue /
+    # EcucParameterValue / EcucReferenceValue), None for defaults and wrappers
+    source: Any = field(default=None, repr=False, compare=False)
+
     def __post_init__(self):
         # If children were passed as a dict during construction (for legacy reasons), 
         # convert them to list and populate lookup
@@ -101,6 +105,15 @@ class ConfigurationNode:
             
         self.children.append(node)
         self._children_by_name[node.short_name] = node
+
+    def remove_child(self, node: 'ConfigurationNode'):
+        """Remove a child (by identity), and every name-map entry pointing at it."""
+        self.children = [c for c in self.children if c is not node]
+        self._children_by_name = {k: v for k, v in self._children_by_name.items() if v is not node}
+        # the latest remaining child of the same name becomes the name-map entry (as add_child)
+        for c in reversed(self.children):
+            if c.short_name not in self._children_by_name:
+                self._children_by_name[c.short_name] = c
 
     def add_alias(self, node: 'ConfigurationNode'):
         """Add a child reference WITHOUT changing the node's parent pointer.

@@ -77,7 +77,11 @@ class EcucParameterDef:
     # XDM dynamic expressions (stored for UI tooltip/debug, resolved via .properties)
     default_expr: Optional[str] = None   # e.g., "ecu:list('Adc.RequestSrcPrio')[1]"
     range_expr: Optional[str] = None     # e.g., "ecu:list('Adc.HwUnitId')"
-    
+
+    # XDM ENABLE condition (XPath, context: this parameter); false -> not part of the
+    # configuration. For a v:lst of values it is the list's condition.
+    enable_expr: Optional[str] = None
+
     @property
     def is_required(self) -> bool:
         """Check if this parameter is mandatory"""
@@ -116,6 +120,9 @@ class EcucReferenceDef:
 
     # Full path
     definition_ref: str = ""
+
+    # XDM ENABLE condition (see EcucParameterDef.enable_expr)
+    enable_expr: Optional[str] = None
 
     def __post_init__(self):
         if self.choice_destination_refs is None:
@@ -170,7 +177,16 @@ class EcucContainerDef:
 
     # XDM dynamic expression for upper multiplicity
     upper_multiplicity_expr: Optional[str] = None  # e.g., "num:i(count(ecu:list('Adc.HwUnitId')))"
-    
+
+    # XDM ENABLE conditions (XPath); false -> not part of the configuration.
+    # enable_expr: on the v:ctr / v:chc itself (context: the instance);
+    # list_enable_expr: on the enclosing v:lst (context: the list, i.e. all instances)
+    enable_expr: Optional[str] = None
+    list_enable_expr: Optional[str] = None
+    # Defined inside an XDM v:lst (instances live in a list node); False for a single
+    # v:ctr / v:chc, whose instance sits directly in its parent container
+    in_list: bool = False
+
     @property
     def is_required(self) -> bool:
         """Check if at least one instance is required"""

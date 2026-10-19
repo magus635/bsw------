@@ -1223,6 +1223,8 @@ class BuiltinFunctions:
         - List of strings: ['10', '2'] -> ['2', '10'] (numeric conversion)
         - Single value: 1 -> [1]
         - None: -> []
+        - Duplicate values: ['0', '100', '1', '0'] -> ['0', '1', '100'] (EB removes
+          them; Os ORTI templates rely on it). Configuration nodes are kept as given.
         """
         if values is None:
             return []
@@ -1230,8 +1232,8 @@ class BuiltinFunctions:
         if not isinstance(values, (list, tuple)):
             values = [values]
             
-        # Helper to convert to numeric for sorting
-        def to_num(x):
+        def parse_num(x):
+            """Numeric value of x (a ConfigurationNode gives its value); None if not a number."""
             try:
                 # If it's a ConfigurationNode, get its value
                 if hasattr(x, 'get_value'):
@@ -1240,7 +1242,7 @@ class BuiltinFunctions:
                     v = x.value
                 else:
                     v = x
-                    
+
                 if isinstance(v, str):
                     v = v.strip()
                     if not v: return 0
@@ -1251,9 +1253,23 @@ class BuiltinFunctions:
                 if v is None: return 0
                 return v
             except (ValueError, TypeError):
-                return 0
-                
-        return sorted(values, key=to_num)
+                return None
+
+        # Helper to convert to numeric for sorting
+        def to_num(x):
+            n = parse_num(x)
+            return 0 if n is None else n
+
+        unique, seen = [], set()
+        for x in values:
+            if not (hasattr(x, 'get_value') or hasattr(x, 'value')):
+                n = parse_num(x)
+                key = n if n is not None else str(x)    # '0' and '00' are the same number
+                if key in seen:
+                    continue
+                seen.add(key)
+            unique.append(x)
+        return sorted(unique, key=to_num)
 
     def node_isfirst(self, path_or_node: Optional[Any] = None) -> bool:
         """Check if current node is the first in iteration (EB Tresos node:isFirst)."""

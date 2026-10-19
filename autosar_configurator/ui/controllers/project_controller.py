@@ -556,6 +556,22 @@ class ProjectController:
         QMessageBox.information(win, "Import Value File", summary)
         win.statusbar.showMessage(f"Imported value file for {module_name}", 3000)
 
+    @staticmethod
+    def _disabled_items(project) -> set:
+        """Configuration objects whose definition ENABLE condition is false (left out of
+        the EPC export, as EB does); evaluated over the whole project."""
+        from ...generator.eb.enable_conditions import disabled_configuration_objects
+
+        modules = {name: (m.module_def, m.configuration)
+                   for name, m in project.module_managers.items()
+                   if m.module_def and m.configuration}
+        try:
+            resources = project.load_ecu_resources()
+        except Exception:  # noqa: BLE001 - conditions rarely need ECU resources
+            logger.exception("Could not resolve ECU resources for ENABLE conditions")
+            resources = None
+        return disabled_configuration_objects(modules, dict(resources) if resources else None)
+
     def export_epc_files(self):
         """Export module configurations as EB Tresos-compatible .epc files"""
         project = self.win.workspace_manager.current_project
@@ -584,7 +600,8 @@ class ProjectController:
             return
 
         try:
-            written = self.win.workspace_manager.export_epc(Path(output_dir), module_name=module_name)
+            written = self.win.workspace_manager.export_epc(
+                Path(output_dir), module_name=module_name, skip=self._disabled_items(project))
         except Exception as e:
             logger.error("EPC export failed: %s", e, exc_info=True)
             QMessageBox.critical(self.win, "Export EPC", f"Export failed:\n{e}")
