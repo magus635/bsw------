@@ -44,6 +44,11 @@ DEFINITION = f"""<?xml version='1.0'?>
               <v:lst name="OsMemoryMap" type="MAP">
                 <v:ctr name="OsMemoryMap" type="IDENTIFIABLE">
                   <v:var name="OsMemorySectionName" type="STRING"/>
+                  <v:var name="MemoryBlockAlign" type="ENUMERATION">
+                    <a:da name="RANGE"><a:v>8</a:v><a:v>64</a:v></a:da>
+                  </v:var>
+                  <v:var name="OsIsrHandler" type="FUNCTION-NAME"/>
+                  <v:var name="OsMemoryEnabled" type="BOOLEAN"/>
                 </v:ctr>
               </v:lst>
             </v:ctr>
@@ -81,6 +86,11 @@ def _values(module_vars: str) -> str:
               <d:lst name="OsMemoryMap" type="MAP">
                 <d:ctr name="CODE_QM_CORE0" type="IDENTIFIABLE">
                   <d:var name="OsMemorySectionName" type="STRING" value=".text"/>
+                  <d:var name="MemoryBlockAlign" type="ENUMERATION" value="64"/>
+                  <d:var name="OsIsrHandler" type="FUNCTION-NAME">
+                    <a:a name="IMPORTER_INFO" value="@DEF"/>
+                  </d:var>
+                  <d:var name="OsMemoryEnabled" type="BOOLEAN" value="true"/>
                 </d:ctr>
                 <d:ctr name="DISABLED_MAP" type="IDENTIFIABLE">
                   <a:a name="ENABLE" value="false"/>
@@ -138,6 +148,50 @@ def test_disabled_reference_and_container_are_not_configuration(tmp_path):
     assert not [r for r in refs if r.endswith("/OsTpCounterRef")]
     names = [c.short_name for c in manager.configuration.containers]
     assert "CODE_QM_CORE0" in names and "DISABLED_MAP" not in names
+
+
+# --- value kinds ------------------------------------------------------------------------
+
+def _param_elements(path: Path):
+    """definition name -> (element tag, DEST, VALUE) of the exported parameter values"""
+    rows = {}
+    for tag in ("ECUC-TEXTUAL-PARAM-VALUE", "ECUC-NUMERICAL-PARAM-VALUE"):
+        for el in etree.parse(str(path)).getroot().iter(f"{AR}{tag}"):
+            d = el.find(f"{AR}DEFINITION-REF")
+            rows[d.text.rsplit("/", 1)[-1]] = (tag, d.get("DEST"), el.findtext(f"{AR}VALUE"))
+    return rows
+
+
+def test_enumeration_literal_stays_textual(tmp_path):
+    _, manager = _load(tmp_path)
+    rows = _param_elements(_export(manager, tmp_path))
+    assert rows["MemoryBlockAlign"] == ("ECUC-TEXTUAL-PARAM-VALUE", "ECUC-ENUMERATION-PARAM-DEF", "64")
+    assert rows["OsPhysicalCoreId"] == ("ECUC-NUMERICAL-PARAM-VALUE", "ECUC-INTEGER-PARAM-DEF", "0")
+    assert rows["OsMemoryEnabled"] == ("ECUC-NUMERICAL-PARAM-VALUE", "ECUC-BOOLEAN-PARAM-DEF", "1")
+    assert rows["OsMemorySectionName"][:2] == ("ECUC-TEXTUAL-PARAM-VALUE", "ECUC-STRING-PARAM-DEF")
+
+
+def test_parameter_without_value_is_exported_without_value_element(tmp_path):
+    module_def, manager = _load(tmp_path)
+    out = _export(manager, tmp_path)
+    # as EB writes it: the parameter is there, with no <VALUE> (not the text "None")
+    assert _param_elements(out)["OsIsrHandler"] == (
+        "ECUC-TEXTUAL-PARAM-VALUE", "ECUC-FUNCTION-NAME-DEF", None)
+    assert "<VALUE>None</VALUE>" not in out.read_text(encoding="utf-8")
+
+    again = ConfigurationManager(module_def)
+    again.load_configuration(out)
+    container = next(c for c in again.configuration.containers if c.short_name == "CODE_QM_CORE0")
+    assert container.parameter_values["OsIsrHandler"].value is None
+
+
+def test_enumeration_literal_survives_project_round_trip(tmp_path):
+    module_def, manager = _load(tmp_path)
+    again = ConfigurationManager(module_def)
+    again.load_configuration(_export(manager, tmp_path))
+    (tmp_path / "again").mkdir()
+    rows = _param_elements(_export(again, tmp_path / "again"))
+    assert rows["MemoryBlockAlign"] == ("ECUC-TEXTUAL-PARAM-VALUE", "ECUC-ENUMERATION-PARAM-DEF", "64")
 
 
 # --- module-level parameters ------------------------------------------------------------

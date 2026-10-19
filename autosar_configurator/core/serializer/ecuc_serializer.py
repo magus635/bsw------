@@ -14,6 +14,27 @@ from ..model.configuration_model import (
 )
 from ..model.definition_model import EcucParameterType
 
+# Parameter definition types whose value is ECUC-TEXTUAL-PARAM-VALUE / -NUMERICAL-
+_TEXTUAL_PARAM_DESTS = frozenset({
+    'ECUC-ENUMERATION-PARAM-DEF', 'ECUC-STRING-PARAM-DEF', 'ECUC-MULTILINE-STRING-PARAM-DEF',
+    'ECUC-FUNCTION-NAME-DEF', 'ECUC-LINKER-SYMBOL-DEF',
+})
+_NUMERICAL_PARAM_DESTS = frozenset({
+    'ECUC-INTEGER-PARAM-DEF', 'ECUC-FLOAT-PARAM-DEF', 'ECUC-BOOLEAN-PARAM-DEF',
+})
+
+
+def _param_value_tag(param: EcucParameterValue) -> str:
+    """Element of a parameter value: by its definition type when known (an
+    enumeration literal "64" is textual), else by the Python type of the value."""
+    dest = getattr(param, 'dest_type', None)
+    if dest in _TEXTUAL_PARAM_DESTS:
+        return 'ECUC-TEXTUAL-PARAM-VALUE'
+    if dest in _NUMERICAL_PARAM_DESTS or isinstance(param.value, (int, float, bool)):
+        return 'ECUC-NUMERICAL-PARAM-VALUE'
+    return 'ECUC-TEXTUAL-PARAM-VALUE'
+
+
 class EcucValueSerializer:
     """Serializer for ECUC configuration values (VALUE file)"""
 
@@ -179,8 +200,7 @@ class EcucValueSerializer:
                 param_values_elem = etree.SubElement(container_elem, 'PARAMETER-VALUES')
             for param_name, param_list in multi_params.items():
                 for param_val in sorted(param_list, key=lambda p: p.index if p.index is not None else 0):
-                    is_numerical = isinstance(param_val.value, (int, float, bool))
-                    tag_name = 'ECUC-NUMERICAL-PARAM-VALUE' if is_numerical else 'ECUC-TEXTUAL-PARAM-VALUE'
+                    tag_name = _param_value_tag(param_val)
                     param_elem = etree.SubElement(param_values_elem, tag_name)
                     if param_val.index is not None:
                         index_elem = etree.SubElement(param_elem, 'INDEX')
@@ -188,6 +208,8 @@ class EcucValueSerializer:
                     multi_param_dest = getattr(param_val, 'dest_type', None) or 'ECUC-PARAMETER-DEF'
                     def_ref = etree.SubElement(param_elem, 'DEFINITION-REF', DEST=multi_param_dest)
                     def_ref.text = param_val.definition_ref
+                    if param_val.value is None:
+                        continue                    # no value: no <VALUE> (as EB writes it)
                     value_elem = etree.SubElement(param_elem, 'VALUE')
                     if isinstance(param_val.value, bool):
                         value_elem.text = 'true' if param_val.value else 'false'
@@ -239,8 +261,7 @@ class EcucValueSerializer:
             include_index: Write the INDEX element when param.index is set
         """
         # Determine specific element type
-        is_numerical = isinstance(param.value, (int, float, bool))
-        tag_name = 'ECUC-NUMERICAL-PARAM-VALUE' if is_numerical else 'ECUC-TEXTUAL-PARAM-VALUE'
+        tag_name = _param_value_tag(param)
 
         param_elem = etree.SubElement(param_values_elem, tag_name)
 
@@ -252,7 +273,10 @@ class EcucValueSerializer:
         param_dest = getattr(param, 'dest_type', None) or 'ECUC-PARAMETER-DEF'
         def_ref = etree.SubElement(param_elem, 'DEFINITION-REF', DEST=param_dest)
         def_ref.text = param.definition_ref
-        
+
+        if param.value is None:
+            return                              # no value: no <VALUE> (as EB writes it), not "None"
+
         # Value
         value_elem = etree.SubElement(param_elem, 'VALUE')
         

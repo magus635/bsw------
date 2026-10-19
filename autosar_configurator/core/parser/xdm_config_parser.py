@@ -15,6 +15,22 @@ from ..model.configuration_model import (
 )
 from ..model.definition_model import EcucParameterType
 
+# d:var type -> DEST of the ARXML DEFINITION-REF (as EB tresos writes it in its EPC export)
+XDM_VAR_DEST_TYPES = {
+    'INTEGER': 'ECUC-INTEGER-PARAM-DEF',
+    'FLOAT': 'ECUC-FLOAT-PARAM-DEF',
+    'BOOLEAN': 'ECUC-BOOLEAN-PARAM-DEF',
+    'ENUMERATION': 'ECUC-ENUMERATION-PARAM-DEF',
+    'STRING': 'ECUC-STRING-PARAM-DEF',
+    'MULTILINE-STRING': 'ECUC-MULTILINE-STRING-PARAM-DEF',
+    'FUNCTION-NAME': 'ECUC-FUNCTION-NAME-DEF',
+    'LINKER-SYMBOL': 'ECUC-LINKER-SYMBOL-DEF',
+}
+# d:var types whose value is text even when it looks like a number
+XDM_TEXT_VAR_TYPES = frozenset({
+    'ENUMERATION', 'STRING', 'MULTILINE-STRING', 'FUNCTION-NAME', 'LINKER-SYMBOL',
+})
+
 
 class XdmConfigParser:
     """Parser for EB Tresos XDM Configuration files (datamodel version='7.0')"""
@@ -124,10 +140,18 @@ class XdmConfigParser:
             container.implementation_config_variant = normalize_config_variant(element.get('value'))
             return
             
+        # No value attribute (e.g. only <a:a name="IMPORTER_INFO" value="@DEF"/>): the
+        # parameter exists without a value; EB exports it without <VALUE>
         value = element.get('value')
-        
-        # In XDM, true/false are often strings, convert them if possible
-        if value is not None:
+
+        var_type = (element.get('type') or '').upper()
+        dest_type = XDM_VAR_DEST_TYPES.get(var_type)
+
+        # Enumeration literals ("64") and strings stay text; only numeric/boolean
+        # types (or untyped vars) are converted
+        if value is None or var_type in XDM_TEXT_VAR_TYPES:
+            pass
+        else:
             val_lower = value.strip().lower()
             if val_lower == 'true':
                 value = 1
@@ -149,8 +173,12 @@ class XdmConfigParser:
         if hasattr(container, 'set_parameter_value'):
             if index is not None:
                 container.add_multi_parameter_value(name, value, def_ref, index)
+                stored = container.multi_parameter_values[name][-1]
             else:
                 container.set_parameter_value(name, value, def_ref)
+                stored = container.parameter_values[name]
+            if dest_type:
+                stored.dest_type = dest_type
 
     def _parse_reference(self, element: etree._Element, container: Any, index: Optional[int] = None):
         """Parse d:ref element into a reference value"""
