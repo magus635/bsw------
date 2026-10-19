@@ -1,0 +1,90 @@
+/****************************************************************************************************
+*
+****************************************************************************************************/
+
+/****************************************************************************************************
+*   FileName              : Os_mpu_Lcfg.h
+*
+*   Platform              : AUTOSAR
+*
+*   BSW Module            : Os
+*
+*   brief                 : xxx
+*
+*   Autosar Version       : R23-11
+*
+*   Build Version         : Cortex-R52/THA6206
+*
+*   Genaration Time       : [!"$datetime"!]
+*
+*   Copyright (c) @#
+*   All Rights Reserved.
+*
+****************************************************************************************************/
+
+/****************************************************************************************************
+**                          Revision Control History                                               **
+****************************************************************************************************/
+/*
+*  -------------------------------------------------------------------------------------------------
+*  Version    Date           Author(ID)      SVN_Version         Description
+*  -------------------------------------------------------------------------------------------------
+*  V0.0.1   22-May-2024    zhangtr(30011)                        Initial Version
+*
+****************************************************************************************************/
+#ifndef OS_MPU_LCFG_H_
+#define OS_MPU_LCFG_H_
+
+/****************************************************************************************************
+**                          Includes                                                               **
+****************************************************************************************************/
+#include "Os_mpu_types.h"
+#include "Os_mpu_Cfg.h"
+#include "Os_application_Cfg.h"
+/****************************************************************************************************
+**                          Global Macro Definitions                                               **
+****************************************************************************************************/
+
+/****************************************************************************************************
+**                          Global Variable Declarations                                           **
+****************************************************************************************************/
+
+/****************************************************************************************************
+**                          Global Constant Declarations                                           **
+****************************************************************************************************/
+
+/****************************************************************************************************
+**                          Global Inline Function Definitions                                     **
+****************************************************************************************************/
+
+/****************************************************************************************************
+**                          Global Function Declarations                                           **
+****************************************************************************************************/
+/*The config for application MPU regions*/
+extern CONSTP2CONST(Os_MpuConfigType, TYPEDEF, OS_CONST) OsMpu_ConfigSet_ApplicationsRefs[OS_APPLICATION_TOTAL_NUM + 1U];
+
+/*The config for Task MPU regions*/
+extern CONSTP2CONST(Os_MpuConfigType, TYPEDEF, OS_CONST) OsMpu_ConfigSet_ObjectRefs[OS_MPU_COUNT + 1U];
+
+/*The config for peripheral access*/
+extern CONSTP2CONST(Os_PeripheralConfigType, TYPEDEF, OS_CONST)  OsMpu_PeripheralRefs[OS_PERIPHERALID_COUNT + 1U];
+
+/*The config for access check*/
+extern CONSTP2CONST(Os_AccessConfigType, TYPEDEF, OS_CONST)  OsMpu_AccessCheck_ObjectRefs[OS_MPU_ACCESSCOUNT + 1U];
+
+[!INDENT "0"!][!//
+[!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsCoreIdMappingConfig"!][!//
+    [!LOOP "node:order(./*,'@index')"!][!//
+        [!IF "count(./OsCoreMemoryProtection/*) != 0"!][!//
+            extern const Os_HalCoreMpuConfigType OsMpu_ConfigSetCore[!"node:value(node:ref(./OsCoreId)/EcucCoreId)"!];
+        [!ENDIF!][!//
+    [!ENDLOOP!][!//
+[!ENDSELECT!][!//
+[!ENDINDENT!][!//
+
+#endif /* OS_ALARM_LCFG_H_ */
+
+/****************************************************************************************************
+**     End of File: Os_mpu_Lcfg.h                                                                **
+****************************************************************************************************/
+
