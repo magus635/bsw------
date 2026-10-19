@@ -494,6 +494,29 @@ class EcucContainerValue:
         return new_instance
 
 
+# ECUC-CONFIGURATION-VARIANT values allowed in IMPLEMENTATION-CONFIG-VARIANT
+STANDARD_CONFIG_VARIANTS = (
+    "VARIANT-PRE-COMPILE", "VARIANT-LINK-TIME", "VARIANT-POST-BUILD",
+    "VARIANT-POST-BUILD-LOADABLE", "VARIANT-POST-BUILD-SELECTABLE",
+    "PRECONFIGURED-CONFIGURATION", "RECOMMENDED-CONFIGURATION",
+)
+DEFAULT_CONFIG_VARIANT = "VARIANT-PRE-COMPILE"
+_VARIANT_KEYS = {v.replace("-", "").lower(): v for v in STANDARD_CONFIG_VARIANTS}
+
+
+def normalize_config_variant(value: Any) -> str:
+    """Standard AUTOSAR spelling of a configuration variant.
+
+    EB tresos writes ``VariantPreCompile`` / ``VariantPostBuild`` in XDM; the
+    ARXML enumeration is ``VARIANT-PRE-COMPILE`` / ``VARIANT-POST-BUILD``.
+    Empty gives the default (pre-compile); an unknown value is kept as it is.
+    """
+    text = str(value or "").strip()
+    if not text:
+        return DEFAULT_CONFIG_VARIANT
+    return _VARIANT_KEYS.get(text.replace("-", "").replace("_", "").lower(), text)
+
+
 @dataclass
 class EcucModuleConfiguration:
     """ECUC Module Configuration Values (ECUC-MODULE-CONFIGURATION-VALUES)
@@ -506,8 +529,13 @@ class EcucModuleConfiguration:
     # Top-level container instances
     containers: List[EcucContainerValue] = field(default_factory=list)
 
+    # Values of module-level parameters (EB tresos v:var directly on the module,
+    # e.g. Os "OsResourceSubderivative"); AUTOSAR has no place for them, so ARXML
+    # keeps them in the module's ADMIN-DATA (see ecuc_serializer)
+    parameter_values: Dict[str, 'EcucParameterValue'] = field(default_factory=dict)
+
     # Metadata
-    implementation_config_variant: str = "VariantPostBuild"
+    implementation_config_variant: str = DEFAULT_CONFIG_VARIANT
     package_name: Optional[str] = None  # AR-PACKAGE SHORT-NAME (preserved from original)
     is_modified: bool = False
     last_saved: Optional[datetime] = None
@@ -519,6 +547,14 @@ class EcucModuleConfiguration:
     # Structure: {"VariantName": {"Container.ParamName": value, ...}}
     variant_overrides: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     
+    def set_parameter_value(self, param_name: str, value: Any, definition_ref: str):
+        """Set the value of a module-level parameter."""
+        self.parameter_values[param_name] = EcucParameterValue(definition_ref=definition_ref, value=value)
+
+    def get_module_parameter(self, param_name: str, default: Any = None) -> Any:
+        param = self.parameter_values.get(param_name)
+        return param.value if param is not None else default
+
     def get_value_for_variant(self, param_path: str, variant: Optional[str]) -> tuple:
         """Get parameter value considering variant override
         

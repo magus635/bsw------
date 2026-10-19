@@ -6,6 +6,7 @@ from lxml import etree
 from typing import Optional
 from pathlib import Path
 from ..model.configuration_model import (
+    normalize_config_variant,
     EcucModuleConfiguration, 
     EcucContainerValue, 
     EcucParameterValue,
@@ -110,14 +111,27 @@ class EcucValueSerializer:
         # Module config short name
         mod_short_name = etree.SubElement(module_config, 'SHORT-NAME')
         mod_short_name.text = configuration.short_name
-        
+
+        # Module-level parameters (no place for them in AUTOSAR): ADMIN-DATA/SDG,
+        # read back by the ARXML parser
+        module_params = getattr(configuration, 'parameter_values', {}) or {}
+        if module_params:
+            from ..parser.arxml_parser import MODULE_PARAMETERS_GID
+            admin = etree.SubElement(module_config, 'ADMIN-DATA')
+            sdgs = etree.SubElement(admin, 'SDGS')
+            sdg = etree.SubElement(sdgs, 'SDG', GID=MODULE_PARAMETERS_GID)
+            for name in sorted(module_params):
+                sd = etree.SubElement(sdg, 'SD', GID=name)
+                value = module_params[name].value
+                sd.text = "" if value is None else str(value)
+                
         # Definition reference
         def_ref = etree.SubElement(module_config, 'DEFINITION-REF', DEST='ECUC-MODULE-DEF')
         def_ref.text = configuration.definition_ref
         
         # Implementation config variant
         variant = etree.SubElement(module_config, 'IMPLEMENTATION-CONFIG-VARIANT')
-        variant.text = configuration.implementation_config_variant
+        variant.text = normalize_config_variant(configuration.implementation_config_variant)
         
         # Containers
         containers_elem = etree.SubElement(module_config, 'CONTAINERS')

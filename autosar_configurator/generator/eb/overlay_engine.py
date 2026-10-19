@@ -68,14 +68,16 @@ class OverlayEngine:
         # Add module-level parameters (v:var in XDM directly on the module root).
         # These often have DEFAULT values and may not be set in the ARXML config.
         # Example: OsResourceSubderivative in Os.xdm with DEFAULT='Os_THA6206'.
+        module_values = getattr(configuration, 'parameter_values', {}) if configuration else {}
         for param_name, param_def in getattr(module_def, 'parameters', {}).items():
-            # Check if config overrides the default (not currently supported for module-level,
-            # but defaults are what matters for template conditions like OsResourceSubderivative)
+            # The configured value wins over the definition's default (template
+            # conditions such as OsResourceSubderivative = 'Os_SC300' depend on it)
+            configured = module_values.get(param_name)
             p_node = ConfigurationNode(
                 short_name=param_name,
                 node_type='parameter',
                 path=f"/{module_name}/{param_name}",
-                value=param_def.default_value,
+                value=configured.value if configured is not None else param_def.default_value,
                 default_value=param_def.default_value,
                 definition_ref=param_def.definition_ref,
                 param_type=param_def.param_type.value if hasattr(param_def.param_type, 'value') else str(param_def.param_type),

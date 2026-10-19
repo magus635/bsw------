@@ -7,6 +7,7 @@ from typing import Optional, List, Any
 from pathlib import Path
 
 from ..model.configuration_model import (
+    normalize_config_variant,
     EcucModuleConfiguration,
     EcucContainerValue,
     EcucParameterValue,
@@ -75,10 +76,18 @@ class XdmConfigParser:
         except etree.XMLSyntaxError as e:
             raise ValueError(f"XML parsing error in {file_path}: {e}")
 
+    def _is_disabled(self, element: etree._Element) -> bool:
+        """EB marks an optional item that is switched off with <a:a name="ENABLE" value="false"/>;
+        it is not part of the configuration."""
+        enable = element.xpath("./a:a[@name='ENABLE']/@value", namespaces=self.NAMESPACES)
+        return bool(enable) and enable[0].strip().lower() == "false"
+
     def _parse_children(self, parent_elem: etree._Element, parent_obj: Any):
         """Parse child elements of a container (d:ctr, d:chc, or module config)"""
         # We parse elements directly under parent_elem
         for child in parent_elem:
+            if not isinstance(child.tag, str) or self._is_disabled(child):
+                continue
             tag_local = etree.QName(child).localname
             if tag_local == 'var':
                 self._parse_parameter(child, parent_obj)
@@ -109,6 +118,10 @@ class XdmConfigParser:
         """Parse d:var element into a parameter value"""
         name = element.get('name')
         if not name:
+            return
+        if name == "IMPLEMENTATION_CONFIG_VARIANT" and isinstance(container, EcucModuleConfiguration):
+            # EB's module variable for the ARXML IMPLEMENTATION-CONFIG-VARIANT
+            container.implementation_config_variant = normalize_config_variant(element.get('value'))
             return
             
         value = element.get('value')
@@ -169,8 +182,13 @@ class XdmConfigParser:
             else:
                 container.set_reference_value(name, value, def_ref)
 
-    def _parse_container(self, element: etree._Element, parent_obj: Any):
-        """Parse d:ctr element into a sub-container"""
+    def _parse_container(self, element: etree._Element, parent_obj: Any, def_name: Optional[str] = None):
+        """Parse d:ctr element into a sub-container
+
+        Args:
+            def_name: definition name when it differs from the instance name - an
+                instance in a ``d:lst`` (e.g. ``OsMemoryMap`` for ``CODE_QM_CORE0``)
+        """
         name = element.get('name')
         if not name:
             i_type = element.get('type')
@@ -178,8 +196,8 @@ class XdmConfigParser:
                 name = i_type
             else:
                 name = "UnknownContainer"
-                
-        def_ref = self._get_def_ref(element, parent_obj, name)
+
+        def_ref = self._get_def_ref(element, parent_obj, def_name or name)
         
         container = EcucContainerValue(short_name=name, definition_ref=def_ref)
         
@@ -194,8 +212,8 @@ class XdmConfigParser:
             container.parent = parent_obj
             parent_obj.add_sub_container(container)
             
-    def _parse_choice(self, element: etree._Element, parent_obj: Any):
-        """Parse d:chc element"""
+    def _parse_choice(self, element: etree._Element, parent_obj: Any, def_name: Optional[str] = None):
+        """Parse d:chc element (``def_name``: see _parse_container)"""
         # In EB Tresos XDM, d:chc acts as a wrapper around the chosen d:ctr or d:var
         # The choice itself has a name, and its value attribute specifies the name of the chosen child
         name = element.get('name')
@@ -205,7 +223,7 @@ class XdmConfigParser:
             return
             
         # Create a container representing the choice node
-        def_ref = self._get_def_ref(element, parent_obj, name)
+        def_ref = self._get_def_ref(element, parent_obj, def_name or name)
         chc_container = EcucContainerValue(short_name=name, definition_ref=def_ref)
         
         # Find the active child
@@ -246,6 +264,8 @@ class XdmConfigParser:
         list_name = element.get('name')
         
         for index, child in enumerate(element):
+            if not isinstance(child.tag, str) or self._is_disabled(child):
+                continue
             tag_local = etree.QName(child).localname
             # If the child doesn't have a name, supply the list name so it maps correctly
             # Wait, in XDM, list items often inherit the list name or have indexed naming.
@@ -260,8 +280,8 @@ class XdmConfigParser:
             elif tag_local == 'ctr':
                 # Sub-containers in a list. In EcucModel, sub-containers don't have "multi" arrays.
                 # They are just multiple containers with the same definition reference.
-                # So we just parse them directly.
-                self._parse_container(child, parent_obj)
+                # So we just parse them directly - their definition is the list's.
+                self._parse_container(child, parent_obj, def_name=list_name)
             elif tag_local == 'chc':
-                self._parse_choice(child, parent_obj)
+                self._parse_choice(child, parent_obj, def_name=list_name)
 

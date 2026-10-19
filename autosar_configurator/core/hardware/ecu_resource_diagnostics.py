@@ -281,7 +281,11 @@ def check_selectors(project, chip) -> List[str]:
         configuration = getattr(manager, "configuration", None) if manager else None
         if configuration is None:
             continue
-        for value in _find_parameter_values(configuration.containers, param):
+        values = _find_parameter_values(configuration.containers, param)
+        module_param = (getattr(configuration, "parameter_values", {}) or {}).get(param)
+        if module_param is not None and module_param.value not in (None, ""):
+            values.append(module_param.value)       # module-level selector (e.g. Os)
+        for value in values:
             if str(value) != declared:
                 messages.append(f"{key} is configured as '{value}' but the selected chip "
                                 f"{chip.name} declares '{declared}'")

@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 from ..model.container import Container, Parameter
 from ..model.base import ArxmlElement
-from ..model.configuration_model import EcucModuleConfiguration, EcucContainerValue
+from ..model.configuration_model import EcucModuleConfiguration, EcucContainerValue, normalize_config_variant
 
 
 # AUTOSAR element naming convention: uppercase letter followed by uppercase
@@ -409,10 +409,23 @@ class ArxmlParser:
             definition_ref=definition_ref
         )
 
-        # Parse IMPLEMENTATION-CONFIG-VARIANT
+        # Parse IMPLEMENTATION-CONFIG-VARIANT (XDM spellings become the standard ones;
+        # an unknown value is kept as written)
         variant_text = self._get_text_value(element, 'IMPLEMENTATION-CONFIG-VARIANT')
         if variant_text:
-            config.implementation_config_variant = variant_text
+            config.implementation_config_variant = normalize_config_variant(variant_text)
+
+        # Module-level parameters kept in ADMIN-DATA by this tool (see ecuc_serializer)
+        admin = self._find_child(element, 'ADMIN-DATA')
+        if admin is not None:
+            for sdg in self._findall_descendants(admin, 'SDG'):
+                if sdg.get('GID') != MODULE_PARAMETERS_GID:
+                    continue
+                for sd in self._findall_children(sdg, 'SD'):
+                    name = sd.get('GID')
+                    if name:
+                        config.set_parameter_value(
+                            name, _module_parameter_value(sd.text), f"{definition_ref}/{name}")
         
         # Parse containers
         containers_elem = self._find_descendant(element, 'CONTAINERS')
@@ -799,3 +812,24 @@ class ArxmlParser:
             return float(text) if text else default
         except ValueError:
             return default
+
+
+# GID of the ADMIN-DATA SDG that holds module-level parameter values
+MODULE_PARAMETERS_GID = "ModuleParameters"
+
+
+def _module_parameter_value(text):
+    """SD text -> value, typed like XDM values (booleans 1/0, numbers, else text)."""
+    if text is None:
+        return None
+    t = text.strip()
+    if t.lower() in ("true", "false"):
+        return 1 if t.lower() == "true" else 0
+    try:
+        return int(t)
+    except ValueError:
+        pass
+    try:
+        return float(t)
+    except ValueError:
+        return t
