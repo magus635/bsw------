@@ -136,6 +136,18 @@ class EcucDefParser:
                         f"but a module definition (ECUC-MODULE-DEF) was expected. "
                         f"Please select the correct BSW Module Definition file (checking {file_path})."
                     )
+                # EB tresos value file: <d:chc value="MODULE-CONFIGURATION"> with
+                # <a:a name="DEF" value="ASPath:/<Plugin>/<Module>"/>
+                xdm_config = root.xpath(".//d:chc[@value='MODULE-CONFIGURATION']", namespaces=self.NAMESPACES)
+                if xdm_config:
+                    defs = xdm_config[0].xpath(".//a:a[@name='DEF']/@value", namespaces=self.NAMESPACES)
+                    def_hint = f" Its definition is {defs[0]}." if defs else ""
+                    raise ValueError(
+                        f"{file_path} is an EB tresos configuration value file (MODULE-CONFIGURATION), "
+                        f"not a module definition (MODULE-DEF).{def_hint} "
+                        f"Add the module with its definition file (the plugin's config/<Module>.xdm), "
+                        f"then load this file with Import Value File."
+                    )
                 
                 raise ValueError(f"No ECUC-MODULE-DEF found in {file_path}")
             
