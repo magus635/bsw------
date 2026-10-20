@@ -175,6 +175,26 @@ def test_scatter_script_is_generated_under_its_own_name(tmp_path):
     assert (tmp_path / "out" / "Test" / "Test" / "scatter.scat").read_text(encoding="utf-8").strip() == "LR 4"
 
 
+def test_generated_file_ends_with_a_line_break(tmp_path):
+    """EB ends every generated file with a line break, also when the template's last line has none"""
+    module = EcucModuleDef(short_name="Test", definition_ref="/AUTOSAR/EcucDefs/Test")
+    module.add_container(EcucContainerDef(short_name="TestContainer",
+                                          definition_ref="/AUTOSAR/EcucDefs/Test/TestContainer"))
+    manager = ConfigurationManager(module)
+
+    mod_dir = tmp_path / "templates" / "Test"
+    mod_dir.mkdir(parents=True)
+    (mod_dir / "Test_Cfg.h").write_bytes(b'#define X [!"num:i(1)"!]\r\n#endif')
+    (mod_dir / "Test_Lcfg.c").write_bytes(b'[!"num:i(2)"!]\n')
+
+    generator = CodeGenerator(module, manager.configuration, project_template_dir=tmp_path / "templates")
+    assert generator.generate_all(tmp_path / "out") is True
+    cfg = (tmp_path / "out" / "Test" / "include" / "Test_Cfg.h").read_text(encoding="utf-8")
+    assert cfg.endswith("#endif\n") and not cfg.endswith("\n\n")
+    # a template that ends with a line break gets no second one
+    assert (tmp_path / "out" / "Test" / "src" / "Test_Lcfg.c").read_text(encoding="utf-8") == "2\n"
+
+
 def test_no_templates_module_is_skipped(tmp_path):
     """BREAKING behavior: no templates -> no files, skipped status, no fallback"""
     module, manager = _make_test_module()

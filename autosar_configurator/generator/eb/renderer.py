@@ -361,12 +361,26 @@ class Renderer:
                     content = tok.content
 
                     # Consume the line-ending newline of a directive-only line (e.g. VAR-only line).
+                    # Not when a [!// already removed that line's break (the text then starts the
+                    # next template line, and its newline is an intended blank line), nor after a
+                    # "[!// text" comment, which keeps the line break (EB outputs it)
                     if self._suppress_next_newline:
                         self._suppress_next_newline = False
-                        if content.startswith('\r\n'):
+                        if tok.after_line_comment or tok.after_comment:
+                            pass
+                        elif content.startswith('\r\n'):
                             content = content[2:]
                         elif content.startswith('\n') or content.startswith('\r'):
                             content = content[1:]
+                        if not content:
+                            i += 1
+                            continue
+
+                    # A template line that follows a [!// line: inside [!INDENT!] its leading
+                    # whitespace is layout (EB drops it even mid output line, "0UL" + "," -> "0UL,");
+                    # outside, it is output as written ("    }," after [!ENDINDENT!][!//)
+                    if tok.after_line_comment and len(self._indent_stack) > 1:
+                        content = content.lstrip(' \t')
                         if not content:
                             i += 1
                             continue
@@ -389,8 +403,9 @@ class Renderer:
                                 self._output_buffer.append('\n')
                                 self._at_line_start = True
                                 self._indent_added_on_this_line = False
-                        # Otherwise, check for leading whitespace
-                        elif content and (content[0] == ' ' or content[0] == '\t'):
+                        # Otherwise, check for leading whitespace (not the kept indentation of a
+                        # line after [!//: EB writes it where it stands, without a line break)
+                        elif content and (content[0] == ' ' or content[0] == '\t') and not tok.after_line_comment:
                              if self._output_buffer and not self._output_buffer[-1].endswith('\n'):
                                 self._output_buffer.append('\n')
                                 self._at_line_start = True

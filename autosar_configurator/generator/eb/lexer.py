@@ -61,7 +61,12 @@ class Token:
     column: int = 0        # Column number in source
     raw: str = ""          # Original raw text including delimiters
     directive_only_line: bool = False  # True if this token is on a line with only directives
-    
+    # TEXT that starts a template line whose newline a [!// line comment consumed: inside
+    # [!INDENT!] its leading whitespace is template layout (EB drops it), outside it is output
+    after_line_comment: bool = False
+    # TEXT right after a "[!// text" comment (the line break stays and is output)
+    after_comment: bool = False
+
     def __repr__(self):
         if self.type == TokenType.TEXT:
             preview = self.content[:20] + "..." if len(self.content) > 20 else self.content
@@ -80,7 +85,19 @@ class Lexer:
     # Must not match [!//!] (line continuation) or [!// comment !] (inline comment with !] terminator).
     # Inline comments that end with !] are left for TAG_PATTERN so _parse_tag() returns a COMMENT token,
     # allowing text after !] on the same line to be preserved (e.g. Before[!// c !]After -> BeforeAfter).
-    LINE_COMMENT_PATTERN = re.compile(r'\[!//(?!!])(?!\])(?![^\n]*!])[^\n]*\n?[\t ]*')
+    # As in EB, only a bare "[!//" at the end of a line also removes the line break (group 1);
+    # "[!// text" - even "[!//" followed by spaces - is a comment and the line break stays.
+    # After a removed line break, the indentation of the next line is consumed only when that line
+    # starts with a control directive ([!IF, [!VAR, [!// ...): it is template layout. Before text or
+    # an output tag ([!"..."!]) it is kept - EB writes "    }," after "[!ENDINDENT!][!//".
+    LINE_COMMENT_PATTERN = re.compile(
+        r'\[!//(?!!])(?!\])(?![^\n]*!])(?:(\r?\n)(?:[\t ]*(?=\[!(?!["\'])))?|[^\n]*)')
+
+    # Put in place of a line comment that consumed its newline: marks where the next template line
+    # starts (see Token.after_line_comment). Never part of a token's content.
+    LINE_START_MARK = '\x00'
+    # Put in place of a "[!// text" comment, whose line break stays (see Token.after_comment)
+    COMMENT_MARK = '\x01'
 
     # Pattern for block comments [!/* ... */!] that contain nested [! tags
     # These confuse TAG_PATTERN's non-greedy !] matching; must be stripped first.
@@ -146,8 +163,9 @@ class Lexer:
         # First, handle line continuations [!//!] - removes marker AND following newline
         processed = self.LINE_CONTINUATION_PATTERN.sub('', template)
         
-        # Then, strip line comments [!// ... (to end of line)
-        processed = self.LINE_COMMENT_PATTERN.sub('', processed)
+        # Then, strip line comments [!// ... (to end of line), marking where the next line starts
+        processed = self.LINE_COMMENT_PATTERN.sub(
+            lambda m: self.LINE_START_MARK if m.group(1) else self.COMMENT_MARK, processed)
 
         # Strip block comments [!/* ... */!] before TAG_PATTERN matching
         processed = self.BLOCK_COMMENT_PATTERN.sub('', processed)
@@ -157,14 +175,11 @@ class Lexer:
         for match in self.TAG_PATTERN.finditer(processed):
             # Add TEXT token for content before this tag
             if match.start() > last_pos:
-                text_content = processed[last_pos:match.start()]
-                if text_content:
-                    tokens.append(self._make_text_token(text_content))
-                    self._update_position(text_content)
-            
+                self._add_text_tokens(tokens, processed[last_pos:match.start()])
+
             # Parse the tag content
-            tag_content = match.group(1)
-            raw_tag = match.group(0)
+            tag_content = self._unmark(match.group(1))
+            raw_tag = self._unmark(match.group(0))
             token = self._parse_tag(tag_content, raw_tag)
             tokens.append(token)
             
@@ -173,9 +188,7 @@ class Lexer:
         
         # Add remaining text
         if last_pos < len(processed):
-            text_content = processed[last_pos:]
-            if text_content:
-                tokens.append(self._make_text_token(text_content))
+            self._add_text_tokens(tokens, processed[last_pos:])
 
         # Post-process for directive-only lines and smart trimming
         tokens = self._identify_directive_lines(tokens)
@@ -228,6 +241,26 @@ class Lexer:
         return tokens
     
     
+    def _unmark(self, text: str) -> str:
+        return text.replace(self.LINE_START_MARK, '').replace(self.COMMENT_MARK, '')
+
+    def _add_text_tokens(self, tokens: List[Token], text: str):
+        """TEXT token(s) for text between tags, split where a line comment was removed;
+        the token after a mark carries it (after_line_comment / after_comment)."""
+        mark = None
+        for part in re.split('([\x00\x01])', text):
+            if part == self.LINE_START_MARK:
+                mark = 'after_line_comment'
+            elif part == self.COMMENT_MARK:
+                mark = 'after_comment'
+            elif part:
+                token = self._make_text_token(part)
+                if mark:
+                    setattr(token, mark, True)
+                tokens.append(token)
+                self._update_position(part)
+                mark = None
+
     def _make_text_token(self, content: str) -> Token:
         """Create a TEXT token"""
         return Token(

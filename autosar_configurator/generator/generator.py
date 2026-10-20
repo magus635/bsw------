@@ -604,6 +604,10 @@ class CodeGenerator:
                 context['all_modules'] = self.all_configurations
                 try:
                     rendered = eb_engine.render(template_content, context, ecu_resources=self.ecu_resources, template_file=original_path)
+                    # EB ends every generated file with a line break, also when the template's
+                    # last line has none (written in text mode: the platform's line break)
+                    if rendered and not rendered.endswith(('\n', '\r')):
+                        rendered += '\n'
                     for warning in getattr(eb_engine.enable_result, 'warnings', None) or []:
                         if warning not in self.warnings:
                             self.warnings.append(warning)
