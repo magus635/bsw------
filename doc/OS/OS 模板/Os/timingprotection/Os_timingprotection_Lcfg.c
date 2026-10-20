@@ -134,6 +134,8 @@
 [!INDENT "0"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsApplication"!][!//
     [!LOOP "node:order(./*,"@index")"!][!//
+#define OS_START_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
         [!LOOP "node:order(./OsAppTaskRef/*,"@index")"!][!//
         [!IF "node:exists(node:ref(.)/OsTaskTimingProtection/*[1])"!][!//
         [!VAR "OsSecondsPerTick" = "node:value(node:ref(node:ref(./../../OsApplicationCoreRef)/OsTpCounterRef)/OsSecondsPerTick)"!][!//
@@ -226,6 +228,8 @@
 
         [!ENDIF!][!//
         [!ENDLOOP!][!//
+#define OS_STOP_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"  
     [!ENDLOOP!][!//
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
@@ -233,6 +237,8 @@
 [!INDENT "0"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsApplication"!][!//
     [!LOOP "node:order(./*,"@index")"!][!//
+#define OS_START_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
         [!LOOP "node:order(./OsAppIsrRef/*,"@index")"!][!//
         [!IF "node:exists(node:ref(.)/OsIsrTimingProtection/*[1])"!][!//
         [!VAR "OsSecondsPerTick" = "node:value(node:ref(node:ref(./../../OsApplicationCoreRef)/OsTpCounterRef)/OsSecondsPerTick)"!][!//
@@ -325,6 +331,8 @@
 
         [!ENDIF!][!//
         [!ENDLOOP!][!//
+#define OS_STOP_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"              
     [!ENDLOOP!][!//
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
@@ -349,6 +357,8 @@
 [!INDENT "0"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsApplication"!][!//
 [!IF "$TotalTpUsedNumber != 0"!][!//
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 CONSTP2CONST(Os_TpObjectConfigType, TYPEDEF, OS_CONST) Os_TimingProection_ObjSet[TOTAL_TPUSED_NUM] =
 {
     [!INDENT "4"!][!//
@@ -366,6 +376,8 @@ CONSTP2CONST(Os_TpObjectConfigType, TYPEDEF, OS_CONST) Os_TimingProection_ObjSet
     [!ENDLOOP!][!//
     [!ENDINDENT!][!//
 };
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 [!ENDIF!][!//
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//

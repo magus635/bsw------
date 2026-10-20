@@ -80,6 +80,8 @@
 [!VAR "HookObjectID" = "0"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsApplication"!][!//
     [!LOOP "node:order(./*,'@index')"!][!//
+#define OS_START_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
         [!VAR "HookObjectID" = "num:i($HookObjectID + count(./OsAppTaskRef/*) + count(./OsAppIsrRef/*) + count(./OsAppCounterRef/*)) + count(./OsAppAlarmRef/*) + count(./OsAppScheduleTableRef/*)"!][!//
             /* AppID [!"./@index"!]*/
             [!IF "node:name(node:ref(node:ref(./OsApplicationCoreRef)/OsKernelApplication)) != node:name(.)"!][!//
@@ -228,11 +230,15 @@
     [!CALL "Os_Calculate_Hook_ObjectCount", "AppID"= "$AppID","HookObjectIDCount" ="$HookObjectIDCount"!][!//
     [!VAR "CurrentAppObjectCnt" = "num:i($CurrentAppObjectCnt + count(./OsAppTaskRef/*) + count(./OsAppIsrRef/*) + count(./OsAppCounterRef/*) + count(./OsAppAlarmRef/*) + count(./OsAppScheduleTableRef/*) + num:i($HookObjectIDCount) + num:i($IocCbkObjectIDCount))"!][!//
     [!VAR "HookObjectID" = "$CurrentAppObjectCnt"!][!//
+#define OS_STOP_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"   
     [!ENDLOOP!][!//
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
 
 [!INDENT "0"!][!//
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 /* Overall App Hooks */
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsApplication"!][!//
     const Os_AppHooksConfigType Os_AppHooksConfigSet =
@@ -249,6 +255,8 @@
         [!ENDINDENT!][!//
     };
 [!ENDSELECT!][!//
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 [!ENDINDENT!][!//
 
 /****************************************************************************************************

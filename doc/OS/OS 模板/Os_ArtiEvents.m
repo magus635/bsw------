@@ -112,15 +112,15 @@
 [!IF "node:value(./OsOS/OsHooks/OsShutdownHook) = 'true'"!][!VAR "ArtiEvents" = "concat($ArtiEvents, 'NOSUSP:AR_CP_OS_HOOK:OsHook_ShutdownHook_Start:LastError;NOSUSP:AR_CP_OS_HOOK:OsHook_ShutdownHook_Return:-;')"!][!ENDIF!][!//
 [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
 [!VAR "App" = "node:name(.)"!][!//
-[!IF "node:value(./OsApplicationHooks/OsAppErrorHook) = 'true'"!][!//
+[!IF "node:exists(./OsApplicationHooks/OsAppErrorHook) and node:value(./OsApplicationHooks/OsAppErrorHook) = 'true'"!][!//
 [!VAR "ArtiAppHooks" = "concat($ArtiAppHooks, 'ErrorHook/', $App, '/', num:i(@index), ',')"!][!//
 [!VAR "ArtiEvents" = "concat($ArtiEvents, 'NOSUSP:AR_CP_OS_HOOK:OsHook_ErrorHook_', $App, '_Start:LastError;NOSUSP:AR_CP_OS_HOOK:OsHook_ErrorHook_', $App, '_Return:-;')"!][!//
 [!ENDIF!][!//
-[!IF "node:value(./OsApplicationHooks/OsAppStartupHook) = 'true'"!][!//
+[!IF "node:exists(./OsApplicationHooks/OsAppStartupHook) and node:value(./OsApplicationHooks/OsAppStartupHook) = 'true'"!][!//
 [!VAR "ArtiAppHooks" = "concat($ArtiAppHooks, 'StartupHook/', $App, '/', num:i(@index), ',')"!][!//
 [!VAR "ArtiEvents" = "concat($ArtiEvents, 'NOSUSP:AR_CP_OS_HOOK:OsHook_StartupHook_', $App, '_Start:-;NOSUSP:AR_CP_OS_HOOK:OsHook_StartupHook_', $App, '_Return:-;')"!][!//
 [!ENDIF!][!//
-[!IF "node:value(./OsApplicationHooks/OsAppShutdownHook) = 'true'"!][!//
+[!IF "node:exists(./OsApplicationHooks/OsAppShutdownHook) and node:value(./OsApplicationHooks/OsAppShutdownHook) = 'true'"!][!//
 [!VAR "ArtiAppHooks" = "concat($ArtiAppHooks, 'ShutdownHook/', $App, '/', num:i(@index), ',')"!][!//
 [!VAR "ArtiEvents" = "concat($ArtiEvents, 'NOSUSP:AR_CP_OS_HOOK:OsHook_ShutdownHook_', $App, '_Start:LastError;NOSUSP:AR_CP_OS_HOOK:OsHook_ShutdownHook_', $App, '_Return:-;')"!][!//
 [!ENDIF!][!//

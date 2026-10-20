@@ -122,6 +122,11 @@
         [!ENDIF!][!//
     [!ENDLOOP!][!//
     [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
+        [!IF "num:i(count(./OsAppIsrRef/*)) != '0'"!][!//
+#define OS_START_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
+        [!ENDIF!][!//
+
         [!VAR "IsrObjectID"="num:i($IsrObjectID + count(./OsAppTaskRef/*))"!][!//
         [!LOOP "node:order(./OsAppIsrRef/*,'@index')"!][!//
             [!IF "contains($AllISRInApp, concat(',', node:name(node:ref(.)), ','))"!][!//
@@ -174,7 +179,7 @@
                     [!ENDIF!][!//
                 [!ENDIF!][!//
             [!ENDIF!][!//
-            static const Os_IsrConfigType [!"node:name(node:ref(.))"!] =
+            static const Os_IsrConfigType [!"node:name(node:ref(.))"!]_isr =
             {
                 [!INDENT "4"!][!//
                 /* isrHWConfig */
@@ -218,6 +223,11 @@
         [!CALL "Os_Calculate_Hook_ObjectCount", "AppID"= "$AppID","HookObjectIDCount" ="$HookObjectIDCount"!][!//
         [!VAR "CurrentAppObjectCnt" = "num:i($CurrentAppObjectCnt + count(./OsAppTaskRef/*) + count(./OsAppIsrRef/*) + count(./OsAppCounterRef/*) + count(./OsAppAlarmRef/*) + count(./OsAppScheduleTableRef/*) + num:i($HookObjectIDCount) + num:i($IocCbkObjectIDCount))"!][!//
         [!VAR "IsrObjectID" = "$CurrentAppObjectCnt"!][!//
+        [!IF "num:i(count(./OsAppIsrRef/*)) != '0'"!][!//
+#define OS_STOP_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
+
+        [!ENDIF!][!//
     [!ENDLOOP!][!//
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
@@ -228,6 +238,9 @@
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
 [!LOOP "node:order(./OsCoreIdMappingConfig/*,'OsPhysicalCoreId')"!][!//
 [!VAR "CurrentCore" = "num:i(OsPhysicalCoreId)"!][!//
+#define OS_START_SEC_CONFIG_DATA_QM_CORE[!"num:i($CurrentCore)"!]_UNSPECIFIED
+#include "Os_memmap.h"
+
 static const Os_IsrConfigRefType Os_Core[!"$CurrentCore"!]_InternalIntVecTable[OS_ISR_INTERNALINT_TOTAL_NUM] =
 {
     [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
@@ -243,7 +256,7 @@ static const Os_IsrConfigRefType Os_Core[!"$CurrentCore"!]_InternalIntVecTable[O
             [!IF "$CurrentCore = node:ref(OsApplicationCoreRef)/OsPhysicalCoreId"!][!//
                 [!LOOP "node:order(./OsAppIsrRef/*,'@index')"!][!//
                     [!IF "node:ref(.)/OsIsrInterruptSource = $IntVecTableCount"!][!//
-                        &[!"node:name(node:ref(.))"!][!IF "$IntVecTableCount < 31"!],[!ENDIF!]
+                        &[!"node:name(node:ref(.))"!]_isr[!IF "$IntVecTableCount < 31"!],[!ENDIF!]
                         [!VAR "FindIsrFlag"="'true'"!][!//
                         [!BREAK!][!//
                     [!ENDIF!][!//
@@ -260,12 +273,19 @@ static const Os_IsrConfigRefType Os_Core[!"$CurrentCore"!]_InternalIntVecTable[O
     [!ENDFOR!][!//
     [!ENDSELECT!][!//
 };
+
+#define OS_STOP_SEC_CONFIG_DATA_QM_CORE[!"num:i($CurrentCore)"!]_UNSPECIFIED
+#include "Os_memmap.h"
+
 [!ENDLOOP!][!//
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
 
 [!INDENT "0"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
+
 P2CONST(Os_IsrConfigRefType, AUTOMATIC, OS_CONST) Os_Cores_InternalIntVecTable[OS_KERNEL_MAX_CORE_NUM] =
 {
 [!INDENT "4"!][!//
@@ -282,6 +302,11 @@ P2CONST(Os_IsrConfigRefType, AUTOMATIC, OS_CONST) Os_Cores_InternalIntVecTable[O
 [!ENDFOR!][!//
 [!ENDINDENT!][!//
 };
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
+
+#define OS_START_SEC_CONFIG_DATA_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 
 const Os_IsrConfigRefType Os_PeripheralIntVecTable[OS_ISR_SPI_TOTAL_NUM] = 
 {
@@ -302,7 +327,7 @@ const Os_IsrConfigRefType Os_PeripheralIntVecTable[OS_ISR_SPI_TOTAL_NUM] =
             [!ENDERROR!][!//
         [!ENDIF!][!//
         [!IF "OsIsrInterruptSource = $IntVecTableCount"!][!//
-            &[!"node:name(.)"!][!//
+            &[!"node:name(.)"!]_isr[!//
             [!IF "$IntVecTableCount < 991"!][!//
                 ,
             [!ENDIF!][!//
@@ -318,6 +343,12 @@ const Os_IsrConfigRefType Os_PeripheralIntVecTable[OS_ISR_SPI_TOTAL_NUM] =
 };
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
+
+#define OS_STOP_SEC_CONFIG_DATA_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
+
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 
 [!INDENT "0"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
@@ -346,12 +377,15 @@ const Os_IsrConfigRefType Os_IsrConfigSet[OS_ISR_TOTAL_NUM] =
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
     [!INDENT "4"!][!//
     [!LOOP "node:order(./OsIsr/*,'num:i(@index)')"!][!//
-        &[!"node:name(.)"!][!IF "not(node:islast(.))"!],[!ENDIF!]
+        &[!"node:name(.)"!]_isr[!IF "not(node:islast(.))"!],[!ENDIF!]
     [!ENDLOOP!][!//
     [!ENDINDENT!][!//
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
 };
+
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 
 /****************************************************************************************************
 **              Private Function Declarations                      **

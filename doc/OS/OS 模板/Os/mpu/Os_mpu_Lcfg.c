@@ -64,7 +64,7 @@
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/MemoryBlock"!][!//
     [!LOOP "node:order(./*, '@index')"!][!//
         extern uint32 Image$$[!"node:name(.)"!]$$Base;
-        extern uint32 Image$$[!"node:name(.)"!]_LIMIT$$Base;
+        extern uint32 Image$$[!"node:name(.)"!]$$ZI$$Limit;
         
     [!ENDLOOP!][!//
 [!ENDSELECT!][!//
@@ -80,6 +80,8 @@
 [!INDENT "0"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsCoreIdMappingConfig"!][!//
     [!LOOP "node:order(./*,'@index')"!][!//
+#define OS_START_SEC_CONST_QM_CORE[!"num:i(./OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
         [!IF "count(./OsCoreMemoryProtection/*) != 0"!][!//
 
         const Os_HalMpuRegionType OsMpu_ConfigSet_Core[!"node:value(node:ref(./OsCoreId)/EcucCoreId)"!]_Regions[[!"num:i(count(./OsCoreMemoryProtection/*))"!]] =
@@ -133,6 +135,8 @@
             [!ENDINDENT!][!//
         };
         [!ENDIF!][!//
+#define OS_STOP_SEC_CONST_QM_CORE[!"num:i(./OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"  
     [!ENDLOOP!][!//
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
@@ -140,6 +144,8 @@
 [!INDENT "0"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsApplication"!][!//
     [!LOOP "node:order(./*,'@index')"!][!//
+#define OS_START_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
         [!IF "count(./OsAppMemoryProtection/*) != 0"!][!//
         const Os_HalMpuRegionType OsMpu_ConfigSet_[!"node:name(.)"!]_Regions[[!"num:i(count(./OsAppMemoryProtection/*))"!]] =
         {
@@ -176,8 +182,12 @@
             [!ENDINDENT!][!//
         };
         [!ENDIF!][!//
+#define OS_STOP_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"    
     [!ENDLOOP!][!//
 
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 CONSTP2CONST(Os_MpuConfigType, TYPEDEF, OS_CONST) OsMpu_ConfigSet_ApplicationsRefs[OS_APPLICATION_TOTAL_NUM + 1U] =
 {
     [!INDENT "4"!][!//
@@ -191,6 +201,8 @@ CONSTP2CONST(Os_MpuConfigType, TYPEDEF, OS_CONST) OsMpu_ConfigSet_ApplicationsRe
     NULL_PTR
     [!ENDINDENT!][!//
 };
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
 
@@ -208,6 +220,8 @@ CONSTP2CONST(Os_MpuConfigType, TYPEDEF, OS_CONST) OsMpu_ConfigSet_ApplicationsRe
             [!ENDLOOP!][!//
         [!ENDSELECT!][!//
         [!LOOP "node:order(../../OsApplication/*,'@index')"!][!//
+#define OS_START_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
             [!LOOP "node:order(./OsAppTaskRef/*,'@index')"!][!//
                 [!IF "(count(node:ref(.)/OsTaskMemoryProtection/*) != 0) and (num:i($CurrentCoreIDCheckIndex) = num:i(node:ref(node:ref(../../OsApplicationCoreRef)/OsCoreId)/EcucCoreId))"!][!//
 
@@ -337,12 +351,16 @@ CONSTP2CONST(Os_MpuConfigType, TYPEDEF, OS_CONST) OsMpu_ConfigSet_ApplicationsRe
 
                 [!ENDIF!][!//
             [!ENDLOOP!][!//
+#define OS_STOP_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"  
         [!ENDLOOP!][!//
     [!ENDLOOP!][!//
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
 
 [!INDENT "0"!][!//
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 CONSTP2CONST(Os_MpuConfigType, TYPEDEF, OS_CONST) OsMpu_ConfigSet_ObjectRefs[OS_MPU_COUNT + 1U] =
 {   
     [!INDENT "4"!][!//
@@ -421,6 +439,8 @@ CONSTP2CONST(Os_AccessConfigType, TYPEDEF, OS_CONST) OsMpu_AccessCheck_ObjectRef
 
 /***************************************Peripheral Region End***************************************/
 [!ENDSELECT!][!//
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 [!ENDINDENT!][!//
 
 

@@ -73,12 +73,17 @@ static Os_HookDynamicType Os_HookRunningData_Core[!"num:i(node:ref(./OsCoreId)/E
 static Os_TpRunningDataType Os_TimingProtection_Core[!"num:i(node:ref(./OsCoreId)/EcucCoreId)"!]RunningData;
 [!ENDIF!][!//
 static boolean AlarmCallbackIndication_Core[!"num:i(node:ref(./OsCoreId)/EcucCoreId)"!];
-static Os_CoreRunningDataType Os_KernelRunningData_Core[!"num:i(node:ref(./OsCoreId)/EcucCoreId)"!];
 #define OS_STOP_SEC_TRUSTED_VAR_CLEARED_QM_CORE[!"num:i(./OsPhysicalCoreId)"!]_32
 #include "Os_memmap.h"
 
+#define OS_START_SEC_VAR_NO_INIT_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
+static Os_CoreRunningDataType Os_KernelRunningData_Core[!"num:i(node:ref(./OsCoreId)/EcucCoreId)"!];
+#define OS_STOP_SEC_VAR_NO_INIT_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
+
     [!ENDLOOP!][!//
-[!ENDSELECT!][!//
+[!ENDSELECT!][!// 
 [!ENDINDENT!][!//
 
 [!INDENT "0"!][!//
@@ -131,6 +136,8 @@ static Os_CoreRunningDataType Os_KernelRunningData_Core[!"num:i(node:ref(./OsCor
 [!VAR "CoreID" = "0"!][!//
 [!LOOP "node:order(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsCoreIdMappingConfig/*, '@index')"!][!//
     [!VAR "CoreID" = "num:i(node:ref(./OsCoreId)/EcucCoreId)"!][!//
+#define OS_START_SEC_CONST_QM_CORE[!"$CoreID"!]_UNSPECIFIED
+#include "Os_memmap.h"
     [!VAR "PriorityCountList" = "''"!][!//
     [!VAR "EveryPriorityCountList" = "''"!][!//
     [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsApplication"!][!//
@@ -160,6 +167,8 @@ static Os_CoreRunningDataType Os_KernelRunningData_Core[!"num:i(node:ref(./OsCor
         [!ENDINDENT!][!//
     [!ENDFOR!][!//
     };
+#define OS_STOP_SEC_CONST_QM_CORE[!"$CoreID"!]_UNSPECIFIED
+#include "Os_memmap.h"       
 [!ENDLOOP!][!//
 [!ENDSELECT!][!//
 
@@ -169,6 +178,8 @@ static Os_CoreRunningDataType Os_KernelRunningData_Core[!"num:i(node:ref(./OsCor
 [!VAR "CoreID" = "0"!][!//
 [!LOOP "node:order(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsCoreIdMappingConfig/*, '@index')"!][!//
     [!VAR "CoreID" = "num:i(node:ref(./OsCoreId)/EcucCoreId)"!][!//
+#define OS_START_SEC_CONST_QM_CORE[!"$CoreID"!]_UNSPECIFIED
+#include "Os_memmap.h"
     [!VAR "PriorityCountList" = "''"!][!//
     [!VAR "EveryPriorityCountList" = "''"!][!//
     [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsApplication"!][!//
@@ -198,6 +209,8 @@ static Os_CoreRunningDataType Os_KernelRunningData_Core[!"num:i(node:ref(./OsCor
         [!ENDINDENT!][!//
     [!ENDFOR!][!//
     };
+#define OS_STOP_SEC_CONST_QM_CORE[!"$CoreID"!]_UNSPECIFIED
+#include "Os_memmap.h"  
 [!ENDLOOP!][!//
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
@@ -207,6 +220,8 @@ static Os_CoreRunningDataType Os_KernelRunningData_Core[!"num:i(node:ref(./OsCor
 [!INDENT "0"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
     [!LOOP "node:order(./OsCoreIdMappingConfig/*,'@index')"!][!//
+#define OS_START_SEC_CONST_QM_CORE[!"$CoreID"!]_UNSPECIFIED
+#include "Os_memmap.h"
 static const Os_CorenCfg_Type Os_Core[!"num:i(node:ref(./OsCoreId)/EcucCoreId)"!]_CfgSet =
 {
     [!INDENT "4"!][!//
@@ -254,10 +269,14 @@ static const Os_CorenCfg_Type Os_Core[!"num:i(node:ref(./OsCoreId)/EcucCoreId)"!
     [!ENDIF!][!//    
     [!ENDINDENT!][!//
 };
+#define OS_STOP_SEC_CONST_QM_CORE[!"$CoreID"!]_UNSPECIFIED
+#include "Os_memmap.h"  
     [!ENDLOOP!][!//
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
 
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 static const CoreIdType OsKernel_CoreIDMapList[OS_KERNEL_MAX_CORE_NUM] =
 {
 [!INDENT "4"!][!//
@@ -306,7 +325,8 @@ CONST(Os_ConfigType, OS_CONST) Os_ConfigSet =
     (uint32)OS_SPINLOCK_TOTAL_NUM                                /* Spinlock total number */    
 };
 
-
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 
 /****************************************************************************************************
 **                          Private Function Declarations                                          **

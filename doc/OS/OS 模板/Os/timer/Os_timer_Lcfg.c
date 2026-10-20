@@ -96,7 +96,10 @@
 ****************************************************************************************************/
 [!INDENT "0"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsCounter"!][!//
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 [!LOOP "node:order(./*,'@index')"!][!//
+
     [!IF "node:value(./OsCounterType) = 'SOFTWARE'"!][!//
     [!ELSEIF "node:value(./OsTimerHighResolution) = 'false'"!]
         [!IF "node:ref(./OsTimerTypeIsrRef)/OsIsrInterruptSource = 30"!][!//
@@ -174,7 +177,8 @@
         [!ENDIF!][!//
     [!ENDIF!][!//
 [!ENDLOOP!][!//
-
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
 /****************************************************************************************************

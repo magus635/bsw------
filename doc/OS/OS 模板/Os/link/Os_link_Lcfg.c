@@ -122,7 +122,11 @@ extern uint32 Image$$CORE1_IRQ_STACK$$ZI$$Limit;
 extern uint32 Image$$CORE1_FIQ_STACK$$Base;
 extern uint32 Image$$CORE1_FIQ_STACK$$ZI$$Limit;
 
+#define OS_STOP_SEC_TRUSTED_VAR_CLEARED_QM_CORE0_32
+#include "Os_memmap.h"
 
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 const static Os_LinkBssMemCfg Os_MemZeroInit_StageOne_GroupSets[MEM_ZEROINIT_STAGEONE_NUM] =
 {
 [!INDENT "4"!][!//
@@ -319,7 +323,11 @@ const static Os_LinkDataMemCfg Os_MemDataInit_StageThree_GroupSets[MEM_DATAINIT_
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
 };
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 
+#define OS_START_SEC_CONST_QM_CORE0_UNSPECIFIED
+#include "Os_memmap.h"
 const static Os_LinkSingleStackCfg Os_MemStackCore0_GroupSets[OS_STACK_MODE_NUM] =
 {
     {
@@ -351,7 +359,11 @@ const static Os_LinkSingleStackCfg Os_MemStackCore0_GroupSets[OS_STACK_MODE_NUM]
         &Image$$CORE0_FIQ_STACK$$ZI$$Limit
     },
 };
+#define OS_STOP_SEC_CONST_QM_CORE0_UNSPECIFIED
+#include "Os_memmap.h"    
 
+#define OS_START_SEC_CONST_QM_CORE1_UNSPECIFIED
+#include "Os_memmap.h"
 const static Os_LinkSingleStackCfg Os_MemStackCore1_GroupSets[OS_STACK_MODE_NUM] =
 {
     {
@@ -383,7 +395,12 @@ const static Os_LinkSingleStackCfg Os_MemStackCore1_GroupSets[OS_STACK_MODE_NUM]
         &Image$$CORE1_FIQ_STACK$$ZI$$Limit
     },
 };
+#define OS_STOP_SEC_CONST_QM_CORE1_UNSPECIFIED
+#include "Os_memmap.h"
 
+
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 /*used for clone bss sections.*/
 const Os_LinkBssMemGroupCfg Os_MemZeroInit_StageOne =
 {
@@ -438,8 +455,9 @@ const Os_LinkDataMemGroupCfg Os_MemDataInit_StageThree =
     MEM_DATAINIT_STAGETHREE_NUM,
     Os_MemDataInit_StageThree_GroupSets,
 };
-#define OS_STOP_SEC_TRUSTED_VAR_CLEARED_QM_CORE0_32
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
 #include "Os_memmap.h"
+
 [!ENDIF!][!//
 /****************************************************************************************************
 **                          Global Variable Definitions                                            **

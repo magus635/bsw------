@@ -111,6 +111,9 @@ static Os_SpinlockRunningDataType Os_[!"node:name(.)"!]_RunningData;
 /****************************************************************************************************
 **                          Private Constant Definitions                                            **
 ****************************************************************************************************/
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
+
 [!INDENT "0"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
 [!VAR "CurrentSpinlockCnt" = "0"!][!//
@@ -233,11 +236,17 @@ static const Os_SpinlockConfigType Os_SpinlockConfig_ShutdownSynSpinlock =
     NULL_PTR            /* SpinlockRunningData */
     [!ENDINDENT!][!//
 };
+
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 /****************************************************************************************************
 **                          Global Constant Definitions                                            **
 ****************************************************************************************************/
 [!INDENT "0"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
+
 const Os_SpinlockConfigRefType Os_SpinlockConfigSet[OS_SPINLOCK_TOTAL_NUM] = 
 {
     [!INDENT "4"!][!//
@@ -274,6 +283,9 @@ const Os_SpinlockConfigRefType Os_SpinlockConfigSet[OS_SPINLOCK_TOTAL_NUM] =
     &Os_SpinlockConfig_ShutdownSynSpinlock
     [!ENDINDENT!][!//
 };
+
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
 

@@ -229,6 +229,8 @@
 [!INDENT "0"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
     [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
+#define OS_START_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
         [!IF "num:i(count(./OsAppAlarmRef/*) + count(./OsAppScheduleTableRef/*)) != num:i(0)"!][!//
 static const Os_NodeConfigType Application[!"num:i(./@index)"!]_NodeConfig[APPLICATION[!"num:i(./@index)"!]_ALARM_SCHEDULETABLE_NUMBER] =
 {
@@ -256,6 +258,9 @@ static const Os_NodeConfigType Application[!"num:i(./@index)"!]_NodeConfig[APPLI
     [!ENDINDENT!][!//
 };
         [!ENDIF!][!//
+
+#define OS_STOP_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h" 
     [!ENDLOOP!][!//
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
@@ -270,6 +275,8 @@ static const Os_NodeConfigType Application[!"num:i(./@index)"!]_NodeConfig[APPLI
 [!VAR "PreviousObjectInfoNum"="0"!][!//
 [!VAR "PreviousObjectIoc"="0"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 static const Os_AppObjectType Application_ObjectConfiglist[TOTALNUM_OF_OBJECT] = 
 {
     [!INDENT "4"!][!//
@@ -631,12 +638,18 @@ static const Os_AppObjectType Application_ObjectConfiglist[TOTALNUM_OF_OBJECT] =
         [!ENDIF!][!//
     [!ENDINDENT!][!//
 };
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
 
 [!INDENT "0"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+
+
 [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
+#define OS_START_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
 static const Os_ApplicationConfigType [!"node:name(.)"!]_ConfigRef = 
 {
     [!INDENT "4"!][!//
@@ -655,6 +668,9 @@ static const Os_ApplicationConfigType [!"node:name(.)"!]_ConfigRef =
     &[!"node:name(.)"!]_StatusCfg
     [!ENDINDENT!][!//
 };
+
+#define OS_STOP_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"   
 [!ENDLOOP!][!//
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
@@ -663,6 +679,8 @@ static const Os_ApplicationConfigType [!"node:name(.)"!]_ConfigRef =
 ****************************************************************************************************/
 [!INDENT "0"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 const Os_AppConfigType Os_AppConfigSet = 
 {
     [!INDENT "4"!][!//
@@ -676,6 +694,8 @@ const Os_AppConfigType Os_AppConfigSet =
     &Application_ObjectConfiglist[0]        /* ObjectRef */
     [!ENDINDENT!][!//
 };
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
 /****************************************************************************************************

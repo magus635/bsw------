@@ -229,6 +229,8 @@
 [!INDENT "0"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
     [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
+#define OS_START_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
         [!LOOP "node:order(./OsAppTaskRef/*,'@index')"!][!//
             static const Os_ContextType [!"node:name(node:ref(.))"!]_Context_Config =
             {
@@ -526,6 +528,10 @@
                 [!ENDIF!][!//
             [!ENDLOOP!][!//
         [!ENDLOOP!][!//
+
+#define OS_STOP_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"  
+
     [!ENDLOOP!][!//
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
@@ -536,6 +542,8 @@
 [!VAR "CntObjectID"="0"!][!//
 [!VAR "CntObjectID" = "$CntObjectID + 1"!][!//
 [!INDENT "0"!][!//
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 const Os_ContextConfigType Os_ContextConfigSet =
 {
     [!INDENT "4"!][!//
@@ -592,6 +600,8 @@ const Os_ContextConfigType Os_ContextConfigSet =
     }
     [!ENDINDENT!][!//
 };
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 [!ENDINDENT!][!//
 /****************************************************************************************************
 **                          Private Function Definitions                                           **

@@ -166,6 +166,9 @@ Os_IocInterCoreServiceCallParamOutType Os_Ioc_Core[!"$CurrentCoreId"!]ToCore[!"$
 ****************************************************************************************************/
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
 [!INDENT "0"!][!//
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
+
 [!LOOP "node:order(./OsIoc/*/OsIocCommunication/*,'@index')"!][!//
 [!VAR "ObjectId" = "0"!][!//
 [!VAR "CurrentIocName" = "node:name(.)"!][!//
@@ -198,11 +201,16 @@ static const Os_IocCallbackConfigType [!"$CurrentIocName"!]_CallbackCfg[OS_IOC_[
 
     [!ENDIF!][!//
 [!ENDLOOP!][!//
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 [!ENDINDENT!][!//
 [!ENDSELECT!][!//
 /****************************************************************************************************
 **                          Global Constant Definitions                                            **
 ****************************************************************************************************/
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
+
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
 [!INDENT "0"!][!//
 [!LOOP "node:order(./OsIoc/*/OsIocCommunication/*,'@index')"!][!//
@@ -335,13 +343,17 @@ const Os_IocInterCoreServiceChannelCfgRefType Os_IocServiceChannelCfgRef[OS_KERN
     /* Physical core[!"$CurrentCoreId"!] to other cores channels */
     {
         [!INDENT "8"!][!//
-        [!FOR "CoreCount" = "0" TO "ecu:get('OsResource.NumOfCores') - 1"!][!//
-            [!IF "$CurrentCoreId = $CoreCount"!][!//
-                NULL_PTR[!IF "$CoreCount < ecu:get('OsResource.NumOfCores') - 1"!],[!ENDIF!]
-            [!ELSE!][!//
-                &Os_Ioc_Core[!"$CurrentCoreId"!]ToCore[!"$CoreCount"!]ServiceChannelCfg[!IF "$CoreCount < ecu:get('OsResource.NumOfCores') - 1"!],[!ENDIF!]
-            [!ENDIF!][!//
-        [!ENDFOR!][!//
+        {
+            [!INDENT "12"!][!//
+            [!FOR "CoreCount" = "0" TO "ecu:get('OsResource.NumOfCores') - 1"!][!//
+                [!IF "$CurrentCoreId = $CoreCount"!][!//
+                    NULL_PTR[!IF "$CoreCount < ecu:get('OsResource.NumOfCores') - 1"!],[!ENDIF!]
+                [!ELSE!][!//
+                    &Os_Ioc_Core[!"$CurrentCoreId"!]ToCore[!"$CoreCount"!]ServiceChannelCfg[!IF "$CoreCount < ecu:get('OsResource.NumOfCores') - 1"!],[!ENDIF!]
+                [!ENDIF!][!//
+            [!ENDFOR!][!//
+            [!ENDINDENT!][!//
+        }
         [!ENDINDENT!][!//
     }[!IF "not(node:islast(.))"!],[!ENDIF!]
     [!ENDLOOP!][!//
@@ -351,24 +363,33 @@ const Os_IocInterCoreServiceChannelCfgRefType Os_IocServiceChannelCfgRef[OS_KERN
 const Os_IocInterCoreServiceChannelCfgRefType Os_IocServiceChannelCfgRef[OS_KERNEL_MAX_CORE_NUM] =
 {
     [!INDENT "4"!][!//
-    [!LOOP "node:order(./OsCoreIdMappingConfig/*,'OsPhysicalCoreId')"!][!//
-    [!VAR "CurrentCoreId" = "./OsPhysicalCoreId"!][!//
+    [!FOR "LoopCount" = "0" TO "ecu:get('OsResource.NumOfCores') - 1"!][!//
     {
         [!INDENT "8"!][!//
-        [!FOR "CoreCount" = "0" TO "ecu:get('OsResource.NumOfCores') - 1"!][!//
-            NULL_PTR[!IF "$CoreCount < ecu:get('OsResource.NumOfCores') - 1"!],[!ENDIF!]
-        [!ENDFOR!][!//
+        {
+            [!INDENT "12"!][!//
+            [!FOR "CoreCount" = "0" TO "ecu:get('OsResource.NumOfCores') - 1"!][!//
+                NULL_PTR[!IF "$CoreCount < ecu:get('OsResource.NumOfCores') - 1"!],[!ENDIF!]
+            [!ENDFOR!][!//
+            [!ENDINDENT!][!//
+        }
         [!ENDINDENT!][!//
-    }[!IF "not(node:islast(.))"!],[!ENDIF!]
-    [!ENDLOOP!][!//
+    }[!IF "$LoopCount < ecu:get('OsResource.NumOfCores') - 1"!],[!ENDIF!]
+    [!ENDFOR!][!//
     [!ENDINDENT!][!//
 };
 [!ENDIF!][!//
 [!ENDINDENT!][!//
 [!ENDSELECT!][!//
 
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
+
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
 [!INDENT "0"!][!//
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
+
 CONSTP2CONST(Os_IocConfigType, AUTOMATIC, OS_CONST) Os_IocConfigSet[OS_IOC_TOTAL_NUM + 1U] = 
 {
     [!INDENT "4"!][!//
@@ -378,6 +399,9 @@ CONSTP2CONST(Os_IocConfigType, AUTOMATIC, OS_CONST) Os_IocConfigSet[OS_IOC_TOTAL
     NULL_PTR
     [!ENDINDENT!][!//
 };
+
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 [!ENDINDENT!][!//
 [!ENDSELECT!][!//
 /****************************************************************************************************
@@ -387,6 +411,9 @@ CONSTP2CONST(Os_IocConfigType, AUTOMATIC, OS_CONST) Os_IocConfigSet[OS_IOC_TOTAL
 /****************************************************************************************************
 **                          Global Function Definitions                                            **
 ****************************************************************************************************/
+#define OS_START_SEC_CODE_QM_GLOBAL
+#include "Os_memmap.h"
+
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
 [!INDENT "0"!][!//
 [!LOOP "node:order(./OsIoc/*/OsIocCommunication/*,'@index')"!][!//
@@ -425,3 +452,5 @@ static FUNC(void, OS_CODE) OsIoc_[!"$CurrentIocName"!]_InitData
 [!ENDLOOP!][!//
 [!ENDINDENT!][!//
 [!ENDSELECT!][!//
+#define OS_STOP_SEC_CODE_QM_GLOBAL
+#include "Os_memmap.h"

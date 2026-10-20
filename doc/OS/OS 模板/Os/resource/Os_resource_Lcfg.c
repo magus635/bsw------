@@ -125,6 +125,9 @@
         [!VAR "CurrentResAccessObjId" = "0"!][!//
         [!VAR "CurrentAppObjectCnt"="0"!][!//
         [!VAR "Count" = "0"!][!//
+#define OS_START_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsResourceCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
+
         static const uint32 Os_[!"node:name(.)"!]_AccessObjectIdList[OS_RESOURCE_[!"text:toupper(node:name(.))"!]_ACCESS_OBJECT_NUM] =
         {
             [!INDENT "4"!][!//
@@ -169,6 +172,9 @@
         [!CR!][!//
         };
 
+#define OS_STOP_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsResourceCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
+
     [!ENDIF!][!//
 [!ENDLOOP!][!//
 [!IF "OsOS/OsUseResScheduler = 'true'"!][!//
@@ -177,6 +183,9 @@
     [!LOOP "node:order(./OsCoreIdMappingConfig/*,'num:i(node:ref(./OsCoreId)/EcucCoreId)')"!][!//
         [!VAR "Count" = "0"!][!//
         [!VAR "CoreId" = "num:i(node:ref(./OsCoreId)/EcucCoreId)"!][!//
+#define OS_START_SEC_CONST_QM_CORE[!"num:i(./OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
+
         static const uint32 Os_Core[!"num:i($CoreId)"!]ResSchedulerResource_AccessObjectIdList[OS_RESOURCE_CORE[!"num:i($CoreId)"!]_RESSCHEDULER_ACCESS_OBJECT_NUM] =
         {
             [!INDENT "4"!][!//
@@ -205,10 +214,16 @@
         [!CR!][!//
         };
 
+#define OS_STOP_SEC_CONST_QM_CORE[!"num:i(./OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
+
     [!ENDLOOP!][!//
 [!ENDIF!][!//
 [!VAR "ResourceId" = "0"!][!//
 [!LOOP "node:order(./OsCoreIdMappingConfig/*,'num:i(node:ref(./OsCoreId)/EcucCoreId)')"!][!//
+#define OS_START_SEC_CONST_QM_CORE[!"num:i(./OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
+
     [!VAR "CurrentCoreId" = "num:i(node:ref(./OsCoreId)/EcucCoreId)"!][!//
     [!LOOP "node:order(../../OsResource/*,'@index')"!][!//
         [!IF "(OsResourceProperty = 'LINKED') and (OsResourceLinkedToResScheduler = 'false')"!][!//
@@ -288,12 +303,19 @@
         [!VAR "ResourceId" = "$ResourceId + 1"!][!//
         [!CR!][!//
     [!ENDIF!][!//
+
+#define OS_STOP_SEC_CONST_QM_CORE[!"num:i(./OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
+
 [!ENDLOOP!][!//
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
 /****************************************************************************************************
 **                          Global Constant Definitions                                            **
 ****************************************************************************************************/
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
+
 const Os_ResourceConfigRefType Os_ResourceConfigSet[OS_RESOURCE_TOTAL_NUM + 1U] = 
 {
 [!INDENT "4"!][!//
@@ -318,6 +340,9 @@ const Os_ResourceConfigRefType Os_ResourceConfigSet[OS_RESOURCE_TOTAL_NUM + 1U] 
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
 };
+
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 
 /****************************************************************************************************
 **                          Private Function Declarations                                          **

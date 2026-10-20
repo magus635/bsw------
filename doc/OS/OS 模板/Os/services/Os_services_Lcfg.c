@@ -70,6 +70,11 @@
 
 
 [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
+    [!IF "num:i(count(./OsApplicationTrustedFunction/*)) != '0'"!][!//
+#define OS_START_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
+
+    [!ENDIF!][!//
     [!LOOP "node:order(./OsApplicationTrustedFunction/*,'@index')"!][!//
 static const OsServices_TFConfigType OsServices_[!"OsTrustedFunctionName"!] =
 {
@@ -81,6 +86,11 @@ static const OsServices_TFConfigType OsServices_[!"OsTrustedFunctionName"!] =
 };
 
     [!ENDLOOP!][!//
+    [!IF "num:i(count(./OsApplicationTrustedFunction/*)) != '0'"!][!//
+#define OS_STOP_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
+
+    [!ENDIF!][!//
 [!ENDLOOP!][!//
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
@@ -89,6 +99,9 @@ static const OsServices_TFConfigType OsServices_[!"OsTrustedFunctionName"!] =
 ****************************************************************************************************/
 [!INDENT "0"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
+
 const OsServices_ConfigType  OsServices_TrustedFunctionRefs[OS_SERVICE_FUNC_TOTAL_NUM + 1U] =
 {
     [!INDENT "4"!][!//
@@ -110,6 +123,9 @@ const OsServices_ConfigType  OsServices_TrustedFunctionRefs[OS_SERVICE_FUNC_TOTA
     }
     [!ENDINDENT!][!//
 };
+
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
 /****************************************************************************************************

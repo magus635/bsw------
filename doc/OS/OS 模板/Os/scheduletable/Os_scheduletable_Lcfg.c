@@ -97,6 +97,11 @@
 [!VAR "CurrentAppObjectCnt"="0"!][!//
 [!VAR "SchTObjectID" = "0"!][!//
 [!LOOP "node:order(./OsApplication/*,'@index')"!][!//
+[!IF "num:i(count(./OsAppScheduleTableRef/*)) != '0'"!][!//
+#define OS_START_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
+
+[!ENDIF!][!//
     [!VAR "SchTObjectID" = "num:i($SchTObjectID + count(./OsAppTaskRef/*) + count(./OsAppIsrRef/*) + count(./OsAppCounterRef/*) + count(./OsAppAlarmRef/*))"!][!//
     [!VAR "CurrentCore" = "node:name(node:ref(OsApplicationCoreRef))"!][!//
     [!LOOP "node:order(./OsAppScheduleTableRef/*,'@index')"!][!//
@@ -280,6 +285,11 @@ static const OsSchT_ConfigType Os_SchT_[!"$CurrentSchTName"!]_Config =
     [!CALL "Os_Calculate_Hook_ObjectCount", "AppID"= "$AppID","HookObjectIDCount" ="$HookObjectIDCount"!][!//
     [!VAR "CurrentAppObjectCnt" = "num:i($CurrentAppObjectCnt + count(./OsAppTaskRef/*) + count(./OsAppIsrRef/*) + count(./OsAppCounterRef/*) + count(./OsAppAlarmRef/*) + count(./OsAppScheduleTableRef/*) + num:i($HookObjectIDCount) + num:i($IocCbkObjectIDCount))"!][!//
     [!VAR "SchTObjectID" = "$CurrentAppObjectCnt"!][!//
+[!IF "num:i(count(./OsAppScheduleTableRef/*)) != '0'"!][!//
+#define OS_STOP_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
+
+[!ENDIF!][!//
 [!ENDLOOP!][!//
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
@@ -288,6 +298,9 @@ static const OsSchT_ConfigType Os_SchT_[!"$CurrentSchTName"!]_Config =
 ****************************************************************************************************/
 [!INDENT "0"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
+
 CONSTP2CONST(OsSchT_ConfigType, AUTOMATIC, OS_CONST) Os_SchTConfigSet[OS_SCHT_TOTAL_NUM] =
 {
     [!INDENT "4"!][!//
@@ -297,6 +310,9 @@ CONSTP2CONST(OsSchT_ConfigType, AUTOMATIC, OS_CONST) Os_SchTConfigSet[OS_SCHT_TO
     [!ENDLOOP!][!//
     [!ENDINDENT!][!//
 };
+
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
 /****************************************************************************************************

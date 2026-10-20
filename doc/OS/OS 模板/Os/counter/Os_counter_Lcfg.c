@@ -118,11 +118,14 @@
 /****************************************************************************************************
 **                          Private Constant Definitions                                            **
 ****************************************************************************************************/
+
 [!VAR "AllCounterInApp" = "','"!][!//
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsApplication"!][!//
 [!VAR "CurrentAppObjectCnt"="0"!][!//
 [!VAR "CounterObjectID" = "0"!][!//
 [!LOOP "node:order(./*,'@index')"!][!//
+    #define OS_START_SEC_CONST_QM_CORE[!"num:i(node:ref(node:ref(./OsApplicationCoreRef)/OsCoreId)/EcucCoreId)"!]_UNSPECIFIED
+    #include "Os_memmap.h"
     [!VAR "CounterObjectID" = "num:i($CounterObjectID + count(./OsAppTaskRef/*) + count(./OsAppIsrRef/*))"!][!//
     [!LOOP "node:order(./OsAppCounterRef/*)"!][!//
     [!IF "contains($AllCounterInApp, concat(',', node:name(node:ref(.)), ','))"!][!//
@@ -293,7 +296,10 @@
     [!VAR "HookObjectIDCount"="0"!][!//
     [!CALL "Os_Calculate_Hook_ObjectCount", "AppID"= "$AppID","HookObjectIDCount" ="$HookObjectIDCount"!][!//
     [!VAR "CurrentAppObjectCnt" = "num:i($CurrentAppObjectCnt + count(./OsAppTaskRef/*) + count(./OsAppIsrRef/*) + count(./OsAppCounterRef/*) + count(./OsAppAlarmRef/*) + count(./OsAppScheduleTableRef/*) + num:i($HookObjectIDCount) + num:i($IocCbkObjectIDCount))"!][!//
-    [!VAR "CounterObjectID" = "$CurrentAppObjectCnt"!][!//
+    [!VAR "CounterObjectID" = "$CurrentAppObjectCnt"!][!// 
+#define OS_STOP_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
+
 [!ENDLOOP!][!//
 [!ENDSELECT!][!//
 
@@ -301,7 +307,8 @@
 /****************************************************************************************************
 **                          Global Constant Definitions                                            **
 ****************************************************************************************************/
-
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 CONSTP2CONST(Os_CounterConfigType, TYPEDEF, OS_CONST) Os_CounterConfigSet[OS_COUNTER_TOTAL_NUM] =
 {
     [!INDENT "4"!][!//
@@ -324,7 +331,8 @@ CONSTP2CONST(Os_CounterConfigType, TYPEDEF, OS_CONST) Os_CounterConfigSet[OS_COU
     [!ENDSELECT!][!//
     [!ENDINDENT!][!//
 };
-
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 [!ENDINDENT!][!//
 /****************************************************************************************************
 **                          Private Function Declarations                                          **

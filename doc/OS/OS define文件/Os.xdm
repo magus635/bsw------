@@ -1500,6 +1500,13 @@
                   <a:a name="DESC" 
                        value="EN: Configuration of the IOC (Inter OS Application Communicator)."/>
                   <a:a name="UUID" value="0584af7c-580e-496d-aebe-44550f2aa9f3"/>
+                  <v:lst name="OsIocIncludeHeader">
+                    <a:a name="DESC" value="List of IOC header files"/>
+                    <a:a name="LABEL" value="OsIocIncludeHeader"/>
+                    <v:var name="OsIocIncludeHeader" type="STRING">
+                      <a:a name="LABEL" value="File"/>
+                    </v:var>
+                  </v:lst>
                   <v:lst name="OsIocCommunication" type="MAP">
                     <v:ctr name="OsIocCommunication" type="IDENTIFIABLE">
                       <a:a name="DESC" 

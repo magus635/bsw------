@@ -54,6 +54,7 @@
         typedef struct
         {
             [!INDENT "4"!][!//
+            [!VAR "ReturnValNum" = "0"!][!//
             [!LOOP "node:order(./OsTrustedFunctionParameter/*,'@index')"!][!//
                 [!IF "OsTrustedFunctionParameterType = 'IN'"!][!//
                     [!VAR "FindType" = "'false'"!][!//
@@ -69,6 +70,14 @@
                         P2VAR([!"OsTrustedFunctionParameterDataType"!], TYPEDEF, OS_VAR) [!"node:name(.)"!];
                     [!ENDIF!][!//
                 [!ELSE!][!//
+                    [!IF "OsTrustedFunctionParameterType = 'RETURNVAL'"!][!//
+                        [!VAR "ReturnValNum" = "$ReturnValNum + 1"!][!//
+                    [!ENDIF!][!//
+                    [!IF "$ReturnValNum > 1"!][!//
+                        [!ERROR!][!//
+                            ERROR:[!"node:name(../..)"!] has more than one return value.
+                        [!ENDERROR!][!//
+                    [!ENDIF!][!//
                     P2VAR([!"OsTrustedFunctionParameterDataType"!], TYPEDEF, OS_VAR) [!"node:name(.)"!];
                 [!ENDIF!][!//
             [!ENDLOOP!][!//

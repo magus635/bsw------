@@ -124,6 +124,8 @@
     [!ENDSELECT!][!//
     [!VAR "Total_Priority" = "num:i(count(text:split($PriorityCountList, $Separator)))"!][!//
     [!LOOP "node:order(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsApplication/*,'@index')"!][!//
+#define OS_START_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"
         [!IF "$CoreID = num:i(node:ref(./OsApplicationCoreRef)/@index)"!][!//
         [!LOOP "node:order(./OsAppTaskRef/*,'@index')"!][!//
             static const Os_TaskConstType Task_[!"node:name(node:ref(.))"!]_ConfigRef =
@@ -173,6 +175,8 @@
         [!VAR "CurrentAppObjectCnt" = "num:i($CurrentAppObjectCnt + count(./OsAppTaskRef/*) + count(./OsAppIsrRef/*) + count(./OsAppCounterRef/*) + count(./OsAppAlarmRef/*) + count(./OsAppScheduleTableRef/*) + num:i($HookObjectIDCount) + num:i($IocCbkObjectIDCount))"!][!//
         [!VAR "TaskObjectID" = "$CurrentAppObjectCnt"!][!//
         [!ENDIF!][!//
+#define OS_STOP_SEC_CONST_QM_CORE[!"num:i(node:ref(./OsApplicationCoreRef)/OsPhysicalCoreId)"!]_UNSPECIFIED
+#include "Os_memmap.h"   
     [!ENDLOOP!][!//
 [!ENDLOOP!][!//
 [!ENDSELECT!][!//
@@ -180,7 +184,8 @@
 /****************************************************************************************************
 **                          Global Constant Definitions                                            **
 ****************************************************************************************************/
-
+#define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 const Os_TaskConfigType Os_TaskConfigSet =
 {
     [!INDENT "4"!][!//
@@ -218,6 +223,8 @@ const Os_TaskConfigType Os_TaskConfigSet =
         [!ENDSELECT!][!//
     [!ENDLOOP!][!//
 [!ENDSELECT!][!//
+#define OS_STOP_SEC_CONST_QM_GLOBAL_UNSPECIFIED
+#include "Os_memmap.h"
 [!ENDINDENT!][!//
 /****************************************************************************************************
 **                          Private Function Declarations                                          **

@@ -78,6 +78,8 @@
 /****************************************************************************************************
 **                          Global Function Definitions                                            **
 ****************************************************************************************************/
+#define OS_START_SEC_CODE_QM_GLOBAL
+#include "Os_memmap.h"
 FUNC(void, OS_CODE) Core0TrustedFunction
 (
     Core0TrustedFunctionType FunctionParams
@@ -191,6 +193,9 @@ FUNC(void, OS_CODE) Core1TrustedFunction
     [!ENDIF!][!//
 [!ENDSELECT!][!//
 [!ENDINDENT!][!//
+#define OS_STOP_SEC_CODE_QM_GLOBAL
+#include "Os_memmap.h"
+
 /****************************************************************************************************
 **                          AUTOSAR Function Definitions                                           **
 ****************************************************************************************************/

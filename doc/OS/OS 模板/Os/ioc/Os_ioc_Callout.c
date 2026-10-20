@@ -85,6 +85,10 @@
 ****************************************************************************************************/
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
 [!INDENT "0"!][!//
+[!IF "count(./OsIoc/*) != 0"!][!//
+#define OS_START_SEC_CODE_QM_GLOBAL
+#include "Os_memmap.h"
+
 [!LOOP "node:order(./OsIoc/*/OsIocCommunication/*,'@index')"!][!//
 [!VAR "CurrentIocName" = "node:name(.)"!][!//
     [!IF "count(OsIocBufferLength/*) = 0"!][!//
@@ -701,5 +705,8 @@ FUNC(Std_ReturnType, OS_CODE) IocEmptyQueue_[!"$CurrentIocName"!]
         [!ENDIF!][!//
     [!ENDIF!][!//
 [!ENDLOOP!][!//
+#define OS_STOP_SEC_CODE_QM_GLOBAL
+#include "Os_memmap.h"
+[!ENDIF!][!//
 [!ENDINDENT!][!//
 [!ENDSELECT!][!//
