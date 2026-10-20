@@ -165,6 +165,8 @@ class BuiltinFunctions:
 
             # Boolean helpers
             'not': self.logical_not,
+            'true': lambda: True,      # XPath true() / false(); bare true is a path
+            'false': lambda: False,
             'name': self.node_name,
             
             # Variant functions (MUST-Minimal per spec 4.4)
@@ -212,16 +214,57 @@ class BuiltinFunctions:
         """Check if a function exists"""
         return name in self._functions
     
+    # Result types of EB tresos' functions (Java Double / Long / String), see
+    # openspec/changes/align-eb-value-semantics/design.md
+    _DOUBLE_RESULT = frozenset({
+        'count', 'string-length', 'sum', 'avg', 'round', 'floor', 'ceiling', 'abs', 'number',
+        'num:round', 'num:floor', 'num:ceiling', 'num:abs', 'num:max', 'num:min', 'max', 'min',
+        'position', 'last',
+    })
+    _LONG_RESULT = frozenset({
+        'num:i', 'num:hextoint',
+        'bit:shl', 'bit:shr', 'bit:or', 'bit:and', 'bit:xor', 'bit:not', 'bit:bitset',
+    })
+
     def call(self, name: str, *args) -> Any:
-        """Call a function by name with arguments"""
+        """Call a function by name with arguments.
+
+        Integral XPath numbers (2.0) are passed as int, which every function accepts as
+        an index, a count or a width; the result gets EB's type (Double, Long, String)."""
         func = self._functions.get(name)
         if func is None:
             self.unimplemented_calls.add(name)
             raise NameError(f"Unknown function: {name}")
-        try:
-            return func(*args)
-        except Exception as e:
-            raise e
+        args = tuple(int(a) if isinstance(a, float) and a.is_integer() else a for a in args)
+        result = func(*args)
+        if result is None or isinstance(result, bool):
+            return result
+        if name in self._DOUBLE_RESULT:
+            if isinstance(result, (int, float)):
+                return float(result)
+        elif name in self._LONG_RESULT:
+            if isinstance(result, float) and result.is_integer():
+                return int(result)
+        elif name == 'num:f':
+            # num:f returns a String in EB ("5.0")
+            if isinstance(result, (int, float)):
+                return self._format_float_java(float(result))
+        elif name == 'string':
+            # XPath string(): an integral number has no fractional part
+            from . import values as ebv
+            return ebv.xpath_string(args[0] if args else None)
+        elif name == 'node:value':
+            # a configuration value is the text of the configuration in EB
+            from . import values as ebv
+            if not ebv.is_node(result) and not isinstance(result, (list, tuple)):
+                arg = args[0] if args else None
+                if isinstance(arg, list) and len(arg) == 1:
+                    arg = arg[0]
+                if ebv.is_node(arg) and arg.node_type == 'parameter' and \
+                        'BOOLEAN' in (getattr(arg, 'param_type', '') or '').upper():
+                    return ebv.node_text(arg)          # 'true' / 'false', also for 1 / 0
+                return ebv.scalar_text(result)
+        return result
 
     def _ensure_ecuc_stubs(self):
         """Proactively create EcuC module stubs in the symbol table.
@@ -1211,6 +1254,8 @@ class BuiltinFunctions:
             value = value.get_value()
         elif hasattr(value, 'value'):
             value = value.value
+        if isinstance(value, bool):
+            return 'true' if value else 'false'       # Java Boolean.toString()
         if isinstance(value, float):
             return self._format_float_java(value)
         return str(value) if value is not None else ''

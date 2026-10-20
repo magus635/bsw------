@@ -123,6 +123,6 @@ def test_template_renders_chip_value_without_def_directory(tmp_path):
 
     out = EBTemplateEngine(strict=False).render(
         "[!\"ecu:get('OsResource.NumOfCores')\"!] "
-        "[!\"count(ecu:list('OsResource.AvailableCores'))\"!]",
+        "[!\"num:i(count(ecu:list('OsResource.AvailableCores')))\"!]",   # count() is a Double
         {"module_name": "Os"}, ecu_resources=resources)
     assert out.strip() == "4 2"

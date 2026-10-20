@@ -22,13 +22,13 @@ def test_bare_line_comment_joins_lines_a_comment_with_text_does_not():
 
 def test_indentation_before_a_directive_after_line_comment_is_layout():
     # Os_isr_Cfg.h: "#define X ([!//" + indented directive lines + the value
-    out = _render('#define X ([!//\n    [!VAR "a" = "5"!][!//\n        [!IF "1 = 1"!][!//\n[!"$a"!]UL)[!//\n    [!ENDIF!][!//\n\n')
+    out = _render('#define X ([!//\n    [!VAR "a" = "5"!][!//\n        [!IF "1 = 1"!][!//\n[!"num:i($a)"!]UL)[!//\n    [!ENDIF!][!//\n\n')
     assert out == '#define X (5UL)\n'
 
 
 def test_inside_indent_line_after_line_comment_loses_its_indentation_mid_line():
     # Os_resource_Lcfg.c: "[!"..."!]UL[!//" then "        ," on the next template line -> "0UL,"
-    out = _render('[!INDENT "4"!][!//\n        [!"0"!]UL[!//\n            ,\n        [!"1"!]UL\n[!ENDINDENT!][!//\n')
+    out = _render('[!INDENT "4"!][!//\n        [!"num:i(0)"!]UL[!//\n            ,\n        [!"num:i(1)"!]UL\n[!ENDINDENT!][!//\n')
     assert out == '    0UL,\n    1UL\n'
 
 

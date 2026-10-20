@@ -185,8 +185,9 @@ class TestRenderer(unittest.TestCase):
         self.assertEqual(result, "Hello World")
     
     def test_variable(self):
+        # EB stores the variable as the string of the XPath number 42 (a Double)
         result = self.renderer.render('[!VAR "x" = "42"!]Value: [!$x!]')
-        self.assertEqual(result, "Value: 42")
+        self.assertEqual(result, "Value: 42.0")
     
     def test_simple_if_true(self):
         result = self.renderer.render(

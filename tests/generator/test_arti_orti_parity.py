@@ -1,7 +1,8 @@
 """ORTI parity of the Os plugin template Os/Os_Arti.arxml (see os_templates.py) (openspec change add-arti-orti-parity).
 
 Renders the reference ORTI (doc/ARTI/Os_Trace.orti: the plugin's Os_Trace_Core0.ORTI with its
-KOIL syntax defects fixed, same content) and the ARTI template from the same Os configuration,
+KOIL syntax defects fixed, same content; also OsStackMonitoring compares with 'true', the plugin's
+bare `= true` is a location path and always false in EB) and the ARTI template from the same Os configuration,
 then checks that every ORTI object attribute has an ARTI counterpart carrying the same
 expression / value. ORTI is no longer generated; the reference is a frozen baseline kept only
 so that this test can show the ARTI description is complete.

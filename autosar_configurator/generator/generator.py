@@ -44,8 +44,9 @@ class CodeGenerator:
     # Templates generated under their own file name, without the "<Module>_" prefix
     UNPREFIXED_TEMPLATE_SUFFIXES = ('.scat', '.sct', '.ld', '.lsl', '.icf', '.lcf')
     # Part of the fingerprint: changes when the generator produces different output
-    # for the same configuration and templates (2: definition ENABLE conditions)
-    GENERATOR_VERSION = 2
+    # for the same configuration and templates (2: definition ENABLE conditions,
+    # 3: EB value semantics - Double numbers, string variables, XPath 1.0 comparison)
+    GENERATOR_VERSION = 3
 
     def __init__(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration,
                  project_template_dir: Optional[Path] = None,

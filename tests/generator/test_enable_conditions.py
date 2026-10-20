@@ -268,7 +268,7 @@ def test_mutually_exclusive_references(tmp_path):
                      f" [!\"node:exists({res}ResStd/OsResourceLinkedResourceRef)\"!]"
                      f" [!\"node:exists({res}ResLinked/OsResourceCoreRef)\"!]"
                      f" [!\"node:exists({res}ResLinked/OsResourceLinkedResourceRef)\"!]")
-    assert out == "True False False True"
+    assert out == "true false false true"
 
 
 def test_parameter_in_single_container_sees_its_real_parent(tmp_path):
@@ -277,20 +277,20 @@ def test_parameter_in_single_container_sees_its_real_parent(tmp_path):
     out, _ = _render(_load(tmp_path),
                      f"[!\"node:exists({TASK}TaskAuto/OsTaskHooks/OsTaskHook)\"!]"
                      f" [!\"node:exists({TASK}TaskManual/OsTaskHooks/OsTaskHook)\"!]")
-    assert out == "False True"
+    assert out == "false true"
 
 
 def test_condition_across_modules(tmp_path):
     (tmp_path / "on").mkdir()
     (tmp_path / "off").mkdir()
     template = f"[!\"node:exists({TASK}TaskAuto/OsTaskOnEcuc)\"!]"
-    assert _render(_load(tmp_path / "on", ecuc_flag="true"), template)[0] == "True"
-    assert _render(_load(tmp_path / "off", ecuc_flag="false"), template)[0] == "False"
+    assert _render(_load(tmp_path / "on", ecuc_flag="true"), template)[0] == "true"
+    assert _render(_load(tmp_path / "off", ecuc_flag="false"), template)[0] == "false"
 
 
 def test_unevaluable_condition_keeps_the_item_and_warns_once(tmp_path):
     out, result = _render(_load(tmp_path), f"[!\"node:exists({TASK}TaskAuto/OsTaskBad)\"!]")
-    assert out == "True"
+    assert out == "true"
     bad = [w for w in result.warnings if "foo:bar(.)" in w]
     assert len(bad) == 1 and "OsTaskBad" in bad[0]
 

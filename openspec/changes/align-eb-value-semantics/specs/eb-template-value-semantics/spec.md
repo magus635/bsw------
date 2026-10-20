@@ -27,11 +27,15 @@ Expression output and variable assignment SHALL convert a floating-point value w
 - **THEN** the output is `a2`
 
 ### Requirement: Variables Hold Strings
-`[!VAR!]` SHALL store a numeric, boolean or string result as its EB string form, and `[!FOR!]` SHALL store the loop variable as an integer string; a result that is a configuration node or node set SHALL be stored as before.
+`[!VAR!]` SHALL store a floating-point or boolean result as its EB string form and keep a string result, and `[!FOR!]` SHALL store the loop variable as an integer string; an integer result SHALL keep its integer value, whose string form is the decimal text EB stores; a result that is a configuration node or node set SHALL be stored as before.
 
 #### Scenario: Numeric literal variable
 - **WHEN** a template contains `[!VAR "a" = "5"!][!"$a"!]`
 - **THEN** the output is `5.0`
+
+#### Scenario: Integer variable
+- **WHEN** a template contains `[!VAR "a" = "num:i(5)"!][!"$a"!]`
+- **THEN** the output is `5`
 
 #### Scenario: Loop variable
 - **WHEN** a template contains `[!FOR "i" = "0" TO "1"!][!"$i"!],[!ENDFOR!]`

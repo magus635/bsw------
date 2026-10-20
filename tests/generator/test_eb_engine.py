@@ -39,7 +39,7 @@ class TestEBTemplateEngine(unittest.TestCase):
         # Use $ to access var
         template = r'[!VAR "myVar" = "123"!][!$myVar!]'
         result = self.engine.render(template, self.context)
-        self.assertEqual(result, '123')
+        self.assertEqual(result, '123.0')    # EB: the XPath number 123 is a Double
 
     def test_loop(self):
         template = r'[!LOOP items!]-[!.!]-[!ENDLOOP!]'

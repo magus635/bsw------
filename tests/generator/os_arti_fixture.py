@@ -58,6 +58,12 @@ def _c(module, name, upper=-1, lower=0):
 
 def build_os_def():
     m = EcucModuleDef(short_name="Os", definition_ref=OS)
+    # module-level parameter of the plugin Os.xdm; the templates test it with
+    # OsResourceSubderivative != 'Os_SC300', which is false when the node does not exist
+    m.parameters["OsResourceSubderivative"] = EcucParameterDef(
+        short_name="OsResourceSubderivative", param_type=T.ENUMERATION,
+        definition_ref=f"{OS}/OsResourceSubderivative", config_class="PRE-COMPILE",
+        literals=["Os_THA6206", "Os_THA6412", "Os_SC300"], default_value="Os_THA6206")
     os_os = _c(m, "OsOS", upper=1, lower=1)
     _p(os_os, "OsNumberOfCores", T.INTEGER)
     _p(os_os, "OsUseArti", T.BOOLEAN)

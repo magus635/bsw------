@@ -702,7 +702,7 @@ OS_CONFIG THA6xxx {
     [!INDENT "4"!][!//
     ScalabilityClass = "[!"node:value(./OsOS/OsScalabilityClass)"!]";
     StatusLevel = "[!"node:value(./OsOS/OsStatus)"!]";
-    OsStackMonitoring = [!IF "node:value(./OsOS/OsStackMonitoring) = true"!]"TRUE"[!ELSE!]"FALSE"[!ENDIF!];
+    OsStackMonitoring = [!IF "node:value(./OsOS/OsStackMonitoring) = 'true'"!]"TRUE"[!ELSE!]"FALSE"[!ENDIF!];
     [!ENDINDENT!][!//
 }; /* OS Configuration of THA6xxx */
 [!ENDSELECT!][!//

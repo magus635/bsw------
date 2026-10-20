@@ -15,6 +15,8 @@ import tempfile
 import os
 from typing import Any, List, Optional, Union, TYPE_CHECKING
 
+from . import values as ebv
+
 
 
 if TYPE_CHECKING:
@@ -268,9 +270,8 @@ class XPathEngine:
         # Reordered XPath Evaluation Logic
         # =============================================
 
-        # 0. Handle literal strings (single or double quoted)
-        if (xpath.startswith("'") and xpath.endswith("'")) or \
-           (xpath.startswith('"') and xpath.endswith('"')):
+        # 0. Handle literal strings (single or double quoted), not "'a' = 'b'"
+        if ebv.is_quoted_literal(xpath):
             # Just return the unquoted string
             return xpath[1:-1]
 
@@ -317,10 +318,9 @@ class XPathEngine:
                 # Variable not defined - return None/empty (common when Resource module not loaded)
                 return None
 
-        # 6. Handle numeric and boolean literals before falling to path navigation
-        if xpath.lstrip('-').isdigit():
-            return int(xpath)
-        if re.match(r'^-?\d+\.\d+$', xpath):
+        # 6. Handle numeric and boolean literals before falling to path navigation.
+        # Numeric literals are XPath numbers (Java Double): "5" is 5.0
+        if re.match(r'^-?\d+(\.\d+)?$', xpath):
             return float(xpath)
         if xpath.lower() == 'true':
             return True
@@ -372,14 +372,11 @@ class XPathEngine:
         expr = expr.strip()
         
         # Handle quoted strings
-        if (expr.startswith("'") and expr.endswith("'")) or \
-           (expr.startswith('"') and expr.endswith('"')):
+        if ebv.is_quoted_literal(expr):
             return expr[1:-1]
-        
-        # Handle numeric literals
-        if re.match(r'^-?\d+$', expr):
-            return int(expr)
-        if re.match(r'^-?\d+\.\d+$', expr):
+
+        # Handle numeric literals (XPath numbers are Doubles)
+        if re.match(r'^-?\d+(\.\d+)?$', expr):
             return float(expr)
         
         # Handle function calls
@@ -461,88 +458,10 @@ class XPathEngine:
                 left_expr = condition[:pos].strip()
                 right_expr = condition[pos + len(op):].strip()
                 
-                # Use _evaluate_simple_value for proper literal handling
-                left_val = self._evaluate_simple_value(left_expr)
-                right_val = self._evaluate_simple_value(right_expr)
-                
-                # Unwrap node values
-                if isinstance(left_val, list):
-                    left_val = left_val[0] if len(left_val) > 0 else None
-                if isinstance(right_val, list):
-                    right_val = right_val[0] if len(right_val) > 0 else None
-                    
-                if hasattr(left_val, 'get_value'):
-                    left_val = left_val.get_value()
-                if hasattr(right_val, 'get_value'):
-                    right_val = right_val.get_value()
-                
-                # Handle quoted strings
-                if isinstance(right_val, str) and ((right_val.startswith("'") and right_val.endswith("'")) or
-                                                    (right_val.startswith('"') and right_val.endswith('"'))):
-                    right_val = right_val[1:-1]
-                
-                if op == '=':
-                    l = self._to_bool_str(left_val)
-                    r = self._to_bool_str(right_val)
-                    if l in ('true', 'false') and r in ('true', 'false'):
-                        result = l == r
-                        return result
-
-                    result = str(left_val) == str(right_val)
-
-                    return result
-                elif op == '!=':
-                    l = self._to_bool_str(left_val)
-                    r = self._to_bool_str(right_val)
-                    if l in ('true', 'false') and r in ('true', 'false'):
-                        result = l != r
-                        return result
-                    result = str(left_val) != str(right_val)
-                    return result
-                # ... boolean logic ...
-                
-                # Try numeric comparison
-                try:
-                    left_num = float(left_val) if left_val is not None else 0
-                    right_num = float(right_val) if right_val is not None else 0
-                    
-                    if op == '=' or op == '==':
-                        result = left_num == right_num
-                    elif op == '!=':
-                        result = left_num != right_num
-                    elif op == '>':
-                        result = left_num > right_num
-                    elif op == '<':
-                        result = left_num < right_num
-                    elif op == '>=':
-                        result = left_num >= right_num
-                    elif op == '<=':
-                        result = left_num <= right_num
-                    else:
-                        result = False # Default if op not matched for numeric
-                    return result
-                except (ValueError, TypeError):
-                    pass
-                
-                # String comparison fallback
-                left_str = str(left_val) if left_val is not None else ''
-                right_str = str(right_val) if right_val is not None else ''
-                
-                if op == '=' or op == '==':
-                    result = left_str == right_str
-                elif op == '!=':
-                    result = left_str != right_str
-                elif op == '>':
-                    result = left_str > right_str
-                elif op == '<':
-                    result = left_str < right_str
-                elif op == '>=':
-                    result = left_str >= right_str
-                elif op == '<=':
-                    result = left_str <= right_str
-                else:
-                    result = False # Default if op not matched for string
-                return result
+                # XPath 1.0 comparison; a location path is a node-set
+                left_val = self._comparison_operand(left_expr)
+                right_val = self._comparison_operand(right_expr)
+                return ebv.compare(op, left_val, right_val)
         
         # Evaluate as expression and check truthiness
         result = self.evaluate(condition)
@@ -564,6 +483,27 @@ class XPathEngine:
             return res_bool
         res_bool = bool(result)
         return res_bool
+
+    def _comparison_operand(self, expr: str, context_node: Any = None) -> Any:
+        """Value of a comparison operand. A location path gives its nodes (a node-set,
+        compared by the text of each node, None when empty); other expressions their value.
+        With a context node (predicates) the operand is evaluated relative to it."""
+        expr = expr.strip()
+        if expr in ('true', 'false'):
+            return None         # a location path (no such child), not a boolean, as in EB
+        if ebv.is_path_like(expr):
+            if context_node is not None:
+                self.context_stack.push(context_node)
+            try:
+                res = self.evaluate(expr, return_node=True)
+            finally:
+                if context_node is not None:
+                    self.context_stack.pop()
+            if res is not None and res != []:
+                return res
+        if context_node is not None:
+            return self._evaluate_predicate_expression(expr, context_node)
+        return self._evaluate_simple_value(expr)
 
     def _to_bool_str(self, v):
         """Normalize value to 'true'/'false' or original string."""
@@ -698,11 +638,12 @@ class XPathEngine:
         if expr.startswith('count(') and expr.endswith(')'):
             inner = expr[6:-1].strip()
             res = self.evaluate(inner, return_node=True)
+            # count() is an XPath number (Double)
             if res is None:
-                return 0
+                return 0.0
             if isinstance(res, list):
-                return len(res)
-            return 1 # Single node
+                return float(len(res))
+            return 1.0 # Single node
             
         if self.function_handler:
             # Parse function name and arguments (handle nested parens and trailing predicates)
@@ -1899,6 +1840,12 @@ class XPathEngine:
                         else:
                             result = []
                         continue
+                    elif isinstance(eval_result, str) and re.match(r'^\$\w+$', pred):
+                        # A variable holds a string (EB): the predicate is a boolean,
+                        # true for every node when the string is not empty
+                        if not eval_result:
+                            result = []
+                        continue
                 except:
                     pass  # Fall through to other predicate handling
 
@@ -1954,10 +1901,9 @@ class XPathEngine:
         expr = expr.strip()
         
         # Handle quoted strings
-        if (expr.startswith('"') and expr.endswith('"')) or \
-           (expr.startswith("'") and expr.endswith("'")):
+        if ebv.is_quoted_literal(expr):
             return expr[1:-1]
-            
+
         def find_operator_outside_parens(s, ops):
             """Find operator position outside of parentheses, brackets, and quotes."""
             depth = 0
@@ -2030,10 +1976,8 @@ class XPathEngine:
                 except (ValueError, TypeError) as e:
                     pass
 
-        # Handle pure numbers
-        if expr.lstrip('-').isdigit():
-            return int(expr)
-        if re.match(r'^-?\d+\.\d+$', expr):
+        # Handle pure numbers (XPath numbers are Doubles)
+        if re.match(r'^-?\d+(\.\d+)?$', expr):
             return float(expr)
 
         # Handle @attribute expressions (XPath node attributes like @index)
@@ -2179,59 +2123,10 @@ class XPathEngine:
             left_expr = condition[:op_pos].strip()
             right_expr = condition[op_pos + len(op):].strip()
             
-            # Get values from both sides
-            left_val = get_expr_value(left_expr, node)
-            right_val = get_expr_value(right_expr, node)
-            
-            # Handle None values
-            if left_val is None and right_val is None:
-                return op == '='
-            if left_val is None or right_val is None:
-                return op == '!='
-            
-            # Try numeric comparison first
-            try:
-                left_num = float(left_val) if not isinstance(left_val, bool) else (1 if left_val else 0)
-                right_num = float(right_val) if not isinstance(right_val, bool) else (1 if right_val else 0)
-                
-                if op == '=' or op == '==':
-                    return left_num == right_num
-                elif op == '!=':
-                    return left_num != right_num
-                elif op == '>':
-                    return left_num > right_num
-                elif op == '<':
-                    return left_num < right_num
-                elif op == '>=':
-                    return left_num >= right_num
-                elif op == '<=':
-                    return left_num <= right_num
-            except (ValueError, TypeError):
-                pass
-            
-            # Fall back to string comparison
-            l_norm = to_bool_str(left_val)
-            r_norm = to_bool_str(right_val)
-            
-            if l_norm in ('true', 'false') and r_norm in ('true', 'false'):
-                if op == '=' or op == '==': return l_norm == r_norm
-                if op == '!=': return l_norm != r_norm
-            
-            left_str = str(left_val)
-            right_str = str(right_val)
-            
-            if op == '=' or op == '==':
-                return left_str == right_str
-            elif op == '!=':
-                return left_str != right_str
-            elif op == '>':
-                return left_str > right_str
-            elif op == '<':
-                return left_str < right_str
-            elif op == '>=':
-                return left_str >= right_str
-            elif op == '<=':
-                return left_str <= right_str
+            # XPath 1.0 comparison; a location path is a node-set relative to the node
+            left_val = self._comparison_operand(left_expr, node)
+            right_val = self._comparison_operand(right_expr, node)
+            return ebv.compare(op, left_val, right_val)
         
         # Check for function calls and evaluate as boolean
         condition_stripped = condition.strip()

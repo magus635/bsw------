@@ -12,6 +12,7 @@ Orchestrates the complete template processing pipeline:
 from typing import Optional, Dict, Any, List, Union, Tuple
 from pathlib import Path
 import logging
+import math
 import re
 
 import tempfile
@@ -27,6 +28,7 @@ from .symbol_table import SymbolTable, ConfigurationNode
 from .overlay_engine import OverlayEngine
 from .builtins import BuiltinFunctions
 from .xpath_engine import XPathEngine
+from . import values as ebv
 from .errors import (
     EBTemplateError, TemplateParseError, TemplateExecutionError,
     UndefinedVariableError, XPathError, DanglingReferenceError, UnevaluableCondition
@@ -732,8 +734,7 @@ class Renderer:
                          (raw_expr.startswith("'") and raw_expr.endswith("'"))
             if was_quoted:
                 # If stripped is itself an XPath string literal ('...' or "..."), extract content
-                if (stripped.startswith("'") and stripped.endswith("'")) or \
-                   (stripped.startswith('"') and stripped.endswith('"')):
+                if ebv.is_quoted_literal(stripped):
                     value = stripped[1:-1]
                 elif stripped and not any(c in stripped for c in ':/(.$@['):
                     # Bare identifier (e.g. "AdcChannelId"). In EB Tresos an
@@ -753,6 +754,14 @@ class Renderer:
                     value = self._evaluate_expression(stripped)
             else:
                 value = self._evaluate_expression(stripped)
+            # EB stores every variable as the string (Java toString) of the value:
+            # [!VAR "a" = "5"!] holds "5.0", a boolean "true". An integer (num:i, a Long) keeps
+            # its int: its string is the plain decimal text, so it prints and compares as EB's
+            # string does, and ECU resources (hex addresses parsed to int) keep their type.
+            # Configuration nodes and lists stay as they are, templates navigate from them
+            # ($node/Child) or iterate them.
+            if isinstance(value, (bool, float)):
+                value = ebv.eb_string(value)
             self._context_stack.set_variable(var_name, value)
 
     def _handle_trace(self, content: str):
@@ -1151,9 +1160,8 @@ class Renderer:
         expr = expr.strip()
         if not expr: return None
 
-        # 1. Literal Strings (Handle both '...' and "...")
-        if (expr.startswith("'") and expr.endswith("'")) or \
-           (expr.startswith('"') and expr.endswith('"')):
+        # 1. Literal Strings (Handle both '...' and "..."), not "'a' = 'b'"
+        if ebv.is_quoted_literal(expr):
             inner = expr[1:-1]
             if inner.startswith('$'):
                 var_name = inner[1:]
@@ -1161,14 +1169,10 @@ class Renderer:
                     val = self._context_stack.get_variable(var_name)
                     return val
             return inner
-        
-        # Handle numeric literals explicitly
-        try:
-            if re.match(r'^-?\d+\.\d+$', expr):
-                return float(expr)
-            if expr.isdigit() or (expr.startswith('-') and expr[1:].isdigit()):
-                return int(expr)
-        except: pass
+
+        # Numeric literals are XPath numbers (Java Double): "5" is 5.0
+        if re.match(r'^-?\d+(\.\d+)?$', expr):
+            return float(expr)
 
         # Handle @index and @count - loop iteration variables (must be before XPath fallback)
         # Both "@index" and "./@index" forms should return the loop counter
@@ -1305,111 +1309,45 @@ class Renderer:
             found = find_top_level_op(expr, ops)
             if found:
                 op, left, right = found
+                if group_type == 'comp':
+                    return self._compare(op.strip(), left, right)
+
+                # Arithmetic: XPath numbers are Doubles, so the result is a float (1+1 is 2.0)
                 left_val = self._unwrap_value(self._evaluate_expression(left))
                 right_val = self._unwrap_value(self._evaluate_expression(right))
-                
-                if group_type == 'comp':
-                    # Normalized comparison
-
-                    check_op = op.strip()
-
-                    # Truthiness normalization
-                    def to_bool(v):
-                        if isinstance(v, bool): return v
-                        if v is None: return False
-                        vs = str(v).lower()
-                        return vs in ('true', '1', 'yes', 'on', 'std_on')
-
-                    # Boolean comparison only when a side is a boolean or a boolean word
-                    # ('true', 'STD_ON', ...). 0 and 1 alone are numbers: '100' = 0 is
-                    # false, as in XPath (booleans configured as 1/0 still compare
-                    # equal to 'true'/'false' through the word on the other side).
-                    def is_bool_like(v):
-                        if isinstance(v, bool): return True
+                try:
+                    def to_number(v):
+                        if v is None:
+                            return 0.0
+                        if isinstance(v, (int, float)):
+                            return float(v)
                         if isinstance(v, str):
-                            return v.lower() in ('true', 'false', 'yes', 'no', 'on', 'off', 'std_on', 'std_off')
-                        return False
-
-                    def as_number(v):
-                        if isinstance(v, bool) or v is None: return None
-                        if isinstance(v, (int, float)): return v
-                        try:
-                            return float(str(v).strip())
-                        except ValueError:
-                            return None
-
-                    def equal(lv, rv):
-                        if is_bool_like(lv) or is_bool_like(rv):
-                            return to_bool(lv) == to_bool(rv)
-                        if lv is None or rv is None:
-                            return False            # empty selection equals nothing
-                        ln, rn = as_number(lv), as_number(rv)
-                        if ln is not None and rn is not None:
-                            return ln == rn
-                        return str(lv) == str(rv)
-
-                    if check_op in ('==', '='):
-                        return equal(left_val, right_val)
-                    elif check_op == '!=':
-                        if (left_val is None or right_val is None) and not (
-                                is_bool_like(left_val) or is_bool_like(right_val)):
-                            other = right_val if left_val is None else left_val
-                            if as_number(other) is not None:
-                                return False        # empty selection != number: false, as in XPath
-                            return str(left_val) != str(right_val)   # unchanged for text
-                        return not equal(left_val, right_val)
-                    
-                    # Numeric comparisons
-                    try:
-                        l_f = float(left_val)
-                        r_f = float(right_val)
-                        if check_op == '>': return l_f > r_f
-                        if check_op == '<': return l_f < r_f
-                        if check_op == '>=': return l_f >= r_f
-                        if check_op == '<=': return l_f <= r_f
-                    except:
+                            v = v.strip()
+                            if not v:
+                                return 0.0
+                            try:
+                                return float(v)
+                            except ValueError:
+                                return None
                         return None
-                else:
-                    # Math operations
-                    try:
-                        # Helper to convert to number if possible
-                        def to_number(v):
-                            if v is None:
-                                return 0
-                            if isinstance(v, (int, float)):
-                                return v
-                            if isinstance(v, str):
-                                v = v.strip()
-                                if not v:
-                                    return 0
-                                try:
-                                    if '.' in v:
-                                        return float(v)
-                                    return int(v)
-                                except ValueError:
-                                    return None
-                            return None
 
-                        clean_op = op.strip()
-                        if clean_op == '+':
-                            # Try numeric addition first
-                            l_num = to_number(left_val)
-                            r_num = to_number(right_val)
-                            if l_num is not None and r_num is not None:
-                                return l_num + r_num
-                            # Fall back to string concatenation
-                            return self._builtins.to_string(left_val) + self._builtins.to_string(right_val)
-
-                        l_v = float(left_val) if not isinstance(left_val, (int, float)) else left_val
-                        r_v = float(right_val) if not isinstance(right_val, (int, float)) else right_val
-
-                        if clean_op == '-': return l_v - r_v
-                        if clean_op == '*': return l_v * r_v
-                        if clean_op == 'div': return l_v / r_v if r_v != 0 else None
-                        if clean_op == 'mod': return l_v % r_v
-                    except:
-                        pass
-                    return None
+                    clean_op = op.strip()
+                    l_num = to_number(left_val)
+                    r_num = to_number(right_val)
+                    if clean_op == '+':
+                        if l_num is not None and r_num is not None:
+                            return l_num + r_num
+                        # Fall back to string concatenation
+                        return self._builtins.to_string(left_val) + self._builtins.to_string(right_val)
+                    if l_num is None or r_num is None:
+                        return None
+                    if clean_op == '-': return l_num - r_num
+                    if clean_op == '*': return l_num * r_num
+                    if clean_op == 'div': return l_num / r_num if r_num != 0 else None
+                    if clean_op == 'mod': return math.fmod(l_num, r_num) if r_num != 0 else None
+                except Exception:
+                    pass
+                return None
 
 
         # 4. Function call (Handle explicitly to avoid mixing with XPath)
@@ -1480,13 +1418,14 @@ class Renderer:
                                     # No match found
                                     return None
                             else:
-                                # Evaluate index expression
-                                evaluated = self._evaluate_expression(idx_str)
-                                if evaluated is not None:
-                                    try:
-                                        idx_val = int(evaluated) - 1
-                                    except (TypeError, ValueError):
-                                        pass
+                                # XPath predicate: a number selects that position, any
+                                # other value is a boolean ($i holds a string: true when
+                                # not empty, so [$i] keeps every item, as in EB)
+                                evaluated = self._unwrap_value(self._evaluate_expression(idx_str))
+                                if isinstance(evaluated, (int, float)) and not isinstance(evaluated, bool):
+                                    idx_val = int(evaluated) - 1
+                                elif not ebv.to_boolean(evaluated):
+                                    return None
 
                             if idx_val is not None and isinstance(result, list):
                                 if 0 <= idx_val < len(result):
@@ -1587,9 +1526,8 @@ class Renderer:
         
         condition = self._strip_tag_quotes(condition)
 
-        # Strip outer quotes if present (common in EB syntax [!IF "expr"!])
-        if (condition.startswith('"') and condition.endswith('"')) or \
-           (condition.startswith("'") and condition.endswith("'")):
+        # Strip outer quotes if present (common in EB syntax [!IF "expr"!]), not "'a' = 'b'"
+        if ebv.is_quoted_literal(condition):
             condition = condition[1:-1].strip()
 
         # Strip balanced outer parentheses (e.g., "(expr = 'value')")
@@ -1638,130 +1576,11 @@ class Renderer:
         if len(and_parts) > 1:  # Only if we actually split on 'and'
             return all(self._evaluate_condition(p) for p in and_parts)
 
-        # Handle comparison operators (after logical operators)
-        # Use a single pass with robust splitting for all comparison types
+        # Comparison operators (after logical operators), with XPath 1.0 semantics
         for op_raw in ['==', '!=', '>=', '<=', '>', '<', '=']:
             parts = self._split_top_level(condition, [op_raw])
             if parts:
-                left = parts[0]
-                right = parts[1]
-                check_op = op_raw
-
-                left_raw = self._evaluate_expression(left)
-                right_raw = self._evaluate_expression(right)
-
-                left_val = self._unwrap_value(left_raw)
-                right_val = self._unwrap_value(right_raw)
-
-                # EB Tresos represents an empty sequence as the string '[]'.
-                # The standard idiom `text:grep(...) != '[]'` tests for "no match".
-                # _unwrap_value turns an empty list into None -> '' below, which
-                # would make `[] != '[]'` wrongly true. When one side is the
-                # literal '[]', normalize a list operand: empty -> '[]', non-empty
-                # -> a sentinel that is not '[]'. Scoped to the '[]' comparison so
-                # other list/string comparisons are unaffected.
-                _other_is_empty_seq = (right == "'[]'" or right_val == '[]'
-                                       or left == "'[]'" or left_val == '[]')
-                if _other_is_empty_seq:
-                    if isinstance(left_raw, list):
-                        left_val = '[]' if not left_raw else '[...]'
-                    if isinstance(right_raw, list):
-                        right_val = '[]' if not right_raw else '[...]'
-
-                # Boolean normalization
-                if isinstance(left_val, bool) and isinstance(right_val, str):
-                    right_val = right_val.lower() in ('true', '1', 'yes', 'on')
-                if isinstance(right_val, bool) and isinstance(left_val, str):
-                    left_val = left_val.lower() in ('true', '1', 'yes', 'on')
-
-                # Handle int/bool compared with boolean string ('true'/'false')
-                if isinstance(left_val, (int, bool)) and isinstance(right_val, str):
-                    if right_val.lower() in ('true', 'false'):
-                        left_is_truthy = str(left_val).lower() in ('true', '1', 'yes', 'on')
-                        right_is_truthy = right_val.lower() == 'true'
-                        left_val = left_is_truthy
-                        right_val = right_is_truthy
-
-                if isinstance(right_val, (int, bool)) and isinstance(left_val, str):
-                    if left_val.lower() in ('true', 'false'):
-                        left_is_truthy = left_val.lower() == 'true'
-                        right_is_truthy = str(right_val).lower() in ('true', '1', 'yes', 'on')
-                        left_val = left_is_truthy
-                        right_val = right_is_truthy
-
-                # EB Tresos boolean compatibility: string "1"/"0" vs string "true"/"false"
-                # ARXML stores boolean values as <VALUE>1</VALUE> or <VALUE>0</VALUE>,
-                # but templates compare against 'true'/'false'.
-                if isinstance(left_val, str) and isinstance(right_val, str):
-                    l_low, r_low = left_val.lower().strip(), right_val.lower().strip()
-                    l_is_bool = l_low in ('true', 'false', '1', '0')
-                    r_is_bool = r_low in ('true', 'false', '1', '0')
-                    if l_is_bool and r_is_bool:
-                        left_val = l_low in ('true', '1')
-                        right_val = r_low in ('true', '1')
-
-                # Numeric normalization
-                if isinstance(left_val, (int, float)) and isinstance(right_val, str):
-                    if right_val.lower() not in ('true', 'false'):
-                        try: right_val = float(right_val)
-                        except: pass
-                if isinstance(right_val, (int, float)) and isinstance(left_val, str):
-                    if left_val.lower() not in ('true', 'false'):
-                        try: left_val = float(left_val)
-                        except: pass
-
-                # Normalize None to empty string
-                if left_val is None: left_val = ''
-                if right_val is None: right_val = ''
-
-                # Type coercion for comparisons
-                def try_numeric(v):
-                    """Try to convert value to numeric for comparison."""
-                    if isinstance(v, (int, float)):
-                        return v
-                    if isinstance(v, str):
-                        s = v.strip().strip('"').strip("'")
-                        try: return int(s)
-                        except ValueError: pass
-                        try: return float(s)
-                        except ValueError: pass
-                    return v
-
-                if check_op in ('>', '<', '>=', '<='):
-                    left_num = try_numeric(left_val)
-                    right_num = try_numeric(right_val)
-                    if isinstance(left_num, (int, float)) and isinstance(right_num, (int, float)):
-                        left_val = left_num
-                        right_val = right_num
-
-                if check_op in ('==', '='):
-                    res = left_val == right_val
-                    # Special compatibility for '1' == 'true' (common in ARXML vs Template)
-                    if not res:
-                        l_s = str(left_val).lower()
-                        r_s = str(right_val).lower()
-                        if (l_s == '1' and r_s == 'true') or (l_s == 'true' and r_s == '1'):
-                            res = True
-                elif check_op == '!=':
-                    res = left_val != right_val
-                elif check_op == '>':
-                    try: res = left_val > right_val
-                    except: res = False
-                elif check_op == '<':
-                    try: res = left_val < right_val
-                    except: res = False
-                elif check_op == '>=':
-                    try: res = left_val >= right_val
-                    except: res = False
-                elif check_op == '<=':
-                    try: res = left_val <= right_val
-                    except: res = False
-                else:
-                    res = False
-                
-                return res
-
-
+                return self._compare(op_raw, parts[0], parts[1])
 
 
         # Atomic manifestation check (truthiness of single value)
@@ -1779,6 +1598,36 @@ class Renderer:
 
         return bool(val)
     
+    def _evaluate_operand(self, expr: str) -> Any:
+        """Value of a comparison operand. A location path gives its configuration nodes
+        (an XPath node-set, compared by the text of each node), other expressions their
+        value; an empty selection is None."""
+        e = expr.strip()
+        if e in ('true', 'false'):
+            return None         # a location path (no such child), not a boolean, as in EB
+        if self._xpath_engine and ebv.is_path_like(e):
+            res = self._xpath_engine.evaluate(e, return_node=True)
+            if res is not None and res != []:
+                return res
+        return self._evaluate_expression(e)
+
+    def _compare(self, op: str, left: str, right: str) -> bool:
+        """Compare two operand expressions with XPath 1.0 rules (values.compare)."""
+        left_raw = self._evaluate_operand(left)
+        right_raw = self._evaluate_operand(right)
+
+        # EB Tresos represents an empty sequence as the string '[]'. The idiom
+        # `text:grep(...) != '[]'` tests for "no match": compare a list operand as
+        # '[]' (empty) or a text that is not '[]' (non-empty).
+        if "'[]'" in (left.strip(), right.strip()) or '[]' in (left_raw, right_raw):
+            def as_seq_text(v):
+                if isinstance(v, list):
+                    return '[]' if not v else '[...]'
+                return '' if v is None else v
+            left_raw, right_raw = as_seq_text(left_raw), as_seq_text(right_raw)
+
+        return ebv.compare(op, left_raw, right_raw)
+
     def _split_top_level(self, s: str, ops: List[str]) -> List[str]:
         """Split a string by operators NOT inside parentheses or brackets."""
         parts = []
@@ -1911,11 +1760,12 @@ class Renderer:
                (arg.startswith("'") and arg.endswith("'")):
                 arg = arg[1:-1]
             result = self._xpath_engine.evaluate(arg, return_node=True)
+            # count() is an XPath number (Double)
             if result is None:
-                return 0
+                return 0.0
             if isinstance(result, list):
-                return len(result)
-            return 1
+                return float(len(result))
+            return 1.0
 
         # Special handling for num:max/num:min - argument is an XPath node-set
         # that must be evaluated as nodes (not unwrapped to scalar).
@@ -1967,9 +1817,9 @@ class Renderer:
         if func_name == 'count' and len(evaluated_args) == 1:
              # If it was an XPath string, it's already evaluated to a result
              val = evaluated_args[0]
-             if val is None: return 0
-             if isinstance(val, list): return len(val)
-             return 1
+             if val is None: return 0.0
+             if isinstance(val, list): return float(len(val))
+             return 1.0
 
         if self.strict:
             raise NameError(f"Unknown function: {func_name}")
@@ -2157,7 +2007,8 @@ class Renderer:
                 self._break_requested = False
                 break
 
-            self._context_stack.set_variable(var_name, val)
+            # EB keeps the loop counter as Integer.toString(): "0", "1", ...
+            self._context_stack.set_variable(var_name, str(val))
 
             # Push context if we have matching nodes
             pushed = False
