@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ...core.model.definition_model import EcucContainerDef, EcucModuleDef
+from ...core.model.definition_refs import module_relative, same_definition
 from .symbol_table import ConfigurationNode
 
 logger = logging.getLogger(__name__)
@@ -31,9 +32,25 @@ class EnableResult:
     warnings: list[str] = field(default_factory=list)
 
 
+class _DefinitionsByRef(dict):
+    """Definitions keyed by their path inside the module: a configuration value finds its
+    definition whatever the form of its DEFINITION-REF (relative, /AUTOSAR/EcucDefs/...,
+    or the definition file's own /<AR-PACKAGE>/<Module>/... of EB values)."""
+
+    def __init__(self, module_name: str):
+        super().__init__()
+        self.module_name = module_name
+
+    def __setitem__(self, ref, definition):
+        super().__setitem__(module_relative(ref, self.module_name), definition)
+
+    def get(self, ref, default=None):
+        return super().get(module_relative(ref, self.module_name), default)
+
+
 def _definitions_by_ref(module_def: EcucModuleDef) -> dict[str, Any]:
     """definition_ref -> container / parameter / reference definition of a module."""
-    defs: dict[str, Any] = {}
+    defs: dict[str, Any] = _DefinitionsByRef(module_def.short_name)
 
     def walk(container_def: EcucContainerDef):
         defs[container_def.definition_ref] = container_def
@@ -66,7 +83,7 @@ def _conditions(node: ConfigurationNode, parent: ConfigurationNode, defs: dict[s
     definition = defs.get(node.definition_ref) if node.definition_ref else None
     if definition is None:
         return []
-    in_wrapper_of_same_def = parent.is_wrapper and parent.definition_ref == node.definition_ref
+    in_wrapper_of_same_def = parent.is_wrapper and same_definition(parent.definition_ref, node.definition_ref)
     if isinstance(definition, EcucContainerDef):
         if node.is_wrapper:
             exprs = [definition.list_enable_expr]
@@ -109,7 +126,7 @@ def _lift_single_containers(root: ConfigurationNode, defs: dict[str, Any]) -> li
         if not isinstance(definition, EcucContainerDef) or definition.in_list:
             continue
         for child in wrapper.children:
-            if child.parent is wrapper and child.definition_ref == wrapper.definition_ref:
+            if child.parent is wrapper and same_definition(child.definition_ref, wrapper.definition_ref):
                 lifted.append((child, wrapper))
                 child.parent = wrapper.parent
     return lifted

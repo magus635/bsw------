@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Any, Set
 from datetime import datetime
 
 from .definition_model import VariantType
+from .definition_refs import same_definition
 
 
 @dataclass
@@ -662,7 +663,7 @@ class EcucModuleConfiguration:
     def _find_instances_by_def(self, container: EcucContainerValue, definition_ref: str) -> List[EcucContainerValue]:
         """Recursively find all instances matching a definition"""
         instances = []
-        if container.definition_ref == definition_ref:
+        if same_definition(container.definition_ref, definition_ref):
             instances.append(container)
         
         for sub_container in container.sub_containers:

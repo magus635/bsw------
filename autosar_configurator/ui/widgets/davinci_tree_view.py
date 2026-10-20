@@ -11,6 +11,7 @@ from typing import Optional, Dict
 
 from ...core.model.definition_model import EcucModuleDef, EcucContainerDef
 from ...core.model.configuration_model import EcucContainerValue
+from ...core.model.definition_refs import same_definition
 from ...core.config_manager import ConfigurationManager, ValidationError
 from ...core.workspace_manager import WorkspaceProject
 
@@ -494,9 +495,9 @@ class DaVinciTreeView(QTreeWidget):
         
         # Pre-validation: Check multiplicity limit before showing dialog
         if parent_instance:
-            current_count = sum(1 for c in parent_instance.sub_containers if c.definition_ref == container_def.definition_ref)
+            current_count = sum(1 for c in parent_instance.sub_containers if same_definition(c.definition_ref, container_def.definition_ref))
         else:
-            current_count = sum(1 for c in manager.configuration.containers if c.definition_ref == container_def.definition_ref)
+            current_count = sum(1 for c in manager.configuration.containers if same_definition(c.definition_ref, container_def.definition_ref))
         
         if container_def.upper_multiplicity != -1 and current_count >= container_def.upper_multiplicity:
             QMessageBox.information(
@@ -759,7 +760,7 @@ class DaVinciTreeView(QTreeWidget):
         def traverse(item):
             data = item.data(0, Qt.UserRole)
             if data and data.get("type") == "DEF":
-                if data["def"].definition_ref == definition_ref:
+                if same_definition(data["def"].definition_ref, definition_ref):
                     # Found it!
                     self.setCurrentItem(item)
                     self.scrollToItem(item)
@@ -995,7 +996,7 @@ class DaVinciTreeView(QTreeWidget):
                 if target_type == "DEF":
                     # Dropped on a definition -> Add as child (if definition matches)
                     # Logic needs to check if this definition matches the instance
-                    if target_data["def"].definition_ref == instance.definition_ref:
+                    if same_definition(target_data["def"].definition_ref, instance.definition_ref):
                         # Should go to parent of this DEF node? No, DEF node usually groups instances.
                         pass
                 elif target_type == "VALUE":

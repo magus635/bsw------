@@ -474,7 +474,12 @@ class DaVinciConfigPanel(QWidget):
                 elif param_def.is_required and param_def.default_value is not None:
                     # Only use default for required parameters
                     current_value = param_def.default_value
-                # For optional parameters without configured value, leave as None
+                elif param_def.param_type == EcucParameterType.BOOLEAN and param_def.default_value is not None:
+                    # A check box has no "(未配置)" state: show the definition default, the
+                    # value the generator uses for an unset parameter (display only, nothing
+                    # is written until the user toggles it)
+                    current_value = param_def.default_value
+                # For other optional parameters without configured value, leave as None
                 # The editor will show "(未配置)" option
 
             # Clear any existing item in the value cell to prevent "shadow" text

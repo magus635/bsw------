@@ -21,6 +21,7 @@ from .model.configuration_model import (
     EcucContainerValue,
     EcucParameterValue
 )
+from .model import definition_refs as defrefs
 
 
 class ValidationError(Exception):
@@ -350,12 +351,13 @@ class ConfigurationManager:
         # Check for duplicate name
         self._check_duplicate_name(instance_name, container_def, parent)
         
-        # Create instance
+        # Create instance (DEFINITION-REF: absolute path in the definition file)
         instance = EcucContainerValue(
             short_name=instance_name,
-            definition_ref=container_def.definition_ref,
+            definition_ref=defrefs.absolute_ref(self.module_def, container_def.definition_ref),
             index=self._get_next_index(container_def.short_name)
         )
+        instance.def_dest_type = defrefs.container_dest(container_def)
         
         # Initialize with default parameter values (smart defaults)
         for param_name, param_def in container_def.parameters.items():
@@ -387,8 +389,9 @@ class ConfigurationManager:
                 instance.set_parameter_value(
                     param_name,
                     value,
-                    param_def.definition_ref
+                    defrefs.absolute_ref(self.module_def, param_def.definition_ref)
                 )
+                instance.parameter_values[param_name].dest_type = defrefs.parameter_dest(param_def)
         
         # Add to parent or top-level
         if parent:
@@ -536,9 +539,15 @@ class ConfigurationManager:
         except (ValueError, TypeError) as e:
             raise ValidationError(f"{param_name}: Invalid value type - {e}")
         
-        # Set value in container
-        container.set_parameter_value(param_name, value, param_def.definition_ref)
-    
+        # Set value in container (DEFINITION-REF: absolute path, DEST: the parameter type)
+        container.set_parameter_value(param_name, value,
+                                      defrefs.absolute_ref(self.module_def, param_def.definition_ref))
+        param_value = container.parameter_values[param_name]
+        if defrefs.needs_repair(self.module_def, param_value.definition_ref):
+            param_value.definition_ref = defrefs.absolute_ref(self.module_def, param_value.definition_ref)
+        if param_value.dest_type in (None, defrefs.GENERIC_PARAM_DEST):
+            param_value.dest_type = defrefs.parameter_dest(param_def)
+
     def get_container_def(self, definition_ref: str) -> Optional[EcucContainerDef]:
         """Get container definition by reference path
 
@@ -633,7 +642,7 @@ class ConfigurationManager:
         """Check multiplicity for top-level containers"""
         current_count = sum(
             1 for c in self.configuration.containers
-            if c.definition_ref == container_def.definition_ref
+            if defrefs.same_definition(c.definition_ref, container_def.definition_ref)
         )
         
         if container_def.upper_multiplicity != -1:
@@ -647,7 +656,7 @@ class ConfigurationManager:
         """Count existing instances of a container definition in parent"""
         return sum(
             1 for c in parent.sub_containers
-            if c.definition_ref == container_def.definition_ref
+            if defrefs.same_definition(c.definition_ref, container_def.definition_ref)
         )
     
     def _generate_instance_name(self, container_def: EcucContainerDef, parent: Optional[EcucContainerValue] = None) -> str:
@@ -755,7 +764,13 @@ class ConfigurationManager:
             file_path: Output file path
         """
         from .serializer.ecuc_serializer import EcucValueSerializer
-        
+
+        # Values created anywhere in the tool get their absolute DEFINITION-REF and DEST here
+        repaired = self.repair_definition_refs()
+        if repaired:
+            logger.debug("%s: %d definition reference(s) completed before saving",
+                         self.module_def.short_name if self.module_def else "?", repaired)
+
         serializer = EcucValueSerializer()
         serializer.serialize_to_file(self.configuration, file_path)
         
@@ -828,6 +843,13 @@ class ConfigurationManager:
                 # container names.  Fix them before cleanup runs.
                 if self.module_def and not skip_cleanup:
                     self._normalize_definition_refs()
+                    # Relative / wrongly prefixed DEFINITION-REFs and generic DESTs written by
+                    # earlier versions: corrected in memory, written on the next save
+                    repaired = self.repair_definition_refs()
+                    if repaired:
+                        logger.info("%s: corrected %d definition reference(s) of %s "
+                                    "(relative path, module path or DEST); saved on the next save",
+                                    self.module_def.short_name, repaired, file_path.name)
 
                 # Clean up invalid parameters (parameters in wrong container level)
                 # Skip if requested (e.g. for stub modules where definition is empty)
@@ -843,6 +865,71 @@ class ConfigurationManager:
                     
         except Exception as e:
             raise ValueError(f"Failed to load configuration: {e}")
+
+    def repair_definition_refs(self) -> int:
+        """Give every value the DEFINITION-REF and DEST a value file needs: the absolute path
+        under the module's path in its definition file (module_def.ar_path) and the specific
+        type of the definition element. References that are already right (EB values) are
+        left as they are. Returns the number of corrected items."""
+        md = self.module_def
+        cfg = self.configuration
+        if md is None or cfg is None:
+            return 0
+        count = 0
+
+        base = defrefs.module_path(md)
+        if not cfg.definition_ref or defrefs.needs_repair(md, cfg.definition_ref):
+            cfg.definition_ref = base
+            count += 1
+
+        def fix_path(value) -> int:
+            if defrefs.needs_repair(md, value.definition_ref):
+                value.definition_ref = defrefs.absolute_ref(md, value.definition_ref)
+                return 1
+            return 0
+
+        def fix_param(value, param_def) -> int:
+            n = fix_path(value)
+            dest = defrefs.parameter_dest(param_def) if param_def is not None else None
+            if dest and getattr(value, 'dest_type', None) in (None, defrefs.GENERIC_PARAM_DEST):
+                value.dest_type = dest
+                n += 1
+            return n
+
+        def fix_ref(value, ref_def) -> int:
+            n = fix_path(value)
+            if ref_def is not None and getattr(value, 'dest_type', None) is None \
+                    and getattr(ref_def, 'is_choice_reference', False):
+                value.dest_type = defrefs.CHOICE_REFERENCE_DEST
+                n += 1
+            return n
+
+        def walk(container) -> int:
+            n = fix_path(container)
+            cdef = self.get_container_def(container.definition_ref)
+            if cdef is not None and getattr(container, 'def_dest_type', None) is None \
+                    and getattr(cdef, 'is_choice', False):
+                container.def_dest_type = defrefs.CHOICE_CONTAINER_DEST
+                n += 1
+            params = cdef.parameters if cdef is not None else {}
+            refs = cdef.references if cdef is not None else {}
+            for name, value in container.parameter_values.items():
+                n += fix_param(value, params.get(name))
+            for name, values in (getattr(container, 'multi_parameter_values', None) or {}).items():
+                for value in values:
+                    n += fix_param(value, params.get(name))
+            for name, value in container.reference_values.items():
+                n += fix_ref(value, refs.get(name))
+            for name, values in (getattr(container, 'multi_reference_values', None) or {}).items():
+                for value in values:
+                    n += fix_ref(value, refs.get(name))
+            for sub in container.sub_containers:
+                n += walk(sub)
+            return n
+
+        for container in cfg.containers:
+            count += walk(container)
+        return count
 
     def _cleanup_invalid_parameters(self) -> int:
         """Identify parameters that don't belong to their container definition.
@@ -1147,7 +1234,7 @@ class ConfigurationManager:
         else:
             count = sum(
                 1 for c in self.configuration.containers
-                if c.definition_ref == container_def.definition_ref
+                if defrefs.same_definition(c.definition_ref, container_def.definition_ref)
             )
         
         if count < container_def.lower_multiplicity:

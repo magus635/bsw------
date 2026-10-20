@@ -9,6 +9,7 @@ from typing import Set, Dict, List, Optional
 from ..validation_engine import ValidationRule, ValidationResult
 from ..model.definition_model import EcucModuleDef
 from ..model.configuration_model import EcucModuleConfiguration, EcucContainerValue
+from ..model.definition_refs import same_definition
 
 
 class CircularDependencyRule(ValidationRule):
@@ -150,7 +151,7 @@ class DependencyRule(ValidationRule):
         """Validate dependencies in a container"""
         # Check parameter dependencies
         for dep in self.param_dependencies:
-            if container.definition_ref == dep['container_def']:
+            if same_definition(container.definition_ref, dep['container_def']):
                 source_param = dep['source_param']
                 if source_param in container.parameter_values:
                     param_value = container.parameter_values[source_param].value

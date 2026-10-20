@@ -11,6 +11,7 @@ from typing import Dict, Any, Optional
 from .wizard_base import ConfigWizard, WizardPage
 from ...core.model.definition_model import EcucModuleDef, EcucContainerDef, EcucParameterType
 from ...core.model.configuration_model import EcucContainerValue
+from ...core.model.definition_refs import same_definition
 from ...core.config_manager import ConfigurationManager
 
 
@@ -49,12 +50,12 @@ class ContainerSelectionPage(WizardPage):
             if self.parent_instance:
                 current_count = sum(
                     1 for c in self.parent_instance.sub_containers
-                    if c.definition_ref == container_def.definition_ref
+                    if same_definition(c.definition_ref, container_def.definition_ref)
                 )
             else:
                 current_count = sum(
                     1 for c in self.config_manager.configuration.containers
-                    if c.definition_ref == container_def.definition_ref
+                    if same_definition(c.definition_ref, container_def.definition_ref)
                 )
             
             label = f"{container_def.short_name} ({container_def.multiplicity_str})"
@@ -100,12 +101,12 @@ class ContainerSelectionPage(WizardPage):
         if self.parent_instance:
             current_count = sum(
                 1 for c in self.parent_instance.sub_containers
-                if c.definition_ref == container_def.definition_ref
+                if same_definition(c.definition_ref, container_def.definition_ref)
             )
         else:
             current_count = sum(
                 1 for c in self.config_manager.configuration.containers
-                if c.definition_ref == container_def.definition_ref
+                if same_definition(c.definition_ref, container_def.definition_ref)
             )
         
         if container_def.upper_multiplicity != -1 and current_count >= container_def.upper_multiplicity:

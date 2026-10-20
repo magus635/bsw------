@@ -259,9 +259,30 @@ class EcucDefParser:
         
         # Set module definition reference
         module_def.definition_ref = f"/AUTOSAR/EcucDefs/{module_def.short_name}"
+        # Actual path in the definition file, the DEFINITION-REF prefix of configurations
+        module_def.ar_path = self._module_ar_path(element, module_def.short_name) or module_def.definition_ref
 
         self._apply_selector_values(module_def)
         return module_def
+
+    def _module_ar_path(self, element: etree._Element, module_name: str) -> str:
+        """/<AR-PACKAGE>/.../<Module> of a module definition element: the AR-PACKAGE
+        ancestors (XDM d:ctr type="AR-PACKAGE", ARXML AR-PACKAGE/SHORT-NAME); empty when
+        the element has none."""
+        packages = []
+        for ancestor in element.iterancestors():
+            if not isinstance(ancestor.tag, str):
+                continue
+            local = etree.QName(ancestor).localname
+            if local == 'ctr' and ancestor.get('type') == 'AR-PACKAGE' and ancestor.get('name'):
+                packages.append(ancestor.get('name'))
+            elif local == 'AR-PACKAGE':
+                name = self._get_short_name(ancestor)
+                if name:
+                    packages.append(name)
+        if not packages:
+            return ""
+        return '/' + '/'.join(reversed(packages)) + '/' + module_name
     
     def _parse_container_def(self, element: etree._Element, parent_path: str = "", is_choice: bool = False) -> Optional[EcucContainerDef]:
         """Parse ECUC-PARAM-CONF-CONTAINER-DEF element (recursive)"""
@@ -532,6 +553,10 @@ class EcucDefParser:
             # Map XDM 'var' to BOOLEAN as a guess, or better, look at type attribute
             if tag_name == 'var':
                 xdm_type = element.get('type', '').upper()
+                # INTEGER_LABEL / FLOAT_LABEL / STRING_LABEL: EB's value types with a display
+                # label (e.g. CommonPublishedInformation/ArMajorVersion, an integer in AUTOSAR)
+                if xdm_type.endswith('_LABEL'):
+                    xdm_type = xdm_type[:-len('_LABEL')]
                 if xdm_type == 'ENUMERATION': param_type = EcucParameterType.ENUMERATION
                 elif xdm_type == 'INTEGER': param_type = EcucParameterType.INTEGER
                 elif xdm_type == 'FLOAT': param_type = EcucParameterType.FLOAT

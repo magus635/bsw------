@@ -246,7 +246,12 @@ class EcucModuleDef:
     
     # Full path
     definition_ref: str = ""
-    
+
+    # Actual path of the module in its definition file (/<AR-PACKAGE>/<Module>, e.g.
+    # /THA6_ASR21/Os for an EB XDM). Configuration files must use it as DEFINITION-REF
+    # prefix; definition_ref above keeps the /AUTOSAR/EcucDefs form used internally.
+    ar_path: str = ""
+
     # Default variant for this module
     default_variant: VariantType = VariantType.POSTBUILD
 
