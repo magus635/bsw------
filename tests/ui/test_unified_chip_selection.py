@@ -192,6 +192,7 @@ def test_preview_error_still_allows_the_change(qtbot, tmp_path):
 
 
 def test_preview_dialog_lists_groups(qtbot):
+    from autosar_configurator.core.hardware.chip_selectors import SelectorResult
     from autosar_configurator.generator.eb.enable_conditions import DisabledContainer
     from autosar_configurator.ui.dialogs.chip_change_preview_dialog import (
         ChipChangePreviewDialog,
@@ -199,23 +200,38 @@ def test_preview_dialog_lists_groups(qtbot):
         summary_lines,
     )
 
-    disabled = [DisabledContainer("Os", f"/Os/Block{i}", "MemoryBlock") for i in range(3)]
+    disabled = [DisabledContainer("Os", f"/Os/{name}", "MemoryBlock") for name in ("os_bss", "BSS", "RODATA")]
     disabled.append(DisabledContainer("Os", "/Os/SystemModeStack", "SystemModeStack"))
-    report = ChipChangeReport("THA6412_BGA516", "THA6206_LFBGA292", disabled=disabled)
+    selectors = SelectorResult(changed=[("Os.OsResourceSubderivative", None, "Os_THA6412")])
+    report = ChipChangeReport("THA6412_BGA516", "THA6206_LFBGA292", selector_result=selectors,
+                              disabled=disabled)
     assert summary_lines(disabled) == ["Os: MemoryBlock x3", "Os: SystemModeStack x1"]
 
     dialog = ChipChangePreviewDialog(report)
     qtbot.addWidget(dialog)
-    assert "THA6206_LFBGA292 to THA6412_BGA516" in dialog.heading_label.text()
+    assert "从 THA6206_LFBGA292 切换为 THA6412_BGA516" in dialog.heading_label.text()
+    table = dialog.selector_table
+    assert [table.item(0, c).text() for c in range(3)] == [
+        "Os.OsResourceSubderivative", "（未设置）", "Os_THA6412"]
     tree = dialog.disabled_tree
     assert [tree.topLevelItem(i).text(0) for i in range(tree.topLevelItemCount())] == [
-        "Os: MemoryBlock x3", "Os: SystemModeStack x1"]
-    assert tree.topLevelItem(0).childCount() == 3
-    assert dialog.accept_button.text() == "Switch"
+        "Os：MemoryBlock × 3", "Os：SystemModeStack × 1"]
+    group = tree.topLevelItem(0)
+    assert [group.child(i).text(0) for i in range(group.childCount())] == [
+        "/Os/BSS", "/Os/os_bss", "/Os/RODATA"]          # case-insensitive order
+    assert "将失效" in dialog.status_label.text()
+    assert dialog.accept_button.text() == "切换"
+
+    enabled_only = ChipChangePreviewDialog(ChipChangeReport("A", "B", enabled=disabled))
+    qtbot.addWidget(enabled_only)
+    assert "重新参与代码生成" in enabled_only.status_label.text()
+    assert "保留在项目中" not in enabled_only.status_label.text()
 
     empty = ChipChangePreviewDialog(ChipChangeReport("X", "X"))
     qtbot.addWidget(empty)
-    assert "No configured container" in empty.status_label.text()
+    assert "没有已配置的容器" in empty.status_label.text()
+    assert "写入配置" in empty.heading_label.text()
+    assert not empty.selector_table.isVisibleTo(empty)
 
 
 @pytest.fixture

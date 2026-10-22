@@ -388,9 +388,11 @@ class ProjectPropertiesDialog(QDialog):
     def _apply_chip_selectors(self):
         result = self._apply_selectors(self)     # previews first; None when cancelled
         if result is not None:
-            lines = result.messages()
-            QMessageBox.information(self, "Apply Chip Selectors",
-                                    "\n".join(lines) if lines else "Nothing to change.")
+            lines = [f"{key}：{'（未设置）' if old is None else old} → {new}"
+                     for key, old, new in result.changed]
+            lines += [f"{key} 未写入：{reason}" for key, reason in result.skipped]
+            QMessageBox.information(self, "写入芯片选择器",
+                                    "已写入：\n" + "\n".join(lines) if lines else "没有需要修改的值。")
         self._refresh_chip_status()
 
     def _adopt_chip(self):

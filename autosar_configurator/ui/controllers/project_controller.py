@@ -132,8 +132,8 @@ class ProjectController:
                     logger.info("  %s %s", title, item.path)
         return report
 
-    def confirm_chip_change(self, chip_name, parent=None, title="Change Chip",
-                            accept_text="Switch") -> bool:
+    def confirm_chip_change(self, chip_name, parent=None, title="切换芯片",
+                            accept_text="切换") -> bool:
         """Preview a chip change and ask the user to confirm it."""
         from PySide6.QtWidgets import QApplication
 
@@ -514,9 +514,9 @@ class ProjectController:
                 # and selectors follow only when the user confirms
                 if self.confirm_chip_change(chip):
                     self.apply_project_chip(chip, write_selectors=True)
-                    chip_status = f"  |  Chip changed to {chip}"
+                    chip_status = f"  |  已切换芯片为 {chip}"
                 else:
-                    chip_status = "  |  Chip change cancelled"
+                    chip_status = "  |  已取消切换芯片"
 
             # Update tree header
             self.win.tree_view.setHeaderLabel(f"Project: {self.win.current_project.name}")
@@ -532,7 +532,7 @@ class ProjectController:
         if not project:
             return None
         if not self.confirm_chip_change(project.selected_chip, parent,
-                                        "Apply Chip Selectors", "Apply"):
+                                        "写入芯片选择器", "写入"):
             return None
         result = project.apply_chip_selectors()
         if result.changed:
