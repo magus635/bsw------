@@ -142,9 +142,23 @@ class ProjectController:
     def _changed_inputs(preview) -> dict:
         """What a condition may read that the chip change alters:
         ``{"selector": {param: (old, new)}, "ecu": {key: (old, new)}}``."""
+        def default_of(module, param):
+            """Definition default of a selector (what conditions read while it is unset)."""
+            module_def = (preview.modules.get(module) or (None, None))[0]
+            if module_def is None:
+                return None
+            param_def = (getattr(module_def, "parameters", None) or {}).get(param)
+            stack = list(module_def.containers.values())
+            while param_def is None and stack:
+                container_def = stack.pop()
+                param_def = container_def.parameters.get(param)
+                stack.extend(container_def.sub_containers.values())
+            return getattr(param_def, "default_value", None)
+
         selectors = {}
         for key, old, new in preview.selector_result.changed:
-            selectors[key.partition(".")[2]] = (old, new)
+            module, _, param = key.partition(".")
+            selectors[param] = (old, new, default_of(module, param) if old is None else None)
         before, after = preview.current_ecu_resources or {}, preview.ecu_resources or {}
         ecu = {key: (before.get(key), after.get(key)) for key in set(before) | set(after)
                if before.get(key) != after.get(key)}
@@ -160,9 +174,15 @@ class ProjectController:
 
         def inputs(condition):
             found = []
-            for param, (old, new) in sorted(changes["selector"].items()):
+            for param, (old, new, default) in sorted(changes["selector"].items()):
                 if re.search(rf"\b{re.escape(param)}\b", condition):
-                    found.append(f"{param}：{UNSET if old is None else old} → {new}")
+                    if old is not None:
+                        before = old
+                    elif default is not None:
+                        before = f"（未设置，默认 {default}）"
+                    else:
+                        before = UNSET
+                    found.append(f"{param}：{before} → {new}")
             for key in sorted(set(re.findall(r"ecu:(?:get|list|has)\('([^']+)'\)", condition))):
                 if key in changes["ecu"]:
                     old, new = changes["ecu"][key]

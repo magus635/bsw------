@@ -214,3 +214,12 @@ def test_reason_names_the_chip_resource_it_reads(tmp_path):
     [(condition, inputs)] = report.disabled_reasons[("Os", "OsCoreCfg")]
     assert "ecu:get('OsResource.NumOfCores')" in condition
     assert inputs == ["芯片资源 OsResource.NumOfCores：4 → 2"]
+
+
+def test_unset_selector_shows_the_definition_default(tmp_path):
+    # T1: OsResourceSubderivative was never set; conditions read the default Os_THA6206
+    project = _project(tmp_path)
+    project.module_managers["Os"].configuration.parameter_values.pop("OsResourceSubderivative")
+    report = _controller_report(project, THA6412.name)
+    [(_, inputs)] = report.disabled_reasons[("Os", "MemoryBlock")]
+    assert inputs == ["OsResourceSubderivative：（未设置，默认 Os_THA6206） → Os_THA6412"]
