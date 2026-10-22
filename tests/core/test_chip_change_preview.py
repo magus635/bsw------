@@ -54,7 +54,9 @@ OS_XDM = """<?xml version='1.0'?>
                 </v:ctr>
               </v:lst>
               <v:lst name="OsExtraCore" type="MAP">
-                <a:da name="ENABLE" type="XPath" expr="ecu:get('OsResource.NumOfCores') &gt; 2"/>
+                <a:da name="ENABLE" type="XPath"
+                      expr="ecu:get('OsResource.NumOfCores') &gt; 2"
+                      true="true" false="false"/>
                 <v:ctr name="OsExtraCore" type="IDENTIFIABLE">
                   <v:var name="OsExtraCoreId" type="INTEGER"/>
                 </v:ctr>
@@ -201,17 +203,17 @@ def test_descriptions_of_the_listed_kinds(tmp_path):
 def test_reason_names_the_condition_and_the_selector_it_reads(tmp_path):
     project = _project(tmp_path)
     report = _controller_report(project, THA6412.name)
-    [(condition, inputs)] = report.disabled_reasons[("Os", "MemoryBlock")]
+    [(condition, inputs, _)] = report.disabled_reasons[("Os", "MemoryBlock")]
     assert condition == "node:value(./../OsResourceSubderivative) = 'Os_THA6206'"
     assert inputs == ["OsResourceSubderivative：Os_THA6206 → Os_THA6412"]
-    [(condition, inputs)] = report.enabled_reasons[("Os", "OsExtraCore")]
+    [(condition, inputs, _)] = report.enabled_reasons[("Os", "OsExtraCore")]
     assert inputs == ["芯片资源 OsResource.NumOfCores：2 → 4"]
 
 
 def test_reason_names_the_chip_resource_it_reads(tmp_path):
     project = _project(tmp_path, THA6412, blocks=0, extra_cores=0, core_ids=(0, 3))
     report = _controller_report(project, THA6206.name)
-    [(condition, inputs)] = report.disabled_reasons[("Os", "OsCoreCfg")]
+    [(condition, inputs, _)] = report.disabled_reasons[("Os", "OsCoreCfg")]
     assert "ecu:get('OsResource.NumOfCores')" in condition
     assert inputs == ["芯片资源 OsResource.NumOfCores：4 → 2"]
 
@@ -221,5 +223,30 @@ def test_unset_selector_shows_the_definition_default(tmp_path):
     project = _project(tmp_path)
     project.module_managers["Os"].configuration.parameter_values.pop("OsResourceSubderivative")
     report = _controller_report(project, THA6412.name)
-    [(_, inputs)] = report.disabled_reasons[("Os", "MemoryBlock")]
+    [(_, inputs, _)] = report.disabled_reasons[("Os", "MemoryBlock")]
     assert inputs == ["OsResourceSubderivative：（未设置，默认 Os_THA6206） → Os_THA6412"]
+
+
+def _enable_line(definition: str) -> int:
+    """Line of the ENABLE condition's expression written for ``definition`` in OS_XDM."""
+    lines = OS_XDM.splitlines()
+    start = next(i for i, line in enumerate(lines) if f'name="{definition}"' in line)
+    enable = next(i for i in range(start, len(lines)) if 'name="ENABLE"' in lines[i])
+    return next(i for i in range(enable, len(lines)) if "expr=" in lines[i]) + 1
+
+
+def test_reason_location_is_the_definition_file_and_line(tmp_path):
+    project = _project(tmp_path)
+    report = _controller_report(project, THA6412.name)
+    [(_, _, location)] = report.disabled_reasons[("Os", "MemoryBlock")]
+    assert location == ("Os/config/Os.xdm", _enable_line("MemoryBlock"))
+    [(_, _, location)] = report.enabled_reasons[("Os", "OsExtraCore")]
+    assert location == ("Os/config/Os.xdm", _enable_line("OsExtraCore"))
+
+
+def test_container_condition_line(tmp_path):
+    # condition on the v:ctr (not the v:lst) of OsCoreCfg
+    project = _project(tmp_path, THA6412, blocks=0, extra_cores=0, core_ids=(3,))
+    report = _controller_report(project, THA6206.name)
+    [(_, _, location)] = report.disabled_reasons[("Os", "OsCoreCfg")]
+    assert location == ("Os/config/Os.xdm", _enable_line("OsCoreCfg"))

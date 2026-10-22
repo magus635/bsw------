@@ -247,21 +247,25 @@ def test_preview_dialog_lists_groups(qtbot):
     explained = ChipChangePreviewDialog(ChipChangeReport(
         "THA6412_BGA516", "THA6206_LFBGA292", disabled=disabled,
         disabled_reasons={
-            ("Os", "MemoryBlock"): [(condition, ["OsResourceSubderivative：Os_THA6206 → Os_THA6412"])],
-            ("Os", "SystemModeStack"): [(condition, ["OsResourceSubderivative：Os_THA6206 → Os_THA6412"])]}))
+            ("Os", "MemoryBlock"): [(condition, ["OsResourceSubderivative：Os_THA6206 → Os_THA6412"],
+                                     ("Os.xdm", 3988))],
+            ("Os", "SystemModeStack"): [(condition, ["OsResourceSubderivative：Os_THA6206 → Os_THA6412"],
+                                         ("Os.xdm", 4167))]}))
     qtbot.addWidget(explained)
     assert explained.reason_label.text() == (
         f"失效原因：ENABLE 条件 {condition} 不再成立（OsResourceSubderivative：Os_THA6206 → Os_THA6412）。"
-        "涉及：MemoryBlock、SystemModeStack")
+        "涉及：MemoryBlock、SystemModeStack。位置：Os.xdm 第 3988、4167 行")
     first = explained.disabled_tree.topLevelItem(0).child(0).text(0)
     assert first.startswith("原因：ENABLE 条件") and "Os_THA6412" in first
+    assert first.endswith("位置：Os.xdm 第 3988 行")
     assert explained.disabled_tree.topLevelItem(0).child(1).text(0) == "/Os/BSS"
 
     unexplained = ChipChangePreviewDialog(ChipChangeReport(
-        "A", "B", enabled=disabled[:1], enabled_reasons={("Os", "MemoryBlock"): [("x = 1", [])]}))
+        "A", "B", enabled=disabled[:1], enabled_reasons={("Os", "MemoryBlock"): [("x = 1", [], None)]}))
     qtbot.addWidget(unexplained)
     assert "恢复原因" in unexplained.reason_label.text()
     assert "未能定位具体变化" in unexplained.reason_label.text()
+    assert "位置" not in unexplained.reason_label.text()            # location unknown
 
     empty = ChipChangePreviewDialog(ChipChangeReport("X", "X"))
     qtbot.addWidget(empty)

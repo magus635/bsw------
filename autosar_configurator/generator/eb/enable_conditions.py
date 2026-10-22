@@ -32,6 +32,9 @@ class EnableResult:
     # id() of a removed configuration object -> the condition that was false (that of
     # the topmost removed node of its subtree)
     removed_conditions: dict[int, str] = field(default_factory=dict)
+    # id() of a removed configuration object -> line of that condition in the
+    # definition file (absent when unknown)
+    removed_condition_lines: dict[int, int] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
 
 
@@ -74,8 +77,10 @@ def _has_conditions(defs: dict[str, Any]) -> bool:
                for d in defs.values())
 
 
-def _conditions(node: ConfigurationNode, parent: ConfigurationNode, defs: dict[str, Any]) -> list[str]:
-    """Conditions to evaluate at ``node`` (its structural parent is ``parent``).
+def _conditions(node: ConfigurationNode, parent: ConfigurationNode,
+                defs: dict[str, Any]) -> list[tuple[str, int | None]]:
+    """Conditions to evaluate at ``node`` (its structural parent is ``parent``), each with
+    its line in the definition file.
 
     - list wrapper of containers: the v:lst condition
     - container instance inside such a wrapper: its own v:ctr condition
@@ -87,16 +92,18 @@ def _conditions(node: ConfigurationNode, parent: ConfigurationNode, defs: dict[s
     if definition is None:
         return []
     in_wrapper_of_same_def = parent.is_wrapper and same_definition(parent.definition_ref, node.definition_ref)
+    own = (definition.enable_expr, getattr(definition, 'enable_line', None))
     if isinstance(definition, EcucContainerDef):
+        listed = (definition.list_enable_expr, getattr(definition, 'list_enable_line', None))
         if node.is_wrapper:
-            exprs = [definition.list_enable_expr]
+            exprs = [listed]
         elif in_wrapper_of_same_def:
-            exprs = [definition.enable_expr]
+            exprs = [own]
         else:
-            exprs = [definition.list_enable_expr, definition.enable_expr]
+            exprs = [listed, own]
     else:
-        exprs = [] if in_wrapper_of_same_def else [definition.enable_expr]
-    return [e for e in exprs if e]
+        exprs = [] if in_wrapper_of_same_def else [own]
+    return [(e, line) for e, line in exprs if e]
 
 
 def _subtree(node: ConfigurationNode) -> list[ConfigurationNode]:
@@ -162,8 +169,8 @@ def apply_enable_conditions(renderer, module_defs: Iterable[EcucModuleDef],
 
     def walk(parent: ConfigurationNode, defs: dict[str, Any], removed: set[int]):
         for child in list(parent.children):
-            failed = next((expr for expr in _conditions(child, parent, defs)
-                           if not enabled(child, expr)), None)
+            failed, failed_line = next(((expr, line) for expr, line in _conditions(child, parent, defs)
+                                        if not enabled(child, expr)), (None, None))
             if failed is None:
                 walk(child, defs, removed)
                 continue
@@ -174,6 +181,8 @@ def apply_enable_conditions(renderer, module_defs: Iterable[EcucModuleDef],
                 if n.source is not None:
                     result.removed_sources.add(id(n.source))
                     result.removed_conditions.setdefault(id(n.source), failed)
+                    if failed_line is not None:
+                        result.removed_condition_lines.setdefault(id(n.source), failed_line)
 
     seen = set()
     for module_def in module_defs:
@@ -231,6 +240,7 @@ class DisabledContainer:
     # the ENABLE condition that was false; not part of the identity, so the same
     # container compares equal whatever disabled it
     condition: str = field(default="", compare=False)
+    condition_line: int | None = field(default=None, compare=False)   # in the definition file
 
 
 def disabled_containers(modules: dict[str, Any],
@@ -252,7 +262,8 @@ def disabled_containers(modules: dict[str, Any],
             if id(container) in removed:
                 definition = (container.definition_ref or "").rstrip("/").rsplit("/", 1)[-1]
                 found.append(DisabledContainer(module, container_path, definition,
-                                               result.removed_conditions.get(id(container), "")))
+                                               result.removed_conditions.get(id(container), ""),
+                                               result.removed_condition_lines.get(id(container))))
             else:
                 walk(container.sub_containers, container_path, module)
 

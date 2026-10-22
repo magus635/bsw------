@@ -46,6 +46,8 @@ class EcucDefParser:
         # "<Module>.<parameter>" -> extra enumeration values declared by chips
         # (None: use the packaged chip library)
         self._selector_values = None
+        # Lines of the definition file being parsed (for ENABLE condition locations)
+        self._source_lines: List[str] = []
 
     def set_selector_values(self, values):
         """Extra values of chip selector parameters, keyed "<Module>.<parameter>"."""
@@ -109,6 +111,10 @@ class EcucDefParser:
             _parser = etree.XMLParser(resolve_entities=False, no_network=True)
             tree = etree.parse(str(file_path), _parser)
             root = tree.getroot()
+            try:
+                self._source_lines = file_path.read_text(encoding="utf-8", errors="replace").splitlines()
+            except OSError:
+                self._source_lines = []
             self._use_attribute_namespace(root)
             
             # Find ECUC-MODULE-DEF element using permissive search
@@ -231,10 +237,12 @@ class EcucDefParser:
                 # If lst, the actual ctr is inside
                 target_elems = [container_elem] if tag_local == 'ctr' else container_elem.xpath("v:ctr", namespaces=self.NAMESPACES)
                 lst_enable = self._xdm_enable_expr(container_elem) if tag_local == 'lst' else None
+                lst_enable_line = self._xdm_enable_line(container_elem) if lst_enable else None
                 for target in target_elems:
                     container_def = self._parse_container_def(target)
                     if container_def:
                         container_def.list_enable_expr = lst_enable
+                        container_def.list_enable_line = lst_enable_line
                         container_def.in_list = tag_local == 'lst'
                         # Apply v:lst multiplicity to container definition
                         if lst_lower is not None:
@@ -297,6 +305,7 @@ class EcucDefParser:
             is_choice=is_choice
         )
         container_def.enable_expr = self._xdm_enable_expr(element)
+        container_def.enable_line = self._xdm_enable_line(element) if container_def.enable_expr else None
 
         # Parse multiplicity (use direct child lookup to avoid finding sub-container's multiplicity)
         container_def.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)
@@ -421,6 +430,7 @@ class EcucDefParser:
                 lst_upper = None
                 lst_upper_expr = None
                 lst_enable = self._xdm_enable_expr(sub_elem)
+                lst_enable_line = self._xdm_enable_line(sub_elem) if lst_enable else None
                 if min_da:
                     try: lst_lower = int(min_da[0])
                     except ValueError: pass
@@ -444,6 +454,7 @@ class EcucDefParser:
                     sub_container_def = self._parse_container_def(ctr_child, current_path)
                     if sub_container_def:
                         sub_container_def.list_enable_expr = lst_enable
+                        sub_container_def.list_enable_line = lst_enable_line
                         sub_container_def.in_list = True
                         # Apply v:lst multiplicity to the container def
                         if lst_lower is not None:
@@ -461,7 +472,8 @@ class EcucDefParser:
                     param_def = self._parse_parameter_def(var_child, current_path)
                     if param_def:
                         # the list's condition covers all its values (same parent as the list)
-                        param_def.enable_expr = param_def.enable_expr or lst_enable
+                        if not param_def.enable_expr and lst_enable:
+                            param_def.enable_expr, param_def.enable_line = lst_enable, lst_enable_line
                         if lst_lower is not None:
                             param_def.lower_multiplicity = lst_lower
                         if lst_upper is not None:
@@ -476,7 +488,8 @@ class EcucDefParser:
                 for ref_child in ref_children:
                     ref_def = self._parse_reference_def(ref_child, current_path)
                     if ref_def:
-                        ref_def.enable_expr = ref_def.enable_expr or lst_enable
+                        if not ref_def.enable_expr and lst_enable:
+                            ref_def.enable_expr, ref_def.enable_line = lst_enable, lst_enable_line
                         if lst_lower is not None:
                             ref_def.lower_multiplicity = lst_lower
                         if lst_upper is not None:
@@ -492,6 +505,7 @@ class EcucDefParser:
                     sub_container_def = self._parse_container_def(target, current_path)
                     if sub_container_def:
                         sub_container_def.list_enable_expr = lst_enable
+                        sub_container_def.list_enable_line = lst_enable_line
                         sub_container_def.in_list = True
                         if lst_lower is not None:
                             sub_container_def.lower_multiplicity = lst_lower
@@ -533,6 +547,29 @@ class EcucDefParser:
                 return f"not ({expr.strip()})"
             return expr.strip()
         return None
+
+    def _xdm_enable_line(self, element: etree._Element) -> Optional[int]:
+        """Line of the XDM ENABLE condition of a definition element (see _xdm_enable_expr):
+        the line where its ``expr=`` is written."""
+        ns = {'a': self.NAMESPACES['a']}
+        for attr in element.xpath("a:da[@name='ENABLE'][@type='XPath']", namespaces=ns):
+            tst = [] if attr.get('expr') else attr.xpath("a:tst[@expr]", namespaces=ns)
+            return self._expr_line((tst[0] if tst else attr).sourceline)
+        return None
+
+    def _expr_line(self, end_line: Optional[int]) -> Optional[int]:
+        """libxml2 reports the line that ends a start tag; for a tag written over
+        several lines, go back to the line with ``expr=`` (within that tag)."""
+        lines = self._source_lines
+        if not end_line or end_line > len(lines):
+            return end_line
+        for number in range(end_line, max(end_line - 20, 0), -1):
+            text = lines[number - 1]
+            if "expr=" in text:
+                return number
+            if "<" in text and number != end_line:
+                break          # start of the tag reached without expr=
+        return end_line
 
     def _is_upper_multiplicity_infinite(self, element: etree._Element) -> bool:
         """True if UPPER-MULTIPLICITY-INFINITE is set ('true' per the AUTOSAR schema; '1' also accepted)."""
@@ -657,6 +694,7 @@ class EcucDefParser:
         self._parse_xdm_attributes(element, param_def)
         self._parse_xdm_data_attributes(element, param_def, param_type)
         param_def.enable_expr = self._xdm_enable_expr(element)
+        param_def.enable_line = self._xdm_enable_line(element) if param_def.enable_expr else None
 
         # Set definition reference path
         param_def.definition_ref = f"{parent_path}/{short_name}"
@@ -710,6 +748,7 @@ class EcucDefParser:
         # XDM: extract a:a attributes for multiplicity, scope, origin
         self._parse_xdm_attributes(element, ref_def)
         ref_def.enable_expr = self._xdm_enable_expr(element)
+        ref_def.enable_line = self._xdm_enable_line(element) if ref_def.enable_expr else None
 
         # Parse multiplicity (use direct child lookup)
         ref_def.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)

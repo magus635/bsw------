@@ -47,7 +47,8 @@ class ChipChangeReport:
     enabled: list = field(default_factory=list)
     unavailable: list = field(default_factory=list)
     descriptions: dict = field(default_factory=dict)
-    # (module, definition) -> [(ENABLE condition, [changed inputs it reads])]
+    # (module, definition) -> [(ENABLE condition, [changed inputs it reads],
+    #                            (definition file, line) or None)]
     disabled_reasons: dict = field(default_factory=dict)
     enabled_reasons: dict = field(default_factory=dict)
     error: Optional[str] = None
@@ -72,25 +73,40 @@ def short_value(value, limit: int = 60) -> str:
     return text if len(text) <= limit else text[:limit - 3] + "..."
 
 
-def reason_text(condition: str, inputs, disabled: bool) -> str:
+def location_text(locations) -> str:
+    """'Os.xdm 第 3884、3988 行' from [(file, line)], grouped by file in order."""
+    by_file: Dict[str, List[int]] = {}
+    for location in locations:
+        if location:
+            file, line = location
+            lines = by_file.setdefault(file, [])
+            if line not in lines:
+                lines.append(line)
+    return "；".join(f"{file} 第 {'、'.join(map(str, sorted(lines)))} 行" for file, lines in by_file.items())
+
+
+def reason_text(condition: str, inputs, disabled: bool, locations=()) -> str:
     """One line explaining why a kind of container is disabled or enabled again."""
     verb = "不再成立" if disabled else "在切换后成立"
     if inputs:
         detail = "；".join(inputs)
     else:
         detail = "条件读取的不是芯片选择器或芯片资源，未能定位具体变化"
-    return f"ENABLE 条件 {condition} {verb}（{detail}）"
+    where = location_text(locations)
+    return f"ENABLE 条件 {condition} {verb}（{detail}）" + (f"　位置：{where}" if where else "")
 
 
-def reasons_by_condition(reasons) -> List[Tuple[str, List[str], List[Tuple[str, str]]]]:
-    """[(condition, inputs, kinds)] from (module, definition) -> [(condition, inputs)],
-    in the order of first appearance by kind."""
-    merged: Dict[str, Tuple[List[str], List[Tuple[str, str]]]] = {}
+def reasons_by_condition(reasons) -> List[Tuple[str, List[str], List[Tuple[str, str]], list]]:
+    """[(condition, inputs, kinds, locations)] from (module, definition) ->
+    [(condition, inputs, location)], in the order of first appearance by kind."""
+    merged: Dict[str, Tuple[List[str], List[Tuple[str, str]], list]] = {}
     for kind in sorted(reasons):
-        for condition, inputs in reasons[kind]:
-            entry = merged.setdefault(condition, (list(inputs), []))
-            entry[1].append(kind)
-    return [(c, inputs, kinds) for c, (inputs, kinds) in merged.items()]
+        for condition, inputs, location in reasons[kind]:
+            entry = merged.setdefault(condition, (list(inputs), [], []))
+            if kind not in entry[1]:
+                entry[1].append(kind)
+            entry[2].append(location)
+    return [(c, inputs, kinds, locations) for c, (inputs, kinds, locations) in merged.items()]
 
 
 def clean_description(text: str) -> str:
@@ -252,10 +268,11 @@ class ChipChangePreviewDialog(QDialog):
     def _reason_lines(report: ChipChangeReport) -> List[str]:
         lines = []
         for reasons, disabled in ((report.disabled_reasons, True), (report.enabled_reasons, False)):
-            for condition, inputs, kinds in reasons_by_condition(reasons):
+            for condition, inputs, kinds, locations in reasons_by_condition(reasons):
                 names = "、".join(definition for _, definition in kinds)
-                lines.append(f"{'失效' if disabled else '恢复'}原因：{reason_text(condition, inputs, disabled)}"
-                             f"。涉及：{names}")
+                line = f"{'失效' if disabled else '恢复'}原因：{reason_text(condition, inputs, disabled)}。涉及：{names}"
+                where = location_text(locations)
+                lines.append(line + (f"。位置：{where}" if where else ""))
         return lines
 
     @staticmethod
@@ -272,8 +289,9 @@ class ChipChangePreviewDialog(QDialog):
             group = QTreeWidgetItem([text])
             tip = descriptions.get(key)
             group.setToolTip(0, f"{definition}：{tip}" if tip else f"{definition}（定义中没有描述）")
-            for condition, inputs in (reasons or {}).get(key, []):
-                line = QTreeWidgetItem(group, ["原因：" + reason_text(condition, inputs, disabled)])
+            for condition, inputs, location in (reasons or {}).get(key, []):
+                line = QTreeWidgetItem(group, ["原因：" + reason_text(condition, inputs, disabled,
+                                                                    [location])])
                 line.setToolTip(0, line.text(0))
                 line.setForeground(0, QColor("#c0392b") if disabled else QColor("#1e7e34"))
             for path in paths:

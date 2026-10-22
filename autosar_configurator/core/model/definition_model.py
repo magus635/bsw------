@@ -81,6 +81,8 @@ class EcucParameterDef:
     # XDM ENABLE condition (XPath, context: this parameter); false -> not part of the
     # configuration. For a v:lst of values it is the list's condition.
     enable_expr: Optional[str] = None
+    # Line of that condition in the definition file (None when unknown)
+    enable_line: Optional[int] = None
 
     @property
     def is_required(self) -> bool:
@@ -123,6 +125,7 @@ class EcucReferenceDef:
 
     # XDM ENABLE condition (see EcucParameterDef.enable_expr)
     enable_expr: Optional[str] = None
+    enable_line: Optional[int] = None
 
     def __post_init__(self):
         if self.choice_destination_refs is None:
@@ -183,6 +186,9 @@ class EcucContainerDef:
     # list_enable_expr: on the enclosing v:lst (context: the list, i.e. all instances)
     enable_expr: Optional[str] = None
     list_enable_expr: Optional[str] = None
+    # Lines of those conditions in the definition file (None when unknown)
+    enable_line: Optional[int] = None
+    list_enable_line: Optional[int] = None
     # Defined inside an XDM v:lst (instances live in a list node); False for a single
     # v:ctr / v:chc, whose instance sits directly in its parent container
     in_list: bool = False

@@ -125,8 +125,9 @@ class ProjectController:
         report.disabled = sorted(after - before)
         report.enabled = sorted(before - after)
         changes = self._changed_inputs(preview)
-        report.disabled_reasons = self._reasons(report.disabled, changes)
-        report.enabled_reasons = self._reasons(report.enabled, changes)
+        files = self._definition_files(project)
+        report.disabled_reasons = self._reasons(report.disabled, changes, files)
+        report.enabled_reasons = self._reasons(report.enabled, changes, files)
         report.unavailable = self._unavailable_kinds(report.disabled, after, preview.modules)
         report.descriptions = self._container_descriptions(
             project, {(d.module, d.definition) for d in report.disabled + report.enabled})
@@ -165,9 +166,10 @@ class ProjectController:
         return {"selector": selectors, "ecu": ecu}
 
     @staticmethod
-    def _reasons(items, changes) -> dict:
-        """(module, definition) -> [(condition, [changed inputs it reads])], one entry
-        per distinct condition, the inputs as display text."""
+    def _reasons(items, changes, files=None) -> dict:
+        """(module, definition) -> [(condition, [changed inputs it reads], location)],
+        one entry per distinct condition, the inputs as display text, the location as
+        (definition file, line) or None when unknown."""
         import re
 
         from ..dialogs.chip_change_preview_dialog import UNSET, short_value
@@ -194,9 +196,28 @@ class ProjectController:
         reasons: dict = {}
         for item in items:
             entries = reasons.setdefault((item.module, item.definition), [])
-            if item.condition and all(c != item.condition for c, _ in entries):
-                entries.append((item.condition, inputs(item.condition)))
+            file = (files or {}).get(item.module)
+            location = (file, item.condition_line) if file and item.condition_line else None
+            if item.condition and all((c, loc) != (item.condition, location) for c, _, loc in entries):
+                entries.append((item.condition, inputs(item.condition), location))
         return reasons
+
+    @staticmethod
+    def _definition_files(project) -> dict:
+        """Module name -> its definition file, relative to the project directory when
+        inside it, as a POSIX path."""
+        project_dir = Path(project.path).parent if getattr(project, "path", None) else None
+        files = {}
+        for module, def_path in (getattr(project, "module_defs", None) or {}).items():
+            if not def_path:
+                continue
+            path = Path(def_path)
+            try:
+                path = path.resolve().relative_to(project_dir.resolve()) if project_dir else path
+            except ValueError:
+                pass
+            files[module] = path.as_posix()
+        return files
 
     @staticmethod
     def _unavailable_kinds(newly_disabled, disabled_after, modules_after) -> list:
