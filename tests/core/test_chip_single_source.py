@@ -335,6 +335,37 @@ def test_project_copy_modified_after_it_was_recorded(tmp_path):
     assert any("different version" in m for m in findings)
 
 
+def test_switch_to_a_chip_already_in_chips_records_it(tmp_path):
+    # T1: both chips already copied into chips/; switching back to one of them kept
+    # the other chip's record, and the reopened project reported a false modification
+    db = _library(ChipDefinition(name="A", ecu_resources={"Os": {"N": 2}}),
+                  ChipDefinition(name="B", ecu_resources={"Os": {"N": 4}}))
+    project = _project(tmp_path, "A", db)
+    project.adopt_selected_chip()
+    project.selected_chip = "B"
+    project.chip_changed()                      # copies B, records B
+    project.selected_chip = "A"
+    project.chip_changed()                      # A is already in chips/
+    assert project.chip_data_record["name"] == "A"
+    assert project.chip_data_findings() == []
+
+    recorded = dict(project.chip_data_record)
+    project.chip_changed()                      # same chip again: record kept
+    assert project.chip_data_record == recorded
+
+
+def test_record_of_another_chip_is_not_a_modification(tmp_path):
+    db = _library(ChipDefinition(name="A", ecu_resources={"Os": {"N": 2}}),
+                  ChipDefinition(name="B", ecu_resources={"Os": {"N": 4}}))
+    project = _project(tmp_path, "A", db)
+    project.adopt_selected_chip()
+    stale = dict(project.chip_data_record)      # saved by an older version
+    project.selected_chip = "B"
+    project.chip_changed()
+    project.chip_data_record = stale
+    assert project.chip_data_findings() == []
+
+
 def test_newer_library_version_is_reported(tmp_path):
     db = _library(ChipDefinition(name="C", ecu_resources={"Os": {"A": 1}}))
     project = _project(tmp_path, "C", db)

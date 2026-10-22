@@ -227,6 +227,8 @@ class WorkspaceProject:
         current = chip_checksum(chip)
         if source == SOURCE_PROJECT:
             record = self.chip_data_record or {}
+            if record.get("name") not in (None, chip.name):
+                record = {}     # describes another chip (saved before a chip switch was recorded)
             if chip.content_modified or (record.get("checksum") and record["checksum"] != current):
                 messages.append(f"The project's chip data chips/{chip.name}.yaml was modified "
                                 f"after it was saved into the project")
@@ -292,6 +294,11 @@ class WorkspaceProject:
             if library is not None:
                 store.save(copy.deepcopy(library))
                 self.record_chip_data()
+        # The record describes the chip in use: a switch to a chip whose copy is already
+        # in chips/ records it too (re-opening the same chip keeps the saved record)
+        record = self.chip_data_record or {}
+        if self.selected_chip and record.get("name") != self.selected_chip:
+            self.record_chip_data()
         return self.load_ecu_resources()
 
     def apply_chip_selectors(self, modules=None):
