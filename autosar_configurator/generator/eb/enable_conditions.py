@@ -29,6 +29,9 @@ class EnableResult:
     # id() of the configuration objects (containers, parameter and reference values)
     # in removed subtrees
     removed_sources: set[int] = field(default_factory=set)
+    # id() of a removed configuration object -> the condition that was false (that of
+    # the topmost removed node of its subtree)
+    removed_conditions: dict[int, str] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
 
 
@@ -159,7 +162,9 @@ def apply_enable_conditions(renderer, module_defs: Iterable[EcucModuleDef],
 
     def walk(parent: ConfigurationNode, defs: dict[str, Any], removed: set[int]):
         for child in list(parent.children):
-            if all(enabled(child, expr) for expr in _conditions(child, parent, defs)):
+            failed = next((expr for expr in _conditions(child, parent, defs)
+                           if not enabled(child, expr)), None)
+            if failed is None:
                 walk(child, defs, removed)
                 continue
             parent.remove_child(child)
@@ -168,6 +173,7 @@ def apply_enable_conditions(renderer, module_defs: Iterable[EcucModuleDef],
                 removed.add(id(n))
                 if n.source is not None:
                     result.removed_sources.add(id(n.source))
+                    result.removed_conditions.setdefault(id(n.source), failed)
 
     seen = set()
     for module_def in module_defs:
@@ -203,14 +209,17 @@ def disabled_configuration_objects(modules: dict[str, Any],
         modules: module name -> (EcucModuleDef, EcucModuleConfiguration) of the
             whole project (conditions may read other modules)
     """
+    return _evaluate(modules, ecu_resources).removed_sources
+
+
+def _evaluate(modules: dict[str, Any], ecu_resources: dict[str, Any] | None) -> EnableResult:
     from .renderer import Renderer
 
     renderer = Renderer(strict=False)
     for module_def, configuration in modules.values():
         if module_def is not None and configuration is not None:
             renderer.load_module(module_def, configuration)
-    return apply_enable_conditions(
-        renderer, [d for d, _ in modules.values()], ecu_resources).removed_sources
+    return apply_enable_conditions(renderer, [d for d, _ in modules.values()], ecu_resources)
 
 
 @dataclass(frozen=True, order=True)
@@ -219,6 +228,9 @@ class DisabledContainer:
     module: str
     path: str           # /<Module>/<Container>/... by short names
     definition: str     # short name of the container definition, e.g. MemoryBlock
+    # the ENABLE condition that was false; not part of the identity, so the same
+    # container compares equal whatever disabled it
+    condition: str = field(default="", compare=False)
 
 
 def disabled_containers(modules: dict[str, Any],
@@ -230,7 +242,8 @@ def disabled_containers(modules: dict[str, Any],
         modules: module name -> (EcucModuleDef, EcucModuleConfiguration) of the
             whole project (conditions may read other modules)
     """
-    removed = disabled_configuration_objects(modules, ecu_resources)
+    result = _evaluate(modules, ecu_resources)
+    removed = result.removed_sources
     found: list[DisabledContainer] = []
 
     def walk(containers, path: str, module: str):
@@ -238,7 +251,8 @@ def disabled_containers(modules: dict[str, Any],
             container_path = f"{path}/{container.short_name}"
             if id(container) in removed:
                 definition = (container.definition_ref or "").rstrip("/").rsplit("/", 1)[-1]
-                found.append(DisabledContainer(module, container_path, definition))
+                found.append(DisabledContainer(module, container_path, definition,
+                                               result.removed_conditions.get(id(container), "")))
             else:
                 walk(container.sub_containers, container_path, module)
 
@@ -246,3 +260,27 @@ def disabled_containers(modules: dict[str, Any],
         if configuration is not None:
             walk(configuration.containers, f"/{name}", name)
     return sorted(found)
+
+
+def container_paths(modules: dict[str, Any]) -> dict[tuple[str, str], list[str]]:
+    """(module, container definition short name) -> paths of every configured container
+    of that definition, at any depth, in the same path form as DisabledContainer."""
+    paths: dict[tuple[str, str], list[str]] = {}
+
+    def walk(containers, path: str, module: str):
+        for container in containers or []:
+            container_path = f"{path}/{container.short_name}"
+            definition = (container.definition_ref or "").rstrip("/").rsplit("/", 1)[-1]
+            paths.setdefault((module, definition), []).append(container_path)
+            walk(container.sub_containers, container_path, module)
+
+    for name, (_, configuration) in modules.items():
+        if configuration is not None:
+            walk(configuration.containers, f"/{name}", name)
+    return paths
+
+
+def is_disabled(path: str, topmost: set[str]) -> bool:
+    """Whether ``path`` is one of the ``topmost`` disabled container paths or below one."""
+    parts = path.split("/")
+    return any("/".join(parts[:i]) in topmost for i in range(2, len(parts) + 1))

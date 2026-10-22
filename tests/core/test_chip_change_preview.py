@@ -44,6 +44,7 @@ OS_XDM = """<?xml version='1.0'?>
                 <a:da name="ENABLE" type="XPath"
                       expr="node:value(./../OsResourceSubderivative) = 'Os_THA6206'"/>
                 <v:ctr name="MemoryBlock" type="IDENTIFIABLE">
+                  <a:a name="DESC" value="EN: Memory Block indicate the &lt;b&gt;data block&lt;/b&gt;."/>
                   <v:var name="MemoryBlockSize" type="INTEGER"/>
                   <v:lst name="MemorySection" type="MAP">
                     <v:ctr name="MemorySection" type="IDENTIFIABLE">
@@ -56,6 +57,13 @@ OS_XDM = """<?xml version='1.0'?>
                 <a:da name="ENABLE" type="XPath" expr="ecu:get('OsResource.NumOfCores') &gt; 2"/>
                 <v:ctr name="OsExtraCore" type="IDENTIFIABLE">
                   <v:var name="OsExtraCoreId" type="INTEGER"/>
+                </v:ctr>
+              </v:lst>
+              <v:lst name="OsCoreCfg" type="MAP">
+                <v:ctr name="OsCoreCfg" type="IDENTIFIABLE">
+                  <a:da name="ENABLE" type="XPath"
+                        expr="node:value(./OsCoreCfgId) &lt; ecu:get('OsResource.NumOfCores')"/>
+                  <v:var name="OsCoreCfgId" type="INTEGER"/>
                 </v:ctr>
               </v:lst>
               <v:ctr name="OsOS" type="IDENTIFIABLE">
@@ -71,7 +79,7 @@ OS_XDM = """<?xml version='1.0'?>
 """
 
 
-def _project(tmp_path: Path, chip=THA6206, *, blocks=2, extra_cores=1, chips_dir=False):
+def _project(tmp_path: Path, chip=THA6206, *, blocks=2, extra_cores=1, chips_dir=False, core_ids=()):
     db = ChipDatabase()
     db.register_chip(THA6206)
     db.register_chip(THA6412)
@@ -94,6 +102,9 @@ def _project(tmp_path: Path, chip=THA6206, *, blocks=2, extra_cores=1, chips_dir
             module_def.containers["MemoryBlock"].sub_containers["MemorySection"], block)
     for _ in range(extra_cores):
         manager.create_container_instance(module_def.containers["OsExtraCore"])
+    for core_id in core_ids:
+        core = manager.create_container_instance(module_def.containers["OsCoreCfg"])
+        manager.set_parameter_value(core, "OsCoreCfgId", core_id)
     project.apply_chip_selectors()
     project.chip_changed()
     return project
@@ -159,3 +170,47 @@ def test_topmost_container_only(tmp_path):
     modules = {n: (m.module_def, m.configuration) for n, m in project.module_managers.items()}
     found = disabled_containers(modules, project.ecu_resources)
     assert found == [DisabledContainer("Os", "/Os/" + found[0].path.rsplit("/", 1)[-1], "MemoryBlock")]
+
+
+def _controller_report(project, chip_name):
+    from unittest.mock import MagicMock
+
+    from autosar_configurator.ui.controllers.project_controller import ProjectController
+
+    win = MagicMock()
+    win.current_project = project
+    return ProjectController(win).preview_chip_change(chip_name)
+
+
+def test_kinds_left_without_any_instance_are_unavailable(tmp_path):
+    # 4 cores -> 2 cores: core configurations 2 and 3 are disabled, 0 and 1 stay
+    project = _project(tmp_path, THA6412, blocks=0, extra_cores=1, core_ids=(0, 1, 2, 3))
+    report = _controller_report(project, THA6206.name)
+    assert report.error is None
+    assert sorted({d.definition for d in report.disabled}) == ["OsCoreCfg", "OsExtraCore"]
+    assert report.unavailable == [("Os", "OsExtraCore")]       # OsCoreCfg 0 and 1 remain
+
+
+def test_descriptions_of_the_listed_kinds(tmp_path):
+    project = _project(tmp_path)
+    report = _controller_report(project, THA6412.name)
+    assert report.unavailable == [("Os", "MemoryBlock")]
+    assert report.descriptions == {("Os", "MemoryBlock"): "Memory Block indicate the data block."}
+
+
+def test_reason_names_the_condition_and_the_selector_it_reads(tmp_path):
+    project = _project(tmp_path)
+    report = _controller_report(project, THA6412.name)
+    [(condition, inputs)] = report.disabled_reasons[("Os", "MemoryBlock")]
+    assert condition == "node:value(./../OsResourceSubderivative) = 'Os_THA6206'"
+    assert inputs == ["OsResourceSubderivative：Os_THA6206 → Os_THA6412"]
+    [(condition, inputs)] = report.enabled_reasons[("Os", "OsExtraCore")]
+    assert inputs == ["芯片资源 OsResource.NumOfCores：2 → 4"]
+
+
+def test_reason_names_the_chip_resource_it_reads(tmp_path):
+    project = _project(tmp_path, THA6412, blocks=0, extra_cores=0, core_ids=(0, 3))
+    report = _controller_report(project, THA6206.name)
+    [(condition, inputs)] = report.disabled_reasons[("Os", "OsCoreCfg")]
+    assert "ecu:get('OsResource.NumOfCores')" in condition
+    assert inputs == ["芯片资源 OsResource.NumOfCores：4 → 2"]

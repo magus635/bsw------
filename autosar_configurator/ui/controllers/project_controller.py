@@ -124,6 +124,12 @@ class ProjectController:
             return report
         report.disabled = sorted(after - before)
         report.enabled = sorted(before - after)
+        changes = self._changed_inputs(preview)
+        report.disabled_reasons = self._reasons(report.disabled, changes)
+        report.enabled_reasons = self._reasons(report.enabled, changes)
+        report.unavailable = self._unavailable_kinds(report.disabled, after, preview.modules)
+        report.descriptions = self._container_descriptions(
+            project, {(d.module, d.definition) for d in report.disabled + report.enabled})
         for title, items in (("disabled", report.disabled), ("enabled again", report.enabled)):
             if items:
                 logger.info("Chip %s: %d configured container(s) %s: %s", chip_name, len(items),
@@ -131,6 +137,82 @@ class ProjectController:
                 for item in items:
                     logger.info("  %s %s", title, item.path)
         return report
+
+    @staticmethod
+    def _changed_inputs(preview) -> dict:
+        """What a condition may read that the chip change alters:
+        ``{"selector": {param: (old, new)}, "ecu": {key: (old, new)}}``."""
+        selectors = {}
+        for key, old, new in preview.selector_result.changed:
+            selectors[key.partition(".")[2]] = (old, new)
+        before, after = preview.current_ecu_resources or {}, preview.ecu_resources or {}
+        ecu = {key: (before.get(key), after.get(key)) for key in set(before) | set(after)
+               if before.get(key) != after.get(key)}
+        return {"selector": selectors, "ecu": ecu}
+
+    @staticmethod
+    def _reasons(items, changes) -> dict:
+        """(module, definition) -> [(condition, [changed inputs it reads])], one entry
+        per distinct condition, the inputs as display text."""
+        import re
+
+        from ..dialogs.chip_change_preview_dialog import UNSET, short_value
+
+        def inputs(condition):
+            found = []
+            for param, (old, new) in sorted(changes["selector"].items()):
+                if re.search(rf"\b{re.escape(param)}\b", condition):
+                    found.append(f"{param}：{UNSET if old is None else old} → {new}")
+            for key in sorted(set(re.findall(r"ecu:(?:get|list|has)\('([^']+)'\)", condition))):
+                if key in changes["ecu"]:
+                    old, new = changes["ecu"][key]
+                    found.append(f"芯片资源 {key}："
+                                 f"{'（无）' if old is None else short_value(old)} → "
+                                 f"{'（无）' if new is None else short_value(new)}")
+            return found
+
+        reasons: dict = {}
+        for item in items:
+            entries = reasons.setdefault((item.module, item.definition), [])
+            if item.condition and all(c != item.condition for c, _ in entries):
+                entries.append((item.condition, inputs(item.condition)))
+        return reasons
+
+    @staticmethod
+    def _unavailable_kinds(newly_disabled, disabled_after, modules_after) -> list:
+        """(module, definition) of the newly disabled kinds of container that have no
+        enabled instance left after the change."""
+        from ...generator.eb.enable_conditions import container_paths, is_disabled
+
+        topmost = {d.path for d in disabled_after}
+        paths = container_paths(modules_after)
+        kinds = sorted({(d.module, d.definition) for d in newly_disabled})
+        return [kind for kind in kinds
+                if all(is_disabled(path, topmost) for path in paths.get(kind, []))]
+
+    @staticmethod
+    def _container_descriptions(project, kinds) -> dict:
+        """(module, definition) -> description of the container definition (DESC)."""
+        from ..dialogs.chip_change_preview_dialog import clean_description
+
+        def find(container_defs, name):
+            for container_def in container_defs:
+                if container_def.short_name == name:
+                    return container_def
+                found = find(container_def.sub_containers.values(), name)
+                if found is not None:
+                    return found
+            return None
+
+        descriptions = {}
+        for module, definition in sorted(kinds):
+            manager = project.module_managers.get(module)
+            module_def = getattr(manager, "module_def", None)
+            container_def = find(module_def.containers.values(), definition) if module_def else None
+            text = clean_description(getattr(container_def, "description", "") or "")
+            if text:
+                descriptions[(module, definition)] = text
+        return descriptions
 
     def confirm_chip_change(self, chip_name, parent=None, title="切换芯片",
                             accept_text="切换") -> bool:

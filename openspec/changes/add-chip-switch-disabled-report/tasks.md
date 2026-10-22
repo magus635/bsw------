@@ -15,3 +15,10 @@
 - [x] 3.1 `python -m pytest tests/core/test_chip_change_preview.py tests/ui/test_unified_chip_selection.py tests/core/test_parser_serializer.py tests/core/test_command.py -q`
 - [x] 3.2 `python -m pytest tests/ -q`（1017 passed, 4 skipped）
 - [x] 3.3 T1 副本（`Desktop/prj/t1`）：THA6206 → THA6412 预览列出 MemorySection 118、OsMemoryMap 94、MemoryBlock 25、MemoryRegion 10、SystemModeStack 1；预览后项目内存状态（配置、芯片、ECU 资源）不变；确认切换后切回时预览列出全部恢复；预览与实际切换的选择器变化、失效容器一致；预览约 0.5 秒。生成器未改动，未重新对比生成结果
+
+## 4. Follow-up (review of the T1 preview)
+- [x] 4.1 Warn when a kind of container has no enabled instance left (`enable_conditions.container_paths` / `is_disabled`, `ProjectController._unavailable_kinds`); mark such groups “全部失效”
+- [x] 4.2 Tooltip with the container definition's DESC (`clean_description`, `ProjectController._container_descriptions`)
+- [x] 4.3 Tests: `tests/core/test_chip_change_preview.py` (unavailable vs partly disabled, descriptions), `tests/ui/test_unified_chip_selection.py` (warning, marker, tooltip); full suite 1021 passed, 4 skipped
+- [x] 4.4 Reasons: `EnableResult.removed_conditions` / `DisabledContainer.condition` keep the false ENABLE condition; `ProjectController._changed_inputs` / `_reasons` match it with changed selectors and `ecu:*` keys; dialog shows a reason summary per condition and a reason line in each group
+- [x] 4.5 Tests for reasons (selector, chip resource, not identified); full suite 1023 passed, 4 skipped

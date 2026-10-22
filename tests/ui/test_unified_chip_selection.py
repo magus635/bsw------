@@ -227,6 +227,42 @@ def test_preview_dialog_lists_groups(qtbot):
     assert "重新参与代码生成" in enabled_only.status_label.text()
     assert "保留在项目中" not in enabled_only.status_label.text()
 
+    assert not dialog.unavailable_label.isVisibleTo(dialog)
+
+    warned = ChipChangePreviewDialog(ChipChangeReport(
+        "THA6412_BGA516", "THA6206_LFBGA292", disabled=disabled,
+        unavailable=[("Os", "MemoryBlock")],
+        descriptions={("Os", "MemoryBlock"): "Memory Block indicate the data block."}))
+    qtbot.addWidget(warned)
+    assert warned.unavailable_label.isVisibleTo(warned)
+    assert "Os：MemoryBlock" in warned.unavailable_label.text()
+    assert "无法编译或链接" in warned.unavailable_label.text()
+    tree = warned.disabled_tree
+    assert tree.topLevelItem(0).text(0) == "Os：MemoryBlock × 3（全部失效）"
+    assert tree.topLevelItem(0).toolTip(0) == "MemoryBlock：Memory Block indicate the data block."
+    assert tree.topLevelItem(1).text(0) == "Os：SystemModeStack × 1"
+    assert "没有描述" in tree.topLevelItem(1).toolTip(0)
+
+    condition = "node:value(./../OsResourceSubderivative) = 'Os_THA6206'"
+    explained = ChipChangePreviewDialog(ChipChangeReport(
+        "THA6412_BGA516", "THA6206_LFBGA292", disabled=disabled,
+        disabled_reasons={
+            ("Os", "MemoryBlock"): [(condition, ["OsResourceSubderivative：Os_THA6206 → Os_THA6412"])],
+            ("Os", "SystemModeStack"): [(condition, ["OsResourceSubderivative：Os_THA6206 → Os_THA6412"])]}))
+    qtbot.addWidget(explained)
+    assert explained.reason_label.text() == (
+        f"失效原因：ENABLE 条件 {condition} 不再成立（OsResourceSubderivative：Os_THA6206 → Os_THA6412）。"
+        "涉及：MemoryBlock、SystemModeStack")
+    first = explained.disabled_tree.topLevelItem(0).child(0).text(0)
+    assert first.startswith("原因：ENABLE 条件") and "Os_THA6412" in first
+    assert explained.disabled_tree.topLevelItem(0).child(1).text(0) == "/Os/BSS"
+
+    unexplained = ChipChangePreviewDialog(ChipChangeReport(
+        "A", "B", enabled=disabled[:1], enabled_reasons={("Os", "MemoryBlock"): [("x = 1", [])]}))
+    qtbot.addWidget(unexplained)
+    assert "恢复原因" in unexplained.reason_label.text()
+    assert "未能定位具体变化" in unexplained.reason_label.text()
+
     empty = ChipChangePreviewDialog(ChipChangeReport("X", "X"))
     qtbot.addWidget(empty)
     assert "没有已配置的容器" in empty.status_label.text()
