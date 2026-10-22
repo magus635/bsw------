@@ -13,10 +13,13 @@ the selector parameters follow it:
 * ``chip_from_selectors`` finds the chip of an older project that has no
   ``selected_chip`` from its configured selector values.
 * ``is_selector`` tells the configuration panel which parameters are read-only.
+* ``preview_chip_change`` simulates a chip change on a copy of the project, so its
+  effect can be shown before it is applied (add-chip-switch-disabled-report).
 """
+import copy
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from ..model import definition_refs as defrefs
 
@@ -141,13 +144,15 @@ def _apply_container_level(manager, key: str, param: str, declared: str, result:
         result.changed.append((key, old, declared))
 
 
-def apply_selectors(project, chip, modules: Optional[Iterable[str]] = None) -> SelectorResult:
+def apply_selectors(project, chip, modules: Optional[Iterable[str]] = None,
+                    log: bool = True) -> SelectorResult:
     """Set every selector parameter ``chip`` declares to the declared value.
 
     Args:
         project: WorkspaceProject (uses ``module_managers``)
         chip: ChipDefinition of the selected chip, or None
         modules: limit to these module names (e.g. a module just added); None = all
+        log: log each value written (False for a simulation)
     """
     result = SelectorResult()
     selectors = getattr(chip, "selectors", None) or {}
@@ -167,7 +172,7 @@ def apply_selectors(project, chip, modules: Optional[Iterable[str]] = None) -> S
             _apply_module_level(manager, key, param, declared, result)
         else:
             _apply_container_level(manager, key, param, declared, result)
-    for line in result.messages():
+    for line in result.messages() if log else []:
         logger.info("Chip selector %s", line)
     return result
 
@@ -219,3 +224,88 @@ def chip_from_selectors(project, chips) -> Optional[str]:
 def is_selector(chip, module: str, param: str) -> bool:
     """Whether ``chip`` declares ``<module>.<param>`` as a selector."""
     return f"{module}.{param}" in (getattr(chip, "selectors", None) or {})
+
+
+@dataclass
+class ChipChangePreview:
+    """A chip change simulated on copies of the project.
+
+    ``modules`` maps module name -> (definition, copied configuration with the
+    chip's selector values written) and ``ecu_resources`` are the chip's ECU
+    resources: the input for evaluating ENABLE conditions after the change.
+    ``current_modules`` / ``current_ecu_resources`` are the same for the project
+    as it is now; copies too, since loading a configuration into the template
+    engine renumbers its container indexes.
+    """
+    chip_name: Optional[str]
+    selector_result: SelectorResult
+    modules: Dict[str, Tuple[Any, Any]]
+    ecu_resources: Dict[str, Any]
+    current_modules: Dict[str, Tuple[Any, Any]] = field(default_factory=dict)
+    current_ecu_resources: Dict[str, Any] = field(default_factory=dict)
+
+
+def _copy_configurations(managers) -> Dict[str, Any]:
+    """Deep copies of the modules' configurations, made in one go so references
+    between modules point into the copies.  Definitions are shared, observers
+    (user-interface objects) are left out."""
+    memo: Dict[int, Any] = {}
+    for manager in managers.values():
+        if getattr(manager, "module_def", None) is not None:
+            memo[id(manager.module_def)] = manager.module_def
+        configuration = getattr(manager, "configuration", None)
+        if configuration is None:
+            continue
+        for obj in [configuration, *_walk(configuration.containers)]:
+            observers = obj.__dict__.get("_observers")
+            if observers is not None:
+                memo[id(observers)] = []
+    return copy.deepcopy({name: m.configuration for name, m in managers.items()
+                          if getattr(m, "configuration", None) is not None}, memo)
+
+
+def _sandbox(project, chip_name: Optional[str]):
+    """A copy of ``project`` with ``chip_name`` selected and copied configurations;
+    the project itself is not touched."""
+    managers = getattr(project, "module_managers", {}) or {}
+    configurations = _copy_configurations(managers)
+    sandbox = copy.copy(project)
+    sandbox.selected_chip = chip_name
+    sandbox.module_managers = {}
+    for name, manager in managers.items():
+        copied = copy.copy(manager)
+        if name in configurations:
+            copied.configuration = configurations[name]
+        if hasattr(manager, "_instance_counters"):
+            copied._instance_counters = dict(manager._instance_counters)
+        copied.project_context = sandbox
+        sandbox.module_managers[name] = copied
+    return sandbox
+
+
+def preview_chip_change(project, chip_name: Optional[str]) -> ChipChangePreview:
+    """Simulate selecting ``chip_name`` (selector values and ECU resources) without
+    changing ``project``: no configuration value, ``selected_chip``, ECU resource or
+    ``chips/`` file is modified.
+
+    Args:
+        project: WorkspaceProject
+        chip_name: the chip to preview; the project's current chip previews
+            "Apply Chip Selectors"
+    """
+    from .ecu_resource_resolver import EcuResourceResolver, chip_for_project
+
+    def modules_of(p):
+        return {name: (m.module_def, m.configuration)
+                for name, m in p.module_managers.items()
+                if getattr(m, "module_def", None) is not None
+                and getattr(m, "configuration", None) is not None}
+
+    current = _sandbox(project, getattr(project, "selected_chip", None))
+    sandbox = _sandbox(project, chip_name)
+    chip_database = getattr(project, "chip_database", None)
+    chip = chip_for_project(sandbox, chip_database)[1]
+    result = apply_selectors(sandbox, chip, log=False)
+    resources = EcuResourceResolver(chip_database).resolve(sandbox)
+    return ChipChangePreview(chip_name, result, modules_of(sandbox), dict(resources or {}),
+                             modules_of(current), dict(getattr(project, "ecu_resources", None) or {}))

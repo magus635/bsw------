@@ -109,11 +109,113 @@ def test_apply_chip_selectors_action_in_project_properties(qtbot, tmp_path):
     assert "THA6206_LFBGA292" in dialog.selector_label.text()
 
     from unittest.mock import patch
-    with patch("autosar_configurator.ui.dialogs.project_properties_dialog.QMessageBox.information"):
+    with patch("autosar_configurator.ui.dialogs.project_properties_dialog.QMessageBox.information"), \
+            patch.object(ProjectController, "_show_chip_change_preview", return_value=True) as shown:
         dialog._apply_chip_selectors()
+    report = shown.call_args.args[0]
+    assert report.selector_result.changed == [
+        ("Resource.ResourceSubderivative", "THA6206_LFBGA292", "THA6412_BGA516")]
     assert _value(project) == ["THA6412_BGA516"]
     assert not dialog.apply_selectors_btn.isEnabled()
     assert dialog.selector_label.text() == ""
+
+
+def test_apply_chip_selectors_cancelled_in_the_preview(qtbot, tmp_path):
+    from unittest.mock import patch
+
+    project = _project(tmp_path, "THA6412_BGA516", "THA6206_LFBGA292")
+    ctrl, win = _controller(project)
+    dialog = ProjectPropertiesDialog(project, None, apply_selectors=ctrl.apply_chip_selectors_now,
+                                     selector_mismatches=ctrl.selector_mismatches)
+    qtbot.addWidget(dialog)
+    with patch("autosar_configurator.ui.dialogs.project_properties_dialog.QMessageBox.information") as info, \
+            patch.object(ProjectController, "_show_chip_change_preview", return_value=False):
+        dialog._apply_chip_selectors()
+    info.assert_not_called()
+    assert _value(project) == ["THA6206_LFBGA292"]
+    assert dialog.apply_selectors_btn.isEnabled()
+    assert win._has_unsaved_changes is False
+
+
+def _properties_with_chip(ctrl, chip, confirm):
+    """Run Project Properties with ``chip`` chosen and the preview answered ``confirm``."""
+    from unittest.mock import patch
+
+    from autosar_configurator.ui.dialogs import project_properties_dialog as ppd
+
+    data = {"name": "p", "version": "1", "author": "", "description": "", "selected_chip": chip}
+    dialog = MagicMock()
+    dialog.exec.return_value = True
+    dialog.get_data.return_value = data
+    with patch("importlib.reload", side_effect=lambda m: m), \
+            patch.object(ppd, "ProjectPropertiesDialog", return_value=dialog), \
+            patch.object(ProjectController, "_show_chip_change_preview",
+                         return_value=confirm) as shown:
+        ctrl.show_project_properties()
+    return shown
+
+
+def test_chip_change_in_project_properties_is_previewed_then_applied(qtbot, tmp_path):
+    project = _project(tmp_path, "THA6206_LFBGA292", "THA6206_LFBGA292")
+    ctrl, win = _controller(project)
+    shown = _properties_with_chip(ctrl, "THA6412_BGA516", confirm=True)
+    report = shown.call_args.args[0]
+    assert (report.current_chip, report.chip_name) == ("THA6206_LFBGA292", "THA6412_BGA516")
+    assert report.error is None
+    assert project.selected_chip == "THA6412_BGA516"
+    assert _value(project) == ["THA6412_BGA516"]
+    win.chip_constraint_service.set_chip.assert_called_once_with("THA6412_BGA516")
+
+
+def test_chip_change_cancelled_in_the_preview(qtbot, tmp_path):
+    project = _project(tmp_path, "THA6206_LFBGA292", "THA6206_LFBGA292")
+    ctrl, win = _controller(project)
+    resources = dict(project.ecu_resources or {})
+    _properties_with_chip(ctrl, "THA6412_BGA516", confirm=False)
+    assert project.selected_chip == "THA6206_LFBGA292"
+    assert _value(project) == ["THA6206_LFBGA292"]
+    assert dict(project.ecu_resources or {}) == resources
+    win.chip_constraint_service.set_chip.assert_not_called()
+    assert project.name == "p"                     # other properties are still saved
+
+
+def test_preview_error_still_allows_the_change(qtbot, tmp_path):
+    from unittest.mock import patch
+
+    project = _project(tmp_path, "THA6206_LFBGA292", "THA6206_LFBGA292")
+    ctrl, _win = _controller(project)
+    with patch("autosar_configurator.generator.eb.enable_conditions.disabled_containers",
+               side_effect=RuntimeError("boom")):
+        report = ctrl.preview_chip_change("THA6412_BGA516")
+    assert report.error == "boom"
+    assert project.selected_chip == "THA6206_LFBGA292"
+
+
+def test_preview_dialog_lists_groups(qtbot):
+    from autosar_configurator.generator.eb.enable_conditions import DisabledContainer
+    from autosar_configurator.ui.dialogs.chip_change_preview_dialog import (
+        ChipChangePreviewDialog,
+        ChipChangeReport,
+        summary_lines,
+    )
+
+    disabled = [DisabledContainer("Os", f"/Os/Block{i}", "MemoryBlock") for i in range(3)]
+    disabled.append(DisabledContainer("Os", "/Os/SystemModeStack", "SystemModeStack"))
+    report = ChipChangeReport("THA6412_BGA516", "THA6206_LFBGA292", disabled=disabled)
+    assert summary_lines(disabled) == ["Os: MemoryBlock x3", "Os: SystemModeStack x1"]
+
+    dialog = ChipChangePreviewDialog(report)
+    qtbot.addWidget(dialog)
+    assert "THA6206_LFBGA292 to THA6412_BGA516" in dialog.heading_label.text()
+    tree = dialog.disabled_tree
+    assert [tree.topLevelItem(i).text(0) for i in range(tree.topLevelItemCount())] == [
+        "Os: MemoryBlock x3", "Os: SystemModeStack x1"]
+    assert tree.topLevelItem(0).childCount() == 3
+    assert dialog.accept_button.text() == "Switch"
+
+    empty = ChipChangePreviewDialog(ChipChangeReport("X", "X"))
+    qtbot.addWidget(empty)
+    assert "No configured container" in empty.status_label.text()
 
 
 @pytest.fixture

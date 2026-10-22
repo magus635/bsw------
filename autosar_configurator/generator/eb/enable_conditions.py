@@ -211,3 +211,38 @@ def disabled_configuration_objects(modules: dict[str, Any],
             renderer.load_module(module_def, configuration)
     return apply_enable_conditions(
         renderer, [d for d, _ in modules.values()], ecu_resources).removed_sources
+
+
+@dataclass(frozen=True, order=True)
+class DisabledContainer:
+    """Topmost configured container of a subtree disabled by an ENABLE condition."""
+    module: str
+    path: str           # /<Module>/<Container>/... by short names
+    definition: str     # short name of the container definition, e.g. MemoryBlock
+
+
+def disabled_containers(modules: dict[str, Any],
+                        ecu_resources: dict[str, Any] | None = None) -> list[DisabledContainer]:
+    """Configured containers disabled by ENABLE conditions, topmost of each disabled
+    subtree only, sorted by module and path.
+
+    Args:
+        modules: module name -> (EcucModuleDef, EcucModuleConfiguration) of the
+            whole project (conditions may read other modules)
+    """
+    removed = disabled_configuration_objects(modules, ecu_resources)
+    found: list[DisabledContainer] = []
+
+    def walk(containers, path: str, module: str):
+        for container in containers or []:
+            container_path = f"{path}/{container.short_name}"
+            if id(container) in removed:
+                definition = (container.definition_ref or "").rstrip("/").rsplit("/", 1)[-1]
+                found.append(DisabledContainer(module, container_path, definition))
+            else:
+                walk(container.sub_containers, container_path, module)
+
+    for name, (_, configuration) in modules.items():
+        if configuration is not None:
+            walk(configuration.containers, f"/{name}", name)
+    return sorted(found)

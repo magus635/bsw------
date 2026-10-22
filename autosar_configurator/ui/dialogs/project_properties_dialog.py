@@ -20,8 +20,9 @@ class ProjectPropertiesDialog(QDialog):
     def __init__(self, project, parent=None, apply_selectors=None, selector_mismatches=None):
         """
         Args:
-            apply_selectors: callable writing the project chip's selector values
-                ("Apply Chip Selectors"); returns a SelectorResult.  None hides the action.
+            apply_selectors: callable(parent) previewing and writing the project chip's
+                selector values ("Apply Chip Selectors"); returns a SelectorResult, or
+                None when the user cancels the preview.  None hides the action.
             selector_mismatches: callable listing selector parameters configured
                 differently from the project's chip
         """
@@ -385,10 +386,11 @@ class ProjectPropertiesDialog(QDialog):
         self.apply_selectors_btn.setEnabled(bool(mismatches))
 
     def _apply_chip_selectors(self):
-        result = self._apply_selectors()
-        lines = result.messages() if result is not None else []
-        QMessageBox.information(self, "Apply Chip Selectors",
-                                "\n".join(lines) if lines else "Nothing to change.")
+        result = self._apply_selectors(self)     # previews first; None when cancelled
+        if result is not None:
+            lines = result.messages()
+            QMessageBox.information(self, "Apply Chip Selectors",
+                                    "\n".join(lines) if lines else "Nothing to change.")
         self._refresh_chip_status()
 
     def _adopt_chip(self):

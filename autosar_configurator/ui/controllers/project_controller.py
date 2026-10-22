@@ -96,11 +96,59 @@ class ProjectController:
         return (f"  |  {len(mismatches)} chip selector(s) differ from the project's chip "
                 f"(Project Properties > Apply Chip Selectors)")
 
-    @staticmethod
-    def _selector_summary(result) -> str:
-        if result is None or not (result.changed or result.skipped):
-            return ""
-        return "\n".join(result.messages())
+    def preview_chip_change(self, chip_name):
+        """What selecting ``chip_name`` would do, computed on copies of the project
+        (add-chip-switch-disabled-report): selector values written and configured
+        containers that ENABLE conditions would disable or enable again.
+
+        Returns:
+            ChipChangeReport; its ``error`` is set when the effect could not be computed
+        """
+        from ...core.hardware.chip_selectors import preview_chip_change
+        from ...generator.eb.enable_conditions import disabled_containers
+        from ..dialogs.chip_change_preview_dialog import ChipChangeReport, summary_lines
+
+        project = self.win.current_project
+        report = ChipChangeReport(chip_name, getattr(project, "selected_chip", None))
+        if not project:
+            return report
+        try:
+            preview = preview_chip_change(project, chip_name)
+            report.selector_result = preview.selector_result
+            before = set(disabled_containers(preview.current_modules,
+                                             preview.current_ecu_resources or None))
+            after = set(disabled_containers(preview.modules, preview.ecu_resources or None))
+        except Exception as e:  # noqa: BLE001 - the preview must not block the change
+            logger.exception("Could not preview the change to chip %s", chip_name)
+            report.error = str(e) or type(e).__name__
+            return report
+        report.disabled = sorted(after - before)
+        report.enabled = sorted(before - after)
+        for title, items in (("disabled", report.disabled), ("enabled again", report.enabled)):
+            if items:
+                logger.info("Chip %s: %d configured container(s) %s: %s", chip_name, len(items),
+                            title, "; ".join(summary_lines(items)))
+                for item in items:
+                    logger.info("  %s %s", title, item.path)
+        return report
+
+    def confirm_chip_change(self, chip_name, parent=None, title="Change Chip",
+                            accept_text="Switch") -> bool:
+        """Preview a chip change and ask the user to confirm it."""
+        from PySide6.QtWidgets import QApplication
+
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            report = self.preview_chip_change(chip_name)
+        finally:
+            QApplication.restoreOverrideCursor()
+        return self._show_chip_change_preview(report, parent, title, accept_text)
+
+    def _show_chip_change_preview(self, report, parent, title, accept_text) -> bool:
+        from ..dialogs.chip_change_preview_dialog import ChipChangePreviewDialog
+
+        dialog = ChipChangePreviewDialog(report, parent or self.win, title, accept_text)
+        return dialog.exec() == QDialog.Accepted
 
     def new_project(self):
         """Create a new project using the guided NewProjectWizard"""
@@ -460,26 +508,31 @@ class ProjectController:
             self.win.current_project.author = data['author']
             self.win.current_project.description = data['description']
             chip = data.get('selected_chip')
+            chip_status = ""
             if chip != self.win.current_project.selected_chip:
-                # Explicit chip selection: ECU resources, constraints and selectors follow
-                result = self.apply_project_chip(chip, write_selectors=True)
-                summary = self._selector_summary(result)
-                if summary:
-                    QMessageBox.information(
-                        self.win, "Chip Selectors",
-                        f"Chip {chip} applied. Selector parameters:\n\n{summary}")
+                # Explicit chip selection, previewed first: ECU resources, constraints
+                # and selectors follow only when the user confirms
+                if self.confirm_chip_change(chip):
+                    self.apply_project_chip(chip, write_selectors=True)
+                    chip_status = f"  |  Chip changed to {chip}"
+                else:
+                    chip_status = "  |  Chip change cancelled"
 
             # Update tree header
             self.win.tree_view.setHeaderLabel(f"Project: {self.win.current_project.name}")
 
             self.win.statusbar.showMessage(
-                f"Project properties updated{self._ecu_resource_status()}"
+                f"Project properties updated{chip_status}{self._ecu_resource_status()}"
                 f"{self._selector_status()}", 3000)
 
-    def apply_chip_selectors_now(self):
-        """'Apply Chip Selectors': write the project chip's declared selector values."""
+    def apply_chip_selectors_now(self, parent=None):
+        """'Apply Chip Selectors': preview, then write the project chip's declared
+        selector values.  Returns None when the user cancels."""
         project = self.win.current_project
         if not project:
+            return None
+        if not self.confirm_chip_change(project.selected_chip, parent,
+                                        "Apply Chip Selectors", "Apply"):
             return None
         result = project.apply_chip_selectors()
         if result.changed:
