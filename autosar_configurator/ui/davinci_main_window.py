@@ -326,6 +326,10 @@ class DaVinciMainWindow(QMainWindow):
         self.chip_designer_action.setStatusTip("Open Chip Definition Designer to author, edit, or import MCU hardware definitions")
         self.chip_designer_action.triggered.connect(self._launch_chip_definition_designer)
 
+        self.chip_scan_action = QAction("芯片依赖扫描...", self)
+        self.chip_scan_action.setStatusTip("列出依赖具体芯片的判断、默认分支、写死数值和资源覆盖，作为新增芯片的检查清单")
+        self.chip_scan_action.triggered.connect(self._launch_chip_dependency_scan)
+
         # View actions
         self.toggle_search_action = QAction("Search...", self)
         self.toggle_search_action.setShortcut(QKeySequence.Find)  # Ctrl+F
@@ -425,6 +429,7 @@ class DaVinciMainWindow(QMainWindow):
         # Tools menu
         tools_menu = menubar.addMenu("Tools")
         tools_menu.addAction(self.chip_designer_action)
+        tools_menu.addAction(self.chip_scan_action)
         tools_menu.addAction(self.hardware_mapping_action)
 
         # Help menu
@@ -834,6 +839,17 @@ class DaVinciMainWindow(QMainWindow):
 
         dialog = ChipDefinitionDesignerDialog(initial_chip=initial_chip, parent=self, project=self.current_project)
         dialog.chip_saved.connect(self._on_designer_chip_saved)
+        dialog.exec()
+
+    def _launch_chip_dependency_scan(self):
+        """Open the chip dependency scan (read-only)."""
+        if not self.current_project:
+            QMessageBox.information(self, "芯片依赖扫描", "请先打开一个项目。")
+            return
+        from .dialogs.chip_dependency_scan_dialog import ChipDependencyScanDialog
+        dialog = ChipDependencyScanDialog(self.current_project, parent=self)
+        # the scan directories and keywords are saved with the project
+        dialog.settings_changed.connect(lambda: self.save_project_action.setEnabled(True))
         dialog.exec()
 
     def _on_designer_chip_saved(self, chip_name: str):

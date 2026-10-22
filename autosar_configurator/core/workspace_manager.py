@@ -57,6 +57,11 @@ class WorkspaceProject:
         self.available_chips: List[str] = []  # Discovered chip variants from .properties
         self.selected_chip: Optional[str] = None  # User's selected chip
 
+        # Chip dependency scan: added directories (POSIX, relative to the project
+        # directory or absolute) and extra chip keywords
+        self.chip_scan_dirs: List[str] = []
+        self.chip_scan_keywords: List[str] = []
+
         # EB project import: original source root (kept read-only, separate from save location)
         self.eb_source_root: Optional[Path] = None
 
@@ -812,6 +817,8 @@ class WorkspaceManager:
             "chip_data": self.current_project.chip_data_record or self.current_project.record_chip_data(),
             "eb_source_root": eb_source_root_str,
             "import_mode": self.current_project.import_mode,
+            "chip_scan_dirs": list(self.current_project.chip_scan_dirs),
+            "chip_scan_keywords": list(self.current_project.chip_scan_keywords),
             "modules": []
         }
         
@@ -1010,6 +1017,8 @@ class WorkspaceManager:
         project.available_chips = data.get("available_chips", [])
         project.selected_chip = data.get("selected_chip", None)
         project.chip_data_record = data.get("chip_data") or None
+        project.chip_scan_dirs = list(data.get("chip_scan_dirs") or [])
+        project.chip_scan_keywords = list(data.get("chip_scan_keywords") or [])
 
         # Load EB source root (for imported EB projects).
         # Saved relative to the project root when inside it (v7); older
