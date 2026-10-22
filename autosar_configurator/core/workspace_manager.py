@@ -294,6 +294,45 @@ class WorkspaceProject:
                 self.record_chip_data()
         return self.load_ecu_resources()
 
+    def apply_chip_selectors(self, modules=None):
+        """Write the selected chip's declared selector values into the loaded modules.
+
+        Only for an explicit chip selection by the user; opening or importing a
+        project leaves the configuration as it is (see check_selectors).
+
+        Args:
+            modules: limit to these module names; None = every loaded module
+
+        Returns:
+            SelectorResult listing the values changed and the selectors not written
+        """
+        from .hardware.chip_selectors import apply_selectors
+        from .hardware.ecu_resource_resolver import chip_for_project
+
+        return apply_selectors(self, chip_for_project(self, self.chip_database)[1], modules)
+
+    def chip_from_configuration(self) -> Optional[str]:
+        """The chip whose declared selectors match the configuration (for a project
+        without ``selected_chip``), or None when no single chip matches."""
+        from .hardware.chip_selectors import chip_from_selectors
+        from .hardware.ecu_resource_resolver import _project_dir
+        from .hardware.project_chip_store import ProjectChipStore
+
+        chips = {}
+        library = self._chip_library()
+        for name in library.list_chips():
+            chip = library.get_chip(name)
+            if chip is not None:
+                chips[name] = chip
+        project_dir = _project_dir(self)
+        if project_dir is not None:
+            store = ProjectChipStore(project_dir)
+            for name in store.list_names():
+                chip = store.load(name)
+                if chip is not None:
+                    chips[name] = chip
+        return chip_from_selectors(self, [chips[n] for n in sorted(chips)])
+
     def diagnose_ecu_resources(self):
         """Report ecu:get()/ecu:list() keys the loaded modules need but the project lacks.
 

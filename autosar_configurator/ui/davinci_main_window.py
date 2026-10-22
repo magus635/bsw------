@@ -697,14 +697,10 @@ class DaVinciMainWindow(QMainWindow):
     def _on_parameter_changed(self, instance: EcucContainerValue, param_name: str, value: Any):
         """Handle parameter value change"""
         # Delegate to command handler
+        # The project's chip is changed only in Project Properties
+        # (ProjectController.apply_project_chip); chip selector parameters are read-only
         self.edit_controller.handle_parameter_change(instance, param_name, value)
-        
-        # Detect chip variant change (ResourceSubderivative in Resource module)
-        if param_name == "ResourceSubderivative" and value:
-            logger.info(f"Chip variant changed to: {value}")
-            self.chip_constraint_service.set_chip(str(value))
-            self.statusbar.showMessage(f"芯片型号已切换为: {value}，约束已重新加载", 5000)
-    
+
     def _on_chip_constraints_changed(self, chip_name: str):
         """Handle chip constraints change - refresh UI to show new constraints"""
         logger.info(f"Chip constraints reloaded for: {chip_name}")
@@ -719,9 +715,13 @@ class DaVinciMainWindow(QMainWindow):
         # Show prominent status bar message
         self.statusbar.showMessage(f"🔧 芯片型号: {chip_name} | 约束已加载", 10000)
         
+        self._refresh_config_views()
+
+    def _refresh_config_views(self):
+        """Redisplay the tree and the shown container instance (values, constraints)."""
         # Refresh tree view for instance counts
         self.tree_view.refresh()
-        
+
         # Refresh config panel if showing a container instance
         if hasattr(self.config_panel, 'current_instance') and self.config_panel.current_instance:
             # Update chip constraint service reference first
@@ -733,33 +733,6 @@ class DaVinciMainWindow(QMainWindow):
                 self.config_manager,
                 self.current_project
             )
-        
-        # Update project's selected_chip field
-        if self.current_project and chip_name:
-            self.current_project.selected_chip = chip_name
-            self.current_project.chip_changed()
-            self.current_project.diagnose_ecu_resources()  # details go to the log
-            self._has_unsaved_changes = True
-
-    
-    def _get_resource_subderivative(self) -> Optional[str]:
-        """Get the ResourceSubderivative parameter value from Resource module"""
-        if not self.current_project:
-            return None
-        
-        resource_manager = self.current_project.module_managers.get('Resource')
-        if not resource_manager:
-            return None
-        
-        # Look for ResourceGeneral container
-        for container in resource_manager.configuration.containers:
-            if container.short_name == 'ResourceGeneral' or 'General' in container.short_name:
-                # Get ResourceSubderivative parameter
-                param = container.parameter_values.get('ResourceSubderivative')
-                if param and param.value:
-                    return str(param.value)
-        
-        return None
 
     
     def _update_window_title(self):

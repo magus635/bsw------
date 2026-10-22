@@ -17,9 +17,18 @@ from PySide6.QtGui import QGuiApplication, QDesktopServices, QColor
 class ProjectPropertiesDialog(QDialog):
     """Dialog for editing project properties"""
     
-    def __init__(self, project, parent=None):
+    def __init__(self, project, parent=None, apply_selectors=None, selector_mismatches=None):
+        """
+        Args:
+            apply_selectors: callable writing the project chip's selector values
+                ("Apply Chip Selectors"); returns a SelectorResult.  None hides the action.
+            selector_mismatches: callable listing selector parameters configured
+                differently from the project's chip
+        """
         super().__init__(parent)
         self.project = project
+        self._apply_selectors = apply_selectors
+        self._selector_mismatches = selector_mismatches or (lambda: [])
         self.setWindowTitle("Project Properties")
         self.resize(680, 620)
         self.setMinimumWidth(560)
@@ -154,8 +163,19 @@ class ProjectPropertiesDialog(QDialog):
             "Replace the project's copy of the chip with the library's current version")
         self.update_chip_btn.clicked.connect(self._update_chip_from_library)
         chip_actions.addWidget(self.update_chip_btn)
+        self.apply_selectors_btn = QPushButton("Apply Chip Selectors")
+        self.apply_selectors_btn.setToolTip(
+            "Set the modules' chip selector parameters (e.g. ResourceSubderivative, "
+            "OsResourceSubderivative) to the values the project's chip declares")
+        self.apply_selectors_btn.clicked.connect(self._apply_chip_selectors)
+        self.apply_selectors_btn.setVisible(self._apply_selectors is not None)
+        chip_actions.addWidget(self.apply_selectors_btn)
         chip_actions.addStretch()
         chip_outer.addLayout(chip_actions)
+        self.selector_label = QLabel()
+        self.selector_label.setWordWrap(True)
+        self.selector_label.setStyleSheet("color: #B35C00;")
+        chip_outer.addWidget(self.selector_label)
         self.chip_combo.currentIndexChanged.connect(self._refresh_chip_status)
         general_tab_layout.addWidget(chip_group)
         
@@ -355,6 +375,21 @@ class ProjectPropertiesDialog(QDialog):
         self.update_chip_btn.setEnabled(
             has_location and not pending and source == SOURCE_PROJECT
             and self.project._chip_library().get_chip(chosen) is not None)
+
+        # Selectors of the applied chip (a newly chosen chip writes them on OK)
+        mismatches = [] if pending else self._selector_mismatches()
+        self.selector_label.setText(
+            "Chip selector parameters differ from the chip:\n" + "\n".join(mismatches)
+            if mismatches else "")
+        self.selector_label.setVisible(bool(mismatches))
+        self.apply_selectors_btn.setEnabled(bool(mismatches))
+
+    def _apply_chip_selectors(self):
+        result = self._apply_selectors()
+        lines = result.messages() if result is not None else []
+        QMessageBox.information(self, "Apply Chip Selectors",
+                                "\n".join(lines) if lines else "Nothing to change.")
+        self._refresh_chip_status()
 
     def _adopt_chip(self):
         try:

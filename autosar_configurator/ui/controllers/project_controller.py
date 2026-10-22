@@ -44,6 +44,64 @@ class ProjectController:
         return (f"  |  ECU resources: {len(report.missing)} missing key(s), "
                 f"{len(report.consistency)} warning(s) - see log{hint}")
 
+    def apply_project_chip(self, chip_name, write_selectors: bool):
+        """The one way the project's chip takes effect (update-unified-chip-selection).
+
+        Sets ``selected_chip``, recomputes the ECU resources, reloads the UI
+        constraints and, for an explicit selection by the user
+        (``write_selectors``), writes the chip's declared selector values into the
+        loaded modules.  Opening or importing a project passes False: the
+        configuration is left as it is and only checked.
+
+        Returns:
+            SelectorResult when selectors were written, else None
+        """
+        project = self.win.current_project
+        if not project:
+            return None
+        project.selected_chip = chip_name
+        project.chip_changed()
+
+        result = None
+        if write_selectors and chip_name:
+            result = project.apply_chip_selectors()
+            if result.changed:
+                self.win._has_unsaved_changes = True
+
+        service = getattr(self.win, 'chip_constraint_service', None)
+        if service is None:
+            return result
+        service.set_project(project)
+        if service.current_chip != chip_name:
+            service.set_chip(chip_name)     # emits constraints_changed -> UI refresh
+        else:
+            self.win._on_chip_constraints_changed(chip_name or "")
+        return result
+
+    def selector_mismatches(self) -> list:
+        """Selector parameters configured differently from what the project's chip declares."""
+        from ...core.hardware.ecu_resource_diagnostics import check_selectors
+        from ...core.hardware.ecu_resource_resolver import chip_for_project
+
+        project = self.win.current_project
+        if not project:
+            return []
+        return check_selectors(project, chip_for_project(project, project.chip_database)[1])
+
+    def _selector_status(self) -> str:
+        """Status bar suffix when the configuration's chip selectors differ from the chip."""
+        mismatches = self.selector_mismatches()
+        if not mismatches:
+            return ""
+        return (f"  |  {len(mismatches)} chip selector(s) differ from the project's chip "
+                f"(Project Properties > Apply Chip Selectors)")
+
+    @staticmethod
+    def _selector_summary(result) -> str:
+        if result is None or not (result.changed or result.skipped):
+            return ""
+        return "\n".join(result.messages())
+
     def new_project(self):
         """Create a new project using the guided NewProjectWizard"""
         from ..wizards.new_project_wizard import NewProjectWizard
@@ -97,24 +155,19 @@ class ProjectController:
         self.win.current_project_file = project_path
         self.win.tree_view.set_project(self.win.current_project)
 
-        # Apply selected chip
-        if selected_chip:
-            self.win.current_project.selected_chip = selected_chip
-            if hasattr(self.win, 'chip_constraint_service') and self.win.chip_constraint_service:
-                self.win.chip_constraint_service.set_project(self.win.current_project)
-                self.win.chip_constraint_service.set_chip(selected_chip)
-                logger.info(f"New project chip constraint set to: {selected_chip}")
-
         # Chips imported or created in the wizard live in its database; build
         # ecu:get()/ecu:list() data from the selected chip's YAML resources.
         self.win.current_project.chip_database = wizard.chip_database
         if selected_chip:
+            self.win.current_project.selected_chip = selected_chip
             # A new project keeps its own copy of the chip from the start
             try:
                 self.win.current_project.adopt_selected_chip()
             except ValueError as e:
                 logger.warning(f"Chip {selected_chip} was not saved in the project: {e}")
-        self.win.current_project.load_ecu_resources()
+        # Explicit selection: modules added later get the chip's selector values
+        self.apply_project_chip(selected_chip, write_selectors=True)
+        logger.info(f"New project chip set to: {selected_chip}")
         ecu_status = self._ecu_resource_status()
 
         self.win.save_project_action.setEnabled(True)
@@ -299,33 +352,30 @@ class ProjectController:
                 )
                 status_msg += f" ({len(failed_modules)} errors)"
             
-            status_msg += self._ecu_resource_status()
+            # The project's chip: the saved one, else (older projects) the one chip
+            # whose declared selectors match the configuration.  Opening never
+            # changes the configuration.
+            if self.win.current_project:
+                initial_chip = self.win.current_project.selected_chip
+                if not initial_chip:
+                    initial_chip = self.win.current_project.chip_from_configuration()
+                self.apply_project_chip(initial_chip, write_selectors=False)
+                logger.info(f"Project chip: {initial_chip}")
+
+            status_msg += self._ecu_resource_status() + self._selector_status()
             self.win.statusbar.showMessage(status_msg, 5000)
-            
+
             # Auto-select first module
             self.win.tree_view.select_first_module()
-            
+
             # Save as last loaded project for auto-loading next time
             self.win.settings.setValue("last_project_path", str(self.win.current_project_file))
 
             # Add to recent files
             self._add_to_recent_files(str(self.win.current_project_file))
-            
-            # Initialize chip constraint service with project path
+
+            # Update window title after project load
             if self.win.current_project:
-                self.win.chip_constraint_service.set_project(self.win.current_project)
-                
-                # Read current chip from project settings or ResourceSubderivative parameter
-                initial_chip = self.win.current_project.selected_chip
-                if not initial_chip:
-                    # Try to read from ResourceSubderivative parameter
-                    initial_chip = self.win._get_resource_subderivative()
-                
-                if initial_chip:
-                    self.win.chip_constraint_service.set_chip(initial_chip)
-                    logger.info(f"Chip constraint service initialized with chip: {initial_chip}")
-                
-                # Update window title after project load
                 self.win._update_window_title()
             
         except Exception as e:
@@ -399,7 +449,9 @@ class ProjectController:
         importlib.reload(project_properties_dialog)
         ProjectPropertiesDialog = project_properties_dialog.ProjectPropertiesDialog
         
-        dialog = ProjectPropertiesDialog(self.win.current_project, self.win)
+        dialog = ProjectPropertiesDialog(self.win.current_project, self.win,
+                                         apply_selectors=self.apply_chip_selectors_now,
+                                         selector_mismatches=self.selector_mismatches)
         if dialog.exec():
             # Update project with new data
             data = dialog.get_data()
@@ -407,15 +459,33 @@ class ProjectController:
             self.win.current_project.version = data['version']
             self.win.current_project.author = data['author']
             self.win.current_project.description = data['description']
-            self.win.current_project.selected_chip = data.get('selected_chip')
-            # A different chip means different ECU resources: recompute from scratch
-            self.win.current_project.chip_changed()
+            chip = data.get('selected_chip')
+            if chip != self.win.current_project.selected_chip:
+                # Explicit chip selection: ECU resources, constraints and selectors follow
+                result = self.apply_project_chip(chip, write_selectors=True)
+                summary = self._selector_summary(result)
+                if summary:
+                    QMessageBox.information(
+                        self.win, "Chip Selectors",
+                        f"Chip {chip} applied. Selector parameters:\n\n{summary}")
 
             # Update tree header
             self.win.tree_view.setHeaderLabel(f"Project: {self.win.current_project.name}")
-            
+
             self.win.statusbar.showMessage(
-                f"Project properties updated{self._ecu_resource_status()}", 3000)
+                f"Project properties updated{self._ecu_resource_status()}"
+                f"{self._selector_status()}", 3000)
+
+    def apply_chip_selectors_now(self):
+        """'Apply Chip Selectors': write the project chip's declared selector values."""
+        project = self.win.current_project
+        if not project:
+            return None
+        result = project.apply_chip_selectors()
+        if result.changed:
+            self.win._has_unsaved_changes = True
+            self.win._refresh_config_views()
+        return result
 
     
     def manage_variants(self):
@@ -457,9 +527,14 @@ class ProjectController:
             self.win.current_project.add_module(module_def, Path(file_path))
             # The new module may ship its own .properties resources
             self.win.current_project.load_ecu_resources()
+            # Its chip selector parameters follow the project's chip
+            result = self.win.current_project.apply_chip_selectors(modules=[module_def.short_name])
+            if result.changed:
+                self.win._has_unsaved_changes = True
             self.win.tree_view.set_project(self.win.current_project)
+            selectors = f"  |  Chip selectors: {', '.join(result.messages())}" if result.changed else ""
             self.win.statusbar.showMessage(
-                f"Added module: {module_def.short_name}{self._ecu_resource_status()}", 3000)
+                f"Added module: {module_def.short_name}{selectors}{self._ecu_resource_status()}", 3000)
         except Exception as e:
             QMessageBox.critical(self.win, "Error", f"Failed to add module:\n{str(e)}")
 
@@ -695,6 +770,10 @@ class ProjectController:
             # Set up UI
             self.win.tree_view.set_project(self.win.current_project)
 
+            # Chip takes effect (ECU resources, UI constraints); the imported
+            # configuration is kept as it is and only checked
+            self.apply_project_chip(chip_name, write_selectors=False)
+
             # Enable project actions
             self.win.save_project_action.setEnabled(True)
             self.win.project_properties_action.setEnabled(True)
@@ -732,6 +811,11 @@ class ProjectController:
             )
             if chip_name:
                 summary += f"\nChip: {chip_name}"
+            mismatches = self.selector_mismatches()
+            if mismatches:
+                summary += ("\n\nChip selector parameters differ from the chip (kept as "
+                            "imported; Project Properties > Apply Chip Selectors):\n  "
+                            + "\n  ".join(mismatches))
             if project.ecu_resources:
                 summary += f"\nECU Resources: {len(project.ecu_resources)} properties loaded"
             if loaded_modules:

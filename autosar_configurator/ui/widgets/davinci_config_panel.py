@@ -425,11 +425,27 @@ class DaVinciConfigPanel(QWidget):
             pass
         return True
 
+    def _chip_selector_params(self) -> set:
+        """Names of this module's parameters the project's chip declares as selectors."""
+        project = self.project
+        module_def = getattr(self.config_manager, 'module_def', None)
+        if project is None or module_def is None or not getattr(project, 'selected_chip', None):
+            return set()
+        try:
+            from ...core.hardware.ecu_resource_resolver import chip_for_project
+
+            chip = chip_for_project(project, getattr(project, 'chip_database', None))[1]
+        except Exception:  # noqa: BLE001 - display only; never block editing on a chip lookup
+            return set()
+        prefix = f"{module_def.short_name}."
+        return {key[len(prefix):] for key in (getattr(chip, 'selectors', None) or {})
+                if key.startswith(prefix)}
+
     def _populate_parameters(self, instance: EcucContainerValue, container_def: EcucContainerDef):
         """Populate parameters table with editable widgets"""
         self.params_table.setRowCount(len(container_def.parameters))
         self._override_rows = set()  # Track rows with variant overrides
-
+        selector_params = self._chip_selector_params()
 
         for row, (param_name, param_def) in enumerate(container_def.parameters.items()):
             # Check if parameter is deprecated
@@ -491,6 +507,13 @@ class DaVinciConfigPanel(QWidget):
                 # Disable editor for deprecated parameters
                 if is_deprecated:
                     editor.setEnabled(False)
+                # Chip selector parameters follow the project's chip
+                if param_name in selector_params:
+                    editor.setEnabled(False)
+                    hint = ("由项目芯片决定，请在 Project Properties 中修改芯片\n"
+                            "Determined by the project's chip - change it in Project Properties")
+                    editor.setToolTip(hint)
+                    name_item.setToolTip(hint + "\n\n" + name_item.toolTip())
             except Exception as e:
                 print(f"Error creating editor for {param_name}: {e}")
                 error_item = QTableWidgetItem(f"Error: {e}")
