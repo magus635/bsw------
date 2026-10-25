@@ -1,5 +1,5 @@
 [!INDENT "0"!][!//
-[!IF "node:value(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative) = 'Os_THA6206'"!][!//
+[!IF "node:value(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative) = 'Os_THA6206' or node:value(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative) = 'Os_THA610X'"!][!//
 #! armclang --target=arm-arm-none-eabi -march=armv8-a -E -x c
 [!SELECT "/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os"!][!//
     [!LOOP "node:order(./MemoryRegion/*, '@index')"!][!//
@@ -147,7 +147,7 @@
                 [!VAR "FIRSTCALL" = "'FALSE'"!][!//
                 [!VAR "PreviousAlign" = "'NON'"!][!//
             [!ENDIF!][!//
-            [!IF "node:exists(./UserStack/Core1MemoryRegionRef)"!][!//
+            [!IF "node:exists(./UserStack/Core1MemoryRegionRef) and num:i(ecu:get('OsResource.NumOfCores')) > 1"!][!//
                 [!IF "node:name(node:ref(./UserStack/Core1MemoryRegionRef)) = $MemoryRegionName"!][!//
                     CORE1_USER_STACK [!"$MemoryRegionName"!] [!IF "node:value(./UserStack/Core1StackAlign) != 'NON'"!]ALIGN [!"node:value(./UserStack/Core1StackAlign)"!][!ENDIF!] EMPTY [!"num:inttohex(./UserStack/Core1StackSize)"!] {}           
                     [!VAR "PreviousMemoryBlock" = "'ImageLimit(CORE1_USER_STACK)'"!][!//
@@ -155,7 +155,7 @@
                     [!VAR "PreviousAlign" = "'NON'"!][!//
                 [!ENDIF!][!//
             [!ENDIF!][!//
-            [!IF "node:exists(./HypervisorStack/Core1MemoryRegionRef)"!][!//
+            [!IF "node:exists(./HypervisorStack/Core1MemoryRegionRef) and num:i(ecu:get('OsResource.NumOfCores')) > 1"!][!//
                 [!IF "node:name(node:ref(./HypervisorStack/Core1MemoryRegionRef)) = $MemoryRegionName"!][!//
                     CORE1_HYP_STACK [!"$MemoryRegionName"!] [!IF "node:value(./HypervisorStack/Core1StackAlign) != 'NON'"!]ALIGN [!"node:value(./HypervisorStack/Core1StackAlign)"!][!ENDIF!] EMPTY [!"num:inttohex(./HypervisorStack/Core1StackSize)"!] {}
                     [!VAR "PreviousMemoryBlock" = "'ImageLimit(CORE1_HYP_STACK)'"!][!//
@@ -163,7 +163,7 @@
                     [!VAR "PreviousAlign" = "'NON'"!][!//
                 [!ENDIF!][!//
             [!ENDIF!][!//
-            [!IF "node:exists(./KernelStack/Core1MemoryRegionRef)"!][!//
+            [!IF "node:exists(./KernelStack/Core1MemoryRegionRef) and num:i(ecu:get('OsResource.NumOfCores')) > 1"!][!//
                 [!IF "node:name(node:ref(./KernelStack/Core1MemoryRegionRef)) = $MemoryRegionName"!][!//
                     CORE1_KERNEL_STACK [!"$MemoryRegionName"!] [!IF "node:value(./KernelStack/Core1StackAlign) != 'NON'"!]ALIGN [!"node:value(./KernelStack/Core1StackAlign)"!][!ENDIF!] EMPTY [!"num:inttohex(./KernelStack/Core1StackSize)"!] {}
                     [!VAR "PreviousMemoryBlock" = "'ImageLimit(CORE1_KERNEL_STACK)'"!][!//
@@ -171,7 +171,7 @@
                     [!VAR "PreviousAlign" = "'NON'"!][!//
                 [!ENDIF!][!//
             [!ENDIF!][!//
-            [!IF "node:exists(./AbortStack/Core1MemoryRegionRef)"!][!//
+            [!IF "node:exists(./AbortStack/Core1MemoryRegionRef) and num:i(ecu:get('OsResource.NumOfCores')) > 1"!][!//
                 [!IF "node:name(node:ref(./AbortStack/Core1MemoryRegionRef)) = $MemoryRegionName"!][!//
                     CORE1_ABORT_STACK [!"$MemoryRegionName"!] [!IF "node:value(./AbortStack/Core1StackAlign) != 'NON'"!]ALIGN [!"node:value(./AbortStack/Core1StackAlign)"!][!ENDIF!] EMPTY [!"num:inttohex(./AbortStack/Core1StackSize)"!] {}
                     [!VAR "PreviousMemoryBlock" = "'ImageLimit(CORE1_ABORT_STACK)'"!][!//
@@ -179,7 +179,7 @@
                     [!VAR "PreviousAlign" = "'NON'"!][!//
                 [!ENDIF!][!//
             [!ENDIF!][!//
-            [!IF "node:exists(./UndefinedStack/Core1MemoryRegionRef)"!][!//
+            [!IF "node:exists(./UndefinedStack/Core1MemoryRegionRef) and num:i(ecu:get('OsResource.NumOfCores')) > 1"!][!//
                 [!IF "node:name(node:ref(./UndefinedStack/Core1MemoryRegionRef)) = $MemoryRegionName"!][!//
                     CORE1_UNDEFINED_STACK [!"$MemoryRegionName"!] [!IF "node:value(./UndefinedStack/Core1StackAlign) != 'NON'"!]ALIGN [!"node:value(./UndefinedStack/Core1StackAlign)"!][!ENDIF!] EMPTY [!"num:inttohex(./UndefinedStack/Core1StackSize)"!] {}
                     [!VAR "PreviousMemoryBlock" = "'ImageLimit(CORE1_UNDEFINED_STACK)'"!][!//
@@ -187,7 +187,7 @@
                     [!VAR "PreviousAlign" = "'NON'"!][!//
                 [!ENDIF!][!//
             [!ENDIF!][!//
-            [!IF "node:exists(./IrqStack/Core1MemoryRegionRef)"!][!//
+            [!IF "node:exists(./IrqStack/Core1MemoryRegionRef) and num:i(ecu:get('OsResource.NumOfCores')) > 1"!][!//
                 [!IF "node:name(node:ref(./IrqStack/Core1MemoryRegionRef)) = $MemoryRegionName"!][!//
                     CORE1_IRQ_STACK [!"$MemoryRegionName"!] [!IF "node:value(./IrqStack/Core1StackAlign) != 'NON'"!]ALIGN [!"node:value(./IrqStack/Core1StackAlign)"!][!ENDIF!] EMPTY [!"num:inttohex(./IrqStack/Core1StackSize)"!] {}
                     [!VAR "PreviousMemoryBlock" = "'ImageLimit(CORE1_IRQ_STACK)'"!][!//
@@ -195,7 +195,7 @@
                     [!VAR "PreviousAlign" = "'NON'"!][!//
                 [!ENDIF!][!//
             [!ENDIF!][!//
-            [!IF "node:exists(./FiqStack/Core1MemoryRegionRef)"!][!//
+            [!IF "node:exists(./FiqStack/Core1MemoryRegionRef) and num:i(ecu:get('OsResource.NumOfCores')) > 1"!][!//
                 [!IF "node:name(node:ref(./FiqStack/Core1MemoryRegionRef)) = $MemoryRegionName"!][!//
                     CORE1_FIQ_STACK [!"$MemoryRegionName"!] [!IF "node:value(./FiqStack/Core1StackAlign) != 'NON'"!]ALIGN [!"node:value(./FiqStack/Core1StackAlign)"!][!ENDIF!] EMPTY [!"num:inttohex(./FiqStack/Core1StackSize)"!] {}
                     [!VAR "PreviousMemoryBlock" = "'ImageLimit(CORE1_FIQ_STACK)'"!][!//
@@ -237,43 +237,43 @@
                 CORE0_FIQ_STACK [!"$PreviousMemoryBlock"!] [!IF "node:value(./FiqStack/Core0StackAlign) != 'NON'"!]ALIGN [!"node:value(./FiqStack/Core0StackAlign)"!][!ENDIF!] EMPTY [!"num:inttohex(./FiqStack/Core0StackSize)"!] {}
                 [!VAR "PreviousMemoryBlock" = "'ImageLimit(CORE0_FIQ_STACK)'"!][!//
             [!ENDIF!][!//
-            [!IF "node:exists(./UserStack/Core1MemoryRegionRef)"!][!//
+            [!IF "node:exists(./UserStack/Core1MemoryRegionRef) and num:i(ecu:get('OsResource.NumOfCores')) > 1"!][!//
                 [!IF "node:name(node:ref(./UserStack/Core1MemoryRegionRef)) = $MemoryRegionName"!][!//
                     CORE1_USER_STACK [!"$PreviousMemoryBlock"!] [!IF "node:value(./UserStack/Core1StackAlign) != 'NON'"!]ALIGN [!"node:value(./UserStack/Core1StackAlign)"!][!ENDIF!] EMPTY [!"num:inttohex(./UserStack/Core1StackSize)"!] {}               
                     [!VAR "PreviousMemoryBlock" = "'ImageLimit(CORE1_USER_STACK)'"!][!//
                 [!ENDIF!][!//
             [!ENDIF!][!//
-            [!IF "node:exists(./HypervisorStack/Core1MemoryRegionRef)"!][!//
+            [!IF "node:exists(./HypervisorStack/Core1MemoryRegionRef) and num:i(ecu:get('OsResource.NumOfCores')) > 1"!][!//
                 [!IF "node:name(node:ref(./HypervisorStack/Core1MemoryRegionRef)) = $MemoryRegionName"!][!//
                     CORE1_HYP_STACK [!"$PreviousMemoryBlock"!] [!IF "node:value(./HypervisorStack/Core1StackAlign) != 'NON'"!]ALIGN [!"node:value(./HypervisorStack/Core1StackAlign)"!][!ENDIF!] EMPTY [!"num:inttohex(./HypervisorStack/Core1StackSize)"!] {}
                     [!VAR "PreviousMemoryBlock" = "'ImageLimit(CORE1_HYP_STACK)'"!][!//
                 [!ENDIF!][!//
             [!ENDIF!][!//
-            [!IF "node:exists(./KernelStack/Core1MemoryRegionRef)"!][!//
+            [!IF "node:exists(./KernelStack/Core1MemoryRegionRef) and num:i(ecu:get('OsResource.NumOfCores')) > 1"!][!//
                 [!IF "node:name(node:ref(./KernelStack/Core1MemoryRegionRef)) = $MemoryRegionName"!][!//
                     CORE1_KERNEL_STACK [!"$PreviousMemoryBlock"!] [!IF "node:value(./KernelStack/Core1StackAlign) != 'NON'"!]ALIGN [!"node:value(./KernelStack/Core1StackAlign)"!][!ENDIF!] EMPTY [!"num:inttohex(./KernelStack/Core1StackSize)"!] {}
                     [!VAR "PreviousMemoryBlock" = "'ImageLimit(CORE1_KERNEL_STACK)'"!][!//
                 [!ENDIF!][!//
             [!ENDIF!][!//
-            [!IF "node:exists(./AbortStack/Core1MemoryRegionRef)"!][!//
+            [!IF "node:exists(./AbortStack/Core1MemoryRegionRef) and num:i(ecu:get('OsResource.NumOfCores')) > 1"!][!//
                 [!IF "node:name(node:ref(./AbortStack/Core1MemoryRegionRef)) = $MemoryRegionName"!][!//
                     CORE1_ABORT_STACK [!"$PreviousMemoryBlock"!] [!IF "node:value(./AbortStack/Core1StackAlign) != 'NON'"!]ALIGN [!"node:value(./AbortStack/Core1StackAlign)"!][!ENDIF!] EMPTY [!"num:inttohex(./AbortStack/Core1StackSize)"!] {}
                     [!VAR "PreviousMemoryBlock" = "'ImageLimit(CORE1_ABORT_STACK)'"!][!//
                 [!ENDIF!][!//
             [!ENDIF!][!//
-            [!IF "node:exists(./UndefinedStack/Core1MemoryRegionRef)"!][!//
+            [!IF "node:exists(./UndefinedStack/Core1MemoryRegionRef) and num:i(ecu:get('OsResource.NumOfCores')) > 1"!][!//
                 [!IF "node:name(node:ref(./UndefinedStack/Core1MemoryRegionRef)) = $MemoryRegionName"!][!//
                     CORE1_UNDEFINED_STACK [!"$PreviousMemoryBlock"!] [!IF "node:value(./UndefinedStack/Core1StackAlign) != 'NON'"!]ALIGN [!"node:value(./UndefinedStack/Core1StackAlign)"!][!ENDIF!] EMPTY [!"num:inttohex(./UndefinedStack/Core1StackSize)"!] {}
                     [!VAR "PreviousMemoryBlock" = "'ImageLimit(CORE1_UNDEFINED_STACK)'"!][!//
                 [!ENDIF!][!//
             [!ENDIF!][!//
-            [!IF "node:exists(./IrqStack/Core1MemoryRegionRef)"!][!//
+            [!IF "node:exists(./IrqStack/Core1MemoryRegionRef) and num:i(ecu:get('OsResource.NumOfCores')) > 1"!][!//
                 [!IF "node:name(node:ref(./IrqStack/Core1MemoryRegionRef)) = $MemoryRegionName"!][!//
                     CORE1_IRQ_STACK [!"$PreviousMemoryBlock"!] [!IF "node:value(./IrqStack/Core1StackAlign) != 'NON'"!]ALIGN [!"node:value(./IrqStack/Core1StackAlign)"!][!ENDIF!] EMPTY [!"num:inttohex(./IrqStack/Core1StackSize)"!] {}
                     [!VAR "PreviousMemoryBlock" = "'ImageLimit(CORE1_IRQ_STACK)'"!][!//
                 [!ENDIF!][!//
             [!ENDIF!][!//
-            [!IF "node:exists(./FiqStack/Core1MemoryRegionRef)"!][!//
+            [!IF "node:exists(./FiqStack/Core1MemoryRegionRef) and num:i(ecu:get('OsResource.NumOfCores')) > 1"!][!//
                 [!IF "node:name(node:ref(./FiqStack/Core1MemoryRegionRef)) = $MemoryRegionName"!][!//
                     CORE1_FIQ_STACK [!"$PreviousMemoryBlock"!] [!IF "node:value(./FiqStack/Core1StackAlign) != 'NON'"!]ALIGN [!"node:value(./FiqStack/Core1StackAlign)"!][!ENDIF!] EMPTY [!"num:inttohex(./FiqStack/Core1StackSize)"!] {}
                     [!VAR "PreviousMemoryBlock" = "'ImageLimit(CORE1_FIQ_STACK)'"!][!//

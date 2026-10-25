@@ -70,6 +70,7 @@
                     <a:v>Os_THA6206</a:v>
                     <a:v>Os_THA6412</a:v>
                     <a:v>Os_SC300</a:v>
+                    <a:v>Os_THA610X</a:v>
                     </a:da>
                </v:var>
 
@@ -3889,7 +3890,7 @@
               </v:lst>
               <v:lst name="MemoryRegion" type="MAP">
                <a:da name="ENABLE" type="XPath" 
-               expr="node:value(./../OsResourceSubderivative) = 'Os_THA6206'"
+               expr="node:value(./../OsResourceSubderivative) = 'Os_THA6206' or node:value(./../OsResourceSubderivative) = 'Os_THA610X'"
                true="true" false="false"/>
                <v:ctr name="MemoryRegion" type="IDENTIFIABLE">
                  <a:a name="DESC" 
@@ -3993,7 +3994,7 @@
                <a:a name="UUID" 
                value="6feba224-f010-4914-8cd6-19d9c82de9d7"/>
                <a:da name="ENABLE" type="XPath" 
-               expr="node:value(./../OsResourceSubderivative) = 'Os_THA6206'"
+               expr="node:value(./../OsResourceSubderivative) = 'Os_THA6206' or node:value(./../OsResourceSubderivative) = 'Os_THA610X'"
                true="true" false="false"/>
               <v:ctr name="MemoryBlock" type="IDENTIFIABLE">
                 <a:a name="DESC" 
@@ -4122,7 +4123,7 @@
             </v:lst>
             <v:lst name="MemorySection" type="MAP">
                <a:da name="ENABLE" type="XPath" 
-               expr="node:value(./../OsResourceSubderivative) = 'Os_THA6206'"
+               expr="node:value(./../OsResourceSubderivative) = 'Os_THA6206' or node:value(./../OsResourceSubderivative) = 'Os_THA610X'"
                true="true" false="false"/>
                <v:ctr name="MemorySection" type="IDENTIFIABLE">
                  <a:a name="DESC" 
@@ -4172,7 +4173,7 @@
                <a:a name="UUID" value="4b44e35b-c8a8-4895-9444-dcbd293cec1b"/>
                <a:a name="TAB" value="SystemModeStack"/>
                <a:da name="ENABLE" type="XPath" 
-               expr="node:value(./../OsResourceSubderivative) = 'Os_THA6206'"
+               expr="node:value(./../OsResourceSubderivative) = 'Os_THA6206' or node:value(./../OsResourceSubderivative) = 'Os_THA610X'"
                true="true" false="false"/>
                <v:ctr name="UserStack" type="IDENTIFIABLE">
 
@@ -5183,7 +5184,7 @@
                <a:a name="UUID" 
                value="6feba224-f010-4914-8cd6-19d9c82de9d7"/>
                <a:da name="ENABLE" type="XPath" 
-               expr="node:value(./../OsResourceSubderivative) = 'Os_THA6206'"
+               expr="node:value(./../OsResourceSubderivative) = 'Os_THA6206' or node:value(./../OsResourceSubderivative) = 'Os_THA610X'"
                true="true" false="false"/>
               <v:ctr name="OsMemoryMap" type="IDENTIFIABLE">
                 <a:a name="DESC" 

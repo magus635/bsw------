@@ -13,6 +13,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QUrl, QTimer
 from PySide6.QtGui import QGuiApplication, QDesktopServices, QColor
 
+from ...core.hardware.chip_completeness import INCOMPLETE_SUFFIX
+
 
 class ProjectPropertiesDialog(QDialog):
     """Dialog for editing project properties"""
@@ -152,6 +154,12 @@ class ProjectPropertiesDialog(QDialog):
         self.chip_source_label = QLabel()
         self.chip_source_label.setWordWrap(True)
         chip_outer.addWidget(self.chip_source_label)
+        # Incomplete chip data is only shown; the chip can still be applied
+        self.completeness_label = QLabel()
+        self.completeness_label.setWordWrap(True)
+        self.completeness_label.setStyleSheet("color: #B35C00;")
+        self.completeness_label.setVisible(False)
+        chip_outer.addWidget(self.completeness_label)
         chip_actions = QHBoxLayout()
         self.adopt_chip_btn = QPushButton("Save Chip to Project")
         self.adopt_chip_btn.setToolTip(
@@ -323,8 +331,10 @@ class ProjectPropertiesDialog(QDialog):
             names = available_chip_names(self.project)
         except Exception:  # noqa: BLE001 - the list is best-effort
             names = sorted(getattr(self.project, 'available_chips', []) or [])
+        self._incomplete = self._completeness_of(names)
         for chip in names:
-            self.chip_combo.addItem(chip, chip)
+            label = chip + INCOMPLETE_SUFFIX if chip in self._incomplete else chip
+            self.chip_combo.addItem(label, chip)
         
         # Set current selection
         current = getattr(self.project, 'selected_chip', None)
@@ -339,6 +349,25 @@ class ProjectPropertiesDialog(QDialog):
             self.project.discover_available_chips()
         self._populate_chip_combo()
         self._refresh_chip_status()
+
+    def _completeness_of(self, names):
+        """Chip name -> completeness items, for the chips with incomplete data."""
+        from ...core.hardware.chip_completeness import check_chip, plugin_entries
+        from ...core.hardware.ecu_resource_resolver import chip_for_project
+
+        try:
+            entries = plugin_entries(self.project)
+            result = {}
+            for name in names:
+                probe = SimpleNamespace(path=self.project.path, selected_chip=name,
+                                        chip_database=getattr(self.project, 'chip_database', None))
+                items = check_chip(chip_for_project(probe, probe.chip_database)[1],
+                                   self.project, entries)
+                if items:
+                    result[name] = items
+            return result
+        except Exception:  # noqa: BLE001 - the marker is informational only
+            return {}
 
     def _source_of(self, chip_name):
         """Where chip_name's resources would come from for this project."""
@@ -370,6 +399,11 @@ class ProjectPropertiesDialog(QDialog):
         if pending and chosen:
             text += "  Press OK to apply the new chip first."
         self.chip_source_label.setText(text)
+        items = getattr(self, '_incomplete', {}).get(chosen, [])
+        self.completeness_label.setText(
+            f"{chosen} 的芯片资料不完整（仍可选择和生成）：\n"
+            + "\n".join(f"- {item.text}" for item in items) if items else "")
+        self.completeness_label.setVisible(bool(items))
         has_location = bool(getattr(self.project, 'path', None))
         self.adopt_chip_btn.setEnabled(
             has_location and not pending and source not in (SOURCE_NONE, SOURCE_PROJECT))

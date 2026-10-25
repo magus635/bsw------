@@ -40,7 +40,7 @@
 /****************************************************************************************************
 **                          Global Macro Definitions                                               **
 ****************************************************************************************************/
-[!IF "node:value(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative) = 'Os_THA6206'"!][!//
+[!IF "node:value(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative) = 'Os_THA6206' or node:value(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative) = 'Os_THA610X'"!][!//
 [!VAR "ZeroInitStageOneNum" = "0"!][!//
 [!VAR "ZeroInitStageTwoNum" = "0"!][!//
 [!VAR "ZeroInitStageThreeNum" = "0"!][!//

@@ -36,7 +36,7 @@
 /****************************************************************************************************
 **                          Includes                                                               **
 ****************************************************************************************************/
-[!IF "node:value(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative) = 'Os_THA6206'"!][!//
+[!IF "node:value(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative) = 'Os_THA6206' or node:value(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative) = 'Os_THA610X'"!][!//
 #include "Os_GeneralTypes.h"
 #include "Compiler.h"
 #include "Os_kernel_Cfg.h"
@@ -362,6 +362,7 @@ const static Os_LinkSingleStackCfg Os_MemStackCore0_GroupSets[OS_STACK_MODE_NUM]
 #define OS_STOP_SEC_CONST_QM_CORE0_UNSPECIFIED
 #include "Os_memmap.h"    
 
+[!IF "num:i(ecu:get('OsResource.NumOfCores')) > 1"!][!//
 #define OS_START_SEC_CONST_QM_CORE1_UNSPECIFIED
 #include "Os_memmap.h"
 const static Os_LinkSingleStackCfg Os_MemStackCore1_GroupSets[OS_STACK_MODE_NUM] =
@@ -397,6 +398,7 @@ const static Os_LinkSingleStackCfg Os_MemStackCore1_GroupSets[OS_STACK_MODE_NUM]
 };
 #define OS_STOP_SEC_CONST_QM_CORE1_UNSPECIFIED
 #include "Os_memmap.h"
+[!ENDIF!][!//
 
 
 #define OS_START_SEC_CONST_QM_GLOBAL_UNSPECIFIED
@@ -429,10 +431,12 @@ const Os_LinkBssMemGroupCfg Os_MemZeroInit_Unclear =
     Os_MemZeroInit_Unclear_GroupSets,
 };
 /*used for system stack setting.*/
-const Os_LinkStackCfg Os_MemStackInit[2] =
+const Os_LinkStackCfg Os_MemStackInit[[!"num:i(ecu:get('OsResource.NumOfCores'))"!]] =
 {
     {OS_STACK_MODE_NUM, Os_MemStackCore0_GroupSets},
+[!IF "num:i(ecu:get('OsResource.NumOfCores')) > 1"!][!//
     {OS_STACK_MODE_NUM, Os_MemStackCore1_GroupSets},
+[!ENDIF!][!//
 };
 
 /*used for clone data/code sections.*/

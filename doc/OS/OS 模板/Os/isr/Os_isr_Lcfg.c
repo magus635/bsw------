@@ -359,6 +359,8 @@ const Os_IsrConfigRefType Os_PeripheralIntVecTable[OS_ISR_SPI_TOTAL_NUM] =
         [!IF "OsResourceSubderivative = 'Os_THA6206'"!][!//
             0xF0000000U,
             0xF0000000U
+        [!ELSEIF "OsResourceSubderivative = 'Os_THA610X'"!][!//
+            0xF0000000U
         [!ELSE!][!//
             0xF0000000U,
             0xF0000000U,

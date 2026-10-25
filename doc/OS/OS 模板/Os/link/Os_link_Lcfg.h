@@ -38,7 +38,7 @@
 /****************************************************************************************************
 **                          Includes                                                               **
 ****************************************************************************************************/
-[!IF "node:value(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative) = 'Os_THA6206'"!][!//
+[!IF "node:value(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative) = 'Os_THA6206' or node:value(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative) = 'Os_THA610X'"!][!//
 #include "Compiler.h"
 #include "Os_kernel_Cfg.h"
 /****************************************************************************************************
@@ -61,7 +61,7 @@ extern const Os_LinkBssMemGroupCfg Os_MemZeroInit_StageThree;
 /*used for unclear bss sections.*/
 extern const Os_LinkBssMemGroupCfg Os_MemZeroInit_Unclear;
 /*used for system stack setting.*/
-extern const Os_LinkStackCfg Os_MemStackInit[2];
+extern const Os_LinkStackCfg Os_MemStackInit[[!"num:i(ecu:get('OsResource.NumOfCores'))"!]];
 /*used for clone data/code sections.*/
 extern const Os_LinkDataMemGroupCfg Os_MemDataInit_StageOne;
 /*used for common data/code sections.*/

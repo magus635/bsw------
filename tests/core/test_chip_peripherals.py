@@ -347,7 +347,10 @@ def test_builtin_chips_carry_ecu_resources_and_pass_consistency(name):
     assert chip is not None
     assert not chip.content_modified
     assert chip.ecu_resources
-    assert typed_field_differences(chip) == []
+    # A difference is accepted only for a field marked unconfirmed (flagged, not changed):
+    # THA610X counts the lockstep pair as 2 cores, the Os uses 1
+    unconfirmed = tuple((chip.metadata.get("unconfirmed") or {}))
+    assert [m for m in typed_field_differences(chip) if not m.startswith(unconfirmed)] == []
     assert check_consistency(flatten_ecu_resources(chip.ecu_resources)) == []
 
 

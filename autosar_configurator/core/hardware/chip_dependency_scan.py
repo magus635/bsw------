@@ -518,6 +518,30 @@ def scan_coverage(project, chips: List[Any], entries: List[EcuResourceEntry],
     return findings
 
 
+def _chip_file(project, name: str, base: Optional[Path]) -> str:
+    """Where chip ``name`` is defined: the project's chips/ copy, else the library file."""
+    candidates = [base / "chips" / f"{name}.yaml"] if base is not None else []
+    library = getattr(project, "_chip_library", None)
+    data_dir = getattr(library(), "data_dir", None) if callable(library) else None
+    if data_dir is not None:
+        candidates.append(Path(data_dir) / f"{name}.yaml")
+    found = next((c for c in candidates if c.is_file()), None)
+    return display_path(found, base) if found is not None else name
+
+
+def scan_completeness(project, chips: List[Any], entries: List[EcuResourceEntry],
+                      base: Optional[Path]) -> List[Finding]:
+    """Incomplete or unconfirmed chip data (chip_completeness), as coverage findings."""
+    from .chip_completeness import check_chip
+
+    findings = []
+    for chip in chips:
+        for item in check_chip(chip, project, entries):
+            findings.append(Finding(COVERAGE, _chip_file(project, chip.name, base), 0,
+                                    f"芯片 {chip.name} 资料不完整：{item.text}", (chip.name,)))
+    return findings
+
+
 # --- scan ----------------------------------------------------------------------
 
 def scan_project(project, chips: Optional[List[Any]] = None,
@@ -586,6 +610,7 @@ def scan_project(project, chips: Optional[List[Any]] = None,
     for key, modules in collect_referenced_keys_in_dirs([d for d in dirs if d.is_dir()]).items():
         referenced.setdefault(key, set()).update(modules)
     result.findings.extend(scan_coverage(project, chips, entries, referenced, base))
+    result.findings.extend(scan_completeness(project, chips, entries, base))
 
     result.findings = sorted(set(result.findings), key=Finding.sort_key)
     if progress is not None:
