@@ -333,7 +333,7 @@ def test_peripherals_derived_from_ecu_resources():
     assert derived["wdg_unit"][0].properties == {"unit_id": 0}
 
 
-@pytest.mark.parametrize("name", ["THA610X_LFBGA180", "THA6206_LFBGA292", "THA6412_BGA516"])
+@pytest.mark.parametrize("name", ["SC300", "THA610X_LFBGA180", "THA6206_LFBGA292", "THA6412_BGA516"])
 def test_builtin_chips_carry_ecu_resources_and_pass_consistency(name):
     from autosar_configurator.core.hardware.ecu_resource_data import (
         flatten_ecu_resources,

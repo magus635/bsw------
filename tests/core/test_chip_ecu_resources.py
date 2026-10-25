@@ -269,6 +269,7 @@ def test_export_without_ecu_resources_keeps_legacy_output():
 _VENDOR_RESOURCE_DIR = (Path(__file__).resolve().parents[2] / "test_import_project" / "Def"
                         / "plugins" / "Resource_THA6_AS440" / "resource")
 _BUILTIN_SOURCES = {
+    "SC300": [FIXTURES / "Os_Resource_SC300.properties"],     # Os only, no MCAL
     "THA610X_LFBGA180": [_VENDOR_RESOURCE_DIR / "CotexR52_THA610X_LFBGA180.properties",
                          FIXTURES / "Os_Resource_THA610X.properties"],
     "THA6206_LFBGA292": [_VENDOR_RESOURCE_DIR / "CotexR52_THA6206_LFBGA292.properties",

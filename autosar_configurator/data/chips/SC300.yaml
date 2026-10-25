@@ -1,0 +1,27 @@
+name: SC300
+family: THA6
+package: ''
+description: SC300 - single-core Arm Cortex-M3 HSM core of THA6206; runs the Os, not MCAL
+metadata:
+  cores:
+    count: 1
+    available: [CORE0]
+    master: CORE0
+  unconfirmed: {ecu_resources.Os.IsrTriggerMethodList: NVIC 没有边沿/电平配置，全部写 4；外部中断按 Cortex-M3 上限 240 个，THA6206 HSM 启动文件只接了 73 个（0-72），实际数量待确认}
+resource_version: 1.0.0
+selectors: {Os.OsResourceSubderivative: Os_SC300}
+ecu_resources:
+  OsResource:
+    NumOfCores: 1
+    AvailableCores: CORE0
+    MultiCoreModules: [ADC, PWM, GPT, CAN, SPI, ETH, LIN, ICU, OCU, UART, MSC, DMA, IOM, SENT, DSADC, I2C]
+    MasterCore: OS_CORE_ID_0
+    SupportProcessor: SC300
+  Os:
+    IsrTriggerMethodList:
+      0-255: 4
+    GicIntTriggerMethod: [EDGE, LEVEL]
+    AppModeDefaultName: [OSDEFAULTAPPMODE, OSALLRUNNINGMODE]
+    IocPrimitiveDataType: [uint8, uint16, uint32, uint64, boolean, AppModeType, ApplicationType, CoreIdType, IdleModeType, TickType, Os_TickDiffType, AlarmType, CounterType, sint8, sint16, sint32, sint64, float32, float64, ISRType, ResourceType, SpinlockIdType, TaskType]
+    IocPrimitiveDataTypeNum: 23
+checksum: sha256:31aaa79dc9818c5589ed6874eb76e1a403cd022686233d96564e293db139ae78

@@ -133,6 +133,10 @@ def test_library_chips_are_flagged_as_marked():
     assert "metadata.flash_size" in _fields(check_chip(db.get_chip("THA610X_LFBGA180")))
     assert check_chip(db.get_chip("THA6206_LFBGA292")) == []
     assert check_chip(db.get_chip("THA6412_BGA516")) == []
+    # Os only: no pins or peripherals is not missing data; only the marked field is listed
+    sc300 = db.get_chip("SC300")
+    assert sc300.selectors == {"Os.OsResourceSubderivative": "Os_SC300"}
+    assert _fields(check_chip(sc300)) == ["ecu_resources.Os.IsrTriggerMethodList"]
 
 
 def test_scan_lists_completeness_under_coverage(tmp_path):
