@@ -34,7 +34,8 @@ def os_def():
     return parser.parse_module_def_file(OS_XDM)
 
 
-def _config(os_def, chip="Os_SC300", sc="SC1", cores=1, priorities=(3, 4), counter_source=15, hrt=False):
+def _config(os_def, chip="Os_SC300", sc="SC1", cores=1, priorities=(3, 4), counter_source=15, hrt=False,
+            last_source=17):
     mgr = ConfigurationManager(os_def)
     c = os_def.containers
     mgr.configuration.set_parameter_value("OsResourceSubderivative", chip,
@@ -45,7 +46,8 @@ def _config(os_def, chip="Os_SC300", sc="SC1", cores=1, priorities=(3, 4), count
     for i, prio in enumerate(priorities):
         isr = mgr.create_container_instance(c["OsIsr"], None, f"Isr_{i}")
         mgr.set_parameter_value(isr, "OsIsrPriority", prio)
-        mgr.set_parameter_value(isr, "OsIsrInterruptSource", counter_source if i == 0 else 16 + i)
+        source = counter_source if i == 0 else (last_source if i == len(priorities) - 1 else 16 + i)
+        mgr.set_parameter_value(isr, "OsIsrInterruptSource", source)
     counter = mgr.create_container_instance(c["OsCounter"], None, "SystemTick")
     mgr.set_parameter_value(counter, "OsCounterType", "HARDWARE")
     mgr.set_parameter_value(counter, "OsTimerHighResolution", hrt)
@@ -65,8 +67,9 @@ def _tripped(os_def, mgr):
 @needs_xdm
 def test_four_rules_with_messages():
     messages = [m for _, m in _rules()]
-    assert len(messages) == 4
+    assert len(messages) == 5
     assert "SC1" in messages[0] and "1 to 7" in messages[1] and "SysTick" in messages[2] and "one core" in messages[3]
+    assert "73 external interrupts" in messages[4] and "0 to 88" in messages[4]
 
 
 @needs_xdm
@@ -78,6 +81,9 @@ def test_four_rules_with_messages():
     ({"hrt": True}, [3]),
     ({"counter_source": 30}, [3]),
     ({"cores": 2}, [4]),
+    ({"last_source": 88}, []),          # the last of the 73 external interrupts
+    ({"last_source": 89}, [5]),
+    ({"last_source": 255}, [5]),
 ])
 def test_sc300_limits(os_def, change, expected):
     assert _tripped(os_def, _config(os_def, **change)) == expected

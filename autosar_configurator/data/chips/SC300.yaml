@@ -7,7 +7,6 @@ metadata:
     count: 1
     available: [CORE0]
     master: CORE0
-  unconfirmed: {ecu_resources.Os.IsrTriggerMethodList: NVIC 没有边沿/电平配置，全部写 4；外部中断按 Cortex-M3 上限 240 个，THA6206 HSM 启动文件只接了 73 个（0-72），实际数量待确认}
 resource_version: 1.0.0
 selectors: {Os.OsResourceSubderivative: Os_SC300}
 ecu_resources:
@@ -19,9 +18,9 @@ ecu_resources:
     SupportProcessor: SC300
   Os:
     IsrTriggerMethodList:
-      0-255: 4
+      0-88: 4
     GicIntTriggerMethod: [EDGE, LEVEL]
     AppModeDefaultName: [OSDEFAULTAPPMODE, OSALLRUNNINGMODE]
     IocPrimitiveDataType: [uint8, uint16, uint32, uint64, boolean, AppModeType, ApplicationType, CoreIdType, IdleModeType, TickType, Os_TickDiffType, AlarmType, CounterType, sint8, sint16, sint32, sint64, float32, float64, ISRType, ResourceType, SpinlockIdType, TaskType]
     IocPrimitiveDataTypeNum: 23
-checksum: sha256:31aaa79dc9818c5589ed6874eb76e1a403cd022686233d96564e293db139ae78
+checksum: sha256:b7017f4acf1de8611db0470985dbbdd43c646d9b515b507e3542b4ebbf48eb18

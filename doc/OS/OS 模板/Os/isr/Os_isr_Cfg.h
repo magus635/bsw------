@@ -57,7 +57,7 @@
 #define OS_ISR_INTERRUPTGROUP_IRQ  (1U)
 
 [!IF "node:value(./OsResourceSubderivative) = 'Os_SC300'"!][!//
-#define OS_ISR_SPI_TOTAL_NUM            (240U)
+#define OS_ISR_SPI_TOTAL_NUM            (73U)
 #define OS_ISR_INTERNALINT_TOTAL_NUM    (16U)
 [!ELSE!][!//
 #define OS_ISR_SPI_TOTAL_NUM            (960U)

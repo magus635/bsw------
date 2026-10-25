@@ -81,6 +81,8 @@
                                 true = "SC300: a hardware counter must use SysTick (OsIsrInterruptSource 15) without high resolution."/>
                          <a:tst expr="node:value(.) = 'Os_SC300' and num:i(node:value(../OsOS/OsNumberOfCores)) != 1"
                                 true = "SC300 has one core: OsNumberOfCores must be 1."/>
+                         <a:tst expr="node:value(.) = 'Os_SC300' and count(../OsIsr/*[num:i(OsIsrInterruptSource) &gt; 88]) &gt; 0"
+                                true = "SC300 has 73 external interrupts: OsIsrInterruptSource must be 0 to 88 (exceptions 0-15, interrupts 16-88)."/>
                     </a:da>
                </v:var>
 

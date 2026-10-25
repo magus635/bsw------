@@ -311,7 +311,7 @@ P2CONST(Os_IsrConfigRefType, AUTOMATIC, OS_CONST) Os_Cores_InternalIntVecTable[O
 const Os_IsrConfigRefType Os_PeripheralIntVecTable[OS_ISR_SPI_TOTAL_NUM] = 
 {
 [!IF "node:value(./OsResourceSubderivative) = 'Os_SC300'"!][!//
-    [!VAR "TotalPeripheralIntTableNum" = "num:i(255)"!][!//
+    [!VAR "TotalPeripheralIntTableNum" = "num:i(88)"!][!//
 [!ELSE!][!//
     [!VAR "TotalPeripheralIntTableNum" = "num:i(991)"!][!//
 [!ENDIF!][!//
