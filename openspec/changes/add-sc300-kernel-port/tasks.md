@@ -52,3 +52,10 @@
   - T1 的任务只把系统应用列为访问应用，所属的 `OsApplication_Trusted_Core0` 激活不了自己的任务（`E_OS_ACCESS`），R52 上也一样；
   - T1 的自启动任务挂在 `OS_APPMODE_ANY` 上，`StartOS(OSDEFAULTAPPMODE)` 不会启动它们；
   - 主干 `Os_compiler_hightec.h` 的 `Os_AtomicBitClear` 用了 `P2VAR`，而 `Compiler.h` 在定义 `P2VAR` 之前就包含了这个头文件，所以 HighTec/GCC 下编译不过（ADS 版本用 `uint32`，不受影响）。
+- 上面三项已修复（2026-10-25）：
+  - T1 `ConfigValue/Os_Config.arxml`（不在 git；改动前备份在会话草稿区 `backup_three_fixes/`，脚本 `fix_t1_os_config.py`，可重复运行）：
+    - 给任务和 alarm 的访问应用列表补上各自所属的应用；给 counter 补上拥有使用它的 alarm 的应用（核 0 的对象 `0x5→0x7`，核 1 的 `0xd`）；资源本来就列了 `OsApplication_Trusted_Core0`，没改；
+    - 6 个自启动引用改为 `OSALLRUNNINGMODE`（与 EB 生成的 tr002 一致，任何模式都启动），并在 `OSDEFAULTAPPMODE` 旁新增这个容器；`OS_APPMODE_ANY` 保留（ARTI 文件里描述了它）。
+  - `Os_compiler_hightec.h`：加 `#include "Platform_Types.h"`（和 ADS 版本一样自带 `uint32`），`Os_AtomicBitClear` 的参数由 `P2VAR(uint32, ...)` 改为 `uint32 *`。主干以及三份逐字节相同的副本（intTest、T2 的 `OS_Kernel` 和 `THA6_OS_Project`）都已改；去掉 `-include` 补丁后 R52 的 24 个目标文件与基线逐字节一致。
+  - 验证：T1 在 6206/6412 上的生成结果只有预期的变化（`Os_application_Lcfg.c` 的访问掩码、`Os_task_Lcfg.c` 的 AutoStart），其余文件不变；去掉测试里手工加访问应用的补丁、改用 `StartOS(OSDEFAULTAPPMODE)` 后，QEMU 的 16 步仍全部通过。
+  - 没改：ADS 版本 `Os_compiler_ads.h` 的 `Os_AtomicBitClear` 把地址声明为 `uint32` 值参数，而调用处传的是指针；armclang 较新版本会把指针转整数当错误。我没有 armclang，没法验证，所以留着。
