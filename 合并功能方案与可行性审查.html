@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BSW 配置工具合并功能方案与可行性审查</title>
+<style>
+:root{--ink:#172033;--muted:#5b6475;--blue:#1769aa;--bg:#f5f7fb;--card:#fff;--line:#dfe5ee;--good:#18794e;--warn:#9a6700;--bad:#b42318}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}main{max-width:1100px;margin:0 auto;padding:42px 24px 72px}h1{font-size:32px;line-height:1.25;margin:0 0 12px}h2{margin-top:38px;border-bottom:1px solid var(--line);padding-bottom:8px}h3{margin-top:26px}.lead{font-size:18px;color:var(--muted)}.meta{color:var(--muted);font-size:13px;margin-bottom:28px}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:16px 0;box-shadow:0 3px 12px #1720330a}.status{display:inline-block;padding:4px 10px;border-radius:999px;font-weight:600;font-size:13px}.good{color:var(--good);background:#e8f5ee}.warn{color:var(--warn);background:#fff4d6}.bad{color:var(--bad);background:#fdebea}table{width:100%;border-collapse:collapse;margin:12px 0}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:10px 9px}th{background:#f0f4f9}code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}pre{background:#182230;color:#e7edf5;border-radius:9px;padding:16px;overflow:auto}ul,ol{padding-left:24px}.small{font-size:13px;color:var(--muted)}.callout{border-left:4px solid var(--blue);padding:12px 16px;background:#eef6ff}.risk{border-left-color:#d39b00;background:#fff9e8}.footer{margin-top:42px;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body><main>
+<h1>BSW 图形配置工具：合并功能方案与可行性审查</h1>
+<p class="lead">目标：在现有 AUTOSAR Classic BSW/MCAL 配置器上，将跨层重复配置收敛为“声明功能意图，由工具推导配置并生成结果”的统一工作流。</p>
+<p class="meta">审查日期：2026-10-24　|　项目：<code>/Users/qlwang/Desktop/bsw图形配置工具</code></p>
+
+<div class="card"><span class="status good">结论：可行（分阶段实施）</span><p>项目已经具备解析、配置模型、图形编辑、验证、导入和代码生成闭环，因此实现统一意图层是可落地的架构演进。当前不宜承诺一次性替代 DaVinci 的全部能力；合理目标是先完成一条端到端垂直链路，再逐步扩展。</p></div>
+
+<h2>一、再次审查后的核心判断</h2>
+<table><tr><th>判断</th><th>结论</th><th>依据</th></tr>
+<tr><td>基础底座</td><td><span class="status good">具备</span></td><td>已有 ECUC 定义和值模型、ARXML/XDM 解析与序列化、项目和配置管理、验证引擎、模板代码生成。</td></tr>
+<tr><td>DBC/硬件接入</td><td><span class="status good">部分具备</span></td><td>已有 DBC 导入器、芯片 YAML/资源模型和硬件映射能力，但尚未形成从功能意图到 Com/PduR/CanIf 的统一推导链。</td></tr>
+<tr><td>意图到实现的推导</td><td><span class="status warn">缺口</span></td><td>现有模型主要描述 ECUC 参数和值，缺少 Runnable、Task、ASIL、Partition、通信意图之间的中间模型和规则编排。</td></tr>
+<tr><td>供应商兼容</td><td><span class="status warn">需验证</span></td><td>生成器偏 EB Tresos 风格；不同芯片、MCAL 和供应商的 ECUC 结构需要适配器，不能假设完全通用。</td></tr>
+<tr><td>完整替代 DaVinci</td><td><span class="status bad">暂不可承诺</span></td><td>需要明确两个功能的准确范围、ARXML 双向兼容要求、变体管理、安全证据和已有工程迁移策略。</td></tr></table>
+
+<h2>二、建议的目标架构</h2>
+<pre>用户意图文件（YAML/JSON）
+        ↓
+统一意图模型（Feature / Runnable / Signal / ASIL / Core）
+        ↓
+中间模型与约束图（来源、依赖、覆盖、冲突）
+        ↓
+推导引擎 + 平台适配器
+   ├─ RTE / SWC
+   ├─ OS / Task / Application
+   ├─ ECUC / MCAL
+   ├─ Com / PduR / CanIf
+   └─ MemMap / MPU
+        ↓
+现有验证、ARXML/XDM 序列化、模板代码生成
+        ↓
+追溯报告、覆盖报告、编译和 CI 检查</pre>
+<p>关键设计是增加“意图层”和“中间模型”，而不是把系统级概念直接塞入 ECUC 参数树。这样可以保持现有图形编辑器、验证引擎和生成器的复用能力。</p>
+
+<h2>三、第一阶段建议范围</h2>
+<div class="callout"><strong>垂直切片：</strong>周期 Runnable → RTE Event → Task → OS Application/Partition → MemMap/MPU → 校验与追溯。</div>
+<table><tr><th>输入</th><th>自动推导</th><th>必须人工确认</th></tr>
+<tr><td><code>feature</code>、<code>core</code>、<code>asil</code>、Runnable 名称、周期</td><td>事件类型、Task 候选、分区候选、对应 ECUC 容器和值、来源链</td><td>Task 优先级、调度策略、分区边界、内存布局、时序裕量、供应商特殊参数</td></tr></table>
+<pre>feature: BrakeCtrl
+core: 0
+asil: B
+runnables:
+  - name: Ctrl_10ms
+    period: 10ms</pre>
+<p>第一阶段的验收不是“生成了很多参数”，而是：同一份意图可重复生成；每个生成值可追溯；覆盖值会被标记；结果能通过现有验证并导出到目标配置格式。</p>
+
+<h2>四、现有项目能力与接入点</h2>
+<table><tr><th>现有能力</th><th>可复用位置</th><th>新增工作</th></tr>
+<tr><td>ECUC 配置模型</td><td><code>autosar_configurator/core/model/</code></td><td>增加意图模型与到 ECUC 的映射，不改变基础模型语义。</td></tr>
+<tr><td>项目/配置生命周期</td><td><code>core/config_manager.py</code>、<code>core/workspace_manager.py</code></td><td>保存意图文件、推导快照、规则版本和覆盖记录。</td></tr>
+<tr><td>解析与序列化</td><td><code>core/parser/</code>、<code>core/serializer/</code></td><td>支持意图导入导出及增量合并；后续完善 ARXML round-trip。</td></tr>
+<tr><td>验证</td><td><code>core/validation_engine.py</code>、<code>core/rules/</code></td><td>增加意图一致性、推导冲突和覆盖冲突规则。</td></tr>
+<tr><td>代码生成</td><td><code>generator/generator.py</code>、<code>generator/eb/</code></td><td>让生成上下文能够读取推导结果和来源信息。</td></tr>
+<tr><td>DBC/芯片资源</td><td><code>core/importers/</code>、<code>core/hardware/</code></td><td>第二阶段接入信号到通信栈的推导和平台适配。</td></tr></table>
+
+<h2>五、不可自动化或不能省略的部分</h2>
+<ul><li>Task 优先级、调度策略、内存布局和性能裕量通常不是唯一可推导结果。</li><li>ASIL C/D 的独立评审、确认措施和安全证据不能由工具替代。</li><li>外部供应商 SWC、OEM 基线和既有 DaVinci 工程需要 ARXML 导入、导出和增量合并。</li><li>芯片、MCAL、EB/Vector 版本差异必须由适配器和版本化规则处理。</li></ul>
+
+<h2>六、风险与缓解</h2>
+<table><tr><th>风险</th><th>影响</th><th>缓解</th></tr>
+<tr><td>推导规则过度承诺</td><td>生成结果不符合项目实际约束</td><td>把字段分为意图输入、规则推导、默认值、人工确认、人工覆盖五类。</td></tr>
+<tr><td>覆盖后产生隐性漂移</td><td>意图文件与 ECUC 结果不一致</td><td>记录覆盖来源、冲突关系和受影响节点；校验时显式报警。</td></tr>
+<tr><td>供应商格式不兼容</td><td>无法导入现有工程或生成不可用</td><td>建立平台适配器；先限定一个芯片、一个 MCAL/生成后端做 MVP。</td></tr>
+<tr><td>一次性范围过大</td><td>项目周期和验证成本失控</td><td>先完成 Runnable→Task→Partition→MemMap 垂直切片，再接通信。</td></tr></table>
+
+<h2>七、实施路线与验收指标</h2>
+<ol><li><strong>阶段 0：边界确认。</strong>明确要合并的两个 DaVinci 功能、目标芯片/MCAL、输入输出格式和既有工程样本。</li><li><strong>阶段 1：意图层 MVP。</strong>定义 schema、版本、来源和覆盖语义；完成周期 Runnable 链路。</li><li><strong>阶段 2：平台适配。</strong>把中间模型映射到一个确定的 EB/MCAL 配置后端。</li><li><strong>阶段 3：通信链路。</strong>导入 DBC，逐步打通 Com/PduR/CanIf。</li><li><strong>阶段 4：工程化。</strong>完善 ARXML round-trip、CI、编译、栈/MPU 检查和迁移工具。</li></ol>
+<table><tr><th>指标</th><th>建议目标</th></tr><tr><td>重复配置减少</td><td>以同一基线项目测量，第一阶段先达到可量化的时间减少。</td></tr><tr><td>推导结果可追溯率</td><td>100% 的自动生成值有规则、输入和版本来源。</td></tr><tr><td>生成稳定性</td><td>同一输入、同一规则版本生成结果可复现。</td></tr><tr><td>验证提前发现率</td><td>把原本集成阶段发现的问题前移到意图校验或生成前校验。</td></tr><tr><td>兼容性</td><td>目标供应商工程可导入、导出并通过既有校验。</td></tr></table>
+
+<h2>八、最终建议</h2>
+<div class="card"><p><strong>建议立项，但把项目名称和目标收敛为“统一意图配置与跨层推导 MVP”。</strong>当前代码基础足以支撑第一阶段实现，且不会要求推倒重来。正式开发前应按 OpenSpec 创建提案，先冻结第一阶段的模型、规则、平台范围和验收样例，再进入实现。</p></div>
+<p class="footer">本文件是基于项目当前代码结构、README/PROJECT_SUMMARY、OpenSpec 约定以及代码图谱中已索引模块的架构审查结果生成的方案文档。</p>
+</main></body></html>
