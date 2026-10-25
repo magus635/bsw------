@@ -186,6 +186,11 @@
 [!IF "$FirstCall = 1"!][!//
 #endif
 [!ENDIF!][!//
+[!/* SC300 has no memory layout configuration (MemoryBlock/OsMemoryMap are disabled): the Os
+     sections stay in the default sections and the project's linker script places them. */!][!//
+[!IF "node:value(/AUTOSAR/TOP-LEVEL-PACKAGES/Os/ELEMENTS/Os/OsResourceSubderivative) = 'Os_SC300'"!][!//
+#undef MEMMAP_ERROR
+[!ENDIF!][!//
 
 /**************************************************************************************************/
 /****************************************** Report error ******************************************/

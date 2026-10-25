@@ -561,7 +561,9 @@ class XPathEngine:
         return False
         
     def _find_word_outside_context(self, expr: str, word: str) -> int:
-        """Find a whole word (like 'or', 'and') outside of parens/quotes."""
+        """Find a whole word (like 'or', 'and') outside of parens/brackets/quotes.
+
+        A word inside a predicate (X[a or b]) belongs to the predicate."""
         depth = 0
         in_quote = None
         expr_len = len(expr)
@@ -575,8 +577,8 @@ class XPathEngine:
                 if in_quote == c: in_quote = None
                 elif in_quote is None: in_quote = c
             elif in_quote is None:
-                if c == '(': depth += 1
-                elif c == ')': depth -= 1
+                if c in '([': depth += 1
+                elif c in ')]': depth -= 1
                 elif depth == 0:
                     # Check for word boundary
                     if (i + word_len <= expr_len) and (expr[i:i+word_len].lower() == word.lower()):
@@ -2050,7 +2052,22 @@ class XPathEngine:
 
         # Handle primitive values (like strings from text:split)
         is_node = hasattr(node, 'get_child')
-        
+
+        # Logical operators of the predicate itself ('or' binds loosest), then a
+        # parenthesized condition; the comparisons below see one operand pair only
+        stripped = condition.strip()
+        for word in ('or', 'and'):
+            pos = self._find_word_outside_context(stripped, word)
+            if pos != -1:
+                left = self._evaluate_predicate_condition(node, stripped[:pos])
+                if word == 'or' and left:
+                    return True
+                if word == 'and' and not left:
+                    return False
+                return self._evaluate_predicate_condition(node, stripped[pos + len(word):])
+        if stripped.startswith('(') and stripped.endswith(')') and self._is_wrapped_in_parens(stripped):
+            return self._evaluate_predicate_condition(node, stripped[1:-1])
+
         # position() call
         if condition.strip() == 'position()':
              return self.context_stack.get_variable('position') if self.context_stack.has_variable('position') else 1
