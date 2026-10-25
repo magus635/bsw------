@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+   <extension
+         id="I2c_THA6_AS440_FuSa_ModuleID"
+         name="I2c_THA6_AS440_FuSa Module"
+         point="dreisoft.tresos.launcher2.plugin.module">
+      <module
+            allowMultiple="false"
+            categoryCategory="ECU Firmware"
+            categoryComponent="ECUC"
+            categoryLayer="MCAL"
+            categoryType="I2c"
+            copyright="Copyright 2020-2030 ChipowerTech, Inc"
+            description="I2c MCAL module"
+            id="I2c_THA6_AS440_FuSa"
+            label="I2c"
+            mandatory="false"
+            relVersionMajor="4"
+            relVersionMinor="4"
+            relVersionPatch="0"
+            relVersionPrefix="AUTOSAR"
+            specVersionMajor="4"
+            specVersionMinor="4"
+            specVersionPatch="0"
+            swVersionMajor="1"
+            swVersionMinor="2"
+            swVersionPatch="0">
+         <cluster
+               name="MCAL">
+         </cluster>
+         <ecuType
+               derivate="THA6XXX_FuSa"
+               target="ARM">
+         </ecuType>
+      </module>
+   </extension>
+   <extension
+         id="I2c_THA6_AS440_FuSa_ConfigurationID"
+         name="I2c_THA6_AS440_FuSa Configuration"
+         point="dreisoft.tresos.launcher2.plugin.configuration">
+      <configuration
+            moduleId="I2c_THA6_AS440_FuSa">
+         <schema>
+            <manager
+                  class="dreisoft.tresos.autosar2.resourcehandling.AutosarSchemaManager">
+            </manager>
+            <resource
+                  type="xdm"
+                  value="config/I2c.xdm">
+            </resource>
+         </schema>
+         <data>
+            <manager
+                  class="dreisoft.tresos.autosar2.resourcehandling.AutosarConfigManager">
+            </manager>
+            <schemaNode
+                  path="ASPath:/THA6_AS440_FuSa/I2c">
+            </schemaNode>
+         </data>
+         <editor
+               id="I2c_THA6_AS440_FuSa_EditorId"
+               label="I2c"
+               tooltip="I2c MCAL module">
+            <class
+                  class="dreisoft.tresos.launcher2.editor.GenericConfigEditor">
+               <parameter
+                     name="schema"
+                     value="ASPath:/THA6_AS440_FuSa/I2c">
+               </parameter>
+               <parameter
+                     name="title"
+                     value="I2c">
+               </parameter>
+               <parameter
+                     name="noTabs"
+                     value="false">
+               </parameter>
+               <parameter
+                     name="noLinks"
+                     value="true">
+               </parameter>
+               <parameter
+                     name="groupLinks"
+                     value="false">
+               </parameter>
+               <parameter
+                     name="groupContainers"
+                     value="false">
+               </parameter>
+               <parameter
+                     name="groupTables"
+                     value="true">
+               </parameter>
+               <parameter
+                     name="optionalGeneralTab"
+                     value="true">
+               </parameter>
+            </class>
+         </editor>
+      </configuration>
+   </extension>
+   <extension
+         id="EPC_GeneratorID"
+         name="EPC Generator"
+         point="dreisoft.tresos.launcher2.plugin.generator">
+      <generator
+            class="dreisoft.tresos.autosar2.generator.EPCFileGenerator"
+            id="I2c_THA6_AS440_FuSa"
+            moduleId="I2c_THA6_AS440_FuSa">
+         <parameter
+               name="variantAware"
+               value="true">
+         </parameter>
+         <parameter
+               name="cfgFilePath"
+               value="output">
+         </parameter>
+         <parameter
+               name="generateAllModules"
+               value="false">
+         </parameter>
+         <parameter
+               name="generateIntoOneFile"
+               value="false">
+         </parameter>
+         <parameter
+               name="contentType"
+               value="asc:4.4.0">
+         </parameter>
+      </generator>
+   </extension>
+   <extension
+         id="I2c_THA6_AS440_FuSa_GeneratorID"
+         name="I2c_THA6_AS440_FuSa Generator"
+         point="dreisoft.tresos.launcher2.plugin.generator">
+      <generator
+            class="dreisoft.tresos.launcher2.generator.TemplateBasedCodeGenerator"
+            id="I2c_THA6_AS440_FuSa_ID"
+            moduleId="I2c_THA6_AS440_FuSa">
+         <parameter
+               name="variantAware"
+               value="true">
+         </parameter>
+         <parameter
+               mode="generate_swcd"
+               name="mode_type"
+               value="generate">
+         </parameter>
+         <parameter
+               mode="verify_swcd"
+               name="mode_type"
+               value="verify">
+         </parameter>
+         <parameter
+               mode="generate_swcd,verify_swcd"
+               name="templates"
+               value="generate_swcd">
+         </parameter>
+         <parameter
+               mode="generate,verify"
+               name="templates"
+               value="generate,generate_PC,generate_PB">
+         </parameter>
+         <parameter
+               mode="generate_PC"
+               name="templates"
+               value="generate_PC">
+         </parameter>
+         <parameter
+               mode="generate_PB"
+               name="templates"
+               value="generate_PB">
+         </parameter>
+         <parameter
+               mode="generate_PC"
+               name="mode_type"
+               value="generate">
+         </parameter>
+         <parameter
+               mode="generate_PB"
+               name="mode_type"
+               value="generate">
+         </parameter>
+      </generator>
+   </extension>
+<!-- this post-generator just calls an ant script which renames the file created by the TemplateBasedCodeGenerator defined above
+       otherwise the next run of the TemplateBasedCodeGenerator for another variant would overwrite the file -->
+  <extension point="dreisoft.tresos.generator.api.plugin.generator"
+    id="I2c_THA6_AS440_Gen_Template_MoveFile">
+    <generator moduleId="I2c_THA6_AS440_FuSa"
+      id="I2c_THA6_AS440_Gen_Template_MoveFile"
+      class="dreisoft.tresos.generator.ng.api.NGGenerator"
+      modes="generate,Template_withPostRename"
+      step="post">
+      <!-- Specify the ant build script as parameter to the NGGenerator. -->
+      <parameter name="buildfile"  value="template_ant/ant_generator.xml"/>
+
+      <!-- only having this parameter set to true, a generator is called once for each variant! -->
+      <parameter name="variantAware" value="true"/>
+    </generator>
+  </extension>
+</plugin>

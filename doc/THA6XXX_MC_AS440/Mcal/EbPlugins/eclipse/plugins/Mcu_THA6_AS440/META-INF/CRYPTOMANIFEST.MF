@@ -1,0 +1,43 @@
+
+Name: config/McuPreConfiguration.xdm
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377423993876067845241462202358529579370779115099570558
+ 0251343764735660443445516823615719597217083077169988
+
+Name: generate_PB/Mcu.m
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377423028865586007926398445152181904503126249064733907
+ 5396854660960014594199470076431124277584331566123757
+
+Name: generate_PB/include/Mcu_Cfg.h
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377425553039067950507118318514720585026387883506116111
+ 6529087193409071756986062012221873991049913412968130
+
+Name: config/Mcu.xdm
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377420372516599828086404787165482097197352877862905793
+ 2461695632724323897965472110473306880046737705581741
+
+Name: generate_PB/src/Mcu_PBcfg.c
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377420222591840043718722528300259343391259859605683390
+ 6568480678278619868229898843799922469086371520076489
+
+Name: generate_PB/include/Mcu_PBcfg.h
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377423338690311554786369718935223516480177323845580248
+ 4592476527064651936333531782945665173824629018374419
+

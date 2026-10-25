@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<!--
+/*******************************************************************************
+**                                                                            **
+** Copyright (C) TMC Technologies (2020)                                 **
+**                                                                            **
+** All rights reserved.                                                       **
+**                                                                            **
+** This document contains proprietary information belonging to TMC       **
+** Technologies. Passing on and copying of this document, and communication   **
+** of its contents is not permitted without prior written authorization.      **
+**                                                                            **
+********************************************************************************
+**                                                                            **
+**  FILENAME  : plugin.xml                                                    **
+**                                                                            **
+**  VERSION   : 1.40.0_8.0.0                                                  **
+**                                                                            **
+**  DATE      : 2020-02-26                                                    **
+**                                                                            **
+**  VARIANT   : Variant PB                                                    **
+**                                                                            **
+**  PLATFORM  : TMC THA6X                                              **
+**                                                                            **
+**  AUTHOR    : DL-AUTOSAR-Engineering                                        **
+**                                                                            **
+**  VENDOR    : TMC Technologies                                         **
+**                                                                            **
+**  DESCRIPTION  : Tresos plugin for Sent Driver                              **
+**                                                                            **
+**  SPECIFICATION(S) : Specification of Sent Driver, AUTOSAR Release 4.4.0    **
+**                                                                            **
+**  MAY BE CHANGED BY USER : no                                               **
+**                                                                            **
+*******************************************************************************/
+-->
+<plugin>
+  <extension point="dreisoft.tresos.launcher2.plugin.module"
+    id="Sent_THA6_AS440_FuSa_ModuleExt"
+    name="Sent Module with code template generator">
+    <module id="Sent_THA6_AS440_FuSa"
+      label="%ModuleLabel"
+      mandatory="false"
+      allowMultiple="false"
+      description="Sent MCAL module"
+      copyright="Copyright 2020-2030 ChipowerTech, Inc"
+      swVersionMajor="1"
+      swVersionMinor="2"
+      swVersionPatch="0"
+      specVersionMajor="4"
+      specVersionMinor="4"
+      specVersionPatch="0"
+      relVersionPrefix="AUTOSAR"
+      relVersionMajor="4"
+      relVersionMinor="4"
+      relVersionPatch="0"
+      categoryType="Sent"
+      categoryLayer="MCAL"
+      categoryCategory="ECU Firmware"
+      categoryComponent="ECUC">
+      <cluster name="MCAL"/>
+      <ecuType target="ARM" derivate="THA6XXX_FuSa"/>
+    </module>
+  </extension>
+
+  <extension point="dreisoft.tresos.launcher2.plugin.configuration"
+    id="Sent_THA6_AS440_FuSa_ConfigExt"
+    name="Sent_THA6_AS440_FuSa Configuration">
+    <configuration moduleId="Sent_THA6_AS440_FuSa">
+      <schema>
+        <manager class="dreisoft.tresos.autosar2.resourcehandling.AutosarSchemaManager"/>
+        <resource value="config/Sent.xdm" type="xdm"/>
+      </schema>
+      <data>
+        <manager class="dreisoft.tresos.autosar2.resourcehandling.AutosarConfigManager"/>
+        <schemaNode path="ASPath:/THA6_AS440_FuSa/Sent"/>
+      </data>
+      <editor id="Sent_THA6_AS440_FuSa_Edit"
+        label="%ModuleName"
+        tooltip="%ModuleDesc">
+        <class class="dreisoft.tresos.launcher2.editor.GenericConfigEditor">
+          <parameter name="schema" value="ASPath:/THA6_AS440_FuSa/Sent"/>
+          <parameter name="title" value="Sent"/>
+          <parameter name="noTabs" value="false"/>
+          <parameter name="noLinks" value="true"/>
+          <parameter name="groupLinks" value="false"/>
+          <parameter name="groupContainers" value="false"/>
+          <parameter name="groupTables" value="true"/>
+          <parameter name="optionalGeneralTab" value="true"/>
+        </class>
+      </editor>
+    </configuration>
+  </extension>
+  <extension point="dreisoft.tresos.launcher2.plugin.generator"
+             id="EPC_GeneratorID"
+             name="EPC Generator">
+    <generator moduleId="Sent_THA6_AS440_FuSa"
+               id="Sent_THA6_AS440_FuSa"
+               class="dreisoft.tresos.autosar2.generator.EPCFileGenerator">
+      <parameter name="variantAware" value="true"/>
+      <parameter name="cfgFilePath" value="output"/>
+      <parameter name="generateAllModules" value="false"/>
+      <parameter name="generateIntoOneFile" value="false"/>
+      <parameter name="contentType" value="asc:4.4.0"/>
+    </generator>
+  </extension>
+  <extension point="dreisoft.tresos.launcher2.plugin.generator"
+    id="Sent_THA6_AS440_FuSa_GenExt"
+    name="Sent_THA6 Generator">
+    <generator
+          class="dreisoft.tresos.launcher2.generator.TemplateBasedCodeGenerator"
+          id="Sent_THA6_AS440_FuSa_CodeGen"
+          moduleId="Sent_THA6_AS440_FuSa">
+    <parameter name="variantAware" value="true"/>
+      <!-- common template path parameters -->
+      <parameter name="templates" value="generate_PB"/>
+      <!-- swcd modes and template path parameters -->
+    </generator>
+  </extension>
+<!-- this post-generator just calls an ant script which renames the file created by the TemplateBasedCodeGenerator defined above
+       otherwise the next run of the TemplateBasedCodeGenerator for another variant would overwrite the file -->
+  <extension point="dreisoft.tresos.generator.api.plugin.generator"
+    id="Sent_THA6_AS440_Gen_Template_MoveFile">
+    <generator moduleId="Sent_THA6_AS440_FuSa"
+      id="Sent_THA6_AS440_Gen_Template_MoveFile"
+      class="dreisoft.tresos.generator.ng.api.NGGenerator"
+      modes="generate,Template_withPostRename"
+      step="post">
+      <!-- Specify the ant build script as parameter to the NGGenerator. -->
+      <parameter name="buildfile"  value="template_ant/ant_generator.xml"/>
+
+      <!-- only having this parameter set to true, a generator is called once for each variant! -->
+      <parameter name="variantAware" value="true"/>
+    </generator>
+  </extension>
+</plugin>

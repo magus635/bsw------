@@ -1,0 +1,576 @@
+/**************************************************************************************************
+ * Copyright (c) Tongxin Microelectronics Co., Ltd. All Rights Reserved.
+ * FileName: LinkerIarPf.icf
+ * Description: This file linker file for IAR toolchain.
+ * Others:
+ * History:
+ *  Date          Author    Modified      Version
+ ************************************************************************************************/
+
+/******* Memory ************** Start Address ****************************    End Address *******************************
+        CPUXATCM                0x00000000                0x00000000 - 0x00008000 (64K to 32KB)  local access CPUXATCM address
+        CPUXCTCM                0x00200000                0x00200000 - 0x00220000 (64K TO 128KB) local access CPUXCTCM address set  it as internel address for CPU0 and cpu1 in startup code.
+        C1CPUXATCM              0x00000000                0x00000000 - 0x00010000 (64K)          local access Cluster1 CPUXATCM address 
+        C1CPUXBTCM              0x00100000                0x00100000 - 0x00118000 (96K)          local access Cluster1 CPUXBTCM address invalid
+        C1CPUXCTCM              0x00200000                0x00200000 - 0x00220000 (64K to 128k)          local access Cluster1 CPUXCTCM address set  it as internel address for CPU0 and cpu1 in startup code.
+        CPUXPFLASH0             0x08000000                0x08000000 - 0x08200000 (3MB TO 2MB)          local access PF0 address
+        CPUXPFLASH1             0x08200000  (83 TO 82)    0x08200000 - 0x08400000 (3MB TO 2MB)          local access PF1 address
+        GMU0_NORMAL             0x10000000                0x10000000 - 0x1000A000 (256K TO 40K) AXI access global memory address(Cacheable)
+        GMU1_NORMAL             0x10000000                0x1000A000 - 0x10014000 (128K TO 40K)         AXI access global memory address(Cacheable)
+        LMU2_NORMAL             0x10058000                0x10058000 - 0x1005C000 (16k)          AXI Cacheable
+        CPU0ATCM                0x30000000                0x30000000 - 0x30008000 (64K TO 32K)          AXI access CPU0ATCM address
+        CPU0BTCM                0x30100000                0x30100000 - 0x30140000 (192K TO 256K) AXI access CPU0BTCM address   set  it as internel address for CPU0 in startup code.
+        CPU0CTCM                0x30200000                0x30200000 - 0x30220000 (64K to 128k)          AXI access CPU0CTCM address
+        PFLASH0_NORMAL          0x40400000                0x40400000 - 0x40600000 (3MB TO 2MB)          AXI access PF0 address(Cacheable)
+        PFLASH1_NORMAL          0x40600000 (407 TO 406) 0x40600000 - 0x40800000 (3MB TO 2MB)          AXI access PF1 address(Cacheable)
+        DFLASH_NORMAL           0x44000000                0x44000000 - 0x44040000 (512KB TO 256K)        AXI access DF address(Cacheable)
+        GMU0_DEVICE             0x82000000                0x82000000 - 0x8200A000 (256K TO 40k) AXI access global memory address(Non-Cacheable)
+        GMU1_DEVICE             0x82020000                0x8200A000 - 0x82014000 (128K TO 40K)         AXI access global memory address(Non-Cacheable)
+        PFLASH0_DEVICE          0x90400000                0x90400000 - 0x90600000 (3MB TO 2MB)          AXI access PF0 address(Non-Cacheable)
+        PFLASH1_DEVICE          0x90600000 (907 TO 906)   0x90600000 - 0x90800000 (3MB TO 2MB)          AXI access PF1 address(Non-Cacheable)
+        DFLASH_DEVICE           0x94000000                0x94000000 - 0x94040000 (512KB TO 256K)        AXI access DF address(Non-Cacheable)
+        LMU2_DEVICE             0xC00D0000                0xC00D0000 - 0xC00D4000 (16KB)         AXI access LMU address(Non-Cacheable)
+
+**********************************************************************************************************************/
+
+define memory mem with size = 4G;
+/* All region initialization by manual */
+initialize manually       { rw };
+initialize manually       { zi };
+initialize manually       { section .init_default_vector };
+initialize manually       { section .IRQ_init_vector };
+initialize manually       { section .exceptionRegInfo };
+initialize manually       { section .private_clone_code };
+initialize manually       { section .private_clone_data };
+initialize manually       { section .private_Core0_code };
+initialize manually       { section .private_Core0_data };
+initialize manually       { section .global_data };
+initialize manually       { section .uncached_data };
+initialize manually       { section .mcal_data_asil_d_bool_lmu2 };
+initialize manually       { section .mcal_data_asil_d_bool_lmu2_uncached };
+initialize manually       { section .textrw };
+initialize manually       { section .bss };
+initialize manually       { section .data };
+do not initialize         { section .noinit,rw };
+/* Define Memory range */
+define rom region STARTUP_ADDRESS = mem:[from 0x00000000 size 32K];
+define rom region CPUXCTCM_ADDRESS = mem:[from 0x00200000 size 128k];
+define rom region CPUXPFLASH0_ADDRESS = mem:[from 0x08000000 size 2M];
+define rom region CPUXPFLASH1_ADDRESS = mem:[from 0x08200000 size 2M];
+define rom region GMU_NORMAL_UNDEFINE_ADDRESS = mem:[from 0x1000C000 size 32K];
+define rom region CPU0BTCM_ADDRESS = mem:[from 0x30100000 size 0X39000];
+define rom region CPU0_STACK_ADDRESS = mem:[from 0x30139000 size 0X7000];
+define rom region PFLASH0_NORMAL_ADDRESS = mem:[from 0x40400000 size 2M];
+define rom region PFLASH1_NORMAL_ADDRESS = mem:[from 0x40600000 size 2M];
+define rom region GMU_DEVICE_ADDRESS = mem:[from 0x82000000 size 48K];
+
+define rom region LMU2_DEVICE_ADDRESS = mem:[from 0xC00D0000 size 16k];
+define rom region LMU2_NORMAL_ADDRESS = mem:[from 0x10058000 size 16k];
+define rom region DFLASH_NORMAL = mem:[from 0x44000000 size 256K];
+
+
+/* Define Block */
+/* Block for vector */
+
+/*CPUXATCM*/
+define block INT_VECTOR_TABLE with alignment = 64, end alignment = 64, maximum size = 0x2080, fixed order
+{
+    section .init_default_vector,     
+    section .IRQ_init_vector object exception.o
+};
+
+define block INT_VECTOR_TABLE_init with alignment = 64, end alignment = 64, maximum size = 0x2080, fixed order
+{
+    section .init_default_vector_init, 
+    section .IRQ_init_vector_init object exception.o
+};
+
+define block CODE_CLONE with alignment = 64, end alignment = 64, maximum size = 0x7000
+{  
+    section .private_clone_code
+};
+define block CODE_CLONE_init with alignment = 64, end alignment = 64, maximum size = 0x7000
+{    
+    section .private_clone_code_init
+};
+/*CPUXCTCM*/
+define block DATA_CLONE with alignment = 64, end alignment = 64, maximum size = 0x8000
+{
+    section .exceptionRegInfo object exception.o,
+    section .private_clone_data
+};
+define block DATA_CLONE_init with alignment = 64, end alignment = 64, maximum size = 0x8000
+{
+    section .exceptionRegInfo_init object exception.o,     
+    section .private_clone_data_init
+};
+
+define block BSS_CLONE with alignment = 64, end alignment = 64, maximum size = 0x8000
+{ 
+    section .private_clone_bss
+};
+
+/*GMU_NORMAL*/
+define block UNDEFINE_RAM_DATA with alignment = 64, end alignment = 64, maximum size = 0XA000
+{
+    section .data,
+    section .global_data,
+    section .mcal_data,
+    section .mcal_data_asil_d_bool,
+    section .mcal_data_asil_d_8,
+    section .mcal_data_asil_d_16,
+    section .mcal_data_asil_d_32,
+    section .mcal_data_asil_d_unspecified,
+    section .sdk_data,
+    section .sdk_data_asil_d_bool,
+    section .sdk_data_asil_d_8,
+    section .sdk_data_asil_d_16,
+    section .sdk_data_asil_d_32,
+    section .sdk_data_asil_d_unspecified,           
+    rw data   /* read-write data */    
+};
+define block UNDEFINE_RAM_DATA_init with alignment = 64, end alignment = 64, maximum size = 0XA000
+{
+    section .data_init,    
+    section .global_data_init,
+    section .mcal_data_init,
+    section .mcal_data_asil_d_bool_init,
+    section .mcal_data_asil_d_8_init,
+    section .mcal_data_asil_d_16_init,
+    section .mcal_data_asil_d_32_init,
+    section .mcal_data_asil_d_unspecified_init,
+    section .sdk_data_init,
+    section .sdk_data_asil_d_bool_init,
+    section .sdk_data_asil_d_8_init,
+    section .sdk_data_asil_d_16_init,
+    section .sdk_data_asil_d_32_init,
+    section .sdk_data_asil_d_unspecified_init,     
+};
+define block UNDEFINE_RAM_BSS with alignment = 64, end alignment = 64, maximum size = 0XA000
+{
+    section .bss,
+    section .global_bss,
+    section .mcal_bss_asil_d_bool,
+    section .mcal_bss_asil_d_8,
+    section .mcal_bss_asil_d_16,
+    section .mcal_bss_asil_d_32,
+    section .mcal_bss_asil_d_unspecified,
+    section .mcal_cleared,
+    section .mcal_bss,
+    section .sdk_bss_asil_d_bool,
+    section .sdk_bss_asil_d_8,
+    section .sdk_bss_asil_d_16,
+    section .sdk_bss_asil_d_32,
+    section .sdk_bss_asil_d_unspecified,
+    section .sdk_cleared,
+    section .sdk_bss,         
+    zi   /* zero initialization data */    
+};
+define block UNCLEAR_RAM_BSS with alignment = 64, end alignment = 64, maximum size = 0XA000
+{
+    section .unclear_bss,    
+    section .mcal_no_init_asil_d_bool,
+    section .mcal_no_init_asil_d_8,
+    section .mcal_no_init_asil_d_16,
+    section .mcal_no_init_asil_d_32,
+    section .mcal_no_init_asil_d_unspecified,
+    section .sdk_no_init_asil_d_bool,
+    section .sdk_no_init_asil_d_8,
+    section .sdk_no_init_asil_d_16,
+    section .sdk_no_init_asil_d_32,
+    section .sdk_no_init_asil_d_unspecified
+};
+
+/*LMU*/
+
+define block LMU2_CACHED_DATA with alignment = 64, end alignment = 64, maximum size = 0x4000
+{
+    section .mcal_data_asil_d_bool_lmu2,
+    section .mcal_data_asil_d_8_lmu2,
+    section .mcal_data_asil_d_16_lmu2,
+    section .mcal_data_asil_d_32_lmu2,
+    section .mcal_data_asil_d_unspecified_lmu2,
+
+};
+define block LMU2_CACHED_DATA_init with alignment = 64, end alignment = 64, maximum size = 0x4000
+{
+    section .mcal_data_asil_d_bool_lmu2_init,
+    section .mcal_data_asil_d_8_lmu2_init,
+    section .mcal_data_asil_d_16_lmu2_init,
+    section .mcal_data_asil_d_32_lmu2_init,
+    section .mcal_data_asil_d_unspecified_lmu2_init,
+
+};
+define block LMU2_CACHED_BSS with alignment = 64, end alignment = 64, maximum size = 0x4000
+{
+    section .mcal_bss_asil_d_bool_lmu2,
+    section .mcal_bss_asil_d_8_lmu2,
+    section .mcal_bss_asil_d_16_lmu2,
+    section .mcal_bss_asil_d_32_lmu2,
+    section .mcal_bss_asil_d_unspecified_lmu2,
+};
+
+
+
+/* CPU0BTCM */
+
+define block PRIVATE_CODE_CORE0 with alignment = 64, end alignment = 64, maximum size = 0x35000
+{
+    section .private_Core0_code,
+    section .mcal_ramcode_asil_d_core0,
+    section .mcal_text_asil_d_core0,
+    section .mcal_text_fast_asil_d_core0,
+    section .mcal_text_callout_asil_d_core0,
+    section .sdk_ramcode_asil_d_core0,
+    section .sdk_text_asil_d_core0,
+    section .sdk_text_fast_asil_d_core0,
+    section .sdk_text_callout_asil_d_core0 
+};
+define block PRIVATE_CODE_CORE0_init with alignment = 64, end alignment = 64, maximum size = 0x35000
+{
+
+    section .private_Core0_code_init,
+    section .mcal_ramcode_asil_d_core0_init,
+    section .mcal_text_asil_d_core0_init,
+    section .mcal_text_fast_asil_d_core0_init,
+    section .mcal_text_callout_asil_d_core0_init,
+    section .sdk_ramcode_asil_d_core0_init,
+    section .sdk_text_asil_d_core0_init,
+    section .sdk_text_fast_asil_d_core0_init,
+    section .sdk_text_callout_asil_d_core0_init    
+};
+
+
+define block PRIVATE_DATA_CORE0 with alignment = 64, end alignment = 64, maximum size = 0x35000
+{
+    section .private_Core0_data,
+    section .mcal_data_asil_d_bool_core0,
+    section .mcal_data_asil_d_8_core0,
+    section .mcal_data_asil_d_16_core0,
+    section .mcal_data_asil_d_32_core0,
+    section .mcal_data_asil_d_unspecified_core0,
+    section .sdk_data_asil_d_bool_core0,
+    section .sdk_data_asil_d_8_core0,
+    section .sdk_data_asil_d_16_core0,
+    section .sdk_data_asil_d_32_core0,
+    section .sdk_data_asil_d_unspecified_core0         
+};
+define block PRIVATE_DATA_CORE0_init with alignment = 64, end alignment = 64, maximum size = 0x35000
+{
+    section .private_Core0_data_init,
+    section .mcal_data_asil_d_bool_core0_init,
+    section .mcal_data_asil_d_8_core0_init,
+    section .mcal_data_asil_d_16_core0_init,
+    section .mcal_data_asil_d_32_core0_init,
+    section .mcal_data_asil_d_unspecified_core0_init,
+    section .sdk_data_asil_d_bool_core0_init,
+    section .sdk_data_asil_d_8_core0_init,
+    section .sdk_data_asil_d_16_core0_init,
+    section .sdk_data_asil_d_32_core0_init,
+    section .sdk_data_asil_d_unspecified_core0_init          
+};
+
+
+define block PRIVATE_BSS_CORE0 with alignment = 64, end alignment = 64, maximum size = 0x35000
+{
+    section .private_Core0_bss,
+    section .private_bss_Core0,
+    section .mcal_bss_asil_d_bool_core0,
+    section .mcal_bss_asil_d_8_core0,
+    section .mcal_bss_asil_d_16_core0,
+    section .mcal_bss_asil_d_32_core0,
+    section .mcal_bss_asil_d_unspecified_core0,
+    section .sdk_bss_asil_d_bool_core0,
+    section .sdk_bss_asil_d_8_core0,
+    section .sdk_bss_asil_d_16_core0,
+    section .sdk_bss_asil_d_32_core0,
+    section .sdk_bss_asil_d_unspecified_core0  
+};
+define block PRIVATE_NO_INIT_CORE0 with alignment = 64, end alignment = 64, maximum size = 0x35000
+{
+        section .mcal_no_init_asil_d_bool_core0,
+        section .mcal_no_init_asil_d_8_core0,
+        section .mcal_no_init_asil_d_16_core0,
+        section .mcal_no_init_asil_d_32_core0,
+        section .mcal_no_init_asil_d_unspecified_core0,
+        section .mcal_no_init_asil_d_bool_uncached_core0,
+        section .mcal_no_init_asil_d_8_uncached_core0,
+        section .mcal_no_init_asil_d_16_uncached_core0,
+        section .mcal_no_init_asil_d_32_uncached_core0,
+        section .mcal_no_init_asil_d_unspecified_uncached_core0,   
+};
+
+/* Stack/Heap block */
+define block CORE0_USER_STACK      with alignment = 8, size = 0x1000 ,fixed order { };
+define block CORE0_HYP_STACK       with alignment = 8, size = 0x1000 ,fixed order { };
+define block CORE0_KERNEL_STACK    with alignment = 8, size = 0x1000 ,fixed order { };
+define block CORE0_ABORT_STACK     with alignment = 8, size = 0x1000 ,fixed order { };
+define block CORE0_UNDEFINED_STACK with alignment = 8, size = 0x1000 ,fixed order { };
+define block CORE0_IRQ_STACK       with alignment = 8, size = 0x1000 ,fixed order { };
+define block CORE0_FIQ_STACK      with alignment = 8, size = 0x1000 ,fixed order { };
+
+
+/*GMU_DEVICE*/
+
+define block RAM_CODE with alignment = 64, end alignment = 64, maximum size = 0XA000
+{
+        section .mcal_text_fast_asil_d,
+        section .mcal_ramcode_asil_d,
+};
+define block RAM_CODE_init with alignment = 64, end alignment = 64, maximum size = 0XA000
+{
+        section .mcal_text_fast_asil_d_init,
+        section .mcal_ramcode_asil_d_init,
+};
+
+define block GLOBAL_UNCACHED_DATA with alignment = 64, end alignment = 64, maximum size = 0XA000
+{
+        section .uncached_data,
+        section .mcal_data_asil_d_bool_uncached,
+        section .mcal_data_asil_d_8_uncached,
+        section .mcal_data_asil_d_16_uncached,
+        section .mcal_data_asil_d_32_uncached,    
+        section .mcal_data_asil_d_unspecified_uncached,
+        section .sdk_data_asil_d_bool_uncached,
+        section .sdk_data_asil_d_8_uncached,
+        section .sdk_data_asil_d_16_uncached,
+        section .sdk_data_asil_d_32_uncached,    
+        section .sdk_data_asil_d_unspecified_uncached        
+};
+define block GLOBAL_UNCACHED_DATA_init with alignment = 64, end alignment = 64, maximum size = 0XA000
+{
+        section .uncached_data_init,
+        section .mcal_data_asil_d_bool_uncached_init,
+        section .mcal_data_asil_d_8_uncached_init,
+        section .mcal_data_asil_d_16_uncached_init,
+        section .mcal_data_asil_d_32_uncached_init,    
+        section .mcal_data_asil_d_unspecified_uncached_init,
+        section .sdk_data_asil_d_bool_uncached_init,
+        section .sdk_data_asil_d_8_uncached_init,
+        section .sdk_data_asil_d_16_uncached_init,
+        section .sdk_data_asil_d_32_uncached_init,    
+        section .sdk_data_asil_d_unspecified_uncached_init            
+};
+
+
+define block GLOBAL_UNCACHED_BSS with alignment = 64, end alignment = 64, maximum size = 0XA000
+{
+        section .uncached_bss,
+        section .mcal_bss_asil_d_bool_uncached,
+        section .mcal_bss_asil_d_8_uncached,
+        section .mcal_bss_asil_d_16_uncached,
+        section .mcal_bss_asil_d_32_uncached,
+        section .mcal_bss_asil_d_unspecified_uncached,
+        section .sdk_bss_asil_d_bool_uncached,
+        section .sdk_bss_asil_d_8_uncached,
+        section .sdk_bss_asil_d_16_uncached,
+        section .sdk_bss_asil_d_32_uncached,
+        section .sdk_bss_asil_d_unspecified_uncached        
+};
+
+define block GLOBAL_UNCACHED_NOINIT with alignment = 64, end alignment = 64, maximum size = 0XA000
+{
+        section .mcal_no_init_asil_d_bool_uncached,
+        section .mcal_no_init_asil_d_8_uncached,
+        section .mcal_no_init_asil_d_16_uncached,
+        section .mcal_no_init_asil_d_32_uncached,
+        section .mcal_no_init_asil_d_unspecified_uncached,
+};
+/*LMU DEVICE*/
+
+define block LMU2_UNCACHED_DATA with alignment = 64, end alignment = 64, maximum size = 0x4000
+{
+    section .mcal_data_asil_d_bool_lmu2_uncached,
+    section .mcal_data_asil_d_8_lmu2_uncached,
+    section .mcal_data_asil_d_16_lmu2_uncached,
+    section .mcal_data_asil_d_32_lmu2_uncached,
+    section .mcal_data_asil_d_unspecified_lmu2_uncached,
+    section .lmu2_uncached_data,
+    section .sdk_data_asil_d_bool_lmu2_uncached,
+    section .sdk_data_asil_d_8_lmu2_uncached,
+    section .sdk_data_asil_d_16_lmu2_uncached,
+    section .sdk_data_asil_d_32_lmu2_uncached,
+    section .sdk_data_asil_d_unspecified_lmu2_uncached    
+};
+define block LMU2_UNCACHED_DATA_init with alignment = 64, end alignment = 64, maximum size = 0x4000
+{
+    section .mcal_data_asil_d_bool_lmu2_uncached_init,
+    section .mcal_data_asil_d_8_lmu2_uncached_init,
+    section .mcal_data_asil_d_16_lmu2_uncached_init,
+    section .mcal_data_asil_d_32_lmu2_uncached_init,
+    section .mcal_data_asil_d_unspecified_lmu2_uncached_init,
+    section .lmu2_uncached_data_init,
+    section .sdk_data_asil_d_bool_lmu2_uncached_init,
+    section .sdk_data_asil_d_8_lmu2_uncached_init,
+    section .sdk_data_asil_d_16_lmu2_uncached_init,
+    section .sdk_data_asil_d_32_lmu2_uncached_init,
+    section .sdk_data_asil_d_unspecified_lmu2_uncached_init       
+};
+
+
+define block LMU2_UNCACHED_BSS with alignment = 64, end alignment = 64, maximum size = 0x4000
+{
+    section .mcal_bss_asil_d_bool_lmu2_uncached,
+    section .mcal_bss_asil_d_8_lmu2_uncached,
+    section .mcal_bss_asil_d_16_lmu2_uncached,
+    section .mcal_bss_asil_d_32_lmu2_uncached,
+    section .mcal_bss_asil_d_unspecified_lmu2_uncached,
+};
+
+/*PFLASH0_NORMAL*/
+
+define block EX_CODE with alignment = 64, end alignment = 64, maximum size = 0X200000
+{
+    first section .user_code,
+    section .text,
+    section .exceptionHandler object exception.o,   
+    section .mcal_text_asil_d, 
+    section .mcal_text_callout_asil_d,
+    section .sdk_text_asil_d,
+    section .sdk_text_callout_asil_d,
+    ro code   /* read only code */
+};
+define block EX_CONST_DATA with alignment = 64, end alignment = 64, maximum size = 0X200000
+{
+    section .rodata,
+    section .mcal_const_cfg_asil_d_bool, 
+    section .mcal_const_cfg_asil_d_8, 
+    section .mcal_const_cfg_asil_d_16, 
+    section .mcal_const_cfg_asil_d_32, 
+    section .mcal_const_cfg_asil_d_unspecified,
+    section .mcal_const_asil_d_bool, 
+    section .mcal_const_asil_d_8, 
+    section .mcal_const_asil_d_16, 
+    section .mcal_const_asil_d_32, 
+    section .mcal_const_asil_d_unspecified,
+    section .mcal_const_cfg_asil_d_bool_core0, 
+    section .mcal_const_cfg_asil_d_8_core0, 
+    section .mcal_const_cfg_asil_d_16_core0, 
+    section .mcal_const_cfg_asil_d_32_core0, 
+    section .mcal_const_cfg_asil_d_unspecified_core0, 
+    section .mcal_const_asil_d_bool_core0, 
+    section .mcal_const_asil_d_8_core0, 
+    section .mcal_const_asil_d_16_core0, 
+    section .mcal_const_asil_d_32_core0, 
+    section .mcal_const_asil_d_unspecified_core0, 
+    section .sdk_const_cfg_asil_d_bool,
+    section .sdk_const_cfg_asil_d_8,
+    section .sdk_const_cfg_asil_d_16,
+    section .sdk_const_cfg_asil_d_32,
+    section .sdk_const_cfg_asil_d_unspecified,
+    section .sdk_const_asil_d_bool,
+    section .sdk_const_asil_d_8,
+    section .sdk_const_asil_d_16,
+    section .sdk_const_asil_d_32,
+    section .sdk_const_asil_d_unspecified,
+    section .sdk_const_cfg_asil_d_bool_core0,
+    section .sdk_const_cfg_asil_d_8_core0,
+    section .sdk_const_cfg_asil_d_16_core0,
+    section .sdk_const_cfg_asil_d_32_core0,
+    section .sdk_const_cfg_asil_d_unspecified_core0,
+    section .sdk_const_asil_d_bool_core0,
+    section .sdk_const_asil_d_8_core0,
+    section .sdk_const_asil_d_16_core0,
+    section .sdk_const_asil_d_32_core0,
+    section .sdk_const_asil_d_unspecified_core0,       
+    ro data   /* read only data */
+};
+define block DFLASH_DATA with alignment = 64, end alignment = 64, maximum size = 0x10000
+{
+    section .dflash_data
+};
+
+
+
+place in STARTUP_ADDRESS
+{
+    block INT_VECTOR_TABLE,  
+    block CODE_CLONE
+};
+place in CPUXCTCM_ADDRESS
+{
+    block DATA_CLONE,
+    block BSS_CLONE
+};
+place in GMU_NORMAL_UNDEFINE_ADDRESS
+{
+    block UNDEFINE_RAM_DATA,
+    block UNDEFINE_RAM_BSS,
+    block UNCLEAR_RAM_BSS
+      
+};
+
+place in LMU2_NORMAL_ADDRESS
+{
+    block LMU2_CACHED_DATA,
+    block LMU2_CACHED_BSS,
+};
+
+place in CPU0BTCM_ADDRESS
+{ 
+    block PRIVATE_CODE_CORE0,
+};
+
+place in CPU0BTCM_ADDRESS
+{ 
+    block PRIVATE_DATA_CORE0,    
+    block PRIVATE_BSS_CORE0,
+    block PRIVATE_NO_INIT_CORE0
+};
+
+place in CPU0_STACK_ADDRESS
+{
+    block CORE0_USER_STACK,
+    block CORE0_HYP_STACK,
+    block CORE0_KERNEL_STACK,
+    block CORE0_ABORT_STACK,
+    block CORE0_UNDEFINED_STACK,
+    block CORE0_IRQ_STACK,
+    block CORE0_FIQ_STACK
+};
+
+
+place in CPUXPFLASH0_ADDRESS
+{
+    first block INT_VECTOR_TABLE_init,  
+    block EX_CODE,
+    block EX_CONST_DATA,
+    block CODE_CLONE_init,
+    block DATA_CLONE_init,
+    block PRIVATE_CODE_CORE0_init,
+    block PRIVATE_DATA_CORE0_init,
+    block RAM_CODE_init,
+    block UNDEFINE_RAM_DATA_init,
+    block LMU2_CACHED_DATA_init,
+    block LMU2_UNCACHED_DATA_init,
+    block GLOBAL_UNCACHED_DATA_init
+
+};
+
+
+place in LMU2_DEVICE_ADDRESS
+{ 
+    block LMU2_UNCACHED_DATA,
+    block LMU2_UNCACHED_BSS,
+};
+
+
+place in GMU_DEVICE_ADDRESS
+{
+    block RAM_CODE,
+
+};
+
+place in GMU_DEVICE_ADDRESS
+{
+    block GLOBAL_UNCACHED_DATA,
+    block GLOBAL_UNCACHED_BSS,
+    block GLOBAL_UNCACHED_NOINIT,
+};
+
+place in DFLASH_NORMAL
+{
+    block DFLASH_DATA
+};
+
+

@@ -1,0 +1,660 @@
+<?xml version='1.0'?>
+<datamodel version="7.0" 
+           xmlns="http://www.tresos.de/_projects/DataModel2/16/root.xsd" 
+           xmlns:a="http://www.tresos.de/_projects/DataModel2/16/attribute.xsd" 
+           xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd" 
+           xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd">
+
+  <d:ctr type="AUTOSAR" factory="autosar" 
+         xmlns:ad="http://www.tresos.de/_projects/DataModel2/08/admindata.xsd" 
+         xmlns:cd="http://www.tresos.de/_projects/DataModel2/08/customdata.xsd" 
+         xmlns:f="http://www.tresos.de/_projects/DataModel2/14/formulaexpr.xsd" 
+         xmlns:icc="http://www.tresos.de/_projects/DataModel2/08/implconfigclass.xsd" 
+         xmlns:mt="http://www.tresos.de/_projects/DataModel2/11/multitest.xsd"  
+         xmlns:variant="http://www.tresos.de/_projects/DataModel2/11/variant.xsd">
+    <d:lst type="TOP-LEVEL-PACKAGES">
+      <d:ctr name="Pwm" type="AR-PACKAGE">
+        <d:lst type="ELEMENTS">
+          <d:chc name="Pwm" type="AR-ELEMENT" value="MODULE-CONFIGURATION">
+            <d:ctr type="MODULE-CONFIGURATION">
+              <a:a name="DEF" value="ASPath:/THA6_AS440_FuSa/Pwm"/>
+              <d:var name="IMPLEMENTATION_CONFIG_VARIANT" type="ENUMERATION" 
+                     value="VariantPostBuild">
+                <a:a name="IMPORTER_INFO" value="@DEF"/>
+              </d:var>
+              <d:ctr name="PwmChannelConfigSet" type="IDENTIFIABLE">
+                <d:lst name="PwmChannel" type="MAP">
+                  <d:ctr name="PwmChannel_0" type="IDENTIFIABLE">
+                    <d:var name="PwmChannelId" type="INTEGER" value="0">
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="PwmDutycycleDefault" type="INTEGER" 
+                           value="1000"/>
+                    <d:var name="PwmIdleState" type="ENUMERATION" 
+                           value="PWM_HIGH">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmPeriodDefault" type="FLOAT" value="0.002"/>
+                    <d:var name="PwmPolarity" type="ENUMERATION" value="PWM_LOW">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmChannelSelection" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/GtmResourceAllocationConf_0/GtmAtom_0/GtmAtomChannel_0"/>
+                    <d:var name="PwmClockSrc" type="ENUMERATION" 
+                           value="CMU_FXCLK0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmMcuClockReferencePoint" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/Cmu_0/cmu_clk1"/>
+                    <d:var name="PwmShiftValue" type="INTEGER" value="1"/>
+                    <d:ref name="PwmReferenceChannel" type="REFERENCE" >
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:ref>
+                    <d:var name="PwmCoherentUpdate" type="BOOLEAN" value="false">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmChannelClass" type="ENUMERATION" 
+                           value="PWM_FIXED_PERIOD">
+                      <a:a name="ENABLE" value="true"/>
+                    </d:var>
+                    <d:var name="PwmNotification" type="FUNCTION-NAME" 
+                           value="Pwm_Notification_0">
+                      <a:a name="ENABLE" value="true"/>
+                    </d:var>
+                    <d:lst name="PwmChannelEcucPartitionRef"/>
+                  </d:ctr>
+                  <d:ctr name="PwmChannel_1" type="IDENTIFIABLE">
+                    <d:var name="PwmChannelId" type="INTEGER" value="1">
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="PwmDutycycleDefault" type="INTEGER" 
+                           value="1000"/>
+                    <d:var name="PwmIdleState" type="ENUMERATION" 
+                           value="PWM_HIGH">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmPeriodDefault" type="FLOAT" value="0.002"/>
+                    <d:var name="PwmPolarity" type="ENUMERATION" value="PWM_LOW">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmChannelSelection" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/GtmResourceAllocationConf_0/GtmAtom_0/GtmAtomChannel_1"/>
+                    <d:var name="PwmClockSrc" type="ENUMERATION" 
+                           value="CMU_FXCLK0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmMcuClockReferencePoint" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/Cmu_0/cmu_clk1"/>
+                    <d:var name="PwmShiftValue" type="INTEGER" value="1"/>
+                    <d:ref name="PwmReferenceChannel" type="REFERENCE" >
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:ref>
+                    <d:var name="PwmCoherentUpdate" type="BOOLEAN" value="false">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmChannelClass" type="ENUMERATION" 
+                           value="PWM_VARIABLE_PERIOD">
+                      <a:a name="ENABLE" value="true"/>
+                    </d:var>
+                    <d:var name="PwmNotification" type="FUNCTION-NAME" 
+                           value="Pwm_Notification_1">
+                      <a:a name="ENABLE" value="true"/>
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@CALC</a:v>
+                        <a:v>@DEF</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:lst name="PwmChannelEcucPartitionRef"/>
+                  </d:ctr>
+                  <d:ctr name="PwmChannel_2" type="IDENTIFIABLE">
+                    <d:var name="PwmChannelId" type="INTEGER" value="2">
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="PwmDutycycleDefault" type="INTEGER" 
+                           value="1000"/>
+                    <d:var name="PwmIdleState" type="ENUMERATION" 
+                           value="PWM_HIGH">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmNotification" type="FUNCTION-NAME" 
+                           value="Pwm_Notification_2">
+                      <a:a name="ENABLE" value="false"/>
+                    </d:var>
+                    <d:var name="PwmPeriodDefault" type="FLOAT" value="0.0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmPolarity" type="ENUMERATION" value="PWM_LOW">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmChannelSelection" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/GtmResourceAllocationConf_0/GtmAtom_0/GtmAtomChannel_2"/>
+                    <d:var name="PwmClockSrc" type="ENUMERATION" 
+                           value="CMU_FXCLK0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmMcuClockReferencePoint" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/Cmu_0/cmu_clk1"/>
+                    <d:var name="PwmShiftValue" type="INTEGER" value="200"/>
+                    <d:ref name="PwmReferenceChannel" type="REFERENCE" 
+                           value="ASPath:/Pwm/Pwm/PwmChannelConfigSet/PwmChannel_0"/>
+                    <d:var name="PwmCoherentUpdate" type="BOOLEAN" value="false">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmChannelClass" type="ENUMERATION" 
+                           value="PWM_FIXED_PERIOD_SHIFTED">
+                      <a:a name="ENABLE" value="true"/>
+                    </d:var>
+                    <d:lst name="PwmChannelEcucPartitionRef"/>
+                  </d:ctr>
+                  <d:ctr name="PwmChannel_3" type="IDENTIFIABLE">
+                    <d:var name="PwmChannelId" type="INTEGER" value="3">
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="PwmDutycycleDefault" type="INTEGER" 
+                           value="1000"/>
+                    <d:var name="PwmIdleState" type="ENUMERATION" 
+                           value="PWM_HIGH">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmNotification" type="FUNCTION-NAME" 
+                           value="Pwm_Notification_3">
+                      <a:a name="ENABLE" value="false"/>
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="PwmPeriodDefault" type="FLOAT" value="0.0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmPolarity" type="ENUMERATION" value="PWM_LOW">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmChannelSelection" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/GtmResourceAllocationConf_0/GtmAtom_0/GtmAtomChannel_3"/>
+                    <d:var name="PwmClockSrc" type="ENUMERATION" 
+                           value="CMU_FXCLK0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmMcuClockReferencePoint" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/Cmu_0/cmu_clk1"/>
+                    <d:var name="PwmShiftValue" type="INTEGER" value="1"/>
+                    <d:ref name="PwmReferenceChannel" type="REFERENCE" 
+                           value="ASPath:/Pwm/Pwm/PwmChannelConfigSet/PwmChannel_0"/>
+                    <d:var name="PwmCoherentUpdate" type="BOOLEAN" value="false">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmChannelClass" type="ENUMERATION" 
+                           value="PWM_FIXED_PERIOD_CENTER_ALIGNED">
+                      <a:a name="ENABLE" value="true"/>
+                    </d:var>
+                    <d:lst name="PwmChannelEcucPartitionRef"/>
+                  </d:ctr>
+                  <d:ctr name="PwmChannel_4" type="IDENTIFIABLE">
+                    <d:var name="PwmChannelId" type="INTEGER" value="4">
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="PwmDutycycleDefault" type="INTEGER" 
+                           value="1000"/>
+                    <d:var name="PwmIdleState" type="ENUMERATION" 
+                           value="PWM_HIGH">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmPeriodDefault" type="FLOAT" value="0.002"/>
+                    <d:var name="PwmPolarity" type="ENUMERATION" value="PWM_LOW">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmChannelSelection" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/GtmResourceAllocationConf_0/GtmAtom_0/GtmAtomChannel_4"/>
+                    <d:var name="PwmClockSrc" type="ENUMERATION" 
+                           value="CMU_FXCLK0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmMcuClockReferencePoint" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/Cmu_0/cmu_clk1"/>
+                    <d:var name="PwmShiftValue" type="INTEGER" value="1"/>
+                    <d:ref name="PwmReferenceChannel" type="REFERENCE" >
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:ref>
+                    <d:var name="PwmCoherentUpdate" type="BOOLEAN" value="false">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmChannelClass" type="ENUMERATION" 
+                           value="PWM_FIXED_PERIOD">
+                      <a:a name="ENABLE" value="true"/>
+                    </d:var>
+                    <d:var name="PwmNotification" type="FUNCTION-NAME" 
+                           value="Pwm_Notification_4">
+                      <a:a name="ENABLE" value="true"/>
+                    </d:var>
+                    <d:lst name="PwmChannelEcucPartitionRef"/>
+                  </d:ctr>
+                  <d:ctr name="PwmChannel_5" type="IDENTIFIABLE">
+                    <d:var name="PwmChannelId" type="INTEGER" value="5">
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="PwmDutycycleDefault" type="INTEGER" 
+                           value="1000"/>
+                    <d:var name="PwmIdleState" type="ENUMERATION" 
+                           value="PWM_HIGH">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmPeriodDefault" type="FLOAT" value="0.002"/>
+                    <d:var name="PwmPolarity" type="ENUMERATION" value="PWM_LOW">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmChannelSelection" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/GtmResourceAllocationConf_0/GtmAtom_0/GtmAtomChannel_5"/>
+                    <d:var name="PwmClockSrc" type="ENUMERATION" 
+                           value="CMU_FXCLK0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmMcuClockReferencePoint" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/Cmu_0/cmu_clk1"/>
+                    <d:var name="PwmShiftValue" type="INTEGER" value="1"/>
+                    <d:ref name="PwmReferenceChannel" type="REFERENCE" >
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:ref>
+                    <d:var name="PwmCoherentUpdate" type="BOOLEAN" value="false">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmChannelClass" type="ENUMERATION" 
+                           value="PWM_VARIABLE_PERIOD">
+                      <a:a name="ENABLE" value="true"/>
+                    </d:var>
+                    <d:var name="PwmNotification" type="FUNCTION-NAME" 
+                           value="Pwm_Notification_5">
+                      <a:a name="ENABLE" value="true"/>
+                    </d:var>
+                    <d:lst name="PwmChannelEcucPartitionRef"/>
+                  </d:ctr>
+                  <d:ctr name="PwmChannel_6" type="IDENTIFIABLE">
+                    <d:var name="PwmChannelId" type="INTEGER" value="6">
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="PwmDutycycleDefault" type="INTEGER" 
+                           value="1000"/>
+                    <d:var name="PwmIdleState" type="ENUMERATION" 
+                           value="PWM_HIGH">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmNotification" type="FUNCTION-NAME" 
+                           value="Pwm_Notification_6">
+                      <a:a name="ENABLE" value="false"/>
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="PwmPeriodDefault" type="FLOAT" value="0.0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmPolarity" type="ENUMERATION" value="PWM_LOW">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmChannelSelection" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/GtmResourceAllocationConf_0/GtmAtom_0/GtmAtomChannel_6"/>
+                    <d:var name="PwmClockSrc" type="ENUMERATION" 
+                           value="CMU_FXCLK0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmMcuClockReferencePoint" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/Cmu_0/cmu_clk1"/>
+                    <d:var name="PwmShiftValue" type="INTEGER" value="200"/>
+                    <d:ref name="PwmReferenceChannel" type="REFERENCE" 
+                           value="ASPath:/Pwm/Pwm/PwmChannelConfigSet/PwmChannel_4"/>
+                    <d:var name="PwmCoherentUpdate" type="BOOLEAN" value="false">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmChannelClass" type="ENUMERATION" 
+                           value="PWM_FIXED_PERIOD_SHIFTED">
+                      <a:a name="ENABLE" value="true"/>
+                    </d:var>
+                    <d:lst name="PwmChannelEcucPartitionRef"/>
+                  </d:ctr>
+                  <d:ctr name="PwmChannel_7" type="IDENTIFIABLE">
+                    <d:var name="PwmChannelId" type="INTEGER" value="7">
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="PwmDutycycleDefault" type="INTEGER" 
+                           value="1000"/>
+                    <d:var name="PwmIdleState" type="ENUMERATION" 
+                           value="PWM_HIGH">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmNotification" type="FUNCTION-NAME" 
+                           value="Pwm_Notification_7">
+                      <a:a name="ENABLE" value="false"/>
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="PwmPeriodDefault" type="FLOAT" value="0.0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmPolarity" type="ENUMERATION" value="PWM_LOW">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmChannelSelection" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/GtmResourceAllocationConf_0/GtmAtom_0/GtmAtomChannel_7"/>
+                    <d:var name="PwmClockSrc" type="ENUMERATION" 
+                           value="CMU_FXCLK0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmMcuClockReferencePoint" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/Cmu_0/cmu_clk1"/>
+                    <d:var name="PwmShiftValue" type="INTEGER" value="1"/>
+                    <d:ref name="PwmReferenceChannel" type="REFERENCE" 
+                           value="ASPath:/Pwm/Pwm/PwmChannelConfigSet/PwmChannel_4"/>
+                    <d:var name="PwmCoherentUpdate" type="BOOLEAN" value="false">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmChannelClass" type="ENUMERATION" 
+                           value="PWM_FIXED_PERIOD_CENTER_ALIGNED">
+                      <a:a name="ENABLE" value="true"/>
+                    </d:var>
+                    <d:lst name="PwmChannelEcucPartitionRef"/>
+                  </d:ctr>
+                  <d:ctr name="ICU_DEMO" type="IDENTIFIABLE">
+                    <d:var name="PwmChannelId" type="INTEGER" value="8">
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="PwmDutycycleDefault" type="INTEGER" value="600"/>
+                    <d:var name="PwmIdleState" type="ENUMERATION" 
+                           value="PWM_HIGH">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmNotification" type="FUNCTION-NAME" 
+                           value="Pwm_Notification_8">
+                      <a:a name="ENABLE" value="false"/>
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="PwmPeriodDefault" type="FLOAT" value="0.001"/>
+                    <d:var name="PwmPolarity" type="ENUMERATION" value="PWM_LOW">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmChannelSelection" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/GtmResourceAllocationConf_0/GtmTom_1/GtmTomChannel_1"/>
+                    <d:var name="PwmClockSrc" type="ENUMERATION" 
+                           value="CMU_FXCLK0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmMcuClockReferencePoint" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/Cmu_0/FixClock"/>
+                    <d:var name="PwmShiftValue" type="INTEGER" value="1"/>
+                    <d:ref name="PwmReferenceChannel" type="REFERENCE" >
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:ref>
+                    <d:var name="PwmCoherentUpdate" type="BOOLEAN" value="false">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmChannelClass" type="ENUMERATION" 
+                           value="PWM_VARIABLE_PERIOD">
+                      <a:a name="ENABLE" value="true"/>
+                    </d:var>
+                    <d:lst name="PwmChannelEcucPartitionRef"/>
+                  </d:ctr>
+                  <d:ctr name="PwmChannel_8" type="IDENTIFIABLE">
+                    <d:var name="PwmChannelId" type="INTEGER" value="9">
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="PwmDutycycleDefault" type="INTEGER" value="0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmIdleState" type="ENUMERATION" 
+                           value="PWM_HIGH">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmNotification" type="FUNCTION-NAME" 
+                           value="Pwm_Notification_9">
+                      <a:a name="ENABLE" value="false"/>
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="PwmPeriodDefault" type="FLOAT" value="0.0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmPolarity" type="ENUMERATION" 
+                           value="PWM_HIGH"/>
+                    <d:ref name="PwmChannelSelection" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/GtmResourceAllocationConf_0/GtmTom_1/GtmTomChannel_6"/>
+                    <d:var name="PwmClockSrc" type="ENUMERATION" 
+                           value="CMU_FXCLK0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmMcuClockReferencePoint" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/Cmu_0/FixClock"/>
+                    <d:var name="PwmShiftValue" type="INTEGER" value="1"/>
+                    <d:ref name="PwmReferenceChannel" type="REFERENCE" >
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:ref>
+                    <d:var name="PwmCoherentUpdate" type="BOOLEAN" value="false">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmChannelClass" type="ENUMERATION" 
+                           value="PWM_VARIABLE_PERIOD">
+                      <a:a name="ENABLE" value="true"/>
+                    </d:var>
+                    <d:lst name="PwmChannelEcucPartitionRef"/>
+                  </d:ctr>
+                  <d:ctr name="PwmChannel_9" type="IDENTIFIABLE">
+                    <d:var name="PwmChannelId" type="INTEGER" value="10">
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="PwmDutycycleDefault" type="INTEGER" value="0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmIdleState" type="ENUMERATION" 
+                           value="PWM_HIGH">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmNotification" type="FUNCTION-NAME" 
+                           value="Pwm_Notification_10">
+                      <a:a name="ENABLE" value="false"/>
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="PwmPeriodDefault" type="FLOAT" value="0.0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmPolarity" type="ENUMERATION" 
+                           value="PWM_HIGH"/>
+                    <d:ref name="PwmChannelSelection" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/GtmResourceAllocationConf_0/GtmTom_1/GtmTomChannel_7"/>
+                    <d:var name="PwmClockSrc" type="ENUMERATION" 
+                           value="CMU_FXCLK0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmMcuClockReferencePoint" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/Cmu_0/FixClock"/>
+                    <d:var name="PwmShiftValue" type="INTEGER" value="1">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmReferenceChannel" type="REFERENCE" >
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:ref>
+                    <d:var name="PwmCoherentUpdate" type="BOOLEAN" value="false">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmChannelClass" type="ENUMERATION" 
+                           value="PWM_VARIABLE_PERIOD">
+                      <a:a name="ENABLE" value="true"/>
+                    </d:var>
+                    <d:lst name="PwmChannelEcucPartitionRef"/>
+                  </d:ctr>
+                  <d:ctr name="PwmToDsadc" type="IDENTIFIABLE">
+                    <d:var name="PwmChannelClass" type="ENUMERATION" 
+                           value="PWM_VARIABLE_PERIOD">
+                      <a:a name="ENABLE" value="true"/>
+                    </d:var>
+                    <d:var name="PwmChannelId" type="INTEGER" value="11">
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="PwmDutycycleDefault" type="INTEGER" value="500"/>
+                    <d:var name="PwmIdleState" type="ENUMERATION" 
+                           value="PWM_HIGH">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="PwmNotification" type="FUNCTION-NAME" 
+                           value="Pwm_Notification_11">
+                      <a:a name="ENABLE" value="false"/>
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="PwmPeriodDefault" type="FLOAT" value="0.001"/>
+                    <d:var name="PwmPolarity" type="ENUMERATION" value="PWM_LOW">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmChannelSelection" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/GtmResourceAllocationConf_0/GtmAtom_1/GtmAtomChannel_6"/>
+                    <d:var name="PwmClockSrc" type="ENUMERATION" 
+                           value="CMU_FXCLK0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:ref name="PwmMcuClockReferencePoint" type="REFERENCE" 
+                           value="ASPath:/Mcu/Mcu/GtmConfiguration_0/Cmu_0/cmu_clk1"/>
+                    <d:var name="PwmShiftValue" type="INTEGER" value="1"/>
+                    <d:ref name="PwmReferenceChannel" type="REFERENCE" >
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:ref>
+                    <d:var name="PwmCoherentUpdate" type="BOOLEAN" value="false">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:lst name="PwmChannelEcucPartitionRef"/>
+                  </d:ctr>
+                </d:lst>
+              </d:ctr>
+              <d:ctr name="PwmConfigurationOfOptApiServices" 
+                     type="IDENTIFIABLE">
+                <d:var name="PwmDeInitApi" type="BOOLEAN" value="true"/>
+                <d:var name="PwmGetOutputState" type="BOOLEAN" value="true"/>
+                <d:var name="PwmSetDutyCycle" type="BOOLEAN" value="true"/>
+                <d:var name="PwmSetOutputToIdle" type="BOOLEAN" value="true"/>
+                <d:var name="PwmSetPeriodAndDuty" type="BOOLEAN" value="true"/>
+                <d:var name="PwmVersionInfoApi" type="BOOLEAN" value="true"/>
+              </d:ctr>
+              <d:ctr name="PwmGeneral" type="IDENTIFIABLE">
+                <d:var name="PwmDevErrorDetect" type="BOOLEAN" value="true"/>
+                <d:var name="PwmSafetyErrorDetect" type="BOOLEAN" value="true">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="PwmDutycycleUpdatedEndperiod" type="BOOLEAN" 
+                       value="true">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="PwmIndex" type="INTEGER" value="0">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="PwmLowPowerStatesSupport" type="BOOLEAN" 
+                       value="false">
+                  <a:a name="ENABLE" value="false"/>
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="PwmNotificationSupported" type="BOOLEAN" 
+                       value="true"/>
+                <d:var name="PwmChannelCoherentSelection" type="BOOLEAN" 
+                       value="false"/>
+                <d:var name="PwmHandleShiftByOffset" type="BOOLEAN" 
+                       value="false">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="PwmEnable0Or100DutyHandle" type="BOOLEAN" 
+                       value="true"/>
+                <d:var name="PwmDutyShiftInTicks" type="BOOLEAN" value="true"/>
+                <d:var name="PwmPeriodUpdatedEndperiod" type="BOOLEAN" 
+                       value="true">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="PwmPowerStateAsynchTransitionMode" type="BOOLEAN" 
+                       value="false">
+                  <a:a name="ENABLE" value="false"/>
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="PwmRefChannelOutputAhead" type="BOOLEAN" 
+                       value="false">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:lst name="PwmPowerStateConfig" type="MAP"/>
+                <d:lst name="PwmEcucPartitionRef"/>
+                <d:lst name="PwmKernelEcucPartitionRef"/>
+              </d:ctr>
+              <d:ctr name="CommonPublishedInformation" type="IDENTIFIABLE">
+                <d:var name="ArReleaseMajorVersion" type="INTEGER" value="4">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="ArReleaseMinorVersion" type="INTEGER" value="4">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="ArReleaseRevisionVersion" type="INTEGER" value="0">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="ModuleId" type="INTEGER" value="121">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="SwMajorVersion" type="INTEGER" value="1">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="SwMinorVersion" type="INTEGER" value="2">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="SwPatchVersion" type="INTEGER" value="0">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="VendorId" type="INTEGER" value="175">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+              </d:ctr>
+            </d:ctr>
+          </d:chc>
+        </d:lst>
+      </d:ctr>
+    </d:lst>
+  </d:ctr>
+
+</datamodel>

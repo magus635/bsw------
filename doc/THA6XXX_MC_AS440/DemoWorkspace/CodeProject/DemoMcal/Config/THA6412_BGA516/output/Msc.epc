@@ -1,0 +1,779 @@
+<?xml version='1.0'?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://autosar.org/schema/r4.0 AUTOSAR_00046.xsd">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>Msc</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-CONFIGURATION-VALUES>
+          <SHORT-NAME>Msc</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-MODULE-DEF">/THA6_AS440_FuSa/Msc</DEFINITION-REF>
+          <IMPLEMENTATION-CONFIG-VARIANT>VARIANT-POST-BUILD</IMPLEMENTATION-CONFIG-VARIANT>
+          <CONTAINERS>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>CommonPublishedInformation</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/CommonPublishedInformation</DEFINITION-REF>
+              <PARAMETER-VALUES>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/CommonPublishedInformation/ArReleaseMajorVersion</DEFINITION-REF>
+                  <VALUE>4</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/CommonPublishedInformation/ArReleaseMinorVersion</DEFINITION-REF>
+                  <VALUE>4</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/CommonPublishedInformation/ArReleaseRevisionVersion</DEFINITION-REF>
+                  <VALUE>0</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/CommonPublishedInformation/ModuleId</DEFINITION-REF>
+                  <VALUE>255</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/CommonPublishedInformation/SwMajorVersion</DEFINITION-REF>
+                  <VALUE>1</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/CommonPublishedInformation/SwMinorVersion</DEFINITION-REF>
+                  <VALUE>2</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/CommonPublishedInformation/SwPatchVersion</DEFINITION-REF>
+                  <VALUE>0</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/CommonPublishedInformation/VendorId</DEFINITION-REF>
+                  <VALUE>175</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+              </PARAMETER-VALUES>
+            </ECUC-CONTAINER-VALUE>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>MscConfigSet</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet</DEFINITION-REF>
+              <SUB-CONTAINERS>
+                <ECUC-CONTAINER-VALUE>
+                  <SHORT-NAME>MscModuleConfiguration_0</SHORT-NAME>
+                  <INDEX>0</INDEX>
+                  <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration</DEFINITION-REF>
+                  <PARAMETER-VALUES>
+                    <ECUC-TEXTUAL-PARAM-VALUE>
+                      <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscHWUnitMapping</DEFINITION-REF>
+                      <VALUE>Msc_0</VALUE>
+                    </ECUC-TEXTUAL-PARAM-VALUE>
+                  </PARAMETER-VALUES>
+                  <SUB-CONTAINERS>
+                    <ECUC-CONTAINER-VALUE>
+                      <SHORT-NAME>MscClockConfiguration</SHORT-NAME>
+                      <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscClockConfiguration</DEFINITION-REF>
+                      <PARAMETER-VALUES>
+                        <ECUC-TEXTUAL-PARAM-VALUE>
+                          <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscClockConfiguration/MscClockDividerMode</DEFINITION-REF>
+                          <VALUE>MSC_DIVMODE_FRACTIONAL</VALUE>
+                        </ECUC-TEXTUAL-PARAM-VALUE>
+                        <ECUC-NUMERICAL-PARAM-VALUE>
+                          <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscClockConfiguration/MscSerialOutputFrequency</DEFINITION-REF>
+                          <VALUE>2500000</VALUE>
+                        </ECUC-NUMERICAL-PARAM-VALUE>
+                        <ECUC-TEXTUAL-PARAM-VALUE>
+                          <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscClockConfiguration/MscUpstreamDivider</DEFINITION-REF>
+                          <VALUE>MSC_UPDIV_16</VALUE>
+                        </ECUC-TEXTUAL-PARAM-VALUE>
+                      </PARAMETER-VALUES>
+                    </ECUC-CONTAINER-VALUE>
+                    <ECUC-CONTAINER-VALUE>
+                      <SHORT-NAME>MscRxConfiguration</SHORT-NAME>
+                      <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscRxConfiguration</DEFINITION-REF>
+                      <PARAMETER-VALUES>
+                        <ECUC-TEXTUAL-PARAM-VALUE>
+                          <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscRxConfiguration/MscRxFrameIntService</DEFINITION-REF>
+                          <VALUE>MSC_INTRNODE_SR2</VALUE>
+                        </ECUC-TEXTUAL-PARAM-VALUE>
+                        <ECUC-TEXTUAL-PARAM-VALUE>
+                          <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscRxConfiguration/MscRxFrameIntType</DEFINITION-REF>
+                          <VALUE>MSC_RDITYPE_RECEIVEINUD3</VALUE>
+                        </ECUC-TEXTUAL-PARAM-VALUE>
+                        <ECUC-TEXTUAL-PARAM-VALUE>
+                          <DEFINITION-REF DEST="ECUC-FUNCTION-NAME-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscRxConfiguration/MscRxFrameNotification</DEFINITION-REF>
+                          <VALUE>Msc0_RxNotification</VALUE>
+                        </ECUC-TEXTUAL-PARAM-VALUE>
+                        <ECUC-TEXTUAL-PARAM-VALUE>
+                          <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscRxConfiguration/MscRxFrameType</DEFINITION-REF>
+                          <VALUE>MSC_FRAMETYPE_16BIT</VALUE>
+                        </ECUC-TEXTUAL-PARAM-VALUE>
+                        <ECUC-TEXTUAL-PARAM-VALUE>
+                          <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscRxConfiguration/MscRxIntDelayEnabled</DEFINITION-REF>
+                          <VALUE>MSC_REQDELAY_NODELAY</VALUE>
+                        </ECUC-TEXTUAL-PARAM-VALUE>
+                        <ECUC-TEXTUAL-PARAM-VALUE>
+                          <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscRxConfiguration/MscRxParityType</DEFINITION-REF>
+                          <VALUE>MSC_PARITY_EVEN</VALUE>
+                        </ECUC-TEXTUAL-PARAM-VALUE>
+                      </PARAMETER-VALUES>
+                      <SUB-CONTAINERS>
+                        <ECUC-CONTAINER-VALUE>
+                          <SHORT-NAME>MscRxSignalTypeConfiguration</SHORT-NAME>
+                          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscRxConfiguration/MscRxSignalTypeConfiguration</DEFINITION-REF>
+                          <PARAMETER-VALUES>
+                            <ECUC-TEXTUAL-PARAM-VALUE>
+                              <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscRxConfiguration/MscRxSignalTypeConfiguration/MscRxClockSignalType</DEFINITION-REF>
+                              <VALUE>MSC_SIGNALPOLARITY_NONINVERTED</VALUE>
+                            </ECUC-TEXTUAL-PARAM-VALUE>
+                          </PARAMETER-VALUES>
+                        </ECUC-CONTAINER-VALUE>
+                      </SUB-CONTAINERS>
+                    </ECUC-CONTAINER-VALUE>
+                    <ECUC-CONTAINER-VALUE>
+                      <SHORT-NAME>MscTxConfiguration</SHORT-NAME>
+                      <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration</DEFINITION-REF>
+                      <PARAMETER-VALUES>
+                        <ECUC-TEXTUAL-PARAM-VALUE>
+                          <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscCDCMode</DEFINITION-REF>
+                          <VALUE>MSC_CDCMODE_ENABLED</VALUE>
+                        </ECUC-TEXTUAL-PARAM-VALUE>
+                        <ECUC-TEXTUAL-PARAM-VALUE>
+                          <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameTxMode</DEFINITION-REF>
+                          <VALUE>MSC_TRANSMODE_TRIGGERED</VALUE>
+                        </ECUC-TEXTUAL-PARAM-VALUE>
+                        <ECUC-NUMERICAL-PARAM-VALUE>
+                          <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscPassiveTimeFrameNumber</DEFINITION-REF>
+                          <VALUE>0</VALUE>
+                        </ECUC-NUMERICAL-PARAM-VALUE>
+                      </PARAMETER-VALUES>
+                      <SUB-CONTAINERS>
+                        <ECUC-CONTAINER-VALUE>
+                          <SHORT-NAME>MscCmdFrameConfiguration</SHORT-NAME>
+                          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscCmdFrameConfiguration</DEFINITION-REF>
+                          <PARAMETER-VALUES>
+                            <ECUC-TEXTUAL-PARAM-VALUE>
+                              <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscCmdFrameConfiguration/MscCmdFrameIntService</DEFINITION-REF>
+                              <VALUE>MSC_INTRNODE_SR0</VALUE>
+                            </ECUC-TEXTUAL-PARAM-VALUE>
+                            <ECUC-NUMERICAL-PARAM-VALUE>
+                              <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscCmdFrameConfiguration/MscCmdFrameLen</DEFINITION-REF>
+                              <VALUE>15</VALUE>
+                            </ECUC-NUMERICAL-PARAM-VALUE>
+                            <ECUC-TEXTUAL-PARAM-VALUE>
+                              <DEFINITION-REF DEST="ECUC-FUNCTION-NAME-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscCmdFrameConfiguration/MscCmdFrameNotification</DEFINITION-REF>
+                              <VALUE>Msc0_CmdFrameNotification</VALUE>
+                            </ECUC-TEXTUAL-PARAM-VALUE>
+                            <ECUC-NUMERICAL-PARAM-VALUE>
+                              <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscCmdFrameConfiguration/MscCmdPassivePhaseLen</DEFINITION-REF>
+                              <VALUE>2</VALUE>
+                            </ECUC-NUMERICAL-PARAM-VALUE>
+                          </PARAMETER-VALUES>
+                        </ECUC-CONTAINER-VALUE>
+                        <ECUC-CONTAINER-VALUE>
+                          <SHORT-NAME>MscDataFrameConfiguration</SHORT-NAME>
+                          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration</DEFINITION-REF>
+                          <PARAMETER-VALUES>
+                            <ECUC-TEXTUAL-PARAM-VALUE>
+                              <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataFrameIntService</DEFINITION-REF>
+                              <VALUE>MSC_INTRNODE_SR2</VALUE>
+                            </ECUC-TEXTUAL-PARAM-VALUE>
+                            <ECUC-TEXTUAL-PARAM-VALUE>
+                              <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataFrameIntType</DEFINITION-REF>
+                              <VALUE>MSC_DFINTERRUPT_LASTBIT</VALUE>
+                            </ECUC-TEXTUAL-PARAM-VALUE>
+                            <ECUC-TEXTUAL-PARAM-VALUE>
+                              <DEFINITION-REF DEST="ECUC-FUNCTION-NAME-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataFrameNotification</DEFINITION-REF>
+                              <VALUE>Msc0_DataFrameNotification</VALUE>
+                            </ECUC-TEXTUAL-PARAM-VALUE>
+                            <ECUC-NUMERICAL-PARAM-VALUE>
+                              <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataFrameSrhLen</DEFINITION-REF>
+                              <VALUE>15</VALUE>
+                            </ECUC-NUMERICAL-PARAM-VALUE>
+                            <ECUC-NUMERICAL-PARAM-VALUE>
+                              <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataFrameSrlLen</DEFINITION-REF>
+                              <VALUE>16</VALUE>
+                            </ECUC-NUMERICAL-PARAM-VALUE>
+                            <ECUC-NUMERICAL-PARAM-VALUE>
+                              <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscPassivePhaseLen</DEFINITION-REF>
+                              <VALUE>4</VALUE>
+                            </ECUC-NUMERICAL-PARAM-VALUE>
+                            <ECUC-TEXTUAL-PARAM-VALUE>
+                              <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscSelectionBitHighEnable</DEFINITION-REF>
+                              <VALUE>MSC_SELBIT_NONE</VALUE>
+                            </ECUC-TEXTUAL-PARAM-VALUE>
+                            <ECUC-TEXTUAL-PARAM-VALUE>
+                              <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscSelectionBitLowEnable</DEFINITION-REF>
+                              <VALUE>MSC_SELBIT_LOWLEVEL</VALUE>
+                            </ECUC-TEXTUAL-PARAM-VALUE>
+                          </PARAMETER-VALUES>
+                          <SUB-CONTAINERS>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitHighConfiguration_0</SHORT-NAME>
+                              <INDEX>0</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>0</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitHighConfiguration_1</SHORT-NAME>
+                              <INDEX>1</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>1</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitHighConfiguration_2</SHORT-NAME>
+                              <INDEX>2</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>2</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitHighConfiguration_3</SHORT-NAME>
+                              <INDEX>3</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>3</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitHighConfiguration_4</SHORT-NAME>
+                              <INDEX>4</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>4</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitHighConfiguration_5</SHORT-NAME>
+                              <INDEX>5</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>5</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitHighConfiguration_6</SHORT-NAME>
+                              <INDEX>6</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>6</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitHighConfiguration_7</SHORT-NAME>
+                              <INDEX>7</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>7</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitHighConfiguration_8</SHORT-NAME>
+                              <INDEX>8</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>8</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitHighConfiguration_9</SHORT-NAME>
+                              <INDEX>9</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>9</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitHighConfiguration_10</SHORT-NAME>
+                              <INDEX>10</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>10</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitHighConfiguration_11</SHORT-NAME>
+                              <INDEX>11</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>11</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitHighConfiguration_12</SHORT-NAME>
+                              <INDEX>12</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>12</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitHighConfiguration_13</SHORT-NAME>
+                              <INDEX>13</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>13</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitHighConfiguration_14</SHORT-NAME>
+                              <INDEX>14</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>14</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitHighConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitLowConfiguration_0</SHORT-NAME>
+                              <INDEX>0</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>0</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitLowConfiguration_1</SHORT-NAME>
+                              <INDEX>1</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>1</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitLowConfiguration_2</SHORT-NAME>
+                              <INDEX>2</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>2</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitLowConfiguration_3</SHORT-NAME>
+                              <INDEX>3</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>3</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitLowConfiguration_4</SHORT-NAME>
+                              <INDEX>4</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>4</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitLowConfiguration_5</SHORT-NAME>
+                              <INDEX>5</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>5</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitLowConfiguration_6</SHORT-NAME>
+                              <INDEX>6</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>6</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitLowConfiguration_7</SHORT-NAME>
+                              <INDEX>7</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>7</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitLowConfiguration_8</SHORT-NAME>
+                              <INDEX>8</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>8</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitLowConfiguration_9</SHORT-NAME>
+                              <INDEX>9</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>9</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitLowConfiguration_10</SHORT-NAME>
+                              <INDEX>10</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>10</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitLowConfiguration_11</SHORT-NAME>
+                              <INDEX>11</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>11</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitLowConfiguration_12</SHORT-NAME>
+                              <INDEX>12</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>12</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitLowConfiguration_13</SHORT-NAME>
+                              <INDEX>13</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>13</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitLowConfiguration_14</SHORT-NAME>
+                              <INDEX>14</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>14</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                            <ECUC-CONTAINER-VALUE>
+                              <SHORT-NAME>MscDataBitLowConfiguration_15</SHORT-NAME>
+                              <INDEX>15</INDEX>
+                              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration</DEFINITION-REF>
+                              <PARAMETER-VALUES>
+                                <ECUC-NUMERICAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitIndex</DEFINITION-REF>
+                                  <VALUE>15</VALUE>
+                                </ECUC-NUMERICAL-PARAM-VALUE>
+                                <ECUC-TEXTUAL-PARAM-VALUE>
+                                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscDataFrameConfiguration/MscDataBitLowConfiguration/MscDataBitSrc</DEFINITION-REF>
+                                  <VALUE>SRC_DOWNSTREAMDATA</VALUE>
+                                </ECUC-TEXTUAL-PARAM-VALUE>
+                              </PARAMETER-VALUES>
+                            </ECUC-CONTAINER-VALUE>
+                          </SUB-CONTAINERS>
+                        </ECUC-CONTAINER-VALUE>
+                        <ECUC-CONTAINER-VALUE>
+                          <SHORT-NAME>MscPinInjectConfiguration</SHORT-NAME>
+                          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscPinInjectConfiguration</DEFINITION-REF>
+                        </ECUC-CONTAINER-VALUE>
+                        <ECUC-CONTAINER-VALUE>
+                          <SHORT-NAME>MscTimeFrameConfiguration</SHORT-NAME>
+                          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscTimeFrameConfiguration</DEFINITION-REF>
+                          <PARAMETER-VALUES>
+                            <ECUC-TEXTUAL-PARAM-VALUE>
+                              <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscTimeFrameConfiguration/MscTimeFrameIntService</DEFINITION-REF>
+                              <VALUE>MSC_INTRNODE_SR0</VALUE>
+                            </ECUC-TEXTUAL-PARAM-VALUE>
+                            <ECUC-TEXTUAL-PARAM-VALUE>
+                              <DEFINITION-REF DEST="ECUC-FUNCTION-NAME-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscTimeFrameConfiguration/MscTimeFrameNotification</DEFINITION-REF>
+                              <VALUE>Msc0_TimeFrameNotification</VALUE>
+                            </ECUC-TEXTUAL-PARAM-VALUE>
+                          </PARAMETER-VALUES>
+                        </ECUC-CONTAINER-VALUE>
+                        <ECUC-CONTAINER-VALUE>
+                          <SHORT-NAME>MscTxSignalTypeConfiguration</SHORT-NAME>
+                          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscTxSignalTypeConfiguration</DEFINITION-REF>
+                          <PARAMETER-VALUES>
+                            <ECUC-TEXTUAL-PARAM-VALUE>
+                              <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscTxSignalTypeConfiguration/MscActivateClock</DEFINITION-REF>
+                              <VALUE>MSC_FCLVALID_ALWAYS</VALUE>
+                            </ECUC-TEXTUAL-PARAM-VALUE>
+                            <ECUC-TEXTUAL-PARAM-VALUE>
+                              <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscTxSignalTypeConfiguration/MscTxChipSelectSignalType</DEFINITION-REF>
+                              <VALUE>MSC_SIGNALPOLARITY_INVERTED</VALUE>
+                            </ECUC-TEXTUAL-PARAM-VALUE>
+                            <ECUC-TEXTUAL-PARAM-VALUE>
+                              <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscTxSignalTypeConfiguration/MscTxClockSignalType</DEFINITION-REF>
+                              <VALUE>MSC_FCLLINEPOLARITY_NONINVERTED</VALUE>
+                            </ECUC-TEXTUAL-PARAM-VALUE>
+                            <ECUC-TEXTUAL-PARAM-VALUE>
+                              <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigSet/MscModuleConfiguration/MscTxConfiguration/MscTxSignalTypeConfiguration/MscTxDataSignalType</DEFINITION-REF>
+                              <VALUE>MSC_SIGNALPOLARITY_NONINVERTED</VALUE>
+                            </ECUC-TEXTUAL-PARAM-VALUE>
+                          </PARAMETER-VALUES>
+                        </ECUC-CONTAINER-VALUE>
+                      </SUB-CONTAINERS>
+                    </ECUC-CONTAINER-VALUE>
+                  </SUB-CONTAINERS>
+                </ECUC-CONTAINER-VALUE>
+              </SUB-CONTAINERS>
+            </ECUC-CONTAINER-VALUE>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>MscConfigurationOfOptApiServices</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscConfigurationOfOptApiServices</DEFINITION-REF>
+              <PARAMETER-VALUES>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigurationOfOptApiServices/MscChangeRxStateApi</DEFINITION-REF>
+                  <VALUE>1</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigurationOfOptApiServices/MscChangeTxStateApi</DEFINITION-REF>
+                  <VALUE>1</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigurationOfOptApiServices/MscDeInitApi</DEFINITION-REF>
+                  <VALUE>1</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigurationOfOptApiServices/MscGetRxTimeoutStatusApi</DEFINITION-REF>
+                  <VALUE>1</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigurationOfOptApiServices/MscGetTxStatusApi</DEFINITION-REF>
+                  <VALUE>1</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigurationOfOptApiServices/MscGetVersionInfo</DEFINITION-REF>
+                  <VALUE>1</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigurationOfOptApiServices/MscSelectRxDeviceApi</DEFINITION-REF>
+                  <VALUE>1</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigurationOfOptApiServices/MscTxDataFrameApi</DEFINITION-REF>
+                  <VALUE>1</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigurationOfOptApiServices/Msc_GetRxDataApi</DEFINITION-REF>
+                  <VALUE>1</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscConfigurationOfOptApiServices/Msc_StartRxTimeoutAPI</DEFINITION-REF>
+                  <VALUE>0</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+              </PARAMETER-VALUES>
+            </ECUC-CONTAINER-VALUE>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>MscDriverConfiguration</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Msc/MscDriverConfiguration</DEFINITION-REF>
+              <PARAMETER-VALUES>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/THA6_AS440_FuSa/Msc/MscDriverConfiguration/MscDevErrorDetect</DEFINITION-REF>
+                  <VALUE>1</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+              </PARAMETER-VALUES>
+            </ECUC-CONTAINER-VALUE>
+          </CONTAINERS>
+        </ECUC-MODULE-CONFIGURATION-VALUES>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>

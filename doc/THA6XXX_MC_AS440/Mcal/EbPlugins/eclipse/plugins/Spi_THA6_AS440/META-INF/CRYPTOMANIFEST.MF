@@ -1,0 +1,36 @@
+
+Name: generate_PB/Spi.m
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377425103040872460257841923886612653241941293117560817
+ 5108249978876055438861480565724093012892313325186448
+
+Name: generate_PB/include/Spi_Cfg.h
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377420757604447907814751689052521893259851448216112008
+ 3979271447362634241156880263747915636488489705614378
+
+Name: generate_PB/src/Spi_PBcfg.c
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 28964594773974110319660510133505976330709774172066732364339
+ 194403099615284667832310829878226597617921521577620614
+
+Name: config/Spi.xdm
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377420936626551277342581587622783570124371637471573485
+ 4977903963626929536300437050599575192179047716962873
+
+Name: generate_PB/include/Spi_PBcfg.h
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377423627129979430480112162172578448972189735714970475
+ 8759827659116579365232069040183442493712013109923920
+

@@ -1,0 +1,43 @@
+
+Name: resource/CotexR52_THA6412_BGA516.properties
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 28964594739958317918427355316358604933857736101733361393350
+ 332061805099760548015105201174386238527796025012095035
+
+Name: config/Resource.xdm
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377424549617271545369149309972270043803243356978826628
+ 4540293051320248686270523652235180566515662461914061
+
+Name: generate_PB/Resource_Cfg_Common.m
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377423418987258495494679144520771598016905770278061131
+ 5586986000471269120494196537632542254274913020232605
+
+Name: resource/CotexR52_THA610X_LFBGA180.properties
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 74155374890385027997539266207254961228207728186429076347270
+ 82648758598064444872595753919304652241432145586992189959
+
+Name: generate_PB/include/Mcall_Cfg.h
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 74155374890362003067610386162129678868772649453539062698323
+ 81444288532779680235545069305164111679044566060149572978
+
+Name: resource/CotexR52_THA6206_LFBGA292.properties
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377420505789453805619695407475991737814314430944884737
+ 8609412364730019271116201697475536050536294163512844
+

@@ -1,0 +1,984 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<datamodel version="7.0"
+            xmlns="http://www.tresos.de/_projects/DataModel2/16/root.xsd"
+            xmlns:a="http://www.tresos.de/_projects/DataModel2/16/attribute.xsd"
+            xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd"
+            xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd">
+
+  <d:ctr type="AUTOSAR" factory="autosar"
+            xmlns:ad="http://www.tresos.de/_projects/DataModel2/08/admindata.xsd"
+            xmlns:cd="http://www.tresos.de/_projects/DataModel2/08/customdata.xsd"
+            xmlns:f="http://www.tresos.de/_projects/DataModel2/14/formulaexpr.xsd"
+            xmlns:icc="http://www.tresos.de/_projects/DataModel2/08/implconfigclass.xsd"
+            xmlns:mt="http://www.tresos.de/_projects/DataModel2/11/multitest.xsd"
+            xmlns:variant="http://www.tresos.de/_projects/DataModel2/11/variant.xsd">
+    <d:lst type="TOP-LEVEL-PACKAGES">
+      <d:ctr name="THA6_AS440_FuSa" type="AR-PACKAGE">
+        <a:a name="UUID" value="ECUC:AUTOSAR" />
+        <d:lst type="ELEMENTS">
+          <d:chc name="Port" type="AR-ELEMENT" value="MODULE-DEF">
+            <v:ctr type="MODULE-DEF">
+              <a:a name="ADMIN-DATA" type="ADMIN-DATA">
+                <ad:ADMIN-DATA>
+                  <ad:DOC-REVISIONS>
+                    <ad:DOC-REVISION>
+                      <ad:REVISION-LABEL>4.4.0</ad:REVISION-LABEL>
+                      <ad:ISSUED-BY>AUTOSAR</ad:ISSUED-BY>
+                    </ad:DOC-REVISION>
+                  </ad:DOC-REVISIONS>
+                </ad:ADMIN-DATA>
+              </a:a>
+              <a:a name="DESC" value="EN: Configuration of the Port module." />
+              <a:a name="LOWER-MULTIPLICITY" value="0" />
+              <a:a name="RELEASE" value="asc:4.4.0" />
+              <a:a name="UPPER-MULTIPLICITY" value="1" />
+              <a:a name="UUID" value="36bd784f-01c3-459a-b841-392ecda4b6ff" />
+              <a:a name="POSTBUILDVARIANTSUPPORT" value="true" />
+              <v:var name="IMPLEMENTATION_CONFIG_VARIANT" type="ENUMERATION">
+                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                  <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                </a:a>
+                <a:a name="LABEL" value="Config Variant" />
+                <a:a name="UUID" value="d795dbfa-47d2-402d-863c-6444d66b14f5" />
+                <a:da name="DEFAULT" value="VariantPostBuild" />
+                <a:da name="RANGE">
+                  <a:v>VariantPostBuild</a:v>
+                </a:da>
+              </v:var>
+              <v:ctr name="PortConfigSet" type="IDENTIFIABLE">
+                <a:a name="DESC" value="EN: ECUC_Port_00121: This container contains the configuration parameters and sub containers of the AUTOSAR Port module." />
+                <a:a name="UUID" value="6dfab789-0cd4-4e89-a342-959c3830feb2" />
+                <v:lst name="PortContainer" type="MAP">
+                  <a:da name="MIN" type="XPath" expr="num:i(ecu:get('Port.AvailablePortsTotalNumber'))" />
+                  <a:da name="MAX" type="XPath" expr="num:i(ecu:get('Port.AvailablePortsTotalNumber'))" />
+                  <v:ctr name="PortContainer" type="IDENTIFIABLE">
+                    <a:a name="DESC" value="EN: ECUC_Port_00122: Container collecting the PortPins." />
+                    <a:a name="REQUIRES-INDEX" value="true"/>
+                    <a:a name="UUID" value="8dd4a334-3ec3-42e7-9837-7ad23ed408cc" />
+                    <v:var name="PortNumber" type="INTEGER">
+                      <a:a name="DESC" value="EN: The number of specified Ports in this PortContainer." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:a name="UUID" value="a20a63af-29dd-4418-a889-dadd353cc0ca" />
+                      <a:da name="EDITABLE" value="false" />
+                      <a:da name="DEFAULT" type="XPath">
+                        <a:tst expr="text:split(ecu:get('Port.AvailablePortsID'), '_')[position()-1 = node:fallback(&quot;->node:current()/../@index*2&quot;,'0')]" />
+                      </a:da>
+                      <a:da name="INVALID" type="Multi">
+                        <mt:xpath expr="contains(ecu:get('Port.AvailablePortsID'),concat('_',.,'_'))" false="[124-00-00-ERROR]: The Specified PortNumber is not available in the MCU" />
+                        <mt:range>
+                          <mt:tst expr="&gt;=0" />
+                          <mt:tst expr="&lt;=num:i(ecu:get('Port.MaxAvailablePortID'))" />
+                        </mt:range>
+                      </a:da>
+                    </v:var>
+                    <v:var name="PortNumberOfPortPins" type="INTEGER">
+                      <a:a name="DESC" value="EN:ECUC_Port_00124: The number of specified PortPins in this PortContainer." />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:a name="UUID" value="14defd78-b3ea-419c-92b8-ea94fd646f9c" />
+                      <a:da name="EDITABLE" value="true" />
+                      <a:da name="DEFAULT" type="XPath">
+                        <a:tst expr="text:split(ecu:get('Port.AvailableTotalPortPinNum'), '_')[position()-1 = node:fallback(&quot;->node:current()/../@index*2&quot;,'0')]" />
+                      </a:da>
+                      <a:da name="INVALID" type="Multi">
+                        <mt:xpath expr="num:i(count(text:split(ecu:get(concat('Port.Port',../PortNumber,'_AvailablePins')),' _'))) = num:i(.)" false="[124-00-01-ERROR]: The total number of pins in the current Port group is incorrect" />
+                        <mt:range>
+                          <mt:tst expr="&gt;=1" />
+                          <mt:tst expr="&lt;=65535" />
+                        </mt:range>
+                      </a:da>
+                    </v:var>
+                    <v:lst name="PortPin" type="MAP">
+                      <a:da name="MIN" type="XPath" expr="node:fallback(&quot;->node:value(node:current()/../PortNumberOfPortPins)&quot;, num:i(1))" />
+                      <a:da name="MAX" type="XPath" expr="node:fallback(&quot;->node:value(node:current()/../PortNumberOfPortPins)&quot;, num:i(16))" />
+                      <v:ctr name="PortPin" type="IDENTIFIABLE">
+                        <a:a name="DESC" value="EN: ECUC_Port_00118: Configuration of the individual port pins." />
+                        <a:a name="REQUIRES-INDEX" value="true"/>
+                        <a:a name="UUID" value="c8fdd98d-da5d-4894-a04f-90bb99247033" />
+                        <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                        </a:a>
+                        <v:var name="PortPinSymbolicName" type="STRING">
+                          <a:a name="DESC" value="EN: Symbolic name of the Port Pin."/>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech"/>
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="03ac2170-8d9d-4024-9a73-d4c9eb5bdea9"/>
+                          <a:da name="EDITABLE" value="false"/>
+                          <a:da name="DEFAULT" type="XPath">
+                            <a:tst expr="concat('P',node:fallback(&quot;->node:current()/../../../PortNumber&quot;,'0'),'.',node:fallback(&quot;->node:current()/../PortPinId&quot;,'0') mod 16)"/>
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortPinEnable" type="BOOLEAN">
+                          <a:a name="DESC" value="EN: Enable configuration options under the current PortContainer. &lt;br/&gt;true:  The current Port-Pin uses the configuration under PortContainer. &lt;br/&gt;false: The current Port-Pin uses the default configuration of driver. &lt;h1&gt;Port-Pin Default configuration:&lt;/h1&gt; &lt;br/&gt;PortPinDirection = PORT_PIN_IN. &lt;br/&gt;PortPinPadLeve = PORT_PDR_AL_AUTOMOTIVE_LEVEL. &lt;br/&gt;PortPinPullMode = PORT_INPUTMODE_PULLUP. &lt;br/&gt;PortPinPadTriggerMode = PORT_SCHMIDT_LEVEL_MODE. &lt;br/&gt;RxMuxFunSelect = GPIO." />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="c3f436e5-9a2f-45da-b9ef-36dd762b74a6" />
+                          <a:da name="DEFAULT" value="false" />
+                          <a:da name="INVALID" type="XPath">
+                            <a:tst expr=". = 'true' and ../PortPinId = 322 and node:containsValue(as:modconf('Resource')/ResourceGeneral/ResourceSubderivative, 'THA610X_LFBGA180')" true="THA610x does not support the configuration of P20.2" />
+                            <a:tst expr=". = 'true' and (../PortPinId = 512 or ../PortPinId = 513 or ../PortPinId = 515) and node:containsValue(as:modconf('Resource')/ResourceGeneral/ResourceSubderivative, 'THA6206_LFBGA292')" true="THA6206 does not support configuration of the current Port-Pin." />
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortPinId" type="INTEGER">
+                          <a:a name="DESC" value="EN: ECUC_Port_00127: Port-Pin ID, This value will be assigned to the symbolic name derived from the port pin container short name.PortPinId = Port_Number * 16 + Pin_Number" />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="true"/>
+                          <a:a name="UUID" value="0868a637-33a3-4ae4-9ae2-5325018da893" />
+                          <a:da name="EDITABLE" value="false" />
+                          <a:da name="DEFAULT" type="XPath">
+                            <a:tst expr="text:split(ecu:get(concat('Port.PinId_Port',(node:fallback(&quot;->node:current()/../../../PortNumber&quot;,'0')))), '_')[position()-1 = node:fallback(&quot;->node:current()/../@index*2&quot;,'0')]" />
+                          </a:da>
+                          <a:da name="INVALID" type="Multi">
+                            <mt:xpath expr="contains(ecu:get(concat('Port.PinId_Port',../../../PortNumber)),.)" false="[124-00-02-ERROR]: Incorrect Port-Pin ID number" />
+                            <mt:xpath expr="text:uniq((node:fallback(../../../../*/PortPin/*/PortPinId,text:split('1 2 3'))), node:fallback(.,0))" false="The value of PortPinId is not unique for this configuration." />
+                            <mt:range>
+                              <mt:tst expr="&gt;=0" />
+                              <mt:tst expr="&lt;=65535" />
+                            </mt:range>
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortPinDirection" type="ENUMERATION">
+                          <a:a name="DESC" value="EN: ECUC_Port_00125: The initial direction of the pin (IN or OUT). If the direction is not changeable, the value configured here is fixed.The direction must match the pin mode. &lt;br/&gt;E.g. a pin used for an ADC must be configured to be an in port. Implementation Type: Port_PinDirectionType" />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="985231a4-0295-48a5-9268-65de9a8e4da3" />
+                          <a:da name="DEFAULT" value="PORT_PIN_IN" />
+                          <a:da name="RANGE">
+                            <a:v>PORT_PIN_IN</a:v>
+                            <a:v>PORT_PIN_OUT</a:v>
+                            <a:v>PORT_PIN_INOUT</a:v>
+                          </a:da>
+                          <a:da name="INVALID" type="XPath">
+                            <a:tst expr="../PortPinEnable = 'true' and
+                                        (. !='PORT_PIN_IN') and
+                                        contains(ecu:get('Port.AvailableReadOnlyPorts'), concat('_',../../../PortNumber,'_')) and
+                                        not(contains(ecu:get('Port.AvailabletPeripheralCtrlrPortPin'), ../PortPinId))"
+                                        true="[124-00-03-ERROR]: Invalid configuration, Current Port-Pin only PORT_PIN_IN configuration is allowed. " />
+                          </a:da>
+                          <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="node:fallback(&quot;->../PortPinEnable = 'true' and
+                                         ../PortPinAnalogInputEnable = 'false'&quot;, 'true')"/>
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortPinInitialMode" type="ENUMERATION">
+                          <a:a name="DESC" value="EN: ECUC_Port_00128: Port pin mode from mode list for use with Port_Init() function" />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="f1c1ce12-2fe4-4638-9007-972cdfff8bf0" />
+                          <a:da name="DEFAULT" value="GPIO" />
+                          <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="node:fallback(&quot;->../PortPinEnable = 'true'
+                                         and not(../PortPinDirection = 'PORT_PIN_IN' and ../PortPinDirectionChangeable = 'false')
+                                         and ../PortPinAnalogInputEnable = 'false'&quot;, 'true')"/>
+                          </a:da>
+                          <a:da name="INVALID" type="XPath">
+                            <a:tst expr="../PortPinEnable = 'true'
+                                     and ../PortPinDirection != 'PORT_PIN_IN'
+                                     and not(contains(ecu:get('Port.AvailableReadOnlyPorts'), concat('_',../../../PortNumber,'_')))
+                                     and ecu:get(concat('Port.OutputModesXDM',substring-after(num:inttohex(node:fallback(../PortPinId, 0)),'x'))) = ''" true="[124-00-04-ERROR]: Invalid configuration, The current Port output multiplexing function is not allowed" />
+                            <a:tst expr="../PortPinDirection = 'PORT_PIN_OUT' and . = 'GETH_MDIO'" true="When Port-Pin multiplexing is 'GETH_MDIO', 'PortPinDirection' must be set to 'PORT_PIN_INOUT' and 'RxMuxFunSelect' must be configured as GETH related functions" />
+                            <a:tst expr="../PortPinEnable = 'true' and ../PortPinDirection = 'PORT_PIN_OUT' and (../PortPinId = 512 or ../PortPinId = 513) and . = 'GPIO' and node:containsValue(as:modconf('Resource')/ResourceGeneral/ResourceSubderivative, 'THA6206_LFBGA292')" true="THA6206_LFBGA292 does not support the configuration of the current Output multiplexing function" />
+                          </a:da>
+                          <a:da name="RANGE" type="XPath">
+                            <a:tst expr="node:fallback(&quot;->text:split(ecu:get(concat('Port.OutputModesXDM',substring-after(num:inttohex(../PortPinId),'x'))))&quot;, text:split(ecu:get('Port.OutputModesXDMxx')))" />
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortPinLevelValue" type="ENUMERATION">
+                          <a:a name="DESC" value="EN: ECUC_Port_00129: Port Pin Level value from Port pin list." />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="d5df6a73-db56-498d-8db1-22a5eba686ad" />
+                          <a:da name="DEFAULT" value="PORT_PIN_LEVEL_LOW" />
+                          <a:da name="RANGE">
+                            <a:v>PORT_PIN_LEVEL_LOW</a:v>
+                            <a:v>PORT_PIN_LEVEL_HIGH</a:v>
+                          </a:da>
+                          <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="node:fallback(&quot;->../PortPinEnable = 'true'
+                                         and not(contains(ecu:get('Port.AvailableReadOnlyPorts'), concat('_',../../../PortNumber,'_')))
+                                         and not(../PortPinDirection = 'PORT_PIN_IN' and ../PortPinDirectionChangeable = 'false')
+                                         and ../PortPinAnalogInputEnable = 'false'&quot;, 'true')"/>
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortPinOutputPushMode" type="ENUMERATION">
+                          <a:a name="DESC" value="EN: Parameter to  Select  if  output pin is Push_full or Open_Drain" />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="d2d82a38-f0f1-4aa5-a776-cf7a3cdca1aa" />
+                          <a:da name="DEFAULT" value="PORT_OUTPUT_PUSHPULL" />
+                          <a:da name="RANGE">
+                            <a:v>PORT_OUTPUT_OPENDRAIN</a:v>
+                            <a:v>PORT_OUTPUT_PUSHPULL</a:v>
+                          </a:da>
+                          <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="node:fallback(&quot;->../PortPinEnable = 'true'
+                                         and not(contains(ecu:get('Port.AvailableReadOnlyPorts'), concat('_',../../../PortNumber,'_')))
+                                         and not(../PortPinDirection = 'PORT_PIN_IN' and ../PortPinDirectionChangeable = 'false')
+                                         and ../PortPinAnalogInputEnable = 'false'&quot;, 'true')"/>
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortPinDriverStrength" type="ENUMERATION">
+                          <a:a name="DESC" value="EN: Parameter to  Select Driver Strength" />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="a5e68cdc-c945-4d42-8f87-54e086e3910c" />
+                          <a:da name="DEFAULT" value="PORT_DRIVER_STRENGTH_LOW" />
+                          <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="node:fallback(&quot;->../PortPinEnable = 'true'
+                                         and not(contains(ecu:get('Port.AvailableReadOnlyPorts'), concat('_',../../../PortNumber,'_')))
+                                         and not(../PortPinDirection = 'PORT_PIN_IN' and ../PortPinDirectionChangeable = 'false')
+                                         and ../PortPinAnalogInputEnable = 'false'&quot;, 'true')"/>
+                          </a:da>
+                          <a:da name="RANGE">
+                            <a:v>PORT_DRIVER_STRENGTH_LOW</a:v>
+                            <a:v>PORT_DRIVER_STRENGTH_HIGH</a:v>
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortPinEnableSlewRate" type="BOOLEAN">
+                          <a:a name="DESC" value="EN: Parameter to  Select  if enable slew-rate mode in output strong drive mode, The slew-rate can reduce the IO output waveform oscillation to a certain extent, and the rising and falling edges of the waveform will be slowed down at the same time. &lt;br/&gt;This option is available, must set (PortPinDirection = PORT_PIN_OUT) and (PortPinDriverStrength = PORT_DRIVER_STRENGTH_HIGH)." />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="bcf6a4fa-583a-4cf0-af79-acd1ff98f8b4" />
+                          <a:da name="DEFAULT" value="false" />
+                          <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="node:fallback(&quot;->../PortPinEnable = 'true'
+                                         and not(contains(ecu:get('Port.AvailableReadOnlyPorts'), concat('_',../../../PortNumber,'_')))
+                                         and not(../PortPinDirection = 'PORT_PIN_IN' and ../PortPinDirectionChangeable = 'false')
+                                         and ../PortPinDriverStrength = 'PORT_DRIVER_STRENGTH_HIGH'
+                                         and ../PortPinAnalogInputEnable = 'false'&quot;, 'true')"/>
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortPinPadLevel" type="ENUMERATION">
+                          <a:a name="DESC" value="EN: Parameter to  Select Pad Voltage Level" />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="406ca2dc-aaee-4533-b3ab-d8cae243b077" />
+                          <a:da name="DEFAULT" value="PORT_PDR_AL_AUTOMOTIVE_LEVEL" />
+                          <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="node:fallback(&quot;->
+                                        ../PortPinEnable = 'true' and 
+                                        ../PortPinAnalogInputEnable = 'false' and
+                                        not(../PortPinDirection = 'PORT_PIN_OUT' and ../PortPinDirectionChangeable = 'false') and
+                                        ../PortPinPadTriggerMode = 'PORT_SCHMIDT_LEVEL_MODE'
+                                        &quot;, 'true')"/>
+                          </a:da>
+                          <a:da name="RANGE" type="XPath">
+                            <a:tst expr="boolean(1)" true="PORT_PDR_AL_AUTOMOTIVE_LEVEL"/>
+                            <a:tst expr="boolean(1)" true="PORT_PDR_TTL_AUTOMOTIVE_LEVEL"/>
+                            <a:tst expr="node:fallback(&quot;->not(node:containsValue(as:modconf('Resource')/ResourceGeneral/ResourceSubderivative, 'THA6206_LFBGA292'))&quot;, boolean(1))" true="PORT_PDR_STTL_AUTOMOTIVE_LEVEL"/>
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortPinPullMode" type="ENUMERATION">
+                          <a:a name="DESC" value="EN: Parameter to  Select  if  input pin is Pull_Down or Pull_Up" />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="de313ee2-1447-403f-9fb0-705d0314a6cc" />
+                          <a:da name="DEFAULT" value="PORT_INPUTMODE_PULLUP" />
+                          <a:da name="RANGE">
+                            <a:v>PORT_INPUTMODE_NONE</a:v>
+                            <a:v>PORT_INPUTMODE_PULLUP</a:v>
+                            <a:v>PORT_INPUTMODE_PULLDOWN</a:v>
+                          </a:da>
+                          <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="node:fallback(&quot;->../PortPinEnable = 'true'
+                                         and not(../PortPinDirection = 'PORT_PIN_OUT' and ../PortPinDirectionChangeable = 'false' and ../PortPinOutputPushMode = 'PORT_OUTPUT_PUSHPULL')
+                                         and ../PortPinAnalogInputEnable = 'false'&quot;, 'true')"/>
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortPinPadTriggerMode" type="ENUMERATION">
+                          <a:a name="DESC" value="EN: Parameter to  Select Pad level trigger mode" />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="59b2d138-0a03-4e02-b819-da65ec60b280" />
+                          <a:da name="DEFAULT" value="PORT_SCHMIDT_LEVEL_MODE" />
+                          <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="node:fallback(&quot;->
+                                         ../PortPinEnable = 'true' and
+                                         not(../PortPinDirection = 'PORT_PIN_OUT' and ../PortPinDirectionChangeable = 'false') and
+                                         ../PortPinAnalogInputEnable = 'false'&quot;, 'true')"/>
+                          </a:da>
+                          <a:da name="RANGE">
+                            <a:v>PORT_CMOS_LEVEL_MODE</a:v>
+                            <a:v>PORT_SCHMIDT_LEVEL_MODE</a:v>
+                          </a:da>
+                        </v:var>
+                        <v:var name="RxMuxFunSelect" type="ENUMERATION">
+                          <a:a name="DESC" value="EN: SeLect Pin Input mode for CAN/SPI/ADC/LIN/..." />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="c61c8188-ee44-439f-a662-1f2022d81737" />
+                          <a:da name="DEFAULT" value="GPIO" />
+                          <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="node:fallback(&quot;->../PortPinEnable = 'true'
+                                         and not(../PortPinDirection = 'PORT_PIN_OUT' and ../PortPinDirectionChangeable = 'false')
+                                         and ../PortPinAnalogInputEnable = 'false'&quot;, 'true')"/>
+                          </a:da>
+                          <a:da name="RANGE" type="XPath">
+                            <a:tst expr="node:fallback(&quot;->text:split(ecu:get(concat('Port.InputModesXDM',substring-after(num:inttohex(../PortPinId),'x'))))&quot;, text:split(ecu:get('Port.InputModesXDMxx')))" />
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortPinMode" type="ENUMERATION">
+                          <a:a name="DESC" value="EN: ECUC_Port_00130: Port pin mode from mode list." />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="34886a77-a3b5-43d4-a833-1b0fcb029d2c" />
+                          <a:da name="DEFAULT" value="PORT_PIN_MODE_ALL" />
+                          <a:da name="EDITABLE" value="false" />
+                          <a:da name="RANGE">
+                            <a:v>PORT_PIN_MODE_ALL</a:v>
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortPinDirectionChangeable" type="BOOLEAN">
+                          <a:a name="DESC" value="EN: ECUC_Port_00126: Parameter to indicate if the direction is changeable on a Port-Pin during runtime. &lt;br/&gt;true: Port Pin direction changeable enabled. &lt;br/&gt;false: Port Pin direction changeable disabled." />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="0ad7c346-46d6-417e-a29e-e56ab853aeb9" />
+                          <a:da name="DEFAULT" value="false" />
+                          <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="node:fallback(&quot;->../PortPinEnable = 'true'
+                                         and ../../../../../../PortGeneral/PortSetPinDirectionApi = 'true'
+                                         and not(contains(ecu:get('Port.AvailableReadOnlyPorts'), concat('_',../../../PortNumber,'_')))
+                                         and ../PortPinAnalogInputEnable = 'false'&quot;, 'true')"/>
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortPinModeChangeable" type="BOOLEAN">
+                          <a:a name="DESC" value="EN: ECUC_Port_00134: Parameter to indicate if the mode is changeable on a Port-Pin during runtime. &lt;br/&gt;true: Port Pin mode changeable allowed. &lt;br/&gt;false: Port Pin mode changeable not permitted." />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="2eb3e094-f562-4c8a-938c-d488a9e96da0" />
+                          <a:da name="DEFAULT" value="false" />
+                          <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="node:fallback(&quot;->../PortPinEnable = 'true'
+                                         and ../../../../../../PortGeneral/PortSetPinModeApi = 'true'
+                                         and not(contains(ecu:get('Port.AvailableReadOnlyPorts'), concat('_',../../../PortNumber,'_')))
+                                         and not(../PortPinDirection = 'PORT_PIN_IN' and ../PortPinDirectionChangeable = 'false')
+                                         and ../PortPinAnalogInputEnable = 'false'&quot;, 'true')"/>
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortPinAnalogInputEnable" type="BOOLEAN">
+                          <a:a name="DESC" value="EN: Parameter to enable Pin's Analog Input(AI) function. This will also disable Pin's Digital function and Peripheral Control Function. &lt;br/&gt;e.g. Pin is multiplex as SARADC and its direction should controlled by ADC device at runtime." />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="e4162a06-3748-468d-8193-21f4648432eb" />
+                          <a:da name="DEFAULT" value="false" />
+                          <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="node:fallback(&quot;->../PortPinEnable = 'true'
+                                         and contains(ecu:get('Port.AvailabletAnalogInputCtrlPortPin'),concat('_', node:value(../PortPinId), '_'))&quot;, 'true')"/>
+                          </a:da>
+                          <a:da name="INVALID" type="XPath">
+                            <a:tst expr=". = 'true' and not(contains(ecu:get('Port.AvailabletAnalogInputCtrlPortPin'),concat('_', node:value(../PortPinId), '_')))" true="[124-00-06-ERROR]: The Port-Pin does not support 'PortPinAnalogInput' function." />
+                          </a:da>
+                        </v:var>
+                        <v:lst name="PortPinEcucPartitionRef">
+                          <v:ref name="PortPinEcucPartitionRef" type="REFERENCE">
+                            <a:a name="DESC" value="EN: Maps the Port pin to zero a multiple ECUC partitions. The ECUC partitions referenced are a subset of the ECUC partitions where the Port driver is mapped to. &lt;br/&gt; Tags: atp.Status=draft."/>
+                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true"/>
+                            <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                            </a:a>
+                            <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                            <a:a name="SCOPE" value="ECU"/>
+                            <a:a name="UUID" value="603c196d-d351-4da8-8e97-6b5b08e446c4"/>
+                            <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/EcuC/EcucPartitionCollection/EcucPartition"/>
+                          </v:ref>
+                        </v:lst>
+                      </v:ctr>
+                    </v:lst>
+                    <v:lst name="PortLVDS" type="MAP">
+                        <a:da name="MIN" value="0"/>
+                        <a:da name="MAX" type="XPath" expr="node:fallback(&quot;->ecu:get(concat('Port.Port', ../PortNumber,'AvailableLVDSPairNum'))&quot;, ecu:get('Port.LVDSMaxPairNumber'))"/>
+                        <a:da name="EDITABLE" type="XPath">
+                          <a:tst expr="node:fallback(&quot;->contains(ecu:get('Port.AvailableLVDSPorts'),concat('_',../PortNumber,'_'))
+                                        and ../../../../PortGeneral/PortLvdsEnable = 'true'&quot;, 'true')"/>
+                        </a:da>
+                      <v:ctr name="PortLVDS" type="IDENTIFIABLE">
+                        <a:a name="DESC" value="EN: Configure the LVDS function of the Port-Pin."/>
+                        <a:a name="UUID" value="1c7c0b1b-a8ed-40ab-8ab6-d5780fb076e5"/>
+                        <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                        </a:a>
+                        <v:var name="PortLVDSPinPair" type="ENUMERATION">
+                          <a:a name="DESC" value="EN: Parameter identifies the PortPin Pair supporting the LVDS feature."/>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech"/>
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="49f93508-c438-4be5-818a-63257f599cfc"/>
+                          <a:da name="DEFAULT" type="XPath">
+                            <a:tst expr="text:split(ecu:get(concat('Port.Port',node:fallback(&quot;->../../../PortNumber&quot;, 'x'),'AvailableLVDSPairPin')))[position()-1 = node:fallback(&quot;->node:current()/../@index&quot;, '0')]" />
+                          </a:da>
+                          <a:da name="INVALID" type="XPath">
+                            <a:tst expr="text:uniq(../../*/PortLVDSPinPair, .)" false="[124-00-07-ERROR]: PortLVDSPinPair should be unique." />
+                          </a:da>
+                          <a:da name="RANGE" type="XPath">
+                            <a:tst expr="text:split(ecu:get(concat('Port.Port',node:fallback(&quot;->../../../PortNumber&quot;, 'x'),'AvailableLVDSPairPin')))" />
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortLVDSPairId" type="INTEGER">
+                          <a:a name="DESC" value="EN: LVDS Pair Id. This value will be assigned to the symbolic name derived from the PortLVDS container short name." />
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech" />
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="0868a637-33a3-4ae4-9ae2-4445018da893" />
+                          <a:da name="EDITABLE" value="true" />
+                          <a:da name="DEFAULT" type="XPath">
+                            <a:tst expr="node:fallback(&quot;->num:i(node:current()/../../../PortNumber * 16 + text:split(../PortLVDSPinPair,'_')[position() = 3])&quot;, num:i(0))" />
+                          </a:da>
+                          <a:da name="INVALID" type="Multi">
+                            <mt:xpath expr="(.) != num:i(node:current()/../../../PortNumber * 16 + text:split(../PortLVDSPinPair,'_')[position() = 3])" true="[124-00-08-ERROR]: PortLVDSPairId is incorrectly,Please use 'Calculate Value' to recalculate." />
+                            <mt:range>
+                              <mt:tst expr="&gt;=0" />
+                              <mt:tst expr="&lt;=num:i(ecu:get('Port.MaxAvailablePortID') * num:i(16) + ecu:get('Port.MaxAvailablePinID'))" />
+                            </mt:range>
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortLVDSMode" type="ENUMERATION">
+                          <a:a name="DESC" value="EN: Parameters define the mode of LVDS. &lt;br/&gt; LVDS: The common mode voltage in this mode is 1.2V. &lt;br/&gt; SUB_LVDS: The common mode voltage in this mode is 0.9V"/>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech"/>
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="49f93508-c438-4be5-818a-43217f599cfc"/>
+                          <a:da name="DEFAULT" value="LVDS" />
+                          <a:da name="RANGE">
+                          <a:v>LVDS</a:v>
+                          <a:v>SUB_LVDS</a:v>
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortLVDSTerminationResistorEnable" type="ENUMERATION">
+                          <a:a name="DESC" value="EN: Parameter identifies the PortPin Pair internal termination resistor RTERM enable."/>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech"/>
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="49f93508-c438-4be5-818a-33337f599cfc"/>
+                          <a:da name="DEFAULT" value="LVDS_RTERM_DISABLE" />
+                          <a:da name="RANGE">
+                            <a:v>LVDS_RTERM_ENABLE</a:v>
+                            <a:v>LVDS_RTERM_DISABLE</a:v>
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortLVDSTerminationResistorVal" type="ENUMERATION">
+                          <a:a name="DESC">
+                            <a:v>
+                              <![CDATA[EN:
+                              <html>
+                                Parameter identifies the PortPin Pair terminal resistance value.
+                                <h1>Note: LVDS</h1> <br>
+                                LDVS_RTERM_103ohm  <br>
+                                LDVS_RTERM_109ohm  <br>
+                                LDVS_RTERM_117ohm  <br>
+                                LDVS_RTERM_125ohm  <br>
+                                <h1>Note: SUB_LVDS</h1> <br>
+                                SUBLDVS_RTERM_83ohm  <br>
+                                SUBLDVS_RTERM_87ohm  <br>
+                                SUBLDVS_RTERM_92ohm  <br>
+                                SUBLDVS_RTERM_97ohm  <br>
+                              </html>
+                            ]]>
+                            </a:v>
+                          </a:a>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech"/>
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="49f93508-c438-4b15-818a-43217f599c1c"/>
+                          <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="node:fallback(&quot;->../PortLVDSTerminationResistorEnable = 'LVDS_RTERM_ENABLE'&quot;, 'true')"/>
+                          </a:da>
+                          <a:da name="DEFAULT" type="XPath">
+                            <a:tst expr="node:when(node:fallback(../PortLVDSMode, 'LVDS') != 'SUB_LVDS', 'LDVS_RTERM_103ohm', 'SUBLDVS_RTERM_83ohm')"/>
+                          </a:da>
+                          <a:da name="RANGE" type="XPath">
+                            <a:tst expr="node:fallback(../PortLVDSMode, '') != 'LVDS'" true="SUBLDVS_RTERM_83ohm"/>
+                            <a:tst expr="node:fallback(../PortLVDSMode, '') != 'LVDS'" true="SUBLDVS_RTERM_87ohm"/>
+                            <a:tst expr="node:fallback(../PortLVDSMode, '') != 'LVDS'" true="SUBLDVS_RTERM_92ohm"/>
+                            <a:tst expr="node:fallback(../PortLVDSMode, '') != 'LVDS'" true="SUBLDVS_RTERM_97ohm"/>
+                            <a:tst expr="node:fallback(../PortLVDSMode, '') != 'SUB_LVDS'" true="LDVS_RTERM_103ohm"/>
+                            <a:tst expr="node:fallback(../PortLVDSMode, '') != 'SUB_LVDS'" true="LDVS_RTERM_109ohm"/>
+                            <a:tst expr="node:fallback(../PortLVDSMode, '') != 'SUB_LVDS'" true="LDVS_RTERM_117ohm"/>
+                            <a:tst expr="node:fallback(../PortLVDSMode, '') != 'SUB_LVDS'" true="LDVS_RTERM_125ohm"/>
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortLVDSCurrentAndSwing" type="ENUMERATION">
+                          <a:a name="DESC">
+                            <a:v>
+                              <![CDATA[EN:
+                              <html>
+                                Parameter identifies the PortPin Pair current and swing control.
+                                <h1>Note: RTERM Disable + LVDS mode</h1> <br>
+                                LDVS_CURRENT_SWING_LEVEL0: Drive current and differential output voltage magnitude select is: 2.20mA_220mV  <br>
+                                LDVS_CURRENT_SWING_LEVEL1: Drive current and differential output voltage magnitude select is: 2.75mA_275mV  <br>
+                                LDVS_CURRENT_SWING_LEVEL2: Drive current and differential output voltage magnitude select is: 3.30mA_330mV  <br>
+                                LDVS_CURRENT_SWING_LEVEL3: Drive current and differential output voltage magnitude select is: 3.85mA_385mV  <br>
+                                <h1>Note: RTERM Enable + LVDS mode</h1> <br>
+                                LDVS_CURRENT_SWING_LEVEL0: Drive current and differential output voltage magnitude select is: 4.40mA_220mV  <br>
+                                LDVS_CURRENT_SWING_LEVEL1: Drive current and differential output voltage magnitude select is: 5.50mA_275mV  <br>
+                                LDVS_CURRENT_SWING_LEVEL2: Drive current and differential output voltage magnitude select is: 6.60mA_330mV  <br>
+                                LDVS_CURRENT_SWING_LEVEL3: Drive current and differential output voltage magnitude select is: 7.70mA_385mV  <br>
+                                <h1>Note: RTERM Disable + SUB_LVDS mode</h1> <br>
+                                LDVS_CURRENT_SWING_LEVEL0: Drive current and differential output voltage magnitude select is: 0.55mA_55mV   <br>
+                                LDVS_CURRENT_SWING_LEVEL1: Drive current and differential output voltage magnitude select is: 1.10mA_110mV  <br>
+                                LDVS_CURRENT_SWING_LEVEL2: Drive current and differential output voltage magnitude select is: 1.65mA_165mV  <br>
+                                LDVS_CURRENT_SWING_LEVEL3: Drive current and differential output voltage magnitude select is: 2.20mA_220mV  <br>
+                                <h1>Note: RTERM Enable + SUB_LVDS mode</h1> <br>
+                                LDVS_CURRENT_SWING_LEVEL0: Drive current and differential output voltage magnitude select is: 1.10mA_55mV   <br>
+                                LDVS_CURRENT_SWING_LEVEL1: Drive current and differential output voltage magnitude select is: 2.20mA_110mV  <br>
+                                LDVS_CURRENT_SWING_LEVEL2: Drive current and differential output voltage magnitude select is: 3.30mA_165mV  <br>
+                                LDVS_CURRENT_SWING_LEVEL3: Drive current and differential output voltage magnitude select is: 4.40mA_220mV  <br>
+                              </html>
+                            ]]>
+                            </a:v>
+                          </a:a>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech"/>
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="49f93518-c438-4be5-818a-31137f599cfc"/>
+                          <a:da name="DEFAULT" value="LDVS_CURRENT_SWING_LEVEL1"/>
+                          <a:da name="RANGE">
+                            <a:v>LDVS_CURRENT_SWING_LEVEL0</a:v>
+                            <a:v>LDVS_CURRENT_SWING_LEVEL1</a:v>
+                            <a:v>LDVS_CURRENT_SWING_LEVEL2</a:v>
+                            <a:v>LDVS_CURRENT_SWING_LEVEL3</a:v>
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortLVDSOutputCurrentRatioTrim" type="ENUMERATION">
+                          <a:a name="DESC">
+                            <a:v>
+                              <![CDATA[EN:
+                              <html>
+                                Parameter identifies the PortPin Pair output current ratio trim setting.
+                                <h1>Note: </h1> <br>
+                                LDVS_CURRENT_RATIO_NEGATIVE_8: The output current adjustment value is -8%  <br>
+                                LDVS_CURRENT_RATIO_POSITIVE_0: The output current adjustment value is +0%  <br>
+                                LDVS_CURRENT_RATIO_POSITIVE_9: The output current adjustment value is +9%  <br>
+                                LDVS_CURRENT_RATIO_POSITIVE_20: The output current adjustment value is +20% <br>
+                              </html>
+                            ]]>
+                            </a:v>
+                          </a:a>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech"/>
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                          <a:a name="UUID" value="49f93508-4438-4be5-818a-21117f599cfc"/>
+                          <a:da name="DEFAULT" value="LDVS_CURRENT_RATIO_POSITIVE_0" />
+                          <a:da name="RANGE">
+                            <a:v>LDVS_CURRENT_RATIO_NEGATIVE_8 </a:v>
+                            <a:v>LDVS_CURRENT_RATIO_POSITIVE_0 </a:v>
+                            <a:v>LDVS_CURRENT_RATIO_POSITIVE_9 </a:v>
+                            <a:v>LDVS_CURRENT_RATIO_POSITIVE_20</a:v>
+                          </a:da>
+                        </v:var>
+                        <v:var name="PortLVDSBiasVolSelect" type="ENUMERATION">
+                          <a:a name="DESC" value="EN: Parameter identifies the PortPin Pair Bias voltage selection. &lt;br/&gt; LDVS_BIAS_VOL_INTERNAL_SHARE: Bias voltage comes from external input (via VBIASIN). &lt;br/&gt; LDVS_BIAS_VOL_EXTERNAL_INPUT: The bias voltage comes from the internal VDDIO voltage divider.(LVDS: Vbias = VDDIO *2/3; SUB_LVDS: Vbias = VDDIO *1/2"/>
+                          <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                          <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                          </a:a>
+                          <a:a name="ORIGIN" value="ChipowerTech"/>
+                          <a:a name="SCOPE" value="LOCAL"/>
+                          <a:a name="UUID" value="5f7b031d-63ec-4016-827b-7ffa20ee4166"/>
+                          <a:da name="DEFAULT" value="LDVS_BIAS_VOL_INTERNAL_SHARE" />
+                          <a:da name="RANGE">
+                            <a:v>LDVS_BIAS_VOL_INTERNAL_SHARE</a:v>
+                            <a:v>LDVS_BIAS_VOL_EXTERNAL_INPUT</a:v>
+                          </a:da>
+                        </v:var>
+                      </v:ctr>
+                    </v:lst>
+                  </v:ctr>
+                </v:lst>
+              </v:ctr>
+              <v:ctr name="PortGeneral" type="IDENTIFIABLE">
+                <a:a name="DESC" value="EN: ECUC_Port_00117: Module wide configuration parameters of the PORT driver." />
+                <a:a name="UUID" value="56f195d4-db97-434b-be77-1f20ab7b20bd" />
+                <v:lst name="PortEcucPartitionRef">
+                    <v:ref name="PortEcucPartitionRef" type="REFERENCE">
+                      <a:a name="DESC" value="EN: Maps the Port driver to zero a multiple ECUC partitions to make the modules API available in this partition. &lt;br/&gt; Tags: atp.Status=draft."/>
+                      <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true"/>
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                          <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="AUTOSAR_ECUC"/>
+                      <a:a name="SCOPE" value="ECU"/>
+                      <a:a name="UUID" value="855d35f0-0d0e-4f8e-958f-a28a795c3340"/>
+                      <a:da name="REF" value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/EcuC/EcucPartitionCollection/EcucPartition"/>
+                    </v:ref>
+                </v:lst>
+                <v:var name="PortDevErrorDetect" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: ECUC_Port_00123: Switches the Default Error Tracer (Det) detection and notification ON or OFF. &lt;br/&gt;true: enabled (ON). &lt;br/&gt;false: disabled (OFF)." />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="9eca3260-776c-432a-909d-a2f2a8e5fe8f" />
+                  <a:da name="DEFAULT" value="false" />
+                </v:var>
+                <v:var name="PortSafetyErrorDetect" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: Switches the functional safety detection and notification ON or OFF." />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="78002b28-f018-4a7b-9a78-0b958e6457b9" />
+                  <a:da name="DEFAULT" value="true" />
+                </v:var>
+                <v:var name="PortSetPinDirectionApi" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: ECUC_Port_00131: Pre-processor switch to enable / disable the use of the function Port_SetPinDirection(). &lt;br/&gt;true: Enabled - Function Port_SetPinDirection() is available. &lt;br/&gt;false: Disabled - Function Port_SetPinDirection() is notavailable." />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="4583c4c8-9c08-4c99-ba63-45f067fb0b59" />
+                  <a:da name="DEFAULT" value="false" />
+                </v:var>
+                <v:var name="PortSetPinModeApi" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: ECUC_Port_00132: Pre-processor switch to enable / disable the use of the function Port_SetPinMode(). &lt;br/&gt;true: Enabled - Function Port_SetPinMode() is available. &lt;br/&gt;false: Disabled - Function Port_SetPinMode() is not available." />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="b2595b83-abd5-413b-a1e6-b98ce51ce71c" />
+                  <a:da name="DEFAULT" value="false" />
+                </v:var>
+                <v:var name="PortVersionInfoApi" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: ECUC_Port_00133: Pre-processor switch to enable / disable the API to read out the modules version information. &lt;br/&gt;true: Version info API enabled. &lt;br/&gt;false: Version info API disabled." />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="ffbb1f0a-bdbc-4960-815d-ee934879f75f" />
+                  <a:da name="DEFAULT" value="false" />
+                </v:var>
+                <v:var name="PortLvdsEnable" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: Pre-processor switch to enable / disable the LVDS function. &lt;br/&gt;Enable it when LVDS function used. &lt;br/&gt;true: enabled LVDS function. &lt;br/&gt;false: disabled LVDS function." />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="cb896e74-7348-11ec-bc0d-f119d2d2ec8e" />
+                  <a:da name="DEFAULT" value="false" />
+                  <a:da name="EDITABLE" value="true"/>
+                </v:var>
+              </v:ctr>
+              <v:ctr name="CommonPublishedInformation" type="IDENTIFIABLE">
+                <a:a name="DESC">
+                  <a:v>
+                    <![CDATA[EN:<html> Common container, aggregated by all modules. It contains published information about vendor and versions.</html>]]>
+                  </a:v>
+                </a:a>
+                <a:a name="UUID" value="59ab23ec-d96f-44b6-8145-6281329cce3e" />
+                <v:var name="ArReleaseMajorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Major version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="4c1d0286-c8de-42fe-8476-9adf3d016c05" />
+                  <a:da name="DEFAULT" value="4" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="ArReleaseMinorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Minor version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="1fbf1137-5a81-44f0-a804-c0a571ccc2ad" />
+                  <a:da name="DEFAULT" value="4" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="ArReleaseRevisionVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Revision version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="535f3364-bc4a-497d-9f9b-6271f97b52be" />
+                  <a:da name="DEFAULT" value="0" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="SwMajorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Major version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="f0855bf5-b63c-4082-85ea-824b4dd4df4d" />
+                  <a:da name="DEFAULT" value="1" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="SwMinorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Minor version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="71fa8622-e280-4e86-99b5-06318f658aac" />
+                  <a:da name="DEFAULT" value="2" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="SwPatchVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Patch level version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="89cb0f3d-13b3-469e-a8e3-80ae36eb4910" />
+                  <a:da name="DEFAULT" value="0" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="VendorId" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Vendor ID of the dedicated implementation of this module according to the AUTOSAR vendor list.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="3846f5d2-046e-4c42-83d4-5becc5eb52a6" />
+                  <a:da name="DEFAULT" value="175" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+                <v:var name="ModuleId" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v>
+                      <![CDATA[EN:<html> Module ID of this module from Module List.</html>]]>
+                    </a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="5ea7c459-6a16-4218-a212-34c9dd0c6bcc" />
+                  <a:da name="DEFAULT" value="124" />
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255" />
+                    <a:tst expr="&gt;=0" />
+                  </a:da>
+                </v:var>
+              </v:ctr>
+              <d:ref type="REFINED_MODULE_DEF" value="ASPath:/AUTOSAR/EcucDefs/Port" />
+            </v:ctr>
+          </d:chc>
+          <d:chc name="Port_EcuParameterDefinition" type="AR-ELEMENT" value="ECU_PARAMETER_DEFINITION">
+            <d:ctr type="AR-ELEMENT">
+              <a:a name="DEF" value="ASPath:/AR_PACKAGE_SCHEMA/ECU_PARAMETER_DEFINITION" />
+              <a:a name="UUID" value="a641b066-8a63-44cf-bb7b-8a237d855886" />
+              <d:lst name="MODULE_REF">
+                <d:ref type="MODULE_REF" value="ASPath:/THA6_AS440_FuSa/Port" />
+              </d:lst>
+            </d:ctr>
+          </d:chc>
+        </d:lst>
+      </d:ctr>
+    </d:lst>
+  </d:ctr>
+</datamodel>

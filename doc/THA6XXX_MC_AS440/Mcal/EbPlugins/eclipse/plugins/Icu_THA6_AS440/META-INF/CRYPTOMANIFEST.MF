@@ -1,0 +1,36 @@
+
+Name: generate_PB/include/Icu_Cfg.h
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377426061424794379069242163487968181200237175493989126
+ 6809871457633456442553688033920916090881624115921175
+
+Name: generate_PB/include/Icu_PBcfg.h
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 28964594743684154092188965423920518326809822338893362728896
+ 633205235206472578066551661146478807408588270383818294
+
+Name: config/Icu.xdm
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 28964594773968182178047496361706804694781343854939685716874
+ 272018738629695282960084565927466053756877261884716827
+
+Name: generate_PB/src/Icu_PBcfg.c
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377420752071380529533583770188181251683676843573652804
+ 7608594961716506330205504086287825043064508740771949
+
+Name: generate_PB/Icu_Cfg_Common.m
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377420344404814972632952095710921893915449329205962467
+ 2553630388736543550426272786846018958849487190883759
+

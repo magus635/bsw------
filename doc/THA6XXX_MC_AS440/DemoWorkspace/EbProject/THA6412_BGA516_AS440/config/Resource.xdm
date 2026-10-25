@@ -1,0 +1,361 @@
+<?xml version='1.0'?>
+<datamodel version="7.0" 
+           xmlns="http://www.tresos.de/_projects/DataModel2/16/root.xsd" 
+           xmlns:a="http://www.tresos.de/_projects/DataModel2/16/attribute.xsd" 
+           xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd" 
+           xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd">
+
+  <d:ctr type="AUTOSAR" factory="autosar" 
+         xmlns:ad="http://www.tresos.de/_projects/DataModel2/08/admindata.xsd" 
+         xmlns:cd="http://www.tresos.de/_projects/DataModel2/08/customdata.xsd" 
+         xmlns:f="http://www.tresos.de/_projects/DataModel2/14/formulaexpr.xsd" 
+         xmlns:icc="http://www.tresos.de/_projects/DataModel2/08/implconfigclass.xsd" 
+         xmlns:mt="http://www.tresos.de/_projects/DataModel2/11/multitest.xsd"  
+         xmlns:variant="http://www.tresos.de/_projects/DataModel2/11/variant.xsd">
+    <d:lst type="TOP-LEVEL-PACKAGES">
+      <d:ctr name="Resource" type="AR-PACKAGE">
+        <d:lst type="ELEMENTS">
+          <d:chc name="Resource" type="AR-ELEMENT" value="MODULE-CONFIGURATION">
+            <d:ctr type="MODULE-CONFIGURATION">
+              <a:a name="DEF" value="ASPath:/THA6_AS440_FuSa/Resource"/>
+              <d:ctr name="ResourceGeneral" type="IDENTIFIABLE">
+                <d:var name="ResourceSubderivative" type="ENUMERATION" 
+                       value="THA6412_BGA516"/>
+              </d:ctr>
+              <d:ctr name="ResourceCoreConfigSet" type="IDENTIFIABLE">
+                <d:var name="ResourceMasterCore" type="ENUMERATION" 
+                       value="CORE0">
+                  <a:a name="IMPORTER_INFO">
+                    <a:v>@DEF</a:v>
+                    <a:v>@CALC</a:v>
+                  </a:a>
+                </d:var>
+                <d:lst name="ResourceCoreConfig" type="MAP">
+                  <d:ctr name="ResourceCoreConfig_0" type="IDENTIFIABLE">
+                    <d:var name="ResourceCoreId" type="ENUMERATION" 
+                           value="CORE0">
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="ResourceCoreEnable" type="BOOLEAN" value="true">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:lst name="ResourceAllocation" type="MAP">
+                      <d:ctr name="ResourceAllocation_0" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="UART"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Uart/Uart/UartGlobalConfig/DebugChannel"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_1" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="LIN"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Lin/Lin/LinGlobalConfig/Lin_TestChannel_0"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_3" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="GPT"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Gpt/Gpt/GptChannelConfigSet/GptChannelConfiguration_0"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_4" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="GPT"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Gpt/Gpt/GptChannelConfigSet/GptChannelConfiguration_1"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_5" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="PWM"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Pwm/Pwm/PwmChannelConfigSet/PwmChannel_0"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_6" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="PWM"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Pwm/Pwm/PwmChannelConfigSet/PwmChannel_1"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_7" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="PWM"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Pwm/Pwm/PwmChannelConfigSet/PwmChannel_2"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_8" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="PWM"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Pwm/Pwm/PwmChannelConfigSet/PwmChannel_3"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_9" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="OCU"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Ocu/Ocu/OcuConfigSet/OcuChannel_0"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_10" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="OCU"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Ocu/Ocu/OcuConfigSet/OcuChannel_1"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_11" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="MSC"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Msc/Msc/MscConfigSet/MscModuleConfiguration_0"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_2" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="SPI">
+                          <a:a name="IMPORTER_INFO" value="@DEF"/>
+                        </d:var>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Spi/Spi/SpiDriver/SPI0"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_15" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="IOM"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Iom/Iom"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_16" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="GPT"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Gpt/Gpt/GptChannelConfigSet/GptChannelConfiguration_6"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_17" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="GPT"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Gpt/Gpt/GptChannelConfigSet/GptChannelConfiguration_7"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_12" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="I2C"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/I2c/I2c/I2cGlobalConfig/I2cChannel_0"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_13" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="GPT"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Gpt/Gpt/GptChannelConfigSet/GptChannelConfiguration_9"/>
+                      </d:ctr>
+                    </d:lst>
+                  </d:ctr>
+                  <d:ctr name="ResourceCoreConfig_1" type="IDENTIFIABLE">
+                    <d:var name="ResourceCoreId" type="ENUMERATION" 
+                           value="CORE1">
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="ResourceCoreEnable" type="BOOLEAN" value="true">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:lst name="ResourceAllocation" type="MAP">
+                      <d:ctr name="ResourceAllocation_2" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="GPT"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Gpt/Gpt/GptChannelConfigSet/GptChannelConfiguration_2"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_3" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="GPT"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Gpt/Gpt/GptChannelConfigSet/GptChannelConfiguration_3"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_4" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="PWM"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Pwm/Pwm/PwmChannelConfigSet/PwmChannel_4"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_5" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="PWM"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Pwm/Pwm/PwmChannelConfigSet/PwmChannel_5"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_6" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="PWM"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Pwm/Pwm/PwmChannelConfigSet/PwmChannel_6"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_7" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="PWM"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Pwm/Pwm/PwmChannelConfigSet/PwmChannel_7"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_8" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="OCU"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Ocu/Ocu/OcuConfigSet/OcuChannel_2"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_9" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="OCU"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Ocu/Ocu/OcuConfigSet/OcuChannel_3"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_0" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="SENT"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Sent/Sent/SentConfigSet_0/SentChannelConfigSet_3"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_1" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="SENT"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Sent/Sent/SentConfigSet_0/SentChannelConfigSet_4"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_10" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="SENT"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Sent/Sent/SentConfigSet_0/SentChannelConfigSet_5"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_11" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="ICU"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Icu/Icu/IcuConfigSet/IcuChannel_4"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_12" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="ICU"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Icu/Icu/IcuConfigSet/IcuChannel_5"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_13" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="ICU"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Icu/Icu/IcuConfigSet/IcuChannel_6"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_14" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="ICU"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Icu/Icu/IcuConfigSet/IcuChannel_7"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_17" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="ADC"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Adc/Adc/AdcConfigSet/SWTrigDemo"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_18" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="DMA"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Dma/Dma/DmaConfigSet/M2M_Continuous"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_19" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="LIN"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Lin/Lin/LinGlobalConfig/Lin_TestChannel_1"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_21" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="CAN"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Can/Can/CanConfigSet/CanController_4"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_20" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="GPT"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Gpt/Gpt/GptChannelConfigSet/GptChannelConfiguration_8"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_22" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="GPT"/>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Gpt/Gpt/GptChannelConfigSet/GptChannelConfiguration_10"/>
+                      </d:ctr>
+                      <d:ctr name="ResourceAllocation_15" type="IDENTIFIABLE">
+                        <d:var name="ResourceModule" type="ENUMERATION" 
+                               value="SPI">
+                          <a:a name="IMPORTER_INFO" value="@DEF"/>
+                        </d:var>
+                        <d:ref name="ResourceModuleRef" type="REFERENCE" 
+                               value="ASPath:/Spi/Spi/SpiDriver/SPI2"/>
+                      </d:ctr>
+                    </d:lst>
+                  </d:ctr>
+                  <d:ctr name="ResourceCoreConfig_2" type="IDENTIFIABLE">
+                    <d:var name="ResourceCoreId" type="ENUMERATION" 
+                           value="CORE2">
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="ResourceCoreEnable" type="BOOLEAN" value="true">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:lst name="ResourceAllocation" type="MAP"/>
+                  </d:ctr>
+                  <d:ctr name="ResourceCoreConfig_3" type="IDENTIFIABLE">
+                    <d:var name="ResourceCoreId" type="ENUMERATION" 
+                           value="CORE3">
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="ResourceCoreEnable" type="BOOLEAN" value="true">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:lst name="ResourceAllocation" type="MAP"/>
+                  </d:ctr>
+                </d:lst>
+              </d:ctr>
+              <d:ctr name="CommonPublishedInformation" type="IDENTIFIABLE">
+                <d:var name="ArReleaseMajorVersion" type="INTEGER" value="4">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="ArReleaseMinorVersion" type="INTEGER" value="4">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="ArReleaseRevisionVersion" type="INTEGER" value="0">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="ModuleId" type="INTEGER" value="255">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="SwMajorVersion" type="INTEGER" value="1">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="SwMinorVersion" type="INTEGER" value="2">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="SwPatchVersion" type="INTEGER" value="0">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="VendorId" type="INTEGER" value="175">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+              </d:ctr>
+            </d:ctr>
+          </d:chc>
+        </d:lst>
+      </d:ctr>
+    </d:lst>
+  </d:ctr>
+
+</datamodel>

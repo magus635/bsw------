@@ -1,0 +1,1945 @@
+<?xml version='1.0'?>
+<datamodel version="7.0" xmlns="http://www.tresos.de/_projects/DataModel2/16/root.xsd"
+    xmlns:a="http://www.tresos.de/_projects/DataModel2/16/attribute.xsd"
+    xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd"
+    xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd">
+    <d:ctr type="AUTOSAR" factory="autosar"
+        xmlns:ad="http://www.tresos.de/_projects/DataModel2/08/admindata.xsd"
+        xmlns:ce="http://www.tresos.de/_projects/DataModel2/18/childenable.xsd"
+        xmlns:cd="http://www.tresos.de/_projects/DataModel2/08/customdata.xsd"
+        xmlns:f="http://www.tresos.de/_projects/DataModel2/14/formulaexpr.xsd"
+        xmlns:icc="http://www.tresos.de/_projects/DataModel2/08/implconfigclass.xsd"
+        xmlns:mt="http://www.tresos.de/_projects/DataModel2/11/multitest.xsd"
+        xmlns:variant="http://www.tresos.de/_projects/DataModel2/11/variant.xsd">
+        <d:lst type="TOP-LEVEL-PACKAGES">
+            <d:ctr name="THA6_AS440_FuSa" type="AR-PACKAGE">
+                <a:a name="UUID" value="ECUC:AUTOSAR"/>
+                <d:lst type="ELEMENTS">
+                    <d:chc name="Dsadc" type="AR-ELEMENT" value="MODULE-DEF">
+                        <v:ctr type="MODULE-DEF">
+                            <a:a name="ADMIN-DATA" type="ADMIN-DATA">
+                                <ad:ADMIN-DATA>
+                                    <ad:DOC-REVISIONS>
+                                        <ad:DOC-REVISION>
+                                            <ad:REVISION-LABEL>4.4.0</ad:REVISION-LABEL>
+                                            <ad:ISSUED-BY>AUTOSAR</ad:ISSUED-BY>
+                                          </ad:DOC-REVISION>
+                                    </ad:DOC-REVISIONS>
+                                </ad:ADMIN-DATA>
+                            </a:a>
+                            <a:a name="DESC"
+                                value="EN: Configuration of the Dsadc (Delta Sigma Analog Digital Conversion) module." />
+                            <a:a name="LOWER-MULTIPLICITY" value="0" />
+                            <a:a name="POSTBUILDVARIANTSUPPORT" value="true" />
+                            <a:a name="RELEASE" value="asc:4.4.0" />
+                            <a:a name="UPPER-MULTIPLICITY" value="*" />
+                            <a:a name="UUID" value="026e4be5-0b0f-4c7e-9ec9-3c5e151758f4" />
+                            <v:var name="IMPLEMENTATION_CONFIG_VARIANT" type="ENUMERATION">
+                                <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                    type="IMPLEMENTATIONCONFIGCLASS">
+                                    <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                </a:a>
+                                <a:a name="LABEL" value="Config Variant" />
+                                <a:a name="UUID" value="19e2dd16-9ee1-4110-98b3-ba2e10a93525" />
+                                <a:da name="DEFAULT" value="VariantPostBuild" />
+                                <a:da name="RANGE">
+                                    <a:v>VariantPostBuild</a:v>
+                                </a:da>
+                            </v:var>
+                            <v:ctr name="DsadcDemEventParameterRefs" type="IDENTIFIABLE">
+                                <a:a name="DESC"
+                                    value="EN: Container for the references to DemEventParameter elements which shall be invoked using the API Dem_ReportErrorStatus API in case the corresponding error occurs. The EventId is taken from the referenced DemEventParameter's DemEventId value. The standardized errors are provided in the container and can be extended by vendor specific error references." />
+                                <a:a name="OPTIONAL" value="true" />
+                                <a:a name="UUID" value="9bae0edd-0dbf-87a0-365d-b6b33ab867e7" />
+                                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                    <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                </a:a>
+                                <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                                <v:ref name="DSADC_E_FIFO_FAILURE" type="SYMBOLIC-NAME-REFERENCE">
+                                    <a:a name="DESC"
+                                        value="EN: Reference to configured DEM event to report DSADC &quot;FIFO write/read failure&quot;.
+                                        If the reference is not configured the error shall not be reported." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                                    <a:a name="OPTIONAL" value="true" />
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="UUID" value="9e9bc134-3271-28c7-f3f4-fd9820bdb153" />
+                                    <a:da name="REF"
+                                        value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/Dem/DemConfigSet/DemEventParameter" />
+                                    <a:da name="INVALID" type="XPath">
+                                        <a:tst expr="node:refvalid(.)"
+                                            false="Invalid or empty reference." />
+                                    </a:da>
+                                </v:ref>
+                            </v:ctr>
+                            <v:ctr name="DsadcConfigSet" type="IDENTIFIABLE">
+                                <a:a name="DESC"
+                                    value="EN: This container contains the configuration parameters and sub containers of the Dsadc module." />
+                                <a:a name="UUID" value="0826c24d-4572-90a0-3a95-0742549ec249" />
+                                <v:ref name="DsadcAnalogClockSource" type="REFERENCE">
+                                    <a:a name="DESC"
+                                        value="EN: This parameter defines DSADC module clock(hz) &lt;br/&gt;
+                                          This parameter is reference from MCU DSADC clock, configure DSADC clock first in MCU Container" />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="UUID" value="b9800bb1-8fa7-b55d-36c9-01fd2eb4b502" />
+                                    <a:da name="REF"
+                                        value="ASPathDataOfSchema:/AUTOSAR/EcucDefs/Mcu/McuModuleConfiguration/McuClockSettingConfig/McuClockReferencePoint" />
+                                    <a:da name="INVALID" type="XPath">
+                                        <a:tst expr="node:refvalid(.)"
+                                            false="Invalid or empty reference." />
+                                    </a:da>
+                                </v:ref>
+                                <v:lst name="DsadcChannel" type="MAP">
+                                    <a:da name="MIN" value="1" />
+                                    <a:da name="MAX" type="XPath"
+                                        expr="(num:i(count(ecu:list('Dsadc.HwUnitList'))))" />
+                                    <v:ctr name="DsadcChannel" type="IDENTIFIABLE">
+                                        <a:a name="DESC"
+                                            value="EN: This container contains the configuration (parameters) of the Dsadc channels." />
+                                        <a:a name="REQUIRES-INDEX" value="true"/>
+                                        <a:a name="UUID"
+                                            value="100a165f-a9e6-d1a0-da79-ce101a0bf930" />
+                                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                            <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                        </a:a>
+                                        <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                                        <v:var name="DsadcChannelId" type="INTEGER">
+                                            <a:a name="DESC"
+                                                value="EN: Unique identifier(Logical identifier) for each channel." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="true" />
+                                            <a:a name="UUID" value="459232AE-9FAA-4A96-3504-BCADD193A0DA" />
+                                            <a:da name="INVALID" type="Multi">
+                                                <mt:xpath expr="text:uniq(../../*/DsadcChannelId,.)"
+                                                    false="DsadcChannelId should be a unique value." />
+                                                <mt:xpath
+                                                    expr="node:isconsecutive(../../*/DsadcChannelId, 0)"
+                                                    false="DsadcChannelId number is not a consecutive number" />
+                                                <mt:range>
+                                                    <mt:tst expr="&gt;=0" />
+                                                    <mt:tst
+                                                        expr="&lt;=(num:i(count((ecu:list('Dsadc.HwUnitList'))) - 1))" />
+                                                </mt:range>
+                                            </a:da>
+                                            <a:da name="DEFAULT" type="XPath"
+                                                expr="num:i((node:fallback((node:current()/../@index), 0)) + 0)" />
+                                        </v:var>
+                                        <v:var name="DsadcHwUnitId" type="ENUMERATION">
+                                            <a:a name="DESC"
+                                                value="EN: Numeric ID of the HW Unit. This symbolic name allows accessing HW Unit data." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID"
+                                                value="afea165f-17c8-1710-c84e-ef060fe78827" />
+                                            <a:da name="DEFAULT" type="XPath"
+                                                expr="ecu:list('Dsadc.HwUnitList')[node:fallback(node:current()/../@index, '0') + 1]" />
+                                            <a:da name="RANGE" type="XPath"
+                                                expr="ecu:list('Dsadc.HwUnitList')" />
+                                            <a:da name="INVALID" type="XPath">
+                                                <a:tst expr="text:uniq(../../*/DsadcHwUnitId, .)"
+                                                    false="Wrong Configuration, DSADC hardware unit must be unique" />
+                                            </a:da>
+                                        </v:var>
+                                        <v:var name="DsadcResultHandlingImplementation"
+                                            type="ENUMERATION">
+                                            <a:a name="DESC"
+                                                value="EN: Determines the conversion result handling method for each channel .&lt;br/&gt;
+                                                    DSADC_INTERRUPT_MODE: Conversion results are transferred in the ISR. If used it is necessary to configure the interrupt of this HW unit in the INTC module.&lt;br/&gt;
+                                                    DSADC_DMA_MODE: Conversion results are transferred using a DMA channel.If used it is necessary to configure the DMA channel of this HW unit in the DMA module.&lt;br/&gt;
+                                                    DSADC_POLLING_MODE: Conversion results are trans-ferred using API Dsadc_GetChannelStatus(). If used, Dsadc_GetChannelStatus() needs to be called periodically." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID"
+                                                value="d68fc23a-8193-70ef-acb6-ad5bd7765eb0" />
+                                            <a:a name="DEFAULT" value="DSADC_INTERRUPT_MODE" />
+                                            <a:da name="RANGE">
+                                                <a:v>DSADC_INTERRUPT_MODE</a:v>
+                                                <a:v>DSADC_POLLING_MODE</a:v>
+                                                <a:v>DSADC_DMA_MODE</a:v>
+                                            </a:da>
+                                        </v:var>
+                                        <v:var name="DsadcChAuxiliaryFilterChainEnable"
+                                            type="BOOLEAN">
+                                            <a:a name="DESC"
+                                                value="EN: Enables / Disables the auxiliary filter chain for each channel.
+                                                    &lt;h1&gt;Note&lt;/h1&gt;
+                                                    This parameter is available only if the parameter DsadcAuxilia-ryFilterChainEnable is set to true." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID"
+                                                value="4e18efdc-516e-3077-719e-cda25fa4c443" />
+                                            <a:da name="DEFAULT" value="false" />
+                                            <a:da name="EDITABLE" type="XPath" expr="node:fallback(as:modconf('Dsadc')/DsadcGeneral/DsadcAuxiliaryFilterChainEnable, 'true') = 'true'" />
+                                            <a:da name="INVALID" type="XPath">
+                                                <a:tst expr="(as:modconf('Dsadc')/DsadcGeneral/DsadcAuxiliaryFilterChainEnable = 'false') and (. = 'true')"
+                                                    true="DsadcAuxiliaryFilterChainEnable must be enabled." />
+                                            </a:da>
+                                        </v:var>
+                                        <v:var name="DsadcChAuxFilterResultAcquisitionEnable"
+                                            type="BOOLEAN">
+                                            <a:a name="DESC"
+                                                value="EN: Enables / Disables the auxiliary filter result acquisition for each channel.
+                                                    &lt;h1&gt;Note&lt;/h1&gt;
+                                                    This parameter is available only is the parameter DsadcChAux-iliaryFilterChainEnable is set to true and the parameter Dsad-cAccessMode is set to DSADC_ACCESS_MODE_SINGLE" />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID"
+                                                value="4e18efdc-516e-3077-719e-cda23fa4c443" />
+                                            <a:da name="DEFAULT" value="false" />
+                                            <a:da name="OPTIONAL" value="true" />
+                                            <a:da name="EDITABLE" type="XPath" expr="node:fallback(../DsadcChAuxiliaryFilterChainEnable, 'true') = 'true'" />
+                                            <a:da name="INVALID" type="XPath">
+                                                <a:tst expr="(../DsadcChAuxiliaryFilterChainEnable = 'false') and (. = 'true')"
+                                                    true="DsadcChAuxiliaryFilterChainEnable must be enabled." />
+                                                <a:tst expr="(../DsadcAccessMode != 'DSADC_ACCESS_MODE_SINGLE') and (. = 'true')"
+                                                    true="The value of the auxiliary filter can only be obtained in single mode, DsadcAccessMode must be DSADC_ACCESS_MODE_SINGLE." />
+                                            </a:da>
+                                        </v:var>
+                                        <v:var name="DsadcAccessMode" type="ENUMERATION">
+                                            <a:a name="DESC"
+                                                value="EN: Access mode to channel conversion results.&lt;br/&gt;
+                                                DSADC_ACCESS_MODE_STREAMING: Streaming buffer access mode.&lt;br/&gt;
+                                                DSADC_ACCESS_MODE_SINGLE: Single access mode." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID"
+                                                value="4c160c54-b325-263d-ac3e-e2b6d6ada792" />
+                                            <a:da name="DEFAULT" value="DSADC_ACCESS_MODE_SINGLE" />
+                                            <a:da name="RANGE">
+                                                <a:v>DSADC_ACCESS_MODE_SINGLE</a:v>
+                                                <a:v>DSADC_ACCESS_MODE_STREAMING</a:v>
+                                            </a:da>
+                                        </v:var>
+                                        <v:var name="DsadcStreamBufferMode" type="ENUMERATION">
+                                            <a:a name="DESC"
+                                                value="EN: Configure streaming buffer as &quot;linear buffer&quot; (i.e. the DSADC Driver stops the conversion as soon as the stream buffer is full) or as &quot;circular buffer&quot; (wraps around if the end of the stream buffer is reached).&lt;br/&gt;
+                                                    DSADC_STREAM_BUFFER_CIRCULAR: The DSADC Driver continues the conversion even if the stream buffer is full (number of samples reached) by wrapping around the stream buffer itself.&lt;br/&gt;
+                                                    DSADC_STREAM_BUFFER_LEANER: The DSADC Driver stops the conversion as soon as the stream buffer is full (number of samples reached)." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID"
+                                                value="ba998216-7cb9-6dc3-85bf-a92fb003431d" />
+                                            <a:da name="DEFAULT"
+                                                value="DSADC_STREAM_BUFFER_CIRCULAR" />
+                                            <a:da name="RANGE">
+                                                <a:v>DSADC_STREAM_BUFFER_CIRCULAR</a:v>
+                                                <a:v>DSADC_STREAM_BUFFER_LEANER</a:v>
+                                            </a:da>
+                                            <a:da name="EDITABLE" type="XPath" expr="../DsadcAccessMode = 'DSADC_ACCESS_MODE_STREAMING'" />
+                                        </v:var>
+                                        <v:var name="DsadcTriggerMode" type="ENUMERATION">
+                                            <a:a name="DESC"
+                                                value="EN: Type of source event that starts a channel conversion.
+                                                  DSADC_TRIGG_MODE_CONTINUOUS: Conversion result will be trans-ferred to the result buffer if the new result is generated.
+                                                  DSADC_TRIGG_MODE_EXTERNAL: Conversion result will be transferred to the result buffer if the external hardware event is triggered." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID"
+                                                value="81788f49-e69d-0517-fdef-777ebe5cd784" />
+                                            <a:da name="DEFAULT" value="DSADC_TRIGG_MODE_CONTINUOUS" />
+                                            <a:da name="RANGE">
+                                                <a:v>DSADC_TRIGG_MODE_CONTINUOUS</a:v>
+                                                <a:v>DSADC_TRIGG_MODE_EXTERNAL</a:v>
+                                            </a:da>
+                                        </v:var>
+                                        <v:var name="DsadcChTimestampEnable" type="BOOLEAN">
+                                            <a:a name="DESC"
+                                                value="EN: Enables / Disables the timestamp for each channel.
+                                                    &lt;h1&gt;Note&lt;/h1&gt;
+                                                    This parameter is available only if the parameter DsadcAccess-Mode is set to DSADC_ACCESS_MODE_SINGLE." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID"
+                                                value="44611695-7614-9cb1-6cf5-8c1e78e8f3be" />
+                                            <a:a name="DEFAULT" value="false" />
+                                            <a:da name="EDITABLE" type="XPath">
+                                                <a:tst
+                                                    expr="../DsadcAccessMode = 'DSADC_ACCESS_MODE_SINGLE'" />
+                                            </a:da>
+                                            <a:da name="INVALID" type="XPath">
+                                                <a:tst
+                                                    expr="(../DsadcAccessMode = 'DSADC_ACCESS_MODE_STREAMING') and (. = 'true')"
+                                                    true="Timestamp functionality only availabled when 'DsadcAccessMode' = 'DSADC_ACCESS_MODE_SINGLE'." />
+                                            </a:da>
+                                        </v:var>
+                                        <v:var name="DsadcGateActiveLevel" type="ENUMERATION">
+                                            <a:a name="DESC"
+                                                value="EN: Determines the active level for the trigger gate single of an external event.
+                                                    &lt;h1&gt;Note&lt;/h1&gt;
+                                                    This parameter is available only if the parameter DsadcTrigger-Mode is set to DSADC_TRIGG_MODE_EXTERNAL." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID"
+                                                value="32e55b95-6cab-31d0-607b-a94aa231bc55" />
+                                            <a:da name="DEFAULT" value="DSADC_GATE_HIGH_LEVEL" />
+                                            <a:da name="RANGE">
+                                                <a:v>DSADC_GATE_HIGH_LEVEL</a:v>
+                                                <a:v>DSADC_GATE_LOW_LEVEL</a:v>
+                                            </a:da>
+                                            <a:da name="EDITABLE" type="XPath">
+                                                <a:tst
+                                                    expr="../DsadcTriggerMode = 'DSADC_TRIGG_MODE_EXTERNAL'" />
+                                            </a:da>
+                                        </v:var>
+                                        <v:var name="DsadcStreamingNumSamples" type="INTEGER">
+                                            <a:a name="DESC"
+                                                value="EN: Number of DSADC values to be acquired in streaming access mode.
+                                                    Note: in single access mode this parameter assumes value 1, since only one sample per channel is processed.
+                                                " />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="11cdef9a-817f-d4d9-71ff-8e937e442454" />
+                                            <a:da name="DEFAULT" value="1" />
+                                            <a:da name="INVALID" type="Range">
+                                                <a:tst expr="&lt;=255" />
+                                                <a:tst expr="&gt;=1" />
+                                            </a:da>
+                                            <a:da name="INVALID" type="XPath">
+                                                <a:tst
+                                                    expr="(../DsadcAccessMode = 'DSADC_ACCESS_MODE_SINGLE') and (. != '1')"
+                                                    true="When 'DsadcAccessMode'='DSADC_ACCESS_MODE_SINGLE', the 'DsadcStreamingNumSamples' must be 1." />
+                                            </a:da>
+                                            <a:da name="EDITABLE" type="XPath" expr="../DsadcAccessMode = 'DSADC_ACCESS_MODE_STREAMING'" />
+                                        </v:var>
+                                        <v:var name="DsadcNewResultNotification" type="FUNCTION-NAME">
+                                            <a:a name="DESC"
+                                                value="EN: Callback function for each channel, which will be called when the new conversion result of the channel is generated.&lt;br/&gt;
+                                                    &lt;h1&gt;Note&lt;/h1&gt;
+                                                    1. This parameter is available only if the parameter DsadcGrpNotifCapability is set to true.&lt;br/&gt;
+                                                    2. This parameter is available only if the parameter DsadcResultHandlingImplementation is set to 'DSADC_INTERRUPT_MODE'.&lt;br/&gt;
+                                                    3. Notification function must be no return value(type void) and one parameter and the type is Dsadc_ConvChannelType." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="OPTIONAL" value="true" />
+                                            <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID"
+                                                value="afa343c0-5ccc-fcbb-a872-a576fe49894d" />
+                                            <a:da name="DEFAULT" value="NULL_PTR" />
+                                            <a:da name="EDITABLE" type="XPath"
+                                                expr="(as:modconf('Dsadc')/DsadcGeneral/DsadcNotifCapability = 'true') and 
+                                                      (../DsadcResultHandlingImplementation = 'DSADC_INTERRUPT_MODE')" />
+                                            <a:da name="INVALID" type="XPath">
+                                                <a:tst
+                                                    expr="(. = '') and (as:modconf('Dsadc')/DsadcGeneral/DsadcNotifCapability = 'true')"
+                                                    true="DsadcNewResultNotification name is empty" />
+                                                <a:tst
+                                                    expr="text:match(normalize-space(.),'^[_a-zA-Z]+[_0-9a-zA-Z]*$')"
+                                                    false="Invalid name of the 'DsadcNewResultNotification'. Must be valid C function name or NULL_PTR." />
+                                            </a:da>
+                                        </v:var>
+                                        <v:var name="DsadcBufferFullNotification" type="FUNCTION-NAME">
+                                            <a:a name="DESC"
+                                                value="EN: Callback function for each channel, which will be called when the conversion result buffer is full in the streaming access mode.&lt;br/&gt;
+                                                    &lt;h1&gt;Note&lt;/h1&gt;
+                                                    1. This parameter is available only if the parameter DsadcGrpNotifCapability is set to true.&lt;br/&gt;
+                                                    2. This parameter is available only if the parameter DsadcResultHandlingImplementation is set to 'DSADC_INTERRUPT_MODE'.&lt;br/&gt;
+                                                    3. This parameter is available only if the parameter DsadcAccessMode is set to 'DSADC_ACCESS_MODE_STREAMING'.&lt;br/&gt;
+                                                    4. Notification function must be no return value(type void) and no formal parameters." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="OPTIONAL" value="true" />
+                                            <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID"
+                                                value="afa343c0-5ccc-fcbb-a872-a576fe49544e" />
+                                            <a:da name="DEFAULT" value="NULL_PTR" />
+                                            <a:da name="EDITABLE" type="XPath"
+                                                expr="(as:modconf('Dsadc')/DsadcGeneral/DsadcNotifCapability = 'true') and 
+                                                      (../DsadcResultHandlingImplementation = 'DSADC_INTERRUPT_MODE') and (../DsadcAccessMode = 'DSADC_ACCESS_MODE_STREAMING')" />
+                                            <a:da name="INVALID" type="XPath">
+                                                <a:tst
+                                                    expr="(. = '') and (as:modconf('Dsadc')/DsadcGeneral/DsadcNotifCapability = 'true')"
+                                                    true="DsadcNotification name is empty" />
+                                                <a:tst
+                                                    expr="text:match(normalize-space(.),'^[_a-zA-Z]+[_0-9a-zA-Z]*$')"
+                                                    false="Invalid name of the 'DsadcNotification'. Must be valid C function name or NULL_PTR." />
+                                            </a:da>
+                                        </v:var>
+                                        <v:var name="DsadcLimitCheckingNotification" type="FUNCTION-NAME">
+                                            <a:a name="DESC"
+                                                value="EN: Callback function for each channel, which will be called when the conversion result of the auxiliary filter is below the lower limit or above the upper limit. &lt;br/&gt;
+                                                    &lt;h1&gt;Note&lt;/h1&gt;
+                                                    1. This parameter is available only if the parameter DsadcGrpNotifCapability is set to true.&lt;br/&gt;
+                                                    2. This parameter is available only if the parameter DsadcAuxLimitCheckingEnable is set to true.&lt;br/&gt;
+                                                    3. This parameter is available only if the parameter DsadcChAuxiliaryFilterChainEnable is set to true.&lt;br/&gt;
+                                                    4. This parameter is available only if the parameter DsadcResultHandlingImplementation is set to 'DSADC_INTERRUPT_MODE' or 'DSADC_POLLING_MODE'.&lt;br/&gt;
+                                                    5. Notification function must be no return value(type void) and one parameter and the type is Dsadc_LimitCheckingEventType." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="OPTIONAL" value="true" />
+                                            <a:a name="ORIGIN" value="AUTOSAR_ECUC" />
+                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID"
+                                                value="afa343c0-5ccc-fcbb-a872-a576fe49894e" />
+                                            <a:da name="DEFAULT" value="NULL_PTR" />
+                                            <a:da name="EDITABLE" type="XPath"
+                                                expr="(as:modconf('Dsadc')/DsadcGeneral/DsadcNotifCapability = 'true') and 
+                                                      (../DsadcResultHandlingImplementation != 'DSADC_DMA_MODE') and 
+                                                      (../DsadcChAuxiliaryFilterChainEnable = 'true') and 
+                                                      (as:modconf('Dsadc')/DsadcGeneral/DsadcAuxLimitCheckingEnable = 'true')" />
+                                            <a:da name="INVALID" type="XPath">
+                                                <a:tst
+                                                    expr="(. = '') and (as:modconf('Dsadc')/DsadcGeneral/DsadcNotifCapability = 'true')"
+                                                    true="DsadcNotification name is empty" />
+                                                <a:tst
+                                                    expr="text:match(normalize-space(.),'^[_a-zA-Z]+[_0-9a-zA-Z]*$')"
+                                                    false="Invalid name of the 'DsadcNotification'. Must be valid C function name or NULL_PTR." />
+                                            </a:da>
+                                        </v:var>
+                                        <v:lst name="DsadcModulatorConfig" type="MAP">
+                                            <a:da name="MIN" value="1" />
+                                            <a:da name="MAX" value="1" />
+                                            <v:ctr name="DsadcModulatorConfig" type="IDENTIFIABLE">
+                                                <a:a name="DESC" value="EN: This container contains the modulator configuration in each channel." />
+                                                <a:a name="REQUIRES-INDEX" value="true"/>
+                                                <a:a name="UUID" value="4d047d6d-57ed-68ed-f211-c57931fe97aa" />
+                                                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                    <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                                </a:a>
+                                                <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false" />
+
+                                                <v:var name="DsadcDitheringEnable" type="BOOLEAN">
+                                                    <a:a name="DESC"
+                                                        value="EN: Enables / Disables the availability of internal dithering functionality for each modulator.&lt;br/&gt;
+                                                            true: Internal dithering functionality enabled. &lt;br/&gt;
+                                                            false: Internal dithering functionality disabled." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="a3d25102-81c4-a913-39af-6f2cfb6b76a0" />
+                                                    <a:da name="DEFAULT" value="false" />
+                                                </v:var>
+                                                <v:var name="DsadcInputGain" type="ENUMERATION">
+                                                    <a:a name="DESC"
+                                                        value="EN: Determines the gain factor for the analog input signal." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="d80bc811-c1f9-23c2-c53b-1b9ecf23e16f" />
+                                                    <a:da name="DEFAULT" type="XPath"
+                                                        expr="ecu:list('Dsadc.GainSelect')[1]" />
+                                                    <a:da name="RANGE" type="XPath"
+                                                        expr="ecu:list('Dsadc.GainSelect')" />
+                                                </v:var>
+                                                <v:var name="DsadcInputMuxChangeMode" type="ENUMERATION">
+                                                    <a:a name="DESC"
+                                                        value="EN: Determines the control mechanism for input multiplexer. It defines the action to be taken for the input multiplexer upon a trigger event for pin selection.&lt;br/&gt;
+                                                            DSADC_INPUTMUX_CHANGE_PRESET: Do not changed.&lt;br/&gt; 
+                                                            DSADC_INPUTMUX_CHANGE_SINGLE_STEP: Change to another input pin.
+                                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                                            This parameter can only be set to 'DSADC_INPUTMUX_CHANGE_SINGLE_STEP' when the parameter DsadcTriggerMode is set to 'DSADC_TRIGG_MODE_EXTERNAL'." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="ea98874b-ce66-a956-19c4-81ff75fde89c" />
+                                                    <a:da name="DEFAULT"
+                                                        value="DSADC_INPUTMUX_CHANGE_PRESET" />
+                                                    <a:da name="RANGE">
+                                                        <a:v>DSADC_INPUTMUX_CHANGE_PRESET</a:v>
+                                                        <a:v>DSADC_INPUTMUX_CHANGE_SINGLE_STEP</a:v>
+                                                    </a:da>
+                                                    <a:da name="INVALID" type="XPath">
+                                                        <a:tst
+                                                            expr="(../../../DsadcTriggerMode = 'DSADC_TRIGG_MODE_CONTINUOUS') and (. != 'DSADC_INPUTMUX_CHANGE_PRESET')"
+                                                            true="If DsadcTriggerMode is configured as DSADC_TRIGG_MODE_CONTINUOUS then DsadcInputMuxChangeMode should be configured as DSADC_INPUTMUX_CHANGE_PRESET." />
+                                                    </a:da>
+                                                </v:var>
+                                                <v:var name="DsadcInputMuxControlMode"
+                                                    type="ENUMERATION">
+                                                    <a:a name="DESC"
+                                                        value="EN: Determines the control condition for a trigger event to change the input multiplexer.&lt;br/&gt;
+                                                            DSADC_INPUTMUX_CTRL_SW: Input multiplexer controlled by software.(Not supported by Dsadc driver)&lt;br/&gt;
+                                                            DSADC_INPUTMUX_CTRL_RISING_EDGE: Input multiplexer controlled by rising edge of trigger event.&lt;br/&gt;
+                                                            DSADC_INPUTMUX_CTRL_FALLING_EDGE: Input multiplexer controlled by falling edge of trigger event.&lt;br/&gt;
+                                                            DSADC_INPUTMUX_CTRL_BOTH_EDGES: Input multiplexer controlled by both the rising edge and falling edge of trigger event.&lt;br/&gt;
+                                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                                            This parameter is only available only if the parameter DsadcInputMuxChangeMode is set to 'DSADC_INPUTMUX_CHANGE_SINGLE_STEP'." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="60e786fe-ffbf-0e48-df90-035928e61539" />
+                                                    <a:da name="DEFAULT"
+                                                        value="DSADC_INPUTMUX_CTRL_RISING_EDGE" />
+                                                    <a:da name="RANGE">
+                                                        <a:v>DSADC_INPUTMUX_CTRL_SW</a:v>
+                                                        <a:v>DSADC_INPUTMUX_CTRL_RISING_EDGE</a:v>
+                                                        <a:v>DSADC_INPUTMUX_CTRL_FALLING_EDGE</a:v>
+                                                        <a:v>DSADC_INPUTMUX_CTRL_BOTH_EDGES</a:v>
+                                                    </a:da>
+                                                    <a:da name="OPTIONAL" value="true" />
+                                                    <a:da name="EDITABLE" type="XPath">
+                                                        <a:tst
+                                                            expr="node:fallback(../DsadcInputMuxChangeMode, 'DSADC_INPUTMUX_CHANGE_SINGLE_STEP') = 'DSADC_INPUTMUX_CHANGE_SINGLE_STEP'" />
+                                                    </a:da>
+                                                </v:var>
+                                                <v:var name="DsadcInputMuxInitPin"
+                                                    type="ENUMERATION">
+                                                    <a:a name="DESC"
+                                                        value="EN: Determines the initial or permanent setting for the input multiplexer.&lt;br/&gt;" />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="9aaff094-a404-948b-4aff-f3ac008d219c" />
+                                                    <a:da name="DEFAULT" type="XPath"
+                                                        expr="ecu:list(concat('Dsadc.MuxInputPin.Dsadc',text:split(node:fallback(../../../DsadcHwUnitId,'DSADCx'),'DSADC')[1]))[1]" />
+                                                    <a:da name="RANGE" type="XPath"
+                                                        expr="ecu:list(concat('Dsadc.MuxInputPin.Dsadc',text:split(node:fallback(../../../DsadcHwUnitId,'DSADCx'),'DSADC')[1]))" />
+                                                </v:var>
+                                                <v:var name="DsadcNegativeInputLine"
+                                                    type="ENUMERATION">
+                                                    <a:a name="DESC"
+                                                        value="EN: Determines the modulator internal connection of the negative input." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="99a0804b-d796-8e71-478e-549b58741ffe" />
+                                                    <a:da name="DEFAULT" type="XPath"
+                                                        expr="ecu:list('Dsadc.NegInputLine')[1]" />
+                                                    <a:da name="RANGE" type="XPath"
+                                                        expr="ecu:list('Dsadc.NegInputLine')" />
+                                                    <a:da name="INVALID" type="XPath">
+                                                        <a:tst
+                                                            expr="(. = 'DSADC_NEG_DISABLE') and (../DsadcPositiveInputLine = 'DSADC_POS_DISABLE')"
+                                                            true="This parameter and the parameter DsadcPositiveInputLine cannot be set to DISABLE simultaneously." />
+                                                        <a:tst
+                                                            expr="(. = 'DSADC_NEG_INPUT_PIN') and (../DsadcPositiveInputLine = 'DSADC_POS_INPUT_COMM_MODE_VOLT')"
+                                                            true="This parameter must be set to DSADC_NEG_INPUT_COMM_MODE_VOLT(differential) or DSADC_NEG_DISABLE(single-ended) when DsadcPositiveInputLine is DSADC_POS_INPUT_COMM_MODE_VOLT." />
+
+                                                    </a:da>
+                                                </v:var>
+                                                <v:var name="DsadcPositiveInputLine"
+                                                    type="ENUMERATION">
+                                                    <a:a name="DESC"
+                                                        value="EN: Determines the modulator internal connection of the positive input." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="bbc3afdc-6b3a-5986-6140-5be53a66d2fd" />
+                                                    <a:da name="DEFAULT" type="XPath"
+                                                        expr="ecu:list('Dsadc.PosInputLine')[1]" />
+                                                    <a:da name="RANGE" type="XPath"
+                                                        expr="ecu:list('Dsadc.PosInputLine')" />
+                                                    <a:da name="INVALID" type="XPath">
+                                                        <a:tst
+                                                            expr="(../DsadcNegativeInputLine = 'DSADC_NEG_DISABLE') and (. = 'DSADC_POS_DISABLE')"
+                                                            true="This parameter and the parameter DsadcNegativeInputLine cannot be set to DISABLE simultaneously." />
+                                                        <a:tst
+                                                            expr="(../DsadcNegativeInputLine = 'DSADC_NEG_INPUT_COMM_MODE_VOLT') and (. = 'DSADC_POS_INPUT_PIN')"
+                                                            true="This parameter must be set to DSADC_POS_INPUT_COMM_MODE_VOLT(differential) or DSADC_POS_DISABLE(single-ended) when DsadcNegativeInputLine is DSADC_NEG_INPUT_COMM_MODE_VOLT." />
+                                                    </a:da>
+                                                </v:var>
+                                                <v:var name="DsadcCommonModeVoltageSelect" type="ENUMERATION">
+                                                    <a:a name="DESC"
+                                                        value="EN: Select the common mode voltage level. &lt;br&gt;
+                                                            DSADC_COMM_MODE_VOLT_0: 1/2 * VREF;&lt;br&gt;
+                                                            DSADC_COMM_MODE_VOLT_1: 1/5 * VREF;&lt;br&gt;
+                                                            DSADC_COMM_MODE_VOLT_2: 4/5 * VREF;&lt;br&gt;
+                                                            DSADC_COMM_MODE_VOLT_3: VREF.&lt;br&gt;
+                                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                                            This parameter is only available when either the DsadcNegativeInputLine or the DsadcPositiveInputLine, or both, are set to INPUT_COMM_MODE_VOLT." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="bbc3afdc-6b3a-5986-6140-5be53a83d2fd" />
+                                                    <a:da name="DEFAULT" type="XPath"
+                                                        expr="ecu:list('Dsadc.CommModeVolt.type')[1]" />
+                                                    <a:da name="RANGE" type="XPath"
+                                                        expr="ecu:list('Dsadc.CommModeVolt.type')" />
+                                                    <a:da name="EDITABLE" type="XPath">
+                                                        <a:tst
+                                                            expr="(node:fallback(../DsadcNegativeInputLine, 'DSADC_NEG_INPUT_COMM_MODE_VOLT') = 'DSADC_NEG_INPUT_COMM_MODE_VOLT') or 
+                                                                  (node:fallback(../DsadcPositiveInputLine, 'DSADC_POS_INPUT_COMM_MODE_VOLT') = 'DSADC_POS_INPUT_COMM_MODE_VOLT')" />
+                                                    </a:da>
+                                                </v:var>
+                                            </v:ctr>
+                                        </v:lst>
+                                        <v:lst name="DsadcDemodulatorConfig" type="MAP">
+                                            <a:da name="MIN" value="1" />
+                                            <a:da name="MAX" value="1" />
+                                            <v:ctr name="DsadcDemodulatorConfig" type="IDENTIFIABLE">
+                                                <a:a name="DESC"
+                                                    value="EN: This container contains the configuration parameters of the demodulator in each channel." />
+                                                <a:a name="REQUIRES-INDEX" value="true"/>
+                                                <a:a name="UUID" value="1e17f75a-c5cf-4ff1-5c2d-806109476a57" />
+                                                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                    <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                                </a:a>
+                                                <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false" />
+
+                                                <v:var name="DsadcResultDisplayMode" type="ENUMERATION">
+                                                    <a:a name="DESC"
+                                                        value="EN: Determines the result display modes (Singed or Unsigned).&lt;br/&gt;
+                                                               &lt;h1&gt;Note&lt;/h1&gt;
+                                                               Only support the Signed result." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="fd454df4-6f56-e3d7-65fd-df13355d103d" />
+                                                    <a:da name="DEFAULT"
+                                                        value="DSADC_RES_MODE_SIGNED" />
+                                                    <a:da name="RANGE">
+                                                        <a:v>DSADC_RES_MODE_SIGNED</a:v>
+                                                    </a:da>
+                                                </v:var>
+                                                <v:var name="DsadcTriggerSelect" type="ENUMERATION">
+                                                    <a:a name="DESC"
+                                                        value="EN: Determines the modulator internal connection of the positive input.&lt;br/&gt;
+                                                            This parameter is available only if the parameter DsadcTriggerMode is set to DSADC_TRIGG_MODE_EXTERNAL." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="OPTIONAL" value="true" />
+                                                    <a:a name="UUID"
+                                                        value="61bbb0ac-c04b-77a2-eb69-8f8b93a486f5" />
+                                                    <a:da name="DEFAULT" type="XPath"
+                                                        expr="ecu:list(concat('Dsadc.TrigSrc.Dsadc',text:split(node:fallback(../../../DsadcHwUnitId,'DSADCx'),'DSADC')[1]))[1]" />
+                                                    <a:da name="RANGE" type="XPath"
+                                                        expr="ecu:list(concat('Dsadc.TrigSrc.Dsadc',text:split(node:fallback(../../../DsadcHwUnitId,'DSADCx'),'DSADC')[1]))" />
+                                                    <a:da name="EDITABLE" type="XPath"
+                                                        expr="node:fallback(../../../DsadcTriggerMode, 'DSADC_TRIGG_MODE_EXTERNAL') = 'DSADC_TRIGG_MODE_EXTERNAL'" />
+                                                </v:var>
+                                                <v:lst name="DsadcTimestampConfig" type="MAP">
+                                                    <a:da name="MIN" value="0" />
+                                                    <a:da name="MAX" value="1" />
+                                                    <a:da name="INVALID" type="XPath">
+                                                        <a:tst
+                                                            expr="(../../../DsadcChTimestampEnable = 'true') and (num:i(count(./*)) = num:i(0))"
+                                                            true="DsadcChTimestampEnable is enabled, timestamp configuration must be provided." />
+                                                    </a:da>
+                                                    <a:da name="EDITABLE" type="XPath">
+                                                        <a:tst expr="node:fallback(../../../DsadcChTimestampEnable, 'true') = 'true'"/>
+                                                    </a:da>
+                                                    <v:ctr name="DsadcTimestampConfig"
+                                                        type="IDENTIFIABLE">
+                                                        <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false" />
+                                                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                            <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                                        </a:a>
+                                                        <a:a name="REQUIRES-INDEX" value="true"/>
+                                                        <a:a name="UUID" value="33fd9827-bf20-ebf4-f7e4-4dcddb1425b1" />
+                                                        <a:a name="DESC"
+                                                            value="EN: This container contains the configuration parameters of the timestamp functionality in each channel." />
+                                                        <v:var name="DsadcTimestampClockDivider" type="INTEGER">
+                                                            <a:a name="DESC"
+                                                                value="EN: Frequency divider factor, which defines the frequency of the timestamp clock, which is derived from the peripheral clock.&lt;br/&gt;
+                                                                    &lt;h1&gt;Note&lt;/h1&gt;
+                                                                    f(timestamp) = f(AHB) / (4 + DsadcTimestampClockDivider * 2).&lt;br/&gt;
+                                                                    Recommended configuration is 1." />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="SCOPE" value="LOCAL" />
+                                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                            <a:a name="UUID"
+                                                                value="17aee7f2-1b23-fe98-d437-549eaf36948d" />
+                                                            <a:da name="DEFAULT" value="1" />
+                                                            <a:da name="INVALID" type="Range">
+                                                                <a:tst expr="&lt;=15" />
+                                                                <a:tst expr="&gt;=0" />
+                                                            </a:da>
+                                                        </v:var>
+                                                        <v:var name="DsadcTimestampCounterClockSel"
+                                                            type="ENUMERATION">
+                                                            <a:a name="DESC"
+                                                                value="EN: Determines the divider factor, which defines the clock used for timestamp counter." />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="SCOPE" value="LOCAL" />
+                                                            <a:a name="SYMBOLICNAMEVALUE"
+                                                                value="false" />
+                                                            <a:a name="UUID"
+                                                                value="67ed5caa-ffc7-a0c4-fcc9-1d192c99d5ea" />
+                                                            <a:da name="DEFAULT" value="DSADC_TIMESTAMPCLOCKDIVIDER_1" />
+                                                            <a:da name="RANGE">
+                                                                <a:v>DSADC_TIMESTAMPCLOCKDIVIDER_1</a:v>
+                                                                <a:v>DSADC_TIMESTAMPCLOCKDIVIDER_2</a:v>
+                                                                <a:v>DSADC_TIMESTAMPCLOCKDIVIDER_4</a:v>
+                                                                <a:v>DSADC_TIMESTAMPCLOCKDIVIDER_8</a:v>
+                                                            </a:da>
+                                                        </v:var>
+                                                        <v:var name="DsadcInputMuxDispEnable"
+                                                            type="BOOLEAN">
+                                                            <a:a name="DESC"
+                                                                value="EN: Enables /Disables the analog multiplexer display in the timestamp information." />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="SCOPE" value="LOCAL" />
+                                                            <a:a name="SYMBOLICNAMEVALUE"
+                                                                value="false" />
+                                                            <a:a name="UUID"
+                                                                value="40f1009f-3633-bd10-1f2f-f0bf2ca41f8d" />
+                                                            <a:da name="DEFAULT" value="false" />
+                                                        </v:var>
+                                                        <v:var name="DsadcTimestampTrigSignal" type="ENUMERATION">
+                                                            <a:a name="DESC"
+                                                                value="EN: Determines the external single level to trigger the timestamp.
+                                                                    &lt;h1&gt;Note&lt;/h1&gt;
+                                                                    This parameter can only be set to DSADC_TIMESTAMP_TRIG_NONE when the parameter DsadcTriggerMode is set to DSADC_TRIGG_MODE_CONTINUOUS." />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="SCOPE" value="LOCAL" />
+                                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                            <a:a name="UUID"
+                                                                value="32e55b95-6cab-31d0-607b-a94aa231bc53" />
+                                                            <a:da name="DEFAULT" value="DSADC_TIMESTAMP_TRIG_NONE" />
+                                                            <a:da name="RANGE">
+                                                                <a:v>DSADC_TIMESTAMP_TRIG_NONE</a:v>
+                                                                <a:v>DSADC_TIMESTAMP_TRIG_RISING_EDGE</a:v>
+                                                                <a:v>DSADC_TIMESTAMP_TRIG_FALLING_EDGE</a:v>
+                                                                <a:v>DSADC_TIMESTAMP_TRIG_BOTH_EDGES</a:v>
+                                                            </a:da>
+                                                            <a:da name="INVALID" type="XPath">
+                                                                <a:tst
+                                                                    expr="(../../../../../DsadcTriggerMode = 'DSADC_TRIGG_MODE_CONTINUOUS') and (. != 'DSADC_TIMESTAMP_TRIG_NONE')"
+                                                                    true="DsadcTimestampTrigSignal must be DSADC_TIMESTAMP_TRIG_NONE when DsadcTriggerMode is DSADC_TRIGG_MODE_CONTINUOUS." />
+                                                            </a:da>
+                                                        </v:var>
+                                                    </v:ctr>
+                                                </v:lst>
+                                            </v:ctr>
+                                        </v:lst>
+                                        <v:lst name="DsadcFilterConfig" type="MAP">
+                                            <a:da name="MIN" value="1" />
+                                            <a:da name="MAX" value="1" />
+                                            <v:ctr name="DsadcFilterConfig" type="IDENTIFIABLE">
+                                                <a:a name="DESC"
+                                                    value="EN: This container contains the configuration parameters of the filter in each channel." />
+                                                <a:a name="REQUIRES-INDEX" value="true"/>
+                                                <a:a name="UUID" value="81d15ab0-d412-abee-4372-33d5a9229ee0" />
+                                                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                    <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                                </a:a>
+                                                <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false" />
+                                                <v:var name="DsadcFilterFIR0Enable" type="BOOLEAN">
+                                                    <a:a name="DESC"
+                                                        value="EN: Enables / Disables the FIR0 filter of the main filter chain." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="ec48ea76-12ba-9a1a-9e87-752384756b42" />
+                                                    <a:da name="DEFAULT" value="true" />
+                                                </v:var>
+
+                                                <v:var name="DsadcFilterFIR0DecimationRate"
+                                                    type="INTEGER">
+                                                    <a:a name="DESC"
+                                                        value="EN: Determines the decimation rate of the FIR0 filter.&lt;br/&gt;
+                                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                                            This parameter is available only if the parameter DsadcFilterFIR0Enable is set to true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="60779773-61ba-4b8f-2c3b-67d369162434" />
+                                                    <a:da name="DEFAULT" type="XPath"
+                                                        expr="ecu:list('Dsadc.Main.Decimation.FIR0')[1]" />
+                                                    <a:da name="INVALID" type="Range">
+                                                        <a:tst
+                                                            expr="&lt;=ecu:list('Dsadc.Main.Decimation.FIR0')[2]" />
+                                                        <a:tst
+                                                            expr="&gt;=ecu:list('Dsadc.Main.Decimation.FIR0')[1]" />
+                                                    </a:da>
+                                                    <a:da name="EDITABLE" type="XPath"
+                                                        expr="(../DsadcFilterFIR0Enable = 'true')" />
+                                                </v:var>
+
+                                                <v:var name="DsadcFilterFIR0OutputShift"
+                                                    type="INTEGER">
+                                                    <a:a name="DESC"
+                                                        value="EN: Determines the FIR0 filter output shift value.&lt;br/&gt;
+                                                            FIR0_SF_GAIN = 0.580078125 * 2^DsadcFilterFIR0OutputShift. &lt;br/&gt;
+                                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                                            This parameter is available only if the parameter DsadcFilterFIR0Enable is set to true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="60779773-61ba-4b8f-2c3b-67d369162456" />
+                                                    <a:da name="DEFAULT" type="XPath"
+                                                        expr="ecu:list('Dsadc.Main.OutputShift.FIR0')[1]" />
+                                                    <a:da name="INVALID" type="Range">
+                                                        <a:tst
+                                                            expr="&lt;=ecu:list('Dsadc.Main.OutputShift.FIR0')[2]" />
+                                                        <a:tst
+                                                            expr="&gt;=ecu:list('Dsadc.Main.OutputShift.FIR0')[1]" />
+                                                    </a:da>
+                                                    <a:da name="EDITABLE" type="XPath"
+                                                        expr="(../DsadcFilterFIR0Enable = 'true')" />
+                                                </v:var>
+
+                                                <v:var name="DsadcFilterFIR1Enable" type="BOOLEAN">
+                                                    <a:a name="DESC"
+                                                        value="EN: Enables / Disables the FIR1 filter of the main filter chain.&lt;br/&gt;
+                                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                                            This parameter is available only if the parameter DsadcFilterFIR0Enable is set to true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="598af024-32f6-6cfd-4459-83b9fc10e0bd" />
+                                                    <a:da name="DEFAULT" value="true" />
+                                                    <a:da name="INVALID" type="XPath">
+                                                        <a:tst
+                                                            expr="((../DsadcFilterFIR0Enable = 'false') and (../DsadcFilterFIR1Enable = 'true'))"
+                                                            true="Since the FIR0 is false, FIR1 must also be false." />
+                                                    </a:da>
+                                                </v:var>
+
+                                                <v:var name="DsadcFilterFIR1DecimationRate"
+                                                    type="INTEGER">
+                                                    <a:a name="DESC"
+                                                        value="EN: Determines the decimation rate of the FIR0 filter.&lt;br/&gt;
+                                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                                            This parameter is available only if the parameter DsadcFilterFIR1Enable is set to true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="85214eca-eb27-aad9-f073-63a7f3b0f458" />
+                                                    <a:da name="DEFAULT" type="XPath"
+                                                        expr="ecu:list('Dsadc.Main.Decimation.FIR1')[1]" />
+                                                        <a:da name="INVALID" type="Range">
+                                                            <a:tst
+                                                                expr="&lt;=ecu:list('Dsadc.Main.Decimation.FIR1')[2]" />
+                                                            <a:tst
+                                                                expr="&gt;=ecu:list('Dsadc.Main.Decimation.FIR1')[1]" />
+                                                        </a:da>
+                                                    <a:da name="EDITABLE" type="XPath"
+                                                        expr="(../DsadcFilterFIR1Enable = 'true')" />
+                                                </v:var>
+
+                                                <v:var name="DsadcFilterFIR1OutputShift"
+                                                    type="INTEGER">
+                                                    <a:a name="DESC"
+                                                        value="EN: Determines the FIR0 filter output shift value.&lt;br/&gt;
+                                                            FIR1_SF_GAIN = 0.642578125 * 2^DsadcFilterFIR1OutputShift.&lt;br/&gt;
+                                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                                            This parameter is available only if the parameter DsadcFilterFIR1Enable is set to true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="60779773-61ba-4b8f-2c3b-67d3691624aa" />
+                                                    <a:da name="DEFAULT" type="XPath"
+                                                        expr="ecu:list('Dsadc.Main.OutputShift.FIR1')[1]" />
+                                                    <a:da name="INVALID" type="Range">
+                                                        <a:tst
+                                                            expr="&lt;=ecu:list('Dsadc.Main.OutputShift.FIR1')[2]" />
+                                                        <a:tst
+                                                            expr="&gt;=ecu:list('Dsadc.Main.OutputShift.FIR1')[1]" />
+                                                    </a:da>
+                                                    <a:da name="EDITABLE" type="XPath"
+                                                        expr="(../DsadcFilterFIR1Enable = 'true')" />
+                                                </v:var>
+
+                                                <v:var name="DsadcFilterCICEnable" type="BOOLEAN">
+                                                    <a:a name="DESC"
+                                                        value="EN: Enables / Disables the CIC filter of the main filter chain.
+                                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                                            This parameter is available only if the parameter DsadcFilterCICEnable is set to true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="8d4b78c9-3767-6cda-c8a2-c419e6b4239c" />
+                                                    <a:da name="DEFAULT" value="true" />
+                                                </v:var>
+                                                <v:var name="DsadcFilterCICSelect"
+                                                    type="ENUMERATION">
+                                                    <a:a name="DESC"
+                                                        value="EN: Determines the CIC parallel series of the main filter chain.
+                                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                                            This parameter is available only if the parameter DsadcFilterCICEnable is set to true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="57a1a017-51cd-b99f-241b-c55afc87b65a" />
+                                                    <a:da name="DEFAULT" type="XPath"
+                                                        expr="ecu:list('Dsadc.Main.CIC.ParallelSeries')[1]" />
+                                                    <a:da name="RANGE" type="XPath"
+                                                        expr="ecu:list('Dsadc.Main.CIC.ParallelSeries')" />
+                                                    <a:da name="EDITABLE" type="XPath"
+                                                        expr="(../DsadcFilterCICEnable = 'true')" />
+                                                </v:var>
+                                                <v:var name="DsadcFilterCICSamplingFactor"
+                                                    type="INTEGER">
+                                                    <a:a name="DESC"
+                                                        value="EN: Description    Determines the decimation factor for the CIC filter of the main filter chain.
+                                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                                            This parameter is available only if the parameter DsadcFilterCICEnable is set to true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="33afd671-bef7-ead3-6e96-daa5dd795edc" />
+                                                    <a:da name="DEFAULT" type="XPath"
+                                                        expr="ecu:list('Dsadc.Main.CIC.SamplingFactor')[2]" />
+                                                    <a:da name="INVALID" type="Range">
+                                                        <a:tst
+                                                            expr="&lt;=ecu:list('Dsadc.Main.CIC.SamplingFactor')[2]" />
+                                                        <a:tst
+                                                            expr="&gt;=ecu:list('Dsadc.Main.CIC.SamplingFactor')[1]" />
+                                                    </a:da>
+                                                    <a:da name="EDITABLE" type="XPath"
+                                                        expr="(../DsadcFilterCICEnable = 'true')" />
+                                                </v:var>
+                                                <v:var name="DsadcFilterOffsetComp"
+                                                    type="ENUMERATION">
+                                                    <a:a name="DESC"
+                                                        value="EN: Determines the offset compensation filter parameter (enable and cut-off frequency) for main filter chain." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="4b131cf5-688b-ccae-fce1-899c28ce6720" />
+                                                    <a:da name="DEFAULT" type="XPath"
+                                                        expr="ecu:list('Dsadc.Main.OffsetCompFilter')[1]" />
+                                                    <a:da name="RANGE" type="XPath"
+                                                        expr="ecu:list('Dsadc.Main.OffsetCompFilter')" />
+                                                </v:var>
+                                                <v:var name="DsadcChIntegratorEnable" type="BOOLEAN">
+                                                    <a:a name="DESC"
+                                                        value="EN: Enables / Disables the integrator of the auxiliary filter." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="478561fa-c8eb-d8d2-1f03-9f87dc6a9ffa" />
+                                                    <a:da name="DEFAULT" value="false" />
+                                                </v:var>
+                                                <v:var name="DsadcChMeanMode" type="ENUMERATION">
+                                                    <a:a name="DESC"
+                                                        value="EN: Description    Determines the mean mode of the integrator. &lt;br/&gt;
+                                                            DSADC_SINGLE_CARRIER_MODE: Single-carrier mode.&lt;br/&gt;
+                                                            DSADC_MEAN_POINTS_MODE: Mean points configurable.
+                                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                                            This parameter is available only if the parameter DsadcChIntegratorEnable is set to true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="4308fc6e-0242-4704-0329-60352ea7332b" />
+                                                    <a:da name="DEFAULT" value="DSADC_SINGLE_CARRIER_MODE" />
+                                                    <a:da name="EDITABLE" type="XPath"
+                                                        expr="(../DsadcChIntegratorEnable = 'true')" />
+                                                    <a:da name="RANGE">
+                                                        <a:v>DSADC_SINGLE_CARRIER_MODE</a:v>
+                                                        <a:v>DSADC_MEAN_POINTS_MODE</a:v>
+                                                    </a:da>
+                                                </v:var>
+                                                <v:var name="DsadcChMeanPoints" type="INTEGER">
+                                                    <a:a name="DESC"
+                                                        value="EN: Determines the mean point length of the integrator.
+                                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                                            This parameter is available only if the parameter DsadcChIntegratorEnable is set to true and the parameter DsadcChMeanMode is set to DSADC_MEAN_POINTS_MODE." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="4308fc6e-0242-4704-0329-60ee2ea7332b" />
+                                                    <a:da name="DEFAULT" value="1" />
+                                                    <a:da name="INVALID" type="Range">
+                                                        <a:tst expr="&lt;=64" />
+                                                        <a:tst expr="&gt;=1" />
+                                                    </a:da>
+                                                    <a:da name="EDITABLE" type="XPath"
+                                                        expr="(../DsadcChIntegratorEnable = 'true') and (../DsadcChMeanMode = 'DSADC_MEAN_POINTS_MODE')" />
+                                                </v:var>
+                                                <v:var name="DsadcChMeanPointShiftLength"
+                                                    type="ENUMERATION">
+                                                    <a:a name="DESC"
+                                                        value="EN: Determines the mean shift length of the integrator..
+                                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                                            This parameter is available only if the parameter DsadcChInte-gratorEnable is set to true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID"
+                                                        value="e69151d3-48a0-549b-85a8-e41b3fca27c8" />
+                                                    <a:da name="DEFAULT" type="XPath"
+                                                        expr="ecu:list('Dsadc.Integrator.ShiftLen')[1]" />
+                                                    <a:da name="RANGE" type="XPath"
+                                                        expr="ecu:list('Dsadc.Integrator.ShiftLen')" />
+                                                    <a:da name="EDITABLE" type="XPath"
+                                                        expr="(../DsadcChIntegratorEnable = 'true')" />
+                                                </v:var>
+                                                <v:ctr name="DsadcAuxFilterConfig"
+                                                    type="IDENTIFIABLE">
+                                                    <a:da name="EDITABLE" type="XPath"
+                                                            expr="node:fallback(../../../DsadcChAuxiliaryFilterChainEnable, 'true') = 'true'" />
+                                                    <a:a name="UUID"
+                                                        value="2595b3a2-f324-6e49-c8a1-c679a35a04b7" />
+                                                    <a:a name="DESC"
+                                                        value="EN: This container contains the configuration pa-rameters of the auxiliary filter in each channel.&lt;br/&gt;
+                                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                                            This container is available only if the parameter DsadcChAuxiliaryFilterChainEnable for this channel is set to true." />
+                                                    <v:var name="DsadcAuxFilterCICEnable"
+                                                        type="BOOLEAN">
+                                                        <a:a name="DESC"
+                                                            value="EN: Enables / Disables the CIC filter of the auxiliary filter chain." />
+                                                        <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                            type="IMPLEMENTATIONCONFIGCLASS">
+                                                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                        </a:a>
+                                                        <a:a name="ORIGIN" value="ChipowerTech" />
+                                                        <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                        <a:a name="SCOPE" value="LOCAL" />
+                                                        <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                        <a:a name="UUID"
+                                                            value="80f0879e-75fb-aa7d-9603-91a80058a2b6" />
+                                                        <a:da name="DEFAULT" value="false" />
+                                                        <a:da name="INVALID" type="XPath">
+                                                            <a:tst
+                                                                expr="(../../../../DsadcChAuxiliaryFilterChainEnable = 'false') and (. = 'true')"
+                                                                true="This parameter can only be set to true when DsadcChAuxiliaryFilterChainEnable is true." />
+                                                        </a:da>
+                                                    </v:var>
+                                                    <v:var name="DsadcAuxFilterCICSelect"
+                                                        type="ENUMERATION">
+                                                        <a:a name="DESC"
+                                                            value="EN: Determines the CIC parallel series of the auxiliary filter chain." />
+                                                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                        </a:a>
+                                                        <a:a name="ORIGIN" value="ChipowerTech" />
+                                                        <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                        <a:a name="SCOPE" value="LOCAL" />
+                                                        <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                        <a:a name="UUID"
+                                                            value="2087670b-beaf-5bf9-ca84-53e3aecdac79" />
+                                                        <a:da name="DEFAULT" type="XPath"
+                                                            expr="ecu:list('Dsadc.Aux.CIC.ParallelSeries')[1]" />
+                                                        <a:da name="RANGE" type="XPath"
+                                                            expr="ecu:list('Dsadc.Aux.CIC.ParallelSeries')" />
+                                                        <a:da name="EDITABLE" type="XPath"
+                                                            expr="(../DsadcAuxFilterCICEnable = 'true')" />
+                                                    </v:var>
+                                                    <v:var name="DsadcAuxFilterCICDecimationFactor"
+                                                        type="INTEGER">
+                                                        <a:a name="DESC"
+                                                            value="EN: Determines the decimation factor for the CIC filter of the auxiliary filter chain." />
+                                                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                        </a:a>
+                                                        <a:a name="ORIGIN" value="ChipowerTech" />
+                                                        <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                        <a:a name="SCOPE" value="LOCAL" />
+                                                        <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                        <a:a name="UUID"
+                                                            value="aee49c9a-1431-c643-144b-4207ab15c246" />
+                                                        <a:da name="DEFAULT" type="XPath"
+                                                            expr="ecu:list('Dsadc.Aux.CIC.SamplingFactor')[2]" />
+                                                        <a:da name="INVALID" type="Range">
+                                                            <a:tst
+                                                                expr="&lt;=ecu:list('Dsadc.Aux.CIC.SamplingFactor')[2]" />
+                                                            <a:tst
+                                                                expr="&gt;=ecu:list('Dsadc.Aux.CIC.SamplingFactor')[1]" />
+                                                        </a:da>
+                                                        <a:da name="EDITABLE" type="XPath"
+                                                            expr="(../DsadcAuxFilterCICEnable = 'true')" />
+                                                    </v:var>
+                                                </v:ctr>
+
+                                                <v:lst name="DsadcLimitCheckingConfig" type="MAP">
+                                                    <a:da name="MIN" value="0" />
+                                                    <a:da name="MAX" value="1" />
+                                                    <a:da name="EDITABLE" type="XPath"
+                                                                    expr="(node:fallback(../../../DsadcResultHandlingImplementation, 'DSADC_INTERRUPT_MODE') != 'DSADC_DMA_MODE') and 
+                                                                          (node:fallback(../../../DsadcChAuxiliaryFilterChainEnable, 'true') = 'true') and 
+                                                                          (node:fallback(as:modconf('Dsadc')/DsadcGeneral/DsadcAuxLimitCheckingEnable, 'true') = 'true')" />
+                                                    <v:ctr name="DsadcLimitCheckingConfig" type="IDENTIFIABLE">
+                                                        <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false" />
+                                                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                            <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                                        </a:a>
+                                                        <a:a name="REQUIRES-INDEX" value="true"/>
+                                                        <a:a name="DESC"
+                                                            value="EN: This container contains the configuration parameters for the limit checking of auxiliary filter in each channel.&lt;br/&gt;
+                                                                &lt;h1&gt;Note&lt;/h1&gt;
+                                                                This parameter only available when ../DsadcResultHandlingImplementation != 'DSADC_DMA_MODE' and ../DsadcChAuxiliaryFilterChainEnable = 'true' and 
+                                                                 DsadcGeneral/DsadcAuxLimitCheckingEnable = 'true'"
+                                                                />
+                                                        <a:a name="UUID" value="7e68922e-cca7-bf8f-0c20-4b52a5acff0a" />
+                                                        <v:var name="DsadcLimitCheckingEnable" type="BOOLEAN">
+                                                            <a:a name="DESC"
+                                                                value="EN: Enables / Disables the limit checking functionality for the auxiliary filter when auxiliary filter is enabled." />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="SCOPE" value="LOCAL" />
+                                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                            <a:a name="UUID" value="894ddbee-db8c-4ea5-c2d4-ab8ec356150a" />
+                                                            <a:a name="DEFAULT" value="true" />
+                                                        </v:var>
+                                                        <v:var name="DsadcLowerBoundaryValue"
+                                                            type="INTEGER">
+                                                            <a:a name="DESC"
+                                                                value="EN: Determines the lower boundary value of limit checking..&lt;br/&gt;
+                                                                &lt;h1&gt;Note&lt;/h1&gt;
+                                                                 - when using the single-ended mode: the range is 0~65535.&lt;br/&gt;
+                                                                 - when using the differential mode: the range is -32768~32767." />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="SCOPE" value="LOCAL" />
+                                                            <a:a name="SYMBOLICNAMEVALUE"
+                                                                value="false" />
+                                                            <a:a name="UUID"
+                                                                value="45c0c694-6cca-511f-fccc-b9c596bcc32b" />
+                                                            <a:da name="DEFAULT" value="0" />
+                                                            <a:da name="INVALID" type="Range">
+                                                                <a:tst expr="&lt;=65535" />
+                                                                <a:tst expr="&gt;=-32768" />
+                                                            </a:da>
+                                                            <a:da name="EDITABLE" type="XPath"
+                                                                    expr="node:fallback(../DsadcLimitCheckingEnable, 'true') = 'true'" />
+                                                        </v:var>
+                                                        <v:var name="DsadcUpperBoundaryValue"
+                                                            type="INTEGER">
+                                                            <a:a name="DESC"
+                                                                value="EN: Determines the upper boundary value of limit checking.&lt;br/&gt;
+                                                                &lt;h1&gt;Note&lt;/h1&gt;
+                                                                 - when using the single-ended mode: the range is 0~65535.&lt;br/&gt;
+                                                                 - when using the differential mode: the range is -32768~32767." />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="SCOPE" value="LOCAL" />
+                                                            <a:a name="SYMBOLICNAMEVALUE"
+                                                                value="false" />
+                                                            <a:a name="UUID"
+                                                                value="a862e76b-aaad-5790-c801-d3c6677d21e3" />
+                                                            <a:da name="DEFAULT" value="0" />
+                                                            <a:da name="INVALID" type="Range">
+                                                                <a:tst expr="&lt;=65535" />
+                                                                <a:tst expr="&gt;=-32768" />
+                                                            </a:da>
+                                                            <a:da name="INVALID" type="XPath">
+                                                                <a:tst
+                                                                    expr="(../DsadcLowerBoundaryValue) > (../DsadcUpperBoundaryValue)"
+                                                                    true="Upper Boundary value is set lesser than the Lower boundary value for the comparator." />
+                                                            </a:da>
+                                                            <a:da name="EDITABLE" type="XPath"
+                                                                    expr="node:fallback(../DsadcLimitCheckingEnable, 'true') = 'true'" />
+                                                        </v:var>
+                                                        <v:var name="DsadcBelowLowerLimitEventEnable" type="BOOLEAN">
+                                                            <a:a name="DESC"
+                                                                value="EN: Enables / Disables the conversion result below the lower limit interrupt event." />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="SCOPE" value="LOCAL" />
+                                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                            <a:a name="UUID" value="870dedbe-8a33-590f-e190-742d155c40ee" />
+                                                            <a:a name="DEFAULT" value="false" />
+                                                            <a:da name="EDITABLE" type="XPath"
+                                                                    expr="node:fallback(../DsadcLimitCheckingEnable, 'true') = 'true'" />
+                                                            <a:da name="INVALID" type="XPath">
+                                                                <a:tst
+                                                                    expr="(. = 'false') and (../DsadcAboveUpperLimitEventEnable = 'false')"
+                                                                    true="DsadcBelowLowerLimitEventEnable and DsadcAboveUpperLimitEventEnable interrupt events must have at least one enabled." />
+                                                            </a:da>
+                                                        </v:var>
+                                                        <v:var name="DsadcAboveUpperLimitEventEnable" type="BOOLEAN">
+                                                            <a:a name="DESC"
+                                                                value="EN: Enables / Disables the conversion result above the upper limit interrupt event." />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="SCOPE" value="LOCAL" />
+                                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                            <a:a name="UUID" value="c15d193b-a8e9-ad09-8e28-03fd9677d74d" />
+                                                            <a:a name="DEFAULT" value="false" />
+                                                            <a:da name="EDITABLE" type="XPath"
+                                                                    expr="node:fallback(../DsadcLimitCheckingEnable, 'true') = 'true'" />
+                                                            <a:da name="INVALID" type="XPath">
+                                                                <a:tst
+                                                                    expr="(. = 'false') and (../DsadcBelowLowerLimitEventEnable = 'false')"
+                                                                    true="DsadcBelowLowerLimitEventEnable and DsadcAboveUpperLimitEventEnable interrupt events must have at least one enabled." />
+                                                            </a:da>
+                                                        </v:var>
+                                                    </v:ctr>
+                                                </v:lst>
+                                            </v:ctr>
+                                        </v:lst>
+                                        <v:lst name="DsadcCalibCompConfig" type="MAP">
+                                            <a:da name="MIN" value="0" />
+                                            <a:da name="MAX" value="1" />
+                                            <v:ctr name="DsadcCalibCompConfig" type="IDENTIFIABLE">
+                                                <a:a name="DESC" value="EN: This container contains the configuration parameters of the calibration compensation in each channel.&lt;br/&gt;" />
+                                                <a:a name="REQUIRES-INDEX" value="true"/>
+                                                <a:a name="UUID" value="0cffbacd-8fff-6a70-c3aa-16bed58ea7b7" />
+                                                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                    <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                                </a:a>
+                                                <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false" />
+                                                <v:var name="DsadcDcCompensationOffset" type="INTEGER">
+                                                    <a:a name="DESC" value="EN: Determines the DC compensation offset value.&lt;br/&gt;
+                                                        16-bit signed integer, fixed-point number with S1.15." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID" value="b5cc10ff-31a1-820d-16a9-0f6c8ebea367" />
+                                                    <a:da name="DEFAULT" value="0" />
+                                                    <a:da name="INVALID" type="Range">
+                                                        <a:tst expr="&lt;=65536" />
+                                                        <a:tst expr="&gt;=0" />
+                                                    </a:da>
+                                                </v:var>
+
+                                                <v:var name="DsadcGainCompensationOffset" type="INTEGER">
+                                                    <a:a name="DESC"
+                                                        value="EN: Determines the gain compensation offset value.&lt;br/&gt;
+                                                            16-bit signed integer, fixed-point number with S2.14.
+                                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                                            This parameter cannot be set to 0." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID" value="dee60753-91cb-8a07-1002-c75c4842cb1c" />
+                                                    <a:da name="DEFAULT" value="0" />
+                                                    <a:da name="INVALID" type="Range">
+                                                        <a:tst expr="&lt;=65536" />
+                                                        <a:tst expr="&gt;=0" />
+                                                    </a:da>
+                                                </v:var>
+                                            </v:ctr>
+                                        </v:lst>
+                                    </v:ctr>
+                                </v:lst>
+                                <!-- Carrier Generator Configuration -->
+                                <v:lst name="DsadcCarrierGenerator" type="MAP">
+                                    <a:da name="MIN" value="1" />
+                                    <a:da name="MAX" value="1" />
+                                    <v:ctr name="DsadcCarrierGenerator" type="IDENTIFIABLE">
+                                        <a:a name="UUID" value="a9e13291-bad7-034c-9d1d-6935fee40cec" />
+                                        <a:a name="DESC" value="EN: This container contains the configuration parameters of the carrier generator." />
+                                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                            <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                        </a:a>
+                                        <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                                        <v:var name="DsadcCarrierSignalMode" type="ENUMERATION">
+                                            <a:a name="DESC"
+                                                value="EN: Determines the carrier signal to be generated.
+                                                    &lt;br/&gt;
+                                                    DSADC_CARRIER_STOPPED: Carrier generator is not used.&lt;br/&gt;
+                                                    DSADC_CARRIER_SINE: Carrier generator output sine wave.&lt;br/&gt;
+                                                    DSADC_CARRIER_TRIANGLE: Carrier generator output triangle wave.&lt;br/&gt;
+                                                    DSADC_CARRIER_SQUARE: Carrier generator output square wave." />
+                                            <a:a name="REQUIRES-INDEX" value="true"/>
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID"
+                                                value="adf97aed-b70f-24b7-fa28-a6d4635c87cb" />
+                                            <a:da name="DEFAULT" type="XPath"
+                                                expr="ecu:list('Dsadc.CarrierSignalMode')[1]" />
+                                            <a:da name="RANGE" type="XPath"
+                                                expr="ecu:list('Dsadc.CarrierSignalMode')" />
+                                        </v:var>
+                                        <v:var name="DsadcPCMEnable" type="BOOLEAN">
+                                            <a:a name="DESC"
+                                                value="EN: Enables / Disables the PCM mode for output carrier signal.&lt;br/&gt;
+                                                    This parameter is available only if the parameter DsadcCarrierSignalMode is not set to 'DSADC_CARRIER_STOPPED'." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID"
+                                                value="fc2a290f-f34e-4f95-978d-907ad1f361d0" />
+                                            <a:a name="DEFAULT" value="false" />
+                                            <a:a name="EDITABLE" type="XPath" expr="node:fallback(../DsadcCarrierSignalMode, 'DSADC_CARRIER_SINE') != 'DSADC_CARRIER_STOPPED'" />
+                                        </v:var>
+                                        <v:var name="DsadcCarrierGenerationMode" type="ENUMERATION">
+                                            <a:a name="DESC"
+                                                value="EN: This parameter defines the mode in which the Carrier Generator signal is generated.&lt;br/&gt;
+                                                    This parameter is available only if the parameter DsadcCarrierSignalMode is not set to 'DSADC_CARRIER_STOPPED'." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID"
+                                                value="dd486d5b-bb5b-9840-7807-a3986729c866" />
+                                            <a:da name="DEFAULT" value="DSADC_BIT_REVERSE_MODE" />
+                                            <a:da name="RANGE">
+                                                <a:v>DSADC_NORMAL_MODE</a:v>
+                                                <a:v>DSADC_BIT_REVERSE_MODE</a:v>
+                                            </a:da>
+                                            <a:a name="EDITABLE" type="XPath" expr="node:fallback(../DsadcCarrierSignalMode, 'DSADC_CARRIER_SINE') != 'DSADC_CARRIER_STOPPED'" />
+                                        </v:var>
+                                        <v:var name="DsadcSetCarrierSyncParamApi" type="BOOLEAN">
+                                            <a:a name="DESC"
+                                                value="EN: Adds / removes the service Dsadc_SetCarrierSyncValue() from the code.&lt;br/&gt;
+                                                    This parameter is available only if the parameter DsadcCarrierSignalMode is not set to 'DSADC_CARRIER_STOPPED'." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="61749e3d-4afb-d351-4e64-b29d1fac05eb" />
+                                            <a:a name="DEFAULT" value="false" />
+                                            <a:a name="EDITABLE" type="XPath" expr="node:fallback(../DsadcCarrierSignalMode, 'DSADC_CARRIER_SINE') != 'DSADC_CARRIER_STOPPED'" />
+                                        </v:var>
+                                        <v:var name="DsadcGetCarrierDelayValueApi" type="BOOLEAN">
+                                            <a:a name="DESC"
+                                                value="EN: Adds / removes the service Dsadc_GetCarrierDelayValue() from the code.&lt;br/&gt;
+                                                    This parameter is available only if the parameter DsadcCarrierSignalMode is not set to 'DSADC_CARRIER_STOPPED'." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="501c64bf-073d-a52f-96b0-c27a0036b7cf" />
+                                            <a:a name="DEFAULT" value="false" />
+                                            <a:a name="EDITABLE" type="XPath" expr="node:fallback(../DsadcCarrierSignalMode, 'DSADC_CARRIER_SINE') != 'DSADC_CARRIER_STOPPED'" />
+                                        </v:var>
+                                    </v:ctr>
+                                </v:lst>
+                            </v:ctr>
+                            <!-- Dsadc General -->
+                            <v:ctr name="DsadcGeneral" type="IDENTIFIABLE">
+                                <a:a name="DESC"
+                                    value="EN: General configuration (parameters) of the DSADC Driver software module." />
+                                <a:a name="UUID" value="915bf104-b349-46fc-cf9e-b87bc45744e2" />
+                                <v:var name="DsadcDevErrorDetect" type="BOOLEAN">
+                                    <a:a name="DESC"
+                                        value="EN: Switches the Default Error Tracer (Det) detection ON or OFF." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="cf9146bb-5c78-12f3-253f-f03e16932559" />
+                                    <a:a name="DEFAULT" value="false" />
+                                </v:var>
+                                <v:var name="DsadcSafetyErrorDetect" type="BOOLEAN">
+                                    <a:a name="DESC"
+                                        value="EN: Switches the safety error detection ON or OFF." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="019666e3-8a8f-77f1-a107-27337a09c8f4" />
+                                    <a:a name="DEFAULT" value="true" />
+                                </v:var>
+                                <v:var name="DsadcDeInitApi" type="BOOLEAN">
+                                    <a:a name="DESC"
+                                        value="EN: Adds / removes the service Dsadc_DeInit() from the code." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="fc2a290f-f34e-4f94-978d-907ad1f361d0" />
+                                    <a:a name="DEFAULT" value="false" />
+                                </v:var>
+                                <v:var name="DsadcGetStreamLastPointerApi" type="BOOLEAN">
+                                    <a:a name="DESC"
+                                        value="EN: Adds / removes the service Dsadc_GetStreamLastPointer() from the code." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="e5bd5bfe-3418-bcfc-0299-45a30198dcdc" />
+                                    <a:a name="DEFAULT" value="false" />
+                                </v:var>
+                                <v:var name="DsadcVersionInfoApi" type="BOOLEAN">
+                                    <a:a name="DESC"
+                                        value="EN: Adds / removes the service Dsadc_GetVersionInfo() from the code." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="b1977ae9-3eac-68b3-7624-6094606701fa" />
+                                    <a:a name="DEFAULT" value="false" />
+                                </v:var>
+                                <v:var name="DsadcNotifCapability" type="BOOLEAN">
+                                    <a:a name="DESC"
+                                        value="EN: Determines, if the notification mechanism (the functions to enable and disable the notifications) is available at runtime." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="8c8f6e14-2e05-9c85-00e4-7e423e19bc1e" />
+                                    <a:a name="DEFAULT" value="false" />
+                                </v:var>
+                                <v:var name="DsadcTimestampEnable" type="BOOLEAN">
+                                    <a:a name="DESC"
+                                        value="EN: Enables / Disables the timestamp for all HW units." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="0D5056DC-FE97-73D0-EC4C-2804659B5524" />
+                                    <a:a name="DEFAULT" value="false" />
+                                </v:var>
+                                <v:var name="DsadcClockSyncEnable" type="BOOLEAN">
+                                    <a:a name="DESC"
+                                        value="EN: Enables / Disables the clock synchronization for all DSADC HW units." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="592f20be-02fe-ab9c-ba0e-215a98908c5e" />
+                                    <a:a name="DEFAULT" value="false" />
+                                </v:var>
+                                <v:var name="DsadcIntegratorEnable" type="BOOLEAN">
+                                    <a:a name="DESC"
+                                        value="EN: Enables / Disables the integrator for all DSADC HW units." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="592f20be-02fe-ab9c-ba0f-225a98908c5e" />
+                                    <a:a name="DEFAULT" value="false" />
+                                </v:var>
+                                <v:var name="DsadcAuxiliaryFilterChainEnable" type="BOOLEAN">
+                                    <a:a name="DESC"
+                                        value="EN: Enables / Disables the auxiliary filter chain functionality." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="592f20be-02fe-ab9d-ba0f-226a98908c5e" />
+                                    <a:a name="DEFAULT" value="false" />
+                                </v:var>
+                                <v:var name="DsadcAuxLimitCheckingEnable" type="BOOLEAN">
+                                    <a:a name="DESC"
+                                        value="EN: Enables / Disables the limit checking for auxiliary conversion channel." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="592f20be-02fe-ab9e-ba0f-226a98908c5e" />
+                                    <a:a name="DEFAULT" value="false" />
+                                    <a:da name="EDITABLE" type="XPath" expr="node:fallback(../DsadcAuxiliaryFilterChainEnable, 'true') = 'true'" />
+                                    <a:da name="INVALID" type="XPath">
+                                        <a:tst
+                                            expr="(. = 'true') and (../DsadcAuxiliaryFilterChainEnable = 'false')"
+                                            true="DsadcAuxiliaryFilterChainEnable must be enabled when limit checking of auxiliary filter chain." />
+                                    </a:da>
+                                </v:var>
+                                <v:var name="DsadcInitSyncEnableHWUnit" type="BOOLEAN">
+                                    <a:a name="DESC"
+                                        value="EN: Enables / Disables all DSADC HW units when the master core calls API Dsadc_Init().&lt;br&gt;
+                                        &lt;h1&gt;Note&lt;/h1&gt;
+                                        true: all DSADC HW units will be synchronous enabled when the master core calls API Dsadc_Init().&lt;br&gt;
+                                        false:  all DSADC HW units will be not enabled when the master core calls API Dsadc_Init().&lt;br&gt;
+                                        &lt;h1&gt;Caution&lt;/h1&gt;
+                                        For the THA6206 Revision C, if the hardware RDC is used, it must be enabled together with the DSADC. Refer to the ERRATA for details.&lt;br&gt;
+                                        If this parameter is set to false, the DSADC hardware units must be enabled by writing to the GLOBSYNC register. For details, refer to the Chip User Manual.
+                                        " />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="019be8e2-e787-741b-8f5c-32cb0c690100" />
+                                    <a:a name="DEFAULT" value="true" />
+                                </v:var>
+                            </v:ctr>
+                            <!-- CommonPublishedInformation_Object -->
+                            <v:ctr name="CommonPublishedInformation" type="IDENTIFIABLE">
+                                <a:a name="DESC">
+                                    <a:v><![CDATA[EN:<html> Common container, aggregated by all modules. It contains published information about vendor and versions.</html>]]></a:v>
+                                </a:a>
+                                <a:a name="UUID" value="95914226-9b6a-11ec-a5f3-f889d2d2ec8e" />
+                                <v:var name="ArReleaseMajorVersion" type="INTEGER">
+                                    <a:a name="DESC">
+                                        <a:v><![CDATA[EN:<html> Major version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]></a:v>
+                                    </a:a>
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="91449934-9b6a-11ec-b4e6-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="4" />
+                                    <a:da name="INVALID" type="Range">
+                                        <a:tst expr="&lt;=255" />
+                                        <a:tst expr="&gt;=0" />
+                                    </a:da>
+                                </v:var>
+                                <v:var name="ArReleaseMinorVersion" type="INTEGER">
+                                    <a:a name="DESC">
+                                        <a:v><![CDATA[EN:<html> Minor version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]></a:v>
+                                    </a:a>
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="8bc83c24-9b6a-11ec-9d95-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="4" />
+                                    <a:da name="INVALID" type="Range">
+                                        <a:tst expr="&lt;=255" />
+                                        <a:tst expr="&gt;=0" />
+                                    </a:da>
+                                </v:var>
+                                <v:var name="ArReleaseRevisionVersion" type="INTEGER">
+                                    <a:a name="DESC">
+                                        <a:v><![CDATA[EN:<html> Revision version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]></a:v>
+                                    </a:a>
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="863ef02e-9b6a-11ec-8aad-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="0" />
+                                    <a:da name="INVALID" type="Range">
+                                        <a:tst expr="&lt;=255" />
+                                        <a:tst expr="&gt;=0" />
+                                    </a:da>
+                                </v:var>
+                                <v:var name="ModuleId" type="INTEGER">
+                                    <a:a name="DESC">
+                                        <a:v><![CDATA[EN:<html> Module ID of this module from Module List.</html>]]></a:v>
+                                    </a:a>
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="829b03dc-9b6a-11ec-a05c-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="255" />
+                                    <a:da name="INVALID" type="Range">
+                                        <a:tst expr="&lt;=255" />
+                                        <a:tst expr="&gt;=0" />
+                                    </a:da>
+                                </v:var>
+                                <v:var name="SwMajorVersion" type="INTEGER">
+                                    <a:a name="DESC">
+                                        <a:v><![CDATA[EN:<html> Major version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]></a:v>
+                                    </a:a>
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="7ed85cb0-9b6a-11ec-9559-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="1" />
+                                    <a:da name="INVALID" type="Range">
+                                        <a:tst expr="&lt;=255" />
+                                        <a:tst expr="&gt;=0" />
+                                    </a:da>
+                                </v:var>
+                                <v:var name="SwMinorVersion" type="INTEGER">
+                                    <a:a name="DESC">
+                                        <a:v><![CDATA[EN:<html> Minor version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]></a:v>
+                                    </a:a>
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="7c1809c2-9b6a-11ec-9c2f-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="2" />
+                                    <a:da name="INVALID" type="Range">
+                                        <a:tst expr="&lt;=255" />
+                                        <a:tst expr="&gt;=0" />
+                                    </a:da>
+                                </v:var>
+                                <v:var name="SwPatchVersion" type="INTEGER">
+                                    <a:a name="DESC">
+                                        <a:v><![CDATA[EN:<html> Patch level version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]></a:v>
+                                    </a:a>
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="781c8e5e-9b6a-11ec-a1c8-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="0" />
+                                    <a:da name="INVALID" type="Range">
+                                        <a:tst expr="&lt;=255" />
+                                        <a:tst expr="&gt;=0" />
+                                    </a:da>
+                                </v:var>
+                                <v:var name="VendorId" type="INTEGER">
+                                    <a:a name="DESC">
+                                        <a:v><![CDATA[EN:<html> Vendor ID of the dedicated implementation of this module according to the AUTOSAR vendor list.</html>]]></a:v>
+                                    </a:a>
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="6f65e85e-9b6a-11ec-959e-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="175" />
+                                    <a:da name="INVALID" type="Range">
+                                        <a:tst expr="&lt;=175" />
+                                        <a:tst expr="&gt;=175" />
+                                    </a:da>
+                                </v:var>
+                            </v:ctr>
+                        </v:ctr>
+                    </d:chc>
+                    <d:chc name="Dsadc_EcuParameterDefinition" type="AR-ELEMENT"
+                        value="ECU_PARAMETER_DEFINITION">
+                        <d:ctr type="AR-ELEMENT">
+                            <a:a name="DEF"
+                                value="ASPath:/AR_PACKAGE_SCHEMA/ECU_PARAMETER_DEFINITION" />
+                            <a:a name="UUID" value="6f65e85e-9b6c-11ec-959e-f889d2d2ec8e" />
+                            <d:lst name="MODULE_REF">
+                                <d:ref type="MODULE_REF" value="ASPath:/THA6_AS440_FuSa/Dsadc" />
+                            </d:lst>
+                        </d:ctr>
+                    </d:chc>
+                </d:lst>
+            </d:ctr>
+        </d:lst>
+    </d:ctr>
+</datamodel>

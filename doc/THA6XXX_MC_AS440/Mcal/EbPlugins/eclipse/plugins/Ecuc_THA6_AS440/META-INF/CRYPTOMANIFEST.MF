@@ -1,0 +1,8 @@
+
+Name: config/EcuC.xdm
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377422399202315774069317782272765141750056157534141635
+ 4734440935436276627376429962595108767217948185663922
+

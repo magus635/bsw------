@@ -1,0 +1,9847 @@
+/****************************************************************************************************
+*
+****************************************************************************************************/
+/****************************************************************************************************
+*   FileName              : Intc_Irq.h
+*
+*   Platform              : AUTOSAR
+*
+*   Peripheral            : Intc/GIC
+*
+*   brief                 : This file contains all ISR function declarations of Intc Driver
+*
+*   Autosar Version       : 4.4.0
+*
+*   Build Version         : Cortex-R52+/THA6xxx
+*
+*   Copyright \(c) 2024 Tongxin Micro Co., Ltd. All Rights Reserved.
+*
+****************************************************************************************************/
+
+/*
+*#Violation Summary
+*
+*#Intc_Irq_h_REF_1:MISRAC2012-Rule-2.5;
+* Justification:The macros are reserved for upper layers.
+*
+*/
+
+#ifndef INTC_IRQ_H_
+#define INTC_IRQ_H_
+
+/****************************************************************************************************
+**                          Includes                                                               **
+****************************************************************************************************/
+#include "Mcall.h"
+
+#ifndef MCAL_MODULE_CFG_INTC_EN
+#define MCAL_MODULE_CFG_INTC_EN  (STD_OFF)
+#endif
+
+#if (MCAL_MODULE_CFG_INTC_EN == STD_ON)
+#include "Intc.h"
+#endif
+
+/****************************************************************************************************
+**                          Global Function Declarations                                           **
+****************************************************************************************************/
+#if (MCAL_MODULE_CFG_INTC_EN == STD_ON)
+/* #Violation: Intc_Irq_h_REF_1 */
+#define INTC_START_SEC_CODE_ASIL_D_GLOBAL
+#include "Intc_MemMap.h"
+#endif /* MCAL_MODULE_CFG_INTC_EN \== STD_ON */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 0 */
+#if ((defined(INTC_CFG_INTSRC0_CORE0_EN)) && (INTC_CFG_INTSRC0_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC0_CORE0_CAT)) && (INTC_CFG_INTSRC0_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc0Entry);
+#else /* (INTC_CFG_INTSRC0_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc0Entry);
+#endif /* ((defined(INTC_CFG_INTSRC0_CORE0_CAT)) \&& (INTC_CFG_INTSRC0_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC0_CORE0_EN)) \&& (INTC_CFG_INTSRC0_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 0 */
+#if ((defined(INTC_CFG_INTSRC0_CORE1_EN)) && (INTC_CFG_INTSRC0_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC0_CORE1_CAT)) && (INTC_CFG_INTSRC0_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc0Entry);
+#else /* (INTC_CFG_INTSRC0_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc0Entry);
+#endif /* ((defined(INTC_CFG_INTSRC0_CORE1_CAT)) \&& (INTC_CFG_INTSRC0_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC0_CORE1_EN)) \&& (INTC_CFG_INTSRC0_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 0 */
+#if ((defined(INTC_CFG_INTSRC0_CORE2_EN)) && (INTC_CFG_INTSRC0_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC0_CORE2_CAT)) && (INTC_CFG_INTSRC0_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc0Entry);
+#else /* (INTC_CFG_INTSRC0_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc0Entry);
+#endif /* ((defined(INTC_CFG_INTSRC0_CORE2_CAT)) \&& (INTC_CFG_INTSRC0_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC0_CORE2_EN)) \&& (INTC_CFG_INTSRC0_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 0 */
+#if ((defined(INTC_CFG_INTSRC0_CORE3_EN)) && (INTC_CFG_INTSRC0_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC0_CORE3_CAT)) && (INTC_CFG_INTSRC0_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc0Entry);
+#else /* (INTC_CFG_INTSRC0_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc0Entry);
+#endif /* ((defined(INTC_CFG_INTSRC0_CORE3_CAT)) \&& (INTC_CFG_INTSRC0_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC0_CORE3_EN)) \&& (INTC_CFG_INTSRC0_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 1 */
+#if ((defined(INTC_CFG_INTSRC1_CORE0_EN)) && (INTC_CFG_INTSRC1_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC1_CORE0_CAT)) && (INTC_CFG_INTSRC1_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc1Entry);
+#else /* (INTC_CFG_INTSRC1_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc1Entry);
+#endif /* ((defined(INTC_CFG_INTSRC1_CORE0_CAT)) \&& (INTC_CFG_INTSRC1_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC1_CORE0_EN)) \&& (INTC_CFG_INTSRC1_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 1 */
+#if ((defined(INTC_CFG_INTSRC1_CORE1_EN)) && (INTC_CFG_INTSRC1_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC1_CORE1_CAT)) && (INTC_CFG_INTSRC1_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc1Entry);
+#else /* (INTC_CFG_INTSRC1_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc1Entry);
+#endif /* ((defined(INTC_CFG_INTSRC1_CORE1_CAT)) \&& (INTC_CFG_INTSRC1_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC1_CORE1_EN)) \&& (INTC_CFG_INTSRC1_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 1 */
+#if ((defined(INTC_CFG_INTSRC1_CORE2_EN)) && (INTC_CFG_INTSRC1_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC1_CORE2_CAT)) && (INTC_CFG_INTSRC1_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc1Entry);
+#else /* (INTC_CFG_INTSRC1_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc1Entry);
+#endif /* ((defined(INTC_CFG_INTSRC1_CORE2_CAT)) \&& (INTC_CFG_INTSRC1_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC1_CORE2_EN)) \&& (INTC_CFG_INTSRC1_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 1 */
+#if ((defined(INTC_CFG_INTSRC1_CORE3_EN)) && (INTC_CFG_INTSRC1_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC1_CORE3_CAT)) && (INTC_CFG_INTSRC1_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc1Entry);
+#else /* (INTC_CFG_INTSRC1_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc1Entry);
+#endif /* ((defined(INTC_CFG_INTSRC1_CORE3_CAT)) \&& (INTC_CFG_INTSRC1_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC1_CORE3_EN)) \&& (INTC_CFG_INTSRC1_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 2 */
+#if ((defined(INTC_CFG_INTSRC2_CORE0_EN)) && (INTC_CFG_INTSRC2_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC2_CORE0_CAT)) && (INTC_CFG_INTSRC2_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc2Entry);
+#else /* (INTC_CFG_INTSRC2_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc2Entry);
+#endif /* ((defined(INTC_CFG_INTSRC2_CORE0_CAT)) \&& (INTC_CFG_INTSRC2_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC2_CORE0_EN)) \&& (INTC_CFG_INTSRC2_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 2 */
+#if ((defined(INTC_CFG_INTSRC2_CORE1_EN)) && (INTC_CFG_INTSRC2_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC2_CORE1_CAT)) && (INTC_CFG_INTSRC2_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc2Entry);
+#else /* (INTC_CFG_INTSRC2_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc2Entry);
+#endif /* ((defined(INTC_CFG_INTSRC2_CORE1_CAT)) \&& (INTC_CFG_INTSRC2_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC2_CORE1_EN)) \&& (INTC_CFG_INTSRC2_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 2 */
+#if ((defined(INTC_CFG_INTSRC2_CORE2_EN)) && (INTC_CFG_INTSRC2_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC2_CORE2_CAT)) && (INTC_CFG_INTSRC2_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc2Entry);
+#else /* (INTC_CFG_INTSRC2_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc2Entry);
+#endif /* ((defined(INTC_CFG_INTSRC2_CORE2_CAT)) \&& (INTC_CFG_INTSRC2_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC2_CORE2_EN)) \&& (INTC_CFG_INTSRC2_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 2 */
+#if ((defined(INTC_CFG_INTSRC2_CORE3_EN)) && (INTC_CFG_INTSRC2_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC2_CORE3_CAT)) && (INTC_CFG_INTSRC2_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc2Entry);
+#else /* (INTC_CFG_INTSRC2_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc2Entry);
+#endif /* ((defined(INTC_CFG_INTSRC2_CORE3_CAT)) \&& (INTC_CFG_INTSRC2_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC2_CORE3_EN)) \&& (INTC_CFG_INTSRC2_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 3 */
+#if ((defined(INTC_CFG_INTSRC3_CORE0_EN)) && (INTC_CFG_INTSRC3_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC3_CORE0_CAT)) && (INTC_CFG_INTSRC3_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc3Entry);
+#else /* (INTC_CFG_INTSRC3_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc3Entry);
+#endif /* ((defined(INTC_CFG_INTSRC3_CORE0_CAT)) \&& (INTC_CFG_INTSRC3_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC3_CORE0_EN)) \&& (INTC_CFG_INTSRC3_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 3 */
+#if ((defined(INTC_CFG_INTSRC3_CORE1_EN)) && (INTC_CFG_INTSRC3_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC3_CORE1_CAT)) && (INTC_CFG_INTSRC3_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc3Entry);
+#else /* (INTC_CFG_INTSRC3_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc3Entry);
+#endif /* ((defined(INTC_CFG_INTSRC3_CORE1_CAT)) \&& (INTC_CFG_INTSRC3_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC3_CORE1_EN)) \&& (INTC_CFG_INTSRC3_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 3 */
+#if ((defined(INTC_CFG_INTSRC3_CORE2_EN)) && (INTC_CFG_INTSRC3_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC3_CORE2_CAT)) && (INTC_CFG_INTSRC3_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc3Entry);
+#else /* (INTC_CFG_INTSRC3_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc3Entry);
+#endif /* ((defined(INTC_CFG_INTSRC3_CORE2_CAT)) \&& (INTC_CFG_INTSRC3_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC3_CORE2_EN)) \&& (INTC_CFG_INTSRC3_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 3 */
+#if ((defined(INTC_CFG_INTSRC3_CORE3_EN)) && (INTC_CFG_INTSRC3_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC3_CORE3_CAT)) && (INTC_CFG_INTSRC3_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc3Entry);
+#else /* (INTC_CFG_INTSRC3_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc3Entry);
+#endif /* ((defined(INTC_CFG_INTSRC3_CORE3_CAT)) \&& (INTC_CFG_INTSRC3_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC3_CORE3_EN)) \&& (INTC_CFG_INTSRC3_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 4 */
+#if ((defined(INTC_CFG_INTSRC4_CORE0_EN)) && (INTC_CFG_INTSRC4_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC4_CORE0_CAT)) && (INTC_CFG_INTSRC4_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc4Entry);
+#else /* (INTC_CFG_INTSRC4_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc4Entry);
+#endif /* ((defined(INTC_CFG_INTSRC4_CORE0_CAT)) \&& (INTC_CFG_INTSRC4_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC4_CORE0_EN)) \&& (INTC_CFG_INTSRC4_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 4 */
+#if ((defined(INTC_CFG_INTSRC4_CORE1_EN)) && (INTC_CFG_INTSRC4_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC4_CORE1_CAT)) && (INTC_CFG_INTSRC4_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc4Entry);
+#else /* (INTC_CFG_INTSRC4_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc4Entry);
+#endif /* ((defined(INTC_CFG_INTSRC4_CORE1_CAT)) \&& (INTC_CFG_INTSRC4_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC4_CORE1_EN)) \&& (INTC_CFG_INTSRC4_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 4 */
+#if ((defined(INTC_CFG_INTSRC4_CORE2_EN)) && (INTC_CFG_INTSRC4_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC4_CORE2_CAT)) && (INTC_CFG_INTSRC4_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc4Entry);
+#else /* (INTC_CFG_INTSRC4_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc4Entry);
+#endif /* ((defined(INTC_CFG_INTSRC4_CORE2_CAT)) \&& (INTC_CFG_INTSRC4_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC4_CORE2_EN)) \&& (INTC_CFG_INTSRC4_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 4 */
+#if ((defined(INTC_CFG_INTSRC4_CORE3_EN)) && (INTC_CFG_INTSRC4_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC4_CORE3_CAT)) && (INTC_CFG_INTSRC4_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc4Entry);
+#else /* (INTC_CFG_INTSRC4_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc4Entry);
+#endif /* ((defined(INTC_CFG_INTSRC4_CORE3_CAT)) \&& (INTC_CFG_INTSRC4_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC4_CORE3_EN)) \&& (INTC_CFG_INTSRC4_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 5 */
+#if ((defined(INTC_CFG_INTSRC5_CORE0_EN)) && (INTC_CFG_INTSRC5_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC5_CORE0_CAT)) && (INTC_CFG_INTSRC5_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc5Entry);
+#else /* (INTC_CFG_INTSRC5_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc5Entry);
+#endif /* ((defined(INTC_CFG_INTSRC5_CORE0_CAT)) \&& (INTC_CFG_INTSRC5_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC5_CORE0_EN)) \&& (INTC_CFG_INTSRC5_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 5 */
+#if ((defined(INTC_CFG_INTSRC5_CORE1_EN)) && (INTC_CFG_INTSRC5_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC5_CORE1_CAT)) && (INTC_CFG_INTSRC5_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc5Entry);
+#else /* (INTC_CFG_INTSRC5_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc5Entry);
+#endif /* ((defined(INTC_CFG_INTSRC5_CORE1_CAT)) \&& (INTC_CFG_INTSRC5_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC5_CORE1_EN)) \&& (INTC_CFG_INTSRC5_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 5 */
+#if ((defined(INTC_CFG_INTSRC5_CORE2_EN)) && (INTC_CFG_INTSRC5_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC5_CORE2_CAT)) && (INTC_CFG_INTSRC5_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc5Entry);
+#else /* (INTC_CFG_INTSRC5_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc5Entry);
+#endif /* ((defined(INTC_CFG_INTSRC5_CORE2_CAT)) \&& (INTC_CFG_INTSRC5_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC5_CORE2_EN)) \&& (INTC_CFG_INTSRC5_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 5 */
+#if ((defined(INTC_CFG_INTSRC5_CORE3_EN)) && (INTC_CFG_INTSRC5_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC5_CORE3_CAT)) && (INTC_CFG_INTSRC5_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc5Entry);
+#else /* (INTC_CFG_INTSRC5_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc5Entry);
+#endif /* ((defined(INTC_CFG_INTSRC5_CORE3_CAT)) \&& (INTC_CFG_INTSRC5_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC5_CORE3_EN)) \&& (INTC_CFG_INTSRC5_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 6 */
+#if ((defined(INTC_CFG_INTSRC6_CORE0_EN)) && (INTC_CFG_INTSRC6_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC6_CORE0_CAT)) && (INTC_CFG_INTSRC6_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc6Entry);
+#else /* (INTC_CFG_INTSRC6_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc6Entry);
+#endif /* ((defined(INTC_CFG_INTSRC6_CORE0_CAT)) \&& (INTC_CFG_INTSRC6_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC6_CORE0_EN)) \&& (INTC_CFG_INTSRC6_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 6 */
+#if ((defined(INTC_CFG_INTSRC6_CORE1_EN)) && (INTC_CFG_INTSRC6_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC6_CORE1_CAT)) && (INTC_CFG_INTSRC6_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc6Entry);
+#else /* (INTC_CFG_INTSRC6_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc6Entry);
+#endif /* ((defined(INTC_CFG_INTSRC6_CORE1_CAT)) \&& (INTC_CFG_INTSRC6_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC6_CORE1_EN)) \&& (INTC_CFG_INTSRC6_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 6 */
+#if ((defined(INTC_CFG_INTSRC6_CORE2_EN)) && (INTC_CFG_INTSRC6_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC6_CORE2_CAT)) && (INTC_CFG_INTSRC6_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc6Entry);
+#else /* (INTC_CFG_INTSRC6_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc6Entry);
+#endif /* ((defined(INTC_CFG_INTSRC6_CORE2_CAT)) \&& (INTC_CFG_INTSRC6_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC6_CORE2_EN)) \&& (INTC_CFG_INTSRC6_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 6 */
+#if ((defined(INTC_CFG_INTSRC6_CORE3_EN)) && (INTC_CFG_INTSRC6_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC6_CORE3_CAT)) && (INTC_CFG_INTSRC6_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc6Entry);
+#else /* (INTC_CFG_INTSRC6_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc6Entry);
+#endif /* ((defined(INTC_CFG_INTSRC6_CORE3_CAT)) \&& (INTC_CFG_INTSRC6_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC6_CORE3_EN)) \&& (INTC_CFG_INTSRC6_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 7 */
+#if ((defined(INTC_CFG_INTSRC7_CORE0_EN)) && (INTC_CFG_INTSRC7_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC7_CORE0_CAT)) && (INTC_CFG_INTSRC7_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc7Entry);
+#else /* (INTC_CFG_INTSRC7_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc7Entry);
+#endif /* ((defined(INTC_CFG_INTSRC7_CORE0_CAT)) \&& (INTC_CFG_INTSRC7_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC7_CORE0_EN)) \&& (INTC_CFG_INTSRC7_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 7 */
+#if ((defined(INTC_CFG_INTSRC7_CORE1_EN)) && (INTC_CFG_INTSRC7_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC7_CORE1_CAT)) && (INTC_CFG_INTSRC7_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc7Entry);
+#else /* (INTC_CFG_INTSRC7_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc7Entry);
+#endif /* ((defined(INTC_CFG_INTSRC7_CORE1_CAT)) \&& (INTC_CFG_INTSRC7_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC7_CORE1_EN)) \&& (INTC_CFG_INTSRC7_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 7 */
+#if ((defined(INTC_CFG_INTSRC7_CORE2_EN)) && (INTC_CFG_INTSRC7_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC7_CORE2_CAT)) && (INTC_CFG_INTSRC7_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc7Entry);
+#else /* (INTC_CFG_INTSRC7_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc7Entry);
+#endif /* ((defined(INTC_CFG_INTSRC7_CORE2_CAT)) \&& (INTC_CFG_INTSRC7_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC7_CORE2_EN)) \&& (INTC_CFG_INTSRC7_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 7 */
+#if ((defined(INTC_CFG_INTSRC7_CORE3_EN)) && (INTC_CFG_INTSRC7_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC7_CORE3_CAT)) && (INTC_CFG_INTSRC7_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc7Entry);
+#else /* (INTC_CFG_INTSRC7_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc7Entry);
+#endif /* ((defined(INTC_CFG_INTSRC7_CORE3_CAT)) \&& (INTC_CFG_INTSRC7_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC7_CORE3_EN)) \&& (INTC_CFG_INTSRC7_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 8 */
+#if ((defined(INTC_CFG_INTSRC8_CORE0_EN)) && (INTC_CFG_INTSRC8_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC8_CORE0_CAT)) && (INTC_CFG_INTSRC8_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc8Entry);
+#else /* (INTC_CFG_INTSRC8_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc8Entry);
+#endif /* ((defined(INTC_CFG_INTSRC8_CORE0_CAT)) \&& (INTC_CFG_INTSRC8_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC8_CORE0_EN)) \&& (INTC_CFG_INTSRC8_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 8 */
+#if ((defined(INTC_CFG_INTSRC8_CORE1_EN)) && (INTC_CFG_INTSRC8_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC8_CORE1_CAT)) && (INTC_CFG_INTSRC8_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc8Entry);
+#else /* (INTC_CFG_INTSRC8_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc8Entry);
+#endif /* ((defined(INTC_CFG_INTSRC8_CORE1_CAT)) \&& (INTC_CFG_INTSRC8_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC8_CORE1_EN)) \&& (INTC_CFG_INTSRC8_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 8 */
+#if ((defined(INTC_CFG_INTSRC8_CORE2_EN)) && (INTC_CFG_INTSRC8_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC8_CORE2_CAT)) && (INTC_CFG_INTSRC8_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc8Entry);
+#else /* (INTC_CFG_INTSRC8_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc8Entry);
+#endif /* ((defined(INTC_CFG_INTSRC8_CORE2_CAT)) \&& (INTC_CFG_INTSRC8_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC8_CORE2_EN)) \&& (INTC_CFG_INTSRC8_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 8 */
+#if ((defined(INTC_CFG_INTSRC8_CORE3_EN)) && (INTC_CFG_INTSRC8_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC8_CORE3_CAT)) && (INTC_CFG_INTSRC8_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc8Entry);
+#else /* (INTC_CFG_INTSRC8_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc8Entry);
+#endif /* ((defined(INTC_CFG_INTSRC8_CORE3_CAT)) \&& (INTC_CFG_INTSRC8_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC8_CORE3_EN)) \&& (INTC_CFG_INTSRC8_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 9 */
+#if ((defined(INTC_CFG_INTSRC9_CORE0_EN)) && (INTC_CFG_INTSRC9_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC9_CORE0_CAT)) && (INTC_CFG_INTSRC9_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc9Entry);
+#else /* (INTC_CFG_INTSRC9_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc9Entry);
+#endif /* ((defined(INTC_CFG_INTSRC9_CORE0_CAT)) \&& (INTC_CFG_INTSRC9_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC9_CORE0_EN)) \&& (INTC_CFG_INTSRC9_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 9 */
+#if ((defined(INTC_CFG_INTSRC9_CORE1_EN)) && (INTC_CFG_INTSRC9_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC9_CORE1_CAT)) && (INTC_CFG_INTSRC9_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc9Entry);
+#else /* (INTC_CFG_INTSRC9_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc9Entry);
+#endif /* ((defined(INTC_CFG_INTSRC9_CORE1_CAT)) \&& (INTC_CFG_INTSRC9_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC9_CORE1_EN)) \&& (INTC_CFG_INTSRC9_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 9 */
+#if ((defined(INTC_CFG_INTSRC9_CORE2_EN)) && (INTC_CFG_INTSRC9_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC9_CORE2_CAT)) && (INTC_CFG_INTSRC9_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc9Entry);
+#else /* (INTC_CFG_INTSRC9_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc9Entry);
+#endif /* ((defined(INTC_CFG_INTSRC9_CORE2_CAT)) \&& (INTC_CFG_INTSRC9_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC9_CORE2_EN)) \&& (INTC_CFG_INTSRC9_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 9 */
+#if ((defined(INTC_CFG_INTSRC9_CORE3_EN)) && (INTC_CFG_INTSRC9_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC9_CORE3_CAT)) && (INTC_CFG_INTSRC9_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc9Entry);
+#else /* (INTC_CFG_INTSRC9_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc9Entry);
+#endif /* ((defined(INTC_CFG_INTSRC9_CORE3_CAT)) \&& (INTC_CFG_INTSRC9_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC9_CORE3_EN)) \&& (INTC_CFG_INTSRC9_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 10 */
+#if ((defined(INTC_CFG_INTSRC10_CORE0_EN)) && (INTC_CFG_INTSRC10_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC10_CORE0_CAT)) && (INTC_CFG_INTSRC10_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc10Entry);
+#else /* (INTC_CFG_INTSRC10_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc10Entry);
+#endif /* ((defined(INTC_CFG_INTSRC10_CORE0_CAT)) \&& (INTC_CFG_INTSRC10_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC10_CORE0_EN)) \&& (INTC_CFG_INTSRC10_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 10 */
+#if ((defined(INTC_CFG_INTSRC10_CORE1_EN)) && (INTC_CFG_INTSRC10_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC10_CORE1_CAT)) && (INTC_CFG_INTSRC10_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc10Entry);
+#else /* (INTC_CFG_INTSRC10_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc10Entry);
+#endif /* ((defined(INTC_CFG_INTSRC10_CORE1_CAT)) \&& (INTC_CFG_INTSRC10_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC10_CORE1_EN)) \&& (INTC_CFG_INTSRC10_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 10 */
+#if ((defined(INTC_CFG_INTSRC10_CORE2_EN)) && (INTC_CFG_INTSRC10_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC10_CORE2_CAT)) && (INTC_CFG_INTSRC10_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc10Entry);
+#else /* (INTC_CFG_INTSRC10_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc10Entry);
+#endif /* ((defined(INTC_CFG_INTSRC10_CORE2_CAT)) \&& (INTC_CFG_INTSRC10_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC10_CORE2_EN)) \&& (INTC_CFG_INTSRC10_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 10 */
+#if ((defined(INTC_CFG_INTSRC10_CORE3_EN)) && (INTC_CFG_INTSRC10_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC10_CORE3_CAT)) && (INTC_CFG_INTSRC10_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc10Entry);
+#else /* (INTC_CFG_INTSRC10_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc10Entry);
+#endif /* ((defined(INTC_CFG_INTSRC10_CORE3_CAT)) \&& (INTC_CFG_INTSRC10_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC10_CORE3_EN)) \&& (INTC_CFG_INTSRC10_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 11 */
+#if ((defined(INTC_CFG_INTSRC11_CORE0_EN)) && (INTC_CFG_INTSRC11_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC11_CORE0_CAT)) && (INTC_CFG_INTSRC11_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc11Entry);
+#else /* (INTC_CFG_INTSRC11_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc11Entry);
+#endif /* ((defined(INTC_CFG_INTSRC11_CORE0_CAT)) \&& (INTC_CFG_INTSRC11_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC11_CORE0_EN)) \&& (INTC_CFG_INTSRC11_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 11 */
+#if ((defined(INTC_CFG_INTSRC11_CORE1_EN)) && (INTC_CFG_INTSRC11_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC11_CORE1_CAT)) && (INTC_CFG_INTSRC11_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc11Entry);
+#else /* (INTC_CFG_INTSRC11_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc11Entry);
+#endif /* ((defined(INTC_CFG_INTSRC11_CORE1_CAT)) \&& (INTC_CFG_INTSRC11_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC11_CORE1_EN)) \&& (INTC_CFG_INTSRC11_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 11 */
+#if ((defined(INTC_CFG_INTSRC11_CORE2_EN)) && (INTC_CFG_INTSRC11_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC11_CORE2_CAT)) && (INTC_CFG_INTSRC11_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc11Entry);
+#else /* (INTC_CFG_INTSRC11_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc11Entry);
+#endif /* ((defined(INTC_CFG_INTSRC11_CORE2_CAT)) \&& (INTC_CFG_INTSRC11_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC11_CORE2_EN)) \&& (INTC_CFG_INTSRC11_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 11 */
+#if ((defined(INTC_CFG_INTSRC11_CORE3_EN)) && (INTC_CFG_INTSRC11_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC11_CORE3_CAT)) && (INTC_CFG_INTSRC11_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc11Entry);
+#else /* (INTC_CFG_INTSRC11_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc11Entry);
+#endif /* ((defined(INTC_CFG_INTSRC11_CORE3_CAT)) \&& (INTC_CFG_INTSRC11_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC11_CORE3_EN)) \&& (INTC_CFG_INTSRC11_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 12 */
+#if ((defined(INTC_CFG_INTSRC12_CORE0_EN)) && (INTC_CFG_INTSRC12_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC12_CORE0_CAT)) && (INTC_CFG_INTSRC12_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc12Entry);
+#else /* (INTC_CFG_INTSRC12_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc12Entry);
+#endif /* ((defined(INTC_CFG_INTSRC12_CORE0_CAT)) \&& (INTC_CFG_INTSRC12_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC12_CORE0_EN)) \&& (INTC_CFG_INTSRC12_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 12 */
+#if ((defined(INTC_CFG_INTSRC12_CORE1_EN)) && (INTC_CFG_INTSRC12_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC12_CORE1_CAT)) && (INTC_CFG_INTSRC12_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc12Entry);
+#else /* (INTC_CFG_INTSRC12_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc12Entry);
+#endif /* ((defined(INTC_CFG_INTSRC12_CORE1_CAT)) \&& (INTC_CFG_INTSRC12_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC12_CORE1_EN)) \&& (INTC_CFG_INTSRC12_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 12 */
+#if ((defined(INTC_CFG_INTSRC12_CORE2_EN)) && (INTC_CFG_INTSRC12_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC12_CORE2_CAT)) && (INTC_CFG_INTSRC12_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc12Entry);
+#else /* (INTC_CFG_INTSRC12_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc12Entry);
+#endif /* ((defined(INTC_CFG_INTSRC12_CORE2_CAT)) \&& (INTC_CFG_INTSRC12_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC12_CORE2_EN)) \&& (INTC_CFG_INTSRC12_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 12 */
+#if ((defined(INTC_CFG_INTSRC12_CORE3_EN)) && (INTC_CFG_INTSRC12_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC12_CORE3_CAT)) && (INTC_CFG_INTSRC12_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc12Entry);
+#else /* (INTC_CFG_INTSRC12_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc12Entry);
+#endif /* ((defined(INTC_CFG_INTSRC12_CORE3_CAT)) \&& (INTC_CFG_INTSRC12_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC12_CORE3_EN)) \&& (INTC_CFG_INTSRC12_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 13 */
+#if ((defined(INTC_CFG_INTSRC13_CORE0_EN)) && (INTC_CFG_INTSRC13_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC13_CORE0_CAT)) && (INTC_CFG_INTSRC13_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc13Entry);
+#else /* (INTC_CFG_INTSRC13_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc13Entry);
+#endif /* ((defined(INTC_CFG_INTSRC13_CORE0_CAT)) \&& (INTC_CFG_INTSRC13_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC13_CORE0_EN)) \&& (INTC_CFG_INTSRC13_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 13 */
+#if ((defined(INTC_CFG_INTSRC13_CORE1_EN)) && (INTC_CFG_INTSRC13_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC13_CORE1_CAT)) && (INTC_CFG_INTSRC13_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc13Entry);
+#else /* (INTC_CFG_INTSRC13_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc13Entry);
+#endif /* ((defined(INTC_CFG_INTSRC13_CORE1_CAT)) \&& (INTC_CFG_INTSRC13_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC13_CORE1_EN)) \&& (INTC_CFG_INTSRC13_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 13 */
+#if ((defined(INTC_CFG_INTSRC13_CORE2_EN)) && (INTC_CFG_INTSRC13_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC13_CORE2_CAT)) && (INTC_CFG_INTSRC13_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc13Entry);
+#else /* (INTC_CFG_INTSRC13_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc13Entry);
+#endif /* ((defined(INTC_CFG_INTSRC13_CORE2_CAT)) \&& (INTC_CFG_INTSRC13_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC13_CORE2_EN)) \&& (INTC_CFG_INTSRC13_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 13 */
+#if ((defined(INTC_CFG_INTSRC13_CORE3_EN)) && (INTC_CFG_INTSRC13_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC13_CORE3_CAT)) && (INTC_CFG_INTSRC13_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc13Entry);
+#else /* (INTC_CFG_INTSRC13_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc13Entry);
+#endif /* ((defined(INTC_CFG_INTSRC13_CORE3_CAT)) \&& (INTC_CFG_INTSRC13_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC13_CORE3_EN)) \&& (INTC_CFG_INTSRC13_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 14 */
+#if ((defined(INTC_CFG_INTSRC14_CORE0_EN)) && (INTC_CFG_INTSRC14_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC14_CORE0_CAT)) && (INTC_CFG_INTSRC14_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc14Entry);
+#else /* (INTC_CFG_INTSRC14_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc14Entry);
+#endif /* ((defined(INTC_CFG_INTSRC14_CORE0_CAT)) \&& (INTC_CFG_INTSRC14_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC14_CORE0_EN)) \&& (INTC_CFG_INTSRC14_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 14 */
+#if ((defined(INTC_CFG_INTSRC14_CORE1_EN)) && (INTC_CFG_INTSRC14_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC14_CORE1_CAT)) && (INTC_CFG_INTSRC14_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc14Entry);
+#else /* (INTC_CFG_INTSRC14_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc14Entry);
+#endif /* ((defined(INTC_CFG_INTSRC14_CORE1_CAT)) \&& (INTC_CFG_INTSRC14_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC14_CORE1_EN)) \&& (INTC_CFG_INTSRC14_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 14 */
+#if ((defined(INTC_CFG_INTSRC14_CORE2_EN)) && (INTC_CFG_INTSRC14_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC14_CORE2_CAT)) && (INTC_CFG_INTSRC14_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc14Entry);
+#else /* (INTC_CFG_INTSRC14_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc14Entry);
+#endif /* ((defined(INTC_CFG_INTSRC14_CORE2_CAT)) \&& (INTC_CFG_INTSRC14_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC14_CORE2_EN)) \&& (INTC_CFG_INTSRC14_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 14 */
+#if ((defined(INTC_CFG_INTSRC14_CORE3_EN)) && (INTC_CFG_INTSRC14_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC14_CORE3_CAT)) && (INTC_CFG_INTSRC14_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc14Entry);
+#else /* (INTC_CFG_INTSRC14_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc14Entry);
+#endif /* ((defined(INTC_CFG_INTSRC14_CORE3_CAT)) \&& (INTC_CFG_INTSRC14_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC14_CORE3_EN)) \&& (INTC_CFG_INTSRC14_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 15 */
+#if ((defined(INTC_CFG_INTSRC15_CORE0_EN)) && (INTC_CFG_INTSRC15_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC15_CORE0_CAT)) && (INTC_CFG_INTSRC15_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc15Entry);
+#else /* (INTC_CFG_INTSRC15_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc15Entry);
+#endif /* ((defined(INTC_CFG_INTSRC15_CORE0_CAT)) \&& (INTC_CFG_INTSRC15_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC15_CORE0_EN)) \&& (INTC_CFG_INTSRC15_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 15 */
+#if ((defined(INTC_CFG_INTSRC15_CORE1_EN)) && (INTC_CFG_INTSRC15_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC15_CORE1_CAT)) && (INTC_CFG_INTSRC15_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc15Entry);
+#else /* (INTC_CFG_INTSRC15_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc15Entry);
+#endif /* ((defined(INTC_CFG_INTSRC15_CORE1_CAT)) \&& (INTC_CFG_INTSRC15_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC15_CORE1_EN)) \&& (INTC_CFG_INTSRC15_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 15 */
+#if ((defined(INTC_CFG_INTSRC15_CORE2_EN)) && (INTC_CFG_INTSRC15_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC15_CORE2_CAT)) && (INTC_CFG_INTSRC15_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc15Entry);
+#else /* (INTC_CFG_INTSRC15_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc15Entry);
+#endif /* ((defined(INTC_CFG_INTSRC15_CORE2_CAT)) \&& (INTC_CFG_INTSRC15_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC15_CORE2_EN)) \&& (INTC_CFG_INTSRC15_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 15 */
+#if ((defined(INTC_CFG_INTSRC15_CORE3_EN)) && (INTC_CFG_INTSRC15_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC15_CORE3_CAT)) && (INTC_CFG_INTSRC15_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc15Entry);
+#else /* (INTC_CFG_INTSRC15_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc15Entry);
+#endif /* ((defined(INTC_CFG_INTSRC15_CORE3_CAT)) \&& (INTC_CFG_INTSRC15_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC15_CORE3_EN)) \&& (INTC_CFG_INTSRC15_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 16 */
+#if ((defined(INTC_CFG_INTSRC16_CORE0_EN)) && (INTC_CFG_INTSRC16_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC16_CORE0_CAT)) && (INTC_CFG_INTSRC16_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc16Entry);
+#else /* (INTC_CFG_INTSRC16_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc16Entry);
+#endif /* ((defined(INTC_CFG_INTSRC16_CORE0_CAT)) \&& (INTC_CFG_INTSRC16_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC16_CORE0_EN)) \&& (INTC_CFG_INTSRC16_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 16 */
+#if ((defined(INTC_CFG_INTSRC16_CORE1_EN)) && (INTC_CFG_INTSRC16_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC16_CORE1_CAT)) && (INTC_CFG_INTSRC16_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc16Entry);
+#else /* (INTC_CFG_INTSRC16_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc16Entry);
+#endif /* ((defined(INTC_CFG_INTSRC16_CORE1_CAT)) \&& (INTC_CFG_INTSRC16_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC16_CORE1_EN)) \&& (INTC_CFG_INTSRC16_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 16 */
+#if ((defined(INTC_CFG_INTSRC16_CORE2_EN)) && (INTC_CFG_INTSRC16_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC16_CORE2_CAT)) && (INTC_CFG_INTSRC16_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc16Entry);
+#else /* (INTC_CFG_INTSRC16_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc16Entry);
+#endif /* ((defined(INTC_CFG_INTSRC16_CORE2_CAT)) \&& (INTC_CFG_INTSRC16_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC16_CORE2_EN)) \&& (INTC_CFG_INTSRC16_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 16 */
+#if ((defined(INTC_CFG_INTSRC16_CORE3_EN)) && (INTC_CFG_INTSRC16_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC16_CORE3_CAT)) && (INTC_CFG_INTSRC16_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc16Entry);
+#else /* (INTC_CFG_INTSRC16_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc16Entry);
+#endif /* ((defined(INTC_CFG_INTSRC16_CORE3_CAT)) \&& (INTC_CFG_INTSRC16_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC16_CORE3_EN)) \&& (INTC_CFG_INTSRC16_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 17 */
+#if ((defined(INTC_CFG_INTSRC17_CORE0_EN)) && (INTC_CFG_INTSRC17_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC17_CORE0_CAT)) && (INTC_CFG_INTSRC17_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc17Entry);
+#else /* (INTC_CFG_INTSRC17_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc17Entry);
+#endif /* ((defined(INTC_CFG_INTSRC17_CORE0_CAT)) \&& (INTC_CFG_INTSRC17_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC17_CORE0_EN)) \&& (INTC_CFG_INTSRC17_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 17 */
+#if ((defined(INTC_CFG_INTSRC17_CORE1_EN)) && (INTC_CFG_INTSRC17_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC17_CORE1_CAT)) && (INTC_CFG_INTSRC17_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc17Entry);
+#else /* (INTC_CFG_INTSRC17_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc17Entry);
+#endif /* ((defined(INTC_CFG_INTSRC17_CORE1_CAT)) \&& (INTC_CFG_INTSRC17_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC17_CORE1_EN)) \&& (INTC_CFG_INTSRC17_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 17 */
+#if ((defined(INTC_CFG_INTSRC17_CORE2_EN)) && (INTC_CFG_INTSRC17_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC17_CORE2_CAT)) && (INTC_CFG_INTSRC17_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc17Entry);
+#else /* (INTC_CFG_INTSRC17_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc17Entry);
+#endif /* ((defined(INTC_CFG_INTSRC17_CORE2_CAT)) \&& (INTC_CFG_INTSRC17_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC17_CORE2_EN)) \&& (INTC_CFG_INTSRC17_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 17 */
+#if ((defined(INTC_CFG_INTSRC17_CORE3_EN)) && (INTC_CFG_INTSRC17_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC17_CORE3_CAT)) && (INTC_CFG_INTSRC17_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc17Entry);
+#else /* (INTC_CFG_INTSRC17_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc17Entry);
+#endif /* ((defined(INTC_CFG_INTSRC17_CORE3_CAT)) \&& (INTC_CFG_INTSRC17_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC17_CORE3_EN)) \&& (INTC_CFG_INTSRC17_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 18 */
+#if ((defined(INTC_CFG_INTSRC18_CORE0_EN)) && (INTC_CFG_INTSRC18_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC18_CORE0_CAT)) && (INTC_CFG_INTSRC18_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc18Entry);
+#else /* (INTC_CFG_INTSRC18_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc18Entry);
+#endif /* ((defined(INTC_CFG_INTSRC18_CORE0_CAT)) \&& (INTC_CFG_INTSRC18_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC18_CORE0_EN)) \&& (INTC_CFG_INTSRC18_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 18 */
+#if ((defined(INTC_CFG_INTSRC18_CORE1_EN)) && (INTC_CFG_INTSRC18_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC18_CORE1_CAT)) && (INTC_CFG_INTSRC18_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc18Entry);
+#else /* (INTC_CFG_INTSRC18_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc18Entry);
+#endif /* ((defined(INTC_CFG_INTSRC18_CORE1_CAT)) \&& (INTC_CFG_INTSRC18_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC18_CORE1_EN)) \&& (INTC_CFG_INTSRC18_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 18 */
+#if ((defined(INTC_CFG_INTSRC18_CORE2_EN)) && (INTC_CFG_INTSRC18_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC18_CORE2_CAT)) && (INTC_CFG_INTSRC18_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc18Entry);
+#else /* (INTC_CFG_INTSRC18_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc18Entry);
+#endif /* ((defined(INTC_CFG_INTSRC18_CORE2_CAT)) \&& (INTC_CFG_INTSRC18_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC18_CORE2_EN)) \&& (INTC_CFG_INTSRC18_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 18 */
+#if ((defined(INTC_CFG_INTSRC18_CORE3_EN)) && (INTC_CFG_INTSRC18_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC18_CORE3_CAT)) && (INTC_CFG_INTSRC18_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc18Entry);
+#else /* (INTC_CFG_INTSRC18_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc18Entry);
+#endif /* ((defined(INTC_CFG_INTSRC18_CORE3_CAT)) \&& (INTC_CFG_INTSRC18_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC18_CORE3_EN)) \&& (INTC_CFG_INTSRC18_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 19 */
+#if ((defined(INTC_CFG_INTSRC19_CORE0_EN)) && (INTC_CFG_INTSRC19_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC19_CORE0_CAT)) && (INTC_CFG_INTSRC19_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc19Entry);
+#else /* (INTC_CFG_INTSRC19_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc19Entry);
+#endif /* ((defined(INTC_CFG_INTSRC19_CORE0_CAT)) \&& (INTC_CFG_INTSRC19_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC19_CORE0_EN)) \&& (INTC_CFG_INTSRC19_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 19 */
+#if ((defined(INTC_CFG_INTSRC19_CORE1_EN)) && (INTC_CFG_INTSRC19_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC19_CORE1_CAT)) && (INTC_CFG_INTSRC19_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc19Entry);
+#else /* (INTC_CFG_INTSRC19_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc19Entry);
+#endif /* ((defined(INTC_CFG_INTSRC19_CORE1_CAT)) \&& (INTC_CFG_INTSRC19_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC19_CORE1_EN)) \&& (INTC_CFG_INTSRC19_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 19 */
+#if ((defined(INTC_CFG_INTSRC19_CORE2_EN)) && (INTC_CFG_INTSRC19_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC19_CORE2_CAT)) && (INTC_CFG_INTSRC19_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc19Entry);
+#else /* (INTC_CFG_INTSRC19_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc19Entry);
+#endif /* ((defined(INTC_CFG_INTSRC19_CORE2_CAT)) \&& (INTC_CFG_INTSRC19_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC19_CORE2_EN)) \&& (INTC_CFG_INTSRC19_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 19 */
+#if ((defined(INTC_CFG_INTSRC19_CORE3_EN)) && (INTC_CFG_INTSRC19_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC19_CORE3_CAT)) && (INTC_CFG_INTSRC19_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc19Entry);
+#else /* (INTC_CFG_INTSRC19_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc19Entry);
+#endif /* ((defined(INTC_CFG_INTSRC19_CORE3_CAT)) \&& (INTC_CFG_INTSRC19_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC19_CORE3_EN)) \&& (INTC_CFG_INTSRC19_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 20 */
+#if ((defined(INTC_CFG_INTSRC20_CORE0_EN)) && (INTC_CFG_INTSRC20_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC20_CORE0_CAT)) && (INTC_CFG_INTSRC20_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc20Entry);
+#else /* (INTC_CFG_INTSRC20_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc20Entry);
+#endif /* ((defined(INTC_CFG_INTSRC20_CORE0_CAT)) \&& (INTC_CFG_INTSRC20_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC20_CORE0_EN)) \&& (INTC_CFG_INTSRC20_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 20 */
+#if ((defined(INTC_CFG_INTSRC20_CORE1_EN)) && (INTC_CFG_INTSRC20_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC20_CORE1_CAT)) && (INTC_CFG_INTSRC20_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc20Entry);
+#else /* (INTC_CFG_INTSRC20_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc20Entry);
+#endif /* ((defined(INTC_CFG_INTSRC20_CORE1_CAT)) \&& (INTC_CFG_INTSRC20_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC20_CORE1_EN)) \&& (INTC_CFG_INTSRC20_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 20 */
+#if ((defined(INTC_CFG_INTSRC20_CORE2_EN)) && (INTC_CFG_INTSRC20_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC20_CORE2_CAT)) && (INTC_CFG_INTSRC20_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc20Entry);
+#else /* (INTC_CFG_INTSRC20_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc20Entry);
+#endif /* ((defined(INTC_CFG_INTSRC20_CORE2_CAT)) \&& (INTC_CFG_INTSRC20_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC20_CORE2_EN)) \&& (INTC_CFG_INTSRC20_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 20 */
+#if ((defined(INTC_CFG_INTSRC20_CORE3_EN)) && (INTC_CFG_INTSRC20_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC20_CORE3_CAT)) && (INTC_CFG_INTSRC20_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc20Entry);
+#else /* (INTC_CFG_INTSRC20_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc20Entry);
+#endif /* ((defined(INTC_CFG_INTSRC20_CORE3_CAT)) \&& (INTC_CFG_INTSRC20_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC20_CORE3_EN)) \&& (INTC_CFG_INTSRC20_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 21 */
+#if ((defined(INTC_CFG_INTSRC21_CORE0_EN)) && (INTC_CFG_INTSRC21_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC21_CORE0_CAT)) && (INTC_CFG_INTSRC21_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc21Entry);
+#else /* (INTC_CFG_INTSRC21_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc21Entry);
+#endif /* ((defined(INTC_CFG_INTSRC21_CORE0_CAT)) \&& (INTC_CFG_INTSRC21_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC21_CORE0_EN)) \&& (INTC_CFG_INTSRC21_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 21 */
+#if ((defined(INTC_CFG_INTSRC21_CORE1_EN)) && (INTC_CFG_INTSRC21_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC21_CORE1_CAT)) && (INTC_CFG_INTSRC21_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc21Entry);
+#else /* (INTC_CFG_INTSRC21_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc21Entry);
+#endif /* ((defined(INTC_CFG_INTSRC21_CORE1_CAT)) \&& (INTC_CFG_INTSRC21_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC21_CORE1_EN)) \&& (INTC_CFG_INTSRC21_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 21 */
+#if ((defined(INTC_CFG_INTSRC21_CORE2_EN)) && (INTC_CFG_INTSRC21_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC21_CORE2_CAT)) && (INTC_CFG_INTSRC21_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc21Entry);
+#else /* (INTC_CFG_INTSRC21_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc21Entry);
+#endif /* ((defined(INTC_CFG_INTSRC21_CORE2_CAT)) \&& (INTC_CFG_INTSRC21_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC21_CORE2_EN)) \&& (INTC_CFG_INTSRC21_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 21 */
+#if ((defined(INTC_CFG_INTSRC21_CORE3_EN)) && (INTC_CFG_INTSRC21_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC21_CORE3_CAT)) && (INTC_CFG_INTSRC21_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc21Entry);
+#else /* (INTC_CFG_INTSRC21_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc21Entry);
+#endif /* ((defined(INTC_CFG_INTSRC21_CORE3_CAT)) \&& (INTC_CFG_INTSRC21_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC21_CORE3_EN)) \&& (INTC_CFG_INTSRC21_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 22 */
+#if ((defined(INTC_CFG_INTSRC22_CORE0_EN)) && (INTC_CFG_INTSRC22_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC22_CORE0_CAT)) && (INTC_CFG_INTSRC22_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc22Entry);
+#else /* (INTC_CFG_INTSRC22_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc22Entry);
+#endif /* ((defined(INTC_CFG_INTSRC22_CORE0_CAT)) \&& (INTC_CFG_INTSRC22_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC22_CORE0_EN)) \&& (INTC_CFG_INTSRC22_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 22 */
+#if ((defined(INTC_CFG_INTSRC22_CORE1_EN)) && (INTC_CFG_INTSRC22_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC22_CORE1_CAT)) && (INTC_CFG_INTSRC22_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc22Entry);
+#else /* (INTC_CFG_INTSRC22_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc22Entry);
+#endif /* ((defined(INTC_CFG_INTSRC22_CORE1_CAT)) \&& (INTC_CFG_INTSRC22_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC22_CORE1_EN)) \&& (INTC_CFG_INTSRC22_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 22 */
+#if ((defined(INTC_CFG_INTSRC22_CORE2_EN)) && (INTC_CFG_INTSRC22_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC22_CORE2_CAT)) && (INTC_CFG_INTSRC22_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc22Entry);
+#else /* (INTC_CFG_INTSRC22_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc22Entry);
+#endif /* ((defined(INTC_CFG_INTSRC22_CORE2_CAT)) \&& (INTC_CFG_INTSRC22_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC22_CORE2_EN)) \&& (INTC_CFG_INTSRC22_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 22 */
+#if ((defined(INTC_CFG_INTSRC22_CORE3_EN)) && (INTC_CFG_INTSRC22_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC22_CORE3_CAT)) && (INTC_CFG_INTSRC22_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc22Entry);
+#else /* (INTC_CFG_INTSRC22_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc22Entry);
+#endif /* ((defined(INTC_CFG_INTSRC22_CORE3_CAT)) \&& (INTC_CFG_INTSRC22_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC22_CORE3_EN)) \&& (INTC_CFG_INTSRC22_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 23 */
+#if ((defined(INTC_CFG_INTSRC23_CORE0_EN)) && (INTC_CFG_INTSRC23_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC23_CORE0_CAT)) && (INTC_CFG_INTSRC23_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc23Entry);
+#else /* (INTC_CFG_INTSRC23_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc23Entry);
+#endif /* ((defined(INTC_CFG_INTSRC23_CORE0_CAT)) \&& (INTC_CFG_INTSRC23_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC23_CORE0_EN)) \&& (INTC_CFG_INTSRC23_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 23 */
+#if ((defined(INTC_CFG_INTSRC23_CORE1_EN)) && (INTC_CFG_INTSRC23_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC23_CORE1_CAT)) && (INTC_CFG_INTSRC23_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc23Entry);
+#else /* (INTC_CFG_INTSRC23_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc23Entry);
+#endif /* ((defined(INTC_CFG_INTSRC23_CORE1_CAT)) \&& (INTC_CFG_INTSRC23_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC23_CORE1_EN)) \&& (INTC_CFG_INTSRC23_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 23 */
+#if ((defined(INTC_CFG_INTSRC23_CORE2_EN)) && (INTC_CFG_INTSRC23_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC23_CORE2_CAT)) && (INTC_CFG_INTSRC23_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc23Entry);
+#else /* (INTC_CFG_INTSRC23_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc23Entry);
+#endif /* ((defined(INTC_CFG_INTSRC23_CORE2_CAT)) \&& (INTC_CFG_INTSRC23_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC23_CORE2_EN)) \&& (INTC_CFG_INTSRC23_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 23 */
+#if ((defined(INTC_CFG_INTSRC23_CORE3_EN)) && (INTC_CFG_INTSRC23_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC23_CORE3_CAT)) && (INTC_CFG_INTSRC23_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc23Entry);
+#else /* (INTC_CFG_INTSRC23_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc23Entry);
+#endif /* ((defined(INTC_CFG_INTSRC23_CORE3_CAT)) \&& (INTC_CFG_INTSRC23_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC23_CORE3_EN)) \&& (INTC_CFG_INTSRC23_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 24 */
+#if ((defined(INTC_CFG_INTSRC24_CORE0_EN)) && (INTC_CFG_INTSRC24_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC24_CORE0_CAT)) && (INTC_CFG_INTSRC24_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc24Entry);
+#else /* (INTC_CFG_INTSRC24_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc24Entry);
+#endif /* ((defined(INTC_CFG_INTSRC24_CORE0_CAT)) \&& (INTC_CFG_INTSRC24_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC24_CORE0_EN)) \&& (INTC_CFG_INTSRC24_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 24 */
+#if ((defined(INTC_CFG_INTSRC24_CORE1_EN)) && (INTC_CFG_INTSRC24_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC24_CORE1_CAT)) && (INTC_CFG_INTSRC24_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc24Entry);
+#else /* (INTC_CFG_INTSRC24_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc24Entry);
+#endif /* ((defined(INTC_CFG_INTSRC24_CORE1_CAT)) \&& (INTC_CFG_INTSRC24_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC24_CORE1_EN)) \&& (INTC_CFG_INTSRC24_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 24 */
+#if ((defined(INTC_CFG_INTSRC24_CORE2_EN)) && (INTC_CFG_INTSRC24_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC24_CORE2_CAT)) && (INTC_CFG_INTSRC24_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc24Entry);
+#else /* (INTC_CFG_INTSRC24_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc24Entry);
+#endif /* ((defined(INTC_CFG_INTSRC24_CORE2_CAT)) \&& (INTC_CFG_INTSRC24_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC24_CORE2_EN)) \&& (INTC_CFG_INTSRC24_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 24 */
+#if ((defined(INTC_CFG_INTSRC24_CORE3_EN)) && (INTC_CFG_INTSRC24_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC24_CORE3_CAT)) && (INTC_CFG_INTSRC24_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc24Entry);
+#else /* (INTC_CFG_INTSRC24_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc24Entry);
+#endif /* ((defined(INTC_CFG_INTSRC24_CORE3_CAT)) \&& (INTC_CFG_INTSRC24_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC24_CORE3_EN)) \&& (INTC_CFG_INTSRC24_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 25 */
+#if ((defined(INTC_CFG_INTSRC25_CORE0_EN)) && (INTC_CFG_INTSRC25_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC25_CORE0_CAT)) && (INTC_CFG_INTSRC25_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc25Entry);
+#else /* (INTC_CFG_INTSRC25_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc25Entry);
+#endif /* ((defined(INTC_CFG_INTSRC25_CORE0_CAT)) \&& (INTC_CFG_INTSRC25_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC25_CORE0_EN)) \&& (INTC_CFG_INTSRC25_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 25 */
+#if ((defined(INTC_CFG_INTSRC25_CORE1_EN)) && (INTC_CFG_INTSRC25_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC25_CORE1_CAT)) && (INTC_CFG_INTSRC25_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc25Entry);
+#else /* (INTC_CFG_INTSRC25_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc25Entry);
+#endif /* ((defined(INTC_CFG_INTSRC25_CORE1_CAT)) \&& (INTC_CFG_INTSRC25_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC25_CORE1_EN)) \&& (INTC_CFG_INTSRC25_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 25 */
+#if ((defined(INTC_CFG_INTSRC25_CORE2_EN)) && (INTC_CFG_INTSRC25_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC25_CORE2_CAT)) && (INTC_CFG_INTSRC25_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc25Entry);
+#else /* (INTC_CFG_INTSRC25_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc25Entry);
+#endif /* ((defined(INTC_CFG_INTSRC25_CORE2_CAT)) \&& (INTC_CFG_INTSRC25_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC25_CORE2_EN)) \&& (INTC_CFG_INTSRC25_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 25 */
+#if ((defined(INTC_CFG_INTSRC25_CORE3_EN)) && (INTC_CFG_INTSRC25_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC25_CORE3_CAT)) && (INTC_CFG_INTSRC25_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc25Entry);
+#else /* (INTC_CFG_INTSRC25_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc25Entry);
+#endif /* ((defined(INTC_CFG_INTSRC25_CORE3_CAT)) \&& (INTC_CFG_INTSRC25_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC25_CORE3_EN)) \&& (INTC_CFG_INTSRC25_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 26 */
+#if ((defined(INTC_CFG_INTSRC26_CORE0_EN)) && (INTC_CFG_INTSRC26_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC26_CORE0_CAT)) && (INTC_CFG_INTSRC26_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc26Entry);
+#else /* (INTC_CFG_INTSRC26_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc26Entry);
+#endif /* ((defined(INTC_CFG_INTSRC26_CORE0_CAT)) \&& (INTC_CFG_INTSRC26_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC26_CORE0_EN)) \&& (INTC_CFG_INTSRC26_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 26 */
+#if ((defined(INTC_CFG_INTSRC26_CORE1_EN)) && (INTC_CFG_INTSRC26_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC26_CORE1_CAT)) && (INTC_CFG_INTSRC26_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc26Entry);
+#else /* (INTC_CFG_INTSRC26_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc26Entry);
+#endif /* ((defined(INTC_CFG_INTSRC26_CORE1_CAT)) \&& (INTC_CFG_INTSRC26_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC26_CORE1_EN)) \&& (INTC_CFG_INTSRC26_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 26 */
+#if ((defined(INTC_CFG_INTSRC26_CORE2_EN)) && (INTC_CFG_INTSRC26_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC26_CORE2_CAT)) && (INTC_CFG_INTSRC26_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc26Entry);
+#else /* (INTC_CFG_INTSRC26_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc26Entry);
+#endif /* ((defined(INTC_CFG_INTSRC26_CORE2_CAT)) \&& (INTC_CFG_INTSRC26_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC26_CORE2_EN)) \&& (INTC_CFG_INTSRC26_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 26 */
+#if ((defined(INTC_CFG_INTSRC26_CORE3_EN)) && (INTC_CFG_INTSRC26_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC26_CORE3_CAT)) && (INTC_CFG_INTSRC26_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc26Entry);
+#else /* (INTC_CFG_INTSRC26_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc26Entry);
+#endif /* ((defined(INTC_CFG_INTSRC26_CORE3_CAT)) \&& (INTC_CFG_INTSRC26_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC26_CORE3_EN)) \&& (INTC_CFG_INTSRC26_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 27 */
+#if ((defined(INTC_CFG_INTSRC27_CORE0_EN)) && (INTC_CFG_INTSRC27_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC27_CORE0_CAT)) && (INTC_CFG_INTSRC27_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc27Entry);
+#else /* (INTC_CFG_INTSRC27_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc27Entry);
+#endif /* ((defined(INTC_CFG_INTSRC27_CORE0_CAT)) \&& (INTC_CFG_INTSRC27_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC27_CORE0_EN)) \&& (INTC_CFG_INTSRC27_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 27 */
+#if ((defined(INTC_CFG_INTSRC27_CORE1_EN)) && (INTC_CFG_INTSRC27_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC27_CORE1_CAT)) && (INTC_CFG_INTSRC27_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc27Entry);
+#else /* (INTC_CFG_INTSRC27_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc27Entry);
+#endif /* ((defined(INTC_CFG_INTSRC27_CORE1_CAT)) \&& (INTC_CFG_INTSRC27_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC27_CORE1_EN)) \&& (INTC_CFG_INTSRC27_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 27 */
+#if ((defined(INTC_CFG_INTSRC27_CORE2_EN)) && (INTC_CFG_INTSRC27_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC27_CORE2_CAT)) && (INTC_CFG_INTSRC27_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc27Entry);
+#else /* (INTC_CFG_INTSRC27_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc27Entry);
+#endif /* ((defined(INTC_CFG_INTSRC27_CORE2_CAT)) \&& (INTC_CFG_INTSRC27_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC27_CORE2_EN)) \&& (INTC_CFG_INTSRC27_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 27 */
+#if ((defined(INTC_CFG_INTSRC27_CORE3_EN)) && (INTC_CFG_INTSRC27_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC27_CORE3_CAT)) && (INTC_CFG_INTSRC27_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc27Entry);
+#else /* (INTC_CFG_INTSRC27_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc27Entry);
+#endif /* ((defined(INTC_CFG_INTSRC27_CORE3_CAT)) \&& (INTC_CFG_INTSRC27_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC27_CORE3_EN)) \&& (INTC_CFG_INTSRC27_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 28 */
+#if ((defined(INTC_CFG_INTSRC28_EN)) && (INTC_CFG_INTSRC28_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC28_CAT)) && (INTC_CFG_INTSRC28_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc28Entry);
+#else /* (INTC_CFG_INTSRC28_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc28Entry);
+#endif /* ((defined(INTC_CFG_INTSRC28_CAT)) \&& (INTC_CFG_INTSRC28_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC28_EN)) \&& (INTC_CFG_INTSRC28_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 29 */
+#if ((defined(INTC_CFG_INTSRC29_EN)) && (INTC_CFG_INTSRC29_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC29_CAT)) && (INTC_CFG_INTSRC29_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc29Entry);
+#else /* (INTC_CFG_INTSRC29_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc29Entry);
+#endif /* ((defined(INTC_CFG_INTSRC29_CAT)) \&& (INTC_CFG_INTSRC29_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC29_EN)) \&& (INTC_CFG_INTSRC29_EN)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 30 */
+#if ((defined(INTC_CFG_INTSRC30_CORE0_EN)) && (INTC_CFG_INTSRC30_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC30_CORE0_CAT)) && (INTC_CFG_INTSRC30_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc30Entry);
+#else /* (INTC_CFG_INTSRC30_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc30Entry);
+#endif /* ((defined(INTC_CFG_INTSRC30_CORE0_CAT)) \&& (INTC_CFG_INTSRC30_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC30_CORE0_EN)) \&& (INTC_CFG_INTSRC30_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 30 */
+#if ((defined(INTC_CFG_INTSRC30_CORE1_EN)) && (INTC_CFG_INTSRC30_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC30_CORE1_CAT)) && (INTC_CFG_INTSRC30_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc30Entry);
+#else /* (INTC_CFG_INTSRC30_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc30Entry);
+#endif /* ((defined(INTC_CFG_INTSRC30_CORE1_CAT)) \&& (INTC_CFG_INTSRC30_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC30_CORE1_EN)) \&& (INTC_CFG_INTSRC30_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 30 */
+#if ((defined(INTC_CFG_INTSRC30_CORE2_EN)) && (INTC_CFG_INTSRC30_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC30_CORE2_CAT)) && (INTC_CFG_INTSRC30_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc30Entry);
+#else /* (INTC_CFG_INTSRC30_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc30Entry);
+#endif /* ((defined(INTC_CFG_INTSRC30_CORE2_CAT)) \&& (INTC_CFG_INTSRC30_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC30_CORE2_EN)) \&& (INTC_CFG_INTSRC30_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 30 */
+#if ((defined(INTC_CFG_INTSRC30_CORE3_EN)) && (INTC_CFG_INTSRC30_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC30_CORE3_CAT)) && (INTC_CFG_INTSRC30_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc30Entry);
+#else /* (INTC_CFG_INTSRC30_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc30Entry);
+#endif /* ((defined(INTC_CFG_INTSRC30_CORE3_CAT)) \&& (INTC_CFG_INTSRC30_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC30_CORE3_EN)) \&& (INTC_CFG_INTSRC30_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 31 */
+#if ((defined(INTC_CFG_INTSRC31_EN)) && (INTC_CFG_INTSRC31_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC31_CAT)) && (INTC_CFG_INTSRC31_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc31Entry);
+#else /* (INTC_CFG_INTSRC31_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc31Entry);
+#endif /* ((defined(INTC_CFG_INTSRC31_CAT)) \&& (INTC_CFG_INTSRC31_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC31_EN)) \&& (INTC_CFG_INTSRC31_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 32 */
+#if ((defined(INTC_CFG_INTSRC32_EN)) && (INTC_CFG_INTSRC32_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC32_CAT)) && (INTC_CFG_INTSRC32_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc32Entry);
+#else /* (INTC_CFG_INTSRC32_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc32Entry);
+#endif /* ((defined(INTC_CFG_INTSRC32_CAT)) \&& (INTC_CFG_INTSRC32_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC32_EN)) \&& (INTC_CFG_INTSRC32_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 33 */
+#if ((defined(INTC_CFG_INTSRC33_EN)) && (INTC_CFG_INTSRC33_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC33_CAT)) && (INTC_CFG_INTSRC33_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc33Entry);
+#else /* (INTC_CFG_INTSRC33_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc33Entry);
+#endif /* ((defined(INTC_CFG_INTSRC33_CAT)) \&& (INTC_CFG_INTSRC33_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC33_EN)) \&& (INTC_CFG_INTSRC33_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 34 */
+#if ((defined(INTC_CFG_INTSRC34_EN)) && (INTC_CFG_INTSRC34_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC34_CAT)) && (INTC_CFG_INTSRC34_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc34Entry);
+#else /* (INTC_CFG_INTSRC34_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc34Entry);
+#endif /* ((defined(INTC_CFG_INTSRC34_CAT)) \&& (INTC_CFG_INTSRC34_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC34_EN)) \&& (INTC_CFG_INTSRC34_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 35 */
+#if ((defined(INTC_CFG_INTSRC35_EN)) && (INTC_CFG_INTSRC35_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC35_CAT)) && (INTC_CFG_INTSRC35_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc35Entry);
+#else /* (INTC_CFG_INTSRC35_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc35Entry);
+#endif /* ((defined(INTC_CFG_INTSRC35_CAT)) \&& (INTC_CFG_INTSRC35_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC35_EN)) \&& (INTC_CFG_INTSRC35_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 36 */
+#if ((defined(INTC_CFG_INTSRC36_EN)) && (INTC_CFG_INTSRC36_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC36_CAT)) && (INTC_CFG_INTSRC36_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc36Entry);
+#else /* (INTC_CFG_INTSRC36_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc36Entry);
+#endif /* ((defined(INTC_CFG_INTSRC36_CAT)) \&& (INTC_CFG_INTSRC36_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC36_EN)) \&& (INTC_CFG_INTSRC36_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 37 */
+#if ((defined(INTC_CFG_INTSRC37_EN)) && (INTC_CFG_INTSRC37_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC37_CAT)) && (INTC_CFG_INTSRC37_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc37Entry);
+#else /* (INTC_CFG_INTSRC37_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc37Entry);
+#endif /* ((defined(INTC_CFG_INTSRC37_CAT)) \&& (INTC_CFG_INTSRC37_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC37_EN)) \&& (INTC_CFG_INTSRC37_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 38 */
+#if ((defined(INTC_CFG_INTSRC38_EN)) && (INTC_CFG_INTSRC38_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC38_CAT)) && (INTC_CFG_INTSRC38_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc38Entry);
+#else /* (INTC_CFG_INTSRC38_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc38Entry);
+#endif /* ((defined(INTC_CFG_INTSRC38_CAT)) \&& (INTC_CFG_INTSRC38_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC38_EN)) \&& (INTC_CFG_INTSRC38_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 39 */
+#if ((defined(INTC_CFG_INTSRC39_EN)) && (INTC_CFG_INTSRC39_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC39_CAT)) && (INTC_CFG_INTSRC39_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc39Entry);
+#else /* (INTC_CFG_INTSRC39_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc39Entry);
+#endif /* ((defined(INTC_CFG_INTSRC39_CAT)) \&& (INTC_CFG_INTSRC39_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC39_EN)) \&& (INTC_CFG_INTSRC39_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 40 */
+#if ((defined(INTC_CFG_INTSRC40_EN)) && (INTC_CFG_INTSRC40_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC40_CAT)) && (INTC_CFG_INTSRC40_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc40Entry);
+#else /* (INTC_CFG_INTSRC40_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc40Entry);
+#endif /* ((defined(INTC_CFG_INTSRC40_CAT)) \&& (INTC_CFG_INTSRC40_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC40_EN)) \&& (INTC_CFG_INTSRC40_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 41 */
+#if ((defined(INTC_CFG_INTSRC41_EN)) && (INTC_CFG_INTSRC41_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC41_CAT)) && (INTC_CFG_INTSRC41_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc41Entry);
+#else /* (INTC_CFG_INTSRC41_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc41Entry);
+#endif /* ((defined(INTC_CFG_INTSRC41_CAT)) \&& (INTC_CFG_INTSRC41_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC41_EN)) \&& (INTC_CFG_INTSRC41_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 42 */
+#if ((defined(INTC_CFG_INTSRC42_EN)) && (INTC_CFG_INTSRC42_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC42_CAT)) && (INTC_CFG_INTSRC42_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc42Entry);
+#else /* (INTC_CFG_INTSRC42_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc42Entry);
+#endif /* ((defined(INTC_CFG_INTSRC42_CAT)) \&& (INTC_CFG_INTSRC42_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC42_EN)) \&& (INTC_CFG_INTSRC42_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 43 */
+#if ((defined(INTC_CFG_INTSRC43_EN)) && (INTC_CFG_INTSRC43_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC43_CAT)) && (INTC_CFG_INTSRC43_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc43Entry);
+#else /* (INTC_CFG_INTSRC43_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc43Entry);
+#endif /* ((defined(INTC_CFG_INTSRC43_CAT)) \&& (INTC_CFG_INTSRC43_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC43_EN)) \&& (INTC_CFG_INTSRC43_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 44 */
+#if ((defined(INTC_CFG_INTSRC44_EN)) && (INTC_CFG_INTSRC44_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC44_CAT)) && (INTC_CFG_INTSRC44_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc44Entry);
+#else /* (INTC_CFG_INTSRC44_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc44Entry);
+#endif /* ((defined(INTC_CFG_INTSRC44_CAT)) \&& (INTC_CFG_INTSRC44_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC44_EN)) \&& (INTC_CFG_INTSRC44_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 45 */
+#if ((defined(INTC_CFG_INTSRC45_EN)) && (INTC_CFG_INTSRC45_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC45_CAT)) && (INTC_CFG_INTSRC45_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc45Entry);
+#else /* (INTC_CFG_INTSRC45_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc45Entry);
+#endif /* ((defined(INTC_CFG_INTSRC45_CAT)) \&& (INTC_CFG_INTSRC45_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC45_EN)) \&& (INTC_CFG_INTSRC45_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 46 */
+#if ((defined(INTC_CFG_INTSRC46_EN)) && (INTC_CFG_INTSRC46_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC46_CAT)) && (INTC_CFG_INTSRC46_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc46Entry);
+#else /* (INTC_CFG_INTSRC46_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc46Entry);
+#endif /* ((defined(INTC_CFG_INTSRC46_CAT)) \&& (INTC_CFG_INTSRC46_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC46_EN)) \&& (INTC_CFG_INTSRC46_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 47 */
+#if ((defined(INTC_CFG_INTSRC47_EN)) && (INTC_CFG_INTSRC47_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC47_CAT)) && (INTC_CFG_INTSRC47_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc47Entry);
+#else /* (INTC_CFG_INTSRC47_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc47Entry);
+#endif /* ((defined(INTC_CFG_INTSRC47_CAT)) \&& (INTC_CFG_INTSRC47_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC47_EN)) \&& (INTC_CFG_INTSRC47_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 48 */
+#if ((defined(INTC_CFG_INTSRC48_EN)) && (INTC_CFG_INTSRC48_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC48_CAT)) && (INTC_CFG_INTSRC48_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc48Entry);
+#else /* (INTC_CFG_INTSRC48_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc48Entry);
+#endif /* ((defined(INTC_CFG_INTSRC48_CAT)) \&& (INTC_CFG_INTSRC48_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC48_EN)) \&& (INTC_CFG_INTSRC48_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 49 */
+#if ((defined(INTC_CFG_INTSRC49_EN)) && (INTC_CFG_INTSRC49_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC49_CAT)) && (INTC_CFG_INTSRC49_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc49Entry);
+#else /* (INTC_CFG_INTSRC49_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc49Entry);
+#endif /* ((defined(INTC_CFG_INTSRC49_CAT)) \&& (INTC_CFG_INTSRC49_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC49_EN)) \&& (INTC_CFG_INTSRC49_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 50 */
+#if ((defined(INTC_CFG_INTSRC50_EN)) && (INTC_CFG_INTSRC50_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC50_CAT)) && (INTC_CFG_INTSRC50_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc50Entry);
+#else /* (INTC_CFG_INTSRC50_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc50Entry);
+#endif /* ((defined(INTC_CFG_INTSRC50_CAT)) \&& (INTC_CFG_INTSRC50_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC50_EN)) \&& (INTC_CFG_INTSRC50_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 51 */
+#if ((defined(INTC_CFG_INTSRC51_EN)) && (INTC_CFG_INTSRC51_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC51_CAT)) && (INTC_CFG_INTSRC51_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc51Entry);
+#else /* (INTC_CFG_INTSRC51_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc51Entry);
+#endif /* ((defined(INTC_CFG_INTSRC51_CAT)) \&& (INTC_CFG_INTSRC51_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC51_EN)) \&& (INTC_CFG_INTSRC51_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 52 */
+#if ((defined(INTC_CFG_INTSRC52_EN)) && (INTC_CFG_INTSRC52_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC52_CAT)) && (INTC_CFG_INTSRC52_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc52Entry);
+#else /* (INTC_CFG_INTSRC52_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc52Entry);
+#endif /* ((defined(INTC_CFG_INTSRC52_CAT)) \&& (INTC_CFG_INTSRC52_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC52_EN)) \&& (INTC_CFG_INTSRC52_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 53 */
+#if ((defined(INTC_CFG_INTSRC53_EN)) && (INTC_CFG_INTSRC53_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC53_CAT)) && (INTC_CFG_INTSRC53_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc53Entry);
+#else /* (INTC_CFG_INTSRC53_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc53Entry);
+#endif /* ((defined(INTC_CFG_INTSRC53_CAT)) \&& (INTC_CFG_INTSRC53_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC53_EN)) \&& (INTC_CFG_INTSRC53_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 54 */
+#if ((defined(INTC_CFG_INTSRC54_EN)) && (INTC_CFG_INTSRC54_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC54_CAT)) && (INTC_CFG_INTSRC54_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc54Entry);
+#else /* (INTC_CFG_INTSRC54_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc54Entry);
+#endif /* ((defined(INTC_CFG_INTSRC54_CAT)) \&& (INTC_CFG_INTSRC54_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC54_EN)) \&& (INTC_CFG_INTSRC54_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 55 */
+#if ((defined(INTC_CFG_INTSRC55_EN)) && (INTC_CFG_INTSRC55_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC55_CAT)) && (INTC_CFG_INTSRC55_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc55Entry);
+#else /* (INTC_CFG_INTSRC55_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc55Entry);
+#endif /* ((defined(INTC_CFG_INTSRC55_CAT)) \&& (INTC_CFG_INTSRC55_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC55_EN)) \&& (INTC_CFG_INTSRC55_EN)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 56 */
+#if ((defined(INTC_CFG_INTSRC56_CORE0_EN)) && (INTC_CFG_INTSRC56_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC56_CORE0_CAT)) && (INTC_CFG_INTSRC56_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc56Entry);
+#else /* (INTC_CFG_INTSRC56_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc56Entry);
+#endif /* ((defined(INTC_CFG_INTSRC56_CORE0_CAT)) \&& (INTC_CFG_INTSRC56_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC56_CORE0_EN)) \&& (INTC_CFG_INTSRC56_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 56 */
+#if ((defined(INTC_CFG_INTSRC56_CORE2_EN)) && (INTC_CFG_INTSRC56_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC56_CORE2_CAT)) && (INTC_CFG_INTSRC56_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc56Entry);
+#else /* (INTC_CFG_INTSRC56_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc56Entry);
+#endif /* ((defined(INTC_CFG_INTSRC56_CORE2_CAT)) \&& (INTC_CFG_INTSRC56_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC56_CORE2_EN)) \&& (INTC_CFG_INTSRC56_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 57 */
+#if ((defined(INTC_CFG_INTSRC57_CORE0_EN)) && (INTC_CFG_INTSRC57_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC57_CORE0_CAT)) && (INTC_CFG_INTSRC57_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc57Entry);
+#else /* (INTC_CFG_INTSRC57_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc57Entry);
+#endif /* ((defined(INTC_CFG_INTSRC57_CORE0_CAT)) \&& (INTC_CFG_INTSRC57_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC57_CORE0_EN)) \&& (INTC_CFG_INTSRC57_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 57 */
+#if ((defined(INTC_CFG_INTSRC57_CORE2_EN)) && (INTC_CFG_INTSRC57_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC57_CORE2_CAT)) && (INTC_CFG_INTSRC57_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc57Entry);
+#else /* (INTC_CFG_INTSRC57_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc57Entry);
+#endif /* ((defined(INTC_CFG_INTSRC57_CORE2_CAT)) \&& (INTC_CFG_INTSRC57_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC57_CORE2_EN)) \&& (INTC_CFG_INTSRC57_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 58 */
+#if ((defined(INTC_CFG_INTSRC58_CORE0_EN)) && (INTC_CFG_INTSRC58_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC58_CORE0_CAT)) && (INTC_CFG_INTSRC58_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc58Entry);
+#else /* (INTC_CFG_INTSRC58_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc58Entry);
+#endif /* ((defined(INTC_CFG_INTSRC58_CORE0_CAT)) \&& (INTC_CFG_INTSRC58_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC58_CORE0_EN)) \&& (INTC_CFG_INTSRC58_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 58 */
+#if ((defined(INTC_CFG_INTSRC58_CORE2_EN)) && (INTC_CFG_INTSRC58_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC58_CORE2_CAT)) && (INTC_CFG_INTSRC58_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc58Entry);
+#else /* (INTC_CFG_INTSRC58_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc58Entry);
+#endif /* ((defined(INTC_CFG_INTSRC58_CORE2_CAT)) \&& (INTC_CFG_INTSRC58_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC58_CORE2_EN)) \&& (INTC_CFG_INTSRC58_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core0: Interrupt ID 59 */
+#if ((defined(INTC_CFG_INTSRC59_CORE0_EN)) && (INTC_CFG_INTSRC59_CORE0_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC59_CORE0_CAT)) && (INTC_CFG_INTSRC59_CORE0_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core0IntSrc59Entry);
+#else /* (INTC_CFG_INTSRC59_CORE0_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core0IntSrc59Entry);
+#endif /* ((defined(INTC_CFG_INTSRC59_CORE0_CAT)) \&& (INTC_CFG_INTSRC59_CORE0_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC59_CORE0_EN)) \&& (INTC_CFG_INTSRC59_CORE0_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core2: Interrupt ID 59 */
+#if ((defined(INTC_CFG_INTSRC59_CORE2_EN)) && (INTC_CFG_INTSRC59_CORE2_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC59_CORE2_CAT)) && (INTC_CFG_INTSRC59_CORE2_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core2IntSrc59Entry);
+#else /* (INTC_CFG_INTSRC59_CORE2_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core2IntSrc59Entry);
+#endif /* ((defined(INTC_CFG_INTSRC59_CORE2_CAT)) \&& (INTC_CFG_INTSRC59_CORE2_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC59_CORE2_EN)) \&& (INTC_CFG_INTSRC59_CORE2_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 60 */
+#if ((defined(INTC_CFG_INTSRC60_EN)) && (INTC_CFG_INTSRC60_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC60_CAT)) && (INTC_CFG_INTSRC60_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc60Entry);
+#else /* (INTC_CFG_INTSRC60_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc60Entry);
+#endif /* ((defined(INTC_CFG_INTSRC60_CAT)) \&& (INTC_CFG_INTSRC60_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC60_EN)) \&& (INTC_CFG_INTSRC60_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 61 */
+#if ((defined(INTC_CFG_INTSRC61_EN)) && (INTC_CFG_INTSRC61_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC61_CAT)) && (INTC_CFG_INTSRC61_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc61Entry);
+#else /* (INTC_CFG_INTSRC61_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc61Entry);
+#endif /* ((defined(INTC_CFG_INTSRC61_CAT)) \&& (INTC_CFG_INTSRC61_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC61_EN)) \&& (INTC_CFG_INTSRC61_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 62 */
+#if ((defined(INTC_CFG_INTSRC62_EN)) && (INTC_CFG_INTSRC62_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC62_CAT)) && (INTC_CFG_INTSRC62_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc62Entry);
+#else /* (INTC_CFG_INTSRC62_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc62Entry);
+#endif /* ((defined(INTC_CFG_INTSRC62_CAT)) \&& (INTC_CFG_INTSRC62_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC62_EN)) \&& (INTC_CFG_INTSRC62_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 63 */
+#if ((defined(INTC_CFG_INTSRC63_EN)) && (INTC_CFG_INTSRC63_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC63_CAT)) && (INTC_CFG_INTSRC63_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc63Entry);
+#else /* (INTC_CFG_INTSRC63_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc63Entry);
+#endif /* ((defined(INTC_CFG_INTSRC63_CAT)) \&& (INTC_CFG_INTSRC63_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC63_EN)) \&& (INTC_CFG_INTSRC63_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 64 */
+#if ((defined(INTC_CFG_INTSRC64_EN)) && (INTC_CFG_INTSRC64_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC64_CAT)) && (INTC_CFG_INTSRC64_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc64Entry);
+#else /* (INTC_CFG_INTSRC64_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc64Entry);
+#endif /* ((defined(INTC_CFG_INTSRC64_CAT)) \&& (INTC_CFG_INTSRC64_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC64_EN)) \&& (INTC_CFG_INTSRC64_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 65 */
+#if ((defined(INTC_CFG_INTSRC65_EN)) && (INTC_CFG_INTSRC65_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC65_CAT)) && (INTC_CFG_INTSRC65_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc65Entry);
+#else /* (INTC_CFG_INTSRC65_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc65Entry);
+#endif /* ((defined(INTC_CFG_INTSRC65_CAT)) \&& (INTC_CFG_INTSRC65_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC65_EN)) \&& (INTC_CFG_INTSRC65_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 66 */
+#if ((defined(INTC_CFG_INTSRC66_EN)) && (INTC_CFG_INTSRC66_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC66_CAT)) && (INTC_CFG_INTSRC66_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc66Entry);
+#else /* (INTC_CFG_INTSRC66_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc66Entry);
+#endif /* ((defined(INTC_CFG_INTSRC66_CAT)) \&& (INTC_CFG_INTSRC66_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC66_EN)) \&& (INTC_CFG_INTSRC66_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 67 */
+#if ((defined(INTC_CFG_INTSRC67_EN)) && (INTC_CFG_INTSRC67_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC67_CAT)) && (INTC_CFG_INTSRC67_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc67Entry);
+#else /* (INTC_CFG_INTSRC67_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc67Entry);
+#endif /* ((defined(INTC_CFG_INTSRC67_CAT)) \&& (INTC_CFG_INTSRC67_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC67_EN)) \&& (INTC_CFG_INTSRC67_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 68 */
+#if ((defined(INTC_CFG_INTSRC68_EN)) && (INTC_CFG_INTSRC68_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC68_CAT)) && (INTC_CFG_INTSRC68_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc68Entry);
+#else /* (INTC_CFG_INTSRC68_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc68Entry);
+#endif /* ((defined(INTC_CFG_INTSRC68_CAT)) \&& (INTC_CFG_INTSRC68_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC68_EN)) \&& (INTC_CFG_INTSRC68_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 69 */
+#if ((defined(INTC_CFG_INTSRC69_EN)) && (INTC_CFG_INTSRC69_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC69_CAT)) && (INTC_CFG_INTSRC69_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc69Entry);
+#else /* (INTC_CFG_INTSRC69_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc69Entry);
+#endif /* ((defined(INTC_CFG_INTSRC69_CAT)) \&& (INTC_CFG_INTSRC69_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC69_EN)) \&& (INTC_CFG_INTSRC69_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 70 */
+#if ((defined(INTC_CFG_INTSRC70_EN)) && (INTC_CFG_INTSRC70_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC70_CAT)) && (INTC_CFG_INTSRC70_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc70Entry);
+#else /* (INTC_CFG_INTSRC70_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc70Entry);
+#endif /* ((defined(INTC_CFG_INTSRC70_CAT)) \&& (INTC_CFG_INTSRC70_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC70_EN)) \&& (INTC_CFG_INTSRC70_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 71 */
+#if ((defined(INTC_CFG_INTSRC71_EN)) && (INTC_CFG_INTSRC71_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC71_CAT)) && (INTC_CFG_INTSRC71_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc71Entry);
+#else /* (INTC_CFG_INTSRC71_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc71Entry);
+#endif /* ((defined(INTC_CFG_INTSRC71_CAT)) \&& (INTC_CFG_INTSRC71_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC71_EN)) \&& (INTC_CFG_INTSRC71_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 72 */
+#if ((defined(INTC_CFG_INTSRC72_EN)) && (INTC_CFG_INTSRC72_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC72_CAT)) && (INTC_CFG_INTSRC72_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc72Entry);
+#else /* (INTC_CFG_INTSRC72_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc72Entry);
+#endif /* ((defined(INTC_CFG_INTSRC72_CAT)) \&& (INTC_CFG_INTSRC72_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC72_EN)) \&& (INTC_CFG_INTSRC72_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 73 */
+#if ((defined(INTC_CFG_INTSRC73_EN)) && (INTC_CFG_INTSRC73_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC73_CAT)) && (INTC_CFG_INTSRC73_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc73Entry);
+#else /* (INTC_CFG_INTSRC73_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc73Entry);
+#endif /* ((defined(INTC_CFG_INTSRC73_CAT)) \&& (INTC_CFG_INTSRC73_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC73_EN)) \&& (INTC_CFG_INTSRC73_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 74 */
+#if ((defined(INTC_CFG_INTSRC74_EN)) && (INTC_CFG_INTSRC74_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC74_CAT)) && (INTC_CFG_INTSRC74_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc74Entry);
+#else /* (INTC_CFG_INTSRC74_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc74Entry);
+#endif /* ((defined(INTC_CFG_INTSRC74_CAT)) \&& (INTC_CFG_INTSRC74_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC74_EN)) \&& (INTC_CFG_INTSRC74_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 75 */
+#if ((defined(INTC_CFG_INTSRC75_EN)) && (INTC_CFG_INTSRC75_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC75_CAT)) && (INTC_CFG_INTSRC75_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc75Entry);
+#else /* (INTC_CFG_INTSRC75_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc75Entry);
+#endif /* ((defined(INTC_CFG_INTSRC75_CAT)) \&& (INTC_CFG_INTSRC75_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC75_EN)) \&& (INTC_CFG_INTSRC75_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 76 */
+#if ((defined(INTC_CFG_INTSRC76_EN)) && (INTC_CFG_INTSRC76_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC76_CAT)) && (INTC_CFG_INTSRC76_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc76Entry);
+#else /* (INTC_CFG_INTSRC76_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc76Entry);
+#endif /* ((defined(INTC_CFG_INTSRC76_CAT)) \&& (INTC_CFG_INTSRC76_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC76_EN)) \&& (INTC_CFG_INTSRC76_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 77 */
+#if ((defined(INTC_CFG_INTSRC77_EN)) && (INTC_CFG_INTSRC77_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC77_CAT)) && (INTC_CFG_INTSRC77_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc77Entry);
+#else /* (INTC_CFG_INTSRC77_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc77Entry);
+#endif /* ((defined(INTC_CFG_INTSRC77_CAT)) \&& (INTC_CFG_INTSRC77_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC77_EN)) \&& (INTC_CFG_INTSRC77_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 78 */
+#if ((defined(INTC_CFG_INTSRC78_EN)) && (INTC_CFG_INTSRC78_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC78_CAT)) && (INTC_CFG_INTSRC78_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc78Entry);
+#else /* (INTC_CFG_INTSRC78_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc78Entry);
+#endif /* ((defined(INTC_CFG_INTSRC78_CAT)) \&& (INTC_CFG_INTSRC78_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC78_EN)) \&& (INTC_CFG_INTSRC78_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 79 */
+#if ((defined(INTC_CFG_INTSRC79_EN)) && (INTC_CFG_INTSRC79_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC79_CAT)) && (INTC_CFG_INTSRC79_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc79Entry);
+#else /* (INTC_CFG_INTSRC79_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc79Entry);
+#endif /* ((defined(INTC_CFG_INTSRC79_CAT)) \&& (INTC_CFG_INTSRC79_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC79_EN)) \&& (INTC_CFG_INTSRC79_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 80 */
+#if ((defined(INTC_CFG_INTSRC80_EN)) && (INTC_CFG_INTSRC80_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC80_CAT)) && (INTC_CFG_INTSRC80_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc80Entry);
+#else /* (INTC_CFG_INTSRC80_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc80Entry);
+#endif /* ((defined(INTC_CFG_INTSRC80_CAT)) \&& (INTC_CFG_INTSRC80_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC80_EN)) \&& (INTC_CFG_INTSRC80_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 81 */
+#if ((defined(INTC_CFG_INTSRC81_EN)) && (INTC_CFG_INTSRC81_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC81_CAT)) && (INTC_CFG_INTSRC81_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc81Entry);
+#else /* (INTC_CFG_INTSRC81_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc81Entry);
+#endif /* ((defined(INTC_CFG_INTSRC81_CAT)) \&& (INTC_CFG_INTSRC81_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC81_EN)) \&& (INTC_CFG_INTSRC81_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 82 */
+#if ((defined(INTC_CFG_INTSRC82_EN)) && (INTC_CFG_INTSRC82_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC82_CAT)) && (INTC_CFG_INTSRC82_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc82Entry);
+#else /* (INTC_CFG_INTSRC82_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc82Entry);
+#endif /* ((defined(INTC_CFG_INTSRC82_CAT)) \&& (INTC_CFG_INTSRC82_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC82_EN)) \&& (INTC_CFG_INTSRC82_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 83 */
+#if ((defined(INTC_CFG_INTSRC83_EN)) && (INTC_CFG_INTSRC83_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC83_CAT)) && (INTC_CFG_INTSRC83_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc83Entry);
+#else /* (INTC_CFG_INTSRC83_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc83Entry);
+#endif /* ((defined(INTC_CFG_INTSRC83_CAT)) \&& (INTC_CFG_INTSRC83_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC83_EN)) \&& (INTC_CFG_INTSRC83_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 84 */
+#if ((defined(INTC_CFG_INTSRC84_EN)) && (INTC_CFG_INTSRC84_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC84_CAT)) && (INTC_CFG_INTSRC84_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc84Entry);
+#else /* (INTC_CFG_INTSRC84_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc84Entry);
+#endif /* ((defined(INTC_CFG_INTSRC84_CAT)) \&& (INTC_CFG_INTSRC84_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC84_EN)) \&& (INTC_CFG_INTSRC84_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 85 */
+#if ((defined(INTC_CFG_INTSRC85_EN)) && (INTC_CFG_INTSRC85_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC85_CAT)) && (INTC_CFG_INTSRC85_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc85Entry);
+#else /* (INTC_CFG_INTSRC85_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc85Entry);
+#endif /* ((defined(INTC_CFG_INTSRC85_CAT)) \&& (INTC_CFG_INTSRC85_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC85_EN)) \&& (INTC_CFG_INTSRC85_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 86 */
+#if ((defined(INTC_CFG_INTSRC86_EN)) && (INTC_CFG_INTSRC86_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC86_CAT)) && (INTC_CFG_INTSRC86_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc86Entry);
+#else /* (INTC_CFG_INTSRC86_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc86Entry);
+#endif /* ((defined(INTC_CFG_INTSRC86_CAT)) \&& (INTC_CFG_INTSRC86_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC86_EN)) \&& (INTC_CFG_INTSRC86_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 87 */
+#if ((defined(INTC_CFG_INTSRC87_EN)) && (INTC_CFG_INTSRC87_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC87_CAT)) && (INTC_CFG_INTSRC87_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc87Entry);
+#else /* (INTC_CFG_INTSRC87_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc87Entry);
+#endif /* ((defined(INTC_CFG_INTSRC87_CAT)) \&& (INTC_CFG_INTSRC87_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC87_EN)) \&& (INTC_CFG_INTSRC87_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 88 */
+#if ((defined(INTC_CFG_INTSRC88_EN)) && (INTC_CFG_INTSRC88_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC88_CAT)) && (INTC_CFG_INTSRC88_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc88Entry);
+#else /* (INTC_CFG_INTSRC88_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc88Entry);
+#endif /* ((defined(INTC_CFG_INTSRC88_CAT)) \&& (INTC_CFG_INTSRC88_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC88_EN)) \&& (INTC_CFG_INTSRC88_EN)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 89 */
+#if ((defined(INTC_CFG_INTSRC89_CORE1_EN)) && (INTC_CFG_INTSRC89_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC89_CORE1_CAT)) && (INTC_CFG_INTSRC89_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc89Entry);
+#else /* (INTC_CFG_INTSRC89_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc89Entry);
+#endif /* ((defined(INTC_CFG_INTSRC89_CORE1_CAT)) \&& (INTC_CFG_INTSRC89_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC89_CORE1_EN)) \&& (INTC_CFG_INTSRC89_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 89 */
+#if ((defined(INTC_CFG_INTSRC89_CORE3_EN)) && (INTC_CFG_INTSRC89_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC89_CORE3_CAT)) && (INTC_CFG_INTSRC89_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc89Entry);
+#else /* (INTC_CFG_INTSRC89_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc89Entry);
+#endif /* ((defined(INTC_CFG_INTSRC89_CORE3_CAT)) \&& (INTC_CFG_INTSRC89_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC89_CORE3_EN)) \&& (INTC_CFG_INTSRC89_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 90 */
+#if ((defined(INTC_CFG_INTSRC90_CORE1_EN)) && (INTC_CFG_INTSRC90_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC90_CORE1_CAT)) && (INTC_CFG_INTSRC90_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc90Entry);
+#else /* (INTC_CFG_INTSRC90_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc90Entry);
+#endif /* ((defined(INTC_CFG_INTSRC90_CORE1_CAT)) \&& (INTC_CFG_INTSRC90_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC90_CORE1_EN)) \&& (INTC_CFG_INTSRC90_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 90 */
+#if ((defined(INTC_CFG_INTSRC90_CORE3_EN)) && (INTC_CFG_INTSRC90_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC90_CORE3_CAT)) && (INTC_CFG_INTSRC90_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc90Entry);
+#else /* (INTC_CFG_INTSRC90_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc90Entry);
+#endif /* ((defined(INTC_CFG_INTSRC90_CORE3_CAT)) \&& (INTC_CFG_INTSRC90_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC90_CORE3_EN)) \&& (INTC_CFG_INTSRC90_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 91 */
+#if ((defined(INTC_CFG_INTSRC91_CORE1_EN)) && (INTC_CFG_INTSRC91_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC91_CORE1_CAT)) && (INTC_CFG_INTSRC91_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc91Entry);
+#else /* (INTC_CFG_INTSRC91_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc91Entry);
+#endif /* ((defined(INTC_CFG_INTSRC91_CORE1_CAT)) \&& (INTC_CFG_INTSRC91_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC91_CORE1_EN)) \&& (INTC_CFG_INTSRC91_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 91 */
+#if ((defined(INTC_CFG_INTSRC91_CORE3_EN)) && (INTC_CFG_INTSRC91_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC91_CORE3_CAT)) && (INTC_CFG_INTSRC91_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc91Entry);
+#else /* (INTC_CFG_INTSRC91_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc91Entry);
+#endif /* ((defined(INTC_CFG_INTSRC91_CORE3_CAT)) \&& (INTC_CFG_INTSRC91_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC91_CORE3_EN)) \&& (INTC_CFG_INTSRC91_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core1: Interrupt ID 92 */
+#if ((defined(INTC_CFG_INTSRC92_CORE1_EN)) && (INTC_CFG_INTSRC92_CORE1_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC92_CORE1_CAT)) && (INTC_CFG_INTSRC92_CORE1_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core1IntSrc92Entry);
+#else /* (INTC_CFG_INTSRC92_CORE1_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core1IntSrc92Entry);
+#endif /* ((defined(INTC_CFG_INTSRC92_CORE1_CAT)) \&& (INTC_CFG_INTSRC92_CORE1_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC92_CORE1_EN)) \&& (INTC_CFG_INTSRC92_CORE1_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry for Core3: Interrupt ID 92 */
+#if ((defined(INTC_CFG_INTSRC92_CORE3_EN)) && (INTC_CFG_INTSRC92_CORE3_EN == STD_ON) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC92_CORE3_CAT)) && (INTC_CFG_INTSRC92_CORE3_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_Core3IntSrc92Entry);
+#else /* (INTC_CFG_INTSRC92_CORE3_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_Core3IntSrc92Entry);
+#endif /* ((defined(INTC_CFG_INTSRC92_CORE3_CAT)) \&& (INTC_CFG_INTSRC92_CORE3_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC92_CORE3_EN)) \&& (INTC_CFG_INTSRC92_CORE3_EN \== STD_ON)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 93 */
+#if ((defined(INTC_CFG_INTSRC93_EN)) && (INTC_CFG_INTSRC93_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC93_CAT)) && (INTC_CFG_INTSRC93_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc93Entry);
+#else /* (INTC_CFG_INTSRC93_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc93Entry);
+#endif /* ((defined(INTC_CFG_INTSRC93_CAT)) \&& (INTC_CFG_INTSRC93_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC93_EN)) \&& (INTC_CFG_INTSRC93_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 94 */
+#if ((defined(INTC_CFG_INTSRC94_EN)) && (INTC_CFG_INTSRC94_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC94_CAT)) && (INTC_CFG_INTSRC94_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc94Entry);
+#else /* (INTC_CFG_INTSRC94_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc94Entry);
+#endif /* ((defined(INTC_CFG_INTSRC94_CAT)) \&& (INTC_CFG_INTSRC94_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC94_EN)) \&& (INTC_CFG_INTSRC94_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 95 */
+#if ((defined(INTC_CFG_INTSRC95_EN)) && (INTC_CFG_INTSRC95_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC95_CAT)) && (INTC_CFG_INTSRC95_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc95Entry);
+#else /* (INTC_CFG_INTSRC95_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc95Entry);
+#endif /* ((defined(INTC_CFG_INTSRC95_CAT)) \&& (INTC_CFG_INTSRC95_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC95_EN)) \&& (INTC_CFG_INTSRC95_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 96 */
+#if ((defined(INTC_CFG_INTSRC96_EN)) && (INTC_CFG_INTSRC96_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC96_CAT)) && (INTC_CFG_INTSRC96_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc96Entry);
+#else /* (INTC_CFG_INTSRC96_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc96Entry);
+#endif /* ((defined(INTC_CFG_INTSRC96_CAT)) \&& (INTC_CFG_INTSRC96_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC96_EN)) \&& (INTC_CFG_INTSRC96_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 97 */
+#if ((defined(INTC_CFG_INTSRC97_EN)) && (INTC_CFG_INTSRC97_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC97_CAT)) && (INTC_CFG_INTSRC97_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc97Entry);
+#else /* (INTC_CFG_INTSRC97_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc97Entry);
+#endif /* ((defined(INTC_CFG_INTSRC97_CAT)) \&& (INTC_CFG_INTSRC97_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC97_EN)) \&& (INTC_CFG_INTSRC97_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 98 */
+#if ((defined(INTC_CFG_INTSRC98_EN)) && (INTC_CFG_INTSRC98_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC98_CAT)) && (INTC_CFG_INTSRC98_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc98Entry);
+#else /* (INTC_CFG_INTSRC98_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc98Entry);
+#endif /* ((defined(INTC_CFG_INTSRC98_CAT)) \&& (INTC_CFG_INTSRC98_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC98_EN)) \&& (INTC_CFG_INTSRC98_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 99 */
+#if ((defined(INTC_CFG_INTSRC99_EN)) && (INTC_CFG_INTSRC99_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC99_CAT)) && (INTC_CFG_INTSRC99_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc99Entry);
+#else /* (INTC_CFG_INTSRC99_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc99Entry);
+#endif /* ((defined(INTC_CFG_INTSRC99_CAT)) \&& (INTC_CFG_INTSRC99_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC99_EN)) \&& (INTC_CFG_INTSRC99_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 100 */
+#if ((defined(INTC_CFG_INTSRC100_EN)) && (INTC_CFG_INTSRC100_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC100_CAT)) && (INTC_CFG_INTSRC100_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc100Entry);
+#else /* (INTC_CFG_INTSRC100_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc100Entry);
+#endif /* ((defined(INTC_CFG_INTSRC100_CAT)) \&& (INTC_CFG_INTSRC100_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC100_EN)) \&& (INTC_CFG_INTSRC100_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 101 */
+#if ((defined(INTC_CFG_INTSRC101_EN)) && (INTC_CFG_INTSRC101_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC101_CAT)) && (INTC_CFG_INTSRC101_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc101Entry);
+#else /* (INTC_CFG_INTSRC101_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc101Entry);
+#endif /* ((defined(INTC_CFG_INTSRC101_CAT)) \&& (INTC_CFG_INTSRC101_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC101_EN)) \&& (INTC_CFG_INTSRC101_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 102 */
+#if ((defined(INTC_CFG_INTSRC102_EN)) && (INTC_CFG_INTSRC102_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC102_CAT)) && (INTC_CFG_INTSRC102_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc102Entry);
+#else /* (INTC_CFG_INTSRC102_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc102Entry);
+#endif /* ((defined(INTC_CFG_INTSRC102_CAT)) \&& (INTC_CFG_INTSRC102_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC102_EN)) \&& (INTC_CFG_INTSRC102_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 103 */
+#if ((defined(INTC_CFG_INTSRC103_EN)) && (INTC_CFG_INTSRC103_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC103_CAT)) && (INTC_CFG_INTSRC103_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc103Entry);
+#else /* (INTC_CFG_INTSRC103_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc103Entry);
+#endif /* ((defined(INTC_CFG_INTSRC103_CAT)) \&& (INTC_CFG_INTSRC103_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC103_EN)) \&& (INTC_CFG_INTSRC103_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 104 */
+#if ((defined(INTC_CFG_INTSRC104_EN)) && (INTC_CFG_INTSRC104_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC104_CAT)) && (INTC_CFG_INTSRC104_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc104Entry);
+#else /* (INTC_CFG_INTSRC104_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc104Entry);
+#endif /* ((defined(INTC_CFG_INTSRC104_CAT)) \&& (INTC_CFG_INTSRC104_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC104_EN)) \&& (INTC_CFG_INTSRC104_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 105 */
+#if ((defined(INTC_CFG_INTSRC105_EN)) && (INTC_CFG_INTSRC105_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC105_CAT)) && (INTC_CFG_INTSRC105_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc105Entry);
+#else /* (INTC_CFG_INTSRC105_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc105Entry);
+#endif /* ((defined(INTC_CFG_INTSRC105_CAT)) \&& (INTC_CFG_INTSRC105_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC105_EN)) \&& (INTC_CFG_INTSRC105_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 106 */
+#if ((defined(INTC_CFG_INTSRC106_EN)) && (INTC_CFG_INTSRC106_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC106_CAT)) && (INTC_CFG_INTSRC106_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc106Entry);
+#else /* (INTC_CFG_INTSRC106_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc106Entry);
+#endif /* ((defined(INTC_CFG_INTSRC106_CAT)) \&& (INTC_CFG_INTSRC106_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC106_EN)) \&& (INTC_CFG_INTSRC106_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 107 */
+#if ((defined(INTC_CFG_INTSRC107_EN)) && (INTC_CFG_INTSRC107_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC107_CAT)) && (INTC_CFG_INTSRC107_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc107Entry);
+#else /* (INTC_CFG_INTSRC107_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc107Entry);
+#endif /* ((defined(INTC_CFG_INTSRC107_CAT)) \&& (INTC_CFG_INTSRC107_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC107_EN)) \&& (INTC_CFG_INTSRC107_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 108 */
+#if ((defined(INTC_CFG_INTSRC108_EN)) && (INTC_CFG_INTSRC108_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC108_CAT)) && (INTC_CFG_INTSRC108_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc108Entry);
+#else /* (INTC_CFG_INTSRC108_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc108Entry);
+#endif /* ((defined(INTC_CFG_INTSRC108_CAT)) \&& (INTC_CFG_INTSRC108_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC108_EN)) \&& (INTC_CFG_INTSRC108_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 109 */
+#if ((defined(INTC_CFG_INTSRC109_EN)) && (INTC_CFG_INTSRC109_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC109_CAT)) && (INTC_CFG_INTSRC109_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc109Entry);
+#else /* (INTC_CFG_INTSRC109_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc109Entry);
+#endif /* ((defined(INTC_CFG_INTSRC109_CAT)) \&& (INTC_CFG_INTSRC109_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC109_EN)) \&& (INTC_CFG_INTSRC109_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 110 */
+#if ((defined(INTC_CFG_INTSRC110_EN)) && (INTC_CFG_INTSRC110_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC110_CAT)) && (INTC_CFG_INTSRC110_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc110Entry);
+#else /* (INTC_CFG_INTSRC110_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc110Entry);
+#endif /* ((defined(INTC_CFG_INTSRC110_CAT)) \&& (INTC_CFG_INTSRC110_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC110_EN)) \&& (INTC_CFG_INTSRC110_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 111 */
+#if ((defined(INTC_CFG_INTSRC111_EN)) && (INTC_CFG_INTSRC111_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC111_CAT)) && (INTC_CFG_INTSRC111_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc111Entry);
+#else /* (INTC_CFG_INTSRC111_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc111Entry);
+#endif /* ((defined(INTC_CFG_INTSRC111_CAT)) \&& (INTC_CFG_INTSRC111_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC111_EN)) \&& (INTC_CFG_INTSRC111_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 112 */
+#if ((defined(INTC_CFG_INTSRC112_EN)) && (INTC_CFG_INTSRC112_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC112_CAT)) && (INTC_CFG_INTSRC112_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc112Entry);
+#else /* (INTC_CFG_INTSRC112_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc112Entry);
+#endif /* ((defined(INTC_CFG_INTSRC112_CAT)) \&& (INTC_CFG_INTSRC112_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC112_EN)) \&& (INTC_CFG_INTSRC112_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 113 */
+#if ((defined(INTC_CFG_INTSRC113_EN)) && (INTC_CFG_INTSRC113_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC113_CAT)) && (INTC_CFG_INTSRC113_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc113Entry);
+#else /* (INTC_CFG_INTSRC113_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc113Entry);
+#endif /* ((defined(INTC_CFG_INTSRC113_CAT)) \&& (INTC_CFG_INTSRC113_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC113_EN)) \&& (INTC_CFG_INTSRC113_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 114 */
+#if ((defined(INTC_CFG_INTSRC114_EN)) && (INTC_CFG_INTSRC114_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC114_CAT)) && (INTC_CFG_INTSRC114_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc114Entry);
+#else /* (INTC_CFG_INTSRC114_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc114Entry);
+#endif /* ((defined(INTC_CFG_INTSRC114_CAT)) \&& (INTC_CFG_INTSRC114_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC114_EN)) \&& (INTC_CFG_INTSRC114_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 115 */
+#if ((defined(INTC_CFG_INTSRC115_EN)) && (INTC_CFG_INTSRC115_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC115_CAT)) && (INTC_CFG_INTSRC115_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc115Entry);
+#else /* (INTC_CFG_INTSRC115_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc115Entry);
+#endif /* ((defined(INTC_CFG_INTSRC115_CAT)) \&& (INTC_CFG_INTSRC115_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC115_EN)) \&& (INTC_CFG_INTSRC115_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 116 */
+#if ((defined(INTC_CFG_INTSRC116_EN)) && (INTC_CFG_INTSRC116_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC116_CAT)) && (INTC_CFG_INTSRC116_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc116Entry);
+#else /* (INTC_CFG_INTSRC116_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc116Entry);
+#endif /* ((defined(INTC_CFG_INTSRC116_CAT)) \&& (INTC_CFG_INTSRC116_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC116_EN)) \&& (INTC_CFG_INTSRC116_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 117 */
+#if ((defined(INTC_CFG_INTSRC117_EN)) && (INTC_CFG_INTSRC117_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC117_CAT)) && (INTC_CFG_INTSRC117_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc117Entry);
+#else /* (INTC_CFG_INTSRC117_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc117Entry);
+#endif /* ((defined(INTC_CFG_INTSRC117_CAT)) \&& (INTC_CFG_INTSRC117_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC117_EN)) \&& (INTC_CFG_INTSRC117_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 118 */
+#if ((defined(INTC_CFG_INTSRC118_EN)) && (INTC_CFG_INTSRC118_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC118_CAT)) && (INTC_CFG_INTSRC118_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc118Entry);
+#else /* (INTC_CFG_INTSRC118_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc118Entry);
+#endif /* ((defined(INTC_CFG_INTSRC118_CAT)) \&& (INTC_CFG_INTSRC118_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC118_EN)) \&& (INTC_CFG_INTSRC118_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 119 */
+#if ((defined(INTC_CFG_INTSRC119_EN)) && (INTC_CFG_INTSRC119_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC119_CAT)) && (INTC_CFG_INTSRC119_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc119Entry);
+#else /* (INTC_CFG_INTSRC119_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc119Entry);
+#endif /* ((defined(INTC_CFG_INTSRC119_CAT)) \&& (INTC_CFG_INTSRC119_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC119_EN)) \&& (INTC_CFG_INTSRC119_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 120 */
+#if ((defined(INTC_CFG_INTSRC120_EN)) && (INTC_CFG_INTSRC120_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC120_CAT)) && (INTC_CFG_INTSRC120_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc120Entry);
+#else /* (INTC_CFG_INTSRC120_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc120Entry);
+#endif /* ((defined(INTC_CFG_INTSRC120_CAT)) \&& (INTC_CFG_INTSRC120_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC120_EN)) \&& (INTC_CFG_INTSRC120_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 121 */
+#if ((defined(INTC_CFG_INTSRC121_EN)) && (INTC_CFG_INTSRC121_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC121_CAT)) && (INTC_CFG_INTSRC121_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc121Entry);
+#else /* (INTC_CFG_INTSRC121_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc121Entry);
+#endif /* ((defined(INTC_CFG_INTSRC121_CAT)) \&& (INTC_CFG_INTSRC121_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC121_EN)) \&& (INTC_CFG_INTSRC121_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 122 */
+#if ((defined(INTC_CFG_INTSRC122_EN)) && (INTC_CFG_INTSRC122_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC122_CAT)) && (INTC_CFG_INTSRC122_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc122Entry);
+#else /* (INTC_CFG_INTSRC122_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc122Entry);
+#endif /* ((defined(INTC_CFG_INTSRC122_CAT)) \&& (INTC_CFG_INTSRC122_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC122_EN)) \&& (INTC_CFG_INTSRC122_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 123 */
+#if ((defined(INTC_CFG_INTSRC123_EN)) && (INTC_CFG_INTSRC123_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC123_CAT)) && (INTC_CFG_INTSRC123_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc123Entry);
+#else /* (INTC_CFG_INTSRC123_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc123Entry);
+#endif /* ((defined(INTC_CFG_INTSRC123_CAT)) \&& (INTC_CFG_INTSRC123_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC123_EN)) \&& (INTC_CFG_INTSRC123_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 124 */
+#if ((defined(INTC_CFG_INTSRC124_EN)) && (INTC_CFG_INTSRC124_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC124_CAT)) && (INTC_CFG_INTSRC124_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc124Entry);
+#else /* (INTC_CFG_INTSRC124_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc124Entry);
+#endif /* ((defined(INTC_CFG_INTSRC124_CAT)) \&& (INTC_CFG_INTSRC124_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC124_EN)) \&& (INTC_CFG_INTSRC124_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 125 */
+#if ((defined(INTC_CFG_INTSRC125_EN)) && (INTC_CFG_INTSRC125_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC125_CAT)) && (INTC_CFG_INTSRC125_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc125Entry);
+#else /* (INTC_CFG_INTSRC125_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc125Entry);
+#endif /* ((defined(INTC_CFG_INTSRC125_CAT)) \&& (INTC_CFG_INTSRC125_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC125_EN)) \&& (INTC_CFG_INTSRC125_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 126 */
+#if ((defined(INTC_CFG_INTSRC126_EN)) && (INTC_CFG_INTSRC126_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC126_CAT)) && (INTC_CFG_INTSRC126_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc126Entry);
+#else /* (INTC_CFG_INTSRC126_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc126Entry);
+#endif /* ((defined(INTC_CFG_INTSRC126_CAT)) \&& (INTC_CFG_INTSRC126_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC126_EN)) \&& (INTC_CFG_INTSRC126_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 127 */
+#if ((defined(INTC_CFG_INTSRC127_EN)) && (INTC_CFG_INTSRC127_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC127_CAT)) && (INTC_CFG_INTSRC127_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc127Entry);
+#else /* (INTC_CFG_INTSRC127_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc127Entry);
+#endif /* ((defined(INTC_CFG_INTSRC127_CAT)) \&& (INTC_CFG_INTSRC127_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC127_EN)) \&& (INTC_CFG_INTSRC127_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 128 */
+#if ((defined(INTC_CFG_INTSRC128_EN)) && (INTC_CFG_INTSRC128_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC128_CAT)) && (INTC_CFG_INTSRC128_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc128Entry);
+#else /* (INTC_CFG_INTSRC128_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc128Entry);
+#endif /* ((defined(INTC_CFG_INTSRC128_CAT)) \&& (INTC_CFG_INTSRC128_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC128_EN)) \&& (INTC_CFG_INTSRC128_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 129 */
+#if ((defined(INTC_CFG_INTSRC129_EN)) && (INTC_CFG_INTSRC129_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC129_CAT)) && (INTC_CFG_INTSRC129_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc129Entry);
+#else /* (INTC_CFG_INTSRC129_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc129Entry);
+#endif /* ((defined(INTC_CFG_INTSRC129_CAT)) \&& (INTC_CFG_INTSRC129_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC129_EN)) \&& (INTC_CFG_INTSRC129_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 130 */
+#if ((defined(INTC_CFG_INTSRC130_EN)) && (INTC_CFG_INTSRC130_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC130_CAT)) && (INTC_CFG_INTSRC130_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc130Entry);
+#else /* (INTC_CFG_INTSRC130_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc130Entry);
+#endif /* ((defined(INTC_CFG_INTSRC130_CAT)) \&& (INTC_CFG_INTSRC130_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC130_EN)) \&& (INTC_CFG_INTSRC130_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 131 */
+#if ((defined(INTC_CFG_INTSRC131_EN)) && (INTC_CFG_INTSRC131_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC131_CAT)) && (INTC_CFG_INTSRC131_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc131Entry);
+#else /* (INTC_CFG_INTSRC131_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc131Entry);
+#endif /* ((defined(INTC_CFG_INTSRC131_CAT)) \&& (INTC_CFG_INTSRC131_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC131_EN)) \&& (INTC_CFG_INTSRC131_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 132 */
+#if ((defined(INTC_CFG_INTSRC132_EN)) && (INTC_CFG_INTSRC132_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC132_CAT)) && (INTC_CFG_INTSRC132_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc132Entry);
+#else /* (INTC_CFG_INTSRC132_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc132Entry);
+#endif /* ((defined(INTC_CFG_INTSRC132_CAT)) \&& (INTC_CFG_INTSRC132_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC132_EN)) \&& (INTC_CFG_INTSRC132_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 133 */
+#if ((defined(INTC_CFG_INTSRC133_EN)) && (INTC_CFG_INTSRC133_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC133_CAT)) && (INTC_CFG_INTSRC133_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc133Entry);
+#else /* (INTC_CFG_INTSRC133_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc133Entry);
+#endif /* ((defined(INTC_CFG_INTSRC133_CAT)) \&& (INTC_CFG_INTSRC133_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC133_EN)) \&& (INTC_CFG_INTSRC133_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 134 */
+#if ((defined(INTC_CFG_INTSRC134_EN)) && (INTC_CFG_INTSRC134_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC134_CAT)) && (INTC_CFG_INTSRC134_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc134Entry);
+#else /* (INTC_CFG_INTSRC134_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc134Entry);
+#endif /* ((defined(INTC_CFG_INTSRC134_CAT)) \&& (INTC_CFG_INTSRC134_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC134_EN)) \&& (INTC_CFG_INTSRC134_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 135 */
+#if ((defined(INTC_CFG_INTSRC135_EN)) && (INTC_CFG_INTSRC135_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC135_CAT)) && (INTC_CFG_INTSRC135_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc135Entry);
+#else /* (INTC_CFG_INTSRC135_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc135Entry);
+#endif /* ((defined(INTC_CFG_INTSRC135_CAT)) \&& (INTC_CFG_INTSRC135_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC135_EN)) \&& (INTC_CFG_INTSRC135_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 136 */
+#if ((defined(INTC_CFG_INTSRC136_EN)) && (INTC_CFG_INTSRC136_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC136_CAT)) && (INTC_CFG_INTSRC136_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc136Entry);
+#else /* (INTC_CFG_INTSRC136_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc136Entry);
+#endif /* ((defined(INTC_CFG_INTSRC136_CAT)) \&& (INTC_CFG_INTSRC136_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC136_EN)) \&& (INTC_CFG_INTSRC136_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 137 */
+#if ((defined(INTC_CFG_INTSRC137_EN)) && (INTC_CFG_INTSRC137_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC137_CAT)) && (INTC_CFG_INTSRC137_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc137Entry);
+#else /* (INTC_CFG_INTSRC137_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc137Entry);
+#endif /* ((defined(INTC_CFG_INTSRC137_CAT)) \&& (INTC_CFG_INTSRC137_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC137_EN)) \&& (INTC_CFG_INTSRC137_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 138 */
+#if ((defined(INTC_CFG_INTSRC138_EN)) && (INTC_CFG_INTSRC138_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC138_CAT)) && (INTC_CFG_INTSRC138_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc138Entry);
+#else /* (INTC_CFG_INTSRC138_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc138Entry);
+#endif /* ((defined(INTC_CFG_INTSRC138_CAT)) \&& (INTC_CFG_INTSRC138_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC138_EN)) \&& (INTC_CFG_INTSRC138_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 139 */
+#if ((defined(INTC_CFG_INTSRC139_EN)) && (INTC_CFG_INTSRC139_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC139_CAT)) && (INTC_CFG_INTSRC139_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc139Entry);
+#else /* (INTC_CFG_INTSRC139_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc139Entry);
+#endif /* ((defined(INTC_CFG_INTSRC139_CAT)) \&& (INTC_CFG_INTSRC139_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC139_EN)) \&& (INTC_CFG_INTSRC139_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 140 */
+#if ((defined(INTC_CFG_INTSRC140_EN)) && (INTC_CFG_INTSRC140_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC140_CAT)) && (INTC_CFG_INTSRC140_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc140Entry);
+#else /* (INTC_CFG_INTSRC140_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc140Entry);
+#endif /* ((defined(INTC_CFG_INTSRC140_CAT)) \&& (INTC_CFG_INTSRC140_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC140_EN)) \&& (INTC_CFG_INTSRC140_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 141 */
+#if ((defined(INTC_CFG_INTSRC141_EN)) && (INTC_CFG_INTSRC141_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC141_CAT)) && (INTC_CFG_INTSRC141_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc141Entry);
+#else /* (INTC_CFG_INTSRC141_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc141Entry);
+#endif /* ((defined(INTC_CFG_INTSRC141_CAT)) \&& (INTC_CFG_INTSRC141_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC141_EN)) \&& (INTC_CFG_INTSRC141_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 142 */
+#if ((defined(INTC_CFG_INTSRC142_EN)) && (INTC_CFG_INTSRC142_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC142_CAT)) && (INTC_CFG_INTSRC142_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc142Entry);
+#else /* (INTC_CFG_INTSRC142_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc142Entry);
+#endif /* ((defined(INTC_CFG_INTSRC142_CAT)) \&& (INTC_CFG_INTSRC142_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC142_EN)) \&& (INTC_CFG_INTSRC142_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 143 */
+#if ((defined(INTC_CFG_INTSRC143_EN)) && (INTC_CFG_INTSRC143_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC143_CAT)) && (INTC_CFG_INTSRC143_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc143Entry);
+#else /* (INTC_CFG_INTSRC143_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc143Entry);
+#endif /* ((defined(INTC_CFG_INTSRC143_CAT)) \&& (INTC_CFG_INTSRC143_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC143_EN)) \&& (INTC_CFG_INTSRC143_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 144 */
+#if ((defined(INTC_CFG_INTSRC144_EN)) && (INTC_CFG_INTSRC144_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC144_CAT)) && (INTC_CFG_INTSRC144_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc144Entry);
+#else /* (INTC_CFG_INTSRC144_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc144Entry);
+#endif /* ((defined(INTC_CFG_INTSRC144_CAT)) \&& (INTC_CFG_INTSRC144_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC144_EN)) \&& (INTC_CFG_INTSRC144_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 145 */
+#if ((defined(INTC_CFG_INTSRC145_EN)) && (INTC_CFG_INTSRC145_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC145_CAT)) && (INTC_CFG_INTSRC145_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc145Entry);
+#else /* (INTC_CFG_INTSRC145_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc145Entry);
+#endif /* ((defined(INTC_CFG_INTSRC145_CAT)) \&& (INTC_CFG_INTSRC145_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC145_EN)) \&& (INTC_CFG_INTSRC145_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 146 */
+#if ((defined(INTC_CFG_INTSRC146_EN)) && (INTC_CFG_INTSRC146_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC146_CAT)) && (INTC_CFG_INTSRC146_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc146Entry);
+#else /* (INTC_CFG_INTSRC146_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc146Entry);
+#endif /* ((defined(INTC_CFG_INTSRC146_CAT)) \&& (INTC_CFG_INTSRC146_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC146_EN)) \&& (INTC_CFG_INTSRC146_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 147 */
+#if ((defined(INTC_CFG_INTSRC147_EN)) && (INTC_CFG_INTSRC147_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC147_CAT)) && (INTC_CFG_INTSRC147_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc147Entry);
+#else /* (INTC_CFG_INTSRC147_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc147Entry);
+#endif /* ((defined(INTC_CFG_INTSRC147_CAT)) \&& (INTC_CFG_INTSRC147_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC147_EN)) \&& (INTC_CFG_INTSRC147_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 148 */
+#if ((defined(INTC_CFG_INTSRC148_EN)) && (INTC_CFG_INTSRC148_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC148_CAT)) && (INTC_CFG_INTSRC148_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc148Entry);
+#else /* (INTC_CFG_INTSRC148_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc148Entry);
+#endif /* ((defined(INTC_CFG_INTSRC148_CAT)) \&& (INTC_CFG_INTSRC148_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC148_EN)) \&& (INTC_CFG_INTSRC148_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 149 */
+#if ((defined(INTC_CFG_INTSRC149_EN)) && (INTC_CFG_INTSRC149_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC149_CAT)) && (INTC_CFG_INTSRC149_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc149Entry);
+#else /* (INTC_CFG_INTSRC149_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc149Entry);
+#endif /* ((defined(INTC_CFG_INTSRC149_CAT)) \&& (INTC_CFG_INTSRC149_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC149_EN)) \&& (INTC_CFG_INTSRC149_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 150 */
+#if ((defined(INTC_CFG_INTSRC150_EN)) && (INTC_CFG_INTSRC150_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC150_CAT)) && (INTC_CFG_INTSRC150_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc150Entry);
+#else /* (INTC_CFG_INTSRC150_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc150Entry);
+#endif /* ((defined(INTC_CFG_INTSRC150_CAT)) \&& (INTC_CFG_INTSRC150_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC150_EN)) \&& (INTC_CFG_INTSRC150_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 151 */
+#if ((defined(INTC_CFG_INTSRC151_EN)) && (INTC_CFG_INTSRC151_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC151_CAT)) && (INTC_CFG_INTSRC151_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc151Entry);
+#else /* (INTC_CFG_INTSRC151_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc151Entry);
+#endif /* ((defined(INTC_CFG_INTSRC151_CAT)) \&& (INTC_CFG_INTSRC151_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC151_EN)) \&& (INTC_CFG_INTSRC151_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 152 */
+#if ((defined(INTC_CFG_INTSRC152_EN)) && (INTC_CFG_INTSRC152_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC152_CAT)) && (INTC_CFG_INTSRC152_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc152Entry);
+#else /* (INTC_CFG_INTSRC152_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc152Entry);
+#endif /* ((defined(INTC_CFG_INTSRC152_CAT)) \&& (INTC_CFG_INTSRC152_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC152_EN)) \&& (INTC_CFG_INTSRC152_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 153 */
+#if ((defined(INTC_CFG_INTSRC153_EN)) && (INTC_CFG_INTSRC153_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC153_CAT)) && (INTC_CFG_INTSRC153_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc153Entry);
+#else /* (INTC_CFG_INTSRC153_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc153Entry);
+#endif /* ((defined(INTC_CFG_INTSRC153_CAT)) \&& (INTC_CFG_INTSRC153_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC153_EN)) \&& (INTC_CFG_INTSRC153_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 154 */
+#if ((defined(INTC_CFG_INTSRC154_EN)) && (INTC_CFG_INTSRC154_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC154_CAT)) && (INTC_CFG_INTSRC154_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc154Entry);
+#else /* (INTC_CFG_INTSRC154_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc154Entry);
+#endif /* ((defined(INTC_CFG_INTSRC154_CAT)) \&& (INTC_CFG_INTSRC154_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC154_EN)) \&& (INTC_CFG_INTSRC154_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 155 */
+#if ((defined(INTC_CFG_INTSRC155_EN)) && (INTC_CFG_INTSRC155_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC155_CAT)) && (INTC_CFG_INTSRC155_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc155Entry);
+#else /* (INTC_CFG_INTSRC155_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc155Entry);
+#endif /* ((defined(INTC_CFG_INTSRC155_CAT)) \&& (INTC_CFG_INTSRC155_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC155_EN)) \&& (INTC_CFG_INTSRC155_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 156 */
+#if ((defined(INTC_CFG_INTSRC156_EN)) && (INTC_CFG_INTSRC156_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC156_CAT)) && (INTC_CFG_INTSRC156_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc156Entry);
+#else /* (INTC_CFG_INTSRC156_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc156Entry);
+#endif /* ((defined(INTC_CFG_INTSRC156_CAT)) \&& (INTC_CFG_INTSRC156_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC156_EN)) \&& (INTC_CFG_INTSRC156_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 157 */
+#if ((defined(INTC_CFG_INTSRC157_EN)) && (INTC_CFG_INTSRC157_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC157_CAT)) && (INTC_CFG_INTSRC157_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc157Entry);
+#else /* (INTC_CFG_INTSRC157_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc157Entry);
+#endif /* ((defined(INTC_CFG_INTSRC157_CAT)) \&& (INTC_CFG_INTSRC157_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC157_EN)) \&& (INTC_CFG_INTSRC157_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 158 */
+#if ((defined(INTC_CFG_INTSRC158_EN)) && (INTC_CFG_INTSRC158_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC158_CAT)) && (INTC_CFG_INTSRC158_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc158Entry);
+#else /* (INTC_CFG_INTSRC158_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc158Entry);
+#endif /* ((defined(INTC_CFG_INTSRC158_CAT)) \&& (INTC_CFG_INTSRC158_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC158_EN)) \&& (INTC_CFG_INTSRC158_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 159 */
+#if ((defined(INTC_CFG_INTSRC159_EN)) && (INTC_CFG_INTSRC159_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC159_CAT)) && (INTC_CFG_INTSRC159_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc159Entry);
+#else /* (INTC_CFG_INTSRC159_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc159Entry);
+#endif /* ((defined(INTC_CFG_INTSRC159_CAT)) \&& (INTC_CFG_INTSRC159_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC159_EN)) \&& (INTC_CFG_INTSRC159_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 160 */
+#if ((defined(INTC_CFG_INTSRC160_EN)) && (INTC_CFG_INTSRC160_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC160_CAT)) && (INTC_CFG_INTSRC160_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc160Entry);
+#else /* (INTC_CFG_INTSRC160_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc160Entry);
+#endif /* ((defined(INTC_CFG_INTSRC160_CAT)) \&& (INTC_CFG_INTSRC160_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC160_EN)) \&& (INTC_CFG_INTSRC160_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 161 */
+#if ((defined(INTC_CFG_INTSRC161_EN)) && (INTC_CFG_INTSRC161_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC161_CAT)) && (INTC_CFG_INTSRC161_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc161Entry);
+#else /* (INTC_CFG_INTSRC161_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc161Entry);
+#endif /* ((defined(INTC_CFG_INTSRC161_CAT)) \&& (INTC_CFG_INTSRC161_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC161_EN)) \&& (INTC_CFG_INTSRC161_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 162 */
+#if ((defined(INTC_CFG_INTSRC162_EN)) && (INTC_CFG_INTSRC162_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC162_CAT)) && (INTC_CFG_INTSRC162_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc162Entry);
+#else /* (INTC_CFG_INTSRC162_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc162Entry);
+#endif /* ((defined(INTC_CFG_INTSRC162_CAT)) \&& (INTC_CFG_INTSRC162_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC162_EN)) \&& (INTC_CFG_INTSRC162_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 163 */
+#if ((defined(INTC_CFG_INTSRC163_EN)) && (INTC_CFG_INTSRC163_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC163_CAT)) && (INTC_CFG_INTSRC163_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc163Entry);
+#else /* (INTC_CFG_INTSRC163_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc163Entry);
+#endif /* ((defined(INTC_CFG_INTSRC163_CAT)) \&& (INTC_CFG_INTSRC163_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC163_EN)) \&& (INTC_CFG_INTSRC163_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 164 */
+#if ((defined(INTC_CFG_INTSRC164_EN)) && (INTC_CFG_INTSRC164_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC164_CAT)) && (INTC_CFG_INTSRC164_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc164Entry);
+#else /* (INTC_CFG_INTSRC164_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc164Entry);
+#endif /* ((defined(INTC_CFG_INTSRC164_CAT)) \&& (INTC_CFG_INTSRC164_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC164_EN)) \&& (INTC_CFG_INTSRC164_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 165 */
+#if ((defined(INTC_CFG_INTSRC165_EN)) && (INTC_CFG_INTSRC165_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC165_CAT)) && (INTC_CFG_INTSRC165_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc165Entry);
+#else /* (INTC_CFG_INTSRC165_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc165Entry);
+#endif /* ((defined(INTC_CFG_INTSRC165_CAT)) \&& (INTC_CFG_INTSRC165_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC165_EN)) \&& (INTC_CFG_INTSRC165_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 166 */
+#if ((defined(INTC_CFG_INTSRC166_EN)) && (INTC_CFG_INTSRC166_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC166_CAT)) && (INTC_CFG_INTSRC166_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc166Entry);
+#else /* (INTC_CFG_INTSRC166_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc166Entry);
+#endif /* ((defined(INTC_CFG_INTSRC166_CAT)) \&& (INTC_CFG_INTSRC166_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC166_EN)) \&& (INTC_CFG_INTSRC166_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 167 */
+#if ((defined(INTC_CFG_INTSRC167_EN)) && (INTC_CFG_INTSRC167_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC167_CAT)) && (INTC_CFG_INTSRC167_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc167Entry);
+#else /* (INTC_CFG_INTSRC167_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc167Entry);
+#endif /* ((defined(INTC_CFG_INTSRC167_CAT)) \&& (INTC_CFG_INTSRC167_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC167_EN)) \&& (INTC_CFG_INTSRC167_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 168 */
+#if ((defined(INTC_CFG_INTSRC168_EN)) && (INTC_CFG_INTSRC168_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC168_CAT)) && (INTC_CFG_INTSRC168_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc168Entry);
+#else /* (INTC_CFG_INTSRC168_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc168Entry);
+#endif /* ((defined(INTC_CFG_INTSRC168_CAT)) \&& (INTC_CFG_INTSRC168_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC168_EN)) \&& (INTC_CFG_INTSRC168_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 169 */
+#if ((defined(INTC_CFG_INTSRC169_EN)) && (INTC_CFG_INTSRC169_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC169_CAT)) && (INTC_CFG_INTSRC169_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc169Entry);
+#else /* (INTC_CFG_INTSRC169_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc169Entry);
+#endif /* ((defined(INTC_CFG_INTSRC169_CAT)) \&& (INTC_CFG_INTSRC169_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC169_EN)) \&& (INTC_CFG_INTSRC169_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 170 */
+#if ((defined(INTC_CFG_INTSRC170_EN)) && (INTC_CFG_INTSRC170_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC170_CAT)) && (INTC_CFG_INTSRC170_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc170Entry);
+#else /* (INTC_CFG_INTSRC170_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc170Entry);
+#endif /* ((defined(INTC_CFG_INTSRC170_CAT)) \&& (INTC_CFG_INTSRC170_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC170_EN)) \&& (INTC_CFG_INTSRC170_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 171 */
+#if ((defined(INTC_CFG_INTSRC171_EN)) && (INTC_CFG_INTSRC171_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC171_CAT)) && (INTC_CFG_INTSRC171_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc171Entry);
+#else /* (INTC_CFG_INTSRC171_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc171Entry);
+#endif /* ((defined(INTC_CFG_INTSRC171_CAT)) \&& (INTC_CFG_INTSRC171_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC171_EN)) \&& (INTC_CFG_INTSRC171_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 172 */
+#if ((defined(INTC_CFG_INTSRC172_EN)) && (INTC_CFG_INTSRC172_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC172_CAT)) && (INTC_CFG_INTSRC172_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc172Entry);
+#else /* (INTC_CFG_INTSRC172_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc172Entry);
+#endif /* ((defined(INTC_CFG_INTSRC172_CAT)) \&& (INTC_CFG_INTSRC172_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC172_EN)) \&& (INTC_CFG_INTSRC172_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 173 */
+#if ((defined(INTC_CFG_INTSRC173_EN)) && (INTC_CFG_INTSRC173_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC173_CAT)) && (INTC_CFG_INTSRC173_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc173Entry);
+#else /* (INTC_CFG_INTSRC173_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc173Entry);
+#endif /* ((defined(INTC_CFG_INTSRC173_CAT)) \&& (INTC_CFG_INTSRC173_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC173_EN)) \&& (INTC_CFG_INTSRC173_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 174 */
+#if ((defined(INTC_CFG_INTSRC174_EN)) && (INTC_CFG_INTSRC174_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC174_CAT)) && (INTC_CFG_INTSRC174_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc174Entry);
+#else /* (INTC_CFG_INTSRC174_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc174Entry);
+#endif /* ((defined(INTC_CFG_INTSRC174_CAT)) \&& (INTC_CFG_INTSRC174_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC174_EN)) \&& (INTC_CFG_INTSRC174_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 175 */
+#if ((defined(INTC_CFG_INTSRC175_EN)) && (INTC_CFG_INTSRC175_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC175_CAT)) && (INTC_CFG_INTSRC175_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc175Entry);
+#else /* (INTC_CFG_INTSRC175_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc175Entry);
+#endif /* ((defined(INTC_CFG_INTSRC175_CAT)) \&& (INTC_CFG_INTSRC175_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC175_EN)) \&& (INTC_CFG_INTSRC175_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 176 */
+#if ((defined(INTC_CFG_INTSRC176_EN)) && (INTC_CFG_INTSRC176_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC176_CAT)) && (INTC_CFG_INTSRC176_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc176Entry);
+#else /* (INTC_CFG_INTSRC176_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc176Entry);
+#endif /* ((defined(INTC_CFG_INTSRC176_CAT)) \&& (INTC_CFG_INTSRC176_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC176_EN)) \&& (INTC_CFG_INTSRC176_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 177 */
+#if ((defined(INTC_CFG_INTSRC177_EN)) && (INTC_CFG_INTSRC177_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC177_CAT)) && (INTC_CFG_INTSRC177_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc177Entry);
+#else /* (INTC_CFG_INTSRC177_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc177Entry);
+#endif /* ((defined(INTC_CFG_INTSRC177_CAT)) \&& (INTC_CFG_INTSRC177_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC177_EN)) \&& (INTC_CFG_INTSRC177_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 178 */
+#if ((defined(INTC_CFG_INTSRC178_EN)) && (INTC_CFG_INTSRC178_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC178_CAT)) && (INTC_CFG_INTSRC178_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc178Entry);
+#else /* (INTC_CFG_INTSRC178_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc178Entry);
+#endif /* ((defined(INTC_CFG_INTSRC178_CAT)) \&& (INTC_CFG_INTSRC178_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC178_EN)) \&& (INTC_CFG_INTSRC178_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 179 */
+#if ((defined(INTC_CFG_INTSRC179_EN)) && (INTC_CFG_INTSRC179_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC179_CAT)) && (INTC_CFG_INTSRC179_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc179Entry);
+#else /* (INTC_CFG_INTSRC179_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc179Entry);
+#endif /* ((defined(INTC_CFG_INTSRC179_CAT)) \&& (INTC_CFG_INTSRC179_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC179_EN)) \&& (INTC_CFG_INTSRC179_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 180 */
+#if ((defined(INTC_CFG_INTSRC180_EN)) && (INTC_CFG_INTSRC180_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC180_CAT)) && (INTC_CFG_INTSRC180_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc180Entry);
+#else /* (INTC_CFG_INTSRC180_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc180Entry);
+#endif /* ((defined(INTC_CFG_INTSRC180_CAT)) \&& (INTC_CFG_INTSRC180_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC180_EN)) \&& (INTC_CFG_INTSRC180_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 181 */
+#if ((defined(INTC_CFG_INTSRC181_EN)) && (INTC_CFG_INTSRC181_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC181_CAT)) && (INTC_CFG_INTSRC181_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc181Entry);
+#else /* (INTC_CFG_INTSRC181_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc181Entry);
+#endif /* ((defined(INTC_CFG_INTSRC181_CAT)) \&& (INTC_CFG_INTSRC181_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC181_EN)) \&& (INTC_CFG_INTSRC181_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 182 */
+#if ((defined(INTC_CFG_INTSRC182_EN)) && (INTC_CFG_INTSRC182_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC182_CAT)) && (INTC_CFG_INTSRC182_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc182Entry);
+#else /* (INTC_CFG_INTSRC182_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc182Entry);
+#endif /* ((defined(INTC_CFG_INTSRC182_CAT)) \&& (INTC_CFG_INTSRC182_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC182_EN)) \&& (INTC_CFG_INTSRC182_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 183 */
+#if ((defined(INTC_CFG_INTSRC183_EN)) && (INTC_CFG_INTSRC183_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC183_CAT)) && (INTC_CFG_INTSRC183_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc183Entry);
+#else /* (INTC_CFG_INTSRC183_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc183Entry);
+#endif /* ((defined(INTC_CFG_INTSRC183_CAT)) \&& (INTC_CFG_INTSRC183_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC183_EN)) \&& (INTC_CFG_INTSRC183_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 184 */
+#if ((defined(INTC_CFG_INTSRC184_EN)) && (INTC_CFG_INTSRC184_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC184_CAT)) && (INTC_CFG_INTSRC184_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc184Entry);
+#else /* (INTC_CFG_INTSRC184_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc184Entry);
+#endif /* ((defined(INTC_CFG_INTSRC184_CAT)) \&& (INTC_CFG_INTSRC184_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC184_EN)) \&& (INTC_CFG_INTSRC184_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 185 */
+#if ((defined(INTC_CFG_INTSRC185_EN)) && (INTC_CFG_INTSRC185_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC185_CAT)) && (INTC_CFG_INTSRC185_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc185Entry);
+#else /* (INTC_CFG_INTSRC185_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc185Entry);
+#endif /* ((defined(INTC_CFG_INTSRC185_CAT)) \&& (INTC_CFG_INTSRC185_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC185_EN)) \&& (INTC_CFG_INTSRC185_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 186 */
+#if ((defined(INTC_CFG_INTSRC186_EN)) && (INTC_CFG_INTSRC186_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC186_CAT)) && (INTC_CFG_INTSRC186_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc186Entry);
+#else /* (INTC_CFG_INTSRC186_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc186Entry);
+#endif /* ((defined(INTC_CFG_INTSRC186_CAT)) \&& (INTC_CFG_INTSRC186_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC186_EN)) \&& (INTC_CFG_INTSRC186_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 187 */
+#if ((defined(INTC_CFG_INTSRC187_EN)) && (INTC_CFG_INTSRC187_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC187_CAT)) && (INTC_CFG_INTSRC187_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc187Entry);
+#else /* (INTC_CFG_INTSRC187_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc187Entry);
+#endif /* ((defined(INTC_CFG_INTSRC187_CAT)) \&& (INTC_CFG_INTSRC187_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC187_EN)) \&& (INTC_CFG_INTSRC187_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 188 */
+#if ((defined(INTC_CFG_INTSRC188_EN)) && (INTC_CFG_INTSRC188_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC188_CAT)) && (INTC_CFG_INTSRC188_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc188Entry);
+#else /* (INTC_CFG_INTSRC188_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc188Entry);
+#endif /* ((defined(INTC_CFG_INTSRC188_CAT)) \&& (INTC_CFG_INTSRC188_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC188_EN)) \&& (INTC_CFG_INTSRC188_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 189 */
+#if ((defined(INTC_CFG_INTSRC189_EN)) && (INTC_CFG_INTSRC189_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC189_CAT)) && (INTC_CFG_INTSRC189_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc189Entry);
+#else /* (INTC_CFG_INTSRC189_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc189Entry);
+#endif /* ((defined(INTC_CFG_INTSRC189_CAT)) \&& (INTC_CFG_INTSRC189_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC189_EN)) \&& (INTC_CFG_INTSRC189_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 190 */
+#if ((defined(INTC_CFG_INTSRC190_EN)) && (INTC_CFG_INTSRC190_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC190_CAT)) && (INTC_CFG_INTSRC190_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc190Entry);
+#else /* (INTC_CFG_INTSRC190_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc190Entry);
+#endif /* ((defined(INTC_CFG_INTSRC190_CAT)) \&& (INTC_CFG_INTSRC190_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC190_EN)) \&& (INTC_CFG_INTSRC190_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 191 */
+#if ((defined(INTC_CFG_INTSRC191_EN)) && (INTC_CFG_INTSRC191_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC191_CAT)) && (INTC_CFG_INTSRC191_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc191Entry);
+#else /* (INTC_CFG_INTSRC191_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc191Entry);
+#endif /* ((defined(INTC_CFG_INTSRC191_CAT)) \&& (INTC_CFG_INTSRC191_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC191_EN)) \&& (INTC_CFG_INTSRC191_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 192 */
+#if ((defined(INTC_CFG_INTSRC192_EN)) && (INTC_CFG_INTSRC192_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC192_CAT)) && (INTC_CFG_INTSRC192_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc192Entry);
+#else /* (INTC_CFG_INTSRC192_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc192Entry);
+#endif /* ((defined(INTC_CFG_INTSRC192_CAT)) \&& (INTC_CFG_INTSRC192_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC192_EN)) \&& (INTC_CFG_INTSRC192_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 193 */
+#if ((defined(INTC_CFG_INTSRC193_EN)) && (INTC_CFG_INTSRC193_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC193_CAT)) && (INTC_CFG_INTSRC193_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc193Entry);
+#else /* (INTC_CFG_INTSRC193_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc193Entry);
+#endif /* ((defined(INTC_CFG_INTSRC193_CAT)) \&& (INTC_CFG_INTSRC193_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC193_EN)) \&& (INTC_CFG_INTSRC193_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 194 */
+#if ((defined(INTC_CFG_INTSRC194_EN)) && (INTC_CFG_INTSRC194_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC194_CAT)) && (INTC_CFG_INTSRC194_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc194Entry);
+#else /* (INTC_CFG_INTSRC194_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc194Entry);
+#endif /* ((defined(INTC_CFG_INTSRC194_CAT)) \&& (INTC_CFG_INTSRC194_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC194_EN)) \&& (INTC_CFG_INTSRC194_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 195 */
+#if ((defined(INTC_CFG_INTSRC195_EN)) && (INTC_CFG_INTSRC195_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC195_CAT)) && (INTC_CFG_INTSRC195_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc195Entry);
+#else /* (INTC_CFG_INTSRC195_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc195Entry);
+#endif /* ((defined(INTC_CFG_INTSRC195_CAT)) \&& (INTC_CFG_INTSRC195_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC195_EN)) \&& (INTC_CFG_INTSRC195_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 196 */
+#if ((defined(INTC_CFG_INTSRC196_EN)) && (INTC_CFG_INTSRC196_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC196_CAT)) && (INTC_CFG_INTSRC196_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc196Entry);
+#else /* (INTC_CFG_INTSRC196_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc196Entry);
+#endif /* ((defined(INTC_CFG_INTSRC196_CAT)) \&& (INTC_CFG_INTSRC196_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC196_EN)) \&& (INTC_CFG_INTSRC196_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 197 */
+#if ((defined(INTC_CFG_INTSRC197_EN)) && (INTC_CFG_INTSRC197_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC197_CAT)) && (INTC_CFG_INTSRC197_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc197Entry);
+#else /* (INTC_CFG_INTSRC197_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc197Entry);
+#endif /* ((defined(INTC_CFG_INTSRC197_CAT)) \&& (INTC_CFG_INTSRC197_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC197_EN)) \&& (INTC_CFG_INTSRC197_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 198 */
+#if ((defined(INTC_CFG_INTSRC198_EN)) && (INTC_CFG_INTSRC198_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC198_CAT)) && (INTC_CFG_INTSRC198_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc198Entry);
+#else /* (INTC_CFG_INTSRC198_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc198Entry);
+#endif /* ((defined(INTC_CFG_INTSRC198_CAT)) \&& (INTC_CFG_INTSRC198_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC198_EN)) \&& (INTC_CFG_INTSRC198_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 199 */
+#if ((defined(INTC_CFG_INTSRC199_EN)) && (INTC_CFG_INTSRC199_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC199_CAT)) && (INTC_CFG_INTSRC199_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc199Entry);
+#else /* (INTC_CFG_INTSRC199_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc199Entry);
+#endif /* ((defined(INTC_CFG_INTSRC199_CAT)) \&& (INTC_CFG_INTSRC199_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC199_EN)) \&& (INTC_CFG_INTSRC199_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 200 */
+#if ((defined(INTC_CFG_INTSRC200_EN)) && (INTC_CFG_INTSRC200_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC200_CAT)) && (INTC_CFG_INTSRC200_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc200Entry);
+#else /* (INTC_CFG_INTSRC200_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc200Entry);
+#endif /* ((defined(INTC_CFG_INTSRC200_CAT)) \&& (INTC_CFG_INTSRC200_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC200_EN)) \&& (INTC_CFG_INTSRC200_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 201 */
+#if ((defined(INTC_CFG_INTSRC201_EN)) && (INTC_CFG_INTSRC201_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC201_CAT)) && (INTC_CFG_INTSRC201_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc201Entry);
+#else /* (INTC_CFG_INTSRC201_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc201Entry);
+#endif /* ((defined(INTC_CFG_INTSRC201_CAT)) \&& (INTC_CFG_INTSRC201_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC201_EN)) \&& (INTC_CFG_INTSRC201_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 202 */
+#if ((defined(INTC_CFG_INTSRC202_EN)) && (INTC_CFG_INTSRC202_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC202_CAT)) && (INTC_CFG_INTSRC202_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc202Entry);
+#else /* (INTC_CFG_INTSRC202_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc202Entry);
+#endif /* ((defined(INTC_CFG_INTSRC202_CAT)) \&& (INTC_CFG_INTSRC202_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC202_EN)) \&& (INTC_CFG_INTSRC202_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 203 */
+#if ((defined(INTC_CFG_INTSRC203_EN)) && (INTC_CFG_INTSRC203_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC203_CAT)) && (INTC_CFG_INTSRC203_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc203Entry);
+#else /* (INTC_CFG_INTSRC203_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc203Entry);
+#endif /* ((defined(INTC_CFG_INTSRC203_CAT)) \&& (INTC_CFG_INTSRC203_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC203_EN)) \&& (INTC_CFG_INTSRC203_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 204 */
+#if ((defined(INTC_CFG_INTSRC204_EN)) && (INTC_CFG_INTSRC204_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC204_CAT)) && (INTC_CFG_INTSRC204_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc204Entry);
+#else /* (INTC_CFG_INTSRC204_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc204Entry);
+#endif /* ((defined(INTC_CFG_INTSRC204_CAT)) \&& (INTC_CFG_INTSRC204_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC204_EN)) \&& (INTC_CFG_INTSRC204_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 205 */
+#if ((defined(INTC_CFG_INTSRC205_EN)) && (INTC_CFG_INTSRC205_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC205_CAT)) && (INTC_CFG_INTSRC205_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc205Entry);
+#else /* (INTC_CFG_INTSRC205_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc205Entry);
+#endif /* ((defined(INTC_CFG_INTSRC205_CAT)) \&& (INTC_CFG_INTSRC205_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC205_EN)) \&& (INTC_CFG_INTSRC205_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 206 */
+#if ((defined(INTC_CFG_INTSRC206_EN)) && (INTC_CFG_INTSRC206_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC206_CAT)) && (INTC_CFG_INTSRC206_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc206Entry);
+#else /* (INTC_CFG_INTSRC206_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc206Entry);
+#endif /* ((defined(INTC_CFG_INTSRC206_CAT)) \&& (INTC_CFG_INTSRC206_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC206_EN)) \&& (INTC_CFG_INTSRC206_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 207 */
+#if ((defined(INTC_CFG_INTSRC207_EN)) && (INTC_CFG_INTSRC207_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC207_CAT)) && (INTC_CFG_INTSRC207_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc207Entry);
+#else /* (INTC_CFG_INTSRC207_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc207Entry);
+#endif /* ((defined(INTC_CFG_INTSRC207_CAT)) \&& (INTC_CFG_INTSRC207_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC207_EN)) \&& (INTC_CFG_INTSRC207_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 208 */
+#if ((defined(INTC_CFG_INTSRC208_EN)) && (INTC_CFG_INTSRC208_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC208_CAT)) && (INTC_CFG_INTSRC208_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc208Entry);
+#else /* (INTC_CFG_INTSRC208_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc208Entry);
+#endif /* ((defined(INTC_CFG_INTSRC208_CAT)) \&& (INTC_CFG_INTSRC208_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC208_EN)) \&& (INTC_CFG_INTSRC208_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 209 */
+#if ((defined(INTC_CFG_INTSRC209_EN)) && (INTC_CFG_INTSRC209_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC209_CAT)) && (INTC_CFG_INTSRC209_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc209Entry);
+#else /* (INTC_CFG_INTSRC209_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc209Entry);
+#endif /* ((defined(INTC_CFG_INTSRC209_CAT)) \&& (INTC_CFG_INTSRC209_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC209_EN)) \&& (INTC_CFG_INTSRC209_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 210 */
+#if ((defined(INTC_CFG_INTSRC210_EN)) && (INTC_CFG_INTSRC210_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC210_CAT)) && (INTC_CFG_INTSRC210_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc210Entry);
+#else /* (INTC_CFG_INTSRC210_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc210Entry);
+#endif /* ((defined(INTC_CFG_INTSRC210_CAT)) \&& (INTC_CFG_INTSRC210_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC210_EN)) \&& (INTC_CFG_INTSRC210_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 211 */
+#if ((defined(INTC_CFG_INTSRC211_EN)) && (INTC_CFG_INTSRC211_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC211_CAT)) && (INTC_CFG_INTSRC211_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc211Entry);
+#else /* (INTC_CFG_INTSRC211_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc211Entry);
+#endif /* ((defined(INTC_CFG_INTSRC211_CAT)) \&& (INTC_CFG_INTSRC211_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC211_EN)) \&& (INTC_CFG_INTSRC211_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 212 */
+#if ((defined(INTC_CFG_INTSRC212_EN)) && (INTC_CFG_INTSRC212_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC212_CAT)) && (INTC_CFG_INTSRC212_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc212Entry);
+#else /* (INTC_CFG_INTSRC212_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc212Entry);
+#endif /* ((defined(INTC_CFG_INTSRC212_CAT)) \&& (INTC_CFG_INTSRC212_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC212_EN)) \&& (INTC_CFG_INTSRC212_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 213 */
+#if ((defined(INTC_CFG_INTSRC213_EN)) && (INTC_CFG_INTSRC213_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC213_CAT)) && (INTC_CFG_INTSRC213_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc213Entry);
+#else /* (INTC_CFG_INTSRC213_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc213Entry);
+#endif /* ((defined(INTC_CFG_INTSRC213_CAT)) \&& (INTC_CFG_INTSRC213_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC213_EN)) \&& (INTC_CFG_INTSRC213_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 214 */
+#if ((defined(INTC_CFG_INTSRC214_EN)) && (INTC_CFG_INTSRC214_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC214_CAT)) && (INTC_CFG_INTSRC214_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc214Entry);
+#else /* (INTC_CFG_INTSRC214_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc214Entry);
+#endif /* ((defined(INTC_CFG_INTSRC214_CAT)) \&& (INTC_CFG_INTSRC214_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC214_EN)) \&& (INTC_CFG_INTSRC214_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 215 */
+#if ((defined(INTC_CFG_INTSRC215_EN)) && (INTC_CFG_INTSRC215_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC215_CAT)) && (INTC_CFG_INTSRC215_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc215Entry);
+#else /* (INTC_CFG_INTSRC215_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc215Entry);
+#endif /* ((defined(INTC_CFG_INTSRC215_CAT)) \&& (INTC_CFG_INTSRC215_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC215_EN)) \&& (INTC_CFG_INTSRC215_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 216 */
+#if ((defined(INTC_CFG_INTSRC216_EN)) && (INTC_CFG_INTSRC216_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC216_CAT)) && (INTC_CFG_INTSRC216_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc216Entry);
+#else /* (INTC_CFG_INTSRC216_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc216Entry);
+#endif /* ((defined(INTC_CFG_INTSRC216_CAT)) \&& (INTC_CFG_INTSRC216_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC216_EN)) \&& (INTC_CFG_INTSRC216_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 217 */
+#if ((defined(INTC_CFG_INTSRC217_EN)) && (INTC_CFG_INTSRC217_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC217_CAT)) && (INTC_CFG_INTSRC217_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc217Entry);
+#else /* (INTC_CFG_INTSRC217_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc217Entry);
+#endif /* ((defined(INTC_CFG_INTSRC217_CAT)) \&& (INTC_CFG_INTSRC217_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC217_EN)) \&& (INTC_CFG_INTSRC217_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 218 */
+#if ((defined(INTC_CFG_INTSRC218_EN)) && (INTC_CFG_INTSRC218_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC218_CAT)) && (INTC_CFG_INTSRC218_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc218Entry);
+#else /* (INTC_CFG_INTSRC218_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc218Entry);
+#endif /* ((defined(INTC_CFG_INTSRC218_CAT)) \&& (INTC_CFG_INTSRC218_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC218_EN)) \&& (INTC_CFG_INTSRC218_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 219 */
+#if ((defined(INTC_CFG_INTSRC219_EN)) && (INTC_CFG_INTSRC219_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC219_CAT)) && (INTC_CFG_INTSRC219_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc219Entry);
+#else /* (INTC_CFG_INTSRC219_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc219Entry);
+#endif /* ((defined(INTC_CFG_INTSRC219_CAT)) \&& (INTC_CFG_INTSRC219_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC219_EN)) \&& (INTC_CFG_INTSRC219_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 220 */
+#if ((defined(INTC_CFG_INTSRC220_EN)) && (INTC_CFG_INTSRC220_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC220_CAT)) && (INTC_CFG_INTSRC220_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc220Entry);
+#else /* (INTC_CFG_INTSRC220_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc220Entry);
+#endif /* ((defined(INTC_CFG_INTSRC220_CAT)) \&& (INTC_CFG_INTSRC220_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC220_EN)) \&& (INTC_CFG_INTSRC220_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 221 */
+#if ((defined(INTC_CFG_INTSRC221_EN)) && (INTC_CFG_INTSRC221_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC221_CAT)) && (INTC_CFG_INTSRC221_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc221Entry);
+#else /* (INTC_CFG_INTSRC221_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc221Entry);
+#endif /* ((defined(INTC_CFG_INTSRC221_CAT)) \&& (INTC_CFG_INTSRC221_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC221_EN)) \&& (INTC_CFG_INTSRC221_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 222 */
+#if ((defined(INTC_CFG_INTSRC222_EN)) && (INTC_CFG_INTSRC222_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC222_CAT)) && (INTC_CFG_INTSRC222_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc222Entry);
+#else /* (INTC_CFG_INTSRC222_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc222Entry);
+#endif /* ((defined(INTC_CFG_INTSRC222_CAT)) \&& (INTC_CFG_INTSRC222_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC222_EN)) \&& (INTC_CFG_INTSRC222_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 223 */
+#if ((defined(INTC_CFG_INTSRC223_EN)) && (INTC_CFG_INTSRC223_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC223_CAT)) && (INTC_CFG_INTSRC223_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc223Entry);
+#else /* (INTC_CFG_INTSRC223_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc223Entry);
+#endif /* ((defined(INTC_CFG_INTSRC223_CAT)) \&& (INTC_CFG_INTSRC223_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC223_EN)) \&& (INTC_CFG_INTSRC223_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 224 */
+#if ((defined(INTC_CFG_INTSRC224_EN)) && (INTC_CFG_INTSRC224_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC224_CAT)) && (INTC_CFG_INTSRC224_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc224Entry);
+#else /* (INTC_CFG_INTSRC224_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc224Entry);
+#endif /* ((defined(INTC_CFG_INTSRC224_CAT)) \&& (INTC_CFG_INTSRC224_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC224_EN)) \&& (INTC_CFG_INTSRC224_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 225 */
+#if ((defined(INTC_CFG_INTSRC225_EN)) && (INTC_CFG_INTSRC225_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC225_CAT)) && (INTC_CFG_INTSRC225_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc225Entry);
+#else /* (INTC_CFG_INTSRC225_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc225Entry);
+#endif /* ((defined(INTC_CFG_INTSRC225_CAT)) \&& (INTC_CFG_INTSRC225_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC225_EN)) \&& (INTC_CFG_INTSRC225_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 226 */
+#if ((defined(INTC_CFG_INTSRC226_EN)) && (INTC_CFG_INTSRC226_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC226_CAT)) && (INTC_CFG_INTSRC226_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc226Entry);
+#else /* (INTC_CFG_INTSRC226_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc226Entry);
+#endif /* ((defined(INTC_CFG_INTSRC226_CAT)) \&& (INTC_CFG_INTSRC226_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC226_EN)) \&& (INTC_CFG_INTSRC226_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 227 */
+#if ((defined(INTC_CFG_INTSRC227_EN)) && (INTC_CFG_INTSRC227_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC227_CAT)) && (INTC_CFG_INTSRC227_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc227Entry);
+#else /* (INTC_CFG_INTSRC227_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc227Entry);
+#endif /* ((defined(INTC_CFG_INTSRC227_CAT)) \&& (INTC_CFG_INTSRC227_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC227_EN)) \&& (INTC_CFG_INTSRC227_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 228 */
+#if ((defined(INTC_CFG_INTSRC228_EN)) && (INTC_CFG_INTSRC228_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC228_CAT)) && (INTC_CFG_INTSRC228_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc228Entry);
+#else /* (INTC_CFG_INTSRC228_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc228Entry);
+#endif /* ((defined(INTC_CFG_INTSRC228_CAT)) \&& (INTC_CFG_INTSRC228_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC228_EN)) \&& (INTC_CFG_INTSRC228_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 229 */
+#if ((defined(INTC_CFG_INTSRC229_EN)) && (INTC_CFG_INTSRC229_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC229_CAT)) && (INTC_CFG_INTSRC229_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc229Entry);
+#else /* (INTC_CFG_INTSRC229_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc229Entry);
+#endif /* ((defined(INTC_CFG_INTSRC229_CAT)) \&& (INTC_CFG_INTSRC229_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC229_EN)) \&& (INTC_CFG_INTSRC229_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 230 */
+#if ((defined(INTC_CFG_INTSRC230_EN)) && (INTC_CFG_INTSRC230_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC230_CAT)) && (INTC_CFG_INTSRC230_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc230Entry);
+#else /* (INTC_CFG_INTSRC230_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc230Entry);
+#endif /* ((defined(INTC_CFG_INTSRC230_CAT)) \&& (INTC_CFG_INTSRC230_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC230_EN)) \&& (INTC_CFG_INTSRC230_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 231 */
+#if ((defined(INTC_CFG_INTSRC231_EN)) && (INTC_CFG_INTSRC231_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC231_CAT)) && (INTC_CFG_INTSRC231_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc231Entry);
+#else /* (INTC_CFG_INTSRC231_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc231Entry);
+#endif /* ((defined(INTC_CFG_INTSRC231_CAT)) \&& (INTC_CFG_INTSRC231_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC231_EN)) \&& (INTC_CFG_INTSRC231_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 232 */
+#if ((defined(INTC_CFG_INTSRC232_EN)) && (INTC_CFG_INTSRC232_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC232_CAT)) && (INTC_CFG_INTSRC232_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc232Entry);
+#else /* (INTC_CFG_INTSRC232_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc232Entry);
+#endif /* ((defined(INTC_CFG_INTSRC232_CAT)) \&& (INTC_CFG_INTSRC232_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC232_EN)) \&& (INTC_CFG_INTSRC232_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 233 */
+#if ((defined(INTC_CFG_INTSRC233_EN)) && (INTC_CFG_INTSRC233_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC233_CAT)) && (INTC_CFG_INTSRC233_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc233Entry);
+#else /* (INTC_CFG_INTSRC233_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc233Entry);
+#endif /* ((defined(INTC_CFG_INTSRC233_CAT)) \&& (INTC_CFG_INTSRC233_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC233_EN)) \&& (INTC_CFG_INTSRC233_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 234 */
+#if ((defined(INTC_CFG_INTSRC234_EN)) && (INTC_CFG_INTSRC234_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC234_CAT)) && (INTC_CFG_INTSRC234_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc234Entry);
+#else /* (INTC_CFG_INTSRC234_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc234Entry);
+#endif /* ((defined(INTC_CFG_INTSRC234_CAT)) \&& (INTC_CFG_INTSRC234_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC234_EN)) \&& (INTC_CFG_INTSRC234_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 235 */
+#if ((defined(INTC_CFG_INTSRC235_EN)) && (INTC_CFG_INTSRC235_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC235_CAT)) && (INTC_CFG_INTSRC235_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc235Entry);
+#else /* (INTC_CFG_INTSRC235_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc235Entry);
+#endif /* ((defined(INTC_CFG_INTSRC235_CAT)) \&& (INTC_CFG_INTSRC235_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC235_EN)) \&& (INTC_CFG_INTSRC235_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 236 */
+#if ((defined(INTC_CFG_INTSRC236_EN)) && (INTC_CFG_INTSRC236_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC236_CAT)) && (INTC_CFG_INTSRC236_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc236Entry);
+#else /* (INTC_CFG_INTSRC236_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc236Entry);
+#endif /* ((defined(INTC_CFG_INTSRC236_CAT)) \&& (INTC_CFG_INTSRC236_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC236_EN)) \&& (INTC_CFG_INTSRC236_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 237 */
+#if ((defined(INTC_CFG_INTSRC237_EN)) && (INTC_CFG_INTSRC237_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC237_CAT)) && (INTC_CFG_INTSRC237_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc237Entry);
+#else /* (INTC_CFG_INTSRC237_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc237Entry);
+#endif /* ((defined(INTC_CFG_INTSRC237_CAT)) \&& (INTC_CFG_INTSRC237_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC237_EN)) \&& (INTC_CFG_INTSRC237_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 238 */
+#if ((defined(INTC_CFG_INTSRC238_EN)) && (INTC_CFG_INTSRC238_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC238_CAT)) && (INTC_CFG_INTSRC238_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc238Entry);
+#else /* (INTC_CFG_INTSRC238_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc238Entry);
+#endif /* ((defined(INTC_CFG_INTSRC238_CAT)) \&& (INTC_CFG_INTSRC238_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC238_EN)) \&& (INTC_CFG_INTSRC238_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 239 */
+#if ((defined(INTC_CFG_INTSRC239_EN)) && (INTC_CFG_INTSRC239_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC239_CAT)) && (INTC_CFG_INTSRC239_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc239Entry);
+#else /* (INTC_CFG_INTSRC239_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc239Entry);
+#endif /* ((defined(INTC_CFG_INTSRC239_CAT)) \&& (INTC_CFG_INTSRC239_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC239_EN)) \&& (INTC_CFG_INTSRC239_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 240 */
+#if ((defined(INTC_CFG_INTSRC240_EN)) && (INTC_CFG_INTSRC240_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC240_CAT)) && (INTC_CFG_INTSRC240_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc240Entry);
+#else /* (INTC_CFG_INTSRC240_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc240Entry);
+#endif /* ((defined(INTC_CFG_INTSRC240_CAT)) \&& (INTC_CFG_INTSRC240_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC240_EN)) \&& (INTC_CFG_INTSRC240_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 241 */
+#if ((defined(INTC_CFG_INTSRC241_EN)) && (INTC_CFG_INTSRC241_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC241_CAT)) && (INTC_CFG_INTSRC241_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc241Entry);
+#else /* (INTC_CFG_INTSRC241_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc241Entry);
+#endif /* ((defined(INTC_CFG_INTSRC241_CAT)) \&& (INTC_CFG_INTSRC241_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC241_EN)) \&& (INTC_CFG_INTSRC241_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 242 */
+#if ((defined(INTC_CFG_INTSRC242_EN)) && (INTC_CFG_INTSRC242_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC242_CAT)) && (INTC_CFG_INTSRC242_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc242Entry);
+#else /* (INTC_CFG_INTSRC242_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc242Entry);
+#endif /* ((defined(INTC_CFG_INTSRC242_CAT)) \&& (INTC_CFG_INTSRC242_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC242_EN)) \&& (INTC_CFG_INTSRC242_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 243 */
+#if ((defined(INTC_CFG_INTSRC243_EN)) && (INTC_CFG_INTSRC243_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC243_CAT)) && (INTC_CFG_INTSRC243_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc243Entry);
+#else /* (INTC_CFG_INTSRC243_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc243Entry);
+#endif /* ((defined(INTC_CFG_INTSRC243_CAT)) \&& (INTC_CFG_INTSRC243_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC243_EN)) \&& (INTC_CFG_INTSRC243_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 244 */
+#if ((defined(INTC_CFG_INTSRC244_EN)) && (INTC_CFG_INTSRC244_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC244_CAT)) && (INTC_CFG_INTSRC244_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc244Entry);
+#else /* (INTC_CFG_INTSRC244_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc244Entry);
+#endif /* ((defined(INTC_CFG_INTSRC244_CAT)) \&& (INTC_CFG_INTSRC244_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC244_EN)) \&& (INTC_CFG_INTSRC244_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 245 */
+#if ((defined(INTC_CFG_INTSRC245_EN)) && (INTC_CFG_INTSRC245_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC245_CAT)) && (INTC_CFG_INTSRC245_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc245Entry);
+#else /* (INTC_CFG_INTSRC245_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc245Entry);
+#endif /* ((defined(INTC_CFG_INTSRC245_CAT)) \&& (INTC_CFG_INTSRC245_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC245_EN)) \&& (INTC_CFG_INTSRC245_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 246 */
+#if ((defined(INTC_CFG_INTSRC246_EN)) && (INTC_CFG_INTSRC246_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC246_CAT)) && (INTC_CFG_INTSRC246_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc246Entry);
+#else /* (INTC_CFG_INTSRC246_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc246Entry);
+#endif /* ((defined(INTC_CFG_INTSRC246_CAT)) \&& (INTC_CFG_INTSRC246_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC246_EN)) \&& (INTC_CFG_INTSRC246_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 247 */
+#if ((defined(INTC_CFG_INTSRC247_EN)) && (INTC_CFG_INTSRC247_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC247_CAT)) && (INTC_CFG_INTSRC247_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc247Entry);
+#else /* (INTC_CFG_INTSRC247_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc247Entry);
+#endif /* ((defined(INTC_CFG_INTSRC247_CAT)) \&& (INTC_CFG_INTSRC247_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC247_EN)) \&& (INTC_CFG_INTSRC247_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 248 */
+#if ((defined(INTC_CFG_INTSRC248_EN)) && (INTC_CFG_INTSRC248_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC248_CAT)) && (INTC_CFG_INTSRC248_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc248Entry);
+#else /* (INTC_CFG_INTSRC248_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc248Entry);
+#endif /* ((defined(INTC_CFG_INTSRC248_CAT)) \&& (INTC_CFG_INTSRC248_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC248_EN)) \&& (INTC_CFG_INTSRC248_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 249 */
+#if ((defined(INTC_CFG_INTSRC249_EN)) && (INTC_CFG_INTSRC249_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC249_CAT)) && (INTC_CFG_INTSRC249_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc249Entry);
+#else /* (INTC_CFG_INTSRC249_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc249Entry);
+#endif /* ((defined(INTC_CFG_INTSRC249_CAT)) \&& (INTC_CFG_INTSRC249_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC249_EN)) \&& (INTC_CFG_INTSRC249_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 250 */
+#if ((defined(INTC_CFG_INTSRC250_EN)) && (INTC_CFG_INTSRC250_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC250_CAT)) && (INTC_CFG_INTSRC250_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc250Entry);
+#else /* (INTC_CFG_INTSRC250_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc250Entry);
+#endif /* ((defined(INTC_CFG_INTSRC250_CAT)) \&& (INTC_CFG_INTSRC250_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC250_EN)) \&& (INTC_CFG_INTSRC250_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 251 */
+#if ((defined(INTC_CFG_INTSRC251_EN)) && (INTC_CFG_INTSRC251_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC251_CAT)) && (INTC_CFG_INTSRC251_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc251Entry);
+#else /* (INTC_CFG_INTSRC251_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc251Entry);
+#endif /* ((defined(INTC_CFG_INTSRC251_CAT)) \&& (INTC_CFG_INTSRC251_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC251_EN)) \&& (INTC_CFG_INTSRC251_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 252 */
+#if ((defined(INTC_CFG_INTSRC252_EN)) && (INTC_CFG_INTSRC252_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC252_CAT)) && (INTC_CFG_INTSRC252_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc252Entry);
+#else /* (INTC_CFG_INTSRC252_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc252Entry);
+#endif /* ((defined(INTC_CFG_INTSRC252_CAT)) \&& (INTC_CFG_INTSRC252_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC252_EN)) \&& (INTC_CFG_INTSRC252_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 253 */
+#if ((defined(INTC_CFG_INTSRC253_EN)) && (INTC_CFG_INTSRC253_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC253_CAT)) && (INTC_CFG_INTSRC253_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc253Entry);
+#else /* (INTC_CFG_INTSRC253_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc253Entry);
+#endif /* ((defined(INTC_CFG_INTSRC253_CAT)) \&& (INTC_CFG_INTSRC253_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC253_EN)) \&& (INTC_CFG_INTSRC253_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 254 */
+#if ((defined(INTC_CFG_INTSRC254_EN)) && (INTC_CFG_INTSRC254_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC254_CAT)) && (INTC_CFG_INTSRC254_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc254Entry);
+#else /* (INTC_CFG_INTSRC254_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc254Entry);
+#endif /* ((defined(INTC_CFG_INTSRC254_CAT)) \&& (INTC_CFG_INTSRC254_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC254_EN)) \&& (INTC_CFG_INTSRC254_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 255 */
+#if ((defined(INTC_CFG_INTSRC255_EN)) && (INTC_CFG_INTSRC255_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC255_CAT)) && (INTC_CFG_INTSRC255_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc255Entry);
+#else /* (INTC_CFG_INTSRC255_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc255Entry);
+#endif /* ((defined(INTC_CFG_INTSRC255_CAT)) \&& (INTC_CFG_INTSRC255_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC255_EN)) \&& (INTC_CFG_INTSRC255_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 256 */
+#if ((defined(INTC_CFG_INTSRC256_EN)) && (INTC_CFG_INTSRC256_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC256_CAT)) && (INTC_CFG_INTSRC256_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc256Entry);
+#else /* (INTC_CFG_INTSRC256_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc256Entry);
+#endif /* ((defined(INTC_CFG_INTSRC256_CAT)) \&& (INTC_CFG_INTSRC256_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC256_EN)) \&& (INTC_CFG_INTSRC256_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 257 */
+#if ((defined(INTC_CFG_INTSRC257_EN)) && (INTC_CFG_INTSRC257_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC257_CAT)) && (INTC_CFG_INTSRC257_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc257Entry);
+#else /* (INTC_CFG_INTSRC257_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc257Entry);
+#endif /* ((defined(INTC_CFG_INTSRC257_CAT)) \&& (INTC_CFG_INTSRC257_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC257_EN)) \&& (INTC_CFG_INTSRC257_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 258 */
+#if ((defined(INTC_CFG_INTSRC258_EN)) && (INTC_CFG_INTSRC258_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC258_CAT)) && (INTC_CFG_INTSRC258_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc258Entry);
+#else /* (INTC_CFG_INTSRC258_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc258Entry);
+#endif /* ((defined(INTC_CFG_INTSRC258_CAT)) \&& (INTC_CFG_INTSRC258_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC258_EN)) \&& (INTC_CFG_INTSRC258_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 259 */
+#if ((defined(INTC_CFG_INTSRC259_EN)) && (INTC_CFG_INTSRC259_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC259_CAT)) && (INTC_CFG_INTSRC259_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc259Entry);
+#else /* (INTC_CFG_INTSRC259_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc259Entry);
+#endif /* ((defined(INTC_CFG_INTSRC259_CAT)) \&& (INTC_CFG_INTSRC259_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC259_EN)) \&& (INTC_CFG_INTSRC259_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 260 */
+#if ((defined(INTC_CFG_INTSRC260_EN)) && (INTC_CFG_INTSRC260_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC260_CAT)) && (INTC_CFG_INTSRC260_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc260Entry);
+#else /* (INTC_CFG_INTSRC260_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc260Entry);
+#endif /* ((defined(INTC_CFG_INTSRC260_CAT)) \&& (INTC_CFG_INTSRC260_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC260_EN)) \&& (INTC_CFG_INTSRC260_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 261 */
+#if ((defined(INTC_CFG_INTSRC261_EN)) && (INTC_CFG_INTSRC261_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC261_CAT)) && (INTC_CFG_INTSRC261_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc261Entry);
+#else /* (INTC_CFG_INTSRC261_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc261Entry);
+#endif /* ((defined(INTC_CFG_INTSRC261_CAT)) \&& (INTC_CFG_INTSRC261_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC261_EN)) \&& (INTC_CFG_INTSRC261_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 262 */
+#if ((defined(INTC_CFG_INTSRC262_EN)) && (INTC_CFG_INTSRC262_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC262_CAT)) && (INTC_CFG_INTSRC262_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc262Entry);
+#else /* (INTC_CFG_INTSRC262_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc262Entry);
+#endif /* ((defined(INTC_CFG_INTSRC262_CAT)) \&& (INTC_CFG_INTSRC262_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC262_EN)) \&& (INTC_CFG_INTSRC262_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 263 */
+#if ((defined(INTC_CFG_INTSRC263_EN)) && (INTC_CFG_INTSRC263_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC263_CAT)) && (INTC_CFG_INTSRC263_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc263Entry);
+#else /* (INTC_CFG_INTSRC263_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc263Entry);
+#endif /* ((defined(INTC_CFG_INTSRC263_CAT)) \&& (INTC_CFG_INTSRC263_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC263_EN)) \&& (INTC_CFG_INTSRC263_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 264 */
+#if ((defined(INTC_CFG_INTSRC264_EN)) && (INTC_CFG_INTSRC264_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC264_CAT)) && (INTC_CFG_INTSRC264_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc264Entry);
+#else /* (INTC_CFG_INTSRC264_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc264Entry);
+#endif /* ((defined(INTC_CFG_INTSRC264_CAT)) \&& (INTC_CFG_INTSRC264_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC264_EN)) \&& (INTC_CFG_INTSRC264_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 265 */
+#if ((defined(INTC_CFG_INTSRC265_EN)) && (INTC_CFG_INTSRC265_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC265_CAT)) && (INTC_CFG_INTSRC265_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc265Entry);
+#else /* (INTC_CFG_INTSRC265_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc265Entry);
+#endif /* ((defined(INTC_CFG_INTSRC265_CAT)) \&& (INTC_CFG_INTSRC265_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC265_EN)) \&& (INTC_CFG_INTSRC265_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 266 */
+#if ((defined(INTC_CFG_INTSRC266_EN)) && (INTC_CFG_INTSRC266_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC266_CAT)) && (INTC_CFG_INTSRC266_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc266Entry);
+#else /* (INTC_CFG_INTSRC266_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc266Entry);
+#endif /* ((defined(INTC_CFG_INTSRC266_CAT)) \&& (INTC_CFG_INTSRC266_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC266_EN)) \&& (INTC_CFG_INTSRC266_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 267 */
+#if ((defined(INTC_CFG_INTSRC267_EN)) && (INTC_CFG_INTSRC267_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC267_CAT)) && (INTC_CFG_INTSRC267_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc267Entry);
+#else /* (INTC_CFG_INTSRC267_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc267Entry);
+#endif /* ((defined(INTC_CFG_INTSRC267_CAT)) \&& (INTC_CFG_INTSRC267_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC267_EN)) \&& (INTC_CFG_INTSRC267_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 268 */
+#if ((defined(INTC_CFG_INTSRC268_EN)) && (INTC_CFG_INTSRC268_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC268_CAT)) && (INTC_CFG_INTSRC268_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc268Entry);
+#else /* (INTC_CFG_INTSRC268_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc268Entry);
+#endif /* ((defined(INTC_CFG_INTSRC268_CAT)) \&& (INTC_CFG_INTSRC268_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC268_EN)) \&& (INTC_CFG_INTSRC268_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 269 */
+#if ((defined(INTC_CFG_INTSRC269_EN)) && (INTC_CFG_INTSRC269_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC269_CAT)) && (INTC_CFG_INTSRC269_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc269Entry);
+#else /* (INTC_CFG_INTSRC269_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc269Entry);
+#endif /* ((defined(INTC_CFG_INTSRC269_CAT)) \&& (INTC_CFG_INTSRC269_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC269_EN)) \&& (INTC_CFG_INTSRC269_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 270 */
+#if ((defined(INTC_CFG_INTSRC270_EN)) && (INTC_CFG_INTSRC270_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC270_CAT)) && (INTC_CFG_INTSRC270_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc270Entry);
+#else /* (INTC_CFG_INTSRC270_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc270Entry);
+#endif /* ((defined(INTC_CFG_INTSRC270_CAT)) \&& (INTC_CFG_INTSRC270_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC270_EN)) \&& (INTC_CFG_INTSRC270_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 271 */
+#if ((defined(INTC_CFG_INTSRC271_EN)) && (INTC_CFG_INTSRC271_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC271_CAT)) && (INTC_CFG_INTSRC271_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc271Entry);
+#else /* (INTC_CFG_INTSRC271_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc271Entry);
+#endif /* ((defined(INTC_CFG_INTSRC271_CAT)) \&& (INTC_CFG_INTSRC271_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC271_EN)) \&& (INTC_CFG_INTSRC271_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 272 */
+#if ((defined(INTC_CFG_INTSRC272_EN)) && (INTC_CFG_INTSRC272_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC272_CAT)) && (INTC_CFG_INTSRC272_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc272Entry);
+#else /* (INTC_CFG_INTSRC272_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc272Entry);
+#endif /* ((defined(INTC_CFG_INTSRC272_CAT)) \&& (INTC_CFG_INTSRC272_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC272_EN)) \&& (INTC_CFG_INTSRC272_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 273 */
+#if ((defined(INTC_CFG_INTSRC273_EN)) && (INTC_CFG_INTSRC273_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC273_CAT)) && (INTC_CFG_INTSRC273_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc273Entry);
+#else /* (INTC_CFG_INTSRC273_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc273Entry);
+#endif /* ((defined(INTC_CFG_INTSRC273_CAT)) \&& (INTC_CFG_INTSRC273_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC273_EN)) \&& (INTC_CFG_INTSRC273_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 274 */
+#if ((defined(INTC_CFG_INTSRC274_EN)) && (INTC_CFG_INTSRC274_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC274_CAT)) && (INTC_CFG_INTSRC274_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc274Entry);
+#else /* (INTC_CFG_INTSRC274_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc274Entry);
+#endif /* ((defined(INTC_CFG_INTSRC274_CAT)) \&& (INTC_CFG_INTSRC274_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC274_EN)) \&& (INTC_CFG_INTSRC274_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 275 */
+#if ((defined(INTC_CFG_INTSRC275_EN)) && (INTC_CFG_INTSRC275_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC275_CAT)) && (INTC_CFG_INTSRC275_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc275Entry);
+#else /* (INTC_CFG_INTSRC275_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc275Entry);
+#endif /* ((defined(INTC_CFG_INTSRC275_CAT)) \&& (INTC_CFG_INTSRC275_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC275_EN)) \&& (INTC_CFG_INTSRC275_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 276 */
+#if ((defined(INTC_CFG_INTSRC276_EN)) && (INTC_CFG_INTSRC276_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC276_CAT)) && (INTC_CFG_INTSRC276_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc276Entry);
+#else /* (INTC_CFG_INTSRC276_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc276Entry);
+#endif /* ((defined(INTC_CFG_INTSRC276_CAT)) \&& (INTC_CFG_INTSRC276_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC276_EN)) \&& (INTC_CFG_INTSRC276_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 277 */
+#if ((defined(INTC_CFG_INTSRC277_EN)) && (INTC_CFG_INTSRC277_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC277_CAT)) && (INTC_CFG_INTSRC277_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc277Entry);
+#else /* (INTC_CFG_INTSRC277_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc277Entry);
+#endif /* ((defined(INTC_CFG_INTSRC277_CAT)) \&& (INTC_CFG_INTSRC277_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC277_EN)) \&& (INTC_CFG_INTSRC277_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 278 */
+#if ((defined(INTC_CFG_INTSRC278_EN)) && (INTC_CFG_INTSRC278_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC278_CAT)) && (INTC_CFG_INTSRC278_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc278Entry);
+#else /* (INTC_CFG_INTSRC278_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc278Entry);
+#endif /* ((defined(INTC_CFG_INTSRC278_CAT)) \&& (INTC_CFG_INTSRC278_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC278_EN)) \&& (INTC_CFG_INTSRC278_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 279 */
+#if ((defined(INTC_CFG_INTSRC279_EN)) && (INTC_CFG_INTSRC279_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC279_CAT)) && (INTC_CFG_INTSRC279_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc279Entry);
+#else /* (INTC_CFG_INTSRC279_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc279Entry);
+#endif /* ((defined(INTC_CFG_INTSRC279_CAT)) \&& (INTC_CFG_INTSRC279_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC279_EN)) \&& (INTC_CFG_INTSRC279_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 280 */
+#if ((defined(INTC_CFG_INTSRC280_EN)) && (INTC_CFG_INTSRC280_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC280_CAT)) && (INTC_CFG_INTSRC280_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc280Entry);
+#else /* (INTC_CFG_INTSRC280_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc280Entry);
+#endif /* ((defined(INTC_CFG_INTSRC280_CAT)) \&& (INTC_CFG_INTSRC280_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC280_EN)) \&& (INTC_CFG_INTSRC280_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 281 */
+#if ((defined(INTC_CFG_INTSRC281_EN)) && (INTC_CFG_INTSRC281_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC281_CAT)) && (INTC_CFG_INTSRC281_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc281Entry);
+#else /* (INTC_CFG_INTSRC281_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc281Entry);
+#endif /* ((defined(INTC_CFG_INTSRC281_CAT)) \&& (INTC_CFG_INTSRC281_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC281_EN)) \&& (INTC_CFG_INTSRC281_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 282 */
+#if ((defined(INTC_CFG_INTSRC282_EN)) && (INTC_CFG_INTSRC282_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC282_CAT)) && (INTC_CFG_INTSRC282_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc282Entry);
+#else /* (INTC_CFG_INTSRC282_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc282Entry);
+#endif /* ((defined(INTC_CFG_INTSRC282_CAT)) \&& (INTC_CFG_INTSRC282_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC282_EN)) \&& (INTC_CFG_INTSRC282_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 283 */
+#if ((defined(INTC_CFG_INTSRC283_EN)) && (INTC_CFG_INTSRC283_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC283_CAT)) && (INTC_CFG_INTSRC283_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc283Entry);
+#else /* (INTC_CFG_INTSRC283_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc283Entry);
+#endif /* ((defined(INTC_CFG_INTSRC283_CAT)) \&& (INTC_CFG_INTSRC283_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC283_EN)) \&& (INTC_CFG_INTSRC283_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 284 */
+#if ((defined(INTC_CFG_INTSRC284_EN)) && (INTC_CFG_INTSRC284_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC284_CAT)) && (INTC_CFG_INTSRC284_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc284Entry);
+#else /* (INTC_CFG_INTSRC284_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc284Entry);
+#endif /* ((defined(INTC_CFG_INTSRC284_CAT)) \&& (INTC_CFG_INTSRC284_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC284_EN)) \&& (INTC_CFG_INTSRC284_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 285 */
+#if ((defined(INTC_CFG_INTSRC285_EN)) && (INTC_CFG_INTSRC285_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC285_CAT)) && (INTC_CFG_INTSRC285_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc285Entry);
+#else /* (INTC_CFG_INTSRC285_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc285Entry);
+#endif /* ((defined(INTC_CFG_INTSRC285_CAT)) \&& (INTC_CFG_INTSRC285_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC285_EN)) \&& (INTC_CFG_INTSRC285_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 286 */
+#if ((defined(INTC_CFG_INTSRC286_EN)) && (INTC_CFG_INTSRC286_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC286_CAT)) && (INTC_CFG_INTSRC286_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc286Entry);
+#else /* (INTC_CFG_INTSRC286_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc286Entry);
+#endif /* ((defined(INTC_CFG_INTSRC286_CAT)) \&& (INTC_CFG_INTSRC286_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC286_EN)) \&& (INTC_CFG_INTSRC286_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 287 */
+#if ((defined(INTC_CFG_INTSRC287_EN)) && (INTC_CFG_INTSRC287_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC287_CAT)) && (INTC_CFG_INTSRC287_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc287Entry);
+#else /* (INTC_CFG_INTSRC287_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc287Entry);
+#endif /* ((defined(INTC_CFG_INTSRC287_CAT)) \&& (INTC_CFG_INTSRC287_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC287_EN)) \&& (INTC_CFG_INTSRC287_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 288 */
+#if ((defined(INTC_CFG_INTSRC288_EN)) && (INTC_CFG_INTSRC288_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC288_CAT)) && (INTC_CFG_INTSRC288_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc288Entry);
+#else /* (INTC_CFG_INTSRC288_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc288Entry);
+#endif /* ((defined(INTC_CFG_INTSRC288_CAT)) \&& (INTC_CFG_INTSRC288_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC288_EN)) \&& (INTC_CFG_INTSRC288_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 289 */
+#if ((defined(INTC_CFG_INTSRC289_EN)) && (INTC_CFG_INTSRC289_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC289_CAT)) && (INTC_CFG_INTSRC289_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc289Entry);
+#else /* (INTC_CFG_INTSRC289_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc289Entry);
+#endif /* ((defined(INTC_CFG_INTSRC289_CAT)) \&& (INTC_CFG_INTSRC289_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC289_EN)) \&& (INTC_CFG_INTSRC289_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 290 */
+#if ((defined(INTC_CFG_INTSRC290_EN)) && (INTC_CFG_INTSRC290_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC290_CAT)) && (INTC_CFG_INTSRC290_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc290Entry);
+#else /* (INTC_CFG_INTSRC290_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc290Entry);
+#endif /* ((defined(INTC_CFG_INTSRC290_CAT)) \&& (INTC_CFG_INTSRC290_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC290_EN)) \&& (INTC_CFG_INTSRC290_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 291 */
+#if ((defined(INTC_CFG_INTSRC291_EN)) && (INTC_CFG_INTSRC291_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC291_CAT)) && (INTC_CFG_INTSRC291_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc291Entry);
+#else /* (INTC_CFG_INTSRC291_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc291Entry);
+#endif /* ((defined(INTC_CFG_INTSRC291_CAT)) \&& (INTC_CFG_INTSRC291_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC291_EN)) \&& (INTC_CFG_INTSRC291_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 292 */
+#if ((defined(INTC_CFG_INTSRC292_EN)) && (INTC_CFG_INTSRC292_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC292_CAT)) && (INTC_CFG_INTSRC292_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc292Entry);
+#else /* (INTC_CFG_INTSRC292_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc292Entry);
+#endif /* ((defined(INTC_CFG_INTSRC292_CAT)) \&& (INTC_CFG_INTSRC292_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC292_EN)) \&& (INTC_CFG_INTSRC292_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 293 */
+#if ((defined(INTC_CFG_INTSRC293_EN)) && (INTC_CFG_INTSRC293_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC293_CAT)) && (INTC_CFG_INTSRC293_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc293Entry);
+#else /* (INTC_CFG_INTSRC293_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc293Entry);
+#endif /* ((defined(INTC_CFG_INTSRC293_CAT)) \&& (INTC_CFG_INTSRC293_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC293_EN)) \&& (INTC_CFG_INTSRC293_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 294 */
+#if ((defined(INTC_CFG_INTSRC294_EN)) && (INTC_CFG_INTSRC294_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC294_CAT)) && (INTC_CFG_INTSRC294_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc294Entry);
+#else /* (INTC_CFG_INTSRC294_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc294Entry);
+#endif /* ((defined(INTC_CFG_INTSRC294_CAT)) \&& (INTC_CFG_INTSRC294_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC294_EN)) \&& (INTC_CFG_INTSRC294_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 295 */
+#if ((defined(INTC_CFG_INTSRC295_EN)) && (INTC_CFG_INTSRC295_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC295_CAT)) && (INTC_CFG_INTSRC295_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc295Entry);
+#else /* (INTC_CFG_INTSRC295_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc295Entry);
+#endif /* ((defined(INTC_CFG_INTSRC295_CAT)) \&& (INTC_CFG_INTSRC295_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC295_EN)) \&& (INTC_CFG_INTSRC295_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 296 */
+#if ((defined(INTC_CFG_INTSRC296_EN)) && (INTC_CFG_INTSRC296_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC296_CAT)) && (INTC_CFG_INTSRC296_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc296Entry);
+#else /* (INTC_CFG_INTSRC296_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc296Entry);
+#endif /* ((defined(INTC_CFG_INTSRC296_CAT)) \&& (INTC_CFG_INTSRC296_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC296_EN)) \&& (INTC_CFG_INTSRC296_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 297 */
+#if ((defined(INTC_CFG_INTSRC297_EN)) && (INTC_CFG_INTSRC297_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC297_CAT)) && (INTC_CFG_INTSRC297_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc297Entry);
+#else /* (INTC_CFG_INTSRC297_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc297Entry);
+#endif /* ((defined(INTC_CFG_INTSRC297_CAT)) \&& (INTC_CFG_INTSRC297_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC297_EN)) \&& (INTC_CFG_INTSRC297_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 298 */
+#if ((defined(INTC_CFG_INTSRC298_EN)) && (INTC_CFG_INTSRC298_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC298_CAT)) && (INTC_CFG_INTSRC298_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc298Entry);
+#else /* (INTC_CFG_INTSRC298_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc298Entry);
+#endif /* ((defined(INTC_CFG_INTSRC298_CAT)) \&& (INTC_CFG_INTSRC298_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC298_EN)) \&& (INTC_CFG_INTSRC298_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 299 */
+#if ((defined(INTC_CFG_INTSRC299_EN)) && (INTC_CFG_INTSRC299_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC299_CAT)) && (INTC_CFG_INTSRC299_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc299Entry);
+#else /* (INTC_CFG_INTSRC299_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc299Entry);
+#endif /* ((defined(INTC_CFG_INTSRC299_CAT)) \&& (INTC_CFG_INTSRC299_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC299_EN)) \&& (INTC_CFG_INTSRC299_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 300 */
+#if ((defined(INTC_CFG_INTSRC300_EN)) && (INTC_CFG_INTSRC300_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC300_CAT)) && (INTC_CFG_INTSRC300_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc300Entry);
+#else /* (INTC_CFG_INTSRC300_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc300Entry);
+#endif /* ((defined(INTC_CFG_INTSRC300_CAT)) \&& (INTC_CFG_INTSRC300_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC300_EN)) \&& (INTC_CFG_INTSRC300_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 301 */
+#if ((defined(INTC_CFG_INTSRC301_EN)) && (INTC_CFG_INTSRC301_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC301_CAT)) && (INTC_CFG_INTSRC301_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc301Entry);
+#else /* (INTC_CFG_INTSRC301_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc301Entry);
+#endif /* ((defined(INTC_CFG_INTSRC301_CAT)) \&& (INTC_CFG_INTSRC301_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC301_EN)) \&& (INTC_CFG_INTSRC301_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 302 */
+#if ((defined(INTC_CFG_INTSRC302_EN)) && (INTC_CFG_INTSRC302_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC302_CAT)) && (INTC_CFG_INTSRC302_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc302Entry);
+#else /* (INTC_CFG_INTSRC302_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc302Entry);
+#endif /* ((defined(INTC_CFG_INTSRC302_CAT)) \&& (INTC_CFG_INTSRC302_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC302_EN)) \&& (INTC_CFG_INTSRC302_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 303 */
+#if ((defined(INTC_CFG_INTSRC303_EN)) && (INTC_CFG_INTSRC303_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC303_CAT)) && (INTC_CFG_INTSRC303_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc303Entry);
+#else /* (INTC_CFG_INTSRC303_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc303Entry);
+#endif /* ((defined(INTC_CFG_INTSRC303_CAT)) \&& (INTC_CFG_INTSRC303_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC303_EN)) \&& (INTC_CFG_INTSRC303_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 304 */
+#if ((defined(INTC_CFG_INTSRC304_EN)) && (INTC_CFG_INTSRC304_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC304_CAT)) && (INTC_CFG_INTSRC304_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc304Entry);
+#else /* (INTC_CFG_INTSRC304_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc304Entry);
+#endif /* ((defined(INTC_CFG_INTSRC304_CAT)) \&& (INTC_CFG_INTSRC304_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC304_EN)) \&& (INTC_CFG_INTSRC304_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 305 */
+#if ((defined(INTC_CFG_INTSRC305_EN)) && (INTC_CFG_INTSRC305_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC305_CAT)) && (INTC_CFG_INTSRC305_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc305Entry);
+#else /* (INTC_CFG_INTSRC305_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc305Entry);
+#endif /* ((defined(INTC_CFG_INTSRC305_CAT)) \&& (INTC_CFG_INTSRC305_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC305_EN)) \&& (INTC_CFG_INTSRC305_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 306 */
+#if ((defined(INTC_CFG_INTSRC306_EN)) && (INTC_CFG_INTSRC306_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC306_CAT)) && (INTC_CFG_INTSRC306_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc306Entry);
+#else /* (INTC_CFG_INTSRC306_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc306Entry);
+#endif /* ((defined(INTC_CFG_INTSRC306_CAT)) \&& (INTC_CFG_INTSRC306_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC306_EN)) \&& (INTC_CFG_INTSRC306_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 307 */
+#if ((defined(INTC_CFG_INTSRC307_EN)) && (INTC_CFG_INTSRC307_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC307_CAT)) && (INTC_CFG_INTSRC307_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc307Entry);
+#else /* (INTC_CFG_INTSRC307_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc307Entry);
+#endif /* ((defined(INTC_CFG_INTSRC307_CAT)) \&& (INTC_CFG_INTSRC307_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC307_EN)) \&& (INTC_CFG_INTSRC307_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 308 */
+#if ((defined(INTC_CFG_INTSRC308_EN)) && (INTC_CFG_INTSRC308_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC308_CAT)) && (INTC_CFG_INTSRC308_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc308Entry);
+#else /* (INTC_CFG_INTSRC308_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc308Entry);
+#endif /* ((defined(INTC_CFG_INTSRC308_CAT)) \&& (INTC_CFG_INTSRC308_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC308_EN)) \&& (INTC_CFG_INTSRC308_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 309 */
+#if ((defined(INTC_CFG_INTSRC309_EN)) && (INTC_CFG_INTSRC309_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC309_CAT)) && (INTC_CFG_INTSRC309_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc309Entry);
+#else /* (INTC_CFG_INTSRC309_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc309Entry);
+#endif /* ((defined(INTC_CFG_INTSRC309_CAT)) \&& (INTC_CFG_INTSRC309_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC309_EN)) \&& (INTC_CFG_INTSRC309_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 310 */
+#if ((defined(INTC_CFG_INTSRC310_EN)) && (INTC_CFG_INTSRC310_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC310_CAT)) && (INTC_CFG_INTSRC310_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc310Entry);
+#else /* (INTC_CFG_INTSRC310_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc310Entry);
+#endif /* ((defined(INTC_CFG_INTSRC310_CAT)) \&& (INTC_CFG_INTSRC310_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC310_EN)) \&& (INTC_CFG_INTSRC310_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 311 */
+#if ((defined(INTC_CFG_INTSRC311_EN)) && (INTC_CFG_INTSRC311_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC311_CAT)) && (INTC_CFG_INTSRC311_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc311Entry);
+#else /* (INTC_CFG_INTSRC311_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc311Entry);
+#endif /* ((defined(INTC_CFG_INTSRC311_CAT)) \&& (INTC_CFG_INTSRC311_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC311_EN)) \&& (INTC_CFG_INTSRC311_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 312 */
+#if ((defined(INTC_CFG_INTSRC312_EN)) && (INTC_CFG_INTSRC312_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC312_CAT)) && (INTC_CFG_INTSRC312_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc312Entry);
+#else /* (INTC_CFG_INTSRC312_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc312Entry);
+#endif /* ((defined(INTC_CFG_INTSRC312_CAT)) \&& (INTC_CFG_INTSRC312_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC312_EN)) \&& (INTC_CFG_INTSRC312_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 313 */
+#if ((defined(INTC_CFG_INTSRC313_EN)) && (INTC_CFG_INTSRC313_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC313_CAT)) && (INTC_CFG_INTSRC313_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc313Entry);
+#else /* (INTC_CFG_INTSRC313_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc313Entry);
+#endif /* ((defined(INTC_CFG_INTSRC313_CAT)) \&& (INTC_CFG_INTSRC313_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC313_EN)) \&& (INTC_CFG_INTSRC313_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 314 */
+#if ((defined(INTC_CFG_INTSRC314_EN)) && (INTC_CFG_INTSRC314_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC314_CAT)) && (INTC_CFG_INTSRC314_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc314Entry);
+#else /* (INTC_CFG_INTSRC314_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc314Entry);
+#endif /* ((defined(INTC_CFG_INTSRC314_CAT)) \&& (INTC_CFG_INTSRC314_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC314_EN)) \&& (INTC_CFG_INTSRC314_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 315 */
+#if ((defined(INTC_CFG_INTSRC315_EN)) && (INTC_CFG_INTSRC315_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC315_CAT)) && (INTC_CFG_INTSRC315_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc315Entry);
+#else /* (INTC_CFG_INTSRC315_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc315Entry);
+#endif /* ((defined(INTC_CFG_INTSRC315_CAT)) \&& (INTC_CFG_INTSRC315_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC315_EN)) \&& (INTC_CFG_INTSRC315_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 316 */
+#if ((defined(INTC_CFG_INTSRC316_EN)) && (INTC_CFG_INTSRC316_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC316_CAT)) && (INTC_CFG_INTSRC316_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc316Entry);
+#else /* (INTC_CFG_INTSRC316_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc316Entry);
+#endif /* ((defined(INTC_CFG_INTSRC316_CAT)) \&& (INTC_CFG_INTSRC316_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC316_EN)) \&& (INTC_CFG_INTSRC316_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 317 */
+#if ((defined(INTC_CFG_INTSRC317_EN)) && (INTC_CFG_INTSRC317_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC317_CAT)) && (INTC_CFG_INTSRC317_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc317Entry);
+#else /* (INTC_CFG_INTSRC317_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc317Entry);
+#endif /* ((defined(INTC_CFG_INTSRC317_CAT)) \&& (INTC_CFG_INTSRC317_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC317_EN)) \&& (INTC_CFG_INTSRC317_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 318 */
+#if ((defined(INTC_CFG_INTSRC318_EN)) && (INTC_CFG_INTSRC318_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC318_CAT)) && (INTC_CFG_INTSRC318_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc318Entry);
+#else /* (INTC_CFG_INTSRC318_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc318Entry);
+#endif /* ((defined(INTC_CFG_INTSRC318_CAT)) \&& (INTC_CFG_INTSRC318_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC318_EN)) \&& (INTC_CFG_INTSRC318_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 319 */
+#if ((defined(INTC_CFG_INTSRC319_EN)) && (INTC_CFG_INTSRC319_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC319_CAT)) && (INTC_CFG_INTSRC319_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc319Entry);
+#else /* (INTC_CFG_INTSRC319_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc319Entry);
+#endif /* ((defined(INTC_CFG_INTSRC319_CAT)) \&& (INTC_CFG_INTSRC319_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC319_EN)) \&& (INTC_CFG_INTSRC319_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 320 */
+#if ((defined(INTC_CFG_INTSRC320_EN)) && (INTC_CFG_INTSRC320_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC320_CAT)) && (INTC_CFG_INTSRC320_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc320Entry);
+#else /* (INTC_CFG_INTSRC320_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc320Entry);
+#endif /* ((defined(INTC_CFG_INTSRC320_CAT)) \&& (INTC_CFG_INTSRC320_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC320_EN)) \&& (INTC_CFG_INTSRC320_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 321 */
+#if ((defined(INTC_CFG_INTSRC321_EN)) && (INTC_CFG_INTSRC321_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC321_CAT)) && (INTC_CFG_INTSRC321_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc321Entry);
+#else /* (INTC_CFG_INTSRC321_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc321Entry);
+#endif /* ((defined(INTC_CFG_INTSRC321_CAT)) \&& (INTC_CFG_INTSRC321_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC321_EN)) \&& (INTC_CFG_INTSRC321_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 322 */
+#if ((defined(INTC_CFG_INTSRC322_EN)) && (INTC_CFG_INTSRC322_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC322_CAT)) && (INTC_CFG_INTSRC322_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc322Entry);
+#else /* (INTC_CFG_INTSRC322_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc322Entry);
+#endif /* ((defined(INTC_CFG_INTSRC322_CAT)) \&& (INTC_CFG_INTSRC322_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC322_EN)) \&& (INTC_CFG_INTSRC322_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 323 */
+#if ((defined(INTC_CFG_INTSRC323_EN)) && (INTC_CFG_INTSRC323_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC323_CAT)) && (INTC_CFG_INTSRC323_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc323Entry);
+#else /* (INTC_CFG_INTSRC323_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc323Entry);
+#endif /* ((defined(INTC_CFG_INTSRC323_CAT)) \&& (INTC_CFG_INTSRC323_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC323_EN)) \&& (INTC_CFG_INTSRC323_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 324 */
+#if ((defined(INTC_CFG_INTSRC324_EN)) && (INTC_CFG_INTSRC324_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC324_CAT)) && (INTC_CFG_INTSRC324_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc324Entry);
+#else /* (INTC_CFG_INTSRC324_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc324Entry);
+#endif /* ((defined(INTC_CFG_INTSRC324_CAT)) \&& (INTC_CFG_INTSRC324_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC324_EN)) \&& (INTC_CFG_INTSRC324_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 325 */
+#if ((defined(INTC_CFG_INTSRC325_EN)) && (INTC_CFG_INTSRC325_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC325_CAT)) && (INTC_CFG_INTSRC325_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc325Entry);
+#else /* (INTC_CFG_INTSRC325_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc325Entry);
+#endif /* ((defined(INTC_CFG_INTSRC325_CAT)) \&& (INTC_CFG_INTSRC325_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC325_EN)) \&& (INTC_CFG_INTSRC325_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 326 */
+#if ((defined(INTC_CFG_INTSRC326_EN)) && (INTC_CFG_INTSRC326_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC326_CAT)) && (INTC_CFG_INTSRC326_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc326Entry);
+#else /* (INTC_CFG_INTSRC326_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc326Entry);
+#endif /* ((defined(INTC_CFG_INTSRC326_CAT)) \&& (INTC_CFG_INTSRC326_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC326_EN)) \&& (INTC_CFG_INTSRC326_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 327 */
+#if ((defined(INTC_CFG_INTSRC327_EN)) && (INTC_CFG_INTSRC327_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC327_CAT)) && (INTC_CFG_INTSRC327_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc327Entry);
+#else /* (INTC_CFG_INTSRC327_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc327Entry);
+#endif /* ((defined(INTC_CFG_INTSRC327_CAT)) \&& (INTC_CFG_INTSRC327_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC327_EN)) \&& (INTC_CFG_INTSRC327_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 328 */
+#if ((defined(INTC_CFG_INTSRC328_EN)) && (INTC_CFG_INTSRC328_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC328_CAT)) && (INTC_CFG_INTSRC328_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc328Entry);
+#else /* (INTC_CFG_INTSRC328_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc328Entry);
+#endif /* ((defined(INTC_CFG_INTSRC328_CAT)) \&& (INTC_CFG_INTSRC328_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC328_EN)) \&& (INTC_CFG_INTSRC328_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 329 */
+#if ((defined(INTC_CFG_INTSRC329_EN)) && (INTC_CFG_INTSRC329_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC329_CAT)) && (INTC_CFG_INTSRC329_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc329Entry);
+#else /* (INTC_CFG_INTSRC329_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc329Entry);
+#endif /* ((defined(INTC_CFG_INTSRC329_CAT)) \&& (INTC_CFG_INTSRC329_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC329_EN)) \&& (INTC_CFG_INTSRC329_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 330 */
+#if ((defined(INTC_CFG_INTSRC330_EN)) && (INTC_CFG_INTSRC330_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC330_CAT)) && (INTC_CFG_INTSRC330_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc330Entry);
+#else /* (INTC_CFG_INTSRC330_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc330Entry);
+#endif /* ((defined(INTC_CFG_INTSRC330_CAT)) \&& (INTC_CFG_INTSRC330_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC330_EN)) \&& (INTC_CFG_INTSRC330_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 331 */
+#if ((defined(INTC_CFG_INTSRC331_EN)) && (INTC_CFG_INTSRC331_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC331_CAT)) && (INTC_CFG_INTSRC331_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc331Entry);
+#else /* (INTC_CFG_INTSRC331_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc331Entry);
+#endif /* ((defined(INTC_CFG_INTSRC331_CAT)) \&& (INTC_CFG_INTSRC331_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC331_EN)) \&& (INTC_CFG_INTSRC331_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 332 */
+#if ((defined(INTC_CFG_INTSRC332_EN)) && (INTC_CFG_INTSRC332_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC332_CAT)) && (INTC_CFG_INTSRC332_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc332Entry);
+#else /* (INTC_CFG_INTSRC332_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc332Entry);
+#endif /* ((defined(INTC_CFG_INTSRC332_CAT)) \&& (INTC_CFG_INTSRC332_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC332_EN)) \&& (INTC_CFG_INTSRC332_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 333 */
+#if ((defined(INTC_CFG_INTSRC333_EN)) && (INTC_CFG_INTSRC333_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC333_CAT)) && (INTC_CFG_INTSRC333_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc333Entry);
+#else /* (INTC_CFG_INTSRC333_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc333Entry);
+#endif /* ((defined(INTC_CFG_INTSRC333_CAT)) \&& (INTC_CFG_INTSRC333_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC333_EN)) \&& (INTC_CFG_INTSRC333_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 334 */
+#if ((defined(INTC_CFG_INTSRC334_EN)) && (INTC_CFG_INTSRC334_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC334_CAT)) && (INTC_CFG_INTSRC334_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc334Entry);
+#else /* (INTC_CFG_INTSRC334_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc334Entry);
+#endif /* ((defined(INTC_CFG_INTSRC334_CAT)) \&& (INTC_CFG_INTSRC334_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC334_EN)) \&& (INTC_CFG_INTSRC334_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 335 */
+#if ((defined(INTC_CFG_INTSRC335_EN)) && (INTC_CFG_INTSRC335_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC335_CAT)) && (INTC_CFG_INTSRC335_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc335Entry);
+#else /* (INTC_CFG_INTSRC335_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc335Entry);
+#endif /* ((defined(INTC_CFG_INTSRC335_CAT)) \&& (INTC_CFG_INTSRC335_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC335_EN)) \&& (INTC_CFG_INTSRC335_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 336 */
+#if ((defined(INTC_CFG_INTSRC336_EN)) && (INTC_CFG_INTSRC336_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC336_CAT)) && (INTC_CFG_INTSRC336_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc336Entry);
+#else /* (INTC_CFG_INTSRC336_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc336Entry);
+#endif /* ((defined(INTC_CFG_INTSRC336_CAT)) \&& (INTC_CFG_INTSRC336_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC336_EN)) \&& (INTC_CFG_INTSRC336_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 337 */
+#if ((defined(INTC_CFG_INTSRC337_EN)) && (INTC_CFG_INTSRC337_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC337_CAT)) && (INTC_CFG_INTSRC337_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc337Entry);
+#else /* (INTC_CFG_INTSRC337_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc337Entry);
+#endif /* ((defined(INTC_CFG_INTSRC337_CAT)) \&& (INTC_CFG_INTSRC337_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC337_EN)) \&& (INTC_CFG_INTSRC337_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 338 */
+#if ((defined(INTC_CFG_INTSRC338_EN)) && (INTC_CFG_INTSRC338_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC338_CAT)) && (INTC_CFG_INTSRC338_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc338Entry);
+#else /* (INTC_CFG_INTSRC338_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc338Entry);
+#endif /* ((defined(INTC_CFG_INTSRC338_CAT)) \&& (INTC_CFG_INTSRC338_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC338_EN)) \&& (INTC_CFG_INTSRC338_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 339 */
+#if ((defined(INTC_CFG_INTSRC339_EN)) && (INTC_CFG_INTSRC339_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC339_CAT)) && (INTC_CFG_INTSRC339_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc339Entry);
+#else /* (INTC_CFG_INTSRC339_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc339Entry);
+#endif /* ((defined(INTC_CFG_INTSRC339_CAT)) \&& (INTC_CFG_INTSRC339_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC339_EN)) \&& (INTC_CFG_INTSRC339_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 340 */
+#if ((defined(INTC_CFG_INTSRC340_EN)) && (INTC_CFG_INTSRC340_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC340_CAT)) && (INTC_CFG_INTSRC340_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc340Entry);
+#else /* (INTC_CFG_INTSRC340_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc340Entry);
+#endif /* ((defined(INTC_CFG_INTSRC340_CAT)) \&& (INTC_CFG_INTSRC340_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC340_EN)) \&& (INTC_CFG_INTSRC340_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 341 */
+#if ((defined(INTC_CFG_INTSRC341_EN)) && (INTC_CFG_INTSRC341_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC341_CAT)) && (INTC_CFG_INTSRC341_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc341Entry);
+#else /* (INTC_CFG_INTSRC341_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc341Entry);
+#endif /* ((defined(INTC_CFG_INTSRC341_CAT)) \&& (INTC_CFG_INTSRC341_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC341_EN)) \&& (INTC_CFG_INTSRC341_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 342 */
+#if ((defined(INTC_CFG_INTSRC342_EN)) && (INTC_CFG_INTSRC342_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC342_CAT)) && (INTC_CFG_INTSRC342_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc342Entry);
+#else /* (INTC_CFG_INTSRC342_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc342Entry);
+#endif /* ((defined(INTC_CFG_INTSRC342_CAT)) \&& (INTC_CFG_INTSRC342_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC342_EN)) \&& (INTC_CFG_INTSRC342_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 343 */
+#if ((defined(INTC_CFG_INTSRC343_EN)) && (INTC_CFG_INTSRC343_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC343_CAT)) && (INTC_CFG_INTSRC343_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc343Entry);
+#else /* (INTC_CFG_INTSRC343_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc343Entry);
+#endif /* ((defined(INTC_CFG_INTSRC343_CAT)) \&& (INTC_CFG_INTSRC343_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC343_EN)) \&& (INTC_CFG_INTSRC343_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 344 */
+#if ((defined(INTC_CFG_INTSRC344_EN)) && (INTC_CFG_INTSRC344_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC344_CAT)) && (INTC_CFG_INTSRC344_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc344Entry);
+#else /* (INTC_CFG_INTSRC344_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc344Entry);
+#endif /* ((defined(INTC_CFG_INTSRC344_CAT)) \&& (INTC_CFG_INTSRC344_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC344_EN)) \&& (INTC_CFG_INTSRC344_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 345 */
+#if ((defined(INTC_CFG_INTSRC345_EN)) && (INTC_CFG_INTSRC345_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC345_CAT)) && (INTC_CFG_INTSRC345_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc345Entry);
+#else /* (INTC_CFG_INTSRC345_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc345Entry);
+#endif /* ((defined(INTC_CFG_INTSRC345_CAT)) \&& (INTC_CFG_INTSRC345_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC345_EN)) \&& (INTC_CFG_INTSRC345_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 346 */
+#if ((defined(INTC_CFG_INTSRC346_EN)) && (INTC_CFG_INTSRC346_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC346_CAT)) && (INTC_CFG_INTSRC346_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc346Entry);
+#else /* (INTC_CFG_INTSRC346_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc346Entry);
+#endif /* ((defined(INTC_CFG_INTSRC346_CAT)) \&& (INTC_CFG_INTSRC346_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC346_EN)) \&& (INTC_CFG_INTSRC346_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 347 */
+#if ((defined(INTC_CFG_INTSRC347_EN)) && (INTC_CFG_INTSRC347_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC347_CAT)) && (INTC_CFG_INTSRC347_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc347Entry);
+#else /* (INTC_CFG_INTSRC347_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc347Entry);
+#endif /* ((defined(INTC_CFG_INTSRC347_CAT)) \&& (INTC_CFG_INTSRC347_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC347_EN)) \&& (INTC_CFG_INTSRC347_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 348 */
+#if ((defined(INTC_CFG_INTSRC348_EN)) && (INTC_CFG_INTSRC348_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC348_CAT)) && (INTC_CFG_INTSRC348_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc348Entry);
+#else /* (INTC_CFG_INTSRC348_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc348Entry);
+#endif /* ((defined(INTC_CFG_INTSRC348_CAT)) \&& (INTC_CFG_INTSRC348_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC348_EN)) \&& (INTC_CFG_INTSRC348_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 349 */
+#if ((defined(INTC_CFG_INTSRC349_EN)) && (INTC_CFG_INTSRC349_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC349_CAT)) && (INTC_CFG_INTSRC349_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc349Entry);
+#else /* (INTC_CFG_INTSRC349_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc349Entry);
+#endif /* ((defined(INTC_CFG_INTSRC349_CAT)) \&& (INTC_CFG_INTSRC349_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC349_EN)) \&& (INTC_CFG_INTSRC349_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 350 */
+#if ((defined(INTC_CFG_INTSRC350_EN)) && (INTC_CFG_INTSRC350_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC350_CAT)) && (INTC_CFG_INTSRC350_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc350Entry);
+#else /* (INTC_CFG_INTSRC350_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc350Entry);
+#endif /* ((defined(INTC_CFG_INTSRC350_CAT)) \&& (INTC_CFG_INTSRC350_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC350_EN)) \&& (INTC_CFG_INTSRC350_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 351 */
+#if ((defined(INTC_CFG_INTSRC351_EN)) && (INTC_CFG_INTSRC351_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC351_CAT)) && (INTC_CFG_INTSRC351_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc351Entry);
+#else /* (INTC_CFG_INTSRC351_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc351Entry);
+#endif /* ((defined(INTC_CFG_INTSRC351_CAT)) \&& (INTC_CFG_INTSRC351_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC351_EN)) \&& (INTC_CFG_INTSRC351_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 352 */
+#if ((defined(INTC_CFG_INTSRC352_EN)) && (INTC_CFG_INTSRC352_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC352_CAT)) && (INTC_CFG_INTSRC352_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc352Entry);
+#else /* (INTC_CFG_INTSRC352_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc352Entry);
+#endif /* ((defined(INTC_CFG_INTSRC352_CAT)) \&& (INTC_CFG_INTSRC352_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC352_EN)) \&& (INTC_CFG_INTSRC352_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 353 */
+#if ((defined(INTC_CFG_INTSRC353_EN)) && (INTC_CFG_INTSRC353_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC353_CAT)) && (INTC_CFG_INTSRC353_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc353Entry);
+#else /* (INTC_CFG_INTSRC353_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc353Entry);
+#endif /* ((defined(INTC_CFG_INTSRC353_CAT)) \&& (INTC_CFG_INTSRC353_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC353_EN)) \&& (INTC_CFG_INTSRC353_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 354 */
+#if ((defined(INTC_CFG_INTSRC354_EN)) && (INTC_CFG_INTSRC354_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC354_CAT)) && (INTC_CFG_INTSRC354_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc354Entry);
+#else /* (INTC_CFG_INTSRC354_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc354Entry);
+#endif /* ((defined(INTC_CFG_INTSRC354_CAT)) \&& (INTC_CFG_INTSRC354_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC354_EN)) \&& (INTC_CFG_INTSRC354_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 355 */
+#if ((defined(INTC_CFG_INTSRC355_EN)) && (INTC_CFG_INTSRC355_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC355_CAT)) && (INTC_CFG_INTSRC355_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc355Entry);
+#else /* (INTC_CFG_INTSRC355_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc355Entry);
+#endif /* ((defined(INTC_CFG_INTSRC355_CAT)) \&& (INTC_CFG_INTSRC355_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC355_EN)) \&& (INTC_CFG_INTSRC355_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 356 */
+#if ((defined(INTC_CFG_INTSRC356_EN)) && (INTC_CFG_INTSRC356_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC356_CAT)) && (INTC_CFG_INTSRC356_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc356Entry);
+#else /* (INTC_CFG_INTSRC356_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc356Entry);
+#endif /* ((defined(INTC_CFG_INTSRC356_CAT)) \&& (INTC_CFG_INTSRC356_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC356_EN)) \&& (INTC_CFG_INTSRC356_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 357 */
+#if ((defined(INTC_CFG_INTSRC357_EN)) && (INTC_CFG_INTSRC357_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC357_CAT)) && (INTC_CFG_INTSRC357_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc357Entry);
+#else /* (INTC_CFG_INTSRC357_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc357Entry);
+#endif /* ((defined(INTC_CFG_INTSRC357_CAT)) \&& (INTC_CFG_INTSRC357_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC357_EN)) \&& (INTC_CFG_INTSRC357_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 358 */
+#if ((defined(INTC_CFG_INTSRC358_EN)) && (INTC_CFG_INTSRC358_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC358_CAT)) && (INTC_CFG_INTSRC358_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc358Entry);
+#else /* (INTC_CFG_INTSRC358_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc358Entry);
+#endif /* ((defined(INTC_CFG_INTSRC358_CAT)) \&& (INTC_CFG_INTSRC358_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC358_EN)) \&& (INTC_CFG_INTSRC358_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 359 */
+#if ((defined(INTC_CFG_INTSRC359_EN)) && (INTC_CFG_INTSRC359_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC359_CAT)) && (INTC_CFG_INTSRC359_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc359Entry);
+#else /* (INTC_CFG_INTSRC359_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc359Entry);
+#endif /* ((defined(INTC_CFG_INTSRC359_CAT)) \&& (INTC_CFG_INTSRC359_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC359_EN)) \&& (INTC_CFG_INTSRC359_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 360 */
+#if ((defined(INTC_CFG_INTSRC360_EN)) && (INTC_CFG_INTSRC360_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC360_CAT)) && (INTC_CFG_INTSRC360_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc360Entry);
+#else /* (INTC_CFG_INTSRC360_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc360Entry);
+#endif /* ((defined(INTC_CFG_INTSRC360_CAT)) \&& (INTC_CFG_INTSRC360_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC360_EN)) \&& (INTC_CFG_INTSRC360_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 361 */
+#if ((defined(INTC_CFG_INTSRC361_EN)) && (INTC_CFG_INTSRC361_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC361_CAT)) && (INTC_CFG_INTSRC361_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc361Entry);
+#else /* (INTC_CFG_INTSRC361_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc361Entry);
+#endif /* ((defined(INTC_CFG_INTSRC361_CAT)) \&& (INTC_CFG_INTSRC361_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC361_EN)) \&& (INTC_CFG_INTSRC361_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 362 */
+#if ((defined(INTC_CFG_INTSRC362_EN)) && (INTC_CFG_INTSRC362_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC362_CAT)) && (INTC_CFG_INTSRC362_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc362Entry);
+#else /* (INTC_CFG_INTSRC362_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc362Entry);
+#endif /* ((defined(INTC_CFG_INTSRC362_CAT)) \&& (INTC_CFG_INTSRC362_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC362_EN)) \&& (INTC_CFG_INTSRC362_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 363 */
+#if ((defined(INTC_CFG_INTSRC363_EN)) && (INTC_CFG_INTSRC363_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC363_CAT)) && (INTC_CFG_INTSRC363_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc363Entry);
+#else /* (INTC_CFG_INTSRC363_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc363Entry);
+#endif /* ((defined(INTC_CFG_INTSRC363_CAT)) \&& (INTC_CFG_INTSRC363_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC363_EN)) \&& (INTC_CFG_INTSRC363_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 364 */
+#if ((defined(INTC_CFG_INTSRC364_EN)) && (INTC_CFG_INTSRC364_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC364_CAT)) && (INTC_CFG_INTSRC364_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc364Entry);
+#else /* (INTC_CFG_INTSRC364_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc364Entry);
+#endif /* ((defined(INTC_CFG_INTSRC364_CAT)) \&& (INTC_CFG_INTSRC364_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC364_EN)) \&& (INTC_CFG_INTSRC364_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 365 */
+#if ((defined(INTC_CFG_INTSRC365_EN)) && (INTC_CFG_INTSRC365_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC365_CAT)) && (INTC_CFG_INTSRC365_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc365Entry);
+#else /* (INTC_CFG_INTSRC365_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc365Entry);
+#endif /* ((defined(INTC_CFG_INTSRC365_CAT)) \&& (INTC_CFG_INTSRC365_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC365_EN)) \&& (INTC_CFG_INTSRC365_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 366 */
+#if ((defined(INTC_CFG_INTSRC366_EN)) && (INTC_CFG_INTSRC366_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC366_CAT)) && (INTC_CFG_INTSRC366_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc366Entry);
+#else /* (INTC_CFG_INTSRC366_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc366Entry);
+#endif /* ((defined(INTC_CFG_INTSRC366_CAT)) \&& (INTC_CFG_INTSRC366_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC366_EN)) \&& (INTC_CFG_INTSRC366_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 367 */
+#if ((defined(INTC_CFG_INTSRC367_EN)) && (INTC_CFG_INTSRC367_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC367_CAT)) && (INTC_CFG_INTSRC367_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc367Entry);
+#else /* (INTC_CFG_INTSRC367_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc367Entry);
+#endif /* ((defined(INTC_CFG_INTSRC367_CAT)) \&& (INTC_CFG_INTSRC367_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC367_EN)) \&& (INTC_CFG_INTSRC367_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 368 */
+#if ((defined(INTC_CFG_INTSRC368_EN)) && (INTC_CFG_INTSRC368_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC368_CAT)) && (INTC_CFG_INTSRC368_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc368Entry);
+#else /* (INTC_CFG_INTSRC368_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc368Entry);
+#endif /* ((defined(INTC_CFG_INTSRC368_CAT)) \&& (INTC_CFG_INTSRC368_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC368_EN)) \&& (INTC_CFG_INTSRC368_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 369 */
+#if ((defined(INTC_CFG_INTSRC369_EN)) && (INTC_CFG_INTSRC369_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC369_CAT)) && (INTC_CFG_INTSRC369_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc369Entry);
+#else /* (INTC_CFG_INTSRC369_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc369Entry);
+#endif /* ((defined(INTC_CFG_INTSRC369_CAT)) \&& (INTC_CFG_INTSRC369_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC369_EN)) \&& (INTC_CFG_INTSRC369_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 370 */
+#if ((defined(INTC_CFG_INTSRC370_EN)) && (INTC_CFG_INTSRC370_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC370_CAT)) && (INTC_CFG_INTSRC370_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc370Entry);
+#else /* (INTC_CFG_INTSRC370_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc370Entry);
+#endif /* ((defined(INTC_CFG_INTSRC370_CAT)) \&& (INTC_CFG_INTSRC370_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC370_EN)) \&& (INTC_CFG_INTSRC370_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 371 */
+#if ((defined(INTC_CFG_INTSRC371_EN)) && (INTC_CFG_INTSRC371_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC371_CAT)) && (INTC_CFG_INTSRC371_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc371Entry);
+#else /* (INTC_CFG_INTSRC371_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc371Entry);
+#endif /* ((defined(INTC_CFG_INTSRC371_CAT)) \&& (INTC_CFG_INTSRC371_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC371_EN)) \&& (INTC_CFG_INTSRC371_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 372 */
+#if ((defined(INTC_CFG_INTSRC372_EN)) && (INTC_CFG_INTSRC372_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC372_CAT)) && (INTC_CFG_INTSRC372_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc372Entry);
+#else /* (INTC_CFG_INTSRC372_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc372Entry);
+#endif /* ((defined(INTC_CFG_INTSRC372_CAT)) \&& (INTC_CFG_INTSRC372_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC372_EN)) \&& (INTC_CFG_INTSRC372_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 373 */
+#if ((defined(INTC_CFG_INTSRC373_EN)) && (INTC_CFG_INTSRC373_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC373_CAT)) && (INTC_CFG_INTSRC373_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc373Entry);
+#else /* (INTC_CFG_INTSRC373_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc373Entry);
+#endif /* ((defined(INTC_CFG_INTSRC373_CAT)) \&& (INTC_CFG_INTSRC373_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC373_EN)) \&& (INTC_CFG_INTSRC373_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 374 */
+#if ((defined(INTC_CFG_INTSRC374_EN)) && (INTC_CFG_INTSRC374_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC374_CAT)) && (INTC_CFG_INTSRC374_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc374Entry);
+#else /* (INTC_CFG_INTSRC374_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc374Entry);
+#endif /* ((defined(INTC_CFG_INTSRC374_CAT)) \&& (INTC_CFG_INTSRC374_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC374_EN)) \&& (INTC_CFG_INTSRC374_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 375 */
+#if ((defined(INTC_CFG_INTSRC375_EN)) && (INTC_CFG_INTSRC375_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC375_CAT)) && (INTC_CFG_INTSRC375_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc375Entry);
+#else /* (INTC_CFG_INTSRC375_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc375Entry);
+#endif /* ((defined(INTC_CFG_INTSRC375_CAT)) \&& (INTC_CFG_INTSRC375_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC375_EN)) \&& (INTC_CFG_INTSRC375_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 376 */
+#if ((defined(INTC_CFG_INTSRC376_EN)) && (INTC_CFG_INTSRC376_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC376_CAT)) && (INTC_CFG_INTSRC376_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc376Entry);
+#else /* (INTC_CFG_INTSRC376_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc376Entry);
+#endif /* ((defined(INTC_CFG_INTSRC376_CAT)) \&& (INTC_CFG_INTSRC376_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC376_EN)) \&& (INTC_CFG_INTSRC376_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 377 */
+#if ((defined(INTC_CFG_INTSRC377_EN)) && (INTC_CFG_INTSRC377_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC377_CAT)) && (INTC_CFG_INTSRC377_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc377Entry);
+#else /* (INTC_CFG_INTSRC377_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc377Entry);
+#endif /* ((defined(INTC_CFG_INTSRC377_CAT)) \&& (INTC_CFG_INTSRC377_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC377_EN)) \&& (INTC_CFG_INTSRC377_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 378 */
+#if ((defined(INTC_CFG_INTSRC378_EN)) && (INTC_CFG_INTSRC378_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC378_CAT)) && (INTC_CFG_INTSRC378_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc378Entry);
+#else /* (INTC_CFG_INTSRC378_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc378Entry);
+#endif /* ((defined(INTC_CFG_INTSRC378_CAT)) \&& (INTC_CFG_INTSRC378_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC378_EN)) \&& (INTC_CFG_INTSRC378_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 379 */
+#if ((defined(INTC_CFG_INTSRC379_EN)) && (INTC_CFG_INTSRC379_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC379_CAT)) && (INTC_CFG_INTSRC379_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc379Entry);
+#else /* (INTC_CFG_INTSRC379_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc379Entry);
+#endif /* ((defined(INTC_CFG_INTSRC379_CAT)) \&& (INTC_CFG_INTSRC379_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC379_EN)) \&& (INTC_CFG_INTSRC379_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 380 */
+#if ((defined(INTC_CFG_INTSRC380_EN)) && (INTC_CFG_INTSRC380_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC380_CAT)) && (INTC_CFG_INTSRC380_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc380Entry);
+#else /* (INTC_CFG_INTSRC380_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc380Entry);
+#endif /* ((defined(INTC_CFG_INTSRC380_CAT)) \&& (INTC_CFG_INTSRC380_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC380_EN)) \&& (INTC_CFG_INTSRC380_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 381 */
+#if ((defined(INTC_CFG_INTSRC381_EN)) && (INTC_CFG_INTSRC381_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC381_CAT)) && (INTC_CFG_INTSRC381_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc381Entry);
+#else /* (INTC_CFG_INTSRC381_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc381Entry);
+#endif /* ((defined(INTC_CFG_INTSRC381_CAT)) \&& (INTC_CFG_INTSRC381_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC381_EN)) \&& (INTC_CFG_INTSRC381_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 382 */
+#if ((defined(INTC_CFG_INTSRC382_EN)) && (INTC_CFG_INTSRC382_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC382_CAT)) && (INTC_CFG_INTSRC382_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc382Entry);
+#else /* (INTC_CFG_INTSRC382_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc382Entry);
+#endif /* ((defined(INTC_CFG_INTSRC382_CAT)) \&& (INTC_CFG_INTSRC382_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC382_EN)) \&& (INTC_CFG_INTSRC382_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 383 */
+#if ((defined(INTC_CFG_INTSRC383_EN)) && (INTC_CFG_INTSRC383_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC383_CAT)) && (INTC_CFG_INTSRC383_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc383Entry);
+#else /* (INTC_CFG_INTSRC383_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc383Entry);
+#endif /* ((defined(INTC_CFG_INTSRC383_CAT)) \&& (INTC_CFG_INTSRC383_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC383_EN)) \&& (INTC_CFG_INTSRC383_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 384 */
+#if ((defined(INTC_CFG_INTSRC384_EN)) && (INTC_CFG_INTSRC384_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC384_CAT)) && (INTC_CFG_INTSRC384_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc384Entry);
+#else /* (INTC_CFG_INTSRC384_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc384Entry);
+#endif /* ((defined(INTC_CFG_INTSRC384_CAT)) \&& (INTC_CFG_INTSRC384_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC384_EN)) \&& (INTC_CFG_INTSRC384_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 385 */
+#if ((defined(INTC_CFG_INTSRC385_EN)) && (INTC_CFG_INTSRC385_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC385_CAT)) && (INTC_CFG_INTSRC385_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc385Entry);
+#else /* (INTC_CFG_INTSRC385_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc385Entry);
+#endif /* ((defined(INTC_CFG_INTSRC385_CAT)) \&& (INTC_CFG_INTSRC385_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC385_EN)) \&& (INTC_CFG_INTSRC385_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 386 */
+#if ((defined(INTC_CFG_INTSRC386_EN)) && (INTC_CFG_INTSRC386_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC386_CAT)) && (INTC_CFG_INTSRC386_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc386Entry);
+#else /* (INTC_CFG_INTSRC386_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc386Entry);
+#endif /* ((defined(INTC_CFG_INTSRC386_CAT)) \&& (INTC_CFG_INTSRC386_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC386_EN)) \&& (INTC_CFG_INTSRC386_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 387 */
+#if ((defined(INTC_CFG_INTSRC387_EN)) && (INTC_CFG_INTSRC387_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC387_CAT)) && (INTC_CFG_INTSRC387_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc387Entry);
+#else /* (INTC_CFG_INTSRC387_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc387Entry);
+#endif /* ((defined(INTC_CFG_INTSRC387_CAT)) \&& (INTC_CFG_INTSRC387_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC387_EN)) \&& (INTC_CFG_INTSRC387_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 388 */
+#if ((defined(INTC_CFG_INTSRC388_EN)) && (INTC_CFG_INTSRC388_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC388_CAT)) && (INTC_CFG_INTSRC388_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc388Entry);
+#else /* (INTC_CFG_INTSRC388_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc388Entry);
+#endif /* ((defined(INTC_CFG_INTSRC388_CAT)) \&& (INTC_CFG_INTSRC388_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC388_EN)) \&& (INTC_CFG_INTSRC388_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 389 */
+#if ((defined(INTC_CFG_INTSRC389_EN)) && (INTC_CFG_INTSRC389_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC389_CAT)) && (INTC_CFG_INTSRC389_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc389Entry);
+#else /* (INTC_CFG_INTSRC389_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc389Entry);
+#endif /* ((defined(INTC_CFG_INTSRC389_CAT)) \&& (INTC_CFG_INTSRC389_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC389_EN)) \&& (INTC_CFG_INTSRC389_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 390 */
+#if ((defined(INTC_CFG_INTSRC390_EN)) && (INTC_CFG_INTSRC390_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC390_CAT)) && (INTC_CFG_INTSRC390_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc390Entry);
+#else /* (INTC_CFG_INTSRC390_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc390Entry);
+#endif /* ((defined(INTC_CFG_INTSRC390_CAT)) \&& (INTC_CFG_INTSRC390_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC390_EN)) \&& (INTC_CFG_INTSRC390_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 391 */
+#if ((defined(INTC_CFG_INTSRC391_EN)) && (INTC_CFG_INTSRC391_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC391_CAT)) && (INTC_CFG_INTSRC391_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc391Entry);
+#else /* (INTC_CFG_INTSRC391_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc391Entry);
+#endif /* ((defined(INTC_CFG_INTSRC391_CAT)) \&& (INTC_CFG_INTSRC391_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC391_EN)) \&& (INTC_CFG_INTSRC391_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 392 */
+#if ((defined(INTC_CFG_INTSRC392_EN)) && (INTC_CFG_INTSRC392_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC392_CAT)) && (INTC_CFG_INTSRC392_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc392Entry);
+#else /* (INTC_CFG_INTSRC392_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc392Entry);
+#endif /* ((defined(INTC_CFG_INTSRC392_CAT)) \&& (INTC_CFG_INTSRC392_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC392_EN)) \&& (INTC_CFG_INTSRC392_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 393 */
+#if ((defined(INTC_CFG_INTSRC393_EN)) && (INTC_CFG_INTSRC393_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC393_CAT)) && (INTC_CFG_INTSRC393_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc393Entry);
+#else /* (INTC_CFG_INTSRC393_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc393Entry);
+#endif /* ((defined(INTC_CFG_INTSRC393_CAT)) \&& (INTC_CFG_INTSRC393_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC393_EN)) \&& (INTC_CFG_INTSRC393_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 394 */
+#if ((defined(INTC_CFG_INTSRC394_EN)) && (INTC_CFG_INTSRC394_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC394_CAT)) && (INTC_CFG_INTSRC394_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc394Entry);
+#else /* (INTC_CFG_INTSRC394_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc394Entry);
+#endif /* ((defined(INTC_CFG_INTSRC394_CAT)) \&& (INTC_CFG_INTSRC394_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC394_EN)) \&& (INTC_CFG_INTSRC394_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 395 */
+#if ((defined(INTC_CFG_INTSRC395_EN)) && (INTC_CFG_INTSRC395_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC395_CAT)) && (INTC_CFG_INTSRC395_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc395Entry);
+#else /* (INTC_CFG_INTSRC395_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc395Entry);
+#endif /* ((defined(INTC_CFG_INTSRC395_CAT)) \&& (INTC_CFG_INTSRC395_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC395_EN)) \&& (INTC_CFG_INTSRC395_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 396 */
+#if ((defined(INTC_CFG_INTSRC396_EN)) && (INTC_CFG_INTSRC396_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC396_CAT)) && (INTC_CFG_INTSRC396_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc396Entry);
+#else /* (INTC_CFG_INTSRC396_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc396Entry);
+#endif /* ((defined(INTC_CFG_INTSRC396_CAT)) \&& (INTC_CFG_INTSRC396_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC396_EN)) \&& (INTC_CFG_INTSRC396_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 397 */
+#if ((defined(INTC_CFG_INTSRC397_EN)) && (INTC_CFG_INTSRC397_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC397_CAT)) && (INTC_CFG_INTSRC397_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc397Entry);
+#else /* (INTC_CFG_INTSRC397_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc397Entry);
+#endif /* ((defined(INTC_CFG_INTSRC397_CAT)) \&& (INTC_CFG_INTSRC397_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC397_EN)) \&& (INTC_CFG_INTSRC397_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 398 */
+#if ((defined(INTC_CFG_INTSRC398_EN)) && (INTC_CFG_INTSRC398_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC398_CAT)) && (INTC_CFG_INTSRC398_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc398Entry);
+#else /* (INTC_CFG_INTSRC398_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc398Entry);
+#endif /* ((defined(INTC_CFG_INTSRC398_CAT)) \&& (INTC_CFG_INTSRC398_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC398_EN)) \&& (INTC_CFG_INTSRC398_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 399 */
+#if ((defined(INTC_CFG_INTSRC399_EN)) && (INTC_CFG_INTSRC399_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC399_CAT)) && (INTC_CFG_INTSRC399_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc399Entry);
+#else /* (INTC_CFG_INTSRC399_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc399Entry);
+#endif /* ((defined(INTC_CFG_INTSRC399_CAT)) \&& (INTC_CFG_INTSRC399_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC399_EN)) \&& (INTC_CFG_INTSRC399_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 400 */
+#if ((defined(INTC_CFG_INTSRC400_EN)) && (INTC_CFG_INTSRC400_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC400_CAT)) && (INTC_CFG_INTSRC400_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc400Entry);
+#else /* (INTC_CFG_INTSRC400_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc400Entry);
+#endif /* ((defined(INTC_CFG_INTSRC400_CAT)) \&& (INTC_CFG_INTSRC400_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC400_EN)) \&& (INTC_CFG_INTSRC400_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 401 */
+#if ((defined(INTC_CFG_INTSRC401_EN)) && (INTC_CFG_INTSRC401_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC401_CAT)) && (INTC_CFG_INTSRC401_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc401Entry);
+#else /* (INTC_CFG_INTSRC401_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc401Entry);
+#endif /* ((defined(INTC_CFG_INTSRC401_CAT)) \&& (INTC_CFG_INTSRC401_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC401_EN)) \&& (INTC_CFG_INTSRC401_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 402 */
+#if ((defined(INTC_CFG_INTSRC402_EN)) && (INTC_CFG_INTSRC402_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC402_CAT)) && (INTC_CFG_INTSRC402_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc402Entry);
+#else /* (INTC_CFG_INTSRC402_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc402Entry);
+#endif /* ((defined(INTC_CFG_INTSRC402_CAT)) \&& (INTC_CFG_INTSRC402_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC402_EN)) \&& (INTC_CFG_INTSRC402_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 403 */
+#if ((defined(INTC_CFG_INTSRC403_EN)) && (INTC_CFG_INTSRC403_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC403_CAT)) && (INTC_CFG_INTSRC403_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc403Entry);
+#else /* (INTC_CFG_INTSRC403_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc403Entry);
+#endif /* ((defined(INTC_CFG_INTSRC403_CAT)) \&& (INTC_CFG_INTSRC403_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC403_EN)) \&& (INTC_CFG_INTSRC403_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 404 */
+#if ((defined(INTC_CFG_INTSRC404_EN)) && (INTC_CFG_INTSRC404_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC404_CAT)) && (INTC_CFG_INTSRC404_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc404Entry);
+#else /* (INTC_CFG_INTSRC404_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc404Entry);
+#endif /* ((defined(INTC_CFG_INTSRC404_CAT)) \&& (INTC_CFG_INTSRC404_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC404_EN)) \&& (INTC_CFG_INTSRC404_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 405 */
+#if ((defined(INTC_CFG_INTSRC405_EN)) && (INTC_CFG_INTSRC405_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC405_CAT)) && (INTC_CFG_INTSRC405_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc405Entry);
+#else /* (INTC_CFG_INTSRC405_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc405Entry);
+#endif /* ((defined(INTC_CFG_INTSRC405_CAT)) \&& (INTC_CFG_INTSRC405_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC405_EN)) \&& (INTC_CFG_INTSRC405_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 406 */
+#if ((defined(INTC_CFG_INTSRC406_EN)) && (INTC_CFG_INTSRC406_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC406_CAT)) && (INTC_CFG_INTSRC406_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc406Entry);
+#else /* (INTC_CFG_INTSRC406_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc406Entry);
+#endif /* ((defined(INTC_CFG_INTSRC406_CAT)) \&& (INTC_CFG_INTSRC406_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC406_EN)) \&& (INTC_CFG_INTSRC406_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 407 */
+#if ((defined(INTC_CFG_INTSRC407_EN)) && (INTC_CFG_INTSRC407_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC407_CAT)) && (INTC_CFG_INTSRC407_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc407Entry);
+#else /* (INTC_CFG_INTSRC407_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc407Entry);
+#endif /* ((defined(INTC_CFG_INTSRC407_CAT)) \&& (INTC_CFG_INTSRC407_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC407_EN)) \&& (INTC_CFG_INTSRC407_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 408 */
+#if ((defined(INTC_CFG_INTSRC408_EN)) && (INTC_CFG_INTSRC408_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC408_CAT)) && (INTC_CFG_INTSRC408_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc408Entry);
+#else /* (INTC_CFG_INTSRC408_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc408Entry);
+#endif /* ((defined(INTC_CFG_INTSRC408_CAT)) \&& (INTC_CFG_INTSRC408_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC408_EN)) \&& (INTC_CFG_INTSRC408_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 409 */
+#if ((defined(INTC_CFG_INTSRC409_EN)) && (INTC_CFG_INTSRC409_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC409_CAT)) && (INTC_CFG_INTSRC409_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc409Entry);
+#else /* (INTC_CFG_INTSRC409_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc409Entry);
+#endif /* ((defined(INTC_CFG_INTSRC409_CAT)) \&& (INTC_CFG_INTSRC409_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC409_EN)) \&& (INTC_CFG_INTSRC409_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 410 */
+#if ((defined(INTC_CFG_INTSRC410_EN)) && (INTC_CFG_INTSRC410_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC410_CAT)) && (INTC_CFG_INTSRC410_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc410Entry);
+#else /* (INTC_CFG_INTSRC410_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc410Entry);
+#endif /* ((defined(INTC_CFG_INTSRC410_CAT)) \&& (INTC_CFG_INTSRC410_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC410_EN)) \&& (INTC_CFG_INTSRC410_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 411 */
+#if ((defined(INTC_CFG_INTSRC411_EN)) && (INTC_CFG_INTSRC411_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC411_CAT)) && (INTC_CFG_INTSRC411_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc411Entry);
+#else /* (INTC_CFG_INTSRC411_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc411Entry);
+#endif /* ((defined(INTC_CFG_INTSRC411_CAT)) \&& (INTC_CFG_INTSRC411_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC411_EN)) \&& (INTC_CFG_INTSRC411_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 412 */
+#if ((defined(INTC_CFG_INTSRC412_EN)) && (INTC_CFG_INTSRC412_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC412_CAT)) && (INTC_CFG_INTSRC412_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc412Entry);
+#else /* (INTC_CFG_INTSRC412_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc412Entry);
+#endif /* ((defined(INTC_CFG_INTSRC412_CAT)) \&& (INTC_CFG_INTSRC412_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC412_EN)) \&& (INTC_CFG_INTSRC412_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 413 */
+#if ((defined(INTC_CFG_INTSRC413_EN)) && (INTC_CFG_INTSRC413_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC413_CAT)) && (INTC_CFG_INTSRC413_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc413Entry);
+#else /* (INTC_CFG_INTSRC413_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc413Entry);
+#endif /* ((defined(INTC_CFG_INTSRC413_CAT)) \&& (INTC_CFG_INTSRC413_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC413_EN)) \&& (INTC_CFG_INTSRC413_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 414 */
+#if ((defined(INTC_CFG_INTSRC414_EN)) && (INTC_CFG_INTSRC414_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC414_CAT)) && (INTC_CFG_INTSRC414_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc414Entry);
+#else /* (INTC_CFG_INTSRC414_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc414Entry);
+#endif /* ((defined(INTC_CFG_INTSRC414_CAT)) \&& (INTC_CFG_INTSRC414_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC414_EN)) \&& (INTC_CFG_INTSRC414_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 415 */
+#if ((defined(INTC_CFG_INTSRC415_EN)) && (INTC_CFG_INTSRC415_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC415_CAT)) && (INTC_CFG_INTSRC415_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc415Entry);
+#else /* (INTC_CFG_INTSRC415_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc415Entry);
+#endif /* ((defined(INTC_CFG_INTSRC415_CAT)) \&& (INTC_CFG_INTSRC415_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC415_EN)) \&& (INTC_CFG_INTSRC415_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 416 */
+#if ((defined(INTC_CFG_INTSRC416_EN)) && (INTC_CFG_INTSRC416_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC416_CAT)) && (INTC_CFG_INTSRC416_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc416Entry);
+#else /* (INTC_CFG_INTSRC416_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc416Entry);
+#endif /* ((defined(INTC_CFG_INTSRC416_CAT)) \&& (INTC_CFG_INTSRC416_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC416_EN)) \&& (INTC_CFG_INTSRC416_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 417 */
+#if ((defined(INTC_CFG_INTSRC417_EN)) && (INTC_CFG_INTSRC417_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC417_CAT)) && (INTC_CFG_INTSRC417_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc417Entry);
+#else /* (INTC_CFG_INTSRC417_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc417Entry);
+#endif /* ((defined(INTC_CFG_INTSRC417_CAT)) \&& (INTC_CFG_INTSRC417_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC417_EN)) \&& (INTC_CFG_INTSRC417_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 418 */
+#if ((defined(INTC_CFG_INTSRC418_EN)) && (INTC_CFG_INTSRC418_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC418_CAT)) && (INTC_CFG_INTSRC418_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc418Entry);
+#else /* (INTC_CFG_INTSRC418_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc418Entry);
+#endif /* ((defined(INTC_CFG_INTSRC418_CAT)) \&& (INTC_CFG_INTSRC418_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC418_EN)) \&& (INTC_CFG_INTSRC418_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 419 */
+#if ((defined(INTC_CFG_INTSRC419_EN)) && (INTC_CFG_INTSRC419_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC419_CAT)) && (INTC_CFG_INTSRC419_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc419Entry);
+#else /* (INTC_CFG_INTSRC419_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc419Entry);
+#endif /* ((defined(INTC_CFG_INTSRC419_CAT)) \&& (INTC_CFG_INTSRC419_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC419_EN)) \&& (INTC_CFG_INTSRC419_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 420 */
+#if ((defined(INTC_CFG_INTSRC420_EN)) && (INTC_CFG_INTSRC420_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC420_CAT)) && (INTC_CFG_INTSRC420_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc420Entry);
+#else /* (INTC_CFG_INTSRC420_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc420Entry);
+#endif /* ((defined(INTC_CFG_INTSRC420_CAT)) \&& (INTC_CFG_INTSRC420_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC420_EN)) \&& (INTC_CFG_INTSRC420_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 421 */
+#if ((defined(INTC_CFG_INTSRC421_EN)) && (INTC_CFG_INTSRC421_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC421_CAT)) && (INTC_CFG_INTSRC421_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc421Entry);
+#else /* (INTC_CFG_INTSRC421_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc421Entry);
+#endif /* ((defined(INTC_CFG_INTSRC421_CAT)) \&& (INTC_CFG_INTSRC421_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC421_EN)) \&& (INTC_CFG_INTSRC421_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 422 */
+#if ((defined(INTC_CFG_INTSRC422_EN)) && (INTC_CFG_INTSRC422_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC422_CAT)) && (INTC_CFG_INTSRC422_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc422Entry);
+#else /* (INTC_CFG_INTSRC422_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc422Entry);
+#endif /* ((defined(INTC_CFG_INTSRC422_CAT)) \&& (INTC_CFG_INTSRC422_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC422_EN)) \&& (INTC_CFG_INTSRC422_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 423 */
+#if ((defined(INTC_CFG_INTSRC423_EN)) && (INTC_CFG_INTSRC423_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC423_CAT)) && (INTC_CFG_INTSRC423_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc423Entry);
+#else /* (INTC_CFG_INTSRC423_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc423Entry);
+#endif /* ((defined(INTC_CFG_INTSRC423_CAT)) \&& (INTC_CFG_INTSRC423_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC423_EN)) \&& (INTC_CFG_INTSRC423_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 424 */
+#if ((defined(INTC_CFG_INTSRC424_EN)) && (INTC_CFG_INTSRC424_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC424_CAT)) && (INTC_CFG_INTSRC424_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc424Entry);
+#else /* (INTC_CFG_INTSRC424_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc424Entry);
+#endif /* ((defined(INTC_CFG_INTSRC424_CAT)) \&& (INTC_CFG_INTSRC424_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC424_EN)) \&& (INTC_CFG_INTSRC424_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 425 */
+#if ((defined(INTC_CFG_INTSRC425_EN)) && (INTC_CFG_INTSRC425_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC425_CAT)) && (INTC_CFG_INTSRC425_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc425Entry);
+#else /* (INTC_CFG_INTSRC425_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc425Entry);
+#endif /* ((defined(INTC_CFG_INTSRC425_CAT)) \&& (INTC_CFG_INTSRC425_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC425_EN)) \&& (INTC_CFG_INTSRC425_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 426 */
+#if ((defined(INTC_CFG_INTSRC426_EN)) && (INTC_CFG_INTSRC426_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC426_CAT)) && (INTC_CFG_INTSRC426_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc426Entry);
+#else /* (INTC_CFG_INTSRC426_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc426Entry);
+#endif /* ((defined(INTC_CFG_INTSRC426_CAT)) \&& (INTC_CFG_INTSRC426_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC426_EN)) \&& (INTC_CFG_INTSRC426_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 427 */
+#if ((defined(INTC_CFG_INTSRC427_EN)) && (INTC_CFG_INTSRC427_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC427_CAT)) && (INTC_CFG_INTSRC427_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc427Entry);
+#else /* (INTC_CFG_INTSRC427_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc427Entry);
+#endif /* ((defined(INTC_CFG_INTSRC427_CAT)) \&& (INTC_CFG_INTSRC427_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC427_EN)) \&& (INTC_CFG_INTSRC427_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 428 */
+#if ((defined(INTC_CFG_INTSRC428_EN)) && (INTC_CFG_INTSRC428_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC428_CAT)) && (INTC_CFG_INTSRC428_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc428Entry);
+#else /* (INTC_CFG_INTSRC428_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc428Entry);
+#endif /* ((defined(INTC_CFG_INTSRC428_CAT)) \&& (INTC_CFG_INTSRC428_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC428_EN)) \&& (INTC_CFG_INTSRC428_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 429 */
+#if ((defined(INTC_CFG_INTSRC429_EN)) && (INTC_CFG_INTSRC429_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC429_CAT)) && (INTC_CFG_INTSRC429_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc429Entry);
+#else /* (INTC_CFG_INTSRC429_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc429Entry);
+#endif /* ((defined(INTC_CFG_INTSRC429_CAT)) \&& (INTC_CFG_INTSRC429_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC429_EN)) \&& (INTC_CFG_INTSRC429_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 430 */
+#if ((defined(INTC_CFG_INTSRC430_EN)) && (INTC_CFG_INTSRC430_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC430_CAT)) && (INTC_CFG_INTSRC430_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc430Entry);
+#else /* (INTC_CFG_INTSRC430_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc430Entry);
+#endif /* ((defined(INTC_CFG_INTSRC430_CAT)) \&& (INTC_CFG_INTSRC430_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC430_EN)) \&& (INTC_CFG_INTSRC430_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 431 */
+#if ((defined(INTC_CFG_INTSRC431_EN)) && (INTC_CFG_INTSRC431_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC431_CAT)) && (INTC_CFG_INTSRC431_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc431Entry);
+#else /* (INTC_CFG_INTSRC431_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc431Entry);
+#endif /* ((defined(INTC_CFG_INTSRC431_CAT)) \&& (INTC_CFG_INTSRC431_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC431_EN)) \&& (INTC_CFG_INTSRC431_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 432 */
+#if ((defined(INTC_CFG_INTSRC432_EN)) && (INTC_CFG_INTSRC432_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC432_CAT)) && (INTC_CFG_INTSRC432_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc432Entry);
+#else /* (INTC_CFG_INTSRC432_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc432Entry);
+#endif /* ((defined(INTC_CFG_INTSRC432_CAT)) \&& (INTC_CFG_INTSRC432_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC432_EN)) \&& (INTC_CFG_INTSRC432_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 433 */
+#if ((defined(INTC_CFG_INTSRC433_EN)) && (INTC_CFG_INTSRC433_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC433_CAT)) && (INTC_CFG_INTSRC433_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc433Entry);
+#else /* (INTC_CFG_INTSRC433_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc433Entry);
+#endif /* ((defined(INTC_CFG_INTSRC433_CAT)) \&& (INTC_CFG_INTSRC433_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC433_EN)) \&& (INTC_CFG_INTSRC433_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 434 */
+#if ((defined(INTC_CFG_INTSRC434_EN)) && (INTC_CFG_INTSRC434_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC434_CAT)) && (INTC_CFG_INTSRC434_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc434Entry);
+#else /* (INTC_CFG_INTSRC434_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc434Entry);
+#endif /* ((defined(INTC_CFG_INTSRC434_CAT)) \&& (INTC_CFG_INTSRC434_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC434_EN)) \&& (INTC_CFG_INTSRC434_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 435 */
+#if ((defined(INTC_CFG_INTSRC435_EN)) && (INTC_CFG_INTSRC435_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC435_CAT)) && (INTC_CFG_INTSRC435_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc435Entry);
+#else /* (INTC_CFG_INTSRC435_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc435Entry);
+#endif /* ((defined(INTC_CFG_INTSRC435_CAT)) \&& (INTC_CFG_INTSRC435_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC435_EN)) \&& (INTC_CFG_INTSRC435_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 436 */
+#if ((defined(INTC_CFG_INTSRC436_EN)) && (INTC_CFG_INTSRC436_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC436_CAT)) && (INTC_CFG_INTSRC436_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc436Entry);
+#else /* (INTC_CFG_INTSRC436_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc436Entry);
+#endif /* ((defined(INTC_CFG_INTSRC436_CAT)) \&& (INTC_CFG_INTSRC436_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC436_EN)) \&& (INTC_CFG_INTSRC436_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 437 */
+#if ((defined(INTC_CFG_INTSRC437_EN)) && (INTC_CFG_INTSRC437_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC437_CAT)) && (INTC_CFG_INTSRC437_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc437Entry);
+#else /* (INTC_CFG_INTSRC437_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc437Entry);
+#endif /* ((defined(INTC_CFG_INTSRC437_CAT)) \&& (INTC_CFG_INTSRC437_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC437_EN)) \&& (INTC_CFG_INTSRC437_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 438 */
+#if ((defined(INTC_CFG_INTSRC438_EN)) && (INTC_CFG_INTSRC438_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC438_CAT)) && (INTC_CFG_INTSRC438_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc438Entry);
+#else /* (INTC_CFG_INTSRC438_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc438Entry);
+#endif /* ((defined(INTC_CFG_INTSRC438_CAT)) \&& (INTC_CFG_INTSRC438_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC438_EN)) \&& (INTC_CFG_INTSRC438_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 439 */
+#if ((defined(INTC_CFG_INTSRC439_EN)) && (INTC_CFG_INTSRC439_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC439_CAT)) && (INTC_CFG_INTSRC439_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc439Entry);
+#else /* (INTC_CFG_INTSRC439_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc439Entry);
+#endif /* ((defined(INTC_CFG_INTSRC439_CAT)) \&& (INTC_CFG_INTSRC439_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC439_EN)) \&& (INTC_CFG_INTSRC439_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 440 */
+#if ((defined(INTC_CFG_INTSRC440_EN)) && (INTC_CFG_INTSRC440_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC440_CAT)) && (INTC_CFG_INTSRC440_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc440Entry);
+#else /* (INTC_CFG_INTSRC440_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc440Entry);
+#endif /* ((defined(INTC_CFG_INTSRC440_CAT)) \&& (INTC_CFG_INTSRC440_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC440_EN)) \&& (INTC_CFG_INTSRC440_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 441 */
+#if ((defined(INTC_CFG_INTSRC441_EN)) && (INTC_CFG_INTSRC441_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC441_CAT)) && (INTC_CFG_INTSRC441_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc441Entry);
+#else /* (INTC_CFG_INTSRC441_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc441Entry);
+#endif /* ((defined(INTC_CFG_INTSRC441_CAT)) \&& (INTC_CFG_INTSRC441_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC441_EN)) \&& (INTC_CFG_INTSRC441_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 442 */
+#if ((defined(INTC_CFG_INTSRC442_EN)) && (INTC_CFG_INTSRC442_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC442_CAT)) && (INTC_CFG_INTSRC442_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc442Entry);
+#else /* (INTC_CFG_INTSRC442_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc442Entry);
+#endif /* ((defined(INTC_CFG_INTSRC442_CAT)) \&& (INTC_CFG_INTSRC442_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC442_EN)) \&& (INTC_CFG_INTSRC442_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 443 */
+#if ((defined(INTC_CFG_INTSRC443_EN)) && (INTC_CFG_INTSRC443_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC443_CAT)) && (INTC_CFG_INTSRC443_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc443Entry);
+#else /* (INTC_CFG_INTSRC443_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc443Entry);
+#endif /* ((defined(INTC_CFG_INTSRC443_CAT)) \&& (INTC_CFG_INTSRC443_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC443_EN)) \&& (INTC_CFG_INTSRC443_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 444 */
+#if ((defined(INTC_CFG_INTSRC444_EN)) && (INTC_CFG_INTSRC444_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC444_CAT)) && (INTC_CFG_INTSRC444_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc444Entry);
+#else /* (INTC_CFG_INTSRC444_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc444Entry);
+#endif /* ((defined(INTC_CFG_INTSRC444_CAT)) \&& (INTC_CFG_INTSRC444_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC444_EN)) \&& (INTC_CFG_INTSRC444_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 445 */
+#if ((defined(INTC_CFG_INTSRC445_EN)) && (INTC_CFG_INTSRC445_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC445_CAT)) && (INTC_CFG_INTSRC445_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc445Entry);
+#else /* (INTC_CFG_INTSRC445_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc445Entry);
+#endif /* ((defined(INTC_CFG_INTSRC445_CAT)) \&& (INTC_CFG_INTSRC445_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC445_EN)) \&& (INTC_CFG_INTSRC445_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 446 */
+#if ((defined(INTC_CFG_INTSRC446_EN)) && (INTC_CFG_INTSRC446_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC446_CAT)) && (INTC_CFG_INTSRC446_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc446Entry);
+#else /* (INTC_CFG_INTSRC446_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc446Entry);
+#endif /* ((defined(INTC_CFG_INTSRC446_CAT)) \&& (INTC_CFG_INTSRC446_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC446_EN)) \&& (INTC_CFG_INTSRC446_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 447 */
+#if ((defined(INTC_CFG_INTSRC447_EN)) && (INTC_CFG_INTSRC447_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC447_CAT)) && (INTC_CFG_INTSRC447_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc447Entry);
+#else /* (INTC_CFG_INTSRC447_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc447Entry);
+#endif /* ((defined(INTC_CFG_INTSRC447_CAT)) \&& (INTC_CFG_INTSRC447_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC447_EN)) \&& (INTC_CFG_INTSRC447_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 448 */
+#if ((defined(INTC_CFG_INTSRC448_EN)) && (INTC_CFG_INTSRC448_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC448_CAT)) && (INTC_CFG_INTSRC448_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc448Entry);
+#else /* (INTC_CFG_INTSRC448_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc448Entry);
+#endif /* ((defined(INTC_CFG_INTSRC448_CAT)) \&& (INTC_CFG_INTSRC448_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC448_EN)) \&& (INTC_CFG_INTSRC448_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 449 */
+#if ((defined(INTC_CFG_INTSRC449_EN)) && (INTC_CFG_INTSRC449_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC449_CAT)) && (INTC_CFG_INTSRC449_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc449Entry);
+#else /* (INTC_CFG_INTSRC449_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc449Entry);
+#endif /* ((defined(INTC_CFG_INTSRC449_CAT)) \&& (INTC_CFG_INTSRC449_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC449_EN)) \&& (INTC_CFG_INTSRC449_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 450 */
+#if ((defined(INTC_CFG_INTSRC450_EN)) && (INTC_CFG_INTSRC450_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC450_CAT)) && (INTC_CFG_INTSRC450_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc450Entry);
+#else /* (INTC_CFG_INTSRC450_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc450Entry);
+#endif /* ((defined(INTC_CFG_INTSRC450_CAT)) \&& (INTC_CFG_INTSRC450_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC450_EN)) \&& (INTC_CFG_INTSRC450_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 451 */
+#if ((defined(INTC_CFG_INTSRC451_EN)) && (INTC_CFG_INTSRC451_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC451_CAT)) && (INTC_CFG_INTSRC451_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc451Entry);
+#else /* (INTC_CFG_INTSRC451_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc451Entry);
+#endif /* ((defined(INTC_CFG_INTSRC451_CAT)) \&& (INTC_CFG_INTSRC451_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC451_EN)) \&& (INTC_CFG_INTSRC451_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 452 */
+#if ((defined(INTC_CFG_INTSRC452_EN)) && (INTC_CFG_INTSRC452_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC452_CAT)) && (INTC_CFG_INTSRC452_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc452Entry);
+#else /* (INTC_CFG_INTSRC452_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc452Entry);
+#endif /* ((defined(INTC_CFG_INTSRC452_CAT)) \&& (INTC_CFG_INTSRC452_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC452_EN)) \&& (INTC_CFG_INTSRC452_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 453 */
+#if ((defined(INTC_CFG_INTSRC453_EN)) && (INTC_CFG_INTSRC453_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC453_CAT)) && (INTC_CFG_INTSRC453_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc453Entry);
+#else /* (INTC_CFG_INTSRC453_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc453Entry);
+#endif /* ((defined(INTC_CFG_INTSRC453_CAT)) \&& (INTC_CFG_INTSRC453_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC453_EN)) \&& (INTC_CFG_INTSRC453_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 454 */
+#if ((defined(INTC_CFG_INTSRC454_EN)) && (INTC_CFG_INTSRC454_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC454_CAT)) && (INTC_CFG_INTSRC454_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc454Entry);
+#else /* (INTC_CFG_INTSRC454_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc454Entry);
+#endif /* ((defined(INTC_CFG_INTSRC454_CAT)) \&& (INTC_CFG_INTSRC454_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC454_EN)) \&& (INTC_CFG_INTSRC454_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 455 */
+#if ((defined(INTC_CFG_INTSRC455_EN)) && (INTC_CFG_INTSRC455_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC455_CAT)) && (INTC_CFG_INTSRC455_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc455Entry);
+#else /* (INTC_CFG_INTSRC455_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc455Entry);
+#endif /* ((defined(INTC_CFG_INTSRC455_CAT)) \&& (INTC_CFG_INTSRC455_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC455_EN)) \&& (INTC_CFG_INTSRC455_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 456 */
+#if ((defined(INTC_CFG_INTSRC456_EN)) && (INTC_CFG_INTSRC456_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC456_CAT)) && (INTC_CFG_INTSRC456_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc456Entry);
+#else /* (INTC_CFG_INTSRC456_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc456Entry);
+#endif /* ((defined(INTC_CFG_INTSRC456_CAT)) \&& (INTC_CFG_INTSRC456_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC456_EN)) \&& (INTC_CFG_INTSRC456_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 457 */
+#if ((defined(INTC_CFG_INTSRC457_EN)) && (INTC_CFG_INTSRC457_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC457_CAT)) && (INTC_CFG_INTSRC457_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc457Entry);
+#else /* (INTC_CFG_INTSRC457_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc457Entry);
+#endif /* ((defined(INTC_CFG_INTSRC457_CAT)) \&& (INTC_CFG_INTSRC457_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC457_EN)) \&& (INTC_CFG_INTSRC457_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 458 */
+#if ((defined(INTC_CFG_INTSRC458_EN)) && (INTC_CFG_INTSRC458_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC458_CAT)) && (INTC_CFG_INTSRC458_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc458Entry);
+#else /* (INTC_CFG_INTSRC458_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc458Entry);
+#endif /* ((defined(INTC_CFG_INTSRC458_CAT)) \&& (INTC_CFG_INTSRC458_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC458_EN)) \&& (INTC_CFG_INTSRC458_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 459 */
+#if ((defined(INTC_CFG_INTSRC459_EN)) && (INTC_CFG_INTSRC459_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC459_CAT)) && (INTC_CFG_INTSRC459_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc459Entry);
+#else /* (INTC_CFG_INTSRC459_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc459Entry);
+#endif /* ((defined(INTC_CFG_INTSRC459_CAT)) \&& (INTC_CFG_INTSRC459_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC459_EN)) \&& (INTC_CFG_INTSRC459_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 460 */
+#if ((defined(INTC_CFG_INTSRC460_EN)) && (INTC_CFG_INTSRC460_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC460_CAT)) && (INTC_CFG_INTSRC460_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc460Entry);
+#else /* (INTC_CFG_INTSRC460_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc460Entry);
+#endif /* ((defined(INTC_CFG_INTSRC460_CAT)) \&& (INTC_CFG_INTSRC460_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC460_EN)) \&& (INTC_CFG_INTSRC460_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 461 */
+#if ((defined(INTC_CFG_INTSRC461_EN)) && (INTC_CFG_INTSRC461_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC461_CAT)) && (INTC_CFG_INTSRC461_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc461Entry);
+#else /* (INTC_CFG_INTSRC461_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc461Entry);
+#endif /* ((defined(INTC_CFG_INTSRC461_CAT)) \&& (INTC_CFG_INTSRC461_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC461_EN)) \&& (INTC_CFG_INTSRC461_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 462 */
+#if ((defined(INTC_CFG_INTSRC462_EN)) && (INTC_CFG_INTSRC462_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC462_CAT)) && (INTC_CFG_INTSRC462_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc462Entry);
+#else /* (INTC_CFG_INTSRC462_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc462Entry);
+#endif /* ((defined(INTC_CFG_INTSRC462_CAT)) \&& (INTC_CFG_INTSRC462_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC462_EN)) \&& (INTC_CFG_INTSRC462_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 463 */
+#if ((defined(INTC_CFG_INTSRC463_EN)) && (INTC_CFG_INTSRC463_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC463_CAT)) && (INTC_CFG_INTSRC463_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc463Entry);
+#else /* (INTC_CFG_INTSRC463_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc463Entry);
+#endif /* ((defined(INTC_CFG_INTSRC463_CAT)) \&& (INTC_CFG_INTSRC463_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC463_EN)) \&& (INTC_CFG_INTSRC463_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 464 */
+#if ((defined(INTC_CFG_INTSRC464_EN)) && (INTC_CFG_INTSRC464_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC464_CAT)) && (INTC_CFG_INTSRC464_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc464Entry);
+#else /* (INTC_CFG_INTSRC464_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc464Entry);
+#endif /* ((defined(INTC_CFG_INTSRC464_CAT)) \&& (INTC_CFG_INTSRC464_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC464_EN)) \&& (INTC_CFG_INTSRC464_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 465 */
+#if ((defined(INTC_CFG_INTSRC465_EN)) && (INTC_CFG_INTSRC465_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC465_CAT)) && (INTC_CFG_INTSRC465_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc465Entry);
+#else /* (INTC_CFG_INTSRC465_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc465Entry);
+#endif /* ((defined(INTC_CFG_INTSRC465_CAT)) \&& (INTC_CFG_INTSRC465_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC465_EN)) \&& (INTC_CFG_INTSRC465_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 466 */
+#if ((defined(INTC_CFG_INTSRC466_EN)) && (INTC_CFG_INTSRC466_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC466_CAT)) && (INTC_CFG_INTSRC466_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc466Entry);
+#else /* (INTC_CFG_INTSRC466_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc466Entry);
+#endif /* ((defined(INTC_CFG_INTSRC466_CAT)) \&& (INTC_CFG_INTSRC466_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC466_EN)) \&& (INTC_CFG_INTSRC466_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 467 */
+#if ((defined(INTC_CFG_INTSRC467_EN)) && (INTC_CFG_INTSRC467_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC467_CAT)) && (INTC_CFG_INTSRC467_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc467Entry);
+#else /* (INTC_CFG_INTSRC467_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc467Entry);
+#endif /* ((defined(INTC_CFG_INTSRC467_CAT)) \&& (INTC_CFG_INTSRC467_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC467_EN)) \&& (INTC_CFG_INTSRC467_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 468 */
+#if ((defined(INTC_CFG_INTSRC468_EN)) && (INTC_CFG_INTSRC468_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC468_CAT)) && (INTC_CFG_INTSRC468_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc468Entry);
+#else /* (INTC_CFG_INTSRC468_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc468Entry);
+#endif /* ((defined(INTC_CFG_INTSRC468_CAT)) \&& (INTC_CFG_INTSRC468_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC468_EN)) \&& (INTC_CFG_INTSRC468_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 469 */
+#if ((defined(INTC_CFG_INTSRC469_EN)) && (INTC_CFG_INTSRC469_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC469_CAT)) && (INTC_CFG_INTSRC469_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc469Entry);
+#else /* (INTC_CFG_INTSRC469_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc469Entry);
+#endif /* ((defined(INTC_CFG_INTSRC469_CAT)) \&& (INTC_CFG_INTSRC469_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC469_EN)) \&& (INTC_CFG_INTSRC469_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 470 */
+#if ((defined(INTC_CFG_INTSRC470_EN)) && (INTC_CFG_INTSRC470_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC470_CAT)) && (INTC_CFG_INTSRC470_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc470Entry);
+#else /* (INTC_CFG_INTSRC470_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc470Entry);
+#endif /* ((defined(INTC_CFG_INTSRC470_CAT)) \&& (INTC_CFG_INTSRC470_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC470_EN)) \&& (INTC_CFG_INTSRC470_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 471 */
+#if ((defined(INTC_CFG_INTSRC471_EN)) && (INTC_CFG_INTSRC471_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC471_CAT)) && (INTC_CFG_INTSRC471_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc471Entry);
+#else /* (INTC_CFG_INTSRC471_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc471Entry);
+#endif /* ((defined(INTC_CFG_INTSRC471_CAT)) \&& (INTC_CFG_INTSRC471_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC471_EN)) \&& (INTC_CFG_INTSRC471_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 472 */
+#if ((defined(INTC_CFG_INTSRC472_EN)) && (INTC_CFG_INTSRC472_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC472_CAT)) && (INTC_CFG_INTSRC472_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc472Entry);
+#else /* (INTC_CFG_INTSRC472_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc472Entry);
+#endif /* ((defined(INTC_CFG_INTSRC472_CAT)) \&& (INTC_CFG_INTSRC472_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC472_EN)) \&& (INTC_CFG_INTSRC472_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 473 */
+#if ((defined(INTC_CFG_INTSRC473_EN)) && (INTC_CFG_INTSRC473_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC473_CAT)) && (INTC_CFG_INTSRC473_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc473Entry);
+#else /* (INTC_CFG_INTSRC473_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc473Entry);
+#endif /* ((defined(INTC_CFG_INTSRC473_CAT)) \&& (INTC_CFG_INTSRC473_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC473_EN)) \&& (INTC_CFG_INTSRC473_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 474 */
+#if ((defined(INTC_CFG_INTSRC474_EN)) && (INTC_CFG_INTSRC474_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC474_CAT)) && (INTC_CFG_INTSRC474_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc474Entry);
+#else /* (INTC_CFG_INTSRC474_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc474Entry);
+#endif /* ((defined(INTC_CFG_INTSRC474_CAT)) \&& (INTC_CFG_INTSRC474_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC474_EN)) \&& (INTC_CFG_INTSRC474_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 475 */
+#if ((defined(INTC_CFG_INTSRC475_EN)) && (INTC_CFG_INTSRC475_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC475_CAT)) && (INTC_CFG_INTSRC475_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc475Entry);
+#else /* (INTC_CFG_INTSRC475_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc475Entry);
+#endif /* ((defined(INTC_CFG_INTSRC475_CAT)) \&& (INTC_CFG_INTSRC475_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC475_EN)) \&& (INTC_CFG_INTSRC475_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 476 */
+#if ((defined(INTC_CFG_INTSRC476_EN)) && (INTC_CFG_INTSRC476_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC476_CAT)) && (INTC_CFG_INTSRC476_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc476Entry);
+#else /* (INTC_CFG_INTSRC476_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc476Entry);
+#endif /* ((defined(INTC_CFG_INTSRC476_CAT)) \&& (INTC_CFG_INTSRC476_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC476_EN)) \&& (INTC_CFG_INTSRC476_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 477 */
+#if ((defined(INTC_CFG_INTSRC477_EN)) && (INTC_CFG_INTSRC477_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC477_CAT)) && (INTC_CFG_INTSRC477_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc477Entry);
+#else /* (INTC_CFG_INTSRC477_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc477Entry);
+#endif /* ((defined(INTC_CFG_INTSRC477_CAT)) \&& (INTC_CFG_INTSRC477_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC477_EN)) \&& (INTC_CFG_INTSRC477_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 478 */
+#if ((defined(INTC_CFG_INTSRC478_EN)) && (INTC_CFG_INTSRC478_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC478_CAT)) && (INTC_CFG_INTSRC478_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc478Entry);
+#else /* (INTC_CFG_INTSRC478_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc478Entry);
+#endif /* ((defined(INTC_CFG_INTSRC478_CAT)) \&& (INTC_CFG_INTSRC478_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC478_EN)) \&& (INTC_CFG_INTSRC478_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 479 */
+#if ((defined(INTC_CFG_INTSRC479_EN)) && (INTC_CFG_INTSRC479_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC479_CAT)) && (INTC_CFG_INTSRC479_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc479Entry);
+#else /* (INTC_CFG_INTSRC479_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc479Entry);
+#endif /* ((defined(INTC_CFG_INTSRC479_CAT)) \&& (INTC_CFG_INTSRC479_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC479_EN)) \&& (INTC_CFG_INTSRC479_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 480 */
+#if ((defined(INTC_CFG_INTSRC480_EN)) && (INTC_CFG_INTSRC480_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC480_CAT)) && (INTC_CFG_INTSRC480_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc480Entry);
+#else /* (INTC_CFG_INTSRC480_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc480Entry);
+#endif /* ((defined(INTC_CFG_INTSRC480_CAT)) \&& (INTC_CFG_INTSRC480_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC480_EN)) \&& (INTC_CFG_INTSRC480_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 481 */
+#if ((defined(INTC_CFG_INTSRC481_EN)) && (INTC_CFG_INTSRC481_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC481_CAT)) && (INTC_CFG_INTSRC481_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc481Entry);
+#else /* (INTC_CFG_INTSRC481_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc481Entry);
+#endif /* ((defined(INTC_CFG_INTSRC481_CAT)) \&& (INTC_CFG_INTSRC481_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC481_EN)) \&& (INTC_CFG_INTSRC481_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 482 */
+#if ((defined(INTC_CFG_INTSRC482_EN)) && (INTC_CFG_INTSRC482_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC482_CAT)) && (INTC_CFG_INTSRC482_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc482Entry);
+#else /* (INTC_CFG_INTSRC482_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc482Entry);
+#endif /* ((defined(INTC_CFG_INTSRC482_CAT)) \&& (INTC_CFG_INTSRC482_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC482_EN)) \&& (INTC_CFG_INTSRC482_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 483 */
+#if ((defined(INTC_CFG_INTSRC483_EN)) && (INTC_CFG_INTSRC483_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC483_CAT)) && (INTC_CFG_INTSRC483_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc483Entry);
+#else /* (INTC_CFG_INTSRC483_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc483Entry);
+#endif /* ((defined(INTC_CFG_INTSRC483_CAT)) \&& (INTC_CFG_INTSRC483_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC483_EN)) \&& (INTC_CFG_INTSRC483_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 484 */
+#if ((defined(INTC_CFG_INTSRC484_EN)) && (INTC_CFG_INTSRC484_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC484_CAT)) && (INTC_CFG_INTSRC484_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc484Entry);
+#else /* (INTC_CFG_INTSRC484_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc484Entry);
+#endif /* ((defined(INTC_CFG_INTSRC484_CAT)) \&& (INTC_CFG_INTSRC484_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC484_EN)) \&& (INTC_CFG_INTSRC484_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 485 */
+#if ((defined(INTC_CFG_INTSRC485_EN)) && (INTC_CFG_INTSRC485_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC485_CAT)) && (INTC_CFG_INTSRC485_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc485Entry);
+#else /* (INTC_CFG_INTSRC485_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc485Entry);
+#endif /* ((defined(INTC_CFG_INTSRC485_CAT)) \&& (INTC_CFG_INTSRC485_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC485_EN)) \&& (INTC_CFG_INTSRC485_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 486 */
+#if ((defined(INTC_CFG_INTSRC486_EN)) && (INTC_CFG_INTSRC486_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC486_CAT)) && (INTC_CFG_INTSRC486_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc486Entry);
+#else /* (INTC_CFG_INTSRC486_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc486Entry);
+#endif /* ((defined(INTC_CFG_INTSRC486_CAT)) \&& (INTC_CFG_INTSRC486_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC486_EN)) \&& (INTC_CFG_INTSRC486_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 487 */
+#if ((defined(INTC_CFG_INTSRC487_EN)) && (INTC_CFG_INTSRC487_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC487_CAT)) && (INTC_CFG_INTSRC487_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc487Entry);
+#else /* (INTC_CFG_INTSRC487_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc487Entry);
+#endif /* ((defined(INTC_CFG_INTSRC487_CAT)) \&& (INTC_CFG_INTSRC487_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC487_EN)) \&& (INTC_CFG_INTSRC487_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 488 */
+#if ((defined(INTC_CFG_INTSRC488_EN)) && (INTC_CFG_INTSRC488_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC488_CAT)) && (INTC_CFG_INTSRC488_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc488Entry);
+#else /* (INTC_CFG_INTSRC488_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc488Entry);
+#endif /* ((defined(INTC_CFG_INTSRC488_CAT)) \&& (INTC_CFG_INTSRC488_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC488_EN)) \&& (INTC_CFG_INTSRC488_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 489 */
+#if ((defined(INTC_CFG_INTSRC489_EN)) && (INTC_CFG_INTSRC489_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC489_CAT)) && (INTC_CFG_INTSRC489_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc489Entry);
+#else /* (INTC_CFG_INTSRC489_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc489Entry);
+#endif /* ((defined(INTC_CFG_INTSRC489_CAT)) \&& (INTC_CFG_INTSRC489_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC489_EN)) \&& (INTC_CFG_INTSRC489_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 490 */
+#if ((defined(INTC_CFG_INTSRC490_EN)) && (INTC_CFG_INTSRC490_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC490_CAT)) && (INTC_CFG_INTSRC490_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc490Entry);
+#else /* (INTC_CFG_INTSRC490_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc490Entry);
+#endif /* ((defined(INTC_CFG_INTSRC490_CAT)) \&& (INTC_CFG_INTSRC490_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC490_EN)) \&& (INTC_CFG_INTSRC490_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 491 */
+#if ((defined(INTC_CFG_INTSRC491_EN)) && (INTC_CFG_INTSRC491_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC491_CAT)) && (INTC_CFG_INTSRC491_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc491Entry);
+#else /* (INTC_CFG_INTSRC491_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc491Entry);
+#endif /* ((defined(INTC_CFG_INTSRC491_CAT)) \&& (INTC_CFG_INTSRC491_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC491_EN)) \&& (INTC_CFG_INTSRC491_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 492 */
+#if ((defined(INTC_CFG_INTSRC492_EN)) && (INTC_CFG_INTSRC492_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC492_CAT)) && (INTC_CFG_INTSRC492_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc492Entry);
+#else /* (INTC_CFG_INTSRC492_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc492Entry);
+#endif /* ((defined(INTC_CFG_INTSRC492_CAT)) \&& (INTC_CFG_INTSRC492_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC492_EN)) \&& (INTC_CFG_INTSRC492_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 493 */
+#if ((defined(INTC_CFG_INTSRC493_EN)) && (INTC_CFG_INTSRC493_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC493_CAT)) && (INTC_CFG_INTSRC493_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc493Entry);
+#else /* (INTC_CFG_INTSRC493_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc493Entry);
+#endif /* ((defined(INTC_CFG_INTSRC493_CAT)) \&& (INTC_CFG_INTSRC493_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC493_EN)) \&& (INTC_CFG_INTSRC493_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 494 */
+#if ((defined(INTC_CFG_INTSRC494_EN)) && (INTC_CFG_INTSRC494_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC494_CAT)) && (INTC_CFG_INTSRC494_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc494Entry);
+#else /* (INTC_CFG_INTSRC494_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc494Entry);
+#endif /* ((defined(INTC_CFG_INTSRC494_CAT)) \&& (INTC_CFG_INTSRC494_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC494_EN)) \&& (INTC_CFG_INTSRC494_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 495 */
+#if ((defined(INTC_CFG_INTSRC495_EN)) && (INTC_CFG_INTSRC495_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC495_CAT)) && (INTC_CFG_INTSRC495_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc495Entry);
+#else /* (INTC_CFG_INTSRC495_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc495Entry);
+#endif /* ((defined(INTC_CFG_INTSRC495_CAT)) \&& (INTC_CFG_INTSRC495_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC495_EN)) \&& (INTC_CFG_INTSRC495_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 496 */
+#if ((defined(INTC_CFG_INTSRC496_EN)) && (INTC_CFG_INTSRC496_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC496_CAT)) && (INTC_CFG_INTSRC496_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc496Entry);
+#else /* (INTC_CFG_INTSRC496_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc496Entry);
+#endif /* ((defined(INTC_CFG_INTSRC496_CAT)) \&& (INTC_CFG_INTSRC496_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC496_EN)) \&& (INTC_CFG_INTSRC496_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 497 */
+#if ((defined(INTC_CFG_INTSRC497_EN)) && (INTC_CFG_INTSRC497_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC497_CAT)) && (INTC_CFG_INTSRC497_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc497Entry);
+#else /* (INTC_CFG_INTSRC497_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc497Entry);
+#endif /* ((defined(INTC_CFG_INTSRC497_CAT)) \&& (INTC_CFG_INTSRC497_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC497_EN)) \&& (INTC_CFG_INTSRC497_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 498 */
+#if ((defined(INTC_CFG_INTSRC498_EN)) && (INTC_CFG_INTSRC498_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC498_CAT)) && (INTC_CFG_INTSRC498_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc498Entry);
+#else /* (INTC_CFG_INTSRC498_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc498Entry);
+#endif /* ((defined(INTC_CFG_INTSRC498_CAT)) \&& (INTC_CFG_INTSRC498_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC498_EN)) \&& (INTC_CFG_INTSRC498_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 499 */
+#if ((defined(INTC_CFG_INTSRC499_EN)) && (INTC_CFG_INTSRC499_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC499_CAT)) && (INTC_CFG_INTSRC499_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc499Entry);
+#else /* (INTC_CFG_INTSRC499_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc499Entry);
+#endif /* ((defined(INTC_CFG_INTSRC499_CAT)) \&& (INTC_CFG_INTSRC499_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC499_EN)) \&& (INTC_CFG_INTSRC499_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 500 */
+#if ((defined(INTC_CFG_INTSRC500_EN)) && (INTC_CFG_INTSRC500_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC500_CAT)) && (INTC_CFG_INTSRC500_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc500Entry);
+#else /* (INTC_CFG_INTSRC500_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc500Entry);
+#endif /* ((defined(INTC_CFG_INTSRC500_CAT)) \&& (INTC_CFG_INTSRC500_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC500_EN)) \&& (INTC_CFG_INTSRC500_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 501 */
+#if ((defined(INTC_CFG_INTSRC501_EN)) && (INTC_CFG_INTSRC501_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC501_CAT)) && (INTC_CFG_INTSRC501_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc501Entry);
+#else /* (INTC_CFG_INTSRC501_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc501Entry);
+#endif /* ((defined(INTC_CFG_INTSRC501_CAT)) \&& (INTC_CFG_INTSRC501_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC501_EN)) \&& (INTC_CFG_INTSRC501_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 502 */
+#if ((defined(INTC_CFG_INTSRC502_EN)) && (INTC_CFG_INTSRC502_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC502_CAT)) && (INTC_CFG_INTSRC502_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc502Entry);
+#else /* (INTC_CFG_INTSRC502_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc502Entry);
+#endif /* ((defined(INTC_CFG_INTSRC502_CAT)) \&& (INTC_CFG_INTSRC502_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC502_EN)) \&& (INTC_CFG_INTSRC502_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 503 */
+#if ((defined(INTC_CFG_INTSRC503_EN)) && (INTC_CFG_INTSRC503_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC503_CAT)) && (INTC_CFG_INTSRC503_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc503Entry);
+#else /* (INTC_CFG_INTSRC503_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc503Entry);
+#endif /* ((defined(INTC_CFG_INTSRC503_CAT)) \&& (INTC_CFG_INTSRC503_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC503_EN)) \&& (INTC_CFG_INTSRC503_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 504 */
+#if ((defined(INTC_CFG_INTSRC504_EN)) && (INTC_CFG_INTSRC504_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC504_CAT)) && (INTC_CFG_INTSRC504_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc504Entry);
+#else /* (INTC_CFG_INTSRC504_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc504Entry);
+#endif /* ((defined(INTC_CFG_INTSRC504_CAT)) \&& (INTC_CFG_INTSRC504_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC504_EN)) \&& (INTC_CFG_INTSRC504_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 505 */
+#if ((defined(INTC_CFG_INTSRC505_EN)) && (INTC_CFG_INTSRC505_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC505_CAT)) && (INTC_CFG_INTSRC505_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc505Entry);
+#else /* (INTC_CFG_INTSRC505_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc505Entry);
+#endif /* ((defined(INTC_CFG_INTSRC505_CAT)) \&& (INTC_CFG_INTSRC505_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC505_EN)) \&& (INTC_CFG_INTSRC505_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 506 */
+#if ((defined(INTC_CFG_INTSRC506_EN)) && (INTC_CFG_INTSRC506_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC506_CAT)) && (INTC_CFG_INTSRC506_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc506Entry);
+#else /* (INTC_CFG_INTSRC506_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc506Entry);
+#endif /* ((defined(INTC_CFG_INTSRC506_CAT)) \&& (INTC_CFG_INTSRC506_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC506_EN)) \&& (INTC_CFG_INTSRC506_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 507 */
+#if ((defined(INTC_CFG_INTSRC507_EN)) && (INTC_CFG_INTSRC507_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC507_CAT)) && (INTC_CFG_INTSRC507_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc507Entry);
+#else /* (INTC_CFG_INTSRC507_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc507Entry);
+#endif /* ((defined(INTC_CFG_INTSRC507_CAT)) \&& (INTC_CFG_INTSRC507_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC507_EN)) \&& (INTC_CFG_INTSRC507_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 508 */
+#if ((defined(INTC_CFG_INTSRC508_EN)) && (INTC_CFG_INTSRC508_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC508_CAT)) && (INTC_CFG_INTSRC508_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc508Entry);
+#else /* (INTC_CFG_INTSRC508_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc508Entry);
+#endif /* ((defined(INTC_CFG_INTSRC508_CAT)) \&& (INTC_CFG_INTSRC508_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC508_EN)) \&& (INTC_CFG_INTSRC508_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 509 */
+#if ((defined(INTC_CFG_INTSRC509_EN)) && (INTC_CFG_INTSRC509_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC509_CAT)) && (INTC_CFG_INTSRC509_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc509Entry);
+#else /* (INTC_CFG_INTSRC509_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc509Entry);
+#endif /* ((defined(INTC_CFG_INTSRC509_CAT)) \&& (INTC_CFG_INTSRC509_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC509_EN)) \&& (INTC_CFG_INTSRC509_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 510 */
+#if ((defined(INTC_CFG_INTSRC510_EN)) && (INTC_CFG_INTSRC510_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC510_CAT)) && (INTC_CFG_INTSRC510_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc510Entry);
+#else /* (INTC_CFG_INTSRC510_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc510Entry);
+#endif /* ((defined(INTC_CFG_INTSRC510_CAT)) \&& (INTC_CFG_INTSRC510_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC510_EN)) \&& (INTC_CFG_INTSRC510_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 511 */
+#if ((defined(INTC_CFG_INTSRC511_EN)) && (INTC_CFG_INTSRC511_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC511_CAT)) && (INTC_CFG_INTSRC511_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc511Entry);
+#else /* (INTC_CFG_INTSRC511_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc511Entry);
+#endif /* ((defined(INTC_CFG_INTSRC511_CAT)) \&& (INTC_CFG_INTSRC511_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC511_EN)) \&& (INTC_CFG_INTSRC511_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 512 */
+#if ((defined(INTC_CFG_INTSRC512_EN)) && (INTC_CFG_INTSRC512_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC512_CAT)) && (INTC_CFG_INTSRC512_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc512Entry);
+#else /* (INTC_CFG_INTSRC512_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc512Entry);
+#endif /* ((defined(INTC_CFG_INTSRC512_CAT)) \&& (INTC_CFG_INTSRC512_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC512_EN)) \&& (INTC_CFG_INTSRC512_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 513 */
+#if ((defined(INTC_CFG_INTSRC513_EN)) && (INTC_CFG_INTSRC513_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC513_CAT)) && (INTC_CFG_INTSRC513_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc513Entry);
+#else /* (INTC_CFG_INTSRC513_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc513Entry);
+#endif /* ((defined(INTC_CFG_INTSRC513_CAT)) \&& (INTC_CFG_INTSRC513_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC513_EN)) \&& (INTC_CFG_INTSRC513_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 514 */
+#if ((defined(INTC_CFG_INTSRC514_EN)) && (INTC_CFG_INTSRC514_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC514_CAT)) && (INTC_CFG_INTSRC514_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc514Entry);
+#else /* (INTC_CFG_INTSRC514_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc514Entry);
+#endif /* ((defined(INTC_CFG_INTSRC514_CAT)) \&& (INTC_CFG_INTSRC514_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC514_EN)) \&& (INTC_CFG_INTSRC514_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 515 */
+#if ((defined(INTC_CFG_INTSRC515_EN)) && (INTC_CFG_INTSRC515_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC515_CAT)) && (INTC_CFG_INTSRC515_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc515Entry);
+#else /* (INTC_CFG_INTSRC515_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc515Entry);
+#endif /* ((defined(INTC_CFG_INTSRC515_CAT)) \&& (INTC_CFG_INTSRC515_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC515_EN)) \&& (INTC_CFG_INTSRC515_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 516 */
+#if ((defined(INTC_CFG_INTSRC516_EN)) && (INTC_CFG_INTSRC516_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC516_CAT)) && (INTC_CFG_INTSRC516_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc516Entry);
+#else /* (INTC_CFG_INTSRC516_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc516Entry);
+#endif /* ((defined(INTC_CFG_INTSRC516_CAT)) \&& (INTC_CFG_INTSRC516_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC516_EN)) \&& (INTC_CFG_INTSRC516_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 517 */
+#if ((defined(INTC_CFG_INTSRC517_EN)) && (INTC_CFG_INTSRC517_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC517_CAT)) && (INTC_CFG_INTSRC517_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc517Entry);
+#else /* (INTC_CFG_INTSRC517_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc517Entry);
+#endif /* ((defined(INTC_CFG_INTSRC517_CAT)) \&& (INTC_CFG_INTSRC517_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC517_EN)) \&& (INTC_CFG_INTSRC517_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 518 */
+#if ((defined(INTC_CFG_INTSRC518_EN)) && (INTC_CFG_INTSRC518_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC518_CAT)) && (INTC_CFG_INTSRC518_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc518Entry);
+#else /* (INTC_CFG_INTSRC518_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc518Entry);
+#endif /* ((defined(INTC_CFG_INTSRC518_CAT)) \&& (INTC_CFG_INTSRC518_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC518_EN)) \&& (INTC_CFG_INTSRC518_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 519 */
+#if ((defined(INTC_CFG_INTSRC519_EN)) && (INTC_CFG_INTSRC519_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC519_CAT)) && (INTC_CFG_INTSRC519_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc519Entry);
+#else /* (INTC_CFG_INTSRC519_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc519Entry);
+#endif /* ((defined(INTC_CFG_INTSRC519_CAT)) \&& (INTC_CFG_INTSRC519_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC519_EN)) \&& (INTC_CFG_INTSRC519_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 520 */
+#if ((defined(INTC_CFG_INTSRC520_EN)) && (INTC_CFG_INTSRC520_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC520_CAT)) && (INTC_CFG_INTSRC520_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc520Entry);
+#else /* (INTC_CFG_INTSRC520_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc520Entry);
+#endif /* ((defined(INTC_CFG_INTSRC520_CAT)) \&& (INTC_CFG_INTSRC520_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC520_EN)) \&& (INTC_CFG_INTSRC520_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 521 */
+#if ((defined(INTC_CFG_INTSRC521_EN)) && (INTC_CFG_INTSRC521_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC521_CAT)) && (INTC_CFG_INTSRC521_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc521Entry);
+#else /* (INTC_CFG_INTSRC521_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc521Entry);
+#endif /* ((defined(INTC_CFG_INTSRC521_CAT)) \&& (INTC_CFG_INTSRC521_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC521_EN)) \&& (INTC_CFG_INTSRC521_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 522 */
+#if ((defined(INTC_CFG_INTSRC522_EN)) && (INTC_CFG_INTSRC522_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC522_CAT)) && (INTC_CFG_INTSRC522_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc522Entry);
+#else /* (INTC_CFG_INTSRC522_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc522Entry);
+#endif /* ((defined(INTC_CFG_INTSRC522_CAT)) \&& (INTC_CFG_INTSRC522_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC522_EN)) \&& (INTC_CFG_INTSRC522_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 523 */
+#if ((defined(INTC_CFG_INTSRC523_EN)) && (INTC_CFG_INTSRC523_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC523_CAT)) && (INTC_CFG_INTSRC523_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc523Entry);
+#else /* (INTC_CFG_INTSRC523_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc523Entry);
+#endif /* ((defined(INTC_CFG_INTSRC523_CAT)) \&& (INTC_CFG_INTSRC523_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC523_EN)) \&& (INTC_CFG_INTSRC523_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 524 */
+#if ((defined(INTC_CFG_INTSRC524_EN)) && (INTC_CFG_INTSRC524_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC524_CAT)) && (INTC_CFG_INTSRC524_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc524Entry);
+#else /* (INTC_CFG_INTSRC524_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc524Entry);
+#endif /* ((defined(INTC_CFG_INTSRC524_CAT)) \&& (INTC_CFG_INTSRC524_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC524_EN)) \&& (INTC_CFG_INTSRC524_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 525 */
+#if ((defined(INTC_CFG_INTSRC525_EN)) && (INTC_CFG_INTSRC525_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC525_CAT)) && (INTC_CFG_INTSRC525_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc525Entry);
+#else /* (INTC_CFG_INTSRC525_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc525Entry);
+#endif /* ((defined(INTC_CFG_INTSRC525_CAT)) \&& (INTC_CFG_INTSRC525_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC525_EN)) \&& (INTC_CFG_INTSRC525_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 526 */
+#if ((defined(INTC_CFG_INTSRC526_EN)) && (INTC_CFG_INTSRC526_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC526_CAT)) && (INTC_CFG_INTSRC526_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc526Entry);
+#else /* (INTC_CFG_INTSRC526_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc526Entry);
+#endif /* ((defined(INTC_CFG_INTSRC526_CAT)) \&& (INTC_CFG_INTSRC526_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC526_EN)) \&& (INTC_CFG_INTSRC526_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 527 */
+#if ((defined(INTC_CFG_INTSRC527_EN)) && (INTC_CFG_INTSRC527_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC527_CAT)) && (INTC_CFG_INTSRC527_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc527Entry);
+#else /* (INTC_CFG_INTSRC527_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc527Entry);
+#endif /* ((defined(INTC_CFG_INTSRC527_CAT)) \&& (INTC_CFG_INTSRC527_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC527_EN)) \&& (INTC_CFG_INTSRC527_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 528 */
+#if ((defined(INTC_CFG_INTSRC528_EN)) && (INTC_CFG_INTSRC528_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC528_CAT)) && (INTC_CFG_INTSRC528_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc528Entry);
+#else /* (INTC_CFG_INTSRC528_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc528Entry);
+#endif /* ((defined(INTC_CFG_INTSRC528_CAT)) \&& (INTC_CFG_INTSRC528_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC528_EN)) \&& (INTC_CFG_INTSRC528_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 529 */
+#if ((defined(INTC_CFG_INTSRC529_EN)) && (INTC_CFG_INTSRC529_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC529_CAT)) && (INTC_CFG_INTSRC529_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc529Entry);
+#else /* (INTC_CFG_INTSRC529_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc529Entry);
+#endif /* ((defined(INTC_CFG_INTSRC529_CAT)) \&& (INTC_CFG_INTSRC529_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC529_EN)) \&& (INTC_CFG_INTSRC529_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 530 */
+#if ((defined(INTC_CFG_INTSRC530_EN)) && (INTC_CFG_INTSRC530_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC530_CAT)) && (INTC_CFG_INTSRC530_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc530Entry);
+#else /* (INTC_CFG_INTSRC530_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc530Entry);
+#endif /* ((defined(INTC_CFG_INTSRC530_CAT)) \&& (INTC_CFG_INTSRC530_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC530_EN)) \&& (INTC_CFG_INTSRC530_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 531 */
+#if ((defined(INTC_CFG_INTSRC531_EN)) && (INTC_CFG_INTSRC531_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC531_CAT)) && (INTC_CFG_INTSRC531_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc531Entry);
+#else /* (INTC_CFG_INTSRC531_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc531Entry);
+#endif /* ((defined(INTC_CFG_INTSRC531_CAT)) \&& (INTC_CFG_INTSRC531_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC531_EN)) \&& (INTC_CFG_INTSRC531_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 532 */
+#if ((defined(INTC_CFG_INTSRC532_EN)) && (INTC_CFG_INTSRC532_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC532_CAT)) && (INTC_CFG_INTSRC532_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc532Entry);
+#else /* (INTC_CFG_INTSRC532_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc532Entry);
+#endif /* ((defined(INTC_CFG_INTSRC532_CAT)) \&& (INTC_CFG_INTSRC532_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC532_EN)) \&& (INTC_CFG_INTSRC532_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 533 */
+#if ((defined(INTC_CFG_INTSRC533_EN)) && (INTC_CFG_INTSRC533_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC533_CAT)) && (INTC_CFG_INTSRC533_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc533Entry);
+#else /* (INTC_CFG_INTSRC533_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc533Entry);
+#endif /* ((defined(INTC_CFG_INTSRC533_CAT)) \&& (INTC_CFG_INTSRC533_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC533_EN)) \&& (INTC_CFG_INTSRC533_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 534 */
+#if ((defined(INTC_CFG_INTSRC534_EN)) && (INTC_CFG_INTSRC534_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC534_CAT)) && (INTC_CFG_INTSRC534_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc534Entry);
+#else /* (INTC_CFG_INTSRC534_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc534Entry);
+#endif /* ((defined(INTC_CFG_INTSRC534_CAT)) \&& (INTC_CFG_INTSRC534_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC534_EN)) \&& (INTC_CFG_INTSRC534_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 535 */
+#if ((defined(INTC_CFG_INTSRC535_EN)) && (INTC_CFG_INTSRC535_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC535_CAT)) && (INTC_CFG_INTSRC535_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc535Entry);
+#else /* (INTC_CFG_INTSRC535_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc535Entry);
+#endif /* ((defined(INTC_CFG_INTSRC535_CAT)) \&& (INTC_CFG_INTSRC535_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC535_EN)) \&& (INTC_CFG_INTSRC535_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 536 */
+#if ((defined(INTC_CFG_INTSRC536_EN)) && (INTC_CFG_INTSRC536_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC536_CAT)) && (INTC_CFG_INTSRC536_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc536Entry);
+#else /* (INTC_CFG_INTSRC536_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc536Entry);
+#endif /* ((defined(INTC_CFG_INTSRC536_CAT)) \&& (INTC_CFG_INTSRC536_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC536_EN)) \&& (INTC_CFG_INTSRC536_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 537 */
+#if ((defined(INTC_CFG_INTSRC537_EN)) && (INTC_CFG_INTSRC537_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC537_CAT)) && (INTC_CFG_INTSRC537_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc537Entry);
+#else /* (INTC_CFG_INTSRC537_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc537Entry);
+#endif /* ((defined(INTC_CFG_INTSRC537_CAT)) \&& (INTC_CFG_INTSRC537_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC537_EN)) \&& (INTC_CFG_INTSRC537_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 538 */
+#if ((defined(INTC_CFG_INTSRC538_EN)) && (INTC_CFG_INTSRC538_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC538_CAT)) && (INTC_CFG_INTSRC538_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc538Entry);
+#else /* (INTC_CFG_INTSRC538_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc538Entry);
+#endif /* ((defined(INTC_CFG_INTSRC538_CAT)) \&& (INTC_CFG_INTSRC538_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC538_EN)) \&& (INTC_CFG_INTSRC538_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 539 */
+#if ((defined(INTC_CFG_INTSRC539_EN)) && (INTC_CFG_INTSRC539_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC539_CAT)) && (INTC_CFG_INTSRC539_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc539Entry);
+#else /* (INTC_CFG_INTSRC539_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc539Entry);
+#endif /* ((defined(INTC_CFG_INTSRC539_CAT)) \&& (INTC_CFG_INTSRC539_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC539_EN)) \&& (INTC_CFG_INTSRC539_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 540 */
+#if ((defined(INTC_CFG_INTSRC540_EN)) && (INTC_CFG_INTSRC540_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC540_CAT)) && (INTC_CFG_INTSRC540_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc540Entry);
+#else /* (INTC_CFG_INTSRC540_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc540Entry);
+#endif /* ((defined(INTC_CFG_INTSRC540_CAT)) \&& (INTC_CFG_INTSRC540_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC540_EN)) \&& (INTC_CFG_INTSRC540_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 541 */
+#if ((defined(INTC_CFG_INTSRC541_EN)) && (INTC_CFG_INTSRC541_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC541_CAT)) && (INTC_CFG_INTSRC541_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc541Entry);
+#else /* (INTC_CFG_INTSRC541_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc541Entry);
+#endif /* ((defined(INTC_CFG_INTSRC541_CAT)) \&& (INTC_CFG_INTSRC541_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC541_EN)) \&& (INTC_CFG_INTSRC541_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 542 */
+#if ((defined(INTC_CFG_INTSRC542_EN)) && (INTC_CFG_INTSRC542_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC542_CAT)) && (INTC_CFG_INTSRC542_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc542Entry);
+#else /* (INTC_CFG_INTSRC542_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc542Entry);
+#endif /* ((defined(INTC_CFG_INTSRC542_CAT)) \&& (INTC_CFG_INTSRC542_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC542_EN)) \&& (INTC_CFG_INTSRC542_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 543 */
+#if ((defined(INTC_CFG_INTSRC543_EN)) && (INTC_CFG_INTSRC543_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC543_CAT)) && (INTC_CFG_INTSRC543_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc543Entry);
+#else /* (INTC_CFG_INTSRC543_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc543Entry);
+#endif /* ((defined(INTC_CFG_INTSRC543_CAT)) \&& (INTC_CFG_INTSRC543_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC543_EN)) \&& (INTC_CFG_INTSRC543_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 544 */
+#if ((defined(INTC_CFG_INTSRC544_EN)) && (INTC_CFG_INTSRC544_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC544_CAT)) && (INTC_CFG_INTSRC544_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc544Entry);
+#else /* (INTC_CFG_INTSRC544_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc544Entry);
+#endif /* ((defined(INTC_CFG_INTSRC544_CAT)) \&& (INTC_CFG_INTSRC544_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC544_EN)) \&& (INTC_CFG_INTSRC544_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 545 */
+#if ((defined(INTC_CFG_INTSRC545_EN)) && (INTC_CFG_INTSRC545_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC545_CAT)) && (INTC_CFG_INTSRC545_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc545Entry);
+#else /* (INTC_CFG_INTSRC545_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc545Entry);
+#endif /* ((defined(INTC_CFG_INTSRC545_CAT)) \&& (INTC_CFG_INTSRC545_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC545_EN)) \&& (INTC_CFG_INTSRC545_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 546 */
+#if ((defined(INTC_CFG_INTSRC546_EN)) && (INTC_CFG_INTSRC546_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC546_CAT)) && (INTC_CFG_INTSRC546_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc546Entry);
+#else /* (INTC_CFG_INTSRC546_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc546Entry);
+#endif /* ((defined(INTC_CFG_INTSRC546_CAT)) \&& (INTC_CFG_INTSRC546_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC546_EN)) \&& (INTC_CFG_INTSRC546_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 547 */
+#if ((defined(INTC_CFG_INTSRC547_EN)) && (INTC_CFG_INTSRC547_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC547_CAT)) && (INTC_CFG_INTSRC547_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc547Entry);
+#else /* (INTC_CFG_INTSRC547_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc547Entry);
+#endif /* ((defined(INTC_CFG_INTSRC547_CAT)) \&& (INTC_CFG_INTSRC547_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC547_EN)) \&& (INTC_CFG_INTSRC547_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 548 */
+#if ((defined(INTC_CFG_INTSRC548_EN)) && (INTC_CFG_INTSRC548_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC548_CAT)) && (INTC_CFG_INTSRC548_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc548Entry);
+#else /* (INTC_CFG_INTSRC548_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc548Entry);
+#endif /* ((defined(INTC_CFG_INTSRC548_CAT)) \&& (INTC_CFG_INTSRC548_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC548_EN)) \&& (INTC_CFG_INTSRC548_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 549 */
+#if ((defined(INTC_CFG_INTSRC549_EN)) && (INTC_CFG_INTSRC549_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC549_CAT)) && (INTC_CFG_INTSRC549_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc549Entry);
+#else /* (INTC_CFG_INTSRC549_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc549Entry);
+#endif /* ((defined(INTC_CFG_INTSRC549_CAT)) \&& (INTC_CFG_INTSRC549_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC549_EN)) \&& (INTC_CFG_INTSRC549_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 550 */
+#if ((defined(INTC_CFG_INTSRC550_EN)) && (INTC_CFG_INTSRC550_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC550_CAT)) && (INTC_CFG_INTSRC550_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc550Entry);
+#else /* (INTC_CFG_INTSRC550_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc550Entry);
+#endif /* ((defined(INTC_CFG_INTSRC550_CAT)) \&& (INTC_CFG_INTSRC550_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC550_EN)) \&& (INTC_CFG_INTSRC550_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 551 */
+#if ((defined(INTC_CFG_INTSRC551_EN)) && (INTC_CFG_INTSRC551_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC551_CAT)) && (INTC_CFG_INTSRC551_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc551Entry);
+#else /* (INTC_CFG_INTSRC551_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc551Entry);
+#endif /* ((defined(INTC_CFG_INTSRC551_CAT)) \&& (INTC_CFG_INTSRC551_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC551_EN)) \&& (INTC_CFG_INTSRC551_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 552 */
+#if ((defined(INTC_CFG_INTSRC552_EN)) && (INTC_CFG_INTSRC552_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC552_CAT)) && (INTC_CFG_INTSRC552_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc552Entry);
+#else /* (INTC_CFG_INTSRC552_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc552Entry);
+#endif /* ((defined(INTC_CFG_INTSRC552_CAT)) \&& (INTC_CFG_INTSRC552_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC552_EN)) \&& (INTC_CFG_INTSRC552_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 553 */
+#if ((defined(INTC_CFG_INTSRC553_EN)) && (INTC_CFG_INTSRC553_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC553_CAT)) && (INTC_CFG_INTSRC553_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc553Entry);
+#else /* (INTC_CFG_INTSRC553_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc553Entry);
+#endif /* ((defined(INTC_CFG_INTSRC553_CAT)) \&& (INTC_CFG_INTSRC553_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC553_EN)) \&& (INTC_CFG_INTSRC553_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 554 */
+#if ((defined(INTC_CFG_INTSRC554_EN)) && (INTC_CFG_INTSRC554_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC554_CAT)) && (INTC_CFG_INTSRC554_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc554Entry);
+#else /* (INTC_CFG_INTSRC554_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc554Entry);
+#endif /* ((defined(INTC_CFG_INTSRC554_CAT)) \&& (INTC_CFG_INTSRC554_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC554_EN)) \&& (INTC_CFG_INTSRC554_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 555 */
+#if ((defined(INTC_CFG_INTSRC555_EN)) && (INTC_CFG_INTSRC555_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC555_CAT)) && (INTC_CFG_INTSRC555_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc555Entry);
+#else /* (INTC_CFG_INTSRC555_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc555Entry);
+#endif /* ((defined(INTC_CFG_INTSRC555_CAT)) \&& (INTC_CFG_INTSRC555_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC555_EN)) \&& (INTC_CFG_INTSRC555_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 556 */
+#if ((defined(INTC_CFG_INTSRC556_EN)) && (INTC_CFG_INTSRC556_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC556_CAT)) && (INTC_CFG_INTSRC556_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc556Entry);
+#else /* (INTC_CFG_INTSRC556_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc556Entry);
+#endif /* ((defined(INTC_CFG_INTSRC556_CAT)) \&& (INTC_CFG_INTSRC556_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC556_EN)) \&& (INTC_CFG_INTSRC556_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 557 */
+#if ((defined(INTC_CFG_INTSRC557_EN)) && (INTC_CFG_INTSRC557_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC557_CAT)) && (INTC_CFG_INTSRC557_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc557Entry);
+#else /* (INTC_CFG_INTSRC557_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc557Entry);
+#endif /* ((defined(INTC_CFG_INTSRC557_CAT)) \&& (INTC_CFG_INTSRC557_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC557_EN)) \&& (INTC_CFG_INTSRC557_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 558 */
+#if ((defined(INTC_CFG_INTSRC558_EN)) && (INTC_CFG_INTSRC558_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC558_CAT)) && (INTC_CFG_INTSRC558_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc558Entry);
+#else /* (INTC_CFG_INTSRC558_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc558Entry);
+#endif /* ((defined(INTC_CFG_INTSRC558_CAT)) \&& (INTC_CFG_INTSRC558_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC558_EN)) \&& (INTC_CFG_INTSRC558_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 559 */
+#if ((defined(INTC_CFG_INTSRC559_EN)) && (INTC_CFG_INTSRC559_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC559_CAT)) && (INTC_CFG_INTSRC559_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc559Entry);
+#else /* (INTC_CFG_INTSRC559_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc559Entry);
+#endif /* ((defined(INTC_CFG_INTSRC559_CAT)) \&& (INTC_CFG_INTSRC559_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC559_EN)) \&& (INTC_CFG_INTSRC559_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 560 */
+#if ((defined(INTC_CFG_INTSRC560_EN)) && (INTC_CFG_INTSRC560_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC560_CAT)) && (INTC_CFG_INTSRC560_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc560Entry);
+#else /* (INTC_CFG_INTSRC560_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc560Entry);
+#endif /* ((defined(INTC_CFG_INTSRC560_CAT)) \&& (INTC_CFG_INTSRC560_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC560_EN)) \&& (INTC_CFG_INTSRC560_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 561 */
+#if ((defined(INTC_CFG_INTSRC561_EN)) && (INTC_CFG_INTSRC561_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC561_CAT)) && (INTC_CFG_INTSRC561_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc561Entry);
+#else /* (INTC_CFG_INTSRC561_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc561Entry);
+#endif /* ((defined(INTC_CFG_INTSRC561_CAT)) \&& (INTC_CFG_INTSRC561_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC561_EN)) \&& (INTC_CFG_INTSRC561_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 562 */
+#if ((defined(INTC_CFG_INTSRC562_EN)) && (INTC_CFG_INTSRC562_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC562_CAT)) && (INTC_CFG_INTSRC562_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc562Entry);
+#else /* (INTC_CFG_INTSRC562_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc562Entry);
+#endif /* ((defined(INTC_CFG_INTSRC562_CAT)) \&& (INTC_CFG_INTSRC562_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC562_EN)) \&& (INTC_CFG_INTSRC562_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 563 */
+#if ((defined(INTC_CFG_INTSRC563_EN)) && (INTC_CFG_INTSRC563_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC563_CAT)) && (INTC_CFG_INTSRC563_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc563Entry);
+#else /* (INTC_CFG_INTSRC563_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc563Entry);
+#endif /* ((defined(INTC_CFG_INTSRC563_CAT)) \&& (INTC_CFG_INTSRC563_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC563_EN)) \&& (INTC_CFG_INTSRC563_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 564 */
+#if ((defined(INTC_CFG_INTSRC564_EN)) && (INTC_CFG_INTSRC564_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC564_CAT)) && (INTC_CFG_INTSRC564_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc564Entry);
+#else /* (INTC_CFG_INTSRC564_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc564Entry);
+#endif /* ((defined(INTC_CFG_INTSRC564_CAT)) \&& (INTC_CFG_INTSRC564_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC564_EN)) \&& (INTC_CFG_INTSRC564_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 565 */
+#if ((defined(INTC_CFG_INTSRC565_EN)) && (INTC_CFG_INTSRC565_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC565_CAT)) && (INTC_CFG_INTSRC565_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc565Entry);
+#else /* (INTC_CFG_INTSRC565_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc565Entry);
+#endif /* ((defined(INTC_CFG_INTSRC565_CAT)) \&& (INTC_CFG_INTSRC565_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC565_EN)) \&& (INTC_CFG_INTSRC565_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 566 */
+#if ((defined(INTC_CFG_INTSRC566_EN)) && (INTC_CFG_INTSRC566_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC566_CAT)) && (INTC_CFG_INTSRC566_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc566Entry);
+#else /* (INTC_CFG_INTSRC566_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc566Entry);
+#endif /* ((defined(INTC_CFG_INTSRC566_CAT)) \&& (INTC_CFG_INTSRC566_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC566_EN)) \&& (INTC_CFG_INTSRC566_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 567 */
+#if ((defined(INTC_CFG_INTSRC567_EN)) && (INTC_CFG_INTSRC567_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC567_CAT)) && (INTC_CFG_INTSRC567_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc567Entry);
+#else /* (INTC_CFG_INTSRC567_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc567Entry);
+#endif /* ((defined(INTC_CFG_INTSRC567_CAT)) \&& (INTC_CFG_INTSRC567_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC567_EN)) \&& (INTC_CFG_INTSRC567_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 568 */
+#if ((defined(INTC_CFG_INTSRC568_EN)) && (INTC_CFG_INTSRC568_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC568_CAT)) && (INTC_CFG_INTSRC568_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc568Entry);
+#else /* (INTC_CFG_INTSRC568_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc568Entry);
+#endif /* ((defined(INTC_CFG_INTSRC568_CAT)) \&& (INTC_CFG_INTSRC568_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC568_EN)) \&& (INTC_CFG_INTSRC568_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 569 */
+#if ((defined(INTC_CFG_INTSRC569_EN)) && (INTC_CFG_INTSRC569_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC569_CAT)) && (INTC_CFG_INTSRC569_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc569Entry);
+#else /* (INTC_CFG_INTSRC569_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc569Entry);
+#endif /* ((defined(INTC_CFG_INTSRC569_CAT)) \&& (INTC_CFG_INTSRC569_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC569_EN)) \&& (INTC_CFG_INTSRC569_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 570 */
+#if ((defined(INTC_CFG_INTSRC570_EN)) && (INTC_CFG_INTSRC570_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC570_CAT)) && (INTC_CFG_INTSRC570_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc570Entry);
+#else /* (INTC_CFG_INTSRC570_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc570Entry);
+#endif /* ((defined(INTC_CFG_INTSRC570_CAT)) \&& (INTC_CFG_INTSRC570_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC570_EN)) \&& (INTC_CFG_INTSRC570_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 571 */
+#if ((defined(INTC_CFG_INTSRC571_EN)) && (INTC_CFG_INTSRC571_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC571_CAT)) && (INTC_CFG_INTSRC571_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc571Entry);
+#else /* (INTC_CFG_INTSRC571_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc571Entry);
+#endif /* ((defined(INTC_CFG_INTSRC571_CAT)) \&& (INTC_CFG_INTSRC571_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC571_EN)) \&& (INTC_CFG_INTSRC571_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 572 */
+#if ((defined(INTC_CFG_INTSRC572_EN)) && (INTC_CFG_INTSRC572_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC572_CAT)) && (INTC_CFG_INTSRC572_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc572Entry);
+#else /* (INTC_CFG_INTSRC572_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc572Entry);
+#endif /* ((defined(INTC_CFG_INTSRC572_CAT)) \&& (INTC_CFG_INTSRC572_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC572_EN)) \&& (INTC_CFG_INTSRC572_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 573 */
+#if ((defined(INTC_CFG_INTSRC573_EN)) && (INTC_CFG_INTSRC573_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC573_CAT)) && (INTC_CFG_INTSRC573_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc573Entry);
+#else /* (INTC_CFG_INTSRC573_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc573Entry);
+#endif /* ((defined(INTC_CFG_INTSRC573_CAT)) \&& (INTC_CFG_INTSRC573_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC573_EN)) \&& (INTC_CFG_INTSRC573_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 574 */
+#if ((defined(INTC_CFG_INTSRC574_EN)) && (INTC_CFG_INTSRC574_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC574_CAT)) && (INTC_CFG_INTSRC574_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc574Entry);
+#else /* (INTC_CFG_INTSRC574_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc574Entry);
+#endif /* ((defined(INTC_CFG_INTSRC574_CAT)) \&& (INTC_CFG_INTSRC574_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC574_EN)) \&& (INTC_CFG_INTSRC574_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 575 */
+#if ((defined(INTC_CFG_INTSRC575_EN)) && (INTC_CFG_INTSRC575_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC575_CAT)) && (INTC_CFG_INTSRC575_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc575Entry);
+#else /* (INTC_CFG_INTSRC575_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc575Entry);
+#endif /* ((defined(INTC_CFG_INTSRC575_CAT)) \&& (INTC_CFG_INTSRC575_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC575_EN)) \&& (INTC_CFG_INTSRC575_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 576 */
+#if ((defined(INTC_CFG_INTSRC576_EN)) && (INTC_CFG_INTSRC576_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC576_CAT)) && (INTC_CFG_INTSRC576_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc576Entry);
+#else /* (INTC_CFG_INTSRC576_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc576Entry);
+#endif /* ((defined(INTC_CFG_INTSRC576_CAT)) \&& (INTC_CFG_INTSRC576_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC576_EN)) \&& (INTC_CFG_INTSRC576_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 577 */
+#if ((defined(INTC_CFG_INTSRC577_EN)) && (INTC_CFG_INTSRC577_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC577_CAT)) && (INTC_CFG_INTSRC577_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc577Entry);
+#else /* (INTC_CFG_INTSRC577_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc577Entry);
+#endif /* ((defined(INTC_CFG_INTSRC577_CAT)) \&& (INTC_CFG_INTSRC577_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC577_EN)) \&& (INTC_CFG_INTSRC577_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 578 */
+#if ((defined(INTC_CFG_INTSRC578_EN)) && (INTC_CFG_INTSRC578_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC578_CAT)) && (INTC_CFG_INTSRC578_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc578Entry);
+#else /* (INTC_CFG_INTSRC578_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc578Entry);
+#endif /* ((defined(INTC_CFG_INTSRC578_CAT)) \&& (INTC_CFG_INTSRC578_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC578_EN)) \&& (INTC_CFG_INTSRC578_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 579 */
+#if ((defined(INTC_CFG_INTSRC579_EN)) && (INTC_CFG_INTSRC579_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC579_CAT)) && (INTC_CFG_INTSRC579_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc579Entry);
+#else /* (INTC_CFG_INTSRC579_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc579Entry);
+#endif /* ((defined(INTC_CFG_INTSRC579_CAT)) \&& (INTC_CFG_INTSRC579_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC579_EN)) \&& (INTC_CFG_INTSRC579_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 580 */
+#if ((defined(INTC_CFG_INTSRC580_EN)) && (INTC_CFG_INTSRC580_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC580_CAT)) && (INTC_CFG_INTSRC580_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc580Entry);
+#else /* (INTC_CFG_INTSRC580_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc580Entry);
+#endif /* ((defined(INTC_CFG_INTSRC580_CAT)) \&& (INTC_CFG_INTSRC580_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC580_EN)) \&& (INTC_CFG_INTSRC580_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 581 */
+#if ((defined(INTC_CFG_INTSRC581_EN)) && (INTC_CFG_INTSRC581_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC581_CAT)) && (INTC_CFG_INTSRC581_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc581Entry);
+#else /* (INTC_CFG_INTSRC581_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc581Entry);
+#endif /* ((defined(INTC_CFG_INTSRC581_CAT)) \&& (INTC_CFG_INTSRC581_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC581_EN)) \&& (INTC_CFG_INTSRC581_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 582 */
+#if ((defined(INTC_CFG_INTSRC582_EN)) && (INTC_CFG_INTSRC582_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC582_CAT)) && (INTC_CFG_INTSRC582_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc582Entry);
+#else /* (INTC_CFG_INTSRC582_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc582Entry);
+#endif /* ((defined(INTC_CFG_INTSRC582_CAT)) \&& (INTC_CFG_INTSRC582_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC582_EN)) \&& (INTC_CFG_INTSRC582_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 583 */
+#if ((defined(INTC_CFG_INTSRC583_EN)) && (INTC_CFG_INTSRC583_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC583_CAT)) && (INTC_CFG_INTSRC583_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc583Entry);
+#else /* (INTC_CFG_INTSRC583_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc583Entry);
+#endif /* ((defined(INTC_CFG_INTSRC583_CAT)) \&& (INTC_CFG_INTSRC583_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC583_EN)) \&& (INTC_CFG_INTSRC583_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 584 */
+#if ((defined(INTC_CFG_INTSRC584_EN)) && (INTC_CFG_INTSRC584_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC584_CAT)) && (INTC_CFG_INTSRC584_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc584Entry);
+#else /* (INTC_CFG_INTSRC584_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc584Entry);
+#endif /* ((defined(INTC_CFG_INTSRC584_CAT)) \&& (INTC_CFG_INTSRC584_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC584_EN)) \&& (INTC_CFG_INTSRC584_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 585 */
+#if ((defined(INTC_CFG_INTSRC585_EN)) && (INTC_CFG_INTSRC585_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC585_CAT)) && (INTC_CFG_INTSRC585_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc585Entry);
+#else /* (INTC_CFG_INTSRC585_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc585Entry);
+#endif /* ((defined(INTC_CFG_INTSRC585_CAT)) \&& (INTC_CFG_INTSRC585_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC585_EN)) \&& (INTC_CFG_INTSRC585_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 586 */
+#if ((defined(INTC_CFG_INTSRC586_EN)) && (INTC_CFG_INTSRC586_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC586_CAT)) && (INTC_CFG_INTSRC586_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc586Entry);
+#else /* (INTC_CFG_INTSRC586_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc586Entry);
+#endif /* ((defined(INTC_CFG_INTSRC586_CAT)) \&& (INTC_CFG_INTSRC586_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC586_EN)) \&& (INTC_CFG_INTSRC586_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 587 */
+#if ((defined(INTC_CFG_INTSRC587_EN)) && (INTC_CFG_INTSRC587_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC587_CAT)) && (INTC_CFG_INTSRC587_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc587Entry);
+#else /* (INTC_CFG_INTSRC587_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc587Entry);
+#endif /* ((defined(INTC_CFG_INTSRC587_CAT)) \&& (INTC_CFG_INTSRC587_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC587_EN)) \&& (INTC_CFG_INTSRC587_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 588 */
+#if ((defined(INTC_CFG_INTSRC588_EN)) && (INTC_CFG_INTSRC588_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC588_CAT)) && (INTC_CFG_INTSRC588_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc588Entry);
+#else /* (INTC_CFG_INTSRC588_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc588Entry);
+#endif /* ((defined(INTC_CFG_INTSRC588_CAT)) \&& (INTC_CFG_INTSRC588_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC588_EN)) \&& (INTC_CFG_INTSRC588_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 589 */
+#if ((defined(INTC_CFG_INTSRC589_EN)) && (INTC_CFG_INTSRC589_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC589_CAT)) && (INTC_CFG_INTSRC589_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc589Entry);
+#else /* (INTC_CFG_INTSRC589_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc589Entry);
+#endif /* ((defined(INTC_CFG_INTSRC589_CAT)) \&& (INTC_CFG_INTSRC589_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC589_EN)) \&& (INTC_CFG_INTSRC589_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 590 */
+#if ((defined(INTC_CFG_INTSRC590_EN)) && (INTC_CFG_INTSRC590_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC590_CAT)) && (INTC_CFG_INTSRC590_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc590Entry);
+#else /* (INTC_CFG_INTSRC590_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc590Entry);
+#endif /* ((defined(INTC_CFG_INTSRC590_CAT)) \&& (INTC_CFG_INTSRC590_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC590_EN)) \&& (INTC_CFG_INTSRC590_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 591 */
+#if ((defined(INTC_CFG_INTSRC591_EN)) && (INTC_CFG_INTSRC591_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC591_CAT)) && (INTC_CFG_INTSRC591_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc591Entry);
+#else /* (INTC_CFG_INTSRC591_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc591Entry);
+#endif /* ((defined(INTC_CFG_INTSRC591_CAT)) \&& (INTC_CFG_INTSRC591_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC591_EN)) \&& (INTC_CFG_INTSRC591_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 592 */
+#if ((defined(INTC_CFG_INTSRC592_EN)) && (INTC_CFG_INTSRC592_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC592_CAT)) && (INTC_CFG_INTSRC592_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc592Entry);
+#else /* (INTC_CFG_INTSRC592_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc592Entry);
+#endif /* ((defined(INTC_CFG_INTSRC592_CAT)) \&& (INTC_CFG_INTSRC592_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC592_EN)) \&& (INTC_CFG_INTSRC592_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 593 */
+#if ((defined(INTC_CFG_INTSRC593_EN)) && (INTC_CFG_INTSRC593_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC593_CAT)) && (INTC_CFG_INTSRC593_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc593Entry);
+#else /* (INTC_CFG_INTSRC593_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc593Entry);
+#endif /* ((defined(INTC_CFG_INTSRC593_CAT)) \&& (INTC_CFG_INTSRC593_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC593_EN)) \&& (INTC_CFG_INTSRC593_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 594 */
+#if ((defined(INTC_CFG_INTSRC594_EN)) && (INTC_CFG_INTSRC594_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC594_CAT)) && (INTC_CFG_INTSRC594_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc594Entry);
+#else /* (INTC_CFG_INTSRC594_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc594Entry);
+#endif /* ((defined(INTC_CFG_INTSRC594_CAT)) \&& (INTC_CFG_INTSRC594_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC594_EN)) \&& (INTC_CFG_INTSRC594_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 595 */
+#if ((defined(INTC_CFG_INTSRC595_EN)) && (INTC_CFG_INTSRC595_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC595_CAT)) && (INTC_CFG_INTSRC595_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc595Entry);
+#else /* (INTC_CFG_INTSRC595_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc595Entry);
+#endif /* ((defined(INTC_CFG_INTSRC595_CAT)) \&& (INTC_CFG_INTSRC595_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC595_EN)) \&& (INTC_CFG_INTSRC595_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 596 */
+#if ((defined(INTC_CFG_INTSRC596_EN)) && (INTC_CFG_INTSRC596_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC596_CAT)) && (INTC_CFG_INTSRC596_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc596Entry);
+#else /* (INTC_CFG_INTSRC596_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc596Entry);
+#endif /* ((defined(INTC_CFG_INTSRC596_CAT)) \&& (INTC_CFG_INTSRC596_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC596_EN)) \&& (INTC_CFG_INTSRC596_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 597 */
+#if ((defined(INTC_CFG_INTSRC597_EN)) && (INTC_CFG_INTSRC597_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC597_CAT)) && (INTC_CFG_INTSRC597_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc597Entry);
+#else /* (INTC_CFG_INTSRC597_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc597Entry);
+#endif /* ((defined(INTC_CFG_INTSRC597_CAT)) \&& (INTC_CFG_INTSRC597_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC597_EN)) \&& (INTC_CFG_INTSRC597_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 598 */
+#if ((defined(INTC_CFG_INTSRC598_EN)) && (INTC_CFG_INTSRC598_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC598_CAT)) && (INTC_CFG_INTSRC598_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc598Entry);
+#else /* (INTC_CFG_INTSRC598_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc598Entry);
+#endif /* ((defined(INTC_CFG_INTSRC598_CAT)) \&& (INTC_CFG_INTSRC598_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC598_EN)) \&& (INTC_CFG_INTSRC598_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 599 */
+#if ((defined(INTC_CFG_INTSRC599_EN)) && (INTC_CFG_INTSRC599_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC599_CAT)) && (INTC_CFG_INTSRC599_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc599Entry);
+#else /* (INTC_CFG_INTSRC599_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc599Entry);
+#endif /* ((defined(INTC_CFG_INTSRC599_CAT)) \&& (INTC_CFG_INTSRC599_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC599_EN)) \&& (INTC_CFG_INTSRC599_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 600 */
+#if ((defined(INTC_CFG_INTSRC600_EN)) && (INTC_CFG_INTSRC600_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC600_CAT)) && (INTC_CFG_INTSRC600_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc600Entry);
+#else /* (INTC_CFG_INTSRC600_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc600Entry);
+#endif /* ((defined(INTC_CFG_INTSRC600_CAT)) \&& (INTC_CFG_INTSRC600_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC600_EN)) \&& (INTC_CFG_INTSRC600_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 601 */
+#if ((defined(INTC_CFG_INTSRC601_EN)) && (INTC_CFG_INTSRC601_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC601_CAT)) && (INTC_CFG_INTSRC601_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc601Entry);
+#else /* (INTC_CFG_INTSRC601_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc601Entry);
+#endif /* ((defined(INTC_CFG_INTSRC601_CAT)) \&& (INTC_CFG_INTSRC601_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC601_EN)) \&& (INTC_CFG_INTSRC601_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 602 */
+#if ((defined(INTC_CFG_INTSRC602_EN)) && (INTC_CFG_INTSRC602_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC602_CAT)) && (INTC_CFG_INTSRC602_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc602Entry);
+#else /* (INTC_CFG_INTSRC602_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc602Entry);
+#endif /* ((defined(INTC_CFG_INTSRC602_CAT)) \&& (INTC_CFG_INTSRC602_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC602_EN)) \&& (INTC_CFG_INTSRC602_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 603 */
+#if ((defined(INTC_CFG_INTSRC603_EN)) && (INTC_CFG_INTSRC603_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC603_CAT)) && (INTC_CFG_INTSRC603_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc603Entry);
+#else /* (INTC_CFG_INTSRC603_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc603Entry);
+#endif /* ((defined(INTC_CFG_INTSRC603_CAT)) \&& (INTC_CFG_INTSRC603_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC603_EN)) \&& (INTC_CFG_INTSRC603_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 604 */
+#if ((defined(INTC_CFG_INTSRC604_EN)) && (INTC_CFG_INTSRC604_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC604_CAT)) && (INTC_CFG_INTSRC604_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc604Entry);
+#else /* (INTC_CFG_INTSRC604_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc604Entry);
+#endif /* ((defined(INTC_CFG_INTSRC604_CAT)) \&& (INTC_CFG_INTSRC604_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC604_EN)) \&& (INTC_CFG_INTSRC604_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 605 */
+#if ((defined(INTC_CFG_INTSRC605_EN)) && (INTC_CFG_INTSRC605_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC605_CAT)) && (INTC_CFG_INTSRC605_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc605Entry);
+#else /* (INTC_CFG_INTSRC605_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc605Entry);
+#endif /* ((defined(INTC_CFG_INTSRC605_CAT)) \&& (INTC_CFG_INTSRC605_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC605_EN)) \&& (INTC_CFG_INTSRC605_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 606 */
+#if ((defined(INTC_CFG_INTSRC606_EN)) && (INTC_CFG_INTSRC606_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC606_CAT)) && (INTC_CFG_INTSRC606_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc606Entry);
+#else /* (INTC_CFG_INTSRC606_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc606Entry);
+#endif /* ((defined(INTC_CFG_INTSRC606_CAT)) \&& (INTC_CFG_INTSRC606_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC606_EN)) \&& (INTC_CFG_INTSRC606_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 607 */
+#if ((defined(INTC_CFG_INTSRC607_EN)) && (INTC_CFG_INTSRC607_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC607_CAT)) && (INTC_CFG_INTSRC607_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc607Entry);
+#else /* (INTC_CFG_INTSRC607_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc607Entry);
+#endif /* ((defined(INTC_CFG_INTSRC607_CAT)) \&& (INTC_CFG_INTSRC607_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC607_EN)) \&& (INTC_CFG_INTSRC607_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 608 */
+#if ((defined(INTC_CFG_INTSRC608_EN)) && (INTC_CFG_INTSRC608_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC608_CAT)) && (INTC_CFG_INTSRC608_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc608Entry);
+#else /* (INTC_CFG_INTSRC608_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc608Entry);
+#endif /* ((defined(INTC_CFG_INTSRC608_CAT)) \&& (INTC_CFG_INTSRC608_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC608_EN)) \&& (INTC_CFG_INTSRC608_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 609 */
+#if ((defined(INTC_CFG_INTSRC609_EN)) && (INTC_CFG_INTSRC609_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC609_CAT)) && (INTC_CFG_INTSRC609_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc609Entry);
+#else /* (INTC_CFG_INTSRC609_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc609Entry);
+#endif /* ((defined(INTC_CFG_INTSRC609_CAT)) \&& (INTC_CFG_INTSRC609_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC609_EN)) \&& (INTC_CFG_INTSRC609_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 610 */
+#if ((defined(INTC_CFG_INTSRC610_EN)) && (INTC_CFG_INTSRC610_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC610_CAT)) && (INTC_CFG_INTSRC610_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc610Entry);
+#else /* (INTC_CFG_INTSRC610_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc610Entry);
+#endif /* ((defined(INTC_CFG_INTSRC610_CAT)) \&& (INTC_CFG_INTSRC610_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC610_EN)) \&& (INTC_CFG_INTSRC610_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 611 */
+#if ((defined(INTC_CFG_INTSRC611_EN)) && (INTC_CFG_INTSRC611_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC611_CAT)) && (INTC_CFG_INTSRC611_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc611Entry);
+#else /* (INTC_CFG_INTSRC611_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc611Entry);
+#endif /* ((defined(INTC_CFG_INTSRC611_CAT)) \&& (INTC_CFG_INTSRC611_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC611_EN)) \&& (INTC_CFG_INTSRC611_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 612 */
+#if ((defined(INTC_CFG_INTSRC612_EN)) && (INTC_CFG_INTSRC612_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC612_CAT)) && (INTC_CFG_INTSRC612_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc612Entry);
+#else /* (INTC_CFG_INTSRC612_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc612Entry);
+#endif /* ((defined(INTC_CFG_INTSRC612_CAT)) \&& (INTC_CFG_INTSRC612_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC612_EN)) \&& (INTC_CFG_INTSRC612_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 613 */
+#if ((defined(INTC_CFG_INTSRC613_EN)) && (INTC_CFG_INTSRC613_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC613_CAT)) && (INTC_CFG_INTSRC613_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc613Entry);
+#else /* (INTC_CFG_INTSRC613_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc613Entry);
+#endif /* ((defined(INTC_CFG_INTSRC613_CAT)) \&& (INTC_CFG_INTSRC613_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC613_EN)) \&& (INTC_CFG_INTSRC613_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 614 */
+#if ((defined(INTC_CFG_INTSRC614_EN)) && (INTC_CFG_INTSRC614_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC614_CAT)) && (INTC_CFG_INTSRC614_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc614Entry);
+#else /* (INTC_CFG_INTSRC614_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc614Entry);
+#endif /* ((defined(INTC_CFG_INTSRC614_CAT)) \&& (INTC_CFG_INTSRC614_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC614_EN)) \&& (INTC_CFG_INTSRC614_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 615 */
+#if ((defined(INTC_CFG_INTSRC615_EN)) && (INTC_CFG_INTSRC615_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC615_CAT)) && (INTC_CFG_INTSRC615_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc615Entry);
+#else /* (INTC_CFG_INTSRC615_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc615Entry);
+#endif /* ((defined(INTC_CFG_INTSRC615_CAT)) \&& (INTC_CFG_INTSRC615_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC615_EN)) \&& (INTC_CFG_INTSRC615_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 616 */
+#if ((defined(INTC_CFG_INTSRC616_EN)) && (INTC_CFG_INTSRC616_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC616_CAT)) && (INTC_CFG_INTSRC616_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc616Entry);
+#else /* (INTC_CFG_INTSRC616_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc616Entry);
+#endif /* ((defined(INTC_CFG_INTSRC616_CAT)) \&& (INTC_CFG_INTSRC616_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC616_EN)) \&& (INTC_CFG_INTSRC616_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 617 */
+#if ((defined(INTC_CFG_INTSRC617_EN)) && (INTC_CFG_INTSRC617_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC617_CAT)) && (INTC_CFG_INTSRC617_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc617Entry);
+#else /* (INTC_CFG_INTSRC617_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc617Entry);
+#endif /* ((defined(INTC_CFG_INTSRC617_CAT)) \&& (INTC_CFG_INTSRC617_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC617_EN)) \&& (INTC_CFG_INTSRC617_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 618 */
+#if ((defined(INTC_CFG_INTSRC618_EN)) && (INTC_CFG_INTSRC618_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC618_CAT)) && (INTC_CFG_INTSRC618_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc618Entry);
+#else /* (INTC_CFG_INTSRC618_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc618Entry);
+#endif /* ((defined(INTC_CFG_INTSRC618_CAT)) \&& (INTC_CFG_INTSRC618_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC618_EN)) \&& (INTC_CFG_INTSRC618_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 619 */
+#if ((defined(INTC_CFG_INTSRC619_EN)) && (INTC_CFG_INTSRC619_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC619_CAT)) && (INTC_CFG_INTSRC619_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc619Entry);
+#else /* (INTC_CFG_INTSRC619_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc619Entry);
+#endif /* ((defined(INTC_CFG_INTSRC619_CAT)) \&& (INTC_CFG_INTSRC619_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC619_EN)) \&& (INTC_CFG_INTSRC619_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 620 */
+#if ((defined(INTC_CFG_INTSRC620_EN)) && (INTC_CFG_INTSRC620_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC620_CAT)) && (INTC_CFG_INTSRC620_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc620Entry);
+#else /* (INTC_CFG_INTSRC620_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc620Entry);
+#endif /* ((defined(INTC_CFG_INTSRC620_CAT)) \&& (INTC_CFG_INTSRC620_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC620_EN)) \&& (INTC_CFG_INTSRC620_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 621 */
+#if ((defined(INTC_CFG_INTSRC621_EN)) && (INTC_CFG_INTSRC621_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC621_CAT)) && (INTC_CFG_INTSRC621_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc621Entry);
+#else /* (INTC_CFG_INTSRC621_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc621Entry);
+#endif /* ((defined(INTC_CFG_INTSRC621_CAT)) \&& (INTC_CFG_INTSRC621_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC621_EN)) \&& (INTC_CFG_INTSRC621_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 622 */
+#if ((defined(INTC_CFG_INTSRC622_EN)) && (INTC_CFG_INTSRC622_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC622_CAT)) && (INTC_CFG_INTSRC622_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc622Entry);
+#else /* (INTC_CFG_INTSRC622_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc622Entry);
+#endif /* ((defined(INTC_CFG_INTSRC622_CAT)) \&& (INTC_CFG_INTSRC622_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC622_EN)) \&& (INTC_CFG_INTSRC622_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 623 */
+#if ((defined(INTC_CFG_INTSRC623_EN)) && (INTC_CFG_INTSRC623_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC623_CAT)) && (INTC_CFG_INTSRC623_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc623Entry);
+#else /* (INTC_CFG_INTSRC623_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc623Entry);
+#endif /* ((defined(INTC_CFG_INTSRC623_CAT)) \&& (INTC_CFG_INTSRC623_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC623_EN)) \&& (INTC_CFG_INTSRC623_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 624 */
+#if ((defined(INTC_CFG_INTSRC624_EN)) && (INTC_CFG_INTSRC624_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC624_CAT)) && (INTC_CFG_INTSRC624_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc624Entry);
+#else /* (INTC_CFG_INTSRC624_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc624Entry);
+#endif /* ((defined(INTC_CFG_INTSRC624_CAT)) \&& (INTC_CFG_INTSRC624_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC624_EN)) \&& (INTC_CFG_INTSRC624_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 625 */
+#if ((defined(INTC_CFG_INTSRC625_EN)) && (INTC_CFG_INTSRC625_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC625_CAT)) && (INTC_CFG_INTSRC625_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc625Entry);
+#else /* (INTC_CFG_INTSRC625_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc625Entry);
+#endif /* ((defined(INTC_CFG_INTSRC625_CAT)) \&& (INTC_CFG_INTSRC625_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC625_EN)) \&& (INTC_CFG_INTSRC625_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 626 */
+#if ((defined(INTC_CFG_INTSRC626_EN)) && (INTC_CFG_INTSRC626_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC626_CAT)) && (INTC_CFG_INTSRC626_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc626Entry);
+#else /* (INTC_CFG_INTSRC626_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc626Entry);
+#endif /* ((defined(INTC_CFG_INTSRC626_CAT)) \&& (INTC_CFG_INTSRC626_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC626_EN)) \&& (INTC_CFG_INTSRC626_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 627 */
+#if ((defined(INTC_CFG_INTSRC627_EN)) && (INTC_CFG_INTSRC627_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC627_CAT)) && (INTC_CFG_INTSRC627_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc627Entry);
+#else /* (INTC_CFG_INTSRC627_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc627Entry);
+#endif /* ((defined(INTC_CFG_INTSRC627_CAT)) \&& (INTC_CFG_INTSRC627_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC627_EN)) \&& (INTC_CFG_INTSRC627_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 628 */
+#if ((defined(INTC_CFG_INTSRC628_EN)) && (INTC_CFG_INTSRC628_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC628_CAT)) && (INTC_CFG_INTSRC628_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc628Entry);
+#else /* (INTC_CFG_INTSRC628_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc628Entry);
+#endif /* ((defined(INTC_CFG_INTSRC628_CAT)) \&& (INTC_CFG_INTSRC628_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC628_EN)) \&& (INTC_CFG_INTSRC628_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 629 */
+#if ((defined(INTC_CFG_INTSRC629_EN)) && (INTC_CFG_INTSRC629_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC629_CAT)) && (INTC_CFG_INTSRC629_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc629Entry);
+#else /* (INTC_CFG_INTSRC629_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc629Entry);
+#endif /* ((defined(INTC_CFG_INTSRC629_CAT)) \&& (INTC_CFG_INTSRC629_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC629_EN)) \&& (INTC_CFG_INTSRC629_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 630 */
+#if ((defined(INTC_CFG_INTSRC630_EN)) && (INTC_CFG_INTSRC630_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC630_CAT)) && (INTC_CFG_INTSRC630_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc630Entry);
+#else /* (INTC_CFG_INTSRC630_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc630Entry);
+#endif /* ((defined(INTC_CFG_INTSRC630_CAT)) \&& (INTC_CFG_INTSRC630_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC630_EN)) \&& (INTC_CFG_INTSRC630_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 631 */
+#if ((defined(INTC_CFG_INTSRC631_EN)) && (INTC_CFG_INTSRC631_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC631_CAT)) && (INTC_CFG_INTSRC631_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc631Entry);
+#else /* (INTC_CFG_INTSRC631_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc631Entry);
+#endif /* ((defined(INTC_CFG_INTSRC631_CAT)) \&& (INTC_CFG_INTSRC631_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC631_EN)) \&& (INTC_CFG_INTSRC631_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 632 */
+#if ((defined(INTC_CFG_INTSRC632_EN)) && (INTC_CFG_INTSRC632_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC632_CAT)) && (INTC_CFG_INTSRC632_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc632Entry);
+#else /* (INTC_CFG_INTSRC632_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc632Entry);
+#endif /* ((defined(INTC_CFG_INTSRC632_CAT)) \&& (INTC_CFG_INTSRC632_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC632_EN)) \&& (INTC_CFG_INTSRC632_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 633 */
+#if ((defined(INTC_CFG_INTSRC633_EN)) && (INTC_CFG_INTSRC633_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC633_CAT)) && (INTC_CFG_INTSRC633_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc633Entry);
+#else /* (INTC_CFG_INTSRC633_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc633Entry);
+#endif /* ((defined(INTC_CFG_INTSRC633_CAT)) \&& (INTC_CFG_INTSRC633_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC633_EN)) \&& (INTC_CFG_INTSRC633_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 634 */
+#if ((defined(INTC_CFG_INTSRC634_EN)) && (INTC_CFG_INTSRC634_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC634_CAT)) && (INTC_CFG_INTSRC634_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc634Entry);
+#else /* (INTC_CFG_INTSRC634_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc634Entry);
+#endif /* ((defined(INTC_CFG_INTSRC634_CAT)) \&& (INTC_CFG_INTSRC634_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC634_EN)) \&& (INTC_CFG_INTSRC634_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 635 */
+#if ((defined(INTC_CFG_INTSRC635_EN)) && (INTC_CFG_INTSRC635_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC635_CAT)) && (INTC_CFG_INTSRC635_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc635Entry);
+#else /* (INTC_CFG_INTSRC635_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc635Entry);
+#endif /* ((defined(INTC_CFG_INTSRC635_CAT)) \&& (INTC_CFG_INTSRC635_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC635_EN)) \&& (INTC_CFG_INTSRC635_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 636 */
+#if ((defined(INTC_CFG_INTSRC636_EN)) && (INTC_CFG_INTSRC636_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC636_CAT)) && (INTC_CFG_INTSRC636_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc636Entry);
+#else /* (INTC_CFG_INTSRC636_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc636Entry);
+#endif /* ((defined(INTC_CFG_INTSRC636_CAT)) \&& (INTC_CFG_INTSRC636_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC636_EN)) \&& (INTC_CFG_INTSRC636_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 637 */
+#if ((defined(INTC_CFG_INTSRC637_EN)) && (INTC_CFG_INTSRC637_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC637_CAT)) && (INTC_CFG_INTSRC637_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc637Entry);
+#else /* (INTC_CFG_INTSRC637_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc637Entry);
+#endif /* ((defined(INTC_CFG_INTSRC637_CAT)) \&& (INTC_CFG_INTSRC637_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC637_EN)) \&& (INTC_CFG_INTSRC637_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 638 */
+#if ((defined(INTC_CFG_INTSRC638_EN)) && (INTC_CFG_INTSRC638_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC638_CAT)) && (INTC_CFG_INTSRC638_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc638Entry);
+#else /* (INTC_CFG_INTSRC638_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc638Entry);
+#endif /* ((defined(INTC_CFG_INTSRC638_CAT)) \&& (INTC_CFG_INTSRC638_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC638_EN)) \&& (INTC_CFG_INTSRC638_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 639 */
+#if ((defined(INTC_CFG_INTSRC639_EN)) && (INTC_CFG_INTSRC639_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC639_CAT)) && (INTC_CFG_INTSRC639_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc639Entry);
+#else /* (INTC_CFG_INTSRC639_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc639Entry);
+#endif /* ((defined(INTC_CFG_INTSRC639_CAT)) \&& (INTC_CFG_INTSRC639_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC639_EN)) \&& (INTC_CFG_INTSRC639_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 640 */
+#if ((defined(INTC_CFG_INTSRC640_EN)) && (INTC_CFG_INTSRC640_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC640_CAT)) && (INTC_CFG_INTSRC640_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc640Entry);
+#else /* (INTC_CFG_INTSRC640_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc640Entry);
+#endif /* ((defined(INTC_CFG_INTSRC640_CAT)) \&& (INTC_CFG_INTSRC640_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC640_EN)) \&& (INTC_CFG_INTSRC640_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 641 */
+#if ((defined(INTC_CFG_INTSRC641_EN)) && (INTC_CFG_INTSRC641_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC641_CAT)) && (INTC_CFG_INTSRC641_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc641Entry);
+#else /* (INTC_CFG_INTSRC641_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc641Entry);
+#endif /* ((defined(INTC_CFG_INTSRC641_CAT)) \&& (INTC_CFG_INTSRC641_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC641_EN)) \&& (INTC_CFG_INTSRC641_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 642 */
+#if ((defined(INTC_CFG_INTSRC642_EN)) && (INTC_CFG_INTSRC642_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC642_CAT)) && (INTC_CFG_INTSRC642_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc642Entry);
+#else /* (INTC_CFG_INTSRC642_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc642Entry);
+#endif /* ((defined(INTC_CFG_INTSRC642_CAT)) \&& (INTC_CFG_INTSRC642_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC642_EN)) \&& (INTC_CFG_INTSRC642_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 643 */
+#if ((defined(INTC_CFG_INTSRC643_EN)) && (INTC_CFG_INTSRC643_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC643_CAT)) && (INTC_CFG_INTSRC643_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc643Entry);
+#else /* (INTC_CFG_INTSRC643_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc643Entry);
+#endif /* ((defined(INTC_CFG_INTSRC643_CAT)) \&& (INTC_CFG_INTSRC643_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC643_EN)) \&& (INTC_CFG_INTSRC643_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 644 */
+#if ((defined(INTC_CFG_INTSRC644_EN)) && (INTC_CFG_INTSRC644_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC644_CAT)) && (INTC_CFG_INTSRC644_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc644Entry);
+#else /* (INTC_CFG_INTSRC644_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc644Entry);
+#endif /* ((defined(INTC_CFG_INTSRC644_CAT)) \&& (INTC_CFG_INTSRC644_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC644_EN)) \&& (INTC_CFG_INTSRC644_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 645 */
+#if ((defined(INTC_CFG_INTSRC645_EN)) && (INTC_CFG_INTSRC645_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC645_CAT)) && (INTC_CFG_INTSRC645_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc645Entry);
+#else /* (INTC_CFG_INTSRC645_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc645Entry);
+#endif /* ((defined(INTC_CFG_INTSRC645_CAT)) \&& (INTC_CFG_INTSRC645_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC645_EN)) \&& (INTC_CFG_INTSRC645_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 646 */
+#if ((defined(INTC_CFG_INTSRC646_EN)) && (INTC_CFG_INTSRC646_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC646_CAT)) && (INTC_CFG_INTSRC646_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc646Entry);
+#else /* (INTC_CFG_INTSRC646_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc646Entry);
+#endif /* ((defined(INTC_CFG_INTSRC646_CAT)) \&& (INTC_CFG_INTSRC646_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC646_EN)) \&& (INTC_CFG_INTSRC646_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 647 */
+#if ((defined(INTC_CFG_INTSRC647_EN)) && (INTC_CFG_INTSRC647_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC647_CAT)) && (INTC_CFG_INTSRC647_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc647Entry);
+#else /* (INTC_CFG_INTSRC647_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc647Entry);
+#endif /* ((defined(INTC_CFG_INTSRC647_CAT)) \&& (INTC_CFG_INTSRC647_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC647_EN)) \&& (INTC_CFG_INTSRC647_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 648 */
+#if ((defined(INTC_CFG_INTSRC648_EN)) && (INTC_CFG_INTSRC648_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC648_CAT)) && (INTC_CFG_INTSRC648_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc648Entry);
+#else /* (INTC_CFG_INTSRC648_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc648Entry);
+#endif /* ((defined(INTC_CFG_INTSRC648_CAT)) \&& (INTC_CFG_INTSRC648_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC648_EN)) \&& (INTC_CFG_INTSRC648_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 649 */
+#if ((defined(INTC_CFG_INTSRC649_EN)) && (INTC_CFG_INTSRC649_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC649_CAT)) && (INTC_CFG_INTSRC649_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc649Entry);
+#else /* (INTC_CFG_INTSRC649_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc649Entry);
+#endif /* ((defined(INTC_CFG_INTSRC649_CAT)) \&& (INTC_CFG_INTSRC649_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC649_EN)) \&& (INTC_CFG_INTSRC649_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 650 */
+#if ((defined(INTC_CFG_INTSRC650_EN)) && (INTC_CFG_INTSRC650_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC650_CAT)) && (INTC_CFG_INTSRC650_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc650Entry);
+#else /* (INTC_CFG_INTSRC650_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc650Entry);
+#endif /* ((defined(INTC_CFG_INTSRC650_CAT)) \&& (INTC_CFG_INTSRC650_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC650_EN)) \&& (INTC_CFG_INTSRC650_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 651 */
+#if ((defined(INTC_CFG_INTSRC651_EN)) && (INTC_CFG_INTSRC651_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC651_CAT)) && (INTC_CFG_INTSRC651_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc651Entry);
+#else /* (INTC_CFG_INTSRC651_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc651Entry);
+#endif /* ((defined(INTC_CFG_INTSRC651_CAT)) \&& (INTC_CFG_INTSRC651_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC651_EN)) \&& (INTC_CFG_INTSRC651_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 652 */
+#if ((defined(INTC_CFG_INTSRC652_EN)) && (INTC_CFG_INTSRC652_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC652_CAT)) && (INTC_CFG_INTSRC652_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc652Entry);
+#else /* (INTC_CFG_INTSRC652_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc652Entry);
+#endif /* ((defined(INTC_CFG_INTSRC652_CAT)) \&& (INTC_CFG_INTSRC652_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC652_EN)) \&& (INTC_CFG_INTSRC652_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 653 */
+#if ((defined(INTC_CFG_INTSRC653_EN)) && (INTC_CFG_INTSRC653_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC653_CAT)) && (INTC_CFG_INTSRC653_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc653Entry);
+#else /* (INTC_CFG_INTSRC653_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc653Entry);
+#endif /* ((defined(INTC_CFG_INTSRC653_CAT)) \&& (INTC_CFG_INTSRC653_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC653_EN)) \&& (INTC_CFG_INTSRC653_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 654 */
+#if ((defined(INTC_CFG_INTSRC654_EN)) && (INTC_CFG_INTSRC654_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC654_CAT)) && (INTC_CFG_INTSRC654_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc654Entry);
+#else /* (INTC_CFG_INTSRC654_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc654Entry);
+#endif /* ((defined(INTC_CFG_INTSRC654_CAT)) \&& (INTC_CFG_INTSRC654_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC654_EN)) \&& (INTC_CFG_INTSRC654_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 655 */
+#if ((defined(INTC_CFG_INTSRC655_EN)) && (INTC_CFG_INTSRC655_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC655_CAT)) && (INTC_CFG_INTSRC655_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc655Entry);
+#else /* (INTC_CFG_INTSRC655_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc655Entry);
+#endif /* ((defined(INTC_CFG_INTSRC655_CAT)) \&& (INTC_CFG_INTSRC655_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC655_EN)) \&& (INTC_CFG_INTSRC655_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 656 */
+#if ((defined(INTC_CFG_INTSRC656_EN)) && (INTC_CFG_INTSRC656_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC656_CAT)) && (INTC_CFG_INTSRC656_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc656Entry);
+#else /* (INTC_CFG_INTSRC656_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc656Entry);
+#endif /* ((defined(INTC_CFG_INTSRC656_CAT)) \&& (INTC_CFG_INTSRC656_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC656_EN)) \&& (INTC_CFG_INTSRC656_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 657 */
+#if ((defined(INTC_CFG_INTSRC657_EN)) && (INTC_CFG_INTSRC657_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC657_CAT)) && (INTC_CFG_INTSRC657_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc657Entry);
+#else /* (INTC_CFG_INTSRC657_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc657Entry);
+#endif /* ((defined(INTC_CFG_INTSRC657_CAT)) \&& (INTC_CFG_INTSRC657_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC657_EN)) \&& (INTC_CFG_INTSRC657_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 658 */
+#if ((defined(INTC_CFG_INTSRC658_EN)) && (INTC_CFG_INTSRC658_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC658_CAT)) && (INTC_CFG_INTSRC658_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc658Entry);
+#else /* (INTC_CFG_INTSRC658_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc658Entry);
+#endif /* ((defined(INTC_CFG_INTSRC658_CAT)) \&& (INTC_CFG_INTSRC658_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC658_EN)) \&& (INTC_CFG_INTSRC658_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 659 */
+#if ((defined(INTC_CFG_INTSRC659_EN)) && (INTC_CFG_INTSRC659_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC659_CAT)) && (INTC_CFG_INTSRC659_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc659Entry);
+#else /* (INTC_CFG_INTSRC659_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc659Entry);
+#endif /* ((defined(INTC_CFG_INTSRC659_CAT)) \&& (INTC_CFG_INTSRC659_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC659_EN)) \&& (INTC_CFG_INTSRC659_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 660 */
+#if ((defined(INTC_CFG_INTSRC660_EN)) && (INTC_CFG_INTSRC660_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC660_CAT)) && (INTC_CFG_INTSRC660_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc660Entry);
+#else /* (INTC_CFG_INTSRC660_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc660Entry);
+#endif /* ((defined(INTC_CFG_INTSRC660_CAT)) \&& (INTC_CFG_INTSRC660_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC660_EN)) \&& (INTC_CFG_INTSRC660_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 661 */
+#if ((defined(INTC_CFG_INTSRC661_EN)) && (INTC_CFG_INTSRC661_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC661_CAT)) && (INTC_CFG_INTSRC661_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc661Entry);
+#else /* (INTC_CFG_INTSRC661_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc661Entry);
+#endif /* ((defined(INTC_CFG_INTSRC661_CAT)) \&& (INTC_CFG_INTSRC661_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC661_EN)) \&& (INTC_CFG_INTSRC661_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 662 */
+#if ((defined(INTC_CFG_INTSRC662_EN)) && (INTC_CFG_INTSRC662_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC662_CAT)) && (INTC_CFG_INTSRC662_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc662Entry);
+#else /* (INTC_CFG_INTSRC662_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc662Entry);
+#endif /* ((defined(INTC_CFG_INTSRC662_CAT)) \&& (INTC_CFG_INTSRC662_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC662_EN)) \&& (INTC_CFG_INTSRC662_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 663 */
+#if ((defined(INTC_CFG_INTSRC663_EN)) && (INTC_CFG_INTSRC663_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC663_CAT)) && (INTC_CFG_INTSRC663_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc663Entry);
+#else /* (INTC_CFG_INTSRC663_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc663Entry);
+#endif /* ((defined(INTC_CFG_INTSRC663_CAT)) \&& (INTC_CFG_INTSRC663_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC663_EN)) \&& (INTC_CFG_INTSRC663_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 664 */
+#if ((defined(INTC_CFG_INTSRC664_EN)) && (INTC_CFG_INTSRC664_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC664_CAT)) && (INTC_CFG_INTSRC664_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc664Entry);
+#else /* (INTC_CFG_INTSRC664_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc664Entry);
+#endif /* ((defined(INTC_CFG_INTSRC664_CAT)) \&& (INTC_CFG_INTSRC664_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC664_EN)) \&& (INTC_CFG_INTSRC664_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 665 */
+#if ((defined(INTC_CFG_INTSRC665_EN)) && (INTC_CFG_INTSRC665_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC665_CAT)) && (INTC_CFG_INTSRC665_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc665Entry);
+#else /* (INTC_CFG_INTSRC665_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc665Entry);
+#endif /* ((defined(INTC_CFG_INTSRC665_CAT)) \&& (INTC_CFG_INTSRC665_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC665_EN)) \&& (INTC_CFG_INTSRC665_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 666 */
+#if ((defined(INTC_CFG_INTSRC666_EN)) && (INTC_CFG_INTSRC666_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC666_CAT)) && (INTC_CFG_INTSRC666_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc666Entry);
+#else /* (INTC_CFG_INTSRC666_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc666Entry);
+#endif /* ((defined(INTC_CFG_INTSRC666_CAT)) \&& (INTC_CFG_INTSRC666_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC666_EN)) \&& (INTC_CFG_INTSRC666_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 667 */
+#if ((defined(INTC_CFG_INTSRC667_EN)) && (INTC_CFG_INTSRC667_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC667_CAT)) && (INTC_CFG_INTSRC667_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc667Entry);
+#else /* (INTC_CFG_INTSRC667_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc667Entry);
+#endif /* ((defined(INTC_CFG_INTSRC667_CAT)) \&& (INTC_CFG_INTSRC667_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC667_EN)) \&& (INTC_CFG_INTSRC667_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 668 */
+#if ((defined(INTC_CFG_INTSRC668_EN)) && (INTC_CFG_INTSRC668_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC668_CAT)) && (INTC_CFG_INTSRC668_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc668Entry);
+#else /* (INTC_CFG_INTSRC668_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc668Entry);
+#endif /* ((defined(INTC_CFG_INTSRC668_CAT)) \&& (INTC_CFG_INTSRC668_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC668_EN)) \&& (INTC_CFG_INTSRC668_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 669 */
+#if ((defined(INTC_CFG_INTSRC669_EN)) && (INTC_CFG_INTSRC669_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC669_CAT)) && (INTC_CFG_INTSRC669_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc669Entry);
+#else /* (INTC_CFG_INTSRC669_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc669Entry);
+#endif /* ((defined(INTC_CFG_INTSRC669_CAT)) \&& (INTC_CFG_INTSRC669_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC669_EN)) \&& (INTC_CFG_INTSRC669_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 670 */
+#if ((defined(INTC_CFG_INTSRC670_EN)) && (INTC_CFG_INTSRC670_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC670_CAT)) && (INTC_CFG_INTSRC670_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc670Entry);
+#else /* (INTC_CFG_INTSRC670_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc670Entry);
+#endif /* ((defined(INTC_CFG_INTSRC670_CAT)) \&& (INTC_CFG_INTSRC670_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC670_EN)) \&& (INTC_CFG_INTSRC670_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 671 */
+#if ((defined(INTC_CFG_INTSRC671_EN)) && (INTC_CFG_INTSRC671_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC671_CAT)) && (INTC_CFG_INTSRC671_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc671Entry);
+#else /* (INTC_CFG_INTSRC671_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc671Entry);
+#endif /* ((defined(INTC_CFG_INTSRC671_CAT)) \&& (INTC_CFG_INTSRC671_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC671_EN)) \&& (INTC_CFG_INTSRC671_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 672 */
+#if ((defined(INTC_CFG_INTSRC672_EN)) && (INTC_CFG_INTSRC672_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC672_CAT)) && (INTC_CFG_INTSRC672_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc672Entry);
+#else /* (INTC_CFG_INTSRC672_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc672Entry);
+#endif /* ((defined(INTC_CFG_INTSRC672_CAT)) \&& (INTC_CFG_INTSRC672_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC672_EN)) \&& (INTC_CFG_INTSRC672_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 673 */
+#if ((defined(INTC_CFG_INTSRC673_EN)) && (INTC_CFG_INTSRC673_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC673_CAT)) && (INTC_CFG_INTSRC673_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc673Entry);
+#else /* (INTC_CFG_INTSRC673_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc673Entry);
+#endif /* ((defined(INTC_CFG_INTSRC673_CAT)) \&& (INTC_CFG_INTSRC673_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC673_EN)) \&& (INTC_CFG_INTSRC673_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 674 */
+#if ((defined(INTC_CFG_INTSRC674_EN)) && (INTC_CFG_INTSRC674_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC674_CAT)) && (INTC_CFG_INTSRC674_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc674Entry);
+#else /* (INTC_CFG_INTSRC674_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc674Entry);
+#endif /* ((defined(INTC_CFG_INTSRC674_CAT)) \&& (INTC_CFG_INTSRC674_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC674_EN)) \&& (INTC_CFG_INTSRC674_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 675 */
+#if ((defined(INTC_CFG_INTSRC675_EN)) && (INTC_CFG_INTSRC675_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC675_CAT)) && (INTC_CFG_INTSRC675_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc675Entry);
+#else /* (INTC_CFG_INTSRC675_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc675Entry);
+#endif /* ((defined(INTC_CFG_INTSRC675_CAT)) \&& (INTC_CFG_INTSRC675_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC675_EN)) \&& (INTC_CFG_INTSRC675_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 676 */
+#if ((defined(INTC_CFG_INTSRC676_EN)) && (INTC_CFG_INTSRC676_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC676_CAT)) && (INTC_CFG_INTSRC676_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc676Entry);
+#else /* (INTC_CFG_INTSRC676_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc676Entry);
+#endif /* ((defined(INTC_CFG_INTSRC676_CAT)) \&& (INTC_CFG_INTSRC676_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC676_EN)) \&& (INTC_CFG_INTSRC676_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 677 */
+#if ((defined(INTC_CFG_INTSRC677_EN)) && (INTC_CFG_INTSRC677_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC677_CAT)) && (INTC_CFG_INTSRC677_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc677Entry);
+#else /* (INTC_CFG_INTSRC677_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc677Entry);
+#endif /* ((defined(INTC_CFG_INTSRC677_CAT)) \&& (INTC_CFG_INTSRC677_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC677_EN)) \&& (INTC_CFG_INTSRC677_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 678 */
+#if ((defined(INTC_CFG_INTSRC678_EN)) && (INTC_CFG_INTSRC678_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC678_CAT)) && (INTC_CFG_INTSRC678_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc678Entry);
+#else /* (INTC_CFG_INTSRC678_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc678Entry);
+#endif /* ((defined(INTC_CFG_INTSRC678_CAT)) \&& (INTC_CFG_INTSRC678_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC678_EN)) \&& (INTC_CFG_INTSRC678_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 679 */
+#if ((defined(INTC_CFG_INTSRC679_EN)) && (INTC_CFG_INTSRC679_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC679_CAT)) && (INTC_CFG_INTSRC679_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc679Entry);
+#else /* (INTC_CFG_INTSRC679_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc679Entry);
+#endif /* ((defined(INTC_CFG_INTSRC679_CAT)) \&& (INTC_CFG_INTSRC679_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC679_EN)) \&& (INTC_CFG_INTSRC679_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 680 */
+#if ((defined(INTC_CFG_INTSRC680_EN)) && (INTC_CFG_INTSRC680_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC680_CAT)) && (INTC_CFG_INTSRC680_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc680Entry);
+#else /* (INTC_CFG_INTSRC680_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc680Entry);
+#endif /* ((defined(INTC_CFG_INTSRC680_CAT)) \&& (INTC_CFG_INTSRC680_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC680_EN)) \&& (INTC_CFG_INTSRC680_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 681 */
+#if ((defined(INTC_CFG_INTSRC681_EN)) && (INTC_CFG_INTSRC681_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC681_CAT)) && (INTC_CFG_INTSRC681_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc681Entry);
+#else /* (INTC_CFG_INTSRC681_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc681Entry);
+#endif /* ((defined(INTC_CFG_INTSRC681_CAT)) \&& (INTC_CFG_INTSRC681_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC681_EN)) \&& (INTC_CFG_INTSRC681_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 682 */
+#if ((defined(INTC_CFG_INTSRC682_EN)) && (INTC_CFG_INTSRC682_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC682_CAT)) && (INTC_CFG_INTSRC682_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc682Entry);
+#else /* (INTC_CFG_INTSRC682_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc682Entry);
+#endif /* ((defined(INTC_CFG_INTSRC682_CAT)) \&& (INTC_CFG_INTSRC682_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC682_EN)) \&& (INTC_CFG_INTSRC682_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 683 */
+#if ((defined(INTC_CFG_INTSRC683_EN)) && (INTC_CFG_INTSRC683_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC683_CAT)) && (INTC_CFG_INTSRC683_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc683Entry);
+#else /* (INTC_CFG_INTSRC683_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc683Entry);
+#endif /* ((defined(INTC_CFG_INTSRC683_CAT)) \&& (INTC_CFG_INTSRC683_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC683_EN)) \&& (INTC_CFG_INTSRC683_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 684 */
+#if ((defined(INTC_CFG_INTSRC684_EN)) && (INTC_CFG_INTSRC684_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC684_CAT)) && (INTC_CFG_INTSRC684_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc684Entry);
+#else /* (INTC_CFG_INTSRC684_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc684Entry);
+#endif /* ((defined(INTC_CFG_INTSRC684_CAT)) \&& (INTC_CFG_INTSRC684_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC684_EN)) \&& (INTC_CFG_INTSRC684_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 685 */
+#if ((defined(INTC_CFG_INTSRC685_EN)) && (INTC_CFG_INTSRC685_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC685_CAT)) && (INTC_CFG_INTSRC685_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc685Entry);
+#else /* (INTC_CFG_INTSRC685_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc685Entry);
+#endif /* ((defined(INTC_CFG_INTSRC685_CAT)) \&& (INTC_CFG_INTSRC685_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC685_EN)) \&& (INTC_CFG_INTSRC685_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 686 */
+#if ((defined(INTC_CFG_INTSRC686_EN)) && (INTC_CFG_INTSRC686_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC686_CAT)) && (INTC_CFG_INTSRC686_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc686Entry);
+#else /* (INTC_CFG_INTSRC686_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc686Entry);
+#endif /* ((defined(INTC_CFG_INTSRC686_CAT)) \&& (INTC_CFG_INTSRC686_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC686_EN)) \&& (INTC_CFG_INTSRC686_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 687 */
+#if ((defined(INTC_CFG_INTSRC687_EN)) && (INTC_CFG_INTSRC687_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC687_CAT)) && (INTC_CFG_INTSRC687_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc687Entry);
+#else /* (INTC_CFG_INTSRC687_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc687Entry);
+#endif /* ((defined(INTC_CFG_INTSRC687_CAT)) \&& (INTC_CFG_INTSRC687_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC687_EN)) \&& (INTC_CFG_INTSRC687_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 688 */
+#if ((defined(INTC_CFG_INTSRC688_EN)) && (INTC_CFG_INTSRC688_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC688_CAT)) && (INTC_CFG_INTSRC688_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc688Entry);
+#else /* (INTC_CFG_INTSRC688_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc688Entry);
+#endif /* ((defined(INTC_CFG_INTSRC688_CAT)) \&& (INTC_CFG_INTSRC688_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC688_EN)) \&& (INTC_CFG_INTSRC688_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 689 */
+#if ((defined(INTC_CFG_INTSRC689_EN)) && (INTC_CFG_INTSRC689_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC689_CAT)) && (INTC_CFG_INTSRC689_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc689Entry);
+#else /* (INTC_CFG_INTSRC689_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc689Entry);
+#endif /* ((defined(INTC_CFG_INTSRC689_CAT)) \&& (INTC_CFG_INTSRC689_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC689_EN)) \&& (INTC_CFG_INTSRC689_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 690 */
+#if ((defined(INTC_CFG_INTSRC690_EN)) && (INTC_CFG_INTSRC690_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC690_CAT)) && (INTC_CFG_INTSRC690_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc690Entry);
+#else /* (INTC_CFG_INTSRC690_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc690Entry);
+#endif /* ((defined(INTC_CFG_INTSRC690_CAT)) \&& (INTC_CFG_INTSRC690_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC690_EN)) \&& (INTC_CFG_INTSRC690_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 691 */
+#if ((defined(INTC_CFG_INTSRC691_EN)) && (INTC_CFG_INTSRC691_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC691_CAT)) && (INTC_CFG_INTSRC691_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc691Entry);
+#else /* (INTC_CFG_INTSRC691_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc691Entry);
+#endif /* ((defined(INTC_CFG_INTSRC691_CAT)) \&& (INTC_CFG_INTSRC691_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC691_EN)) \&& (INTC_CFG_INTSRC691_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 692 */
+#if ((defined(INTC_CFG_INTSRC692_EN)) && (INTC_CFG_INTSRC692_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC692_CAT)) && (INTC_CFG_INTSRC692_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc692Entry);
+#else /* (INTC_CFG_INTSRC692_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc692Entry);
+#endif /* ((defined(INTC_CFG_INTSRC692_CAT)) \&& (INTC_CFG_INTSRC692_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC692_EN)) \&& (INTC_CFG_INTSRC692_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 693 */
+#if ((defined(INTC_CFG_INTSRC693_EN)) && (INTC_CFG_INTSRC693_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC693_CAT)) && (INTC_CFG_INTSRC693_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc693Entry);
+#else /* (INTC_CFG_INTSRC693_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc693Entry);
+#endif /* ((defined(INTC_CFG_INTSRC693_CAT)) \&& (INTC_CFG_INTSRC693_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC693_EN)) \&& (INTC_CFG_INTSRC693_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 694 */
+#if ((defined(INTC_CFG_INTSRC694_EN)) && (INTC_CFG_INTSRC694_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC694_CAT)) && (INTC_CFG_INTSRC694_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc694Entry);
+#else /* (INTC_CFG_INTSRC694_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc694Entry);
+#endif /* ((defined(INTC_CFG_INTSRC694_CAT)) \&& (INTC_CFG_INTSRC694_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC694_EN)) \&& (INTC_CFG_INTSRC694_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 695 */
+#if ((defined(INTC_CFG_INTSRC695_EN)) && (INTC_CFG_INTSRC695_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC695_CAT)) && (INTC_CFG_INTSRC695_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc695Entry);
+#else /* (INTC_CFG_INTSRC695_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc695Entry);
+#endif /* ((defined(INTC_CFG_INTSRC695_CAT)) \&& (INTC_CFG_INTSRC695_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC695_EN)) \&& (INTC_CFG_INTSRC695_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 696 */
+#if ((defined(INTC_CFG_INTSRC696_EN)) && (INTC_CFG_INTSRC696_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC696_CAT)) && (INTC_CFG_INTSRC696_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc696Entry);
+#else /* (INTC_CFG_INTSRC696_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc696Entry);
+#endif /* ((defined(INTC_CFG_INTSRC696_CAT)) \&& (INTC_CFG_INTSRC696_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC696_EN)) \&& (INTC_CFG_INTSRC696_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 697 */
+#if ((defined(INTC_CFG_INTSRC697_EN)) && (INTC_CFG_INTSRC697_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC697_CAT)) && (INTC_CFG_INTSRC697_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc697Entry);
+#else /* (INTC_CFG_INTSRC697_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc697Entry);
+#endif /* ((defined(INTC_CFG_INTSRC697_CAT)) \&& (INTC_CFG_INTSRC697_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC697_EN)) \&& (INTC_CFG_INTSRC697_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 698 */
+#if ((defined(INTC_CFG_INTSRC698_EN)) && (INTC_CFG_INTSRC698_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC698_CAT)) && (INTC_CFG_INTSRC698_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc698Entry);
+#else /* (INTC_CFG_INTSRC698_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc698Entry);
+#endif /* ((defined(INTC_CFG_INTSRC698_CAT)) \&& (INTC_CFG_INTSRC698_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC698_EN)) \&& (INTC_CFG_INTSRC698_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 699 */
+#if ((defined(INTC_CFG_INTSRC699_EN)) && (INTC_CFG_INTSRC699_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC699_CAT)) && (INTC_CFG_INTSRC699_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc699Entry);
+#else /* (INTC_CFG_INTSRC699_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc699Entry);
+#endif /* ((defined(INTC_CFG_INTSRC699_CAT)) \&& (INTC_CFG_INTSRC699_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC699_EN)) \&& (INTC_CFG_INTSRC699_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 700 */
+#if ((defined(INTC_CFG_INTSRC700_EN)) && (INTC_CFG_INTSRC700_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC700_CAT)) && (INTC_CFG_INTSRC700_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc700Entry);
+#else /* (INTC_CFG_INTSRC700_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc700Entry);
+#endif /* ((defined(INTC_CFG_INTSRC700_CAT)) \&& (INTC_CFG_INTSRC700_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC700_EN)) \&& (INTC_CFG_INTSRC700_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 701 */
+#if ((defined(INTC_CFG_INTSRC701_EN)) && (INTC_CFG_INTSRC701_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC701_CAT)) && (INTC_CFG_INTSRC701_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc701Entry);
+#else /* (INTC_CFG_INTSRC701_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc701Entry);
+#endif /* ((defined(INTC_CFG_INTSRC701_CAT)) \&& (INTC_CFG_INTSRC701_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC701_EN)) \&& (INTC_CFG_INTSRC701_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 702 */
+#if ((defined(INTC_CFG_INTSRC702_EN)) && (INTC_CFG_INTSRC702_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC702_CAT)) && (INTC_CFG_INTSRC702_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc702Entry);
+#else /* (INTC_CFG_INTSRC702_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc702Entry);
+#endif /* ((defined(INTC_CFG_INTSRC702_CAT)) \&& (INTC_CFG_INTSRC702_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC702_EN)) \&& (INTC_CFG_INTSRC702_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 703 */
+#if ((defined(INTC_CFG_INTSRC703_EN)) && (INTC_CFG_INTSRC703_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC703_CAT)) && (INTC_CFG_INTSRC703_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc703Entry);
+#else /* (INTC_CFG_INTSRC703_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc703Entry);
+#endif /* ((defined(INTC_CFG_INTSRC703_CAT)) \&& (INTC_CFG_INTSRC703_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC703_EN)) \&& (INTC_CFG_INTSRC703_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 704 */
+#if ((defined(INTC_CFG_INTSRC704_EN)) && (INTC_CFG_INTSRC704_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC704_CAT)) && (INTC_CFG_INTSRC704_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc704Entry);
+#else /* (INTC_CFG_INTSRC704_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc704Entry);
+#endif /* ((defined(INTC_CFG_INTSRC704_CAT)) \&& (INTC_CFG_INTSRC704_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC704_EN)) \&& (INTC_CFG_INTSRC704_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 705 */
+#if ((defined(INTC_CFG_INTSRC705_EN)) && (INTC_CFG_INTSRC705_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC705_CAT)) && (INTC_CFG_INTSRC705_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc705Entry);
+#else /* (INTC_CFG_INTSRC705_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc705Entry);
+#endif /* ((defined(INTC_CFG_INTSRC705_CAT)) \&& (INTC_CFG_INTSRC705_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC705_EN)) \&& (INTC_CFG_INTSRC705_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 706 */
+#if ((defined(INTC_CFG_INTSRC706_EN)) && (INTC_CFG_INTSRC706_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC706_CAT)) && (INTC_CFG_INTSRC706_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc706Entry);
+#else /* (INTC_CFG_INTSRC706_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc706Entry);
+#endif /* ((defined(INTC_CFG_INTSRC706_CAT)) \&& (INTC_CFG_INTSRC706_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC706_EN)) \&& (INTC_CFG_INTSRC706_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 707 */
+#if ((defined(INTC_CFG_INTSRC707_EN)) && (INTC_CFG_INTSRC707_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC707_CAT)) && (INTC_CFG_INTSRC707_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc707Entry);
+#else /* (INTC_CFG_INTSRC707_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc707Entry);
+#endif /* ((defined(INTC_CFG_INTSRC707_CAT)) \&& (INTC_CFG_INTSRC707_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC707_EN)) \&& (INTC_CFG_INTSRC707_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 708 */
+#if ((defined(INTC_CFG_INTSRC708_EN)) && (INTC_CFG_INTSRC708_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC708_CAT)) && (INTC_CFG_INTSRC708_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc708Entry);
+#else /* (INTC_CFG_INTSRC708_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc708Entry);
+#endif /* ((defined(INTC_CFG_INTSRC708_CAT)) \&& (INTC_CFG_INTSRC708_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC708_EN)) \&& (INTC_CFG_INTSRC708_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 709 */
+#if ((defined(INTC_CFG_INTSRC709_EN)) && (INTC_CFG_INTSRC709_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC709_CAT)) && (INTC_CFG_INTSRC709_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc709Entry);
+#else /* (INTC_CFG_INTSRC709_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc709Entry);
+#endif /* ((defined(INTC_CFG_INTSRC709_CAT)) \&& (INTC_CFG_INTSRC709_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC709_EN)) \&& (INTC_CFG_INTSRC709_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 710 */
+#if ((defined(INTC_CFG_INTSRC710_EN)) && (INTC_CFG_INTSRC710_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC710_CAT)) && (INTC_CFG_INTSRC710_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc710Entry);
+#else /* (INTC_CFG_INTSRC710_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc710Entry);
+#endif /* ((defined(INTC_CFG_INTSRC710_CAT)) \&& (INTC_CFG_INTSRC710_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC710_EN)) \&& (INTC_CFG_INTSRC710_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 711 */
+#if ((defined(INTC_CFG_INTSRC711_EN)) && (INTC_CFG_INTSRC711_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC711_CAT)) && (INTC_CFG_INTSRC711_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc711Entry);
+#else /* (INTC_CFG_INTSRC711_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc711Entry);
+#endif /* ((defined(INTC_CFG_INTSRC711_CAT)) \&& (INTC_CFG_INTSRC711_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC711_EN)) \&& (INTC_CFG_INTSRC711_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 712 */
+#if ((defined(INTC_CFG_INTSRC712_EN)) && (INTC_CFG_INTSRC712_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC712_CAT)) && (INTC_CFG_INTSRC712_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc712Entry);
+#else /* (INTC_CFG_INTSRC712_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc712Entry);
+#endif /* ((defined(INTC_CFG_INTSRC712_CAT)) \&& (INTC_CFG_INTSRC712_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC712_EN)) \&& (INTC_CFG_INTSRC712_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 713 */
+#if ((defined(INTC_CFG_INTSRC713_EN)) && (INTC_CFG_INTSRC713_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC713_CAT)) && (INTC_CFG_INTSRC713_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc713Entry);
+#else /* (INTC_CFG_INTSRC713_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc713Entry);
+#endif /* ((defined(INTC_CFG_INTSRC713_CAT)) \&& (INTC_CFG_INTSRC713_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC713_EN)) \&& (INTC_CFG_INTSRC713_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 714 */
+#if ((defined(INTC_CFG_INTSRC714_EN)) && (INTC_CFG_INTSRC714_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC714_CAT)) && (INTC_CFG_INTSRC714_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc714Entry);
+#else /* (INTC_CFG_INTSRC714_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc714Entry);
+#endif /* ((defined(INTC_CFG_INTSRC714_CAT)) \&& (INTC_CFG_INTSRC714_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC714_EN)) \&& (INTC_CFG_INTSRC714_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 715 */
+#if ((defined(INTC_CFG_INTSRC715_EN)) && (INTC_CFG_INTSRC715_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC715_CAT)) && (INTC_CFG_INTSRC715_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc715Entry);
+#else /* (INTC_CFG_INTSRC715_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc715Entry);
+#endif /* ((defined(INTC_CFG_INTSRC715_CAT)) \&& (INTC_CFG_INTSRC715_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC715_EN)) \&& (INTC_CFG_INTSRC715_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 716 */
+#if ((defined(INTC_CFG_INTSRC716_EN)) && (INTC_CFG_INTSRC716_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC716_CAT)) && (INTC_CFG_INTSRC716_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc716Entry);
+#else /* (INTC_CFG_INTSRC716_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc716Entry);
+#endif /* ((defined(INTC_CFG_INTSRC716_CAT)) \&& (INTC_CFG_INTSRC716_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC716_EN)) \&& (INTC_CFG_INTSRC716_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 717 */
+#if ((defined(INTC_CFG_INTSRC717_EN)) && (INTC_CFG_INTSRC717_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC717_CAT)) && (INTC_CFG_INTSRC717_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc717Entry);
+#else /* (INTC_CFG_INTSRC717_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc717Entry);
+#endif /* ((defined(INTC_CFG_INTSRC717_CAT)) \&& (INTC_CFG_INTSRC717_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC717_EN)) \&& (INTC_CFG_INTSRC717_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 718 */
+#if ((defined(INTC_CFG_INTSRC718_EN)) && (INTC_CFG_INTSRC718_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC718_CAT)) && (INTC_CFG_INTSRC718_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc718Entry);
+#else /* (INTC_CFG_INTSRC718_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc718Entry);
+#endif /* ((defined(INTC_CFG_INTSRC718_CAT)) \&& (INTC_CFG_INTSRC718_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC718_EN)) \&& (INTC_CFG_INTSRC718_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 719 */
+#if ((defined(INTC_CFG_INTSRC719_EN)) && (INTC_CFG_INTSRC719_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC719_CAT)) && (INTC_CFG_INTSRC719_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc719Entry);
+#else /* (INTC_CFG_INTSRC719_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc719Entry);
+#endif /* ((defined(INTC_CFG_INTSRC719_CAT)) \&& (INTC_CFG_INTSRC719_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC719_EN)) \&& (INTC_CFG_INTSRC719_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 720 */
+#if ((defined(INTC_CFG_INTSRC720_EN)) && (INTC_CFG_INTSRC720_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC720_CAT)) && (INTC_CFG_INTSRC720_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc720Entry);
+#else /* (INTC_CFG_INTSRC720_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc720Entry);
+#endif /* ((defined(INTC_CFG_INTSRC720_CAT)) \&& (INTC_CFG_INTSRC720_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC720_EN)) \&& (INTC_CFG_INTSRC720_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 721 */
+#if ((defined(INTC_CFG_INTSRC721_EN)) && (INTC_CFG_INTSRC721_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC721_CAT)) && (INTC_CFG_INTSRC721_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc721Entry);
+#else /* (INTC_CFG_INTSRC721_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc721Entry);
+#endif /* ((defined(INTC_CFG_INTSRC721_CAT)) \&& (INTC_CFG_INTSRC721_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC721_EN)) \&& (INTC_CFG_INTSRC721_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 722 */
+#if ((defined(INTC_CFG_INTSRC722_EN)) && (INTC_CFG_INTSRC722_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC722_CAT)) && (INTC_CFG_INTSRC722_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc722Entry);
+#else /* (INTC_CFG_INTSRC722_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc722Entry);
+#endif /* ((defined(INTC_CFG_INTSRC722_CAT)) \&& (INTC_CFG_INTSRC722_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC722_EN)) \&& (INTC_CFG_INTSRC722_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 723 */
+#if ((defined(INTC_CFG_INTSRC723_EN)) && (INTC_CFG_INTSRC723_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC723_CAT)) && (INTC_CFG_INTSRC723_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc723Entry);
+#else /* (INTC_CFG_INTSRC723_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc723Entry);
+#endif /* ((defined(INTC_CFG_INTSRC723_CAT)) \&& (INTC_CFG_INTSRC723_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC723_EN)) \&& (INTC_CFG_INTSRC723_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 724 */
+#if ((defined(INTC_CFG_INTSRC724_EN)) && (INTC_CFG_INTSRC724_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC724_CAT)) && (INTC_CFG_INTSRC724_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc724Entry);
+#else /* (INTC_CFG_INTSRC724_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc724Entry);
+#endif /* ((defined(INTC_CFG_INTSRC724_CAT)) \&& (INTC_CFG_INTSRC724_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC724_EN)) \&& (INTC_CFG_INTSRC724_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 725 */
+#if ((defined(INTC_CFG_INTSRC725_EN)) && (INTC_CFG_INTSRC725_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC725_CAT)) && (INTC_CFG_INTSRC725_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc725Entry);
+#else /* (INTC_CFG_INTSRC725_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc725Entry);
+#endif /* ((defined(INTC_CFG_INTSRC725_CAT)) \&& (INTC_CFG_INTSRC725_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC725_EN)) \&& (INTC_CFG_INTSRC725_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 726 */
+#if ((defined(INTC_CFG_INTSRC726_EN)) && (INTC_CFG_INTSRC726_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC726_CAT)) && (INTC_CFG_INTSRC726_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc726Entry);
+#else /* (INTC_CFG_INTSRC726_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc726Entry);
+#endif /* ((defined(INTC_CFG_INTSRC726_CAT)) \&& (INTC_CFG_INTSRC726_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC726_EN)) \&& (INTC_CFG_INTSRC726_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 727 */
+#if ((defined(INTC_CFG_INTSRC727_EN)) && (INTC_CFG_INTSRC727_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC727_CAT)) && (INTC_CFG_INTSRC727_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc727Entry);
+#else /* (INTC_CFG_INTSRC727_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc727Entry);
+#endif /* ((defined(INTC_CFG_INTSRC727_CAT)) \&& (INTC_CFG_INTSRC727_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC727_EN)) \&& (INTC_CFG_INTSRC727_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 728 */
+#if ((defined(INTC_CFG_INTSRC728_EN)) && (INTC_CFG_INTSRC728_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC728_CAT)) && (INTC_CFG_INTSRC728_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc728Entry);
+#else /* (INTC_CFG_INTSRC728_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc728Entry);
+#endif /* ((defined(INTC_CFG_INTSRC728_CAT)) \&& (INTC_CFG_INTSRC728_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC728_EN)) \&& (INTC_CFG_INTSRC728_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 729 */
+#if ((defined(INTC_CFG_INTSRC729_EN)) && (INTC_CFG_INTSRC729_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC729_CAT)) && (INTC_CFG_INTSRC729_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc729Entry);
+#else /* (INTC_CFG_INTSRC729_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc729Entry);
+#endif /* ((defined(INTC_CFG_INTSRC729_CAT)) \&& (INTC_CFG_INTSRC729_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC729_EN)) \&& (INTC_CFG_INTSRC729_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 730 */
+#if ((defined(INTC_CFG_INTSRC730_EN)) && (INTC_CFG_INTSRC730_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC730_CAT)) && (INTC_CFG_INTSRC730_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc730Entry);
+#else /* (INTC_CFG_INTSRC730_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc730Entry);
+#endif /* ((defined(INTC_CFG_INTSRC730_CAT)) \&& (INTC_CFG_INTSRC730_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC730_EN)) \&& (INTC_CFG_INTSRC730_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 731 */
+#if ((defined(INTC_CFG_INTSRC731_EN)) && (INTC_CFG_INTSRC731_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC731_CAT)) && (INTC_CFG_INTSRC731_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc731Entry);
+#else /* (INTC_CFG_INTSRC731_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc731Entry);
+#endif /* ((defined(INTC_CFG_INTSRC731_CAT)) \&& (INTC_CFG_INTSRC731_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC731_EN)) \&& (INTC_CFG_INTSRC731_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 732 */
+#if ((defined(INTC_CFG_INTSRC732_EN)) && (INTC_CFG_INTSRC732_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC732_CAT)) && (INTC_CFG_INTSRC732_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc732Entry);
+#else /* (INTC_CFG_INTSRC732_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc732Entry);
+#endif /* ((defined(INTC_CFG_INTSRC732_CAT)) \&& (INTC_CFG_INTSRC732_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC732_EN)) \&& (INTC_CFG_INTSRC732_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 733 */
+#if ((defined(INTC_CFG_INTSRC733_EN)) && (INTC_CFG_INTSRC733_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC733_CAT)) && (INTC_CFG_INTSRC733_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc733Entry);
+#else /* (INTC_CFG_INTSRC733_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc733Entry);
+#endif /* ((defined(INTC_CFG_INTSRC733_CAT)) \&& (INTC_CFG_INTSRC733_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC733_EN)) \&& (INTC_CFG_INTSRC733_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 734 */
+#if ((defined(INTC_CFG_INTSRC734_EN)) && (INTC_CFG_INTSRC734_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC734_CAT)) && (INTC_CFG_INTSRC734_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc734Entry);
+#else /* (INTC_CFG_INTSRC734_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc734Entry);
+#endif /* ((defined(INTC_CFG_INTSRC734_CAT)) \&& (INTC_CFG_INTSRC734_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC734_EN)) \&& (INTC_CFG_INTSRC734_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 735 */
+#if ((defined(INTC_CFG_INTSRC735_EN)) && (INTC_CFG_INTSRC735_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC735_CAT)) && (INTC_CFG_INTSRC735_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc735Entry);
+#else /* (INTC_CFG_INTSRC735_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc735Entry);
+#endif /* ((defined(INTC_CFG_INTSRC735_CAT)) \&& (INTC_CFG_INTSRC735_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC735_EN)) \&& (INTC_CFG_INTSRC735_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 736 */
+#if ((defined(INTC_CFG_INTSRC736_EN)) && (INTC_CFG_INTSRC736_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC736_CAT)) && (INTC_CFG_INTSRC736_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc736Entry);
+#else /* (INTC_CFG_INTSRC736_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc736Entry);
+#endif /* ((defined(INTC_CFG_INTSRC736_CAT)) \&& (INTC_CFG_INTSRC736_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC736_EN)) \&& (INTC_CFG_INTSRC736_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 737 */
+#if ((defined(INTC_CFG_INTSRC737_EN)) && (INTC_CFG_INTSRC737_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC737_CAT)) && (INTC_CFG_INTSRC737_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc737Entry);
+#else /* (INTC_CFG_INTSRC737_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc737Entry);
+#endif /* ((defined(INTC_CFG_INTSRC737_CAT)) \&& (INTC_CFG_INTSRC737_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC737_EN)) \&& (INTC_CFG_INTSRC737_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 738 */
+#if ((defined(INTC_CFG_INTSRC738_EN)) && (INTC_CFG_INTSRC738_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC738_CAT)) && (INTC_CFG_INTSRC738_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc738Entry);
+#else /* (INTC_CFG_INTSRC738_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc738Entry);
+#endif /* ((defined(INTC_CFG_INTSRC738_CAT)) \&& (INTC_CFG_INTSRC738_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC738_EN)) \&& (INTC_CFG_INTSRC738_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 739 */
+#if ((defined(INTC_CFG_INTSRC739_EN)) && (INTC_CFG_INTSRC739_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC739_CAT)) && (INTC_CFG_INTSRC739_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc739Entry);
+#else /* (INTC_CFG_INTSRC739_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc739Entry);
+#endif /* ((defined(INTC_CFG_INTSRC739_CAT)) \&& (INTC_CFG_INTSRC739_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC739_EN)) \&& (INTC_CFG_INTSRC739_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 740 */
+#if ((defined(INTC_CFG_INTSRC740_EN)) && (INTC_CFG_INTSRC740_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC740_CAT)) && (INTC_CFG_INTSRC740_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc740Entry);
+#else /* (INTC_CFG_INTSRC740_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc740Entry);
+#endif /* ((defined(INTC_CFG_INTSRC740_CAT)) \&& (INTC_CFG_INTSRC740_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC740_EN)) \&& (INTC_CFG_INTSRC740_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 741 */
+#if ((defined(INTC_CFG_INTSRC741_EN)) && (INTC_CFG_INTSRC741_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC741_CAT)) && (INTC_CFG_INTSRC741_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc741Entry);
+#else /* (INTC_CFG_INTSRC741_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc741Entry);
+#endif /* ((defined(INTC_CFG_INTSRC741_CAT)) \&& (INTC_CFG_INTSRC741_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC741_EN)) \&& (INTC_CFG_INTSRC741_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 742 */
+#if ((defined(INTC_CFG_INTSRC742_EN)) && (INTC_CFG_INTSRC742_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC742_CAT)) && (INTC_CFG_INTSRC742_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc742Entry);
+#else /* (INTC_CFG_INTSRC742_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc742Entry);
+#endif /* ((defined(INTC_CFG_INTSRC742_CAT)) \&& (INTC_CFG_INTSRC742_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC742_EN)) \&& (INTC_CFG_INTSRC742_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 743 */
+#if ((defined(INTC_CFG_INTSRC743_EN)) && (INTC_CFG_INTSRC743_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC743_CAT)) && (INTC_CFG_INTSRC743_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc743Entry);
+#else /* (INTC_CFG_INTSRC743_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc743Entry);
+#endif /* ((defined(INTC_CFG_INTSRC743_CAT)) \&& (INTC_CFG_INTSRC743_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC743_EN)) \&& (INTC_CFG_INTSRC743_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 744 */
+#if ((defined(INTC_CFG_INTSRC744_EN)) && (INTC_CFG_INTSRC744_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC744_CAT)) && (INTC_CFG_INTSRC744_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc744Entry);
+#else /* (INTC_CFG_INTSRC744_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc744Entry);
+#endif /* ((defined(INTC_CFG_INTSRC744_CAT)) \&& (INTC_CFG_INTSRC744_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC744_EN)) \&& (INTC_CFG_INTSRC744_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 745 */
+#if ((defined(INTC_CFG_INTSRC745_EN)) && (INTC_CFG_INTSRC745_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC745_CAT)) && (INTC_CFG_INTSRC745_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc745Entry);
+#else /* (INTC_CFG_INTSRC745_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc745Entry);
+#endif /* ((defined(INTC_CFG_INTSRC745_CAT)) \&& (INTC_CFG_INTSRC745_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC745_EN)) \&& (INTC_CFG_INTSRC745_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 746 */
+#if ((defined(INTC_CFG_INTSRC746_EN)) && (INTC_CFG_INTSRC746_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC746_CAT)) && (INTC_CFG_INTSRC746_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc746Entry);
+#else /* (INTC_CFG_INTSRC746_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc746Entry);
+#endif /* ((defined(INTC_CFG_INTSRC746_CAT)) \&& (INTC_CFG_INTSRC746_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC746_EN)) \&& (INTC_CFG_INTSRC746_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 747 */
+#if ((defined(INTC_CFG_INTSRC747_EN)) && (INTC_CFG_INTSRC747_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC747_CAT)) && (INTC_CFG_INTSRC747_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc747Entry);
+#else /* (INTC_CFG_INTSRC747_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc747Entry);
+#endif /* ((defined(INTC_CFG_INTSRC747_CAT)) \&& (INTC_CFG_INTSRC747_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC747_EN)) \&& (INTC_CFG_INTSRC747_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 748 */
+#if ((defined(INTC_CFG_INTSRC748_EN)) && (INTC_CFG_INTSRC748_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC748_CAT)) && (INTC_CFG_INTSRC748_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc748Entry);
+#else /* (INTC_CFG_INTSRC748_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc748Entry);
+#endif /* ((defined(INTC_CFG_INTSRC748_CAT)) \&& (INTC_CFG_INTSRC748_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC748_EN)) \&& (INTC_CFG_INTSRC748_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 749 */
+#if ((defined(INTC_CFG_INTSRC749_EN)) && (INTC_CFG_INTSRC749_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC749_CAT)) && (INTC_CFG_INTSRC749_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc749Entry);
+#else /* (INTC_CFG_INTSRC749_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc749Entry);
+#endif /* ((defined(INTC_CFG_INTSRC749_CAT)) \&& (INTC_CFG_INTSRC749_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC749_EN)) \&& (INTC_CFG_INTSRC749_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 750 */
+#if ((defined(INTC_CFG_INTSRC750_EN)) && (INTC_CFG_INTSRC750_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC750_CAT)) && (INTC_CFG_INTSRC750_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc750Entry);
+#else /* (INTC_CFG_INTSRC750_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc750Entry);
+#endif /* ((defined(INTC_CFG_INTSRC750_CAT)) \&& (INTC_CFG_INTSRC750_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC750_EN)) \&& (INTC_CFG_INTSRC750_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 751 */
+#if ((defined(INTC_CFG_INTSRC751_EN)) && (INTC_CFG_INTSRC751_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC751_CAT)) && (INTC_CFG_INTSRC751_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc751Entry);
+#else /* (INTC_CFG_INTSRC751_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc751Entry);
+#endif /* ((defined(INTC_CFG_INTSRC751_CAT)) \&& (INTC_CFG_INTSRC751_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC751_EN)) \&& (INTC_CFG_INTSRC751_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 752 */
+#if ((defined(INTC_CFG_INTSRC752_EN)) && (INTC_CFG_INTSRC752_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC752_CAT)) && (INTC_CFG_INTSRC752_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc752Entry);
+#else /* (INTC_CFG_INTSRC752_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc752Entry);
+#endif /* ((defined(INTC_CFG_INTSRC752_CAT)) \&& (INTC_CFG_INTSRC752_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC752_EN)) \&& (INTC_CFG_INTSRC752_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 753 */
+#if ((defined(INTC_CFG_INTSRC753_EN)) && (INTC_CFG_INTSRC753_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC753_CAT)) && (INTC_CFG_INTSRC753_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc753Entry);
+#else /* (INTC_CFG_INTSRC753_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc753Entry);
+#endif /* ((defined(INTC_CFG_INTSRC753_CAT)) \&& (INTC_CFG_INTSRC753_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC753_EN)) \&& (INTC_CFG_INTSRC753_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 754 */
+#if ((defined(INTC_CFG_INTSRC754_EN)) && (INTC_CFG_INTSRC754_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC754_CAT)) && (INTC_CFG_INTSRC754_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc754Entry);
+#else /* (INTC_CFG_INTSRC754_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc754Entry);
+#endif /* ((defined(INTC_CFG_INTSRC754_CAT)) \&& (INTC_CFG_INTSRC754_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC754_EN)) \&& (INTC_CFG_INTSRC754_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 755 */
+#if ((defined(INTC_CFG_INTSRC755_EN)) && (INTC_CFG_INTSRC755_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC755_CAT)) && (INTC_CFG_INTSRC755_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc755Entry);
+#else /* (INTC_CFG_INTSRC755_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc755Entry);
+#endif /* ((defined(INTC_CFG_INTSRC755_CAT)) \&& (INTC_CFG_INTSRC755_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC755_EN)) \&& (INTC_CFG_INTSRC755_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 756 */
+#if ((defined(INTC_CFG_INTSRC756_EN)) && (INTC_CFG_INTSRC756_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC756_CAT)) && (INTC_CFG_INTSRC756_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc756Entry);
+#else /* (INTC_CFG_INTSRC756_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc756Entry);
+#endif /* ((defined(INTC_CFG_INTSRC756_CAT)) \&& (INTC_CFG_INTSRC756_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC756_EN)) \&& (INTC_CFG_INTSRC756_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 757 */
+#if ((defined(INTC_CFG_INTSRC757_EN)) && (INTC_CFG_INTSRC757_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC757_CAT)) && (INTC_CFG_INTSRC757_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc757Entry);
+#else /* (INTC_CFG_INTSRC757_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc757Entry);
+#endif /* ((defined(INTC_CFG_INTSRC757_CAT)) \&& (INTC_CFG_INTSRC757_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC757_EN)) \&& (INTC_CFG_INTSRC757_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 758 */
+#if ((defined(INTC_CFG_INTSRC758_EN)) && (INTC_CFG_INTSRC758_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC758_CAT)) && (INTC_CFG_INTSRC758_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc758Entry);
+#else /* (INTC_CFG_INTSRC758_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc758Entry);
+#endif /* ((defined(INTC_CFG_INTSRC758_CAT)) \&& (INTC_CFG_INTSRC758_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC758_EN)) \&& (INTC_CFG_INTSRC758_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 759 */
+#if ((defined(INTC_CFG_INTSRC759_EN)) && (INTC_CFG_INTSRC759_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC759_CAT)) && (INTC_CFG_INTSRC759_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc759Entry);
+#else /* (INTC_CFG_INTSRC759_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc759Entry);
+#endif /* ((defined(INTC_CFG_INTSRC759_CAT)) \&& (INTC_CFG_INTSRC759_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC759_EN)) \&& (INTC_CFG_INTSRC759_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 760 */
+#if ((defined(INTC_CFG_INTSRC760_EN)) && (INTC_CFG_INTSRC760_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC760_CAT)) && (INTC_CFG_INTSRC760_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc760Entry);
+#else /* (INTC_CFG_INTSRC760_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc760Entry);
+#endif /* ((defined(INTC_CFG_INTSRC760_CAT)) \&& (INTC_CFG_INTSRC760_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC760_EN)) \&& (INTC_CFG_INTSRC760_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 761 */
+#if ((defined(INTC_CFG_INTSRC761_EN)) && (INTC_CFG_INTSRC761_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC761_CAT)) && (INTC_CFG_INTSRC761_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc761Entry);
+#else /* (INTC_CFG_INTSRC761_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc761Entry);
+#endif /* ((defined(INTC_CFG_INTSRC761_CAT)) \&& (INTC_CFG_INTSRC761_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC761_EN)) \&& (INTC_CFG_INTSRC761_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 762 */
+#if ((defined(INTC_CFG_INTSRC762_EN)) && (INTC_CFG_INTSRC762_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC762_CAT)) && (INTC_CFG_INTSRC762_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc762Entry);
+#else /* (INTC_CFG_INTSRC762_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc762Entry);
+#endif /* ((defined(INTC_CFG_INTSRC762_CAT)) \&& (INTC_CFG_INTSRC762_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC762_EN)) \&& (INTC_CFG_INTSRC762_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 763 */
+#if ((defined(INTC_CFG_INTSRC763_EN)) && (INTC_CFG_INTSRC763_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC763_CAT)) && (INTC_CFG_INTSRC763_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc763Entry);
+#else /* (INTC_CFG_INTSRC763_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc763Entry);
+#endif /* ((defined(INTC_CFG_INTSRC763_CAT)) \&& (INTC_CFG_INTSRC763_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC763_EN)) \&& (INTC_CFG_INTSRC763_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 764 */
+#if ((defined(INTC_CFG_INTSRC764_EN)) && (INTC_CFG_INTSRC764_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC764_CAT)) && (INTC_CFG_INTSRC764_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc764Entry);
+#else /* (INTC_CFG_INTSRC764_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc764Entry);
+#endif /* ((defined(INTC_CFG_INTSRC764_CAT)) \&& (INTC_CFG_INTSRC764_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC764_EN)) \&& (INTC_CFG_INTSRC764_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 765 */
+#if ((defined(INTC_CFG_INTSRC765_EN)) && (INTC_CFG_INTSRC765_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC765_CAT)) && (INTC_CFG_INTSRC765_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc765Entry);
+#else /* (INTC_CFG_INTSRC765_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc765Entry);
+#endif /* ((defined(INTC_CFG_INTSRC765_CAT)) \&& (INTC_CFG_INTSRC765_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC765_EN)) \&& (INTC_CFG_INTSRC765_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 766 */
+#if ((defined(INTC_CFG_INTSRC766_EN)) && (INTC_CFG_INTSRC766_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC766_CAT)) && (INTC_CFG_INTSRC766_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc766Entry);
+#else /* (INTC_CFG_INTSRC766_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc766Entry);
+#endif /* ((defined(INTC_CFG_INTSRC766_CAT)) \&& (INTC_CFG_INTSRC766_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC766_EN)) \&& (INTC_CFG_INTSRC766_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 767 */
+#if ((defined(INTC_CFG_INTSRC767_EN)) && (INTC_CFG_INTSRC767_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC767_CAT)) && (INTC_CFG_INTSRC767_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc767Entry);
+#else /* (INTC_CFG_INTSRC767_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc767Entry);
+#endif /* ((defined(INTC_CFG_INTSRC767_CAT)) \&& (INTC_CFG_INTSRC767_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC767_EN)) \&& (INTC_CFG_INTSRC767_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 768 */
+#if ((defined(INTC_CFG_INTSRC768_EN)) && (INTC_CFG_INTSRC768_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC768_CAT)) && (INTC_CFG_INTSRC768_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc768Entry);
+#else /* (INTC_CFG_INTSRC768_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc768Entry);
+#endif /* ((defined(INTC_CFG_INTSRC768_CAT)) \&& (INTC_CFG_INTSRC768_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC768_EN)) \&& (INTC_CFG_INTSRC768_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 769 */
+#if ((defined(INTC_CFG_INTSRC769_EN)) && (INTC_CFG_INTSRC769_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC769_CAT)) && (INTC_CFG_INTSRC769_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc769Entry);
+#else /* (INTC_CFG_INTSRC769_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc769Entry);
+#endif /* ((defined(INTC_CFG_INTSRC769_CAT)) \&& (INTC_CFG_INTSRC769_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC769_EN)) \&& (INTC_CFG_INTSRC769_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 770 */
+#if ((defined(INTC_CFG_INTSRC770_EN)) && (INTC_CFG_INTSRC770_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC770_CAT)) && (INTC_CFG_INTSRC770_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc770Entry);
+#else /* (INTC_CFG_INTSRC770_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc770Entry);
+#endif /* ((defined(INTC_CFG_INTSRC770_CAT)) \&& (INTC_CFG_INTSRC770_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC770_EN)) \&& (INTC_CFG_INTSRC770_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 771 */
+#if ((defined(INTC_CFG_INTSRC771_EN)) && (INTC_CFG_INTSRC771_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC771_CAT)) && (INTC_CFG_INTSRC771_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc771Entry);
+#else /* (INTC_CFG_INTSRC771_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc771Entry);
+#endif /* ((defined(INTC_CFG_INTSRC771_CAT)) \&& (INTC_CFG_INTSRC771_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC771_EN)) \&& (INTC_CFG_INTSRC771_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 772 */
+#if ((defined(INTC_CFG_INTSRC772_EN)) && (INTC_CFG_INTSRC772_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC772_CAT)) && (INTC_CFG_INTSRC772_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc772Entry);
+#else /* (INTC_CFG_INTSRC772_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc772Entry);
+#endif /* ((defined(INTC_CFG_INTSRC772_CAT)) \&& (INTC_CFG_INTSRC772_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC772_EN)) \&& (INTC_CFG_INTSRC772_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 773 */
+#if ((defined(INTC_CFG_INTSRC773_EN)) && (INTC_CFG_INTSRC773_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC773_CAT)) && (INTC_CFG_INTSRC773_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc773Entry);
+#else /* (INTC_CFG_INTSRC773_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc773Entry);
+#endif /* ((defined(INTC_CFG_INTSRC773_CAT)) \&& (INTC_CFG_INTSRC773_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC773_EN)) \&& (INTC_CFG_INTSRC773_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 774 */
+#if ((defined(INTC_CFG_INTSRC774_EN)) && (INTC_CFG_INTSRC774_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC774_CAT)) && (INTC_CFG_INTSRC774_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc774Entry);
+#else /* (INTC_CFG_INTSRC774_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc774Entry);
+#endif /* ((defined(INTC_CFG_INTSRC774_CAT)) \&& (INTC_CFG_INTSRC774_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC774_EN)) \&& (INTC_CFG_INTSRC774_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 775 */
+#if ((defined(INTC_CFG_INTSRC775_EN)) && (INTC_CFG_INTSRC775_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC775_CAT)) && (INTC_CFG_INTSRC775_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc775Entry);
+#else /* (INTC_CFG_INTSRC775_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc775Entry);
+#endif /* ((defined(INTC_CFG_INTSRC775_CAT)) \&& (INTC_CFG_INTSRC775_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC775_EN)) \&& (INTC_CFG_INTSRC775_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 776 */
+#if ((defined(INTC_CFG_INTSRC776_EN)) && (INTC_CFG_INTSRC776_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC776_CAT)) && (INTC_CFG_INTSRC776_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc776Entry);
+#else /* (INTC_CFG_INTSRC776_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc776Entry);
+#endif /* ((defined(INTC_CFG_INTSRC776_CAT)) \&& (INTC_CFG_INTSRC776_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC776_EN)) \&& (INTC_CFG_INTSRC776_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 777 */
+#if ((defined(INTC_CFG_INTSRC777_EN)) && (INTC_CFG_INTSRC777_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC777_CAT)) && (INTC_CFG_INTSRC777_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc777Entry);
+#else /* (INTC_CFG_INTSRC777_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc777Entry);
+#endif /* ((defined(INTC_CFG_INTSRC777_CAT)) \&& (INTC_CFG_INTSRC777_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC777_EN)) \&& (INTC_CFG_INTSRC777_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 778 */
+#if ((defined(INTC_CFG_INTSRC778_EN)) && (INTC_CFG_INTSRC778_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC778_CAT)) && (INTC_CFG_INTSRC778_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc778Entry);
+#else /* (INTC_CFG_INTSRC778_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc778Entry);
+#endif /* ((defined(INTC_CFG_INTSRC778_CAT)) \&& (INTC_CFG_INTSRC778_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC778_EN)) \&& (INTC_CFG_INTSRC778_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 779 */
+#if ((defined(INTC_CFG_INTSRC779_EN)) && (INTC_CFG_INTSRC779_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC779_CAT)) && (INTC_CFG_INTSRC779_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc779Entry);
+#else /* (INTC_CFG_INTSRC779_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc779Entry);
+#endif /* ((defined(INTC_CFG_INTSRC779_CAT)) \&& (INTC_CFG_INTSRC779_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC779_EN)) \&& (INTC_CFG_INTSRC779_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 780 */
+#if ((defined(INTC_CFG_INTSRC780_EN)) && (INTC_CFG_INTSRC780_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC780_CAT)) && (INTC_CFG_INTSRC780_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc780Entry);
+#else /* (INTC_CFG_INTSRC780_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc780Entry);
+#endif /* ((defined(INTC_CFG_INTSRC780_CAT)) \&& (INTC_CFG_INTSRC780_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC780_EN)) \&& (INTC_CFG_INTSRC780_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 781 */
+#if ((defined(INTC_CFG_INTSRC781_EN)) && (INTC_CFG_INTSRC781_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC781_CAT)) && (INTC_CFG_INTSRC781_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc781Entry);
+#else /* (INTC_CFG_INTSRC781_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc781Entry);
+#endif /* ((defined(INTC_CFG_INTSRC781_CAT)) \&& (INTC_CFG_INTSRC781_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC781_EN)) \&& (INTC_CFG_INTSRC781_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 782 */
+#if ((defined(INTC_CFG_INTSRC782_EN)) && (INTC_CFG_INTSRC782_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC782_CAT)) && (INTC_CFG_INTSRC782_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc782Entry);
+#else /* (INTC_CFG_INTSRC782_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc782Entry);
+#endif /* ((defined(INTC_CFG_INTSRC782_CAT)) \&& (INTC_CFG_INTSRC782_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC782_EN)) \&& (INTC_CFG_INTSRC782_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 783 */
+#if ((defined(INTC_CFG_INTSRC783_EN)) && (INTC_CFG_INTSRC783_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC783_CAT)) && (INTC_CFG_INTSRC783_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc783Entry);
+#else /* (INTC_CFG_INTSRC783_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc783Entry);
+#endif /* ((defined(INTC_CFG_INTSRC783_CAT)) \&& (INTC_CFG_INTSRC783_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC783_EN)) \&& (INTC_CFG_INTSRC783_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 784 */
+#if ((defined(INTC_CFG_INTSRC784_EN)) && (INTC_CFG_INTSRC784_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC784_CAT)) && (INTC_CFG_INTSRC784_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc784Entry);
+#else /* (INTC_CFG_INTSRC784_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc784Entry);
+#endif /* ((defined(INTC_CFG_INTSRC784_CAT)) \&& (INTC_CFG_INTSRC784_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC784_EN)) \&& (INTC_CFG_INTSRC784_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 785 */
+#if ((defined(INTC_CFG_INTSRC785_EN)) && (INTC_CFG_INTSRC785_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC785_CAT)) && (INTC_CFG_INTSRC785_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc785Entry);
+#else /* (INTC_CFG_INTSRC785_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc785Entry);
+#endif /* ((defined(INTC_CFG_INTSRC785_CAT)) \&& (INTC_CFG_INTSRC785_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC785_EN)) \&& (INTC_CFG_INTSRC785_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 786 */
+#if ((defined(INTC_CFG_INTSRC786_EN)) && (INTC_CFG_INTSRC786_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC786_CAT)) && (INTC_CFG_INTSRC786_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc786Entry);
+#else /* (INTC_CFG_INTSRC786_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc786Entry);
+#endif /* ((defined(INTC_CFG_INTSRC786_CAT)) \&& (INTC_CFG_INTSRC786_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC786_EN)) \&& (INTC_CFG_INTSRC786_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 787 */
+#if ((defined(INTC_CFG_INTSRC787_EN)) && (INTC_CFG_INTSRC787_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC787_CAT)) && (INTC_CFG_INTSRC787_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc787Entry);
+#else /* (INTC_CFG_INTSRC787_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc787Entry);
+#endif /* ((defined(INTC_CFG_INTSRC787_CAT)) \&& (INTC_CFG_INTSRC787_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC787_EN)) \&& (INTC_CFG_INTSRC787_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 788 */
+#if ((defined(INTC_CFG_INTSRC788_EN)) && (INTC_CFG_INTSRC788_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC788_CAT)) && (INTC_CFG_INTSRC788_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc788Entry);
+#else /* (INTC_CFG_INTSRC788_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc788Entry);
+#endif /* ((defined(INTC_CFG_INTSRC788_CAT)) \&& (INTC_CFG_INTSRC788_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC788_EN)) \&& (INTC_CFG_INTSRC788_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 789 */
+#if ((defined(INTC_CFG_INTSRC789_EN)) && (INTC_CFG_INTSRC789_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC789_CAT)) && (INTC_CFG_INTSRC789_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc789Entry);
+#else /* (INTC_CFG_INTSRC789_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc789Entry);
+#endif /* ((defined(INTC_CFG_INTSRC789_CAT)) \&& (INTC_CFG_INTSRC789_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC789_EN)) \&& (INTC_CFG_INTSRC789_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 790 */
+#if ((defined(INTC_CFG_INTSRC790_EN)) && (INTC_CFG_INTSRC790_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC790_CAT)) && (INTC_CFG_INTSRC790_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc790Entry);
+#else /* (INTC_CFG_INTSRC790_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc790Entry);
+#endif /* ((defined(INTC_CFG_INTSRC790_CAT)) \&& (INTC_CFG_INTSRC790_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC790_EN)) \&& (INTC_CFG_INTSRC790_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 791 */
+#if ((defined(INTC_CFG_INTSRC791_EN)) && (INTC_CFG_INTSRC791_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC791_CAT)) && (INTC_CFG_INTSRC791_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc791Entry);
+#else /* (INTC_CFG_INTSRC791_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc791Entry);
+#endif /* ((defined(INTC_CFG_INTSRC791_CAT)) \&& (INTC_CFG_INTSRC791_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC791_EN)) \&& (INTC_CFG_INTSRC791_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 792 */
+#if ((defined(INTC_CFG_INTSRC792_EN)) && (INTC_CFG_INTSRC792_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC792_CAT)) && (INTC_CFG_INTSRC792_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc792Entry);
+#else /* (INTC_CFG_INTSRC792_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc792Entry);
+#endif /* ((defined(INTC_CFG_INTSRC792_CAT)) \&& (INTC_CFG_INTSRC792_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC792_EN)) \&& (INTC_CFG_INTSRC792_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 793 */
+#if ((defined(INTC_CFG_INTSRC793_EN)) && (INTC_CFG_INTSRC793_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC793_CAT)) && (INTC_CFG_INTSRC793_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc793Entry);
+#else /* (INTC_CFG_INTSRC793_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc793Entry);
+#endif /* ((defined(INTC_CFG_INTSRC793_CAT)) \&& (INTC_CFG_INTSRC793_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC793_EN)) \&& (INTC_CFG_INTSRC793_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 794 */
+#if ((defined(INTC_CFG_INTSRC794_EN)) && (INTC_CFG_INTSRC794_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC794_CAT)) && (INTC_CFG_INTSRC794_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc794Entry);
+#else /* (INTC_CFG_INTSRC794_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc794Entry);
+#endif /* ((defined(INTC_CFG_INTSRC794_CAT)) \&& (INTC_CFG_INTSRC794_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC794_EN)) \&& (INTC_CFG_INTSRC794_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 795 */
+#if ((defined(INTC_CFG_INTSRC795_EN)) && (INTC_CFG_INTSRC795_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC795_CAT)) && (INTC_CFG_INTSRC795_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc795Entry);
+#else /* (INTC_CFG_INTSRC795_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc795Entry);
+#endif /* ((defined(INTC_CFG_INTSRC795_CAT)) \&& (INTC_CFG_INTSRC795_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC795_EN)) \&& (INTC_CFG_INTSRC795_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 796 */
+#if ((defined(INTC_CFG_INTSRC796_EN)) && (INTC_CFG_INTSRC796_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC796_CAT)) && (INTC_CFG_INTSRC796_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc796Entry);
+#else /* (INTC_CFG_INTSRC796_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc796Entry);
+#endif /* ((defined(INTC_CFG_INTSRC796_CAT)) \&& (INTC_CFG_INTSRC796_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC796_EN)) \&& (INTC_CFG_INTSRC796_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 797 */
+#if ((defined(INTC_CFG_INTSRC797_EN)) && (INTC_CFG_INTSRC797_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC797_CAT)) && (INTC_CFG_INTSRC797_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc797Entry);
+#else /* (INTC_CFG_INTSRC797_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc797Entry);
+#endif /* ((defined(INTC_CFG_INTSRC797_CAT)) \&& (INTC_CFG_INTSRC797_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC797_EN)) \&& (INTC_CFG_INTSRC797_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 798 */
+#if ((defined(INTC_CFG_INTSRC798_EN)) && (INTC_CFG_INTSRC798_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC798_CAT)) && (INTC_CFG_INTSRC798_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc798Entry);
+#else /* (INTC_CFG_INTSRC798_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc798Entry);
+#endif /* ((defined(INTC_CFG_INTSRC798_CAT)) \&& (INTC_CFG_INTSRC798_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC798_EN)) \&& (INTC_CFG_INTSRC798_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 799 */
+#if ((defined(INTC_CFG_INTSRC799_EN)) && (INTC_CFG_INTSRC799_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC799_CAT)) && (INTC_CFG_INTSRC799_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc799Entry);
+#else /* (INTC_CFG_INTSRC799_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc799Entry);
+#endif /* ((defined(INTC_CFG_INTSRC799_CAT)) \&& (INTC_CFG_INTSRC799_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC799_EN)) \&& (INTC_CFG_INTSRC799_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 800 */
+#if ((defined(INTC_CFG_INTSRC800_EN)) && (INTC_CFG_INTSRC800_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC800_CAT)) && (INTC_CFG_INTSRC800_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc800Entry);
+#else /* (INTC_CFG_INTSRC800_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc800Entry);
+#endif /* ((defined(INTC_CFG_INTSRC800_CAT)) \&& (INTC_CFG_INTSRC800_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC800_EN)) \&& (INTC_CFG_INTSRC800_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 801 */
+#if ((defined(INTC_CFG_INTSRC801_EN)) && (INTC_CFG_INTSRC801_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC801_CAT)) && (INTC_CFG_INTSRC801_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc801Entry);
+#else /* (INTC_CFG_INTSRC801_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc801Entry);
+#endif /* ((defined(INTC_CFG_INTSRC801_CAT)) \&& (INTC_CFG_INTSRC801_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC801_EN)) \&& (INTC_CFG_INTSRC801_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 802 */
+#if ((defined(INTC_CFG_INTSRC802_EN)) && (INTC_CFG_INTSRC802_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC802_CAT)) && (INTC_CFG_INTSRC802_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc802Entry);
+#else /* (INTC_CFG_INTSRC802_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc802Entry);
+#endif /* ((defined(INTC_CFG_INTSRC802_CAT)) \&& (INTC_CFG_INTSRC802_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC802_EN)) \&& (INTC_CFG_INTSRC802_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 803 */
+#if ((defined(INTC_CFG_INTSRC803_EN)) && (INTC_CFG_INTSRC803_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC803_CAT)) && (INTC_CFG_INTSRC803_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc803Entry);
+#else /* (INTC_CFG_INTSRC803_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc803Entry);
+#endif /* ((defined(INTC_CFG_INTSRC803_CAT)) \&& (INTC_CFG_INTSRC803_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC803_EN)) \&& (INTC_CFG_INTSRC803_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 804 */
+#if ((defined(INTC_CFG_INTSRC804_EN)) && (INTC_CFG_INTSRC804_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC804_CAT)) && (INTC_CFG_INTSRC804_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc804Entry);
+#else /* (INTC_CFG_INTSRC804_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc804Entry);
+#endif /* ((defined(INTC_CFG_INTSRC804_CAT)) \&& (INTC_CFG_INTSRC804_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC804_EN)) \&& (INTC_CFG_INTSRC804_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 805 */
+#if ((defined(INTC_CFG_INTSRC805_EN)) && (INTC_CFG_INTSRC805_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC805_CAT)) && (INTC_CFG_INTSRC805_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc805Entry);
+#else /* (INTC_CFG_INTSRC805_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc805Entry);
+#endif /* ((defined(INTC_CFG_INTSRC805_CAT)) \&& (INTC_CFG_INTSRC805_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC805_EN)) \&& (INTC_CFG_INTSRC805_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 806 */
+#if ((defined(INTC_CFG_INTSRC806_EN)) && (INTC_CFG_INTSRC806_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC806_CAT)) && (INTC_CFG_INTSRC806_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc806Entry);
+#else /* (INTC_CFG_INTSRC806_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc806Entry);
+#endif /* ((defined(INTC_CFG_INTSRC806_CAT)) \&& (INTC_CFG_INTSRC806_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC806_EN)) \&& (INTC_CFG_INTSRC806_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 807 */
+#if ((defined(INTC_CFG_INTSRC807_EN)) && (INTC_CFG_INTSRC807_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC807_CAT)) && (INTC_CFG_INTSRC807_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc807Entry);
+#else /* (INTC_CFG_INTSRC807_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc807Entry);
+#endif /* ((defined(INTC_CFG_INTSRC807_CAT)) \&& (INTC_CFG_INTSRC807_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC807_EN)) \&& (INTC_CFG_INTSRC807_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 808 */
+#if ((defined(INTC_CFG_INTSRC808_EN)) && (INTC_CFG_INTSRC808_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC808_CAT)) && (INTC_CFG_INTSRC808_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc808Entry);
+#else /* (INTC_CFG_INTSRC808_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc808Entry);
+#endif /* ((defined(INTC_CFG_INTSRC808_CAT)) \&& (INTC_CFG_INTSRC808_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC808_EN)) \&& (INTC_CFG_INTSRC808_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 809 */
+#if ((defined(INTC_CFG_INTSRC809_EN)) && (INTC_CFG_INTSRC809_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC809_CAT)) && (INTC_CFG_INTSRC809_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc809Entry);
+#else /* (INTC_CFG_INTSRC809_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc809Entry);
+#endif /* ((defined(INTC_CFG_INTSRC809_CAT)) \&& (INTC_CFG_INTSRC809_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC809_EN)) \&& (INTC_CFG_INTSRC809_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 810 */
+#if ((defined(INTC_CFG_INTSRC810_EN)) && (INTC_CFG_INTSRC810_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC810_CAT)) && (INTC_CFG_INTSRC810_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc810Entry);
+#else /* (INTC_CFG_INTSRC810_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc810Entry);
+#endif /* ((defined(INTC_CFG_INTSRC810_CAT)) \&& (INTC_CFG_INTSRC810_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC810_EN)) \&& (INTC_CFG_INTSRC810_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 811 */
+#if ((defined(INTC_CFG_INTSRC811_EN)) && (INTC_CFG_INTSRC811_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC811_CAT)) && (INTC_CFG_INTSRC811_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc811Entry);
+#else /* (INTC_CFG_INTSRC811_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc811Entry);
+#endif /* ((defined(INTC_CFG_INTSRC811_CAT)) \&& (INTC_CFG_INTSRC811_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC811_EN)) \&& (INTC_CFG_INTSRC811_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 812 */
+#if ((defined(INTC_CFG_INTSRC812_EN)) && (INTC_CFG_INTSRC812_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC812_CAT)) && (INTC_CFG_INTSRC812_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc812Entry);
+#else /* (INTC_CFG_INTSRC812_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc812Entry);
+#endif /* ((defined(INTC_CFG_INTSRC812_CAT)) \&& (INTC_CFG_INTSRC812_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC812_EN)) \&& (INTC_CFG_INTSRC812_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 813 */
+#if ((defined(INTC_CFG_INTSRC813_EN)) && (INTC_CFG_INTSRC813_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC813_CAT)) && (INTC_CFG_INTSRC813_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc813Entry);
+#else /* (INTC_CFG_INTSRC813_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc813Entry);
+#endif /* ((defined(INTC_CFG_INTSRC813_CAT)) \&& (INTC_CFG_INTSRC813_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC813_EN)) \&& (INTC_CFG_INTSRC813_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 814 */
+#if ((defined(INTC_CFG_INTSRC814_EN)) && (INTC_CFG_INTSRC814_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC814_CAT)) && (INTC_CFG_INTSRC814_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc814Entry);
+#else /* (INTC_CFG_INTSRC814_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc814Entry);
+#endif /* ((defined(INTC_CFG_INTSRC814_CAT)) \&& (INTC_CFG_INTSRC814_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC814_EN)) \&& (INTC_CFG_INTSRC814_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 815 */
+#if ((defined(INTC_CFG_INTSRC815_EN)) && (INTC_CFG_INTSRC815_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC815_CAT)) && (INTC_CFG_INTSRC815_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc815Entry);
+#else /* (INTC_CFG_INTSRC815_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc815Entry);
+#endif /* ((defined(INTC_CFG_INTSRC815_CAT)) \&& (INTC_CFG_INTSRC815_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC815_EN)) \&& (INTC_CFG_INTSRC815_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 816 */
+#if ((defined(INTC_CFG_INTSRC816_EN)) && (INTC_CFG_INTSRC816_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC816_CAT)) && (INTC_CFG_INTSRC816_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc816Entry);
+#else /* (INTC_CFG_INTSRC816_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc816Entry);
+#endif /* ((defined(INTC_CFG_INTSRC816_CAT)) \&& (INTC_CFG_INTSRC816_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC816_EN)) \&& (INTC_CFG_INTSRC816_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 817 */
+#if ((defined(INTC_CFG_INTSRC817_EN)) && (INTC_CFG_INTSRC817_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC817_CAT)) && (INTC_CFG_INTSRC817_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc817Entry);
+#else /* (INTC_CFG_INTSRC817_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc817Entry);
+#endif /* ((defined(INTC_CFG_INTSRC817_CAT)) \&& (INTC_CFG_INTSRC817_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC817_EN)) \&& (INTC_CFG_INTSRC817_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 818 */
+#if ((defined(INTC_CFG_INTSRC818_EN)) && (INTC_CFG_INTSRC818_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC818_CAT)) && (INTC_CFG_INTSRC818_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc818Entry);
+#else /* (INTC_CFG_INTSRC818_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc818Entry);
+#endif /* ((defined(INTC_CFG_INTSRC818_CAT)) \&& (INTC_CFG_INTSRC818_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC818_EN)) \&& (INTC_CFG_INTSRC818_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 819 */
+#if ((defined(INTC_CFG_INTSRC819_EN)) && (INTC_CFG_INTSRC819_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC819_CAT)) && (INTC_CFG_INTSRC819_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc819Entry);
+#else /* (INTC_CFG_INTSRC819_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc819Entry);
+#endif /* ((defined(INTC_CFG_INTSRC819_CAT)) \&& (INTC_CFG_INTSRC819_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC819_EN)) \&& (INTC_CFG_INTSRC819_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 820 */
+#if ((defined(INTC_CFG_INTSRC820_EN)) && (INTC_CFG_INTSRC820_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC820_CAT)) && (INTC_CFG_INTSRC820_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc820Entry);
+#else /* (INTC_CFG_INTSRC820_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc820Entry);
+#endif /* ((defined(INTC_CFG_INTSRC820_CAT)) \&& (INTC_CFG_INTSRC820_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC820_EN)) \&& (INTC_CFG_INTSRC820_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 821 */
+#if ((defined(INTC_CFG_INTSRC821_EN)) && (INTC_CFG_INTSRC821_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC821_CAT)) && (INTC_CFG_INTSRC821_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc821Entry);
+#else /* (INTC_CFG_INTSRC821_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc821Entry);
+#endif /* ((defined(INTC_CFG_INTSRC821_CAT)) \&& (INTC_CFG_INTSRC821_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC821_EN)) \&& (INTC_CFG_INTSRC821_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 822 */
+#if ((defined(INTC_CFG_INTSRC822_EN)) && (INTC_CFG_INTSRC822_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC822_CAT)) && (INTC_CFG_INTSRC822_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc822Entry);
+#else /* (INTC_CFG_INTSRC822_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc822Entry);
+#endif /* ((defined(INTC_CFG_INTSRC822_CAT)) \&& (INTC_CFG_INTSRC822_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC822_EN)) \&& (INTC_CFG_INTSRC822_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 823 */
+#if ((defined(INTC_CFG_INTSRC823_EN)) && (INTC_CFG_INTSRC823_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC823_CAT)) && (INTC_CFG_INTSRC823_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc823Entry);
+#else /* (INTC_CFG_INTSRC823_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc823Entry);
+#endif /* ((defined(INTC_CFG_INTSRC823_CAT)) \&& (INTC_CFG_INTSRC823_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC823_EN)) \&& (INTC_CFG_INTSRC823_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 824 */
+#if ((defined(INTC_CFG_INTSRC824_EN)) && (INTC_CFG_INTSRC824_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC824_CAT)) && (INTC_CFG_INTSRC824_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc824Entry);
+#else /* (INTC_CFG_INTSRC824_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc824Entry);
+#endif /* ((defined(INTC_CFG_INTSRC824_CAT)) \&& (INTC_CFG_INTSRC824_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC824_EN)) \&& (INTC_CFG_INTSRC824_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 825 */
+#if ((defined(INTC_CFG_INTSRC825_EN)) && (INTC_CFG_INTSRC825_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC825_CAT)) && (INTC_CFG_INTSRC825_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc825Entry);
+#else /* (INTC_CFG_INTSRC825_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc825Entry);
+#endif /* ((defined(INTC_CFG_INTSRC825_CAT)) \&& (INTC_CFG_INTSRC825_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC825_EN)) \&& (INTC_CFG_INTSRC825_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 826 */
+#if ((defined(INTC_CFG_INTSRC826_EN)) && (INTC_CFG_INTSRC826_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC826_CAT)) && (INTC_CFG_INTSRC826_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc826Entry);
+#else /* (INTC_CFG_INTSRC826_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc826Entry);
+#endif /* ((defined(INTC_CFG_INTSRC826_CAT)) \&& (INTC_CFG_INTSRC826_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC826_EN)) \&& (INTC_CFG_INTSRC826_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 827 */
+#if ((defined(INTC_CFG_INTSRC827_EN)) && (INTC_CFG_INTSRC827_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC827_CAT)) && (INTC_CFG_INTSRC827_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc827Entry);
+#else /* (INTC_CFG_INTSRC827_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc827Entry);
+#endif /* ((defined(INTC_CFG_INTSRC827_CAT)) \&& (INTC_CFG_INTSRC827_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC827_EN)) \&& (INTC_CFG_INTSRC827_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 828 */
+#if ((defined(INTC_CFG_INTSRC828_EN)) && (INTC_CFG_INTSRC828_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC828_CAT)) && (INTC_CFG_INTSRC828_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc828Entry);
+#else /* (INTC_CFG_INTSRC828_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc828Entry);
+#endif /* ((defined(INTC_CFG_INTSRC828_CAT)) \&& (INTC_CFG_INTSRC828_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC828_EN)) \&& (INTC_CFG_INTSRC828_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 829 */
+#if ((defined(INTC_CFG_INTSRC829_EN)) && (INTC_CFG_INTSRC829_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC829_CAT)) && (INTC_CFG_INTSRC829_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc829Entry);
+#else /* (INTC_CFG_INTSRC829_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc829Entry);
+#endif /* ((defined(INTC_CFG_INTSRC829_CAT)) \&& (INTC_CFG_INTSRC829_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC829_EN)) \&& (INTC_CFG_INTSRC829_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 830 */
+#if ((defined(INTC_CFG_INTSRC830_EN)) && (INTC_CFG_INTSRC830_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC830_CAT)) && (INTC_CFG_INTSRC830_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc830Entry);
+#else /* (INTC_CFG_INTSRC830_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc830Entry);
+#endif /* ((defined(INTC_CFG_INTSRC830_CAT)) \&& (INTC_CFG_INTSRC830_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC830_EN)) \&& (INTC_CFG_INTSRC830_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 831 */
+#if ((defined(INTC_CFG_INTSRC831_EN)) && (INTC_CFG_INTSRC831_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC831_CAT)) && (INTC_CFG_INTSRC831_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc831Entry);
+#else /* (INTC_CFG_INTSRC831_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc831Entry);
+#endif /* ((defined(INTC_CFG_INTSRC831_CAT)) \&& (INTC_CFG_INTSRC831_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC831_EN)) \&& (INTC_CFG_INTSRC831_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 832 */
+#if ((defined(INTC_CFG_INTSRC832_EN)) && (INTC_CFG_INTSRC832_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC832_CAT)) && (INTC_CFG_INTSRC832_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc832Entry);
+#else /* (INTC_CFG_INTSRC832_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc832Entry);
+#endif /* ((defined(INTC_CFG_INTSRC832_CAT)) \&& (INTC_CFG_INTSRC832_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC832_EN)) \&& (INTC_CFG_INTSRC832_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 833 */
+#if ((defined(INTC_CFG_INTSRC833_EN)) && (INTC_CFG_INTSRC833_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC833_CAT)) && (INTC_CFG_INTSRC833_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc833Entry);
+#else /* (INTC_CFG_INTSRC833_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc833Entry);
+#endif /* ((defined(INTC_CFG_INTSRC833_CAT)) \&& (INTC_CFG_INTSRC833_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC833_EN)) \&& (INTC_CFG_INTSRC833_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 834 */
+#if ((defined(INTC_CFG_INTSRC834_EN)) && (INTC_CFG_INTSRC834_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC834_CAT)) && (INTC_CFG_INTSRC834_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc834Entry);
+#else /* (INTC_CFG_INTSRC834_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc834Entry);
+#endif /* ((defined(INTC_CFG_INTSRC834_CAT)) \&& (INTC_CFG_INTSRC834_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC834_EN)) \&& (INTC_CFG_INTSRC834_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 835 */
+#if ((defined(INTC_CFG_INTSRC835_EN)) && (INTC_CFG_INTSRC835_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC835_CAT)) && (INTC_CFG_INTSRC835_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc835Entry);
+#else /* (INTC_CFG_INTSRC835_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc835Entry);
+#endif /* ((defined(INTC_CFG_INTSRC835_CAT)) \&& (INTC_CFG_INTSRC835_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC835_EN)) \&& (INTC_CFG_INTSRC835_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 836 */
+#if ((defined(INTC_CFG_INTSRC836_EN)) && (INTC_CFG_INTSRC836_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC836_CAT)) && (INTC_CFG_INTSRC836_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc836Entry);
+#else /* (INTC_CFG_INTSRC836_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc836Entry);
+#endif /* ((defined(INTC_CFG_INTSRC836_CAT)) \&& (INTC_CFG_INTSRC836_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC836_EN)) \&& (INTC_CFG_INTSRC836_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 837 */
+#if ((defined(INTC_CFG_INTSRC837_EN)) && (INTC_CFG_INTSRC837_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC837_CAT)) && (INTC_CFG_INTSRC837_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc837Entry);
+#else /* (INTC_CFG_INTSRC837_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc837Entry);
+#endif /* ((defined(INTC_CFG_INTSRC837_CAT)) \&& (INTC_CFG_INTSRC837_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC837_EN)) \&& (INTC_CFG_INTSRC837_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 838 */
+#if ((defined(INTC_CFG_INTSRC838_EN)) && (INTC_CFG_INTSRC838_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC838_CAT)) && (INTC_CFG_INTSRC838_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc838Entry);
+#else /* (INTC_CFG_INTSRC838_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc838Entry);
+#endif /* ((defined(INTC_CFG_INTSRC838_CAT)) \&& (INTC_CFG_INTSRC838_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC838_EN)) \&& (INTC_CFG_INTSRC838_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 839 */
+#if ((defined(INTC_CFG_INTSRC839_EN)) && (INTC_CFG_INTSRC839_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC839_CAT)) && (INTC_CFG_INTSRC839_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc839Entry);
+#else /* (INTC_CFG_INTSRC839_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc839Entry);
+#endif /* ((defined(INTC_CFG_INTSRC839_CAT)) \&& (INTC_CFG_INTSRC839_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC839_EN)) \&& (INTC_CFG_INTSRC839_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 840 */
+#if ((defined(INTC_CFG_INTSRC840_EN)) && (INTC_CFG_INTSRC840_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC840_CAT)) && (INTC_CFG_INTSRC840_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc840Entry);
+#else /* (INTC_CFG_INTSRC840_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc840Entry);
+#endif /* ((defined(INTC_CFG_INTSRC840_CAT)) \&& (INTC_CFG_INTSRC840_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC840_EN)) \&& (INTC_CFG_INTSRC840_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 841 */
+#if ((defined(INTC_CFG_INTSRC841_EN)) && (INTC_CFG_INTSRC841_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC841_CAT)) && (INTC_CFG_INTSRC841_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc841Entry);
+#else /* (INTC_CFG_INTSRC841_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc841Entry);
+#endif /* ((defined(INTC_CFG_INTSRC841_CAT)) \&& (INTC_CFG_INTSRC841_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC841_EN)) \&& (INTC_CFG_INTSRC841_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 842 */
+#if ((defined(INTC_CFG_INTSRC842_EN)) && (INTC_CFG_INTSRC842_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC842_CAT)) && (INTC_CFG_INTSRC842_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc842Entry);
+#else /* (INTC_CFG_INTSRC842_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc842Entry);
+#endif /* ((defined(INTC_CFG_INTSRC842_CAT)) \&& (INTC_CFG_INTSRC842_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC842_EN)) \&& (INTC_CFG_INTSRC842_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 843 */
+#if ((defined(INTC_CFG_INTSRC843_EN)) && (INTC_CFG_INTSRC843_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC843_CAT)) && (INTC_CFG_INTSRC843_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc843Entry);
+#else /* (INTC_CFG_INTSRC843_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc843Entry);
+#endif /* ((defined(INTC_CFG_INTSRC843_CAT)) \&& (INTC_CFG_INTSRC843_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC843_EN)) \&& (INTC_CFG_INTSRC843_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 844 */
+#if ((defined(INTC_CFG_INTSRC844_EN)) && (INTC_CFG_INTSRC844_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC844_CAT)) && (INTC_CFG_INTSRC844_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc844Entry);
+#else /* (INTC_CFG_INTSRC844_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc844Entry);
+#endif /* ((defined(INTC_CFG_INTSRC844_CAT)) \&& (INTC_CFG_INTSRC844_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC844_EN)) \&& (INTC_CFG_INTSRC844_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 845 */
+#if ((defined(INTC_CFG_INTSRC845_EN)) && (INTC_CFG_INTSRC845_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC845_CAT)) && (INTC_CFG_INTSRC845_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc845Entry);
+#else /* (INTC_CFG_INTSRC845_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc845Entry);
+#endif /* ((defined(INTC_CFG_INTSRC845_CAT)) \&& (INTC_CFG_INTSRC845_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC845_EN)) \&& (INTC_CFG_INTSRC845_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 846 */
+#if ((defined(INTC_CFG_INTSRC846_EN)) && (INTC_CFG_INTSRC846_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC846_CAT)) && (INTC_CFG_INTSRC846_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc846Entry);
+#else /* (INTC_CFG_INTSRC846_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc846Entry);
+#endif /* ((defined(INTC_CFG_INTSRC846_CAT)) \&& (INTC_CFG_INTSRC846_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC846_EN)) \&& (INTC_CFG_INTSRC846_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 847 */
+#if ((defined(INTC_CFG_INTSRC847_EN)) && (INTC_CFG_INTSRC847_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC847_CAT)) && (INTC_CFG_INTSRC847_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc847Entry);
+#else /* (INTC_CFG_INTSRC847_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc847Entry);
+#endif /* ((defined(INTC_CFG_INTSRC847_CAT)) \&& (INTC_CFG_INTSRC847_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC847_EN)) \&& (INTC_CFG_INTSRC847_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 848 */
+#if ((defined(INTC_CFG_INTSRC848_EN)) && (INTC_CFG_INTSRC848_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC848_CAT)) && (INTC_CFG_INTSRC848_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc848Entry);
+#else /* (INTC_CFG_INTSRC848_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc848Entry);
+#endif /* ((defined(INTC_CFG_INTSRC848_CAT)) \&& (INTC_CFG_INTSRC848_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC848_EN)) \&& (INTC_CFG_INTSRC848_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 849 */
+#if ((defined(INTC_CFG_INTSRC849_EN)) && (INTC_CFG_INTSRC849_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC849_CAT)) && (INTC_CFG_INTSRC849_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc849Entry);
+#else /* (INTC_CFG_INTSRC849_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc849Entry);
+#endif /* ((defined(INTC_CFG_INTSRC849_CAT)) \&& (INTC_CFG_INTSRC849_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC849_EN)) \&& (INTC_CFG_INTSRC849_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 850 */
+#if ((defined(INTC_CFG_INTSRC850_EN)) && (INTC_CFG_INTSRC850_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC850_CAT)) && (INTC_CFG_INTSRC850_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc850Entry);
+#else /* (INTC_CFG_INTSRC850_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc850Entry);
+#endif /* ((defined(INTC_CFG_INTSRC850_CAT)) \&& (INTC_CFG_INTSRC850_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC850_EN)) \&& (INTC_CFG_INTSRC850_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 851 */
+#if ((defined(INTC_CFG_INTSRC851_EN)) && (INTC_CFG_INTSRC851_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC851_CAT)) && (INTC_CFG_INTSRC851_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc851Entry);
+#else /* (INTC_CFG_INTSRC851_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc851Entry);
+#endif /* ((defined(INTC_CFG_INTSRC851_CAT)) \&& (INTC_CFG_INTSRC851_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC851_EN)) \&& (INTC_CFG_INTSRC851_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 852 */
+#if ((defined(INTC_CFG_INTSRC852_EN)) && (INTC_CFG_INTSRC852_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC852_CAT)) && (INTC_CFG_INTSRC852_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc852Entry);
+#else /* (INTC_CFG_INTSRC852_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc852Entry);
+#endif /* ((defined(INTC_CFG_INTSRC852_CAT)) \&& (INTC_CFG_INTSRC852_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC852_EN)) \&& (INTC_CFG_INTSRC852_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 853 */
+#if ((defined(INTC_CFG_INTSRC853_EN)) && (INTC_CFG_INTSRC853_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC853_CAT)) && (INTC_CFG_INTSRC853_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc853Entry);
+#else /* (INTC_CFG_INTSRC853_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc853Entry);
+#endif /* ((defined(INTC_CFG_INTSRC853_CAT)) \&& (INTC_CFG_INTSRC853_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC853_EN)) \&& (INTC_CFG_INTSRC853_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 854 */
+#if ((defined(INTC_CFG_INTSRC854_EN)) && (INTC_CFG_INTSRC854_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC854_CAT)) && (INTC_CFG_INTSRC854_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc854Entry);
+#else /* (INTC_CFG_INTSRC854_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc854Entry);
+#endif /* ((defined(INTC_CFG_INTSRC854_CAT)) \&& (INTC_CFG_INTSRC854_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC854_EN)) \&& (INTC_CFG_INTSRC854_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 855 */
+#if ((defined(INTC_CFG_INTSRC855_EN)) && (INTC_CFG_INTSRC855_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC855_CAT)) && (INTC_CFG_INTSRC855_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc855Entry);
+#else /* (INTC_CFG_INTSRC855_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc855Entry);
+#endif /* ((defined(INTC_CFG_INTSRC855_CAT)) \&& (INTC_CFG_INTSRC855_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC855_EN)) \&& (INTC_CFG_INTSRC855_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 856 */
+#if ((defined(INTC_CFG_INTSRC856_EN)) && (INTC_CFG_INTSRC856_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC856_CAT)) && (INTC_CFG_INTSRC856_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc856Entry);
+#else /* (INTC_CFG_INTSRC856_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc856Entry);
+#endif /* ((defined(INTC_CFG_INTSRC856_CAT)) \&& (INTC_CFG_INTSRC856_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC856_EN)) \&& (INTC_CFG_INTSRC856_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 857 */
+#if ((defined(INTC_CFG_INTSRC857_EN)) && (INTC_CFG_INTSRC857_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC857_CAT)) && (INTC_CFG_INTSRC857_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc857Entry);
+#else /* (INTC_CFG_INTSRC857_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc857Entry);
+#endif /* ((defined(INTC_CFG_INTSRC857_CAT)) \&& (INTC_CFG_INTSRC857_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC857_EN)) \&& (INTC_CFG_INTSRC857_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 858 */
+#if ((defined(INTC_CFG_INTSRC858_EN)) && (INTC_CFG_INTSRC858_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC858_CAT)) && (INTC_CFG_INTSRC858_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc858Entry);
+#else /* (INTC_CFG_INTSRC858_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc858Entry);
+#endif /* ((defined(INTC_CFG_INTSRC858_CAT)) \&& (INTC_CFG_INTSRC858_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC858_EN)) \&& (INTC_CFG_INTSRC858_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 859 */
+#if ((defined(INTC_CFG_INTSRC859_EN)) && (INTC_CFG_INTSRC859_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC859_CAT)) && (INTC_CFG_INTSRC859_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc859Entry);
+#else /* (INTC_CFG_INTSRC859_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc859Entry);
+#endif /* ((defined(INTC_CFG_INTSRC859_CAT)) \&& (INTC_CFG_INTSRC859_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC859_EN)) \&& (INTC_CFG_INTSRC859_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 860 */
+#if ((defined(INTC_CFG_INTSRC860_EN)) && (INTC_CFG_INTSRC860_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC860_CAT)) && (INTC_CFG_INTSRC860_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc860Entry);
+#else /* (INTC_CFG_INTSRC860_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc860Entry);
+#endif /* ((defined(INTC_CFG_INTSRC860_CAT)) \&& (INTC_CFG_INTSRC860_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC860_EN)) \&& (INTC_CFG_INTSRC860_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 861 */
+#if ((defined(INTC_CFG_INTSRC861_EN)) && (INTC_CFG_INTSRC861_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC861_CAT)) && (INTC_CFG_INTSRC861_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc861Entry);
+#else /* (INTC_CFG_INTSRC861_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc861Entry);
+#endif /* ((defined(INTC_CFG_INTSRC861_CAT)) \&& (INTC_CFG_INTSRC861_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC861_EN)) \&& (INTC_CFG_INTSRC861_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 862 */
+#if ((defined(INTC_CFG_INTSRC862_EN)) && (INTC_CFG_INTSRC862_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC862_CAT)) && (INTC_CFG_INTSRC862_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc862Entry);
+#else /* (INTC_CFG_INTSRC862_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc862Entry);
+#endif /* ((defined(INTC_CFG_INTSRC862_CAT)) \&& (INTC_CFG_INTSRC862_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC862_EN)) \&& (INTC_CFG_INTSRC862_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 863 */
+#if ((defined(INTC_CFG_INTSRC863_EN)) && (INTC_CFG_INTSRC863_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC863_CAT)) && (INTC_CFG_INTSRC863_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc863Entry);
+#else /* (INTC_CFG_INTSRC863_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc863Entry);
+#endif /* ((defined(INTC_CFG_INTSRC863_CAT)) \&& (INTC_CFG_INTSRC863_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC863_EN)) \&& (INTC_CFG_INTSRC863_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 864 */
+#if ((defined(INTC_CFG_INTSRC864_EN)) && (INTC_CFG_INTSRC864_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC864_CAT)) && (INTC_CFG_INTSRC864_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc864Entry);
+#else /* (INTC_CFG_INTSRC864_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc864Entry);
+#endif /* ((defined(INTC_CFG_INTSRC864_CAT)) \&& (INTC_CFG_INTSRC864_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC864_EN)) \&& (INTC_CFG_INTSRC864_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 865 */
+#if ((defined(INTC_CFG_INTSRC865_EN)) && (INTC_CFG_INTSRC865_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC865_CAT)) && (INTC_CFG_INTSRC865_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc865Entry);
+#else /* (INTC_CFG_INTSRC865_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc865Entry);
+#endif /* ((defined(INTC_CFG_INTSRC865_CAT)) \&& (INTC_CFG_INTSRC865_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC865_EN)) \&& (INTC_CFG_INTSRC865_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 866 */
+#if ((defined(INTC_CFG_INTSRC866_EN)) && (INTC_CFG_INTSRC866_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC866_CAT)) && (INTC_CFG_INTSRC866_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc866Entry);
+#else /* (INTC_CFG_INTSRC866_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc866Entry);
+#endif /* ((defined(INTC_CFG_INTSRC866_CAT)) \&& (INTC_CFG_INTSRC866_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC866_EN)) \&& (INTC_CFG_INTSRC866_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 867 */
+#if ((defined(INTC_CFG_INTSRC867_EN)) && (INTC_CFG_INTSRC867_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC867_CAT)) && (INTC_CFG_INTSRC867_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc867Entry);
+#else /* (INTC_CFG_INTSRC867_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc867Entry);
+#endif /* ((defined(INTC_CFG_INTSRC867_CAT)) \&& (INTC_CFG_INTSRC867_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC867_EN)) \&& (INTC_CFG_INTSRC867_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 868 */
+#if ((defined(INTC_CFG_INTSRC868_EN)) && (INTC_CFG_INTSRC868_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC868_CAT)) && (INTC_CFG_INTSRC868_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc868Entry);
+#else /* (INTC_CFG_INTSRC868_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc868Entry);
+#endif /* ((defined(INTC_CFG_INTSRC868_CAT)) \&& (INTC_CFG_INTSRC868_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC868_EN)) \&& (INTC_CFG_INTSRC868_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 869 */
+#if ((defined(INTC_CFG_INTSRC869_EN)) && (INTC_CFG_INTSRC869_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC869_CAT)) && (INTC_CFG_INTSRC869_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc869Entry);
+#else /* (INTC_CFG_INTSRC869_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc869Entry);
+#endif /* ((defined(INTC_CFG_INTSRC869_CAT)) \&& (INTC_CFG_INTSRC869_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC869_EN)) \&& (INTC_CFG_INTSRC869_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 870 */
+#if ((defined(INTC_CFG_INTSRC870_EN)) && (INTC_CFG_INTSRC870_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC870_CAT)) && (INTC_CFG_INTSRC870_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc870Entry);
+#else /* (INTC_CFG_INTSRC870_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc870Entry);
+#endif /* ((defined(INTC_CFG_INTSRC870_CAT)) \&& (INTC_CFG_INTSRC870_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC870_EN)) \&& (INTC_CFG_INTSRC870_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 871 */
+#if ((defined(INTC_CFG_INTSRC871_EN)) && (INTC_CFG_INTSRC871_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC871_CAT)) && (INTC_CFG_INTSRC871_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc871Entry);
+#else /* (INTC_CFG_INTSRC871_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc871Entry);
+#endif /* ((defined(INTC_CFG_INTSRC871_CAT)) \&& (INTC_CFG_INTSRC871_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC871_EN)) \&& (INTC_CFG_INTSRC871_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 872 */
+#if ((defined(INTC_CFG_INTSRC872_EN)) && (INTC_CFG_INTSRC872_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC872_CAT)) && (INTC_CFG_INTSRC872_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc872Entry);
+#else /* (INTC_CFG_INTSRC872_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc872Entry);
+#endif /* ((defined(INTC_CFG_INTSRC872_CAT)) \&& (INTC_CFG_INTSRC872_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC872_EN)) \&& (INTC_CFG_INTSRC872_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 873 */
+#if ((defined(INTC_CFG_INTSRC873_EN)) && (INTC_CFG_INTSRC873_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC873_CAT)) && (INTC_CFG_INTSRC873_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc873Entry);
+#else /* (INTC_CFG_INTSRC873_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc873Entry);
+#endif /* ((defined(INTC_CFG_INTSRC873_CAT)) \&& (INTC_CFG_INTSRC873_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC873_EN)) \&& (INTC_CFG_INTSRC873_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 874 */
+#if ((defined(INTC_CFG_INTSRC874_EN)) && (INTC_CFG_INTSRC874_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC874_CAT)) && (INTC_CFG_INTSRC874_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc874Entry);
+#else /* (INTC_CFG_INTSRC874_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc874Entry);
+#endif /* ((defined(INTC_CFG_INTSRC874_CAT)) \&& (INTC_CFG_INTSRC874_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC874_EN)) \&& (INTC_CFG_INTSRC874_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 875 */
+#if ((defined(INTC_CFG_INTSRC875_EN)) && (INTC_CFG_INTSRC875_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC875_CAT)) && (INTC_CFG_INTSRC875_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc875Entry);
+#else /* (INTC_CFG_INTSRC875_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc875Entry);
+#endif /* ((defined(INTC_CFG_INTSRC875_CAT)) \&& (INTC_CFG_INTSRC875_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC875_EN)) \&& (INTC_CFG_INTSRC875_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 876 */
+#if ((defined(INTC_CFG_INTSRC876_EN)) && (INTC_CFG_INTSRC876_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC876_CAT)) && (INTC_CFG_INTSRC876_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc876Entry);
+#else /* (INTC_CFG_INTSRC876_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc876Entry);
+#endif /* ((defined(INTC_CFG_INTSRC876_CAT)) \&& (INTC_CFG_INTSRC876_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC876_EN)) \&& (INTC_CFG_INTSRC876_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 877 */
+#if ((defined(INTC_CFG_INTSRC877_EN)) && (INTC_CFG_INTSRC877_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC877_CAT)) && (INTC_CFG_INTSRC877_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc877Entry);
+#else /* (INTC_CFG_INTSRC877_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc877Entry);
+#endif /* ((defined(INTC_CFG_INTSRC877_CAT)) \&& (INTC_CFG_INTSRC877_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC877_EN)) \&& (INTC_CFG_INTSRC877_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 878 */
+#if ((defined(INTC_CFG_INTSRC878_EN)) && (INTC_CFG_INTSRC878_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC878_CAT)) && (INTC_CFG_INTSRC878_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc878Entry);
+#else /* (INTC_CFG_INTSRC878_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc878Entry);
+#endif /* ((defined(INTC_CFG_INTSRC878_CAT)) \&& (INTC_CFG_INTSRC878_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC878_EN)) \&& (INTC_CFG_INTSRC878_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 879 */
+#if ((defined(INTC_CFG_INTSRC879_EN)) && (INTC_CFG_INTSRC879_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC879_CAT)) && (INTC_CFG_INTSRC879_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc879Entry);
+#else /* (INTC_CFG_INTSRC879_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc879Entry);
+#endif /* ((defined(INTC_CFG_INTSRC879_CAT)) \&& (INTC_CFG_INTSRC879_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC879_EN)) \&& (INTC_CFG_INTSRC879_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 880 */
+#if ((defined(INTC_CFG_INTSRC880_EN)) && (INTC_CFG_INTSRC880_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC880_CAT)) && (INTC_CFG_INTSRC880_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc880Entry);
+#else /* (INTC_CFG_INTSRC880_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc880Entry);
+#endif /* ((defined(INTC_CFG_INTSRC880_CAT)) \&& (INTC_CFG_INTSRC880_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC880_EN)) \&& (INTC_CFG_INTSRC880_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 881 */
+#if ((defined(INTC_CFG_INTSRC881_EN)) && (INTC_CFG_INTSRC881_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC881_CAT)) && (INTC_CFG_INTSRC881_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc881Entry);
+#else /* (INTC_CFG_INTSRC881_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc881Entry);
+#endif /* ((defined(INTC_CFG_INTSRC881_CAT)) \&& (INTC_CFG_INTSRC881_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC881_EN)) \&& (INTC_CFG_INTSRC881_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 882 */
+#if ((defined(INTC_CFG_INTSRC882_EN)) && (INTC_CFG_INTSRC882_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC882_CAT)) && (INTC_CFG_INTSRC882_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc882Entry);
+#else /* (INTC_CFG_INTSRC882_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc882Entry);
+#endif /* ((defined(INTC_CFG_INTSRC882_CAT)) \&& (INTC_CFG_INTSRC882_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC882_EN)) \&& (INTC_CFG_INTSRC882_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 883 */
+#if ((defined(INTC_CFG_INTSRC883_EN)) && (INTC_CFG_INTSRC883_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC883_CAT)) && (INTC_CFG_INTSRC883_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc883Entry);
+#else /* (INTC_CFG_INTSRC883_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc883Entry);
+#endif /* ((defined(INTC_CFG_INTSRC883_CAT)) \&& (INTC_CFG_INTSRC883_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC883_EN)) \&& (INTC_CFG_INTSRC883_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 884 */
+#if ((defined(INTC_CFG_INTSRC884_EN)) && (INTC_CFG_INTSRC884_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC884_CAT)) && (INTC_CFG_INTSRC884_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc884Entry);
+#else /* (INTC_CFG_INTSRC884_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc884Entry);
+#endif /* ((defined(INTC_CFG_INTSRC884_CAT)) \&& (INTC_CFG_INTSRC884_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC884_EN)) \&& (INTC_CFG_INTSRC884_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 885 */
+#if ((defined(INTC_CFG_INTSRC885_EN)) && (INTC_CFG_INTSRC885_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC885_CAT)) && (INTC_CFG_INTSRC885_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc885Entry);
+#else /* (INTC_CFG_INTSRC885_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc885Entry);
+#endif /* ((defined(INTC_CFG_INTSRC885_CAT)) \&& (INTC_CFG_INTSRC885_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC885_EN)) \&& (INTC_CFG_INTSRC885_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 886 */
+#if ((defined(INTC_CFG_INTSRC886_EN)) && (INTC_CFG_INTSRC886_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC886_CAT)) && (INTC_CFG_INTSRC886_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc886Entry);
+#else /* (INTC_CFG_INTSRC886_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc886Entry);
+#endif /* ((defined(INTC_CFG_INTSRC886_CAT)) \&& (INTC_CFG_INTSRC886_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC886_EN)) \&& (INTC_CFG_INTSRC886_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 887 */
+#if ((defined(INTC_CFG_INTSRC887_EN)) && (INTC_CFG_INTSRC887_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC887_CAT)) && (INTC_CFG_INTSRC887_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc887Entry);
+#else /* (INTC_CFG_INTSRC887_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc887Entry);
+#endif /* ((defined(INTC_CFG_INTSRC887_CAT)) \&& (INTC_CFG_INTSRC887_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC887_EN)) \&& (INTC_CFG_INTSRC887_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 888 */
+#if ((defined(INTC_CFG_INTSRC888_EN)) && (INTC_CFG_INTSRC888_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC888_CAT)) && (INTC_CFG_INTSRC888_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc888Entry);
+#else /* (INTC_CFG_INTSRC888_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc888Entry);
+#endif /* ((defined(INTC_CFG_INTSRC888_CAT)) \&& (INTC_CFG_INTSRC888_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC888_EN)) \&& (INTC_CFG_INTSRC888_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 889 */
+#if ((defined(INTC_CFG_INTSRC889_EN)) && (INTC_CFG_INTSRC889_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC889_CAT)) && (INTC_CFG_INTSRC889_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc889Entry);
+#else /* (INTC_CFG_INTSRC889_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc889Entry);
+#endif /* ((defined(INTC_CFG_INTSRC889_CAT)) \&& (INTC_CFG_INTSRC889_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC889_EN)) \&& (INTC_CFG_INTSRC889_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 890 */
+#if ((defined(INTC_CFG_INTSRC890_EN)) && (INTC_CFG_INTSRC890_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC890_CAT)) && (INTC_CFG_INTSRC890_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc890Entry);
+#else /* (INTC_CFG_INTSRC890_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc890Entry);
+#endif /* ((defined(INTC_CFG_INTSRC890_CAT)) \&& (INTC_CFG_INTSRC890_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC890_EN)) \&& (INTC_CFG_INTSRC890_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 891 */
+#if ((defined(INTC_CFG_INTSRC891_EN)) && (INTC_CFG_INTSRC891_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC891_CAT)) && (INTC_CFG_INTSRC891_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc891Entry);
+#else /* (INTC_CFG_INTSRC891_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc891Entry);
+#endif /* ((defined(INTC_CFG_INTSRC891_CAT)) \&& (INTC_CFG_INTSRC891_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC891_EN)) \&& (INTC_CFG_INTSRC891_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 892 */
+#if ((defined(INTC_CFG_INTSRC892_EN)) && (INTC_CFG_INTSRC892_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC892_CAT)) && (INTC_CFG_INTSRC892_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc892Entry);
+#else /* (INTC_CFG_INTSRC892_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc892Entry);
+#endif /* ((defined(INTC_CFG_INTSRC892_CAT)) \&& (INTC_CFG_INTSRC892_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC892_EN)) \&& (INTC_CFG_INTSRC892_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 893 */
+#if ((defined(INTC_CFG_INTSRC893_EN)) && (INTC_CFG_INTSRC893_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC893_CAT)) && (INTC_CFG_INTSRC893_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc893Entry);
+#else /* (INTC_CFG_INTSRC893_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc893Entry);
+#endif /* ((defined(INTC_CFG_INTSRC893_CAT)) \&& (INTC_CFG_INTSRC893_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC893_EN)) \&& (INTC_CFG_INTSRC893_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 894 */
+#if ((defined(INTC_CFG_INTSRC894_EN)) && (INTC_CFG_INTSRC894_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC894_CAT)) && (INTC_CFG_INTSRC894_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc894Entry);
+#else /* (INTC_CFG_INTSRC894_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc894Entry);
+#endif /* ((defined(INTC_CFG_INTSRC894_CAT)) \&& (INTC_CFG_INTSRC894_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC894_EN)) \&& (INTC_CFG_INTSRC894_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 895 */
+#if ((defined(INTC_CFG_INTSRC895_EN)) && (INTC_CFG_INTSRC895_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC895_CAT)) && (INTC_CFG_INTSRC895_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc895Entry);
+#else /* (INTC_CFG_INTSRC895_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc895Entry);
+#endif /* ((defined(INTC_CFG_INTSRC895_CAT)) \&& (INTC_CFG_INTSRC895_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC895_EN)) \&& (INTC_CFG_INTSRC895_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 896 */
+#if ((defined(INTC_CFG_INTSRC896_EN)) && (INTC_CFG_INTSRC896_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC896_CAT)) && (INTC_CFG_INTSRC896_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc896Entry);
+#else /* (INTC_CFG_INTSRC896_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc896Entry);
+#endif /* ((defined(INTC_CFG_INTSRC896_CAT)) \&& (INTC_CFG_INTSRC896_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC896_EN)) \&& (INTC_CFG_INTSRC896_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 897 */
+#if ((defined(INTC_CFG_INTSRC897_EN)) && (INTC_CFG_INTSRC897_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC897_CAT)) && (INTC_CFG_INTSRC897_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc897Entry);
+#else /* (INTC_CFG_INTSRC897_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc897Entry);
+#endif /* ((defined(INTC_CFG_INTSRC897_CAT)) \&& (INTC_CFG_INTSRC897_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC897_EN)) \&& (INTC_CFG_INTSRC897_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 898 */
+#if ((defined(INTC_CFG_INTSRC898_EN)) && (INTC_CFG_INTSRC898_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC898_CAT)) && (INTC_CFG_INTSRC898_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc898Entry);
+#else /* (INTC_CFG_INTSRC898_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc898Entry);
+#endif /* ((defined(INTC_CFG_INTSRC898_CAT)) \&& (INTC_CFG_INTSRC898_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC898_EN)) \&& (INTC_CFG_INTSRC898_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 899 */
+#if ((defined(INTC_CFG_INTSRC899_EN)) && (INTC_CFG_INTSRC899_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC899_CAT)) && (INTC_CFG_INTSRC899_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc899Entry);
+#else /* (INTC_CFG_INTSRC899_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc899Entry);
+#endif /* ((defined(INTC_CFG_INTSRC899_CAT)) \&& (INTC_CFG_INTSRC899_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC899_EN)) \&& (INTC_CFG_INTSRC899_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 900 */
+#if ((defined(INTC_CFG_INTSRC900_EN)) && (INTC_CFG_INTSRC900_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC900_CAT)) && (INTC_CFG_INTSRC900_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc900Entry);
+#else /* (INTC_CFG_INTSRC900_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc900Entry);
+#endif /* ((defined(INTC_CFG_INTSRC900_CAT)) \&& (INTC_CFG_INTSRC900_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC900_EN)) \&& (INTC_CFG_INTSRC900_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 901 */
+#if ((defined(INTC_CFG_INTSRC901_EN)) && (INTC_CFG_INTSRC901_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC901_CAT)) && (INTC_CFG_INTSRC901_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc901Entry);
+#else /* (INTC_CFG_INTSRC901_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc901Entry);
+#endif /* ((defined(INTC_CFG_INTSRC901_CAT)) \&& (INTC_CFG_INTSRC901_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC901_EN)) \&& (INTC_CFG_INTSRC901_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 902 */
+#if ((defined(INTC_CFG_INTSRC902_EN)) && (INTC_CFG_INTSRC902_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC902_CAT)) && (INTC_CFG_INTSRC902_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc902Entry);
+#else /* (INTC_CFG_INTSRC902_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc902Entry);
+#endif /* ((defined(INTC_CFG_INTSRC902_CAT)) \&& (INTC_CFG_INTSRC902_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC902_EN)) \&& (INTC_CFG_INTSRC902_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 903 */
+#if ((defined(INTC_CFG_INTSRC903_EN)) && (INTC_CFG_INTSRC903_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC903_CAT)) && (INTC_CFG_INTSRC903_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc903Entry);
+#else /* (INTC_CFG_INTSRC903_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc903Entry);
+#endif /* ((defined(INTC_CFG_INTSRC903_CAT)) \&& (INTC_CFG_INTSRC903_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC903_EN)) \&& (INTC_CFG_INTSRC903_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 904 */
+#if ((defined(INTC_CFG_INTSRC904_EN)) && (INTC_CFG_INTSRC904_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC904_CAT)) && (INTC_CFG_INTSRC904_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc904Entry);
+#else /* (INTC_CFG_INTSRC904_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc904Entry);
+#endif /* ((defined(INTC_CFG_INTSRC904_CAT)) \&& (INTC_CFG_INTSRC904_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC904_EN)) \&& (INTC_CFG_INTSRC904_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 905 */
+#if ((defined(INTC_CFG_INTSRC905_EN)) && (INTC_CFG_INTSRC905_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC905_CAT)) && (INTC_CFG_INTSRC905_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc905Entry);
+#else /* (INTC_CFG_INTSRC905_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc905Entry);
+#endif /* ((defined(INTC_CFG_INTSRC905_CAT)) \&& (INTC_CFG_INTSRC905_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC905_EN)) \&& (INTC_CFG_INTSRC905_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 906 */
+#if ((defined(INTC_CFG_INTSRC906_EN)) && (INTC_CFG_INTSRC906_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC906_CAT)) && (INTC_CFG_INTSRC906_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc906Entry);
+#else /* (INTC_CFG_INTSRC906_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc906Entry);
+#endif /* ((defined(INTC_CFG_INTSRC906_CAT)) \&& (INTC_CFG_INTSRC906_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC906_EN)) \&& (INTC_CFG_INTSRC906_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 907 */
+#if ((defined(INTC_CFG_INTSRC907_EN)) && (INTC_CFG_INTSRC907_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC907_CAT)) && (INTC_CFG_INTSRC907_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc907Entry);
+#else /* (INTC_CFG_INTSRC907_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc907Entry);
+#endif /* ((defined(INTC_CFG_INTSRC907_CAT)) \&& (INTC_CFG_INTSRC907_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC907_EN)) \&& (INTC_CFG_INTSRC907_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 908 */
+#if ((defined(INTC_CFG_INTSRC908_EN)) && (INTC_CFG_INTSRC908_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC908_CAT)) && (INTC_CFG_INTSRC908_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc908Entry);
+#else /* (INTC_CFG_INTSRC908_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc908Entry);
+#endif /* ((defined(INTC_CFG_INTSRC908_CAT)) \&& (INTC_CFG_INTSRC908_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC908_EN)) \&& (INTC_CFG_INTSRC908_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 909 */
+#if ((defined(INTC_CFG_INTSRC909_EN)) && (INTC_CFG_INTSRC909_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC909_CAT)) && (INTC_CFG_INTSRC909_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc909Entry);
+#else /* (INTC_CFG_INTSRC909_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc909Entry);
+#endif /* ((defined(INTC_CFG_INTSRC909_CAT)) \&& (INTC_CFG_INTSRC909_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC909_EN)) \&& (INTC_CFG_INTSRC909_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 910 */
+#if ((defined(INTC_CFG_INTSRC910_EN)) && (INTC_CFG_INTSRC910_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC910_CAT)) && (INTC_CFG_INTSRC910_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc910Entry);
+#else /* (INTC_CFG_INTSRC910_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc910Entry);
+#endif /* ((defined(INTC_CFG_INTSRC910_CAT)) \&& (INTC_CFG_INTSRC910_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC910_EN)) \&& (INTC_CFG_INTSRC910_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 911 */
+#if ((defined(INTC_CFG_INTSRC911_EN)) && (INTC_CFG_INTSRC911_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC911_CAT)) && (INTC_CFG_INTSRC911_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc911Entry);
+#else /* (INTC_CFG_INTSRC911_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc911Entry);
+#endif /* ((defined(INTC_CFG_INTSRC911_CAT)) \&& (INTC_CFG_INTSRC911_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC911_EN)) \&& (INTC_CFG_INTSRC911_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 912 */
+#if ((defined(INTC_CFG_INTSRC912_EN)) && (INTC_CFG_INTSRC912_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC912_CAT)) && (INTC_CFG_INTSRC912_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc912Entry);
+#else /* (INTC_CFG_INTSRC912_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc912Entry);
+#endif /* ((defined(INTC_CFG_INTSRC912_CAT)) \&& (INTC_CFG_INTSRC912_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC912_EN)) \&& (INTC_CFG_INTSRC912_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 913 */
+#if ((defined(INTC_CFG_INTSRC913_EN)) && (INTC_CFG_INTSRC913_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC913_CAT)) && (INTC_CFG_INTSRC913_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc913Entry);
+#else /* (INTC_CFG_INTSRC913_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc913Entry);
+#endif /* ((defined(INTC_CFG_INTSRC913_CAT)) \&& (INTC_CFG_INTSRC913_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC913_EN)) \&& (INTC_CFG_INTSRC913_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 914 */
+#if ((defined(INTC_CFG_INTSRC914_EN)) && (INTC_CFG_INTSRC914_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC914_CAT)) && (INTC_CFG_INTSRC914_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc914Entry);
+#else /* (INTC_CFG_INTSRC914_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc914Entry);
+#endif /* ((defined(INTC_CFG_INTSRC914_CAT)) \&& (INTC_CFG_INTSRC914_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC914_EN)) \&& (INTC_CFG_INTSRC914_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 915 */
+#if ((defined(INTC_CFG_INTSRC915_EN)) && (INTC_CFG_INTSRC915_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC915_CAT)) && (INTC_CFG_INTSRC915_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc915Entry);
+#else /* (INTC_CFG_INTSRC915_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc915Entry);
+#endif /* ((defined(INTC_CFG_INTSRC915_CAT)) \&& (INTC_CFG_INTSRC915_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC915_EN)) \&& (INTC_CFG_INTSRC915_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 916 */
+#if ((defined(INTC_CFG_INTSRC916_EN)) && (INTC_CFG_INTSRC916_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC916_CAT)) && (INTC_CFG_INTSRC916_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc916Entry);
+#else /* (INTC_CFG_INTSRC916_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc916Entry);
+#endif /* ((defined(INTC_CFG_INTSRC916_CAT)) \&& (INTC_CFG_INTSRC916_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC916_EN)) \&& (INTC_CFG_INTSRC916_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 917 */
+#if ((defined(INTC_CFG_INTSRC917_EN)) && (INTC_CFG_INTSRC917_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC917_CAT)) && (INTC_CFG_INTSRC917_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc917Entry);
+#else /* (INTC_CFG_INTSRC917_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc917Entry);
+#endif /* ((defined(INTC_CFG_INTSRC917_CAT)) \&& (INTC_CFG_INTSRC917_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC917_EN)) \&& (INTC_CFG_INTSRC917_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 918 */
+#if ((defined(INTC_CFG_INTSRC918_EN)) && (INTC_CFG_INTSRC918_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC918_CAT)) && (INTC_CFG_INTSRC918_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc918Entry);
+#else /* (INTC_CFG_INTSRC918_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc918Entry);
+#endif /* ((defined(INTC_CFG_INTSRC918_CAT)) \&& (INTC_CFG_INTSRC918_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC918_EN)) \&& (INTC_CFG_INTSRC918_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 919 */
+#if ((defined(INTC_CFG_INTSRC919_EN)) && (INTC_CFG_INTSRC919_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC919_CAT)) && (INTC_CFG_INTSRC919_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc919Entry);
+#else /* (INTC_CFG_INTSRC919_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc919Entry);
+#endif /* ((defined(INTC_CFG_INTSRC919_CAT)) \&& (INTC_CFG_INTSRC919_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC919_EN)) \&& (INTC_CFG_INTSRC919_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 920 */
+#if ((defined(INTC_CFG_INTSRC920_EN)) && (INTC_CFG_INTSRC920_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC920_CAT)) && (INTC_CFG_INTSRC920_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc920Entry);
+#else /* (INTC_CFG_INTSRC920_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc920Entry);
+#endif /* ((defined(INTC_CFG_INTSRC920_CAT)) \&& (INTC_CFG_INTSRC920_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC920_EN)) \&& (INTC_CFG_INTSRC920_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 921 */
+#if ((defined(INTC_CFG_INTSRC921_EN)) && (INTC_CFG_INTSRC921_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC921_CAT)) && (INTC_CFG_INTSRC921_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc921Entry);
+#else /* (INTC_CFG_INTSRC921_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc921Entry);
+#endif /* ((defined(INTC_CFG_INTSRC921_CAT)) \&& (INTC_CFG_INTSRC921_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC921_EN)) \&& (INTC_CFG_INTSRC921_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 922 */
+#if ((defined(INTC_CFG_INTSRC922_EN)) && (INTC_CFG_INTSRC922_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC922_CAT)) && (INTC_CFG_INTSRC922_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc922Entry);
+#else /* (INTC_CFG_INTSRC922_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc922Entry);
+#endif /* ((defined(INTC_CFG_INTSRC922_CAT)) \&& (INTC_CFG_INTSRC922_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC922_EN)) \&& (INTC_CFG_INTSRC922_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 923 */
+#if ((defined(INTC_CFG_INTSRC923_EN)) && (INTC_CFG_INTSRC923_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC923_CAT)) && (INTC_CFG_INTSRC923_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc923Entry);
+#else /* (INTC_CFG_INTSRC923_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc923Entry);
+#endif /* ((defined(INTC_CFG_INTSRC923_CAT)) \&& (INTC_CFG_INTSRC923_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC923_EN)) \&& (INTC_CFG_INTSRC923_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 924 */
+#if ((defined(INTC_CFG_INTSRC924_EN)) && (INTC_CFG_INTSRC924_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC924_CAT)) && (INTC_CFG_INTSRC924_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc924Entry);
+#else /* (INTC_CFG_INTSRC924_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc924Entry);
+#endif /* ((defined(INTC_CFG_INTSRC924_CAT)) \&& (INTC_CFG_INTSRC924_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC924_EN)) \&& (INTC_CFG_INTSRC924_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 925 */
+#if ((defined(INTC_CFG_INTSRC925_EN)) && (INTC_CFG_INTSRC925_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC925_CAT)) && (INTC_CFG_INTSRC925_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc925Entry);
+#else /* (INTC_CFG_INTSRC925_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc925Entry);
+#endif /* ((defined(INTC_CFG_INTSRC925_CAT)) \&& (INTC_CFG_INTSRC925_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC925_EN)) \&& (INTC_CFG_INTSRC925_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 926 */
+#if ((defined(INTC_CFG_INTSRC926_EN)) && (INTC_CFG_INTSRC926_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC926_CAT)) && (INTC_CFG_INTSRC926_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc926Entry);
+#else /* (INTC_CFG_INTSRC926_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc926Entry);
+#endif /* ((defined(INTC_CFG_INTSRC926_CAT)) \&& (INTC_CFG_INTSRC926_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC926_EN)) \&& (INTC_CFG_INTSRC926_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 927 */
+#if ((defined(INTC_CFG_INTSRC927_EN)) && (INTC_CFG_INTSRC927_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC927_CAT)) && (INTC_CFG_INTSRC927_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc927Entry);
+#else /* (INTC_CFG_INTSRC927_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc927Entry);
+#endif /* ((defined(INTC_CFG_INTSRC927_CAT)) \&& (INTC_CFG_INTSRC927_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC927_EN)) \&& (INTC_CFG_INTSRC927_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 928 */
+#if ((defined(INTC_CFG_INTSRC928_EN)) && (INTC_CFG_INTSRC928_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC928_CAT)) && (INTC_CFG_INTSRC928_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc928Entry);
+#else /* (INTC_CFG_INTSRC928_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc928Entry);
+#endif /* ((defined(INTC_CFG_INTSRC928_CAT)) \&& (INTC_CFG_INTSRC928_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC928_EN)) \&& (INTC_CFG_INTSRC928_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 929 */
+#if ((defined(INTC_CFG_INTSRC929_EN)) && (INTC_CFG_INTSRC929_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC929_CAT)) && (INTC_CFG_INTSRC929_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc929Entry);
+#else /* (INTC_CFG_INTSRC929_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc929Entry);
+#endif /* ((defined(INTC_CFG_INTSRC929_CAT)) \&& (INTC_CFG_INTSRC929_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC929_EN)) \&& (INTC_CFG_INTSRC929_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 930 */
+#if ((defined(INTC_CFG_INTSRC930_EN)) && (INTC_CFG_INTSRC930_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC930_CAT)) && (INTC_CFG_INTSRC930_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc930Entry);
+#else /* (INTC_CFG_INTSRC930_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc930Entry);
+#endif /* ((defined(INTC_CFG_INTSRC930_CAT)) \&& (INTC_CFG_INTSRC930_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC930_EN)) \&& (INTC_CFG_INTSRC930_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 931 */
+#if ((defined(INTC_CFG_INTSRC931_EN)) && (INTC_CFG_INTSRC931_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC931_CAT)) && (INTC_CFG_INTSRC931_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc931Entry);
+#else /* (INTC_CFG_INTSRC931_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc931Entry);
+#endif /* ((defined(INTC_CFG_INTSRC931_CAT)) \&& (INTC_CFG_INTSRC931_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC931_EN)) \&& (INTC_CFG_INTSRC931_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 932 */
+#if ((defined(INTC_CFG_INTSRC932_EN)) && (INTC_CFG_INTSRC932_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC932_CAT)) && (INTC_CFG_INTSRC932_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc932Entry);
+#else /* (INTC_CFG_INTSRC932_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc932Entry);
+#endif /* ((defined(INTC_CFG_INTSRC932_CAT)) \&& (INTC_CFG_INTSRC932_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC932_EN)) \&& (INTC_CFG_INTSRC932_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 933 */
+#if ((defined(INTC_CFG_INTSRC933_EN)) && (INTC_CFG_INTSRC933_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC933_CAT)) && (INTC_CFG_INTSRC933_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc933Entry);
+#else /* (INTC_CFG_INTSRC933_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc933Entry);
+#endif /* ((defined(INTC_CFG_INTSRC933_CAT)) \&& (INTC_CFG_INTSRC933_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC933_EN)) \&& (INTC_CFG_INTSRC933_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 934 */
+#if ((defined(INTC_CFG_INTSRC934_EN)) && (INTC_CFG_INTSRC934_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC934_CAT)) && (INTC_CFG_INTSRC934_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc934Entry);
+#else /* (INTC_CFG_INTSRC934_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc934Entry);
+#endif /* ((defined(INTC_CFG_INTSRC934_CAT)) \&& (INTC_CFG_INTSRC934_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC934_EN)) \&& (INTC_CFG_INTSRC934_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 935 */
+#if ((defined(INTC_CFG_INTSRC935_EN)) && (INTC_CFG_INTSRC935_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC935_CAT)) && (INTC_CFG_INTSRC935_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc935Entry);
+#else /* (INTC_CFG_INTSRC935_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc935Entry);
+#endif /* ((defined(INTC_CFG_INTSRC935_CAT)) \&& (INTC_CFG_INTSRC935_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC935_EN)) \&& (INTC_CFG_INTSRC935_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 936 */
+#if ((defined(INTC_CFG_INTSRC936_EN)) && (INTC_CFG_INTSRC936_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC936_CAT)) && (INTC_CFG_INTSRC936_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc936Entry);
+#else /* (INTC_CFG_INTSRC936_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc936Entry);
+#endif /* ((defined(INTC_CFG_INTSRC936_CAT)) \&& (INTC_CFG_INTSRC936_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC936_EN)) \&& (INTC_CFG_INTSRC936_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 937 */
+#if ((defined(INTC_CFG_INTSRC937_EN)) && (INTC_CFG_INTSRC937_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC937_CAT)) && (INTC_CFG_INTSRC937_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc937Entry);
+#else /* (INTC_CFG_INTSRC937_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc937Entry);
+#endif /* ((defined(INTC_CFG_INTSRC937_CAT)) \&& (INTC_CFG_INTSRC937_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC937_EN)) \&& (INTC_CFG_INTSRC937_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 938 */
+#if ((defined(INTC_CFG_INTSRC938_EN)) && (INTC_CFG_INTSRC938_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC938_CAT)) && (INTC_CFG_INTSRC938_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc938Entry);
+#else /* (INTC_CFG_INTSRC938_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc938Entry);
+#endif /* ((defined(INTC_CFG_INTSRC938_CAT)) \&& (INTC_CFG_INTSRC938_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC938_EN)) \&& (INTC_CFG_INTSRC938_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 939 */
+#if ((defined(INTC_CFG_INTSRC939_EN)) && (INTC_CFG_INTSRC939_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC939_CAT)) && (INTC_CFG_INTSRC939_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc939Entry);
+#else /* (INTC_CFG_INTSRC939_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc939Entry);
+#endif /* ((defined(INTC_CFG_INTSRC939_CAT)) \&& (INTC_CFG_INTSRC939_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC939_EN)) \&& (INTC_CFG_INTSRC939_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 940 */
+#if ((defined(INTC_CFG_INTSRC940_EN)) && (INTC_CFG_INTSRC940_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC940_CAT)) && (INTC_CFG_INTSRC940_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc940Entry);
+#else /* (INTC_CFG_INTSRC940_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc940Entry);
+#endif /* ((defined(INTC_CFG_INTSRC940_CAT)) \&& (INTC_CFG_INTSRC940_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC940_EN)) \&& (INTC_CFG_INTSRC940_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 941 */
+#if ((defined(INTC_CFG_INTSRC941_EN)) && (INTC_CFG_INTSRC941_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC941_CAT)) && (INTC_CFG_INTSRC941_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc941Entry);
+#else /* (INTC_CFG_INTSRC941_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc941Entry);
+#endif /* ((defined(INTC_CFG_INTSRC941_CAT)) \&& (INTC_CFG_INTSRC941_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC941_EN)) \&& (INTC_CFG_INTSRC941_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 942 */
+#if ((defined(INTC_CFG_INTSRC942_EN)) && (INTC_CFG_INTSRC942_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC942_CAT)) && (INTC_CFG_INTSRC942_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc942Entry);
+#else /* (INTC_CFG_INTSRC942_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc942Entry);
+#endif /* ((defined(INTC_CFG_INTSRC942_CAT)) \&& (INTC_CFG_INTSRC942_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC942_EN)) \&& (INTC_CFG_INTSRC942_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 943 */
+#if ((defined(INTC_CFG_INTSRC943_EN)) && (INTC_CFG_INTSRC943_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC943_CAT)) && (INTC_CFG_INTSRC943_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc943Entry);
+#else /* (INTC_CFG_INTSRC943_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc943Entry);
+#endif /* ((defined(INTC_CFG_INTSRC943_CAT)) \&& (INTC_CFG_INTSRC943_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC943_EN)) \&& (INTC_CFG_INTSRC943_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 944 */
+#if ((defined(INTC_CFG_INTSRC944_EN)) && (INTC_CFG_INTSRC944_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC944_CAT)) && (INTC_CFG_INTSRC944_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc944Entry);
+#else /* (INTC_CFG_INTSRC944_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc944Entry);
+#endif /* ((defined(INTC_CFG_INTSRC944_CAT)) \&& (INTC_CFG_INTSRC944_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC944_EN)) \&& (INTC_CFG_INTSRC944_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 945 */
+#if ((defined(INTC_CFG_INTSRC945_EN)) && (INTC_CFG_INTSRC945_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC945_CAT)) && (INTC_CFG_INTSRC945_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc945Entry);
+#else /* (INTC_CFG_INTSRC945_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc945Entry);
+#endif /* ((defined(INTC_CFG_INTSRC945_CAT)) \&& (INTC_CFG_INTSRC945_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC945_EN)) \&& (INTC_CFG_INTSRC945_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 946 */
+#if ((defined(INTC_CFG_INTSRC946_EN)) && (INTC_CFG_INTSRC946_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC946_CAT)) && (INTC_CFG_INTSRC946_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc946Entry);
+#else /* (INTC_CFG_INTSRC946_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc946Entry);
+#endif /* ((defined(INTC_CFG_INTSRC946_CAT)) \&& (INTC_CFG_INTSRC946_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC946_EN)) \&& (INTC_CFG_INTSRC946_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 947 */
+#if ((defined(INTC_CFG_INTSRC947_EN)) && (INTC_CFG_INTSRC947_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC947_CAT)) && (INTC_CFG_INTSRC947_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc947Entry);
+#else /* (INTC_CFG_INTSRC947_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc947Entry);
+#endif /* ((defined(INTC_CFG_INTSRC947_CAT)) \&& (INTC_CFG_INTSRC947_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC947_EN)) \&& (INTC_CFG_INTSRC947_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 948 */
+#if ((defined(INTC_CFG_INTSRC948_EN)) && (INTC_CFG_INTSRC948_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC948_CAT)) && (INTC_CFG_INTSRC948_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc948Entry);
+#else /* (INTC_CFG_INTSRC948_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc948Entry);
+#endif /* ((defined(INTC_CFG_INTSRC948_CAT)) \&& (INTC_CFG_INTSRC948_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC948_EN)) \&& (INTC_CFG_INTSRC948_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 949 */
+#if ((defined(INTC_CFG_INTSRC949_EN)) && (INTC_CFG_INTSRC949_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC949_CAT)) && (INTC_CFG_INTSRC949_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc949Entry);
+#else /* (INTC_CFG_INTSRC949_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc949Entry);
+#endif /* ((defined(INTC_CFG_INTSRC949_CAT)) \&& (INTC_CFG_INTSRC949_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC949_EN)) \&& (INTC_CFG_INTSRC949_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 950 */
+#if ((defined(INTC_CFG_INTSRC950_EN)) && (INTC_CFG_INTSRC950_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC950_CAT)) && (INTC_CFG_INTSRC950_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc950Entry);
+#else /* (INTC_CFG_INTSRC950_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc950Entry);
+#endif /* ((defined(INTC_CFG_INTSRC950_CAT)) \&& (INTC_CFG_INTSRC950_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC950_EN)) \&& (INTC_CFG_INTSRC950_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 951 */
+#if ((defined(INTC_CFG_INTSRC951_EN)) && (INTC_CFG_INTSRC951_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC951_CAT)) && (INTC_CFG_INTSRC951_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc951Entry);
+#else /* (INTC_CFG_INTSRC951_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc951Entry);
+#endif /* ((defined(INTC_CFG_INTSRC951_CAT)) \&& (INTC_CFG_INTSRC951_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC951_EN)) \&& (INTC_CFG_INTSRC951_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 952 */
+#if ((defined(INTC_CFG_INTSRC952_EN)) && (INTC_CFG_INTSRC952_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC952_CAT)) && (INTC_CFG_INTSRC952_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc952Entry);
+#else /* (INTC_CFG_INTSRC952_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc952Entry);
+#endif /* ((defined(INTC_CFG_INTSRC952_CAT)) \&& (INTC_CFG_INTSRC952_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC952_EN)) \&& (INTC_CFG_INTSRC952_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 953 */
+#if ((defined(INTC_CFG_INTSRC953_EN)) && (INTC_CFG_INTSRC953_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC953_CAT)) && (INTC_CFG_INTSRC953_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc953Entry);
+#else /* (INTC_CFG_INTSRC953_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc953Entry);
+#endif /* ((defined(INTC_CFG_INTSRC953_CAT)) \&& (INTC_CFG_INTSRC953_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC953_EN)) \&& (INTC_CFG_INTSRC953_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 954 */
+#if ((defined(INTC_CFG_INTSRC954_EN)) && (INTC_CFG_INTSRC954_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC954_CAT)) && (INTC_CFG_INTSRC954_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc954Entry);
+#else /* (INTC_CFG_INTSRC954_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc954Entry);
+#endif /* ((defined(INTC_CFG_INTSRC954_CAT)) \&& (INTC_CFG_INTSRC954_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC954_EN)) \&& (INTC_CFG_INTSRC954_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 955 */
+#if ((defined(INTC_CFG_INTSRC955_EN)) && (INTC_CFG_INTSRC955_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC955_CAT)) && (INTC_CFG_INTSRC955_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc955Entry);
+#else /* (INTC_CFG_INTSRC955_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc955Entry);
+#endif /* ((defined(INTC_CFG_INTSRC955_CAT)) \&& (INTC_CFG_INTSRC955_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC955_EN)) \&& (INTC_CFG_INTSRC955_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 956 */
+#if ((defined(INTC_CFG_INTSRC956_EN)) && (INTC_CFG_INTSRC956_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC956_CAT)) && (INTC_CFG_INTSRC956_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc956Entry);
+#else /* (INTC_CFG_INTSRC956_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc956Entry);
+#endif /* ((defined(INTC_CFG_INTSRC956_CAT)) \&& (INTC_CFG_INTSRC956_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC956_EN)) \&& (INTC_CFG_INTSRC956_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 957 */
+#if ((defined(INTC_CFG_INTSRC957_EN)) && (INTC_CFG_INTSRC957_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC957_CAT)) && (INTC_CFG_INTSRC957_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc957Entry);
+#else /* (INTC_CFG_INTSRC957_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc957Entry);
+#endif /* ((defined(INTC_CFG_INTSRC957_CAT)) \&& (INTC_CFG_INTSRC957_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC957_EN)) \&& (INTC_CFG_INTSRC957_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 958 */
+#if ((defined(INTC_CFG_INTSRC958_EN)) && (INTC_CFG_INTSRC958_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC958_CAT)) && (INTC_CFG_INTSRC958_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc958Entry);
+#else /* (INTC_CFG_INTSRC958_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc958Entry);
+#endif /* ((defined(INTC_CFG_INTSRC958_CAT)) \&& (INTC_CFG_INTSRC958_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC958_EN)) \&& (INTC_CFG_INTSRC958_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 959 */
+#if ((defined(INTC_CFG_INTSRC959_EN)) && (INTC_CFG_INTSRC959_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC959_CAT)) && (INTC_CFG_INTSRC959_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc959Entry);
+#else /* (INTC_CFG_INTSRC959_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc959Entry);
+#endif /* ((defined(INTC_CFG_INTSRC959_CAT)) \&& (INTC_CFG_INTSRC959_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC959_EN)) \&& (INTC_CFG_INTSRC959_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 960 */
+#if ((defined(INTC_CFG_INTSRC960_EN)) && (INTC_CFG_INTSRC960_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC960_CAT)) && (INTC_CFG_INTSRC960_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc960Entry);
+#else /* (INTC_CFG_INTSRC960_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc960Entry);
+#endif /* ((defined(INTC_CFG_INTSRC960_CAT)) \&& (INTC_CFG_INTSRC960_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC960_EN)) \&& (INTC_CFG_INTSRC960_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 961 */
+#if ((defined(INTC_CFG_INTSRC961_EN)) && (INTC_CFG_INTSRC961_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC961_CAT)) && (INTC_CFG_INTSRC961_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc961Entry);
+#else /* (INTC_CFG_INTSRC961_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc961Entry);
+#endif /* ((defined(INTC_CFG_INTSRC961_CAT)) \&& (INTC_CFG_INTSRC961_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC961_EN)) \&& (INTC_CFG_INTSRC961_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 962 */
+#if ((defined(INTC_CFG_INTSRC962_EN)) && (INTC_CFG_INTSRC962_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC962_CAT)) && (INTC_CFG_INTSRC962_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc962Entry);
+#else /* (INTC_CFG_INTSRC962_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc962Entry);
+#endif /* ((defined(INTC_CFG_INTSRC962_CAT)) \&& (INTC_CFG_INTSRC962_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC962_EN)) \&& (INTC_CFG_INTSRC962_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 963 */
+#if ((defined(INTC_CFG_INTSRC963_EN)) && (INTC_CFG_INTSRC963_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC963_CAT)) && (INTC_CFG_INTSRC963_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc963Entry);
+#else /* (INTC_CFG_INTSRC963_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc963Entry);
+#endif /* ((defined(INTC_CFG_INTSRC963_CAT)) \&& (INTC_CFG_INTSRC963_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC963_EN)) \&& (INTC_CFG_INTSRC963_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 964 */
+#if ((defined(INTC_CFG_INTSRC964_EN)) && (INTC_CFG_INTSRC964_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC964_CAT)) && (INTC_CFG_INTSRC964_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc964Entry);
+#else /* (INTC_CFG_INTSRC964_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc964Entry);
+#endif /* ((defined(INTC_CFG_INTSRC964_CAT)) \&& (INTC_CFG_INTSRC964_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC964_EN)) \&& (INTC_CFG_INTSRC964_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 965 */
+#if ((defined(INTC_CFG_INTSRC965_EN)) && (INTC_CFG_INTSRC965_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC965_CAT)) && (INTC_CFG_INTSRC965_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc965Entry);
+#else /* (INTC_CFG_INTSRC965_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc965Entry);
+#endif /* ((defined(INTC_CFG_INTSRC965_CAT)) \&& (INTC_CFG_INTSRC965_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC965_EN)) \&& (INTC_CFG_INTSRC965_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 966 */
+#if ((defined(INTC_CFG_INTSRC966_EN)) && (INTC_CFG_INTSRC966_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC966_CAT)) && (INTC_CFG_INTSRC966_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc966Entry);
+#else /* (INTC_CFG_INTSRC966_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc966Entry);
+#endif /* ((defined(INTC_CFG_INTSRC966_CAT)) \&& (INTC_CFG_INTSRC966_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC966_EN)) \&& (INTC_CFG_INTSRC966_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 967 */
+#if ((defined(INTC_CFG_INTSRC967_EN)) && (INTC_CFG_INTSRC967_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC967_CAT)) && (INTC_CFG_INTSRC967_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc967Entry);
+#else /* (INTC_CFG_INTSRC967_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc967Entry);
+#endif /* ((defined(INTC_CFG_INTSRC967_CAT)) \&& (INTC_CFG_INTSRC967_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC967_EN)) \&& (INTC_CFG_INTSRC967_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 968 */
+#if ((defined(INTC_CFG_INTSRC968_EN)) && (INTC_CFG_INTSRC968_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC968_CAT)) && (INTC_CFG_INTSRC968_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc968Entry);
+#else /* (INTC_CFG_INTSRC968_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc968Entry);
+#endif /* ((defined(INTC_CFG_INTSRC968_CAT)) \&& (INTC_CFG_INTSRC968_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC968_EN)) \&& (INTC_CFG_INTSRC968_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 969 */
+#if ((defined(INTC_CFG_INTSRC969_EN)) && (INTC_CFG_INTSRC969_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC969_CAT)) && (INTC_CFG_INTSRC969_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc969Entry);
+#else /* (INTC_CFG_INTSRC969_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc969Entry);
+#endif /* ((defined(INTC_CFG_INTSRC969_CAT)) \&& (INTC_CFG_INTSRC969_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC969_EN)) \&& (INTC_CFG_INTSRC969_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 970 */
+#if ((defined(INTC_CFG_INTSRC970_EN)) && (INTC_CFG_INTSRC970_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC970_CAT)) && (INTC_CFG_INTSRC970_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc970Entry);
+#else /* (INTC_CFG_INTSRC970_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc970Entry);
+#endif /* ((defined(INTC_CFG_INTSRC970_CAT)) \&& (INTC_CFG_INTSRC970_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC970_EN)) \&& (INTC_CFG_INTSRC970_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 971 */
+#if ((defined(INTC_CFG_INTSRC971_EN)) && (INTC_CFG_INTSRC971_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC971_CAT)) && (INTC_CFG_INTSRC971_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc971Entry);
+#else /* (INTC_CFG_INTSRC971_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc971Entry);
+#endif /* ((defined(INTC_CFG_INTSRC971_CAT)) \&& (INTC_CFG_INTSRC971_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC971_EN)) \&& (INTC_CFG_INTSRC971_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 972 */
+#if ((defined(INTC_CFG_INTSRC972_EN)) && (INTC_CFG_INTSRC972_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC972_CAT)) && (INTC_CFG_INTSRC972_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc972Entry);
+#else /* (INTC_CFG_INTSRC972_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc972Entry);
+#endif /* ((defined(INTC_CFG_INTSRC972_CAT)) \&& (INTC_CFG_INTSRC972_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC972_EN)) \&& (INTC_CFG_INTSRC972_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 973 */
+#if ((defined(INTC_CFG_INTSRC973_EN)) && (INTC_CFG_INTSRC973_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC973_CAT)) && (INTC_CFG_INTSRC973_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc973Entry);
+#else /* (INTC_CFG_INTSRC973_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc973Entry);
+#endif /* ((defined(INTC_CFG_INTSRC973_CAT)) \&& (INTC_CFG_INTSRC973_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC973_EN)) \&& (INTC_CFG_INTSRC973_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 974 */
+#if ((defined(INTC_CFG_INTSRC974_EN)) && (INTC_CFG_INTSRC974_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC974_CAT)) && (INTC_CFG_INTSRC974_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc974Entry);
+#else /* (INTC_CFG_INTSRC974_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc974Entry);
+#endif /* ((defined(INTC_CFG_INTSRC974_CAT)) \&& (INTC_CFG_INTSRC974_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC974_EN)) \&& (INTC_CFG_INTSRC974_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 975 */
+#if ((defined(INTC_CFG_INTSRC975_EN)) && (INTC_CFG_INTSRC975_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC975_CAT)) && (INTC_CFG_INTSRC975_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc975Entry);
+#else /* (INTC_CFG_INTSRC975_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc975Entry);
+#endif /* ((defined(INTC_CFG_INTSRC975_CAT)) \&& (INTC_CFG_INTSRC975_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC975_EN)) \&& (INTC_CFG_INTSRC975_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 976 */
+#if ((defined(INTC_CFG_INTSRC976_EN)) && (INTC_CFG_INTSRC976_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC976_CAT)) && (INTC_CFG_INTSRC976_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc976Entry);
+#else /* (INTC_CFG_INTSRC976_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc976Entry);
+#endif /* ((defined(INTC_CFG_INTSRC976_CAT)) \&& (INTC_CFG_INTSRC976_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC976_EN)) \&& (INTC_CFG_INTSRC976_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 977 */
+#if ((defined(INTC_CFG_INTSRC977_EN)) && (INTC_CFG_INTSRC977_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC977_CAT)) && (INTC_CFG_INTSRC977_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc977Entry);
+#else /* (INTC_CFG_INTSRC977_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc977Entry);
+#endif /* ((defined(INTC_CFG_INTSRC977_CAT)) \&& (INTC_CFG_INTSRC977_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC977_EN)) \&& (INTC_CFG_INTSRC977_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 978 */
+#if ((defined(INTC_CFG_INTSRC978_EN)) && (INTC_CFG_INTSRC978_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC978_CAT)) && (INTC_CFG_INTSRC978_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc978Entry);
+#else /* (INTC_CFG_INTSRC978_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc978Entry);
+#endif /* ((defined(INTC_CFG_INTSRC978_CAT)) \&& (INTC_CFG_INTSRC978_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC978_EN)) \&& (INTC_CFG_INTSRC978_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 979 */
+#if ((defined(INTC_CFG_INTSRC979_EN)) && (INTC_CFG_INTSRC979_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC979_CAT)) && (INTC_CFG_INTSRC979_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc979Entry);
+#else /* (INTC_CFG_INTSRC979_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc979Entry);
+#endif /* ((defined(INTC_CFG_INTSRC979_CAT)) \&& (INTC_CFG_INTSRC979_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC979_EN)) \&& (INTC_CFG_INTSRC979_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 980 */
+#if ((defined(INTC_CFG_INTSRC980_EN)) && (INTC_CFG_INTSRC980_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC980_CAT)) && (INTC_CFG_INTSRC980_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc980Entry);
+#else /* (INTC_CFG_INTSRC980_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc980Entry);
+#endif /* ((defined(INTC_CFG_INTSRC980_CAT)) \&& (INTC_CFG_INTSRC980_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC980_EN)) \&& (INTC_CFG_INTSRC980_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 981 */
+#if ((defined(INTC_CFG_INTSRC981_EN)) && (INTC_CFG_INTSRC981_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC981_CAT)) && (INTC_CFG_INTSRC981_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc981Entry);
+#else /* (INTC_CFG_INTSRC981_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc981Entry);
+#endif /* ((defined(INTC_CFG_INTSRC981_CAT)) \&& (INTC_CFG_INTSRC981_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC981_EN)) \&& (INTC_CFG_INTSRC981_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 982 */
+#if ((defined(INTC_CFG_INTSRC982_EN)) && (INTC_CFG_INTSRC982_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC982_CAT)) && (INTC_CFG_INTSRC982_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc982Entry);
+#else /* (INTC_CFG_INTSRC982_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc982Entry);
+#endif /* ((defined(INTC_CFG_INTSRC982_CAT)) \&& (INTC_CFG_INTSRC982_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC982_EN)) \&& (INTC_CFG_INTSRC982_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 983 */
+#if ((defined(INTC_CFG_INTSRC983_EN)) && (INTC_CFG_INTSRC983_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC983_CAT)) && (INTC_CFG_INTSRC983_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc983Entry);
+#else /* (INTC_CFG_INTSRC983_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc983Entry);
+#endif /* ((defined(INTC_CFG_INTSRC983_CAT)) \&& (INTC_CFG_INTSRC983_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC983_EN)) \&& (INTC_CFG_INTSRC983_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 984 */
+#if ((defined(INTC_CFG_INTSRC984_EN)) && (INTC_CFG_INTSRC984_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC984_CAT)) && (INTC_CFG_INTSRC984_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc984Entry);
+#else /* (INTC_CFG_INTSRC984_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc984Entry);
+#endif /* ((defined(INTC_CFG_INTSRC984_CAT)) \&& (INTC_CFG_INTSRC984_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC984_EN)) \&& (INTC_CFG_INTSRC984_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 985 */
+#if ((defined(INTC_CFG_INTSRC985_EN)) && (INTC_CFG_INTSRC985_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC985_CAT)) && (INTC_CFG_INTSRC985_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc985Entry);
+#else /* (INTC_CFG_INTSRC985_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc985Entry);
+#endif /* ((defined(INTC_CFG_INTSRC985_CAT)) \&& (INTC_CFG_INTSRC985_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC985_EN)) \&& (INTC_CFG_INTSRC985_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 986 */
+#if ((defined(INTC_CFG_INTSRC986_EN)) && (INTC_CFG_INTSRC986_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC986_CAT)) && (INTC_CFG_INTSRC986_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc986Entry);
+#else /* (INTC_CFG_INTSRC986_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc986Entry);
+#endif /* ((defined(INTC_CFG_INTSRC986_CAT)) \&& (INTC_CFG_INTSRC986_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC986_EN)) \&& (INTC_CFG_INTSRC986_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 987 */
+#if ((defined(INTC_CFG_INTSRC987_EN)) && (INTC_CFG_INTSRC987_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC987_CAT)) && (INTC_CFG_INTSRC987_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc987Entry);
+#else /* (INTC_CFG_INTSRC987_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc987Entry);
+#endif /* ((defined(INTC_CFG_INTSRC987_CAT)) \&& (INTC_CFG_INTSRC987_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC987_EN)) \&& (INTC_CFG_INTSRC987_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 988 */
+#if ((defined(INTC_CFG_INTSRC988_EN)) && (INTC_CFG_INTSRC988_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC988_CAT)) && (INTC_CFG_INTSRC988_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc988Entry);
+#else /* (INTC_CFG_INTSRC988_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc988Entry);
+#endif /* ((defined(INTC_CFG_INTSRC988_CAT)) \&& (INTC_CFG_INTSRC988_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC988_EN)) \&& (INTC_CFG_INTSRC988_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 989 */
+#if ((defined(INTC_CFG_INTSRC989_EN)) && (INTC_CFG_INTSRC989_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC989_CAT)) && (INTC_CFG_INTSRC989_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc989Entry);
+#else /* (INTC_CFG_INTSRC989_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc989Entry);
+#endif /* ((defined(INTC_CFG_INTSRC989_CAT)) \&& (INTC_CFG_INTSRC989_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC989_EN)) \&& (INTC_CFG_INTSRC989_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 990 */
+#if ((defined(INTC_CFG_INTSRC990_EN)) && (INTC_CFG_INTSRC990_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC990_CAT)) && (INTC_CFG_INTSRC990_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc990Entry);
+#else /* (INTC_CFG_INTSRC990_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc990Entry);
+#endif /* ((defined(INTC_CFG_INTSRC990_CAT)) \&& (INTC_CFG_INTSRC990_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC990_EN)) \&& (INTC_CFG_INTSRC990_EN)) */
+
+/* Interrupt servicer handler entry: Interrupt ID 991 */
+#if ((defined(INTC_CFG_INTSRC991_EN)) && (INTC_CFG_INTSRC991_EN) || (MCAL_MODULE_CFG_INTC_EN == STD_OFF))
+#if ((defined(INTC_CFG_INTSRC991_CAT)) && (INTC_CFG_INTSRC991_CAT == INTC_SRC_TYPE_CAT1))
+extern MCAL_ISR(Intc_Irq_IntSrc991Entry);
+#else /* (INTC_CFG_INTSRC991_CAT == INTC_SRC_TYPE_CAT2) || (MCAL_MODULE_CFG_INTC_EN \== STD_OFF) */
+extern ISR(Intc_Irq_IntSrc991Entry);
+#endif /* ((defined(INTC_CFG_INTSRC991_CAT)) \&& (INTC_CFG_INTSRC991_CAT \== INTC_SRC_TYPE_CAT1)) */
+#endif /* ((defined(INTC_CFG_INTSRC991_EN)) \&& (INTC_CFG_INTSRC991_EN)) */
+
+#if (MCAL_MODULE_CFG_INTC_EN == STD_ON)
+/* #Violation: Intc_Irq_h_REF_1 */
+#define INTC_STOP_SEC_CODE_ASIL_D_GLOBAL
+#include "Intc_MemMap.h"
+#endif /* MCAL_MODULE_CFG_INTC_EN \== STD_ON */
+
+#endif /* INTC_IRQ_H_ */
+
+/****************************************************************************************************
+**                      End of File
+****************************************************************************************************/

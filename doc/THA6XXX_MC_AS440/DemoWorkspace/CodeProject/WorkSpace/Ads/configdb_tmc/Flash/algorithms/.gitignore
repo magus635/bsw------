@@ -1,0 +1,4 @@
+# This directory is here because it is expected by the build.
+# It is not expected to contain any source files.
+*
+!.gitignore

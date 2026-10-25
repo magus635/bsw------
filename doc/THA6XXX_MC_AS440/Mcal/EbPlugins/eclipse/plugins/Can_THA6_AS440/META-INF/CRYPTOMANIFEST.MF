@@ -1,0 +1,43 @@
+
+Name: config/Can.xdm
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 28964594744303686876060216392904952636809382922820164792197
+ 078819577671495523922326096986479292957724430888725708
+
+Name: generate_PB/include/Can_Cfg.h
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377426359333658779645598216665148462146665667396091101
+ 5945264679614060276713715903478205861909732197653420
+
+Name: generate_PB/include/Can_Callout.h
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377424214756874593011846009240999165174756911713318623
+ 4625258940463806839480032850979801515966391778904293
+
+Name: generate_PB/Can_Cfg_Common.m
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 28964594773975224938965056301297114772299064225768380907305
+ 962875186773041487568413681176610627152961206334373317
+
+Name: generate_PB/src/Can_PBcfg.c
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377420826783113357608303714579668048879722349786922417
+ 0962047126694827908387141202347430348182230877889274
+
+Name: generate_PB/include/Can_PBcfg.h
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377421656515959191012155010391272882620903548483585511
+ 1149306981709559413299520222866924056767953100436346
+

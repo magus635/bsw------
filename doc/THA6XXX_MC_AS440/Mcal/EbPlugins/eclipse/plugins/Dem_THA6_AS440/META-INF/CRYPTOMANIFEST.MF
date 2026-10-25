@@ -1,0 +1,8 @@
+
+Name: config/Dem.xdm
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 28964594746672414068251659846296934237792559843026747860847
+ 731795810726902898771796109987162400191609326050469930
+

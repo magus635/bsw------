@@ -1,0 +1,29 @@
+
+Name: config/Fee.xdm
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377426650750108108888179992776498851495814505157345245
+ 7838852819719375112107116170478399138689014880805891
+
+Name: generate_PB/include/Fee_Cfg.h
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377421887889858622229350747608050798901710913639125380
+ 7862275078064713755629041719622807436229430271969702
+
+Name: generate_PB/src/Fee_PBcfg.c
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377425919299183310055122982935400254748602731120741748
+ 8321774248099515245748869879068696996283572925652297
+
+Name: generate_PB/Fee.m
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377423598625473415630316364356353185787451146430062940
+ 3208579038617643441314040004647902569854836763191042
+

@@ -1,0 +1,36 @@
+
+Name: generate_PB/include/Uart_Cfg.h
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 28964594773972753868794894412015444983041013757266950099611
+ 936214971748862449245566613264981087779304368683734371
+
+Name: generate_PB/Uart.m
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 28964594749876007503089561604295575583766995558714777096156
+ 696980285352481356409075830768726602267356167297926027
+
+Name: config/Uart.xdm
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377423725252767896774503041077258220316141057954858088
+ 0890014186840042853081939908015360367110812808562527
+
+Name: generate_PB/include/Uart_PBcfg.h
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 74155374890386728221468459834614465306106754153528249762557
+ 36946863203468040654718050908591605784075409877095144595
+
+Name: generate_PB/src/Uart_PBcfg.c
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 28964594752774872150140500273319859575781821985034274078183
+ 260526329996625881183265625284760073380671047847924240
+

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<project name="example" default="all" basedir=".">
+  <!-- An Ant build file for the NG Generator API features all standard Ant tasks (Ant version
+        1.7.0) and the following list of additional tasks provided by EB tresos (for detailed
+        information about the tasks please refer to the Javadoc of plugin
+        dreisoft.tresos.generator.ng.api):
+
+        ng.tmplgen:         Runs a classic template based code generator.
+        ng.extgen:          Runs an external generator.
+        ng.jetgen:          Runs a JET-based generator.
+        ng.javagen:         Runs a Java generator (implementing IJavaGenTemplate).
+        ng.jetgen.src:      Runs a JET-based generator after compiling the JET template.
+        ng.javagen.src:     Runs a Java generator after compiling the Java file.
+        ng.property:        Executes an xpath expression and sets the result to an Ant property.
+        ng.setgeneratorvar: Sets/changes a CodeGeneratorContext variable.
+        ng.getgeneratorvar: Writes the value of a CodeGeneratorContext variable to an Ant property.
+    -->
+
+  <!-- Ant target "all" is default -->
+      <!-- To get the values of generator variables from the CodeGeneratorContext (also accessible
+            with JavaGenContext.gen) you can use Ant task ng.getgeneratorvar. The following example
+            shows how to obtain the current output directory where the files are generated
+            to. The value of attribute "name" is the name of the variable in the context and the
+            attribute property specifies the name of the resulting Ant property.
+        -->
+  <!-- [cover parentID={86DC34B8-44EE-4af7-A532-7E92427D9A87}][/cover] -->
+  <ng.getgeneratorvar name="outputDir" property="outputDirProp" />
+  <ng.getgeneratorvar name="postBuildVariant" property="postBuildVariantProp"/>
+  <ng.property name="xpathName2UpProp" xpath="name(../..)" />
+
+  <target name="test">
+    <condition property="shouldFilesBeRenamed" value="true"  else="false">
+      <and>
+        <isset property="postBuildVariantProp"/>
+        <not>
+          <equals arg1="${postBuildVariantProp}" arg2=""/>
+        </not>
+      </and>
+    </condition> 
+  </target>
+
+  <target name="renameFiles" if="${shouldFilesBeRenamed}" depends="test">
+    <move file="${outputDirProp}\src\Eth_PBcfg.c" tofile="${outputDirProp}\src\Eth_${postBuildVariantProp}_PBcfg.c"/>
+  </target>
+
+  <target name="all" depends="renameFiles ">
+  </target>
+</project>
+

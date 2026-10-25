@@ -1,0 +1,1574 @@
+<?xml version='1.0'?>
+<datamodel version="7.0"
+     xmlns="http://www.tresos.de/_projects/DataModel2/16/root.xsd"
+     xmlns:a="http://www.tresos.de/_projects/DataModel2/16/attribute.xsd"
+     xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd"
+     xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd">
+
+     <d:ctr type="AUTOSAR" factory="autosar"
+          xmlns:ad="http://www.tresos.de/_projects/DataModel2/08/admindata.xsd"
+          xmlns:cd="http://www.tresos.de/_projects/DataModel2/08/customdata.xsd"
+          xmlns:f="http://www.tresos.de/_projects/DataModel2/14/formulaexpr.xsd"
+          xmlns:icc="http://www.tresos.de/_projects/DataModel2/08/implconfigclass.xsd"
+          xmlns:mt="http://www.tresos.de/_projects/DataModel2/11/multitest.xsd"
+          xmlns:variant="http://www.tresos.de/_projects/DataModel2/11/variant.xsd">
+          <d:lst type="TOP-LEVEL-PACKAGES">
+               <d:ctr name="THA6_AS440_FuSa" type="AR-PACKAGE">
+                  <a:a name="UUID" value="9df3bdae-cc65-4178-8d34-9f89c8b82b80" />
+                    <d:lst type="ELEMENTS">
+                         <d:chc name="Msc" type="AR-ELEMENT" value="MODULE-DEF">
+                              <v:ctr type="MODULE-DEF">
+                                   <a:a name="ADMIN-DATA" type="ADMIN-DATA">
+                                        <ad:ADMIN-DATA>
+                                             <ad:DOC-REVISIONS>
+                                                <ad:DOC-REVISION>
+                                                    <ad:REVISION-LABEL>4.4.0</ad:REVISION-LABEL>
+                                                    <ad:ISSUED-BY>AUTOSAR</ad:ISSUED-BY>
+                                                  </ad:DOC-REVISION>
+                                             </ad:DOC-REVISIONS>
+                                        </ad:ADMIN-DATA>
+                                   </a:a>
+                                   <a:a name="DESC"
+                                        value="EN: Configuration of the Msc module." />
+                                   <a:a name="LOWER-MULTIPLICITY" value="0" />
+                                   <a:a name="POSTBUILDVARIANTSUPPORT" value="true" />
+                                   <a:a name="RELEASE" value="asc:4.4.0" />
+                                   <a:a name="UPPER-MULTIPLICITY" value="1" />
+                                   <a:a name="UUID" value="03ca96c6-5dc2-0ad3-56d2-3e98951d920e" />
+                                   <v:var name="IMPLEMENTATION_CONFIG_VARIANT" type="ENUMERATION">
+                                        <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                             type="IMPLEMENTATIONCONFIGCLASS">
+                                             <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                        </a:a>
+                                        <a:a name="LABEL" value="Config Variant" />
+                                        <a:a name="UUID"
+                                             value="1e24e667-a5bc-2586-5655-bf8cb66c1c22" />
+                                        <a:da name="DEFAULT" value="VariantPostBuild" />
+                                        <a:da name="RANGE">
+                                             <a:v>VariantPostBuild</a:v>
+                                        </a:da>
+                                   </v:var>
+
+                                   <v:ctr name="MscConfigSet" type="IDENTIFIABLE">
+                                      <a:a name="DESC"
+                                           value="EN: Module Configuration of MSC Driver" />
+                                      <a:a name="UUID" value="ad7a93e5-7984-405d-bf64-c882be501adc" />
+                                        <!-- /**ConfigSet*/ -->
+                                        <v:lst name="MscModuleConfiguration" type="MAP">
+                                             <a:da name="MIN" value="1" />
+                                             <a:da name="MAX" type="XPath" expr="num:i(ecu:get('Msc.MaxHwUnit'))" />
+                                             <v:ctr name="MscModuleConfiguration" type="IDENTIFIABLE">
+                                                  <a:a name="DESC"
+                                                       value="EN: Module Configuration of MSC Driver" />
+                                                  <a:a name="UUID"
+                                                       value="891bea8f-5e1b-9b2d-e207-4b297a5d055e" />
+                                                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                                                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                      <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                  </a:a>
+                                                  <a:a name="REQUIRES-INDEX" value="true"/>
+
+                                                    <v:var name="MscHWUnitMapping" type="ENUMERATION">
+                                                      <a:a name="DESC"
+                                                            value="This parameter is the symbolic name to identify the HW MSC Hardware microcontroller peripheral." />
+                                                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                            type="IMPLEMENTATIONCONFIGCLASS">
+                                                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                      </a:a>
+                                                      <a:a name="ORIGIN" value="ChipowerTech" />
+                                                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                      <a:a name="UUID"
+                                                            value="DCE:891bea8f-5e1b-9b2d-e207-4b297a5d055e" />
+                                                      <a:da name="DEFAULT" value="Msc_0" />
+                                                      <a:da name="RANGE" type="XPath" expr="node:fallback(ecu:list('Msc.HwUnitList'), 'Msc_0')" />  
+                                                      <a:da name="INVALID" type="Multi">
+                                                        <mt:xpath expr="text:uniq(../../*/MscHWUnitMapping,.)" false="The hardware index 'MscHWUnitMapping' should be unique."/>                                            
+                                                      </a:da>                
+                                                    </v:var>
+
+                                                  <!-- /**MscClockConfigure*/ -->
+                                                  <v:ctr name="MscClockConfiguration" type="IDENTIFIABLE">
+                                                       <a:a name="DESC"
+                                                            value="EN: Clock Configuration MSC Driver" />
+                                                       <a:a name="POSTBUILDCHANGEABLE" value="false" />
+                                                       <a:a name="UUID"
+                                                            value="92e30dc8-54d9-46d3-adc7-1e25626eec35" />
+                                                       <!-- /**MscBaudRate*/ -->
+                                                       <v:var name="MscSerialOutputFrequency" type="INTEGER">
+                                                            <a:a name="DESC"
+                                                                 value="Specifies the MSC serial clock frequency of downstream transmit.&lt;br/&gt;
+                                                                 Unit: Hz" />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                 type="IMPLEMENTATIONCONFIGCLASS">
+                                                                 <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="UUID"
+                                                                 value="412d320f-d547-82ef-6073-6a957843adf2" />
+                                                            <a:da name="DEFAULT" value="30000000" />
+                                                            <a:da name="INVALID" type="Range">
+                                                                 <a:tst expr="&lt;=50000000" />
+                                                                 <a:tst expr="&gt;=0" />
+                                                            </a:da>
+                                                       </v:var>
+                                                       <!-- /**MscUpstreamDivider*/ -->
+                                                       <v:var name="MscUpstreamDivider"
+                                                            type="ENUMERATION">
+                                                            <a:a name="DESC" value="Divider Value for upstream:&lt;br/&gt;
+                                                                                MSC_UPDIV_4:   MscSerialOutputFrequency / 4 &lt;br/&gt;
+                                                                                MSC_UPDIV_8:   MscSerialOutputFrequency / 8&lt;br/&gt;
+                                                                                MSC_UPDIV_16:  MscSerialOutputFrequency / 16&lt;br/&gt;
+                                                                                MSC_UPDIV_32:  MscSerialOutputFrequency / 32&lt;br/&gt;
+                                                                                MSC_UPDIV_64:  MscSerialOutputFrequency / 64&lt;br/&gt;
+                                                                                MSC_UPDIV_128: MscSerialOutputFrequency / 128&lt;br/&gt;
+                                                                                "/>
+
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                 type="IMPLEMENTATIONCONFIGCLASS">
+                                                                 <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="UUID"
+                                                                 value="BD35428B-69D7-B32D-803A-A6112C6325E9" />
+                                                            <a:da name="DEFAULT" value="MSC_UPDIV_4" />
+                                                            <a:da name="RANGE">
+                                                                 <a:v>MSC_UPDIV_4</a:v>
+                                                                 <a:v>MSC_UPDIV_8</a:v>
+                                                                 <a:v>MSC_UPDIV_16</a:v>
+                                                                 <a:v>MSC_UPDIV_32</a:v>
+                                                                 <a:v>MSC_UPDIV_64</a:v>
+                                                                 <a:v>MSC_UPDIV_128</a:v>
+                                                            </a:da>
+                                                       </v:var>
+
+                                                       <!-- /**MscClockDividerMode*/ -->
+                                                       <v:var name="MscClockDividerMode"
+                                                            type="ENUMERATION">
+                                                            <a:a name="DESC"
+                                                                 value="Divider Mode for MSC Clock:&lt;br/&gt;
+                                                                 MSC_DIVMODE_NORMAL:Integer divider&lt;br/&gt;
+                                                                 MSC_DIVMODE_FRACTIONAL:Fractional divider&lt;br/&gt;" />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                 type="IMPLEMENTATIONCONFIGCLASS">
+                                                                 <icc:v class="PostBuild">
+                                                                      VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="UUID"
+                                                                 value="d7f8e552-d9b2-117f-af5a-0660c63d934f" />
+                                                            <a:da name="DEFAULT"
+                                                                 value="MSC_DIVMODE_NORMAL" />
+                                                            <a:da name="RANGE">
+                                                                 <a:v>MSC_DIVMODE_NORMAL</a:v>
+                                                                 <a:v>MSC_DIVMODE_FRACTIONAL</a:v>
+                                                            </a:da>
+                                                       </v:var>
+                                                  </v:ctr>
+
+                                                  <!-- /**MscTxConfiguration*/ -->
+                                                  <v:ctr name="MscTxConfiguration" type="IDENTIFIABLE">
+                                                       <a:a name="DESC"
+                                                            value="This container contains the configuration for receiver and transmitter." />
+                                                       <a:a name="UUID"
+                                                            value="e43a0c5e-f707-4aa7-a127-9b7866cb198b" />
+                                                       <!-- /**Msc data frame Tx mode*/ -->
+                                                       <v:var name="MscDataFrameTxMode"
+                                                            type="ENUMERATION">
+                                                            <a:a name="DESC"
+                                                                 value="Selects the mode for transmission of data frames&lt;br/&gt;
+                                                                 MSC_TRANSMODE_TRIGGERED: Send data by trigger signal(Software trigger) &lt;br/&gt;
+                                                                 MSC_TRANSMODE_DATAREPETITION: Send data automatic by hardware feature&lt;br/&gt;" />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                 type="IMPLEMENTATIONCONFIGCLASS">
+                                                                 <icc:v vclass="PostBuild">
+                                                                      VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="UUID"
+                                                                 value="0e3e6f10-fe3c-074d-c598-c1e45c962cd3" />
+                                                            <a:da name="DEFAULT"
+                                                                 value="MSC_TRANSMODE_TRIGGERED" />
+                                                            <a:da name="RANGE">
+                                                                 <a:v>MSC_TRANSMODE_TRIGGERED</a:v>
+                                                                 <a:v>MSC_TRANSMODE_DATAREPETITION</a:v>
+                                                            </a:da>
+                                                       </v:var>
+                                                       <!-- /**Msc Passive Time Frame Count*/ -->
+                                                       <v:var name="MscPassiveTimeFrameNumber" type="INTEGER">
+                                                            <a:a name="DESC"
+                                                                 value="The number of passive frame between data/cmd frame in repetition transmit mode" />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                 type="IMPLEMENTATIONCONFIGCLASS">
+                                                                 <icc:v vclass="PostBuild">
+                                                                      VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="UUID"
+                                                                 value="1f9bfd6e-a8d5-6719-9a90-f6c71a9bd102" />
+                                                            <a:da name="DEFAULT" value="0" />
+                                                            <a:da name="INVALID" type="Range">
+                                                                 <a:tst expr="&lt;=15" />
+                                                                 <a:tst expr="&gt;=0" />
+                                                            </a:da>
+                                                            <a:da name="EDITABLE" type="XPath">
+                                                                 <a:tst
+                                                                      expr="(../MscDataFrameTxMode = 'MSC_TRANSMODE_DATAREPETITION') " />
+                                                            </a:da>
+                                                       </v:var>
+
+                                                       <v:var name="MscCDCMode" type="ENUMERATION">
+                                                            <a:a name="DESC"
+                                                                 value="In repetition transmit mode, select whether to insert one command frame between data frames" />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                 type="IMPLEMENTATIONCONFIGCLASS">
+                                                                 <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="UUID"
+                                                                 value="6ed88110-383b-888d-6e08-053064879838" />
+                                                            <a:da name="DEFAULT"
+                                                                 value="MSC_CDCMODE_ENABLED" />
+                                                            <a:da name="RANGE">
+                                                                 <a:v>
+                                                                      MSC_CDCMODE_DISABLED</a:v>
+                                                                 <a:v>
+                                                                      MSC_CDCMODE_ENABLED</a:v>
+                                                            </a:da>
+                                                            <a:da name="EDITABLE" type="XPath">
+                                                                 <a:tst
+                                                                      expr="(../MscDataFrameTxMode = 'MSC_TRANSMODE_DATAREPETITION')" />
+                                                            </a:da>
+                                                       </v:var>
+                                                       <!-- /**MscTxSignalTypeConfiguration*/ -->
+                                                       <v:ctr name="MscTxSignalTypeConfiguration"
+                                                            type="IDENTIFIABLE">
+                                                            <a:a name="DESC"
+                                                                 value="Tx Signal polarity Configuration, it is determined by the specific slave device" />
+                                                            <a:a name="UUID"
+                                                                 value="846922c0-7382-2176-d6eb-9f7586891e2e" />
+                                                            <!-- /**The polarity of the transmitted clock
+                                                            signal*/ -->
+                                                            <v:var name="MscTxClockSignalType"
+                                                                 type="ENUMERATION">
+                                                                 <a:a name="DESC"
+                                                                      value="This parameter determines the polarity of the transmitted clock signal of the MSC transmitter" />
+                                                                 <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                      type="IMPLEMENTATIONCONFIGCLASS">
+                                                                      <icc:v vclass="PostBuild">
+                                                                           VariantPostBuild</icc:v>
+                                                                 </a:a>
+                                                                 <a:a name="ORIGIN" value="ChipowerTech" />
+                                                                 <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                 <a:a name="UUID"
+                                                                      value="4147960d-2795-cd40-8712-775cb5a8435d" />
+                                                                 <a:da name="DEFAULT"
+                                                                      value="MSC_FCLLINEPOLARITY_NONINVERTED" />
+                                                                 <a:da name="RANGE">
+                                                                      <a:v>MSC_FCLLINEPOLARITY_INVERTED</a:v>
+                                                                      <a:v>
+                                                                           MSC_FCLLINEPOLARITY_NONINVERTED</a:v>
+                                                                 </a:da>
+                                                            </v:var>
+                                                            <!-- /**The polarity of the transmitted data
+                                                            signal */ -->
+                                                            <v:var name="MscTxDataSignalType"
+                                                                 type="ENUMERATION">
+                                                                 <a:a name="DESC"
+                                                                      value="This parameter determines the polarity of the transmitted data signal of the MSC transmitter" />
+                                                                 <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                      type="IMPLEMENTATIONCONFIGCLASS">
+                                                                      <icc:v vclass="PostBuild">
+                                                                           VariantPostBuild</icc:v>
+                                                                 </a:a>
+                                                                 <a:a name="ORIGIN" value="ChipowerTech" />
+                                                                 <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                 <a:a name="UUID"
+                                                                      value="0184b9b6-ca80-e9f6-8312-1191f1caf2c8" />
+                                                                 <a:da name="DEFAULT"
+                                                                      value="MSC_SIGNALPOLARITY_NONINVERTED" />
+                                                                 <a:da name="RANGE">
+                                                                      <a:v>MSC_SIGNALPOLARITY_INVERTED</a:v>
+                                                                      <a:v>MSC_SIGNALPOLARITY_NONINVERTED</a:v>
+                                                                 </a:da>
+                                                            </v:var>
+                                                            <!-- /**The polarity of the transmitted
+                                                            Enable (chipselect) signal */ -->
+                                                            <v:var name="MscTxChipSelectSignalType"
+                                                                 type="ENUMERATION">
+                                                                 <a:a name="DESC"
+                                                                      value="This parameter determines the polarity of the transmitted Enable (chipselect) signal of the MSC transmitter" />
+                                                                 <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                      type="IMPLEMENTATIONCONFIGCLASS">
+                                                                      <icc:v vclass="PostBuild">
+                                                                           VariantPostBuild</icc:v>
+                                                                 </a:a>
+                                                                 <a:a name="ORIGIN" value="ChipowerTech" />
+                                                                 <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                 <a:a name="UUID"
+                                                                      value="863a937d-75ef-a316-0af4-770b7a9fe97d" />
+                                                                 <a:da name="DEFAULT"
+                                                                      value="MSC_SIGNALPOLARITY_NONINVERTED" />
+                                                                 <a:da name="RANGE">
+                                                                      <a:v>MSC_SIGNALPOLARITY_NONINVERTED</a:v>
+                                                                      <a:v>MSC_SIGNALPOLARITY_INVERTED</a:v>
+                                                                 </a:da>
+                                                            </v:var>
+
+                                                            <!-- /**Clock control mode. */ -->
+                                                            <v:var name="MscActivateClock"
+                                                                 type="ENUMERATION">
+                                                                 <a:a name="DESC"
+                                                                      value="Specifies activate clock control mode." />
+                                                                 <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                      type="IMPLEMENTATIONCONFIGCLASS">
+                                                                      <icc:v vclass="PostBuild">
+                                                                           VariantPostBuild</icc:v>
+                                                                 </a:a>
+                                                                 <a:a name="ORIGIN" value="ChipowerTech" />
+                                                                 <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                 <a:a name="UUID"
+                                                                      value="e569ca26-1039-3af3-4c5c-523be16d92b0" />
+                                                                 <a:da name="DEFAULT"
+                                                                      value="MSC_FCLVALID_ALWAYS" />
+                                                                 <a:da name="RANGE">
+                                                                      <a:v>MSC_FCLVALID_ALWAYS</a:v>
+                                                                      <a:v>MSC_FCLVALID_ACTIVE_PHASE_ONLY</a:v>
+                                                                 </a:da>
+                                                            </v:var>
+                                                       </v:ctr>
+                                                       <!-- /**MscCmdFrameConfiguration*/ -->
+                                                       <v:ctr name="MscCmdFrameConfiguration"
+                                                            type="IDENTIFIABLE">
+                                                            <a:a name="DESC"
+                                                                 value="This container contains the settings for transmission of command frames" />
+                                                            <a:a name="UUID"
+                                                                 value="702fbd1d-0847-7e7c-8c9d-ca949447d011" />
+                                                       
+                                                            <!-- /**MscCmdFrame Length Configuration*/ -->
+                                                            <v:var name="MscCmdFrameLen" type="INTEGER">
+                                                                 <a:a name="DESC"
+                                                                      value="Specifies the number of bits to be transmitted of the Command frame" />
+                                                                 <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                      type="IMPLEMENTATIONCONFIGCLASS">
+                                                                      <icc:v vclass="PostBuild">
+                                                                           VariantPostBuild</icc:v>
+                                                                 </a:a>
+                                                                 <a:a name="ORIGIN" value="ChipowerTech" />
+                                                                 <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                 <a:a name="UUID"
+                                                                      value="DCE:ec89b971-979b-e312-1b06-b03c6d4fcd46" />
+                                                                 <a:da name="DEFAULT" value="16" />
+                                                                 <a:da name="INVALID" type="Range">
+                                                                      <a:tst expr="&lt;=31" />
+                                                                      <a:tst expr="&gt;=1" />
+                                                                 </a:da>
+                                                            </v:var>
+                                                            <!-- /**Msc Cmd Passive Phase Length
+                                                            Configuration*/ -->
+                                                            <v:var name="MscCmdPassivePhaseLen"
+                                                                 type="INTEGER">
+                                                                 <a:a name="DESC"
+                                                                      value="Specifies the length of passive phase of command frame, passive time frame transmission" />
+                                                                 <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                      type="IMPLEMENTATIONCONFIGCLASS">
+                                                                      <icc:v vclass="PostBuild">
+                                                                           VariantPostBuild</icc:v>
+                                                                 </a:a>
+                                                                 <a:a name="ORIGIN" value="ChipowerTech" />
+                                                                 <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                 <a:a name="UUID"
+                                                                      value="a94f4e2a-1163-a458-935b-2697d9c3e194" />
+                                                                 <a:da name="DEFAULT" value="2" />
+                                                                 <a:da name="INVALID" type="Range">
+                                                                      <a:tst expr="&lt;=65" />
+                                                                      <a:tst expr="&gt;=2" />
+                                                                 </a:da>
+                                                                 <a:da name="EDITABLE" value="false" />
+                                                            </v:var>
+
+                                                            <!-- /**MscCmdFrame Service Configuration*/ -->
+                                                            <v:var name="MscCmdFrameIntService"
+                                                            type="ENUMERATION">
+                                                                 <a:a name="DESC"
+                                                                      value="Configuration parameters of interrupt service for Command Frame&lt;br/&gt;" />
+                                                                 <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                      type="IMPLEMENTATIONCONFIGCLASS">
+                                                                      <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                                      <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                                 </a:a>
+                                                                 <a:a name="ORIGIN" value="ChipowerTech" />
+                                                                 <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                 <a:a name="UUID"
+                                                                      value="335ac450-2fb2-f671-cb27-562f00c0e56d" />
+                                                                 <a:da name="DEFAULT"
+                                                                      value="MSC_INTRNODE_SR0" />
+                                                                 <a:da name="RANGE">
+                                                                      <a:v>MSC_INTRNODE_SR0</a:v>
+                                                                      <a:v>MSC_INTRNODE_SR1</a:v>
+                                                                      <a:v>MSC_INTRNODE_SR2</a:v>
+                                                                      <a:v>MSC_INTRNODE_SR3</a:v>
+                                                                 </a:da>
+                                                                 <a:a name="OPTIONAL" value="true"/>
+                                                            </v:var>
+                                                            <!-- /**MscCmdFrame Notification
+                                                       Configuration*/ -->
+                                                       <v:var name="MscCmdFrameNotification"
+                                                            type="FUNCTION-NAME">
+                                                            <a:a name="DESC"
+                                                                 value="Specifies the notification function of Command Frame Interrupt" />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                 type="IMPLEMENTATIONCONFIGCLASS">
+                                                                 <icc:v vclass="PostBuild">
+                                                                      VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="UUID"
+                                                                 value="ec89b971-979b-e312-1b06-b03c6d4fcd46" />
+                                                            <a:da name="DEFAULT" type="XPath"
+                                                                       expr="concat(text:replace(node:fallback(../../../MscHWUnitMapping, 'Msc_0'), '_', ''), '_CmdFrameNotification')" />
+                                                            <a:da name="EDITABLE" type="XPath">
+                                                                 <a:tst
+                                                                      expr="node:exists(../MscCmdFrameIntService) = 'true'" />
+                                                            </a:da>
+                                                       </v:var>
+                                                       </v:ctr>
+                                                       <!-- /**MscTimeFrameConfiguration*/ -->
+                                                       <v:ctr name="MscTimeFrameConfiguration"
+                                                            type="IDENTIFIABLE">
+                                                            <a:a name="DESC"
+                                                                 value="This containner includes timeFrame interrupt configuration." />
+                                                            <a:a name="UUID"
+                                                                 value="061d654f-a4b2-f3d2-67f3-ca9ef6e6e0d7" />
+                                                            <a:da name="EDITABLE" type="XPath">
+                                                                 <a:tst
+                                                                      expr="(../MscDataFrameTxMode = 'MSC_TRANSMODE_DATAREPETITION') " />
+                                                            </a:da>
+                                                            <v:var name="MscTimeFrameIntService"
+                                                                 type="ENUMERATION">
+                                                                 <a:a name="DESC"
+                                                                      value="Configuration parameters of interrupt service for time frame&lt;br/&gt;" />
+                                                                 <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                      type="IMPLEMENTATIONCONFIGCLASS">
+                                                                      <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                                      <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                                 </a:a>
+                                                                 <a:a name="ORIGIN" value="ChipowerTech" />
+                                                                 <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                 <a:a name="UUID"
+                                                                      value="dd0023c8-5e3e-264b-cf65-149df7e0f7d8" />
+                                                                 <a:a name = "OPTIONAL" value = "true"/>
+                                                                 <a:da name="DEFAULT"
+                                                                      value="MSC_INTRNODE_SR0" />
+                                                                 <a:da name="RANGE">
+                                                                      <a:v>MSC_INTRNODE_SR0</a:v>
+                                                                      <a:v>MSC_INTRNODE_SR1</a:v>
+                                                                      <a:v>MSC_INTRNODE_SR2</a:v>
+                                                                      <a:v>MSC_INTRNODE_SR3</a:v>
+                                                                 </a:da>
+                                                            </v:var>
+                                                            <!-- /**MscTimeFrame Notification
+                                                            Configuration*/ -->
+                                                            <v:var name="MscTimeFrameNotification"
+                                                                 type="FUNCTION-NAME">
+                                                                 <a:a name="DESC"
+                                                                      value="Specifies the notification function of time frame interrupt" />
+                                                                 <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                      type="IMPLEMENTATIONCONFIGCLASS">
+                                                                      <icc:v vclass="PostBuild">
+                                                                           VariantPostBuild</icc:v>
+                                                                 </a:a>
+                                                                 <a:a name="ORIGIN" value="ChipowerTech" />
+                                                                 <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                 <a:a name="UUID"
+                                                                      value="9ea91b79-83a7-eb48-6c42-921b242adcfa" />
+                                                                 <a:da name="DEFAULT" type="XPath"
+                                                                       expr="concat(text:replace(node:fallback(../../../MscHWUnitMapping, 'Msc_0'), '_', ''), '_TimeFrameNotification')" />
+                                                                 <a:da name="EDITABLE" type="XPath">
+                                                                      <a:tst expr="node:exists(../MscTimeFrameIntService) = 'true'" />
+                                                                 </a:da>
+                                                            </v:var>
+                                                       </v:ctr>
+
+                                                       <!-- /**Msc Data Frame Configuration*/ -->
+                                                       <v:ctr name="MscDataFrameConfiguration"
+                                                            type="IDENTIFIABLE">
+                                                            <a:a name="DESC"
+                                                                 value="This container contains the settings for transmission of data frames" />
+                                                            <a:a name="UUID"
+                                                                 value="834849b5-612c-8bf6-19ec-c056dda37eea" />
+                                                            
+                                                            <!-- /**Msc SelectionBit High*/ -->
+                                                            <v:var name="MscSelectionBitHighEnable"
+                                                                 type="ENUMERATION">
+                                                                 <a:a name="DESC"
+                                                                      value="This parameter is decided to insert a low-bit or not to the start of the srh phase of data frame"/>
+                                                                 <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                      type="IMPLEMENTATIONCONFIGCLASS">
+                                                                      <icc:v vclass="PostBuild">
+                                                                           VariantPostBuild</icc:v>
+                                                                 </a:a>
+                                                                 <a:a name="ORIGIN" value="ChipowerTech" />
+                                                                 <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                 <a:a name="UUID"
+                                                                      value="e0c0c37c-37cd-cdaa-8506-6dc4e6114328" />
+                                                                 <a:da name="DEFAULT"
+                                                                      value="MSC_SELBIT_LOWLEVEL" />
+                                                                 <a:da name="RANGE">
+                                                                      <a:v>MSC_SELBIT_LOWLEVEL</a:v>
+                                                                      <a:v>MSC_SELBIT_NONE</a:v>
+                                                                 </a:da>
+                                                            </v:var>
+                                                            <!-- /**Msc SelectionBit Low*/ -->
+                                                            <v:var name="MscSelectionBitLowEnable"
+                                                                 type="ENUMERATION">
+                                                                 <a:a name="DESC"
+                                                                 value="This parameter is decided to insert a low-bit or not to the start of the srl phase of data frame"/>
+                                                                 <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                      type="IMPLEMENTATIONCONFIGCLASS">
+                                                                      <icc:v vclass="PostBuild">
+                                                                           VariantPostBuild</icc:v>
+                                                                 </a:a>
+                                                                 <a:a name="ORIGIN" value="ChipowerTech" />
+                                                                 <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                 <a:a name="UUID"
+                                                                      value="973efdf3-efc7-da14-f67f-0dc30b63d545" />
+                                                                 <a:da name="DEFAULT"
+                                                                      value="MSC_SELBIT_LOWLEVEL" />
+                                                                 <a:da name="RANGE">
+                                                                      <a:v>MSC_SELBIT_LOWLEVEL</a:v>
+                                                                      <a:v>MSC_SELBIT_NONE</a:v>
+                                                                 </a:da>
+                                                            </v:var>
+                                                            <!-- /**Msc Passive Phase Length*/ -->
+                                                            <v:var name="MscPassivePhaseLen"
+                                                                 type="INTEGER">
+                                                                 <a:a name="DESC"
+                                                                      value="Specifies the length of passive phase of data frame" />
+                                                                 <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                      type="IMPLEMENTATIONCONFIGCLASS">
+                                                                      <icc:v vclass="PostBuild">
+                                                                           VariantPostBuild</icc:v>
+                                                                 </a:a>
+                                                                 <a:a name="ORIGIN" value="ChipowerTech" />
+                                                                 <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                 <a:a name="UUID"
+                                                                      value="cf835b61-b00f-3226-28b1-8ccc51f6cf74" />
+                                                                 <a:da name="DEFAULT" value="4" />
+                                                                 <a:da name="INVALID" type="Multi">
+                                                                      <mt:xpath
+                                                                           expr="((../MscExtensionEnableValue = 'EXTENSION_ENABLE') and (.&gt;=128))"
+                                                                           true="Invalid Configuration, if MscExtensionEnableValue is EXTENSION_ENABLE then the Range should be between 2 to 127" />
+                                                                      <mt:xpath
+                                                                           expr="((../MscExtensionEnableValue = 'EXTENSION_DISABLE') and (.&gt;=32))"
+                                                                           true="Invalid Configuration, if MscExtensionEnableValue is EXTENSION_DISABLE then the Range should be between 2 to 31" />
+                                                                      <mt:range>
+                                                                           <mt:tst expr="&gt;=2" />
+                                                                           <mt:tst expr="&lt;=33" />
+                                                                      </mt:range>
+                                                                 </a:da>
+                                                            </v:var>
+                                                            <!-- /**The length of data frame srl phase*/ -->
+                                                            <v:var name="MscDataFrameSrlLen"
+                                                                 type="INTEGER">
+                                                                 <a:a name="DESC"
+                                                                      value="Specifies the number of bits to be transmitted in the data frame srl phase." />
+                                                                 <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                      type="IMPLEMENTATIONCONFIGCLASS">
+                                                                      <icc:v vclass="PostBuild">
+                                                                           VariantPostBuild</icc:v>
+                                                                 </a:a>
+                                                                 <a:a name="ORIGIN" value="ChipowerTech" />
+                                                                 <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                 <a:a name="UUID"
+                                                                      value="7c4992e9-1387-2ddd-4559-b0e3fd00ec3e" />
+                                                                 <a:da name="DEFAULT" value="0" />
+                                                                 <a:da name="INVALID" type="Multi">
+                                                                    <mt:range>
+                                                                      <a:tst expr="&lt;=16" />
+                                                                      <a:tst expr="&gt;=0" />
+                                                                    </mt:range>
+
+                                                                 </a:da>
+                                                            </v:var>
+                                                            <!-- /**The length of data frame srh phase*/ -->
+                                                            <v:var name="MscDataFrameSrhLen"
+                                                                 type="INTEGER">
+                                                                 <a:a name="DESC"
+                                                                      value="Specifies the number of bits to be transmitted in the data frame srh phase." />
+                                                                 <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                      type="IMPLEMENTATIONCONFIGCLASS">
+                                                                      <icc:v vclass="PostBuild">
+                                                                           VariantPostBuild</icc:v>
+                                                                 </a:a>
+                                                                 <a:a name="ORIGIN" value="ChipowerTech" />
+                                                                 <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                 <a:a name="UUID"
+                                                                      value="8b045d0f-0e6a-cd63-ef2c-dc8b08ddedec" />
+                                                                 <a:da name="DEFAULT" value="0" />
+                                                                 <a:da name="INVALID" type="Multi">
+                                                                    <mt:range>
+                                                                      <a:tst expr="&lt;=16" />
+                                                                      <a:tst expr="&gt;=0" />
+                                                                    </mt:range>
+
+                                                                 </a:da>
+                                                            </v:var>
+
+                                                            <!-- /**Msc data frame interrupt service*/ -->
+                                                            <v:var name="MscDataFrameIntService"
+                                                                 type="ENUMERATION">
+                                                                 <a:a name="DESC"
+                                                                      value="Selects the service request to be raised when a data frame interrupt is triggered&lt;br/&gt;"/>
+                                                                 <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                      type="IMPLEMENTATIONCONFIGCLASS">
+                                                                      <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                                      <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                                 </a:a>
+                                                                 <a:a name="ORIGIN" value="ChipowerTech" />
+                                                                 <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                 <a:a name="UUID"
+                                                                      value="12029d6b-43d1-6069-9858-6564de0bc280" />
+                                                                 <a:a name="OPTIONAL" value = "true"/>
+                                                                 <a:da name="DEFAULT" value="MSC_INTRNODE_SR0" />
+                                                                 <a:da name="RANGE">
+                                                                      <a:v>MSC_INTRNODE_SR0</a:v>
+                                                                      <a:v>MSC_INTRNODE_SR1</a:v>
+                                                                      <a:v>MSC_INTRNODE_SR2</a:v>
+                                                                      <a:v>MSC_INTRNODE_SR3</a:v>
+                                                                 </a:da>
+                                                            </v:var>
+
+                                                            <v:var name="MscDataFrameIntType"
+                                                                 type="ENUMERATION">
+                                                                 <a:a name="DESC"
+                                                                      value="Selects the interrupt type of data frame" />
+                                                                 <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                      type="IMPLEMENTATIONCONFIGCLASS">
+                                                                      <icc:v vclass="PostBuild">
+                                                                           VariantPostBuild</icc:v>
+                                                                 </a:a>
+                                                                 <a:a name="ORIGIN" value="ChipowerTech" />
+                                                                 <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                 <a:a name="UUID"
+                                                                      value="b2be947b-fcb5-3bc2-39ea-3191595a6524" />
+                                                                 <a:da name="DEFAULT"
+                                                                      value="MSC_DFINTERRUPT_LASTBIT" />
+                                                                 <a:da name="RANGE">
+                                                                      <a:v>MSC_DFINTERRUPT_LASTBIT</a:v>
+                                                                      <a:v>MSC_DFINTERRUPT_FIRSTBIT</a:v>
+                                                                 </a:da>
+                                                                 <a:da name="EDITABLE" type="XPath">
+                                                                      <a:tst expr="node:exists(../MscDataFrameIntService) = 'true'"/>
+                                                                 </a:da>
+                                                            </v:var>
+
+                                                            <!-- /**Msc data frame notification*/ -->
+                                                            <v:var name="MscDataFrameNotification"
+                                                                 type="FUNCTION-NAME">
+                                                                 <a:a name="DESC"
+                                                                      value="Specifies the application define function name, that will called on Data Frame Interrupt" />
+                                                                 <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                      type="IMPLEMENTATIONCONFIGCLASS">
+                                                                      <icc:v vclass="PostBuild">
+                                                                           VariantPostBuild</icc:v>
+                                                                 </a:a>
+                                                                 <a:a name="ORIGIN" value="ChipowerTech" />
+                                                                 <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                 <a:a name="UUID"
+                                                                      value="cc9f64b4-ca01-b379-63e6-2cea87c248e7" />
+                                                                 <a:da name="DEFAULT" type="XPath"
+                                                                       expr="concat(text:replace(node:fallback(../../../MscHWUnitMapping, 'Msc_0'), '_', ''), '_DataFrameNotification')" />
+                                                                 <a:da name="EDITABLE" type="XPath">
+                                                                      <a:tst expr="node:exists(../MscDataFrameIntService)='true'"/>
+                                                                 </a:da>
+                                                            </v:var>
+
+                                                            <!-- /**Msc DataBitLow Configuration*/ -->
+                                                            <v:lst name="MscDataBitLowConfiguration" type="MAP">
+                                                                <a:da name="MIN" value="0" />
+                                                                <a:da name="MAX" value="16" />
+
+                                                                 <v:ctr name="MscDataBitLowConfiguration"
+                                                                      type="IDENTIFIABLE">
+                                                                      <a:a name="DESC"
+                                                                           value="Container for Low Data Bits Configuration" />
+                                                                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                          type="IMPLEMENTATIONCONFIGCLASS">
+                                                                          <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                                      </a:a>
+                                                                      <a:a name="REQUIRES-INDEX" value="true"/>
+
+                                                                      <a:a name="UUID"
+                                                                           value="8f1d7384-fd7f-5467-3796-b14a14321147" />
+                                                                      <v:var name="MscDataBitIndex"
+                                                                           type="INTEGER">
+                                                                           <a:a name="DESC"
+                                                                                value="This parameter identifies the data bit of the data frame using an index. This index is used for further configuration of the data bit source,emergency stop behaviour" />
+                                                                           <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                                           </a:a>
+                                                                           <a:a name="ORIGIN"
+                                                                                value="ChipowerTech" />
+                                                                          <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                           <a:a name="UUID"
+                                                                                value="8f1d7384-fd7f-5467-3796-b14a14921147" />
+                                                                           <a:da name="DEFAULT"
+                                                                                type="XPath"
+                                                                                expr="num:i((node:fallback((node:current()/../@index),0)))" />
+                                                                           <a:da name="INVALID"
+                                                                                type="Multi">
+                                                                                <mt:xpath
+                                                                                     expr="text:uniq(../../*/MscDataBitIndex,.)"
+                                                                                     false="MscDataBitIndex should be unique.Enter different Number" />
+                                                                                <mt:xpath
+                                                                                     expr="node:isconsecutive(../../*/MscDataBitIndex, 0)"
+                                                                                     false="MscDataBitIndex is not Consecutive. It should start from 0 and be consecutive" />
+                                                                                <mt:range>
+                                                                                     <mt:tst
+                                                                                          expr="&gt;=0" />
+                                                                                     <mt:tst
+                                                                                          expr="&lt;=31" />
+                                                                                </mt:range>
+                                                                           </a:da>
+                                                                      </v:var>
+
+                                                                      <v:var name="MscDataBitSrc"
+                                                                           type="ENUMERATION">
+                                                                           <a:a name="DESC"
+                                                                                value="This parameter selects the data source for the data bit indexed by MscDataBitIndex" />
+                                                                           <a:a
+                                                                                name="IMPLEMENTATIONCONFIGCLASS"
+                                                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                                                <icc:v vclass="PostBuild">
+                                                                                     VariantPostBuild</icc:v>
+                                                                           </a:a>
+                                                                           <a:a name="ORIGIN"
+                                                                                value="ChipowerTech" />
+                                                                          <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                           <a:a name="UUID"
+                                                                                value="f78a638b-fbc3-d1f4-eab7-ab7452d2e59c" />
+                                                                           <a:da name="DEFAULT"
+                                                                                value="SRC_DOWNSTREAMDATA" />
+                                                                           <a:da name="RANGE">
+                                                                                <a:v>SRC_DOWNSTREAMDATA</a:v>
+                                                                                <a:v>SRC_GTMSIGNAL</a:v>
+                                                                                <a:v>
+                                                                                     SRC_GTMSIGNAL_INVERTED</a:v>
+                                                                           </a:da>
+                                                                      </v:var>
+                                                                 </v:ctr>
+                                                            </v:lst>
+
+                                                            <v:lst name="MscDataBitHighConfiguration" type="MAP">
+                                                                <a:da name="MIN" value="0" />
+                                                                <a:da name="MAX" value="16" />
+
+                                                                 <v:ctr
+                                                                      name="MscDataBitHighConfiguration"
+                                                                      type="IDENTIFIABLE">
+                                                                      <a:a name="DESC"
+                                                                           value="Container for High Data Bits Configuration" />
+                                                                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                          type="IMPLEMENTATIONCONFIGCLASS">
+                                                                          <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                                      </a:a>
+                                                                      <a:a name="UUID"
+                                                                           value="af811485-aa9f-0994-3252-866ab1ac737f" />
+                                                                      <a:a name="REQUIRES-INDEX" value="true"/>
+                                                                      
+                                                                      <v:var name="MscDataBitIndex"
+                                                                           type="INTEGER">
+                                                                           <a:a name="DESC"
+                                                                                value="This parameter identifies the data bit of the data frame using an index. This index is used for further configuration of the data bit source,emergency stop behaviour" />
+                                                                           <a:a
+                                                                                name="IMPLEMENTATIONCONFIGCLASS"
+                                                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                                           </a:a>
+                                                                           <a:a name="ORIGIN"
+                                                                                value="ChipowerTech" />
+                                                                          <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                           <a:a name="UUID"
+                                                                                value="f9b0c166-94e6-c05b-f179-e74f94baed3e" />
+                                                                           <a:da name="DEFAULT"
+                                                                                type="XPath"
+                                                                                expr="num:i((node:fallback((node:current()/../@index),0)))" />
+                                                                           <a:da name="INVALID"
+                                                                                type="Multi">
+                                                                                <mt:xpath
+                                                                                     expr="text:uniq(../../*/MscDataBitIndex,.)"
+                                                                                     false="MscDataBitIndex should be unique.Enter different Number" />
+                                                                                <mt:xpath
+                                                                                     expr="node:isconsecutive(../../*/MscDataBitIndex, 0)"
+                                                                                     false="MscDataBitIndex is not Consecutive. It should start from 0 and be consecutive" />
+                                                                                <mt:range>
+                                                                                     <mt:tst
+                                                                                          expr="&gt;=0" />
+                                                                                     <mt:tst
+                                                                                          expr="&lt;=31" />
+                                                                                </mt:range>
+                                                                           </a:da>
+                                                                      </v:var>
+
+                                                                      <v:var name="MscDataBitSrc"
+                                                                           type="ENUMERATION">
+                                                                           <a:a name="DESC"
+                                                                                value="This parameter selects the data source for the data bit indexed by MscDataBitIndex" />
+                                                                           <a:a
+                                                                                name="IMPLEMENTATIONCONFIGCLASS"
+                                                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                                                <icc:v vclass="PostBuild">
+                                                                                     VariantPostBuild</icc:v>
+                                                                           </a:a>
+                                                                           <a:a name="ORIGIN"
+                                                                                value="ChipowerTech" />
+                                                                          <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                           <a:a name="UUID"
+                                                                                value="bb610f60-defc-d246-3eb0-f01aa258d8a8" />
+                                                                           <a:da name="DEFAULT"
+                                                                                value="SRC_DOWNSTREAMDATA" />
+                                                                           <a:da name="RANGE">
+                                                                                <a:v>SRC_DOWNSTREAMDATA</a:v>
+                                                                                <a:v>SRC_GTMSIGNAL</a:v>
+                                                                                <a:v>SRC_GTMSIGNAL_INVERTED</a:v>
+                                                                           </a:da>
+                                                                      </v:var>
+                                                                 </v:ctr>
+                                                            </v:lst>
+                                                       </v:ctr>
+
+                                                       <v:ctr name="MscPinInjectConfiguration"
+                                                            type="IDENTIFIABLE">
+                                                            <a:a name="DESC"
+                                                                 value="This container contains the settings for external pin injection" />
+                                                            <a:a name="UUID"
+                                                                 value="9DAC3C36-DFAF-CB98-CD4B-568A37639AB6" />
+                                                            
+                                                                 <v:var name="MscPin0InjectionPos" type="INTEGER">
+                                                                      <a:a name="DESC"
+                                                                           value="(Configure the injection position of Pin0(P0.0))"/>
+                                                                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                           type="IMPLEMENTATIONCONFIGCLASS">
+                                                                           <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                                           <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                                      </a:a>
+                                                                      <a:a name="ORIGIN" value="ChipowerTech" />
+                                                                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                      <a:a name="UUID"
+                                                                           value="99AB3C07-3CD5-252B-92BB-34F3B8E9498A" />
+                                                                      <a:a name="OPTIONAL" value="true"/>
+                                                                      <a:da name="DEFAULT" value="0"/>
+                                                                      <a:da name="INVALID" type="Range">
+                                                                           <a:tst expr="&lt;=31" />
+                                                                           <a:tst expr="&gt;=0" />
+                                                                      </a:da>
+                                                                 </v:var>
+
+                                                                 <v:var name="MscPin1InjectionPos" type="INTEGER">
+                                                                      <a:a name="DESC"
+                                                                      value="Configure the injection position of Pin1(P10.5)"/>
+                                                                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                           type="IMPLEMENTATIONCONFIGCLASS">
+                                                                           <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                                           <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                                      </a:a>
+                                                                      <a:a name="ORIGIN" value="ChipowerTech" />
+                                                                      <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                      <a:a name="UUID"
+                                                                           value="D29C8DB5-BEAC-A2CE-0842-CE3D72B394F9" />
+                                                                      <a:a name="OPTIONAL" value="true"/>
+                                                                      <a:da name="DEFAULT" value="0"/>
+                                                                      <a:da name="INVALID" type="Range">
+                                                                           <a:tst expr="&lt;=31" />
+                                                                           <a:tst expr="&gt;=0" />
+                                                                      </a:da>
+                                                                 </v:var>
+                                                       </v:ctr>
+
+                                                  </v:ctr>
+                                                  <v:ctr name="MscRxConfiguration" type="IDENTIFIABLE">
+                                                       <a:a name="DESC"
+                                                            value="This container contains the configuration parameters required to configure the MSC receiver (upstream channel)" />
+                                                       <a:a name="UUID"
+                                                            value="a1a5628b-fd17-e392-b620-1d4cf4c9e2dc" />
+
+                                                       <v:var name="MscRxFrameType" type="ENUMERATION">
+                                                            <a:a name="DESC"
+                                                                 value="Defines if the Address field is present/absent in the frames to be received" />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                 type="IMPLEMENTATIONCONFIGCLASS">
+                                                                 <icc:v vclass="PostBuild">
+                                                                      VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="UUID"
+                                                                 value="06054aa7-8208-b979-1a22-dd96880c80b3" />
+                                                            <a:da name="DEFAULT"
+                                                                 value="MSC_FRAMETYPE_12BIT" />
+                                                            <a:da name="RANGE">
+                                                                 <a:v>MSC_FRAMETYPE_12BIT</a:v>
+                                                                 <a:v>MSC_FRAMETYPE_16BIT</a:v>
+                                                            </a:da>
+                                                       </v:var>
+
+                                                       <v:var name="MscRxParityType" type="ENUMERATION">
+                                                            <a:a name="DESC"
+                                                                 value="Selects parity type used in Rx frames" />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                 type="IMPLEMENTATIONCONFIGCLASS">
+                                                                 <icc:v vclass="PostBuild">
+                                                                      VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="UUID"
+                                                                 value="659a6147-23cb-4397-6b6b-b3e9e359ac17" />
+                                                            <a:da name="DEFAULT" value="MSC_PARITY_EVEN" />
+                                                            <a:da name="RANGE">
+                                                                 <a:v>MSC_PARITY_ODD</a:v>
+                                                                 <a:v>MSC_PARITY_EVEN</a:v>
+                                                            </a:da>
+                                                       </v:var>
+
+                                                       <v:var name="MscRxFrameIntService" type="ENUMERATION">
+                                                            <a:a name="DESC"
+                                                                 value="Selects the service request to be raised when a data frame interrupt is triggered."/>
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                 type="IMPLEMENTATIONCONFIGCLASS">
+                                                                 <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                                  <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="UUID"
+                                                                 value="458335ef-5de0-8c5a-3008-3f174eece282" />
+                                                            <a:a name="OPTIONAL" value="true" />
+                                                            <a:da name="DEFAULT" value="MSC_INTRNODE_SR0" />
+                                                            <a:da name="RANGE">
+                                                                 <a:v>MSC_INTRNODE_SR0</a:v>
+                                                                 <a:v>MSC_INTRNODE_SR1</a:v>
+                                                                 <a:v>MSC_INTRNODE_SR2</a:v>
+                                                                 <a:v>MSC_INTRNODE_SR3</a:v>
+                                                            </a:da>
+                                                       </v:var>
+
+                                                  <v:var name="MscRxFrameIntType"
+                                                       type="ENUMERATION">
+                                                            <a:a name="DESC"
+                                                                 value="Selects the interrupt type of receive data&lt;br/&gt;
+                                                                 MSC_RDITYPE_RECEIVE: Interrupt is generated when data received&lt;br/&gt;
+                                                                 MSC_RDITYPE_RDIESET: Interrupt is generated when data received and the data is not equal to 0x00&lt;br/&gt;
+                                                                 MSC_RDITYPE_RECEIVEINUD3: Interrupt is generated when data received in UD3 register&lt;br/&gt;" />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                                  <icc:v vclass="PostBuild">
+                                                                      VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="UUID"
+                                                                 value="5da38924-3c8b-afd2-398d-37b994db370e" />
+                                                            <a:da name="DEFAULT"
+                                                                 value="MSC_RDITYPE_RECEIVE" />
+                                                       <a:da name="RANGE">
+                                                            <a:v>MSC_RDITYPE_RECEIVE</a:v>
+                                                            <a:v>MSC_RDITYPE_RDIESET</a:v>
+                                                            <a:v>MSC_RDITYPE_RECEIVEINUD3</a:v>
+                                                       </a:da>
+                                                       <a:da name="EDITABLE" type="XPath">
+                                                            <a:tst expr="node:exists(../MscRxFrameIntService) = 'true'" />
+                                                       </a:da>
+                                                  </v:var>
+
+                                                       <v:var name="MscRxIntDelayEnabled"
+                                                            type="ENUMERATION">
+                                                            <a:a name="DESC"
+                                                                 value="Enable/Disable a delay of one bit dealy for receive data interrupt generated by Hardware" />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                 type="IMPLEMENTATIONCONFIGCLASS">
+                                                                 <icc:v vclass="PostBuild">
+                                                                      VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="UUID"
+                                                                 value="e3186795-7c9b-bfef-df7d-4e2652dc5104" />
+                                                            <a:da name="DEFAULT"
+                                                                 value="MSC_REQDELAY_NODELAY" />
+                                                            <a:da name="RANGE">
+                                                                 <a:v>MSC_REQDELAY_NODELAY</a:v>
+                                                                 <a:v>MSC_REQDELAY_1BIT</a:v>
+                                                            </a:da>
+                                                            <a:da name="EDITABLE" type="XPath">
+                                                                 <a:tst expr="node:exists(../MscRxFrameIntService) = 'true'" />
+                                                            </a:da>
+                                                       </v:var>
+
+                                                       <v:var name="MscRxFrameNotification"
+                                                            type="FUNCTION-NAME">
+                                                            <a:a name="DESC"
+                                                                 value="Specifies the notification function of receive data interrupt" />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                 type="IMPLEMENTATIONCONFIGCLASS">
+                                                                 <icc:v vclass="PostBuild">
+                                                                      VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="UUID"
+                                                                 value="bd973eb4-f4f2-2415-8424-33ec3c6409eb" />
+                                                            <a:da name="DEFAULT" type="XPath"
+                                                                  expr="concat(text:replace(node:fallback(../../MscHWUnitMapping, 'Msc_0'), '_', ''), '_RxNotification')" />
+                                                            <a:da name="EDITABLE" type="XPath">
+                                                                 <a:tst expr="node:exists(../MscRxFrameIntService) = 'true'" />
+                                                            </a:da>
+                                                       </v:var>
+
+                                                       <v:ctr name="MscRxSignalTypeConfiguration"
+                                                       type="IDENTIFIABLE">
+                                                       <a:a name="DESC"
+                                                            value="Rx Signal polarity Configuration, it is determined by the specific slave device" />
+                                                       <a:a name="UUID"
+                                                            value="73986EF9-9F09-1373-73C8-DFEC6222F51F"/>
+                                                       
+                                                            <v:var name="MscRxClockSignalType"
+                                                            type="ENUMERATION">
+                                                                 <a:a name="DESC"
+                                                                      value="This parameter determines the polarity of the receive signal of the MSC receiver"/>
+                                                                 <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                      type="IMPLEMENTATIONCONFIGCLASS">
+                                                                      <icc:v vclass="PostBuild">
+                                                                           VariantPostBuild</icc:v>
+                                                                 </a:a>
+                                                                 <a:a name="ORIGIN" value="ChipowerTech"/>
+                                                                 <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                                 <a:a name="UUID"
+                                                                      value="9F68F347-6B7F-BA61-0741-FC85A1D3FB56"/>
+                                                                 <a:da name="DEFAULT"
+                                                                      value="MSC_SIGNALPOLARITY_NONINVERTED"/>
+                                                                 <a:da name="RANGE">
+                                                                      <a:v>MSC_SIGNALPOLARITY_INVERTED</a:v>
+                                                                      <a:v> MSC_SIGNALPOLARITY_NONINVERTED</a:v>
+                                                                 </a:da>
+                                                            </v:var>
+                                                  </v:ctr>
+
+                                                  <v:ctr name="MscTimeoutConfiguration" type="IDENTIFIABLE">
+                                                      <a:a name="DESC"
+                                                            value="Upstream timeout Configuration" />
+                                                      <a:a name="UUID"
+                                                            value="2CEE8B54-9F9B-E908-510F-FD4B30D84F12" />
+                                                      <a:da name="EDITABLE" type="XPath">
+                                                        <a:tst expr="/AUTOSAR/TOP-LEVEL-PACKAGES/Msc/ELEMENTS/Msc/MscConfigurationOfOptApiServices/Msc_StartRxTimeoutAPI = 'true'"/>
+                                                      </a:da>
+                                                      <a:a name="OPTIONAL" value="true" />
+                                                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                            type="IMPLEMENTATIONCONFIGCLASS">
+                                                          <icc:v mclass="PostBuild">
+                                                                VariantPostBuild</icc:v>
+                                                      </a:a>
+                                                      <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+
+                                                      <v:var name="MscUpstreamTimeoutPrescalar" type="INTEGER">
+                                                        <a:a name="DESC"
+                                                            value="Used to conculate upstream timeout with MscUpstreamTimeoutValue&lt;br/&gt;
+                                                            &lt;h1&gt;Formula&lt;/h1&gt;
+                                                            TimeutValue = BitTime*2^(MscUpstreamTimeoutPrescalar + 1) * (MscUpstreamTimeoutValue + 1)&lt;br/&gt;
+                                                            TimeutValue:Time of timeout&lt;br/&gt;
+                                                            BitTime:Time it takes to transmit 1 bit, it's equal to (1/Upstream Baud Rate) " />
+                                                        <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                            type="IMPLEMENTATIONCONFIGCLASS">
+                                                            <icc:v vclass="PostBuild">
+                                                                  VariantPostBuild</icc:v>
+                                                        </a:a>
+                                                        <a:a name="ORIGIN" value="ChipowerTech" />
+                                                        <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                        <a:a name="UUID"
+                                                            value="a32791e2-652f-4d4f-80fc-3e726837e0e3" />
+                                                        <a:da name="DEFAULT" value="0" />
+                                                        <a:da name="INVALID" type="Range">
+                                                            <a:tst expr="&lt;=15" />
+                                                            <a:tst expr="&gt;=0" />
+                                                        </a:da>
+                                                        <a:da name="EDITABLE" type="XPath">
+                                                            <a:tst expr="/AUTOSAR/TOP-LEVEL-PACKAGES/Msc/ELEMENTS/Msc/MscConfigurationOfOptApiServices/Msc_StartRxTimeoutAPI = 'true'" />
+                                                        </a:da>
+                                                      </v:var>
+
+                                                      <v:var name="MscUpstreamTimeoutValue"
+                                                            type="INTEGER">
+                                                            <a:a name="DESC"
+                                                                value="Used to conculate upstream timeout with MscUpstreamTimeoutPrescalar&lt;br/&gt;
+                                                                &lt;h1&gt;Formula&lt;/h1&gt;
+                                                                TimeoutValue = BitTime*2^(MscUpstreamTimeoutPrescalar + 1) * (MscUpstreamTimeoutValue + 1)&lt;br/&gt;
+                                                                TimeoutValue:Time of timeout&lt;br/&gt;
+                                                                BitTime:Time it takes to transmit 1 bit, it's equal to (1/Upstream Baud Rate) " />" />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                                <icc:v vclass="PostBuild">
+                                                                      VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="UUID"
+                                                                value="1d42749e-1ef2-d860-9b63-aa6a81228afa" />
+                                                            <a:da name="DEFAULT" value="0" />
+                                                            <a:da name="INVALID" type="Range">
+                                                                <a:tst expr="&lt;=15" />
+                                                                <a:tst expr="&gt;=0" />
+                                                            </a:da>
+                                                            <a:da name="EDITABLE" type="XPath">
+                                                            <a:tst expr="/AUTOSAR/TOP-LEVEL-PACKAGES/Msc/ELEMENTS/Msc/MscConfigurationOfOptApiServices/Msc_StartRxTimeoutAPI = 'true'" />
+                                                        </a:da>
+                                                      </v:var>
+
+                                                      <v:var name="MscUpTimeoutIntService"
+                                                            type="ENUMERATION">
+                                                            <a:a name="DESC"
+                                                                value="Selects the service request to be raised when timeout interrupt is triggered&lt;br/&gt;" />
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                                <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="UUID"
+                                                                value="1dbfd508-69fd-33a4-9b2c-898c8d9e9e7e" />
+                                                            <a:a name="OPTIONAL" value="true"/>
+                                                            <a:da name="DEFAULT" value="MSC_ALINTRNODE_SR0" />
+                                                            <a:da name="RANGE">
+                                                                <a:v>MSC_ALINTRNODE_SR0</a:v>
+                                                                <a:v>MSC_ALINTRNODE_SR1</a:v>
+                                                                <a:v>MSC_ALINTRNODE_SR2</a:v>
+                                                                <a:v>MSC_ALINTRNODE_SR3</a:v>
+                                                                <a:v>MSC_ALINTRNODE_SR4</a:v>
+                                                            </a:da>
+                                                            <a:da name="EDITABLE" type="XPath">
+                                                            <a:tst expr="/AUTOSAR/TOP-LEVEL-PACKAGES/Msc/ELEMENTS/Msc/MscConfigurationOfOptApiServices/Msc_StartRxTimeoutAPI = 'true'" />
+                                                        </a:da>
+                                                      </v:var>
+
+                                                      <v:var name="MscUpTimeoutNotification"
+                                                            type="FUNCTION-NAME">
+                                                            <a:a name="DESC"
+                                                                value="Specifies the notification function of timeout interrupt"/>
+                                                            <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                                type="IMPLEMENTATIONCONFIGCLASS">
+                                                                <icc:v vclass="PostBuild">
+                                                                      VariantPostBuild</icc:v>
+                                                            </a:a>
+                                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                            <a:a name="UUID"
+                                                                value="c49e7a63-c99d-09bb-cd2b-12e155599c76" />
+                                                            <a:da name="DEFAULT" type="XPath"
+                                                                  expr="concat(text:replace(node:fallback(../../../MscHWUnitMapping, 'Msc_0'), '_', ''), '_UpTimeoutNotification')" />
+                                                            <a:da name="EDITABLE" type="Multi">
+                                                                <mt:xpath expr="node:exists(../MscUpTimeoutIntService) = 'true'"/>
+                                                                <mt:xpath expr="/AUTOSAR/TOP-LEVEL-PACKAGES/Msc/ELEMENTS/Msc/MscConfigurationOfOptApiServices/Msc_StartRxTimeoutAPI = 'true'" />
+                                                            </a:da>
+                                                      </v:var>
+                                                  </v:ctr>
+
+                                                  </v:ctr>
+                                        
+                                             </v:ctr>
+                                        </v:lst>
+                                   </v:ctr>
+
+                                   <v:ctr name="MscConfigurationOfOptApiServices" type="IDENTIFIABLE">
+                                      <a:a name="UUID"
+                                                  value="e82b6550-1634-490a-ba31-39ec9e7a8f23" />
+                                      <a:a name="DESC"
+                                          value="This section contains the configuration of optional API services for MSC driver"/>
+                                        <!-- /**API Enable Choose*/ -->
+                                        <v:var name="MscGetVersionInfo" type="BOOLEAN">
+                                             <a:a name="DESC"
+                                                  value="This parameter decides the availability of the API Msc_GetVersionInfo"/>
+                                             <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                  <icc:v vclass="PreCompile">
+                                                       VariantPostBuild</icc:v>
+                                             </a:a>
+                                             <a:a name="ORIGIN" value="ChipowerTech" />
+                                             <a:a name="UUID"
+                                                  value="ae1b8422-06ef-185f-d162-5c84762ac99e" />
+                                             <a:da name="DEFAULT" value="false" />
+                                        </v:var>
+                                        <v:var name="MscDeInitApi" type="BOOLEAN">
+                                             <a:a name="DESC"
+                                                  value="This parameter decides the availability of the API Msc_DeInit" />
+                                             <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                  <icc:v vclass="PreCompile">
+                                                       VariantPostBuild</icc:v>
+                                             </a:a>
+                                             <a:a name="ORIGIN" value="ChipowerTech" />
+                                             <a:a name="UUID"
+                                                  value="4e3c335c-4eed-8a9a-6db7-675073730e07" />
+                                             <a:da name="DEFAULT" value="false" />
+                                        </v:var>
+
+                                        <v:var name="Msc_GetRxDataApi" type="BOOLEAN">
+                                             <a:a name="DESC"
+                                                  value="This parameter decides the availability of the API Msc_GetRxData" />
+                                             <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                  <icc:v vclass="PreCompile">
+                                                       VariantPostBuild</icc:v>
+                                             </a:a>
+                                             <a:a name="ORIGIN" value="ChipowerTech" />
+                                             <a:a name="UUID"
+                                                  value="316fc372-f7d7-18b7-1c62-c5496cf5d477" />
+                                             <a:da name="DEFAULT" value="false" />
+                                        </v:var>
+
+                                        <v:var name="MscGetTxStatusApi" type="BOOLEAN">
+                                             <a:a name="DESC"
+                                                  value="This parameter decides the availability of the API Msc_GetTxStatus" />
+                                             <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                  <icc:v vclass="PreCompile">
+                                                       VariantPostBuild</icc:v>
+                                             </a:a>
+                                             <a:a name="ORIGIN" value="ChipowerTech" />
+                                             <a:a name="UUID"
+                                                  value="96F8AE05-3444-E8B3-8009-A2B03B1DC859" />
+                                             <a:da name="DEFAULT" value="false" />
+                                        </v:var>
+
+                                        <v:var name="MscSelectRxDeviceApi" type="BOOLEAN">
+                                             <a:a name="DESC"
+                                                  value="This parameter decides the availability of the API Msc_SelectRxDevice" />
+                                             <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                  <icc:v vclass="PreCompile">
+                                                       VariantPostBuild</icc:v>
+                                             </a:a>
+                                             <a:a name="ORIGIN" value="ChipowerTech" />
+                                             <a:a name="UUID"
+                                                  value="3338EA0B-495D-CA19-246F-5C3C96BDBD2A" />
+                                             <a:da name="DEFAULT" value="false" />
+                                        </v:var>
+
+                                        <v:var name="MscTxDataFrameApi" type="BOOLEAN">
+                                             <a:a name="DESC"
+                                                  value="This parameter decides the availability of the API Msc_TxDataFrame" />
+                                             <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                  <icc:v vclass="PreCompile">
+                                                       VariantPostBuild</icc:v>
+                                             </a:a>
+                                             <a:a name="ORIGIN" value="ChipowerTech" />
+                                             <a:a name="UUID"
+                                                  value="10AD505D-3B3E-6FE2-045A-7D8EF567AA24" />
+                                             <a:da name="DEFAULT" value="false" />
+                                        </v:var>
+
+                                        <v:var name="MscChangeTxStateApi" type="BOOLEAN">
+                                             <a:a name="DESC"
+                                                  value="This parameter decides the availability of the API Msc_ChangeTxState" />
+                                             <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                  <icc:v vclass="PreCompile">
+                                                       VariantPostBuild</icc:v>
+                                             </a:a>
+                                             <a:a name="ORIGIN" value="ChipowerTech" />
+                                             <a:a name="UUID"
+                                                  value="60349DE6-CCFB-10B0-2C27-12E0D48F31FF" />
+                                             <a:da name="DEFAULT" value="false" />
+                                        </v:var>
+
+                                        <v:var name="MscChangeRxStateApi" type="BOOLEAN">
+                                             <a:a name="DESC"
+                                                  value="This parameter decides the availability of the API Msc_ChangeRxState" />
+                                             <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                  <icc:v vclass="PreCompile">
+                                                       VariantPostBuild</icc:v>
+                                             </a:a>
+                                             <a:a name="ORIGIN" value="ChipowerTech" />
+                                             <a:a name="UUID"
+                                                  value="D9FD90AB-9425-AA2A-7639-E656E54388B9" />
+                                             <a:da name="DEFAULT" value="false" />
+                                        </v:var>
+
+                                        <v:var name="Msc_StartRxTimeoutAPI" type="BOOLEAN">
+                                             <a:a name="DESC"
+                                                  value="This parameter decides the availability of the API Msc_StartRxTimeout" />
+                                             <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                  <icc:v vclass="PreCompile">
+                                                       VariantPostBuild</icc:v>
+                                             </a:a>
+                                             <a:a name="ORIGIN" value="ChipowerTech" />
+                                             <a:a name="UUID"
+                                                  value="C9147EC8-B17C-ACCD-725A-93867412E331" />
+                                             <a:da name="DEFAULT" value="false" />
+                                        </v:var>
+
+                                        <v:var name="MscGetRxTimeoutStatusApi" type="BOOLEAN">
+                                             <a:a name="DESC"
+                                                  value="This parameter decides the availability of the API Msc_GetRxTimeoutStatus" />
+                                             <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                  <icc:v vclass="PreCompile">
+                                                       VariantPostBuild</icc:v>
+                                             </a:a>
+                                             <a:a name="ORIGIN" value="ChipowerTech" />
+                                             <a:a name="UUID"
+                                                  value="EF5409DC-2E73-430D-AD8B-69DF69D277C4" />
+                                             <a:da name="DEFAULT" value="false" />
+                                             <a:da name="EDITABLE" type="XPath">
+                                                  <a:tst    
+                                                  expr="(../Msc_StartRxTimeoutAPI  = 'true')" />
+                                             </a:da>
+                                        </v:var>
+
+                                   </v:ctr>
+
+                                   <v:ctr name="MscDriverConfiguration" type="IDENTIFIABLE">
+                                        <a:a name="UUID"
+                                                  value="9cf3579e-22f5-433a-b297-5db3eb17e092" />
+                                       <a:a name="DESC" value="This contains the functional feature configuration of MSC driver" />
+                                        <v:var name="MscDevErrorDetect" type="BOOLEAN">
+                                             <a:a name="DESC"
+                                                  value="Switch to enable/disable the function of development error trace" />
+                                             <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                  <icc:v vclass="PreCompile">
+                                                       VariantPostBuild</icc:v>
+                                             </a:a>
+                                             <a:a name="ORIGIN" value="ChipowerTech" />
+                                             <a:a name="UUID"
+                                                  value="00889d70-e177-8984-60eb-c3bfa3ac8e7e" />
+                                             <a:da name="DEFAULT" value="false" />
+                                        </v:var>
+                                   </v:ctr>
+                                   
+                                   <v:ctr name="CommonPublishedInformation" type="IDENTIFIABLE">
+                                        <a:a name="DESC"
+                                             value="It contains published information about vendor and versions." />
+                                        <a:a name="UUID"
+                                             value="d8ee4a2e-1db4-99eb-d3aa-8dc913fa9e64" />
+                                        <v:var name="ArReleaseMajorVersion" type="INTEGER_LABEL">
+                                            <a:a name="LABEL" value="Ar Release Major Version" />
+                                            <a:a name="DESC">
+                                              <a:v>
+                                                <![CDATA[EN:<html>
+                                                  Major version number of AUTOSAR specification on which the appropriate implementation is based on. <p/>
+                                                </html>]]>
+                                              </a:v>
+                                            </a:a>
+                                             <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                  <icc:v vclass="PublishedInformation">
+                                                       VariantPostBuild</icc:v>
+                                             </a:a>
+                                             <a:a name="ORIGIN" value="ChipowerTech" />
+                                             <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                             <a:a name="UUID"
+                                                  value="df1a61f4-0c3e-7091-90d0-f6387d415099" />
+                                             <a:da name="INVALID" type="Range">
+                                                  <a:tst expr="&lt;=65535" />
+                                                  <a:tst expr="&gt;=0" />
+                                             </a:da>
+                                             <a:da name="DEFAULT" value="4" />
+                                        </v:var>
+                                        <v:var name="ArReleaseMinorVersion" type="INTEGER_LABEL">
+                                            <a:a name="LABEL" value="Ar Release Minor Version" />
+                                            <a:a name="DESC">
+                                              <a:v>
+                                                <![CDATA[EN:<html>
+                                                  Minor version number of AUTOSAR specification on which the appropriate implementation is based on. <p/>
+                                                </html>]]>
+                                              </a:v>
+                                            </a:a>
+                                             <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                  <icc:v vclass="PublishedInformation">
+                                                       VariantPostBuild</icc:v>
+                                             </a:a>
+                                             <a:a name="ORIGIN" value="ChipowerTech" />
+                                             <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                             <a:a name="UUID"
+                                                  value="8e274186-21d3-1876-f12d-766ccd358c28" />
+                                             <a:da name="INVALID" type="Range">
+                                                  <a:tst expr="&lt;=65535" />
+                                                  <a:tst expr="&gt;=0" />
+                                             </a:da>
+                                             <a:da name="DEFAULT" value="4" />
+                                        </v:var>
+                                        <v:var name="ArReleaseRevisionVersion" type="INTEGER_LABEL">
+                                              <a:a name="LABEL" value="Ar Release Revision Version" />
+                                              <a:a name="DESC">
+                                                <a:v>
+                                                  <![CDATA[EN:<html>
+                                                    Revision version number of AUTOSAR specification on which the appropriate implementation is based on. <p/>
+                                                    </html>]]>
+                                                  </a:v>
+                                               </a:a>
+                                             <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                  <icc:v vclass="PublishedInformation">
+                                                       VariantPostBuild</icc:v>
+                                             </a:a>
+                                             <a:a name="ORIGIN" value="ChipowerTech" />
+                                             <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                             <a:a name="UUID"
+                                                  value="da4f2541-023b-e3a2-a0b5-4f5e2934b299" />
+                                             <a:da name="INVALID" type="Range">
+                                                  <a:tst expr="&lt;=65535" />
+                                                  <a:tst expr="&gt;=0" />
+                                             </a:da>
+                                             <a:da name="DEFAULT" value="0" />
+                                        </v:var>
+                                        <v:var name="SwMajorVersion" type="INTEGER_LABEL">
+                                            <a:a name="DESC">
+                                                <a:v>
+                                                  <![CDATA[EN:<html>
+                                                    Major version number of the vendor specific implementation of the module. The numbering is vendor specific.
+                                                    Note: Implementation Specific Parameter
+                                                  </html>]]>
+                                                </a:v>
+                                            </a:a>
+                                             <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                  <icc:v vclass="PublishedInformation">
+                                                       VariantPostBuild</icc:v>
+                                             </a:a>
+                                             <a:a name="ORIGIN" value="ChipowerTech" />
+                                             <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                             <a:a name="UUID"
+                                                  value="00fbdd4f-4c3d-077e-843e-77f945727f52" />
+                                             <a:da name="INVALID" type="Range">
+                                                  <a:tst expr="&lt;=65535" />
+                                                  <a:tst expr="&gt;=0" />
+                                             </a:da>
+                                             <a:da name="DEFAULT" value="1" />
+                                        </v:var>
+                                        <v:var name="SwMinorVersion" type="INTEGER_LABEL">
+                                            <a:a name="DESC">
+                                                <a:v>
+                                                  <![CDATA[EN:<html>
+                                                  Minor version number of the vendor specific implementation of the module. The numbering is vendor specific.
+                                                  Note: Implementation Specific Parameter
+                                                  </html>]]>
+                                                </a:v>
+                                            </a:a>
+                                             <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                  <icc:v vclass="PublishedInformation">
+                                                       VariantPostBuild</icc:v>
+                                             </a:a>
+                                             <a:a name="ORIGIN" value="ChipowerTech" />
+                                             <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                             <a:a name="UUID"
+                                                  value="009647b0-5605-d0ea-42ba-7b23548ac474" />
+                                             <a:da name="INVALID" type="Range">
+                                                  <a:tst expr="&lt;=65535" />
+                                                  <a:tst expr="&gt;=0" />
+                                             </a:da>
+                                             <a:da name="DEFAULT" value="2" />
+                                        </v:var>
+                                        <v:var name="SwPatchVersion" type="INTEGER_LABEL">
+                                            <a:a name="DESC">
+                                                <a:v>
+                                                  <![CDATA[EN:<html>
+                                                  Patch level version number of the vendor specific implementation of the module. The numbering is vendor specific.
+                                                  Note: Implementation Specific Parameter
+                                                  </html>]]>
+                                                </a:v>
+                                             </a:a>
+                                             <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                  <icc:v vclass="PublishedInformation">
+                                                       VariantPostBuild</icc:v>
+                                             </a:a>
+                                             <a:a name="ORIGIN" value="ChipowerTech" />
+                                             <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                             <a:a name="UUID"
+                                                  value="9a675235-8bbb-a63b-cbdb-bbce72466fdc" />
+                                             <a:da name="INVALID" type="Range">
+                                                  <a:tst expr="&lt;=65535" />
+                                                  <a:tst expr="&gt;=0" />
+                                             </a:da>
+                                             <a:da name="DEFAULT" value="0" />
+                                        </v:var>
+                                        <v:var name="ModuleId" type="INTEGER_LABEL">
+                                            <a:a name="DESC">
+                                                <a:v>
+                                                  <![CDATA[EN:<html>
+                                                    Module ID of this module from Module List.
+                                                    Note: Implementation Specific Parameter
+                                                  </html>]]>
+                                                </a:v>
+                                             </a:a>
+                                             <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                  <icc:v vclass="PublishedInformation">
+                                                       VariantPostBuild</icc:v>
+                                             </a:a>
+                                             <a:a name="ORIGIN" value="ChipowerTech" />
+                                             <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                             <a:a name="UUID"
+                                                  value="f8112717-a3b6-06c1-8eda-484c92f9d135" />
+                                             <a:da name="INVALID" type="Range">
+                                                  <a:tst expr="&lt;=65535" />
+                                                  <a:tst expr="&gt;=0" />
+                                             </a:da>
+                                             <a:da name="DEFAULT" value="255" />
+                                        </v:var>
+                                        <v:var name="VendorId" type="INTEGER_LABEL">
+                                            <a:a name="DESC">
+                                                <a:v>
+                                                  <![CDATA[EN:<html>
+                                                  Vendor ID of the dedicated implementation of this module according to the AUTOSAR vendor list.
+                                                  Note: Implementation Specific Parameter
+                                                  </html>]]>
+                                                </a:v>
+                                            </a:a>
+                                             <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                                  type="IMPLEMENTATIONCONFIGCLASS">
+                                                  <icc:v vclass="PublishedInformation">
+                                                       VariantPostBuild</icc:v>
+                                             </a:a>
+                                             <a:a name="ORIGIN" value="ChipowerTech" />
+                                             <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                             <a:a name="UUID"
+                                                  value="5a7fd396-131f-719b-01c4-5485e386becf" />
+                                             <a:da name="INVALID" type="Range">
+                                                  <a:tst expr="&lt;=65535" />
+                                                  <a:tst expr="&gt;=0" />
+                                             </a:da>
+                                             <a:da name="DEFAULT" value="175" />
+                                        </v:var>
+                                   </v:ctr>
+                              </v:ctr>
+                         </d:chc>
+                         <d:chc name="Msc_EcuParameterDefinition" type="AR-ELEMENT"
+                                value="ECU_PARAMETER_DEFINITION">
+                                <d:ctr type="AR-ELEMENT">
+                                  <a:a name="DEF"
+                                    value="ASPath:/AR_PACKAGE_SCHEMA/ECU_PARAMETER_DEFINITION" />
+                                  <a:a name="UUID" value="6BDD3F14-E187-885D-756C-73383669F76A" />
+                                  <d:lst name="MODULE_REF">
+                                    <d:ref type="MODULE_REF" value="ASPath:/THA6_AS440_FuSa/Msc" />
+                                  </d:lst>
+                                </d:ctr>
+                              </d:chc>
+                    </d:lst>
+               </d:ctr>
+          </d:lst>
+     </d:ctr>
+</datamodel>

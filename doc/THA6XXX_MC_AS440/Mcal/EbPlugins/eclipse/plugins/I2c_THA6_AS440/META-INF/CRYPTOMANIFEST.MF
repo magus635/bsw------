@@ -1,0 +1,36 @@
+
+Name: generate_PB/include/I2c_PBcfg.h
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377423651140114073438780551237855086667482871062045159
+ 8241483502494087214618125328385924781193288057340056
+
+Name: generate_PB/src/I2c_PBcfg.c
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 28964594747535977553943211041565538608902975597238153172198
+ 989972414333013607161843354835669115638732497389930677
+
+Name: generate_PB/I2c.m
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377420820700723285594030292919850566872090016719696447
+ 5009867704519970045651207967414039573070120603158353
+
+Name: generate_PB/include/I2c_Cfg.h
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377425636527387239176079686046516493397929467114416585
+ 4180046447035827065374940911377536641700928195753726
+
+Name: config/I2c.xdm
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377422620774021876976954867175531817737915373074040786
+ 3758709829041821855187071903701395035401150513756222
+

@@ -1,0 +1,22 @@
+
+# CPU must running before execute this script.
+# RCC CPU0_DBGRST_REQ must set before execute this script.
+
+# Halt after reset
+# Reset request by CPU0 debug register EDPRCR
+
+
+# "continue": Continues running the target. fg is an alias for the continue command.
+continue
+# "offset 0x024" EDECR: External Debug Execution Control Register.
+# "offset 0x031" EDPRCR: External Debug Power/Reset Control Register.
+# set EDECR 0x2U: Reset Catch debug event enabled.
+memory set_typed APB_1:0x80410024 (unsigned int) (0x2U)
+
+# set EDPRCR 0x3U:
+# 1.Request Warm reset.
+# 2. If the system responds to a powerdown request, it does not powerdown the Core power domain, but instead emulates a powerdown of that domain.
+memory set_typed APB_1:0x80410310 (unsigned int) (0x3U)
+
+# set EDECR 0x0U: Reset Catch debug event disabled.
+memory set_typed APB_1:0x80410024 (unsigned int) (0x0U)

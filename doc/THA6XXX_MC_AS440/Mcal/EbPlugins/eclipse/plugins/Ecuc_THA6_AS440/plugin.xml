@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.2"?>
+<plugin>
+
+  <!-- the EcuC module defining the AUTOSAR standard parameters and EB specific for the variant configuration -->
+<extension point="dreisoft.tresos.launcher2.plugin.module"
+             id="EcuC_THA6_AS440_FuSa_ModuleId"
+             name="EcuC_THA6_AS440_FuSa Module">
+
+    <module id="EcuC_THA6_AS440_FuSa"
+            label="EcuC"
+            mandatory="false"
+            allowMultiple="false"
+            description="EcuC MCAL module"
+            copyright="Copyright 2020-2030 ChipowerTech, Inc"
+            swVersionMajor="1"
+            swVersionMinor="2"
+            swVersionPatch="0"
+            swVersionSuffix=""
+            specVersionMajor="4"
+            specVersionMinor="4"
+            specVersionPatch="0"
+            specVersionSuffix=""
+            relVersionPrefix="AUTOSAR"
+            relVersionMajor="4"
+            relVersionMinor="4"
+            relVersionPatch="0"
+            relVersionSuffix=""
+            categoryType="EcuC"
+            categoryLayer="MCAL"
+            categoryCategory="ECU Firmware"
+            categoryComponent="ECUC">
+      <ecuType target="ARM" derivate="THA6XXX_FuSa"/>
+      <cluster name="MCAL"/>
+    </module>
+  </extension>
+
+  <extension point="dreisoft.tresos.launcher2.plugin.configuration"
+             id="EcuC_THA6_AS440_FuSa_ConfigId"
+             name="EcuC_THA6_AS440_FuSa Configuration">
+    <configuration moduleId="EcuC_THA6_AS440_FuSa">
+      <schema>
+        <manager class="dreisoft.tresos.autosar2.resourcehandling.AutosarSchemaManager"/>
+        <resource value="config/EcuC.xdm" type="xdm"/>
+      </schema>
+
+      <data>
+        <manager class="dreisoft.tresos.autosar2.resourcehandling.AutosarConfigManager"/>
+        <schemaNode path="ASPath:/THA6_AS440_FuSa/EcuC"/>
+      </data>
+
+      <editor id="EcuC_THA6_AS440_FuSa_EditorId"
+              label="EcuC"
+              tooltip="EcuC MCAL module">
+        <class class="dreisoft.tresos.launcher2.editor.GenericConfigEditor">
+          <parameter name="schema" value="ASPath:/THA6_AS440_FuSa/EcuC"/>
+          <parameter name="title" value="EcuC"/>
+        </class>
+      </editor>
+    </configuration>
+  </extension>
+
+  <!-- this extension point needs to be defined and point to the configuratin parameters for the Loadable and the Selectable use case -->
+  <extension
+      point="dreisoft.tresos.autosar2.api.plugin.postbuildSetup"
+      id="EcuC_THA6_AS440_FuSa_PostBuildExt">
+    <configuration
+         activeLoadableRef="ASPath:/THA6_AS440_FuSa/EcuC/EcucSelectedLoadableVariant/EcucSelectedLoadableRef"
+         activeSelectableRef="ASPath:/THA6_AS440_FuSa/EcuC/EcucPostBuildVariants/EcucSelectedPostBuildVariantRef"
+         selectableRefs="ASPath:/THA6_AS440_FuSa/EcuC/EcucPostBuildVariants/EcucPostBuildVariantRef">
+     </configuration>
+  </extension>
+</plugin>

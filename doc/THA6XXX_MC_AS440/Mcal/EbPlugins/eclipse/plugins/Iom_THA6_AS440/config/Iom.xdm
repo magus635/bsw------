@@ -1,0 +1,1100 @@
+<?xml version='1.0'?>
+<datamodel version="7.0"
+  xmlns="http://www.tresos.de/_projects/DataModel2/12/root.xsd" 
+  xmlns:a="http://www.tresos.de/_projects/DataModel2/12/attribute.xsd" 
+  xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd" 
+  xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd">
+  <d:ctr type="AUTOSAR" factory="autosar"  
+    xmlns:ad="http://www.tresos.de/_projects/DataModel2/08/admindata.xsd" 
+    xmlns:cd="http://www.tresos.de/_projects/DataModel2/08/customdata.xsd" 
+    xmlns:icc="http://www.tresos.de/_projects/DataModel2/08/implconfigclass.xsd" 
+    xmlns:mt="http://www.tresos.de/_projects/DataModel2/11/multitest.xsd"  
+    xmlns:variant="http://www.tresos.de/_projects/DataModel2/11/variant.xsd">
+    <d:lst type="TOP-LEVEL-PACKAGES">
+      <d:ctr name="THA6_AS440_FuSa" type="AR-PACKAGE">
+        <a:a name="UUID" value="ECUC:AUTOSAR"/>
+        <d:lst type="ELEMENTS">
+          <d:chc name="Iom" type="AR-ELEMENT" value="MODULE-DEF">
+            <v:ctr type="MODULE-DEF">
+              <a:a name="ADMIN-DATA" type="ADMIN-DATA">
+                <ad:ADMIN-DATA>
+                  <ad:DOC-REVISIONS>
+                    <ad:DOC-REVISION>
+                      <ad:REVISION-LABEL>4.4.0</ad:REVISION-LABEL>
+                      <ad:ISSUED-BY>AUTOSAR</ad:ISSUED-BY>
+                    </ad:DOC-REVISION>
+                  </ad:DOC-REVISIONS>
+                </ad:ADMIN-DATA>
+              </a:a>
+              <a:a name="DESC" 
+                   value="EN: Configuration of the Iom ."/>
+              <a:a name="LOWER-MULTIPLICITY" value="0"/>
+              <a:a name="POSTBUILDVARIANTSUPPORT" value="true"/>
+              <a:a name="RELEASE" value="asc:4.4.0"/>
+              <a:a name="UPPER-MULTIPLICITY" value="*"/>
+              <a:a name="UUID" value="a06bdb1c-090f-4de8-b2c8-f254772cdecf"/>
+              <v:var name="IMPLEMENTATION_CONFIG_VARIANT" type="ENUMERATION">
+                <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                     type="IMPLEMENTATIONCONFIGCLASS">
+                  <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                </a:a>
+                <a:a name="LABEL" value="Config Variant"/>
+                <a:a name="UUID" value="2d149fdc-8507-40b6-a0ae-7db4a6a0019b"/>
+                <a:da name="DEFAULT" value="VariantPostBuild"/>
+                <a:da name="RANGE">
+                  <a:v>VariantPostBuild</a:v>
+                </a:da>
+              </v:var>
+              <v:ctr name="IomGeneralConfiguration" type="IDENTIFIABLE">
+              <a:a name="DESC" value="EN: This container contains configuration switches for PPU register."/>
+              <a:a name="UUID" value="acb6432e-8312-a4b2-63a1-5b211bc7832a"/>
+                <v:var name="IomVersionInfoApi" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: Pre-processor switch to enable / disable the API to read out the modules version information."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS" >
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="ac32b12e-ac12-a461-b561-54231bc31aca"/>
+                  <a:da name="DEFAULT" value="false"/>
+                </v:var>
+                <v:var name="IomPpuPrecalerApi" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: Switches the Ppu prescaler Api(Iom_SetPpuPrecalerThreshold, Iom_GetPpuPrecalerThreshold) ON or OFF."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS" >
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="01935190-6671-746b-a437-a96dfa530999"/>
+                  <!-- <a:da name="DEFAULT" value="false"/> -->
+                  <a:da name="DEFAULT" type="XPath">
+                        <a:tst expr="ecu:list('Iom.PPUmode') = 'RISINGEDGE_PRESCALER' or ecu:list('Iom.PPUmode') = 'FALLINGEDGE_PRESCALER'"/>
+                  </a:da>
+                  <a:da name="EDITABLE" type="XPath">
+                      <a:tst expr="ecu:list('Iom.PPUmode') = 'RISINGEDGE_PRESCALER' or ecu:list('Iom.PPUmode') = 'FALLINGEDGE_PRESCALER'"/>
+                  </a:da>
+                </v:var>
+                <v:var name="IomPpuFilterApi" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: Switches the Ppu filter Api(Iom_SetPpuFilterTimeThreshold, Iom_GetPpuFilterTimeThreshold) ON or OFF."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="01935280-e2b0-70d8-8ecb-8858048637ed" />
+                  <a:da name="DEFAULT" value="true" />
+                </v:var>
+                <v:var name="IomGetPpuGlitchApi" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: Switches the Iom_GetPpuGlitch Api ON or OFF."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="acb6432e-8312-a4b2-63a1-5b211bc77512" />
+                  <a:da name="DEFAULT" value="true" />
+                </v:var>
+                <v:var name="IomDevErrorDetect" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: Switches the Default Error Tracer (Det) detection and notification ON or OFF."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="01965625-a705-74e8-a8bf-ffa6abadf182" />
+                  <a:da name="DEFAULT" value="true" />
+                </v:var>
+                <v:var name="IomSafetyErrorDetect" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: Switches the Safety Error detection ON or OFF." />
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="a4e70d5a-ab21-4d58-8197-04d1d2ae0990" />
+                  <a:da name="DEFAULT" value="true" />
+                </v:var>
+                <v:var name="IomGtmExor" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: Switches the GTM input Exor ON or OFF."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="ac32b12e-ac12-a461-b561-54231bc32323"/>
+                  <a:da name="DEFAULT" value="false"/>
+                  <a:da name="INVALID" type="XPath" >
+                          <a:tst expr="(node:value(.) = 'false') or (node:value(.) = 'true' and   
+                                          ecu:get('Iom.GTMExorFunctionSupport') = 'true')" false="The version does not support the GTM exor function" />
+                  </a:da>
+                </v:var>
+                <!-- <v:var name="IomSafetyEnable" type="BOOLEAN">
+                  <a:a name="DESC" value="EN: Switches the Safety Enable and notification ON or OFF."/>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                       type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech" />
+                  <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                  <a:a name="SCOPE" value="LOCAL" />
+                  <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                  <a:a name="UUID" value="01965711-a3c5-7535-af9c-fdc13d6c52c7" />
+                  <a:da name="DEFAULT" value="true" />
+                </v:var> -->
+              </v:ctr>
+              <v:ctr name="IomModuleConfiguration" type="IDENTIFIABLE">
+                <a:a name="DESC" value="EN: This container contains the configuration (parameters) of the IOM driver" />
+                <a:a name="UUID" value="aca83c2e-4431-a323-b128-5b21134bc64a"/>
+                <v:lst name="IomPPUConfiguration" type="MAP">
+                  <a:da name="MAX" value="16"/>
+                  <a:da name="MIN" value="1"/>
+                    <v:ctr name="IomPPUConfiguration" type="IDENTIFIABLE">
+                      <a:a name="DESC" value="EN: This container contains the configuration for the Filter and Prescaler Channels." />
+                      <a:a name="UUID" value="a31a3c1e-4ab3-a124-512a-53121321cbca" />
+                      <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="REQUIRES-INDEX" value="true"/>
+                      <v:var name="IomPPUUnitNo" type="INTEGER">
+                        <a:a name="DESC" value="EN: PPU register unit or PPU number" />
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                             type="IMPLEMENTATIONCONFIGCLASS" >
+                          <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="ORIGIN" value="ChipowerTech" />
+                        <a:a name="SCOPE" value="LOCAL" />
+                        <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                        <a:a name="SYMBOLICNAMEVALUE" value="true" />
+                        <a:a name="UUID" value="12a23b1e-4a31-abc4-521b-5ab5132c91c1" />
+                        <a:da name="DEFAULT" type="XPath" >
+                          <a:tst expr="node:fallback(node:current()/../@index,'0')"/>
+                        </a:da>
+                        <a:da name="INVALID" type="Multi" >
+                          <mt:xpath expr="(text:uniq(../../*/IomPPUUnitNo,.)) and 
+                                          (. &lt; 16)" false="PPU Number should be unique and between 0 to 15."/>
+                          <mt:range>
+                            <mt:tst expr="&gt;=0"/>
+                            <mt:tst expr="&lt;=15"/>
+                          </mt:range>
+                        </a:da>
+                      </v:var>
+                      <v:var name="IomPPUFilterTime" type="INTEGER">
+                        <a:a name="DESC" value="EN: Filter time threshold." />
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                             type="IMPLEMENTATIONCONFIGCLASS" >
+                          <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="ORIGIN" value="ChipowerTech" />
+                        <a:a name="SCOPE" value="LOCAL" />
+                        <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                        <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                        <a:a name="UUID" value="ab5132ac-4b53-4624-782a-5ac21b2b6bc2" />
+                        <a:da name="DEFAULT" value="0" />
+                        <a:da name="INVALID" type="Multi">
+                          <mt:xpath expr="(../IomPPUFilterMode != 'RISINGEDGE_PRESCALER') and
+                                          (../IomPPUFilterMode != 'FALLINGEDGE_PRESCALER') and
+                                          (../IomPPUFilterMode != 'NO_FILTER') and
+                                          (node:value(.) = '0')" true=" If the filter mode is selected, the filter time cannot be 0" />
+                          <mt:range>
+                            <mt:tst expr="&gt;=0" />
+                            <mt:tst expr="&lt;=65535" />
+                          </mt:range>
+                        </a:da>
+                        <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="(../IomPPUFilterMode != 'RISINGEDGE_PRESCALER') and
+                                         (../IomPPUFilterMode != 'FALLINGEDGE_PRESCALER') and
+                                         (../IomPPUFilterMode != 'NO_FILTER')" />
+                        </a:da>
+                      </v:var>
+                      <v:var name="IomPPUPrescalerCompareVal" type="INTEGER">
+                        <a:a name="DESC" value="EN: 16 bit prescaler compare value used to compare with 16 bit timer value" />
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                             type="IMPLEMENTATIONCONFIGCLASS" >
+                          <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="ORIGIN" value="ChipowerTech" />
+                        <a:a name="SCOPE" value="LOCAL" />
+                        <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                        <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                        <a:a name="UUID" value="ab5132ac-4b53-4624-782a-5ac21b2b6bc3" />
+                        <a:da name="DEFAULT" value="0" />
+                        <a:da name="INVALID" type="Range" >
+                            <a:tst expr="&lt;=65535"/>
+                            <a:tst expr="&gt;=0"/>
+                        </a:da>
+                        <a:da name="EDITABLE" type="XPath">
+                            <a:tst expr="(../IomPPUFilterMode = 'RISINGEDGE_PRESCALER') or
+                                         (../IomPPUFilterMode = 'FALLINGEDGE_PRESCALER')"/>
+                        </a:da>
+                      </v:var>
+                <v:var name="IomPPUFilterMode" type="ENUMERATION">
+                        <a:a name="LABEL" value="IomPPUMode"/>
+                        <a:a name="DESC" value="EN: Determines operation mode selection for PPU &lt;br/&gt;
+                                              Note: DD means Delay Debounce&lt;br/&gt;
+                                              ID means Immediated Debounce"/>
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                             type="IMPLEMENTATIONCONFIGCLASS" >
+                          <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="ORIGIN" value="ChipowerTech" />
+                        <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                        <a:a name="SCOPE" value="LOCAL" />
+                        <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                        <a:a name="UUID" value="cf8fb070-6d62-4707-a73f-a16af3461234" />
+                        <a:da name="DEFAULT" type="XPath" >
+                          <a:tst expr="ecu:list('Iom.PPUmode')[1]" />
+                        </a:da>
+                        <a:da name="RANGE" type="XPath">
+                            <a:tst expr="ecu:list('Iom.PPUmode')" />
+                        </a:da>
+                      </v:var>
+                <!-- <v:var name="IomPPUFilterResetTimer" type="BOOLEAN">
+                      <a:a name="DESC" value="EN: Determines whether enable timer reset function or not" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="EF26BB62-8E22-EC21-BD9B-BF8FB4C484C8" />
+                      <a:da name="DEFAULT" value="false" />
+                      <a:da name="INVALID" type="XPath">
+                        <a:tst expr=". = 'false' or (. = 'true' and 
+                        ((../IomPPUFilterMode = 'BOTHEDGES_DD') or (../IomPPUFilterMode = 'RISING_DD_FALLING_ID') or (../IomPPUFilterMode = 'RISING_ID_FALLING_DD')))" 
+                        false="This feature is only supported by the delayed debounce filter mode" />
+                      </a:da>
+                    </v:var> -->
+                      <v:var name="IomPPUMonInputSel" type="ENUMERATION">
+                        <a:a name="DESC" value="EN: To select monitor input signal for PPU channel. " />
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                             type="IMPLEMENTATIONCONFIGCLASS" >
+                          <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                        </a:a>
+                        <a:a name="ORIGIN" value="ChipowerTech" />
+                        <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                        <a:a name="SCOPE" value="LOCAL" />
+                        <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                        <a:a name="UUID" value="acb6712e-4ac1-a213-ab68-5b214246232b" />
+                        <a:da name="DEFAULT" type="XPath" >
+                          <a:tst expr="ecu:list(concat('Iom.Mon',node:fallback(../IomPPUUnitNo, 'x')))[1]" />
+                        </a:da>
+                        <a:da name="RANGE" type="XPath">
+                          <a:tst expr="ecu:list(concat('Iom.Mon',node:fallback(../IomPPUUnitNo, 'x')))" />
+                        </a:da>
+                      </v:var>
+                      <v:var name="IomPPUReferInputSel" type="ENUMERATION">
+                        <a:a name="DESC" value="EN: To select reference input signal "/>                                             
+                        <a:a name="IMPLEMENTATIONCONFIGCLASS" 
+                             type="IMPLEMENTATIONCONFIGCLASS">
+                          <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                        </a:a>                    
+                        <a:a name="ORIGIN" value="ChipowerTech"/>
+                        <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                        <a:a name="SCOPE" value="LOCAL"/>
+                        <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                        <a:a name="UUID" value="DCE:6621b8c0-a041-4855-8ff4-d32a34342514"/>
+                        <a:da name="DEFAULT" type="XPath" >
+                          <a:tst expr="ecu:list(concat('Iom.Ref',node:fallback(../IomPPUUnitNo, 'x')))[1]" />
+                        </a:da>
+                        <a:da name="RANGE" type="XPath">
+                          <a:tst expr="ecu:list(concat('Iom.Ref',node:fallback(../IomPPUUnitNo, 'x')))" />
+                        </a:da>       
+                      </v:var>
+                    </v:ctr>
+                </v:lst>
+                <v:lst name="IomLPUConfiguration" type="MAP">
+                  <a:da name="MAX" value="16" />
+                  <a:da name="MIN" value="1" />
+                  <v:ctr name="IomLPUConfiguration" type="IDENTIFIABLE">
+                    <a:a name="DESC" value="EN: This container contains configuration for LPU register." />
+                    <a:a name="UUID" value="a32e341a-6a11-48c7-54b9-31acfc6c4481" />
+                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                         type="IMPLEMENTATIONCONFIGCLASS" >
+                      <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                    </a:a>
+                    <a:a name="REQUIRES-INDEX" value="true"/>
+                    <v:var name="IomLPUUnitNo" type="INTEGER">
+                      <a:a name="DESC" value="EN: LPU register unit or LPU number" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="true" />
+                      <a:a name="UUID" value="a41e121a-6ab1-48a7-54b9-3177fc6caa81" />
+                      <a:da name="DEFAULT" type="XPath" >
+                        <a:tst expr="node:fallback(node:current()/../@index,'0')" />
+                      </a:da>
+                      <a:da name="INVALID" type="Multi" >
+                        <mt:xpath expr="(text:uniq(../../*/IomLPUUnitNo,.)) and
+                                        (. &lt; 16)" false="LPU Number should be unique and between 0 to 15."/>
+                        <mt:range>
+                          <mt:tst expr="&gt;=0"/>
+                          <mt:tst expr="&lt;=15"/>
+                        </mt:range>
+                      </a:da>
+                    </v:var>
+                    <v:var name="IomLPUEventWinTime" type="INTEGER">
+                      <a:a name="DESC" value="EN: The duration of the event window."/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:a name="UUID" value="aa4e782a-6bc1-4ac7-5789-3178fcab4421" />
+                      <a:da name="DEFAULT" value="0" />
+                      <a:da name="INVALID" type="Range" >
+                        <a:tst expr="&lt;=16777215"/>
+                        <a:tst expr="&gt;=0"/>
+                      </a:da>
+                    </v:var>
+                    <v:var name="IomLPUInvReferSignal" type="BOOLEAN">
+                      <a:a name="DESC" value="EN: Determines whether reference signal from PPU channel is inverted or not" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="21ab64d2-5a6b-41ca-af7d-cbd6821144dd" />
+                      <a:da name="DEFAULT" value="false" />
+                    </v:var>
+                    <v:var name="IomLPUInvMonSignal" type="BOOLEAN">
+                      <a:a name="DESC" value="EN: Determines whether monitor signal from PPU channel is inverted or not" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="a4ae3218-54c7-48b7-9a12-35129e8c321b" />
+                      <a:da name="DEFAULT" value="false" />
+                    </v:var>
+                    <v:var name="IomLPUInvEventWin" type="BOOLEAN">
+                      <a:a name="DESC" value="EN: Determines whether event window polarity is inverted or not" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="d321c598-5aa7-4567-9ac0-36789e85bb1b" />
+                      <a:da name="DEFAULT" value="false" />
+                    </v:var>
+                    <v:var name="IomLPUEventSrcSelect" type="ENUMERATION">
+                      <a:a name="DESC" value="EN: Determines whether monitor signal sourced directly or EXORed with reference signal" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="d4ae3218-5caa-4567-9aa0-32de9e853321" />
+                      <a:da name="DEFAULT" value="IOM_LPUEVENTSOURCE_MON" />
+                      <a:da name="RANGE" >
+                        <a:v>IOM_LPUEVENTSOURCE_MON</a:v>
+                        <a:v>IOM_LPUEVENTSOURCE_MONXORREF</a:v>
+                      </a:da>
+                    </v:var>
+                    <v:var name="IomLPURunMode" type="ENUMERATION">
+                      <a:a name="DESC" value="EN: Determines whether event window generation is free running or gated with monitor or reference signal " />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="d4ae1598-5437-4a17-9b20-312e9e85ac3b" />
+                      <a:da name="DEFAULT" value="IOM_LPUEVENTWINDOWRUNCONTROL_FREERUNNING" />
+                      <a:da name="RANGE" >
+                        <a:v>IOM_LPUEVENTWINDOWRUNCONTROL_FREERUNNING</a:v>
+                        <a:v>IOM_LPUEVENTWINDOWRUNCONTROL_GATED</a:v>
+                      </a:da>
+                    </v:var>
+                    <v:var name="IomLPUEventWinSelect" type="ENUMERATION">
+                      <a:a name="DESC" value="EN: Determines whether event window generation is from monitor signal or reference signal " />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="d4a12598-5127-4432-95a0-36bc9e153d2b" />
+                      <a:da name="DEFAULT" value="IOM_LPUEVENTWINDOWCONTROLSOURCE_REF" />
+                      <a:da name="RANGE" >
+                        <a:v>IOM_LPUEVENTWINDOWCONTROLSOURCE_REF</a:v>
+                        <a:v>IOM_LPUEVENTWINDOWCONTROLSOURCE_MON</a:v>
+                      </a:da>
+                    </v:var>
+                    <v:var name="IomLPUEveActiveEdgeSelect" type="ENUMERATION">
+                      <a:a name="DESC" value="EN: Determines which active edges of reference and monitor signals are used for event generation" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:a name="UUID" value="d41ec594-5ac7-4567-9a30-36789e8acd2b" />
+                      <a:da name="DEFAULT" value="IOM_LPUEVENTTRIGGER_NONE" />
+                      <a:da name="RANGE" >
+                        <a:v>IOM_LPUEVENTTRIGGER_NONE</a:v>
+                        <a:v>IOM_LPUEVENTTRIGGER_RISINGEDGE</a:v>
+                        <a:v>IOM_LPUEVENTTRIGGER_FALLINGEDGE</a:v>
+                        <a:v>IOM_LPUEVENTTRIGGER_ANYEDGE</a:v>
+                      </a:da>
+                    </v:var>
+                    <v:var name="IomLPUEveWinActiveEdgeSelect" type="ENUMERATION">
+                      <a:a name="DESC" value="EN: Determines which active edges of reference and monitor signals are used for event window generation" />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                      <a:a name="UUID" value="d41ec594-5ac7-4567-9a30-36789e8acd2c" />
+                      <a:da name="DEFAULT" value="IOM_LPUEVENTWINDOWCLEAREVENT_NONE" />
+                      <a:da name="RANGE" >
+                        <a:v>IOM_LPUEVENTWINDOWCLEAREVENT_NONE</a:v>
+                        <a:v>IOM_LPUEVENTWINDOWCLEAREVENT_RISINGEDGE</a:v>
+                        <a:v>IOM_LPUEVENTWINDOWCLEAREVENT_FALLINGEDGE</a:v>
+                        <a:v>IOM_LPUEVENTWINDOWCLEAREVENT_ANYEDGE</a:v>
+                      </a:da>
+                    </v:var>
+                    <v:var name="IomLPUMonInputSel" type="ENUMERATION">
+                      <a:a name="DESC" value="EN: To select monitor output signal from PPU to be used by LPU." />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="d4a12398-5aa7-4432-9450-36ae93c5321b" />
+                      <a:da name="DEFAULT" type="XPath" expr="text:split(ecu:get('Iom.LPUChannelID'))[1]" />
+                      <a:da name="RANGE" type="XPath">
+                        <a:tst expr="text:split(ecu:get('Iom.LPUChannelID'))" />
+                        <!-- <a:v>CH0</a:v>
+                        <a:v>CH1</a:v>
+                        <a:v>CH2</a:v>
+                        <a:v>CH3</a:v>
+                        <a:v>CH4</a:v>
+                        <a:v>CH5</a:v>
+                        <a:v>CH6</a:v>
+                        <a:v>CH7</a:v>
+                        <a:v>CH8</a:v>
+                        <a:v>CH9</a:v>
+                        <a:v>CH10</a:v>
+                        <a:v>CH11</a:v>
+                        <a:v>CH12</a:v>
+                        <a:v>CH13</a:v>
+                        <a:v>CH14</a:v>
+                        <a:v>CH15</a:v> -->
+                      </a:da>
+                    </v:var>
+                    <v:var name="IomLPURefInputSel" type="ENUMERATION">
+                      <a:a name="DESC" value="EN: To select reference output signal from PPU to be used by LPU." />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="d4a31298-5ca7-44b7-9210-36e49e853312" />
+                      <a:da name="DEFAULT" type="XPath" expr="text:split(ecu:get('Iom.LPUChannelID'))[1]" />
+                      <a:da name="RANGE" type="XPath">
+                        <a:tst expr="text:split(ecu:get('Iom.LPUChannelID'))" />
+                        <!-- <a:v>CH0</a:v>
+                        <a:v>CH1</a:v>
+                        <a:v>CH2</a:v>
+                        <a:v>CH3</a:v>
+                        <a:v>CH4</a:v>
+                        <a:v>CH5</a:v>
+                        <a:v>CH6</a:v>
+                        <a:v>CH7</a:v>
+                        <a:v>CH8</a:v>
+                        <a:v>CH9</a:v>
+                        <a:v>CH10</a:v>
+                        <a:v>CH11</a:v>
+                        <a:v>CH12</a:v>
+                        <a:v>CH13</a:v>
+                        <a:v>CH14</a:v>
+                        <a:v>CH15</a:v> -->
+                      </a:da>
+                    </v:var>
+          <v:var name="IomLPUchannelInputEMUSel" type="ENUMERATION">
+                      <a:a name="DESC" value="EN: Select which EMU counter is enabled for events output from the LPU." />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="d4a31298-5ca7-44b7-9210-36ae93c5123c" />
+                      <a:da name="DEFAULT" value="IOM_EVENTCOUNTERCHANNEL_NOCOUNTER" />
+                      <a:da name="RANGE" >
+                        <a:v>IOM_EVENTCOUNTERCHANNEL_0</a:v>
+                        <a:v>IOM_EVENTCOUNTERCHANNEL_1</a:v>
+                        <a:v>IOM_EVENTCOUNTERCHANNEL_2</a:v>
+                        <a:v>IOM_EVENTCOUNTERCHANNEL_3</a:v>
+                        <a:v>IOM_EVENTCOUNTERCHANNEL_NOCOUNTER</a:v>
+                    </a:da>
+                      <a:da name="INVALID" type="XPath" >
+                          <a:tst expr="(text:uniq(../../*/IomLPUchannelInputEMUSel,.)) or  
+                                          (. = 'IOM_EVENTCOUNTERCHANNEL_NOCOUNTER')" false="EMU counter should be unique or 0." />
+                        </a:da>
+                    </v:var>
+                  </v:ctr>
+                </v:lst> 
+                <v:ctr name="IomGtmConfiguration" type="IDENTIFIABLE">
+                  <a:a name="DESC" value="EN: This container contains configuration for GTM input reference signal.
+                                          IOM_GTM_0-IOM_GTM_7 corresponds to GTM_TOUT22-GTM_TOUT29" />
+                  <a:a name="UUID" value="ba3247ae-abc0-445d-9ac7-123ac43256f1" />
+                  <v:var name="IomGtmInput0" type="ENUMERATION">
+                    <a:a name="DESC" value="EN: Disables/Enables the GTM input signal 0 to be included in EXOR combiner.
+                                            P33.0 = GTM_TOUT22 editable." />
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                         type="IMPLEMENTATIONCONFIGCLASS" >
+                      <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                    </a:a>
+                    <a:a name="ORIGIN" value="ChipowerTech" />
+                    <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                    <a:a name="SCOPE" value="LOCAL" />
+                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                    <a:a name="UUID" value="DCE:d4aec598-5cc7-4487-9530-36f48e853d1b" />
+                    <a:da name="EDITABLE" type="XPath">
+                      <a:tst expr="(../../../IomGeneralConfiguration/IomGtmExor = 'true')"/>
+                    </a:da>
+                    <a:da name="DEFAULT" value="IOM_DISABLE_GTM_INPUT" />
+                    <a:da name="RANGE" >
+                      <a:v>IOM_DISABLE_GTM_INPUT</a:v>
+                      <a:v>IOM_ENABLE_GTM_INPUT</a:v>
+                    </a:da>
+                  </v:var>
+                  <v:var name="IomGtmInput1" type="ENUMERATION">
+                    <a:a name="DESC" value="EN: Disables/Enables the GTM input signal 1 to be included in EXOR combiner. 
+                                            P33.1 = GTM_TOUT23 editable." />
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                         type="IMPLEMENTATIONCONFIGCLASS" >
+                      <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                    </a:a>
+                    <a:a name="ORIGIN" value="ChipowerTech" />
+                    <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                    <a:a name="SCOPE" value="LOCAL" />
+                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                    <a:a name="UUID" value="ba3232ae-ab12-445c-91a7-1b5ac4325211" />
+                    <a:da name="EDITABLE" type="XPath">
+                      <a:tst expr="(../../../IomGeneralConfiguration/IomGtmExor = 'true')"/>
+                    </a:da>
+                    <a:da name="DEFAULT" value="IOM_DISABLE_GTM_INPUT" />
+                    <a:da name="RANGE" >
+                      <a:v>IOM_DISABLE_GTM_INPUT</a:v>
+                     <a:v>IOM_ENABLE_GTM_INPUT</a:v>
+                    </a:da>
+                  </v:var>
+                  <v:var name="IomGtmInput2" type="ENUMERATION">
+                    <a:a name="DESC" value="EN: Disables/Enables the GTM input signal 2 to be included in EXOR combiner.
+                                            P33.2 = GTM_TOUT24 editable." />
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                         type="IMPLEMENTATIONCONFIGCLASS" >
+                      <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                    </a:a>
+                    <a:a name="ORIGIN" value="ChipowerTech" />
+                    <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                    <a:a name="SCOPE" value="LOCAL" />
+                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                    <a:a name="UUID" value="d421c512-5ac7-4427-95ac-32ee12853acb" />
+                    <a:da name="EDITABLE" type="XPath">
+                      <a:tst expr="(../../../IomGeneralConfiguration/IomGtmExor = 'true')"/>
+                    </a:da>
+                    <a:da name="DEFAULT" value="IOM_DISABLE_GTM_INPUT" />
+                    <a:da name="RANGE" >
+                      <a:v>IOM_DISABLE_GTM_INPUT</a:v>
+                      <a:v>IOM_ENABLE_GTM_INPUT</a:v>
+                    </a:da>
+                  </v:var>
+                  <v:var name="IomGtmInput3" type="ENUMERATION">
+                    <a:a name="DESC" value="EN: Disables/Enables the GTM input signal 3 to be included in EXOR combiner.
+                                            P33.3 = GTM_TOUT25 editable." />
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                         type="IMPLEMENTATIONCONFIGCLASS" >
+                      <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                    </a:a>
+                    <a:a name="ORIGIN" value="ChipowerTech" />
+                    <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                    <a:a name="SCOPE" value="LOCAL" />
+                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                    <a:a name="UUID" value="d4a1cc28-5ac7-432f-9132-3aee9bc5312b" />
+                    <a:da name="EDITABLE" type="XPath">
+                      <a:tst expr="(../../../IomGeneralConfiguration/IomGtmExor = 'true')"/>
+                    </a:da>
+                    <a:da name="DEFAULT" value="IOM_DISABLE_GTM_INPUT" />
+                    <a:da name="RANGE" >
+                      <a:v>IOM_DISABLE_GTM_INPUT</a:v>
+                      <a:v>IOM_ENABLE_GTM_INPUT</a:v>
+                    </a:da>
+                  </v:var>
+                  <v:var name="IomGtmInput4" type="ENUMERATION">
+                    <a:a name="DESC" value="EN: Disables/Enables the GTM input signal 4 to be included in EXOR combiner.
+                                            P33.4 = GTM_TOUT26 editable." />
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                        type="IMPLEMENTATIONCONFIGCLASS" >
+                      <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                    </a:a>
+                    <a:a name="ORIGIN" value="ChipowerTech" />
+                    <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                    <a:a name="SCOPE" value="LOCAL" />
+                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                    <a:a name="UUID" value="d41cc528-5cb7-2387-9320-363ace878d1b" />
+                    <a:da name="EDITABLE" type="XPath">
+                      <a:tst expr="(../../../IomGeneralConfiguration/IomGtmExor = 'true')"/>
+                    </a:da>
+                    <a:da name="DEFAULT" value="IOM_DISABLE_GTM_INPUT" />
+                    <a:da name="RANGE" >
+                      <a:v>IOM_DISABLE_GTM_INPUT</a:v>
+                      <a:v>IOM_ENABLE_GTM_INPUT</a:v>
+                    </a:da>
+                  </v:var>
+                  <v:var name="IomGtmInput5" type="ENUMERATION">
+                    <a:a name="DESC" value="EN: Disables/Enables the GTM input signal 5 to be included in EXOR combiner.
+                                            P33.5 = GTM_TOUT27 editable." />
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                         type="IMPLEMENTATIONCONFIGCLASS" >
+                      <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                    </a:a>
+                    <a:a name="ORIGIN" value="ChipowerTech" />
+                    <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                    <a:a name="SCOPE" value="LOCAL" />
+                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                    <a:a name="UUID" value="DCE:d4aec598-5cc7-4487-9530-36ee9e4e3d1b" />
+                    <a:da name="EDITABLE" type="XPath">
+                      <a:tst expr="(../../../IomGeneralConfiguration/IomGtmExor = 'true')"/>
+                    </a:da>
+                    <a:da name="DEFAULT" value="IOM_DISABLE_GTM_INPUT" />
+                    <a:da name="RANGE" >
+                      <a:v>IOM_DISABLE_GTM_INPUT</a:v>
+                      <a:v>IOM_ENABLE_GTM_INPUT</a:v>
+                    </a:da>
+                  </v:var>
+                  <v:var name="IomGtmInput6" type="ENUMERATION">
+                    <a:a name="DESC" value="EN: Disables/Enables the GTM input signal 6 to be included in EXOR combiner.
+                                            P33.6 = GTM_TOUT28 editable." />
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                         type="IMPLEMENTATIONCONFIGCLASS" >
+                      <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                    </a:a>
+                    <a:a name="ORIGIN" value="ChipowerTech" />
+                    <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                    <a:a name="SCOPE" value="LOCAL" />
+                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                    <a:a name="UUID" value="DCE:d4aec598-5cc7-4487-9530-36ee9e853d23" />
+                    <a:da name="EDITABLE" type="XPath">
+                      <a:tst expr="(../../../IomGeneralConfiguration/IomGtmExor = 'true')"/>
+                    </a:da>
+                    <a:da name="DEFAULT"  value="IOM_DISABLE_GTM_INPUT" />
+                    <a:da name="RANGE" >
+                      <a:v>IOM_DISABLE_GTM_INPUT</a:v>
+                      <a:v>IOM_ENABLE_GTM_INPUT</a:v>
+                    </a:da>
+                  </v:var>
+                  <v:var name="IomGtmInput7" type="ENUMERATION">
+                    <a:a name="DESC" value="EN: Disables/Enables the GTM input signal 7 to be included in EXOR combiner.
+                                            P33.7 = GTM_TOUT29 editable." />
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                         type="IMPLEMENTATIONCONFIGCLASS" >
+                      <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                    </a:a>
+                    <a:a name="ORIGIN" value="ChipowerTech" />
+                    <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                    <a:a name="SCOPE" value="LOCAL" />
+                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                    <a:a name="UUID" value="DCE:d4aec598-5cc7-4487-9530-36ee9e853d1e" />
+                    <a:da name="EDITABLE" type="XPath">
+                      <a:tst expr="(../../../IomGeneralConfiguration/IomGtmExor = 'true')"/>
+                    </a:da>
+                    <a:da name="DEFAULT" value="IOM_DISABLE_GTM_INPUT" />
+                    <a:da name="RANGE" >
+                      <a:v>IOM_DISABLE_GTM_INPUT</a:v>
+                      <a:v>IOM_ENABLE_GTM_INPUT</a:v>
+                    </a:da>
+                  </v:var>
+                </v:ctr>
+                <v:ctr name="IomEMUConfiguration" type="IDENTIFIABLE">
+                  <a:a name="DESC" value="EN: This container contains configuration for Event Combiner Module configuration " />
+                  <a:a name="UUID" value="baa327ee-aac0-418d-9637-1d4452112bcf" />
+                  <v:ctr name="IomEventCombModCount" type="IDENTIFIABLE">
+                    <a:a name="DESC" value="EN: Contains Event Combiner Modules count " />
+                    <a:a name="UUID" value="babc27ee-aac2-431d-9237-1abcc6813df1" />
+                    <v:var name="IomEMUThreshold0" type="ENUMERATION">
+                      <a:a name="DESC" value="EN: Indicates threshold count value for the counter 0 of the EMU module.Upon counter meeting this value,
+                                              the counter event output becomes high for one clock cycle. If select IOM_EMU_C0_COUNTER_OFF counter is disabled  "/>
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="d6e32dd1-2c6e-4d2b-bac3-2136f54b71f1" />
+                      <a:da name="DEFAULT" value="IOM_EVENTCOUNTERTHRESHOLD_DISABLE" />
+                      <a:da name="RANGE">
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_DISABLE</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_1</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_2</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_3</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_4</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_5</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_6</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_7</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_8</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_9</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_10</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_11</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_12</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_13</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_14</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_15</a:v>
+                      </a:da>
+                    </v:var>
+                    <v:var name="IomEMUThreshold1" type="ENUMERATION">
+                      <a:a name="DESC" value="EN: Indicates threshold count value for the counter 1 of the EMU module.Upon counter meeting this value,
+                                              the counter event output becomes high for one clock cycle. If select IOM_EMU_C1_COUNTER_OFF counter is disabled  " />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="d6e12d37-1a62-4cab-b143-14e5665cacf1" />
+                      <a:da name="DEFAULT" value="IOM_EVENTCOUNTERTHRESHOLD_DISABLE" />
+                      <a:da name="RANGE">
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_DISABLE</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_1</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_2</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_3</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_4</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_5</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_6</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_7</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_8</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_9</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_10</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_11</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_12</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_13</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_14</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_15</a:v>
+                      </a:da>
+                    </v:var>
+                    <v:var name="IomEMUThreshold2" type="ENUMERATION">
+                      <a:a name="DESC" value="EN: Indicates threshold count value for the counter 2 of the EMU module.Upon counter meeting this value,
+                                              the counter event output becomes high for one clock cycle. If count select IOM_EMU_C2_COUNTER_OFF counter is disabled  " />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="d61c9d27-2d3e-44c1-b123-25d4125ceac1" />
+                      <a:da name="DEFAULT" value="IOM_EVENTCOUNTERTHRESHOLD_DISABLE" />
+                      <a:da name="RANGE">
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_DISABLE</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_1</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_2</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_3</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_4</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_5</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_6</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_7</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_8</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_9</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_10</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_11</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_12</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_13</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_14</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_15</a:v>
+                      </a:da>
+                    </v:var>
+                    <v:var name="IomEMUThreshold3" type="ENUMERATION">
+                      <a:a name="DESC" value="EN: Indicates threshold count value for the counter 3 of the EMU module.Upon counter meeting this value,
+                                              the counter event output becomes high for one clock cycle. If count select IOM_EMU_C3_COUNTER_OFF counter is disabled  " />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="d6ea9dd7-1d6e-4d4b-b3a3-24e9f55c3122" />
+                      <a:da name="DEFAULT" value="IOM_EVENTCOUNTERTHRESHOLD_DISABLE" />
+                      <a:da name="RANGE">
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_DISABLE</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_1</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_2</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_3</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_4</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_5</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_6</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_7</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_8</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_9</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_10</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_11</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_12</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_13</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_14</a:v>
+                            <a:v>IOM_EVENTCOUNTERTHRESHOLD_15</a:v>
+                      </a:da>
+                    </v:var>
+                    <v:var name="BlockEventOutputRunTime" type="BOOLEAN">
+                      <a:a name="DESC" value="EN: Disable global event outoput during run time " />
+                      <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                      </a:a>
+                      <a:a name="ORIGIN" value="ChipowerTech" />
+                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                      <a:a name="SCOPE" value="LOCAL" />
+                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                      <a:a name="UUID" value="d6ea9dd7-1d6e-4d4b-b3a3-24e9f55c3133" />
+                      <a:da name="DEFAULT" value="false" />
+                    </v:var>
+                  </v:ctr>
+                </v:ctr>
+                <v:ctr name="IomClkConfiguration" type="IDENTIFIABLE">
+                  <a:a name="DESC" value="EN: This container contains the configuration of the IOM Clock." />
+                  <a:a name="UUID" value="a1a83c3e-4421-a423-b128-5b21321bc612" />
+                  <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                  <v:var name="IomClkConfiguration" type="INTEGER">
+                    <a:a name="DESC" value="EN: Clock Divider Value." />
+                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                           type="IMPLEMENTATIONCONFIGCLASS" >
+                      <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                    </a:a>
+                    <a:a name="ORIGIN" value="ChipowerTech" />
+                    <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                    <a:a name="SCOPE" value="LOCAL" />
+                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                    <a:a name="UUID" value="ba1237ee-a310-4a1d-47bc-1321c68ac984" />
+                    <a:da name="DEFAULT" value="1" />
+                    <a:da name="INVALID" type="Range" >
+                      <a:tst expr="&lt;=255"/>
+                      <a:tst expr="&gt;=0"/>
+                    </a:da>
+                  </v:var>
+                </v:ctr>
+              </v:ctr>
+              <v:ctr name="CommonPublishedInformation" type="IDENTIFIABLE">
+                <a:a name="DESC">
+                  <a:v><![CDATA[EN:<html> Common container, aggregated by all modules. It contains published information about vendor and versions.</html>]]></a:v>
+                </a:a>
+                <a:a name="UUID" value="59ab23ec-d96f-44b6-8145-6281329c3322"/>
+                <v:var name="ArReleaseMajorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v><![CDATA[EN:<html> Major version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]></a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="4c1d0286-c8de-42fe-8476-9adf3d013322"/>
+                  <a:da name="DEFAULT" value="4"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="ArReleaseMinorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v><![CDATA[EN:<html> Minor version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]></a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="1fbf1137-5a81-44f0-a804-c0a571ccc233"/>
+                  <a:da name="DEFAULT" value="4"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="ArReleaseRevisionVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v><![CDATA[EN:<html> Revision version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]></a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="535f3224-bc4a-497d-9f9b-6271f97b5233"/>
+                  <a:da name="DEFAULT" value="0"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="ModuleId" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v><![CDATA[EN:<html> Module ID of this module from Module List.</html>]]></a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="5ea7c459-6a16-4218-a212-34c9dd0c2233"/>
+                  <a:da name="DEFAULT" value="255"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="SwMajorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v><![CDATA[EN:<html> Major version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]></a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="f0855bf5-b63c-4082-85ea-824b2dd42233"/>
+                  <a:da name="DEFAULT" value="1"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="SwMinorVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v><![CDATA[EN:<html> Minor version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]></a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="71fa8622-e280-4e86-99b5-06318f658aac"/>
+                  <a:da name="DEFAULT" value="2"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="SwPatchVersion" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v><![CDATA[EN:<html> Patch level version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]></a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="89cb0f3d-13b3-429e-a8e3-80ae36eb2233"/>
+                  <a:da name="DEFAULT" value="0"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+                <v:var name="VendorId" type="INTEGER">
+                  <a:a name="DESC">
+                    <a:v><![CDATA[EN:<html> Vendor ID of the dedicated implementation of this module according to the AUTOSAR vendor list.</html>]]></a:v>
+                  </a:a>
+                  <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                    <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                  </a:a>
+                  <a:a name="ORIGIN" value="ChipowerTech"/>
+                  <a:a name="SCOPE" value="LOCAL"/>
+                  <a:a name="SYMBOLICNAMEVALUE" value="false"/>
+                  <a:a name="UUID" value="3846f5d2-046e-4c42-83d4-5becc5eb3212"/>
+                  <a:da name="DEFAULT" value="175"/>
+                  <a:da name="INVALID" type="Range">
+                    <a:tst expr="&lt;=255"/>
+                    <a:tst expr="&gt;=0"/>
+                  </a:da>
+                </v:var>
+              </v:ctr>
+            </v:ctr>
+          </d:chc>
+          <d:chc name="Iom_EcuParameterDefinition" type="AR-ELEMENT" value="ECU_PARAMETER_DEFINITION">
+            <d:ctr type="AR-ELEMENT">
+              <a:a name="DEF" value="ASPath:/AR_PACKAGE_SCHEMA/ECU_PARAMETER_DEFINITION"/>
+              <a:a name="UUID" value="989aeef1-1dfc-4032-ad04-819ce889451c"/>
+              <d:lst name="MODULE_REF">
+                <d:ref type="MODULE_REF" value="ASPath:/THA6_AS440_FuSa/Iom" />
+              </d:lst>
+            </d:ctr>
+          </d:chc>
+        </d:lst>
+      </d:ctr>
+    </d:lst>
+  </d:ctr>
+</datamodel>

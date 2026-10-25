@@ -1,0 +1,205 @@
+<?xml version='1.0'?>
+<datamodel version="7.0" 
+           xmlns="http://www.tresos.de/_projects/DataModel2/16/root.xsd" 
+           xmlns:a="http://www.tresos.de/_projects/DataModel2/16/attribute.xsd" 
+           xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd" 
+           xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd">
+
+  <d:ctr type="AUTOSAR" factory="autosar" 
+         xmlns:ad="http://www.tresos.de/_projects/DataModel2/08/admindata.xsd" 
+         xmlns:cd="http://www.tresos.de/_projects/DataModel2/08/customdata.xsd" 
+         xmlns:f="http://www.tresos.de/_projects/DataModel2/14/formulaexpr.xsd" 
+         xmlns:icc="http://www.tresos.de/_projects/DataModel2/08/implconfigclass.xsd" 
+         xmlns:mt="http://www.tresos.de/_projects/DataModel2/11/multitest.xsd"  
+         xmlns:variant="http://www.tresos.de/_projects/DataModel2/11/variant.xsd">
+    <d:lst type="TOP-LEVEL-PACKAGES">
+      <d:ctr name="Iom" type="AR-PACKAGE">
+        <d:lst type="ELEMENTS">
+          <d:chc name="Iom" type="AR-ELEMENT" value="MODULE-CONFIGURATION">
+            <d:ctr type="MODULE-CONFIGURATION">
+              <a:a name="DEF" value="ASPath:/THA6_AS440_FuSa/Iom"/>
+              <d:var name="IMPLEMENTATION_CONFIG_VARIANT" type="ENUMERATION" 
+                     value="VariantPostBuild">
+                <a:a name="IMPORTER_INFO" value="@DEF"/>
+              </d:var>
+              <d:ctr name="IomGeneralConfiguration" type="IDENTIFIABLE">
+                <d:var name="IomVersionInfoApi" type="BOOLEAN" value="true"/>
+                <d:var name="IomPpuPrecalerApi" type="BOOLEAN" value="true">
+                  <a:a name="IMPORTER_INFO">
+                    <a:v>@DEF</a:v>
+                    <a:v>@CALC</a:v>
+                  </a:a>
+                </d:var>
+                <d:var name="IomPpuFilterApi" type="BOOLEAN" value="true">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="IomGetPpuGlitchApi" type="BOOLEAN" value="true">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="IomDevErrorDetect" type="BOOLEAN" value="true"/>
+                <d:var name="IomSafetyErrorDetect" type="BOOLEAN" value="true">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="IomGtmExor" type="BOOLEAN" value="false">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+              </d:ctr>
+              <d:ctr name="IomModuleConfiguration" type="IDENTIFIABLE">
+                <d:lst name="IomPPUConfiguration" type="MAP">
+                  <d:ctr name="IomPPUConfiguration_2" type="IDENTIFIABLE">
+                    <d:var name="IomPPUUnitNo" type="INTEGER" value="2"/>
+                    <d:var name="IomPPUFilterTime" type="INTEGER" value="1"/>
+                    <d:var name="IomPPUPrescalerCompareVal" type="INTEGER" 
+                           value="0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="IomPPUFilterMode" type="ENUMERATION" 
+                           value="BOTHEDGES_DD">
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="IomPPUMonInputSel" type="ENUMERATION" 
+                           value="CHANNEL0_IOM_MONINPUT_GTMTOUT24"/>
+                    <d:var name="IomPPUReferInputSel" type="ENUMERATION" 
+                           value="CHANNEL0_IOM_REFINPUT_GTMTOUT2"/>
+                  </d:ctr>
+                  <d:ctr name="IomPPUConfiguration_3" type="IDENTIFIABLE">
+                    <d:var name="IomPPUUnitNo" type="INTEGER" value="3"/>
+                    <d:var name="IomPPUFilterTime" type="INTEGER" value="1"/>
+                    <d:var name="IomPPUPrescalerCompareVal" type="INTEGER" 
+                           value="0">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="IomPPUFilterMode" type="ENUMERATION" 
+                           value="BOTHEDGES_DD">
+                      <a:a name="IMPORTER_INFO">
+                        <a:v>@DEF</a:v>
+                        <a:v>@CALC</a:v>
+                      </a:a>
+                    </d:var>
+                    <d:var name="IomPPUMonInputSel" type="ENUMERATION" 
+                           value="CHANNEL0_IOM_MONINPUT_GTMTOUT25"/>
+                    <d:var name="IomPPUReferInputSel" type="ENUMERATION" 
+                           value="CHANNEL0_IOM_REFINPUT_GTMTOUT3"/>
+                  </d:ctr>
+                </d:lst>
+                <d:lst name="IomLPUConfiguration" type="MAP">
+                  <d:ctr name="IomLPUConfiguration_0" type="IDENTIFIABLE">
+                    <d:var name="IomLPUUnitNo" type="INTEGER" value="0"/>
+                    <d:var name="IomLPUEventWinTime" type="INTEGER" value="0"/>
+                    <d:var name="IomLPUInvReferSignal" type="BOOLEAN" 
+                           value="false">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="IomLPUInvMonSignal" type="BOOLEAN" 
+                           value="false">
+                      <a:a name="IMPORTER_INFO" value="@DEF"/>
+                    </d:var>
+                    <d:var name="IomLPUInvEventWin" type="BOOLEAN" value="true"/>
+                    <d:var name="IomLPUEventSrcSelect" type="ENUMERATION" 
+                           value="IOM_LPUEVENTSOURCE_MON"/>
+                    <d:var name="IomLPURunMode" type="ENUMERATION" 
+                           value="IOM_LPUEVENTWINDOWRUNCONTROL_FREERUNNING"/>
+                    <d:var name="IomLPUEventWinSelect" type="ENUMERATION" 
+                           value="IOM_LPUEVENTWINDOWCONTROLSOURCE_MON"/>
+                    <d:var name="IomLPUEveActiveEdgeSelect" type="ENUMERATION" 
+                           value="IOM_LPUEVENTTRIGGER_FALLINGEDGE"/>
+                    <d:var name="IomLPUEveWinActiveEdgeSelect" 
+                           type="ENUMERATION" 
+                           value="IOM_LPUEVENTWINDOWCLEAREVENT_RISINGEDGE"/>
+                    <d:var name="IomLPUMonInputSel" type="ENUMERATION" 
+                           value="CH2"/>
+                    <d:var name="IomLPURefInputSel" type="ENUMERATION" 
+                           value="CH3"/>
+                    <d:var name="IomLPUchannelInputEMUSel" type="ENUMERATION" 
+                           value="IOM_EVENTCOUNTERCHANNEL_NOCOUNTER"/>
+                  </d:ctr>
+                </d:lst>
+                <d:ctr name="IomGtmConfiguration" type="IDENTIFIABLE">
+                  <d:var name="IomGtmInput0" type="ENUMERATION" 
+                         value="IOM_DISABLE_GTM_INPUT">
+                    <a:a name="IMPORTER_INFO" value="@DEF"/>
+                  </d:var>
+                  <d:var name="IomGtmInput1" type="ENUMERATION" 
+                         value="IOM_DISABLE_GTM_INPUT">
+                    <a:a name="IMPORTER_INFO" value="@DEF"/>
+                  </d:var>
+                  <d:var name="IomGtmInput2" type="ENUMERATION" 
+                         value="IOM_DISABLE_GTM_INPUT">
+                    <a:a name="IMPORTER_INFO" value="@DEF"/>
+                  </d:var>
+                  <d:var name="IomGtmInput3" type="ENUMERATION" 
+                         value="IOM_DISABLE_GTM_INPUT">
+                    <a:a name="IMPORTER_INFO" value="@DEF"/>
+                  </d:var>
+                  <d:var name="IomGtmInput4" type="ENUMERATION" 
+                         value="IOM_DISABLE_GTM_INPUT">
+                    <a:a name="IMPORTER_INFO" value="@DEF"/>
+                  </d:var>
+                  <d:var name="IomGtmInput5" type="ENUMERATION" 
+                         value="IOM_DISABLE_GTM_INPUT">
+                    <a:a name="IMPORTER_INFO" value="@DEF"/>
+                  </d:var>
+                  <d:var name="IomGtmInput6" type="ENUMERATION" 
+                         value="IOM_DISABLE_GTM_INPUT">
+                    <a:a name="IMPORTER_INFO" value="@DEF"/>
+                  </d:var>
+                  <d:var name="IomGtmInput7" type="ENUMERATION" 
+                         value="IOM_DISABLE_GTM_INPUT">
+                    <a:a name="IMPORTER_INFO" value="@DEF"/>
+                  </d:var>
+                </d:ctr>
+                <d:ctr name="IomEMUConfiguration" type="IDENTIFIABLE">
+                  <d:ctr name="IomEventCombModCount" type="IDENTIFIABLE">
+                    <d:var name="IomEMUThreshold0" type="ENUMERATION" 
+                           value="IOM_EVENTCOUNTERTHRESHOLD_10"/>
+                    <d:var name="IomEMUThreshold1" type="ENUMERATION" 
+                           value="IOM_EVENTCOUNTERTHRESHOLD_DISABLE"/>
+                    <d:var name="IomEMUThreshold2" type="ENUMERATION" 
+                           value="IOM_EVENTCOUNTERTHRESHOLD_DISABLE"/>
+                    <d:var name="IomEMUThreshold3" type="ENUMERATION" 
+                           value="IOM_EVENTCOUNTERTHRESHOLD_DISABLE"/>
+                    <d:var name="BlockEventOutputRunTime" type="BOOLEAN" 
+                           value="true"/>
+                  </d:ctr>
+                </d:ctr>
+                <d:ctr name="IomClkConfiguration" type="IDENTIFIABLE">
+                  <d:var name="IomClkConfiguration" type="INTEGER" value="1"/>
+                </d:ctr>
+              </d:ctr>
+              <d:ctr name="CommonPublishedInformation" type="IDENTIFIABLE">
+                <d:var name="ArReleaseMajorVersion" type="INTEGER" value="4">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="ArReleaseMinorVersion" type="INTEGER" value="4">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="ArReleaseRevisionVersion" type="INTEGER" value="0">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="ModuleId" type="INTEGER" value="255">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="SwMajorVersion" type="INTEGER" value="1">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="SwMinorVersion" type="INTEGER" value="2">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="SwPatchVersion" type="INTEGER" value="0">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+                <d:var name="VendorId" type="INTEGER" value="175">
+                  <a:a name="IMPORTER_INFO" value="@DEF"/>
+                </d:var>
+              </d:ctr>
+            </d:ctr>
+          </d:chc>
+        </d:lst>
+      </d:ctr>
+    </d:lst>
+  </d:ctr>
+
+</datamodel>

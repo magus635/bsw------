@@ -1,0 +1,1967 @@
+<?xml version='1.0'?>
+<datamodel version="7.0"
+    xmlns="http://www.tresos.de/_projects/DataModel2/16/root.xsd"
+    xmlns:a="http://www.tresos.de/_projects/DataModel2/16/attribute.xsd"
+    xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd"
+    xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd">
+
+    <d:ctr type="AUTOSAR" factory="autosar"
+        xmlns:ad="http://www.tresos.de/_projects/DataModel2/08/admindata.xsd"
+        xmlns:cd="http://www.tresos.de/_projects/DataModel2/08/customdata.xsd"
+        xmlns:f="http://www.tresos.de/_projects/DataModel2/14/formulaexpr.xsd"
+        xmlns:icc="http://www.tresos.de/_projects/DataModel2/08/implconfigclass.xsd"
+        xmlns:mt="http://www.tresos.de/_projects/DataModel2/11/multitest.xsd"
+        xmlns:variant="http://www.tresos.de/_projects/DataModel2/11/variant.xsd">
+        <d:lst type="TOP-LEVEL-PACKAGES">
+            <d:ctr name="THA6_AS440_FuSa" type="AR-PACKAGE">
+                <a:a name="UUID" value="ECUC:AUTOSAR"/>
+                <d:lst type="ELEMENTS">
+                    <d:chc name="Dma" type="AR-ELEMENT" value="MODULE-DEF">
+                        <v:ctr type="MODULE-DEF">
+                            <a:a name="ADMIN-DATA" type="ADMIN-DATA">
+                                <ad:ADMIN-DATA>
+                                    <ad:DOC-REVISIONS>
+                                        <ad:DOC-REVISION>
+                                            <ad:REVISION-LABEL>4.4.0</ad:REVISION-LABEL>
+                                            <ad:ISSUED-BY>AUTOSAR</ad:ISSUED-BY>
+                                          </ad:DOC-REVISION>
+                                    </ad:DOC-REVISIONS>
+                                </ad:ADMIN-DATA>
+                            </a:a>
+                            <a:a name="DESC" value="EN: Configuration of the Dma (Dma driver) module." />
+                            <a:a name="LOWER-MULTIPLICITY" value="0" />
+                            <a:a name="POSTBUILDVARIANTSUPPORT" value="true" />
+                            <a:a name="RELEASE" value="asc:4.4.0" />
+                            <a:a name="UPPER-MULTIPLICITY" value="*" />
+                            <a:a name="UUID" value="532fec09-cb02-4899-94f4-3cf196ffa1b6" />
+                            <v:var name="IMPLEMENTATION_CONFIG_VARIANT" type="ENUMERATION">
+                                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                    <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                </a:a>
+                                <a:a name="LABEL" value="Config Variant" />
+                                <a:a name="UUID" value="630291de-0c14-45f1-81c2-18b12324aedc" />
+                                <a:da name="DEFAULT" value="VariantPostBuild" />
+                                <a:da name="RANGE">
+                                    <a:v>VariantPostBuild</a:v>
+                                </a:da>
+                            </v:var>
+                            <v:ctr name="DmaGeneral" type="IDENTIFIABLE">
+                                <a:a name="DESC" value="EN: General configuration (parameters) of the Dma Driver software module." />
+                                <a:a name="UUID" value="7800f2ec-ffe1-4014-85de-312ef54de9d8" />
+                                <v:var name="DmaDevErrorDetect" type="BOOLEAN">
+                                    <a:a name="DESC" value="EN: Switches the Default Error Tracer (Det) detection and notification ON or OFF." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="9d51a334-61bf-11ee-871c-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="false" />
+                                </v:var>
+                                <v:var name="DmaSafetyErrorDetect" type="BOOLEAN">
+                                    <a:a name="DESC" value="EN: Switches the Safety Error detection ON or OFF." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="019666e3-8a8f-77f1-a107-20484462f09c" />
+                                    <a:da name="DEFAULT" value="true" />
+                                </v:var>
+                                <v:var name="DmaDeInitApi" type="BOOLEAN">
+                                    <a:a name="DESC" value="EN: Adds / removes the service Dma_DeInit() from the code.&lt;br/&gt;
+                                        &lt;h1&gt;Note&lt;/h1&gt;
+                                        true: Dma_DeInit() can be used.&lt;br/&gt;
+                                        false: Dma_DeInit() can not be used." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="0dd1c16e-1d11-475c-bb9b-5c4d3e58d00b" />
+                                    <a:da name="DEFAULT" value="false" />
+                                </v:var>                               
+                                <v:var name="DmaSuspendResumeApi" type="BOOLEAN">
+                                    <a:a name="DESC" value="EN: Adds / removes the service Dma_ChannelPause(), Dma_ChannelResume() from the code.&lt;br/&gt;
+                                        &lt;h1&gt;Note&lt;/h1&gt;
+                                        true: Dma_ChannelSuspend(), Dma_ChannelResume() can be used.&lt;br/&gt;
+                                        false: Dma_ChannelSuspend(), Dma_ChannelResume() can not be used.&lt;br/&gt;
+                                        &lt;h1&gt;Caution&lt;/h1&gt;
+                                        &lt;b&gt;The Suspend and Resume API is not supported on the THA6206 Subderivative.&lt;/b&gt;" />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="1f38cb1e-61c6-11ee-baa2-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="false" />
+                                    <a:da name="WARNING" type="XPath">
+                                        <a:tst expr="(as:modconf('Resource')[1]/ResourceGeneral/ResourceSubderivative = 'THA6206_LFBGA292') and (. = 'true')" 
+                                                true="EN: The Suspend and Resume API is not supported on the THA6206 Subderivative."/>
+                                    </a:da>
+                                </v:var>
+                                <v:var name="DmaCancelApi" type="BOOLEAN">
+                                    <a:a name="DESC" value="EN: Adds / removes the service Dma_ChannelCancel() from the code.&lt;br/&gt;
+                                        &lt;h1&gt;Note&lt;/h1&gt;
+                                        true: Dma_ChannelCancel() can be used.&lt;br/&gt;
+                                        false: Dma_ChannelCancel() can not be used." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="bbc48dea-d638-6863-9127-5c2f2abc8f58" />
+                                    <a:da name="DEFAULT" value="false" />
+                                </v:var>
+                                <v:var name="DmaRemainingTransferApi" type="BOOLEAN">
+                                    <a:a name="DESC" value="EN: Adds / removes the service Dma_GetChannelRemainTransfer() from the code.&lt;br/&gt;
+                                        &lt;h1&gt;Note&lt;/h1&gt;
+                                        true: Dma_GetChannelRemainTransfer() can be used.&lt;br/&gt;
+                                        false: Dma_GetChannelRemainTransfer() can not be used." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="fc7282d8-bc83-e1cc-b272-eab82a9eb7c2" />
+                                    <a:da name="DEFAULT" value="false" />
+                                </v:var>
+                                <v:var name="DmaVersionInfoApi" type="BOOLEAN">
+                                    <a:a name="DESC" value="EN: Adds / removes the service Dma_GetVersionInfo() from the code." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="133bbbd8-61c6-11ee-9e60-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="false" />
+                                </v:var>
+                                <v:var name="DmaDoubleBufferSoftwareSwitchApi" type="BOOLEAN">
+                                    <a:a name="DESC" value="EN: Adds / removes the service Dma_ChannelDoubleBufferSwitch() from the code.&lt;br/&gt;
+                                        &lt;h1&gt;Note&lt;/h1&gt;
+                                        This parameter is available only if the parameter DmaDoubleBufferEnable is set to true." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="27d86d3b-c163-42a5-e244-310195a9610e" />
+                                    <a:da name="DEFAULT" value="false" />
+                                    <a:da name="EDITABLE" type="XPath" expr="node:fallback(../DmaDoubleBufferEnable = 'true', true)" />
+                                    <a:da name="INVALID" type="XPath">
+                                        <a:tst expr="(. = 'true') and (../DmaDoubleBufferEnable = 'false')" true="The double buffering functionality must be enabled(DmaDoubleBufferEnable set to true)."/>
+                                    </a:da>
+                                </v:var>
+                                <v:var name="DmaTransferUpdateApi" type="BOOLEAN">
+                                    <a:a name="DESC" value="EN: Adds / removes the service Dma_ChannelUpdate() from the code and Enable/Disable the multiple transfer configuration.&lt;br/&gt;
+                                        true: Multiple transfer configuration can be configured in DmaChannel/DmaChTransferConfig, and API Dma_ChannelUpdate() can be used.&lt;br/&gt;
+                                        false: Only one transfer configuration valid in DmaChannel/DmaChTransferConfig, and API Dma_ChannelUpdate() can not be used." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="23995142-61c6-11ee-9a75-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="false" />
+                                </v:var>
+                                <v:var name="DmaShadowingUpdateApi" type="BOOLEAN">
+                                    <a:a name="DESC" value="EN: Adds / removes the service Dma_ChannelShadowingUpdate() from the code and Enable/Disable the multiple shadowing operation configuration.&lt;br/&gt;
+                                        true: Multiple shadowing operation configuration can be configured in DmaChannel/DmaChShadowConfig, and API Dma_ChannelShadowingUpdate() can be used.&lt;br/&gt;
+                                        false: Only one shadowing operation configuration valid in DmaChannel/DmaChShadowConfig, and API Dma_ChannelShadowingUpdate() can not be used.
+                                        &lt;h1&gt;Note&lt;/h1&gt;
+                                        At least one channel needs to have shadowing operation enabled, that is DmaChannel/*/DmaChannelShadowOperationEnable = true.&lt;br/&gt;
+                                        This parameter is available only if the parameter DmaShadowingOperationEnable is set to true." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="23995142-61c6-11ee-9a76-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="false" />
+                                    <a:da name="EDITABLE" type="XPath" expr="../DmaShadowingOperationEnable = 'true'" />
+                                    <a:da name="INVALID" type="XPath">
+                                        <a:tst expr="(. = 'true') and (../DmaShadowingOperationEnable = 'false')" true="The shadowing operation functionality must be enabled(DmaShadowingOperationEnable set to true)."/>
+                                    </a:da>
+                                </v:var>
+
+                                <v:var name="DmaTransferUpdateManualApi" type="BOOLEAN">
+                                    <a:a name="DESC" value="EN: Adds / removes the service Dma_ChannelUpdateManual() from the code and Enable/Disable the multiple shadowing operation configuration.&lt;br/&gt;
+                                        true: Multiple shadowing operation configuration can be configured in DmaChannel/DmaChShadowConfig, and API Dma_ChannelUpdateManual() can be used.&lt;br/&gt;
+                                        false: Only one shadowing operation configuration valid in DmaChannel/DmaChShadowConfig, and API Dma_ChannelUpdateManual() can not be used." />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="1d0c132f-f611-48f7-ad87-25781838c3b2" />
+                                    <a:da name="DEFAULT" value="false" />
+                                </v:var>
+
+                                <v:var name="DmaLinkedListEnable" type="BOOLEAN">
+                                    <a:a name="DESC" value="EN: Enables / disables the linked list feature.&lt;br/&gt;" />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="624b4196-efcb-c542-ef66-63df25a7f418" />
+                                    <a:da name="DEFAULT" value="false" />
+                                </v:var>
+
+                                <v:var name="DmaContinuousModeEnable" type="BOOLEAN">
+                                    <a:a name="DESC" value="EN: Enables / Disables the continuous mode(refill mode).&lt;br/&gt;" />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="1cfccfed-311b-4782-beb0-7605c9c5425f" />
+                                    <a:da name="DEFAULT" value="false" />
+                                </v:var>
+
+                                <v:var name="DmaDoubleBufferEnable" type="BOOLEAN">
+                                    <a:a name="DESC" value="EN: Enables / Disabled the double buffer feature.&lt;br/&gt;" />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="7938a196-1c26-b426-9218-1ec1fe54b5dc" />
+                                    <a:da name="DEFAULT" value="false" />
+                                </v:var>
+
+                                <v:var name="DmaShadowingOperationEnable" type="BOOLEAN">
+                                    <a:a name="DESC" value="EN: Enables / Disables the shadowing operation feature.&lt;br/&gt;" />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="e06874e4-036a-4160-ee43-9ba3d50ad5e1" />
+                                    <a:da name="DEFAULT" value="false" />
+                                </v:var>
+
+                                <v:var name="DmaCircularBufferEnable" type="BOOLEAN">
+                                    <a:a name="DESC" value="EN: Enables / Disables the circular buffer feature.&lt;br/&gt;" />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="0e2b5e26-28a8-4f19-cbd1-954af1e3c811" />
+                                    <a:da name="DEFAULT" value="false" />
+                                </v:var>
+
+                                <v:var name="DmaPatternEnable" type="BOOLEAN">
+                                    <a:a name="DESC" value="EN: Enables / Disables the pattern match feature.&lt;br/&gt;" />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="1cfccfed-311b-4782-beb0-7605c9c5425d" />
+                                    <a:da name="DEFAULT" value="false" />
+                                </v:var>
+
+                                <v:var name="DmaDaisyChainEnable" type="BOOLEAN">
+                                    <a:a name="DESC" value="EN: Enables / Disables the daisy chain feature.&lt;br/&gt;" />
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS"
+                                        type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="POSTBUILDVARIANTVALUE" value="false"/>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="48c689e2-567a-ad65-557b-7088b57e8072" />
+                                    <a:da name="DEFAULT" value="false" />
+                                </v:var>
+
+                            </v:ctr>
+                            <v:ctr name="DmaConfigSet" type="IDENTIFIABLE">
+                                <a:a name="DESC" value="EN: This container contains the configuration parameters and sub containers of the AUTOSAR CDD Dma driver.." />
+                                <a:a name="UUID" value="da15910d-3827-4452-a5c4-d7199b6ffd0d" />
+
+                                <v:lst name="DmaChannel" type="MAP">
+                                    <a:da name="MIN" value="1" />
+                                    <a:da name="MAX" type="XPath" expr="ecu:get('Dma.AllChannelNum')" />
+                                    <v:ctr name="DmaChannel" type="IDENTIFIABLE">
+                                        <a:a name="DESC" value="EN: This container contains the configuration (parameters) of the Dma channels." />
+                                        <a:a name="REQUIRES-INDEX" value="true"/>
+                                        <a:a name="UUID" value="3030fe60-d409-4f89-96ae-ff08c369d157" />
+                                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                            <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                        </a:a>
+                                        <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                                        <v:var name="DmaChannelId" type="INTEGER">
+                                            <a:a name="DESC" value="EN: Logical identifies for each channel." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="true" />
+                                            <a:a name="UUID" value="6a74f602-4b5c-4972-8a08-ab508fc637fd" />
+                                            <a:da name="DEFAULT" type="XPath" expr="node:fallback(node:current()/../@index, num:i(1))" />
+                                            <a:da name="INVALID" type="Range">
+                                                <a:tst expr="&lt;=65535" />
+                                                <a:tst expr="&gt;=0" />
+                                            </a:da>
+                                            <a:da name="INVALID" type="XPath">
+                                                <a:tst expr="(node:fallback( ., 0 ) &gt;= 0) and (node:fallback( ., 0 ) &lt; num:i(count(node:fallback( node:current()/../../*, 1 ))))" false="Value of DmaChannelId is out of range: must be in range 0 to N-1 (N is number of configured all channels of all HW units). Use the Calc button to calculate correct default value" />
+                                                <a:tst expr="text:uniq(node:fallback( ../../*/DmaChannelId, text:split('0') ), node:fallback( ., 1 ))" false="Duplicated value, DmaChannelId must be unique across all Dma HW units. Use the Calc button to calculate correct default value." />
+                                            </a:da>
+                                        </v:var>
+
+                                        <v:var name="DmaChannelHwUnitAllocation" type="ENUMERATION">
+                                            <a:a name="DESC" value="EN: Select the DMA hardware unit used for each channel." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="7563b37a-61c8-11ee-866b-f889d2d2ec8e" />
+                                            <a:da name="DEFAULT" type="XPath" expr="ecu:list('Dma.HwUnitList')[1]" />
+                                            <a:da name="RANGE" type="XPath" expr="ecu:list('Dma.HwUnitList')" />
+                                        </v:var>
+
+                                        <v:var name="DmaPhyChannel" type="INTEGER">
+                                            <a:a name="DESC" value="EN: Specifies the DMA physical channel for each channel." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="186a6b12-2042-4ec4-ab87-25c05f8173a2" />
+                                            <a:da name="DEFAULT" value="0" />
+                                            <a:da name="INVALID" type="XPath">
+                                                <a:tst expr="text:uniq(text:concat(node:fallback(node:current()/../../*/DmaPhyChannel, '0'), node:fallback(node:current()/../../*/DmaChannelHwUnitAllocation, '0')), 
+                                                             text:concat(node:fallback(., '1'), node:fallback(node:current()/../DmaChannelHwUnitAllocation, '1')))" 
+                                                        false="Duplicated value, DmaPhyChannel must be unique across all physical channel of specified HW units." />
+                                            </a:da>
+                                            <a:da name="INVALID" type="Range">
+                                                <a:tst expr="&lt; node:fallback(&quot;->num:i(ecu:get(concat('Dma.ChannelNumDma', text:split(node:value(node:current()/../DmaChannelHwUnitAllocation), 'DMA')[1])))&quot;, num:i(255))" />
+                                                <a:tst expr="&gt;= 0" />
+                                            </a:da>
+                                        </v:var>
+
+                                        <v:var name="DmaChannelLinkedListEnable" type="BOOLEAN">
+                                            <a:a name="DESC" value="EN: Enables / Disables the linked list feature for each channel.&lt;br/&gt;
+                                                &lt;h1&gt;Note&lt;/h1&gt;
+                                                This parameter is only valid when DmaLinkedListEnable = true." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="506850b6-659f-11ef-a324-f889d2d2ec8e" />
+                                            <a:a name="OPTIONAL" value="true" />
+                                            <a:da name="DEFAULT" value="false" />
+                                            <a:da name="EDITABLE" type="XPath" expr="as:modconf('Dma')[1]/DmaGeneral/DmaLinkedListEnable = 'true'" />
+                                            <a:da name="INVALID" type="XPath">
+                                              <a:tst expr="(. = 'true') and (../DmaChannelDoubleBufferEnable = 'true')"
+                                                     true="Conflicting configuration, Linked list and double buffering feature can not enabled at the same time." />
+                                            </a:da>
+                                        </v:var>
+
+                                        <v:var name="DmaChannelContinuousEnable" type="BOOLEAN">
+                                            <a:a name="DESC" value="EN: Enables / Disables the refill mode for each channel, meaning this channel will be automatically refill the configuration parameters after the transfer is completed.&lt;br/&gt;
+                                                &lt;h1&gt;Note&lt;/h1&gt;
+                                                this parameter is invalid if the parameter DmaChannelDoubleBufferEnable or DmaChannelShadowOperationEnable is set to true due to double buffering and shadowing operation always work in refill mode&lt;br/&gt;
+                                                This parameter is available only if the parameter DmaContinuousModeEnable is set to true." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="67aecf8c-659f-11ee-bb20-f889d2d2ec8e" />
+                                            <a:a name="OPTIONAL" value="true" />
+                                            <a:da name="DEFAULT" value="true" />
+                                            <a:da name="EDITABLE" type="XPath">
+                                                <a:tst expr="as:modconf('Dma')[1]/DmaGeneral/DmaContinuousModeEnable = 'true'" />
+                                                <a:tst expr="not((../DmaChannelDoubleBufferEnable = 'true') or (../DmaChannelShadowOperationEnable = 'true'))" />
+                                            </a:da>
+                                        </v:var>
+
+                                        <v:var name="DmaChannelDoubleBufferEnable" type="BOOLEAN">
+                                            <a:a name="DESC" value="EN: Enables / Disables the double buffer feature for each channel.&lt;br/&gt;
+                                                &lt;h1&gt;Note&lt;/h1&gt;
+                                                This parameter is available only if the parameter DmaDoubleBufferEnable is set to true." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="6b1c0226-659f-11ee-b71c-f889d2d2ec8e" />
+                                            <a:a name="OPTIONAL" value="true" />
+                                            <a:da name="DEFAULT" value="false" />
+                                            <a:da name="EDITABLE" type="XPath" expr="as:modconf('Dma')[1]/DmaGeneral/DmaDoubleBufferEnable = 'true'" />
+                                            <a:da name="INVALID" type="XPath">
+                                              <a:tst expr="(. = 'true') and (../DmaChannelLinkedListEnable = 'true')"
+                                                     true="Conflicting configuration, Linked list and double buffering feature can not enabled at the same time." />
+                                            </a:da>
+                                        </v:var>
+
+                                        <v:var name="DmaChannelShadowOperationEnable" type="BOOLEAN">
+                                            <a:a name="DESC" value="EN: Enables / Disables the Shadowing buffer feature for each channel.&lt;br/&gt;
+                                                &lt;h1&gt;Note&lt;/h1&gt;
+                                                This parameter is available only if the parameter DmaShadowingOperationEnable is set to true." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="723c7bcc-659f-11ee-a55a-f889d2d2ec8e" />
+                                            <a:a name="OPTIONAL" value="true" />
+                                            <a:da name="DEFAULT" value="false" />
+                                            <a:da name="EDITABLE" type="XPath" expr="as:modconf('Dma')[1]/DmaGeneral/DmaShadowingOperationEnable = 'true'" />
+                                        </v:var>
+
+                                        <v:var name="DmaChannelCircularBufferEnable" type="BOOLEAN">
+                                            <a:a name="DESC" value="EN: Enables / Disables the circular buffer feature for each channel.&lt;br/&gt;
+                                                &lt;h1&gt;Note&lt;/h1&gt;
+                                                This parameter is available only if the parameter DmaCircularBufferEnable is set to true." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="ee47f60c-65a0-11ee-97aa-f889d2d2ec8e" />
+                                            <a:a name="OPTIONAL" value="true" />
+                                            <a:da name="DEFAULT" value="false" />
+                                            <a:da name="EDITABLE" type="XPath" expr="as:modconf('Dma')[1]/DmaGeneral/DmaCircularBufferEnable = 'true'" />
+                                        </v:var>
+
+                                        <v:var name="DmaChannelPatternEnable" type="BOOLEAN">
+                                            <a:a name="DESC" value="EN: Enables / Disables the pattern match feature for each channel.&lt;br/&gt;
+                                                &lt;h1&gt;Note&lt;/h1&gt;
+                                                This parameter is available only if the parameter DmaPatternEnable is set to true." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="f627321e-65a0-11ee-948a-f88452d2ec8e" />
+                                            <a:a name="OPTIONAL" value="true" />
+                                            <a:da name="DEFAULT" value="false" />
+                                            <a:da name="EDITABLE" type="XPath" expr="as:modconf('Dma')[1]/DmaGeneral/DmaPatternEnable = 'true'" />
+                                        </v:var>
+
+                                        <v:var name="DmaChannelInterruptEnable" type="BOOLEAN">
+                                            <a:a name="DESC" value="EN: Enables / Disables the interrupt feature for each channel." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="f627321e-65a0-11ee-948a-f563d2d2ec8e" />
+                                            <a:da name="DEFAULT" value="false" />
+                                            <a:da name="INVALID" type="XPath">
+                                                <a:tst expr="(. = 'true') and 
+                                                             (../DmaChannelInterruptConfig/DmaChannelTerminalCountInterruptEnable = 'false') and (../DmaChannelInterruptConfig/DmaChannelErrorInterruptEnable = 'false') and
+                                                             (../DmaChannelInterruptConfig/DmaChannelRemainCountInterruptEnable = 'false') and 
+                                                             (node:when(node:exists(../DmaChannelInterruptConfig/DmaCircularBuffer/DmaChScbRollbackInterruptEnable), ../DmaCircularBuffer/DmaChannelInterruptConfig/DmaChScbRollbackInterruptEnable = 'false', 'false')) and
+                                                             (node:when(node:exists(../DmaChannelInterruptConfig/DmaCircularBuffer/DmaChDcbRollbackInterruptEnable), ../DmaCircularBuffer/DmaChannelInterruptConfig/DmaChDcbRollbackInterruptEnable = 'false', 'false')) and 
+                                                             (node:when(node:exists(../DmaChannelInterruptConfig/DmaPattern/DmaChPatternMatchedInterruptEnable), ../DmaPattern/DmaChannelInterruptConfig/DmaChPatternMatchedInterruptEnable = 'false', 'false'))" 
+                                                       true="At least one interrupt needs to be enabled: configuration parameter DmaChannelTerminalCountInterruptEnable = true  or DmaChannelErrorInterruptEnable = true or DmaChannelRemainCountInterruptEnable != 0 or DmaChScbRollbackInterruptEnable = true or DmaChDcbRollbackInterruptEnable = true or DmaChPatternMatchedInterruptEnable = true"/>
+                                            </a:da>
+                                        </v:var>
+
+                                        <v:var name="DmaChTransferConfigFlowControl" type="ENUMERATION">
+                                            <a:a name="DESC" value="Channel transfer flow control type. &lt;br/&gt;
+                                                DMA_M2M: DMA flow control with memory to memory &lt;br/&gt;
+                                                DMA_M2P: DMA flow control with memory to peripheral &lt;br/&gt;
+                                                DMA_P2M: DMA flow control with peripheral to memory &lt;br/&gt;
+                                                DMA_P2P: DMA flow control with peripheral to peripheral &lt;br/&gt;
+                                                DPER_P2P: Destination peripheral flow control with peripheral to peripheral &lt;br/&gt;
+                                                PER_M2P: Peripheral flow control with memory to peripheral &lt;br/&gt;
+                                                PER_P2M: Peripheral flow control with peripheral to memory &lt;br/&gt;
+                                                SPER_P2P: Source peripheral flow control with peripheral to peripheral. " />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="536202cb-dee7-c836-5df5-ab5e2768d843" />
+                                            <a:da name="DEFAULT" type="XPath" expr="ecu:list('Dma.ChannelFlowControl')[1]" />
+                                            <a:da name="RANGE" type="XPath" expr="ecu:list('Dma.ChannelFlowControl')" />
+                                        </v:var>
+
+                                        <v:var name="DmaChannelSourceRequestSelect" type="ENUMERATION">
+                                            <a:a name="DESC"
+                                              value="EN:Select the DMA channel source request.&lt;br/&gt;
+                                                      &lt;h1&gt;Note&lt;/h1&gt;
+                                                      This parameter is available only if the parameter DmaChTransferConfigFlowControl is set to P2M(peripheral to memory) or P2P(peripheral to peripheral)." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                              <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                              <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="UUID" value="1f91dbd0-6800-11ee-936b-f889d2d2ec8e" />
+                                            <a:a name="OPTIONAL" value="true" />
+                                            <a:da name="EDITABLE" type="XPath" expr="text:contains(node:value(../DmaChTransferConfigFlowControl), 'P2')" />
+                                            <a:da name="VISIBLE" value="true" />
+                                            <a:da name="DEFAULT" type="XPath" expr="ecu:list(concat('Dma.Request.Peripheral.Dma', text:split(node:fallback(../DmaChannelHwUnitAllocation, 'DMAx'), 'DMA')[1]))[1]" />
+                                            <a:da name="RANGE" type="XPath" expr="ecu:list(concat('Dma.Request.Peripheral.Dma', text:split(node:fallback(../DmaChannelHwUnitAllocation, 'DMAx'), 'DMA')[1]))" />
+                                        </v:var>
+
+                                        <v:var name="DmaChannelSourceGlobalRequestMUX" type="ENUMERATION">
+                                            <a:a name="DESC"
+                                              value="EN: Select the DMA channel global source request if DmaChannelSourceRequestSelect is set to GLOBAL_REQUEST.&lt;br/&gt;
+                                                This parameter is available only if the parameter DmaChannel-SourceRequestSelect is set to GLOBAL_REQUEST" />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                              <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                              <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="UUID" value="ac775af3-680a-11ee-87f3-f889d2d2ec8e" />
+                                            <a:a name="OPTIONAL" value="true" />
+                                            <a:da name="EDITABLE" type="XPath" >
+                                                <a:tst expr="node:current()/../DmaChTransferConfigFlowControl != ecu:list('Dma.ChannelFlowControl')[1]" />
+                                                <a:tst expr="node:exists(node:current()/../DmaChannelSourceRequestSelect) and (text:contains(node:value(node:current()/../DmaChannelSourceRequestSelect), 'GLOBAL_REQUEST'))" />
+                                            </a:da>
+                                            <a:da name="VISIBLE" value="true" />
+                                            <a:da name="DEFAULT" type="XPath" expr="ecu:list('Dma.Request.Peripheral.MUX')[1]" />
+                                            <a:da name="RANGE" type="XPath" expr="ecu:list('Dma.Request.Peripheral.MUX')" />
+                                        </v:var>
+
+                                        <v:var name="DmaChannelDestinationRequestSelect" type="ENUMERATION">
+                                            <a:a name="DESC"
+                                              value="EN: Select the DMA channel destination request.&lt;br/&gt;
+                                                      &lt;h1&gt;Note&lt;/h1&gt;
+                                                      This parameter is available only if the parameter DmaChTransferConfigFlowControl is set to M2P(peripheral to memory) or P2P(peripheral to peripheral)." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                              <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                              <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="UUID" value="1f91dbd0-6800-11ee-935b-f889d2d2ec8e" />
+                                            <a:a name="OPTIONAL" value="true" />
+                                            <a:da name="EDITABLE" type="XPath" expr="text:contains(node:value(../DmaChTransferConfigFlowControl), '2P')" />
+                                            <a:da name="VISIBLE" value="true" />
+                                            <a:da name="DEFAULT" type="XPath" expr="ecu:list(concat('Dma.Request.Peripheral.Dma', text:split(node:fallback(../DmaChannelHwUnitAllocation, 'DMAx'), 'DMA')[1]))[1]" />
+                                            <a:da name="RANGE" type="XPath" expr="ecu:list(concat('Dma.Request.Peripheral.Dma', text:split(node:fallback(../DmaChannelHwUnitAllocation, 'DMAx'), 'DMA')[1]))" />
+                                        </v:var>
+
+                                        <v:var name="DmaChannelDestinationGlobalRequestMUX" type="ENUMERATION">
+                                            <a:a name="DESC"
+                                              value="EN: Select the DMA channel global destination request if DmaChannelSourceRequestSelect is set to GLOBAL_REQUEST.
+                                                &lt;h1&gt;Note&lt;/h1&gt;
+                                                This parameter is available only if the parameter DmaChan-nelDestinationRequestSelect is set to GLOBAL_REQUEST." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                              <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                              <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="UUID" value="ac775aa2-680a-11ee-87f3-f889d2d2ec8e" />
+                                            <a:a name="OPTIONAL" value="true" />
+                                            <a:da name="EDITABLE" type="XPath" >
+                                                <a:tst expr="node:current()/../DmaChTransferConfigFlowControl != ecu:list('Dma.ChannelFlowControl')[1]" />
+                                                <a:tst expr="node:exists(node:current()/../DmaChannelDestinationRequestSelect) and (text:contains(node:value(node:current()/../DmaChannelDestinationRequestSelect), 'GLOBAL_REQUEST'))" />
+                                            </a:da>
+                                            <a:da name="VISIBLE" value="true" />
+                                            <a:da name="DEFAULT" type="XPath" expr="ecu:list('Dma.Request.Peripheral.MUX')[1]" />
+                                            <a:da name="RANGE" type="XPath" expr="ecu:list('Dma.Request.Peripheral.MUX')" />
+                                        </v:var>
+
+                                        <v:var name="DmaChannelNotification" type="FUNCTION-NAME">
+                                            <a:a name="DESC"
+                                              value="EN: Callback function for each channel.&lt;br/&gt;
+                                                &lt;h1&gt;Note&lt;/h1&gt;
+                                                This parameter is available only if the parameter DmaChannelInterruptEnable is set to true." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                              <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                              <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="OPTIONAL" value="true" />
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:da name="VISIBLE" value="true" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="af10a44a-680a-11ee-8cca-f889d2d2ec8e" />
+                                            <a:da name="DEFAULT" value="NULL_PTR" />
+                                            <a:da name="INVALID" type="XPath">
+                                              <a:tst expr="text:match(normalize-space(.),'^[_a-zA-Z]+[_0-9a-zA-Z]*$')"
+                                                false="Invalid name. Must be valid C function name or NULL_PTR." />
+                                            </a:da>
+                                            <a:da name="EDITABLE" type="XPath" expr="(../DmaChannelInterruptEnable = 'true')" />
+                                        </v:var>
+
+                                        <!-- Interrupt configuration -->
+                                        <v:ctr name="DmaChannelInterruptConfig" type="IDENTIFIABLE">
+                                            <a:a name="DESC" value="EN: This container contains the configuration parameters of the all interrupts in each channel." />
+                                            <a:a name="UUID" value="37e36726-1e99-3019-02f8-5df6f299c900" />
+                                            <a:da name="EDITABLE" type="XPath" expr="../DmaChannelInterruptEnable = 'true'" />
+
+                                            <v:var name="DmaChannelTerminalCountInterruptEnable" type="BOOLEAN">
+                                                <a:a name="DESC" value="EN: Enables / Disables the terminal count interrupt (transfer completed) for each channel." />
+                                                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                                </a:a>
+                                                <a:a name="ORIGIN" value="ChipowerTech" />
+                                                <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                                                <a:a name="SCOPE" value="LOCAL" />
+                                                <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                <a:a name="UUID" value="1fd01963-5a73-dd07-2737-6c61d6498080" />
+                                                <a:da name="DEFAULT" value="false" />
+                                                <a:da name="EDITABLE" type="XPath" expr="../../DmaChannelInterruptEnable = 'true'" />
+                                            </v:var>
+
+                                            <v:var name="DmaChannelErrorInterruptEnable" type="BOOLEAN">
+                                                <a:a name="DESC" value="EN: Enables / Disables the bus error for this channel." />
+                                                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                                </a:a>
+                                                <a:a name="ORIGIN" value="ChipowerTech" />
+                                                <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                                                <a:a name="SCOPE" value="LOCAL" />
+                                                <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                <a:a name="UUID" value="f03b6681-f7aa-5c5e-c45e-213ffb4ddf0a" />
+                                                <a:da name="DEFAULT" value="false" />
+                                                <a:da name="EDITABLE" type="XPath" expr="../../DmaChannelInterruptEnable = 'true'" />
+                                            </v:var>
+
+                                            <v:var name="DmaChannelRemainCountInterruptEnable" type="BOOLEAN">
+                                                <a:a name="DESC" value="EN: Enables / Disables the remaining count threshold interrupt for this channel." />
+                                                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                                </a:a>
+                                                <a:a name="ORIGIN" value="ChipowerTech" />
+                                                <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                                                <a:a name="SCOPE" value="LOCAL" />
+                                                <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                <a:a name="UUID" value="d7fb155e-4c8d-629b-c21f-e5d91af51862" />
+                                                <a:da name="DEFAULT" value="false" />
+                                                <a:da name="EDITABLE" type="XPath" expr="../../DmaChannelInterruptEnable = 'true'" />
+                                            </v:var>
+
+                                            <v:var name="DmaChScbRollbackInterruptEnable" type="BOOLEAN">
+                                                <a:a name="DESC" value="EN: Enables / Disables the source circular buffer rollback interrupt for this channel.&lt;br/&gt;
+                                                    &lt;h1&gt;Note&lt;/h1&gt;
+                                                    This parameter is available only when following conditions are met: &lt;br/&gt;
+                                                    1. The parameter DmaChannelCircularBufferEnable is set to true.&lt;br/&gt;
+                                                    2. The parameter DmaChannelInterruptEnable is set to true.&lt;br/&gt;
+                                                    3. The parameter DmaCircularBufferEnable is set to true.&lt;br/&gt;" />
+                                                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                                    <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                                </a:a>
+                                                <a:a name="ORIGIN" value="ChipowerTech" />
+                                                <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false" />
+                                                <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                                                <a:a name="SCOPE" value="LOCAL" />
+                                                <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                <a:a name="UUID" value="ba5193e0-864f-81b3-be55-c052b0949f83" />
+                                                <a:da name="DEFAULT" value="false" />
+                                                <a:da name="OPTIONAL" value="true" />
+                                                <a:da name="EDITABLE" type="XPath" expr="(as:modconf('Dma')[1]/DmaGeneral/DmaCircularBufferEnable = 'true') and (../../DmaChannelInterruptEnable = 'true') and (../../DmaChannelCircularBufferEnable = 'true')" />
+                                                <a:da name="INVALID" type="XPath">
+                                                    <a:tst expr="(. = 'true') and (node:exists(../../DmaChannelCircularBufferEnable) and (../../DmaChannelCircularBufferEnable = 'false'))"
+                                                    true="DmaChannelCircularBufferEnable must be true when source circular buffer rollback interrupt is enabled." />
+                                                </a:da>
+                                            </v:var>
+
+                                            <v:var name="DmaChDcbRollbackInterruptEnable" type="BOOLEAN">
+                                                <a:a name="DESC" value="EN: Enables / Disables the destination circular buffer rollback interrupt for this channel.&lt;br/&gt;
+                                                    &lt;h1&gt;Note&lt;/h1&gt;
+                                                    This parameter is available only when fallowing conditions are met: &lt;br/&gt;
+                                                    1. The parameter DmaChannelCircularBufferEnable is set to true.&lt;br/&gt;
+                                                    2. The parameter DmaChannelInterruptEnable is set to  true.&lt;br/&gt;
+                                                    3. The parameter DmaCircularBufferEnable is set to  true.&lt;br/&gt;" />
+                                                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                                    <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                                </a:a>
+                                                <a:a name="ORIGIN" value="ChipowerTech" />
+                                                <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false" />
+                                                <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                                                <a:a name="SCOPE" value="LOCAL" />
+                                                <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                <a:a name="UUID" value="7c8b1196-af56-1369-0427-598f45955811" />
+                                                <a:da name="DEFAULT" value="false" />
+                                                <a:da name="OPTIONAL" value="true" />
+                                                <a:da name="EDITABLE" type="XPath" expr="(as:modconf('Dma')[1]/DmaGeneral/DmaCircularBufferEnable = 'true') and (../../DmaChannelInterruptEnable = 'true') and (../../DmaChannelCircularBufferEnable = 'true')" />
+                                                <a:da name="INVALID" type="XPath">
+                                                    <a:tst expr="(. = 'true') and (node:exists(../../DmaChannelCircularBufferEnable) and (../../DmaChannelCircularBufferEnable = 'false'))"
+                                                        true="DmaChannelCircularBufferEnable must be true when destination circular buffer rollback interrupt is enabled." />
+                                                </a:da>
+                                            </v:var>
+
+                                            <v:var name="DmaChPatternMatchedInterruptEnable" type="BOOLEAN">
+                                                <a:a name="DESC" value="EN: Enables / Disables the pattern matched interrupt for this channel.&lt;br/&gt;
+                                                    &lt;h1&gt;Note&lt;/h1&gt;
+                                                    This parameter is available only when fallowing conditions are met: &lt;br/&gt;
+                                                    1. The parameter DmaChannelPatternEnable is set to true.&lt;br/&gt;
+                                                    2. The parameter DmaChannelInterruptEnable is set to true.&lt;br/&gt;
+                                                    3. The parameter DmaPatternEnable is set to true.&lt;br/&gt;" />
+                                                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                    <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                                    <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                                </a:a>
+                                                <a:a name="ORIGIN" value="ChipowerTech" />
+                                                <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false" />
+                                                <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                                                <a:a name="SCOPE" value="LOCAL" />
+                                                <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                <a:a name="UUID" value="f3adfe47-a7bc-27d2-750d-6eca0961112b" />
+                                                <a:da name="DEFAULT" value="false" />
+                                                <a:da name="OPTIONAL" value="true" />
+                                                <a:da name="EDITABLE" type="XPath" expr="(as:modconf('Dma')[1]/DmaGeneral/DmaPatternEnable = 'true') and (../../DmaChannelInterruptEnable = 'true') and (../../DmaChannelPatternEnable = 'true')" />
+                                                <a:da name="INVALID" type="XPath">
+                                                    <a:tst expr="(. = 'true') and (node:exists(../../DmaChannelPatternEnable) and (../../DmaChannelPatternEnable = 'false'))"
+                                                        true="DmaChannelPatternEnable must be true when pattern matched interrupt is enabled." />
+                                                </a:da>
+                                            </v:var>
+                                        </v:ctr>
+
+                                        <!-- Transfer configuration parameters -->
+                                        <v:lst name="DmaChTransferConfig" type="MAP">
+                                            <a:da name="MIN" type="XPath" expr="node:fallback(&quot;->node:when(../DmaChannelLinkedListEnable = 'true' or ../DmaChannelShadowOperationEnable = 'true', '2', '0')&quot;, '0')" />
+                                            <a:da name="MAX" type="XPath" expr="node:fallback(&quot;->node:when(../DmaChannelLinkedListEnable = 'true' or ../DmaChannelShadowOperationEnable = 'true' or (as:modconf('Dma')[1]/DmaGeneral/DmaTransferUpdateApi = 'true'), '254', '1')&quot;, '254')" />
+                                            <v:ctr name="DmaChTransferConfig" type="IDENTIFIABLE">
+                                                <a:a name="DESC" value="EN: This container contains the configuration (parameters) of the transfer in current channel.&lt;br/&gt;
+                                                    &lt;h1&gt;Note&lt;/h1&gt;
+                                                    - Only one transfer member can be configured if neither linked list feature(parameter DmaChannelLinkedListEnable is set to false) nor shadowing operation feature(parameter DmaChannelShadowOperationEnable for this channel is set to false) is enabled.&lt;br/&gt;
+                                                    - The first transfer member(parameter DmaTransferId is 0) is used as the default transfer after Dma is initialized, provided that either linked list feature(parameter DmaChannelLinkedListEnable is set to true) or shadowing operation feature(parameter DmaChannelShadowOperationEnable for this channel is set to false) is enabled." />
+                                                 <a:a name="REQUIRES-INDEX" value="true"/>
+                                                 <a:a name="UUID" value="87eaf876-675d-11ee-8c00-f889d2d2ec8e" />
+                                                <a:da name="INVALID" type="XPath">
+                                                    <a:tst expr="text:uniq(../../../*/DmaChTransferConfig/*/@name, @name)" false="Duplicate AdcGroupNames, Transfer Symbolic names must be unique across Dma Channel."/>
+                                                </a:da>
+                                                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                    <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                                </a:a>
+                                                <!-- transfer configuration parameters -->
+                                                <v:var name="DmaTransferId" type="INTEGER">
+                                                    <a:a name="DESC" value="EN: Logical identifiers of each transfer in the each channel." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID" value="06d09efe-65a1-11ee-9668-f889d2d2ec8e" />
+                                                    <a:da name="DEFAULT" type="XPath" expr="node:fallback(node:current()/../@index, num:i(1))" />
+                                                    <a:da name="INVALID" type="Range">
+                                                        <a:tst expr="&lt;=254" />
+                                                        <a:tst expr="&gt;=0" />
+                                                    </a:da>
+                                                    <a:da name="INVALID" type="XPath">
+                                                        <a:tst expr="(node:fallback(., 0) &gt;= 0) and (node:fallback(., 0) &lt; num:i(count(node:fallback(node:current()/../../*, 1))))" 
+                                                               false="Value of DmaTransferId is out of range: must be in range 0 to N-1 (N is number of configured all channel transfers of this channel). Use the Calc button to calculate correct default value." />
+                                                        <a:tst expr="text:uniq(node:fallback(../../*/DmaTransferId, text:split('0')), node:fallback(., 1))" 
+                                                               false="Duplicated value, DmaTransferId must be unique across this channel. Use the Calc button to calculate correct default value." />
+                                                    </a:da>
+                                                </v:var>
+
+                                                <v:var name="DmaTransferSourceAddress" type="STRING">
+                                                    <a:a name="DESC" value="EN: Source address of this channel transfer.&lt;br/&gt;
+                                                        &lt;h1&gt;Note&lt;/h1&gt;
+                                                        The input address can be a number or the address of a variable.&lt;br/&gt;
+                                                        - If it is a number, the suffix &lt;b&gt;U&lt;/b&gt; must be added, such as &quot;0x8000000U&quot;. &lt;br/&gt;
+                                                        - If it is a variable, the address-of operator &lt;b&gt;&amp;&lt;/b&gt; must be used, such as &quot;&amp;SourceAddress&quot;. &lt;br/&gt;
+                                                        - If it is an array, the array head address can be written directly, such as &quot;&amp;SourceAddressArray[0]&quot; or &quot;SourceAddressArray&quot;." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID" value="0a793594-65a1-11ee-84a0-f889d2d2ec8e" />
+                                                    <a:da name="DEFAULT" value="NULL_PTR" />
+                                                    <a:da name="INVALID" type="XPath">
+                                                        <a:tst expr="(. = '')" 
+                                                               true="EN: Invalid Configuration, the address cannot be blank."/>
+                                                        <a:tst expr= "text:grep(., '.*\s.*')" 
+                                                               true="EN: Invalid Configuration, Spaces not expected in the address configuration."/>
+                                                        <a:tst expr= "(((count(text:grep(node:value(.), '^[0-9].*$'))) != 0) and ((count(text:grep(node:value(.), '^.*[U|u]$') )) = 0))" 
+                                                               true ="EN: Invalid Configuration, The address value should be unsigned, with a U suffix."/>
+                                                    </a:da>
+                                                    <a:da name="WARNING" type="XPath">
+                                                        <a:tst expr="((. = 'NULL_PTR') or (. = '0U'))" 
+                                                               true="EN: Invalid Configuration, Default address is not allowed."/>
+                                                    </a:da>
+                                                </v:var>
+    
+                                                <v:var name="DmaTransferDestinationAddress" type="STRING">
+                                                    <a:a name="DESC" value="EN: Destination address of this channel transfer.&lt;br/&gt;
+                                                        &lt;h1&gt;Note&lt;/h1&gt;
+                                                        The input address can be a number or a variable address. &lt;br/&gt;
+                                                        - If it is a number, the suffix &lt;b&gt;U&lt;/b&gt; must be added, such as &quot;0x8000000U&quot; &lt;br/&gt;
+                                                        - If it is a variable, the address-of operator &lt;b&gt;&amp;&lt;/b&gt; must be used, for example &quot;&amp;SourceAddress&quot;. &lt;br/&gt;
+                                                        - If it is an array, the array head address can be written directly, such as &quot;&amp;SourceAddressArray[0]&quot; or &quot;SourceAddressArray&quot;." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID" value="0d9a264c-65a1-11ee-8220-f889d2d2ec8e" />
+                                                    <a:da name="DEFAULT" value="NULL_PTR" />
+                                                    <a:da name="INVALID" type="XPath">
+                                                        <a:tst expr="(. = '')" 
+                                                               true="EN: Invalid Configuration, the address cannot be blank."/>
+                                                        <a:tst expr= "text:grep(., '.*\s.*')" 
+                                                               true="EN: Invalid Configuration, Spaces not expected in the address configuration."/>
+                                                        <a:tst expr= "(((count(text:grep(node:value(.), '^[0-9].*$'))) != 0) and ((count(text:grep(node:value(.), '^.*[U|u]$') )) = 0))" 
+                                                               true ="EN: Invalid Configuration, The address value should be unsigned, with a U suffix."/>
+                                                    </a:da>
+                                                    <a:da name="WARNING" type="XPath">
+                                                        <a:tst expr="((. = 'NULL_PTR') or (. = '0U'))" 
+                                                               true="EN: Invalid Configuration, Default address is not allowed."/>
+                                                    </a:da>
+                                                </v:var>
+    
+                                                <v:var name="DmaTransferSourceAddressMovement" type="ENUMERATION">
+                                                    <a:a name="DESC" value="EN: Determines whether the source address after every move operation is to be increased or not changed." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID" value="12506538-65a1-11ee-b24b-f889d2d2ec8e" />
+                                                    <a:da name="DEFAULT" type="XPath" expr="ecu:list('Dma.ChannelTransferAddrMovement')[1]" />
+                                                    <a:da name="RANGE" type="XPath" expr="ecu:list('Dma.ChannelTransferAddrMovement')" />
+                                                </v:var>
+    
+                                                <v:var name="DmaTransferDestinationAddressMovement" type="ENUMERATION">
+                                                    <a:a name="DESC" value="EN: Determines whether the destination address after every move operation is to be increased or not changed." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID" value="14fd9d10-65a1-11ee-b579-f889d2d2ec8e" />
+                                                    <a:da name="DEFAULT" type="XPath" expr="ecu:list('Dma.ChannelTransferAddrMovement')[1]" />
+                                                    <a:da name="RANGE" type="XPath" expr="ecu:list('Dma.ChannelTransferAddrMovement')" />
+                                                </v:var>
+    
+                                                <v:var name="DmaTransferSourceBurstNum" type="ENUMERATION">
+                                                    <a:a name="DESC" value="EN: The size of the burst for each transfer from the source address." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID" value="19fff76e-65a1-11ee-9687-f889d2d2ec8e" />
+                                                    <a:da name="DEFAULT" type="XPath" expr="ecu:list('Dma.ChannelBurstSize')[1]" />
+                                                    <a:da name="RANGE" type="XPath" expr="ecu:list('Dma.ChannelBurstSize')" />
+                                                </v:var>
+    
+                                                <v:var name="DmaTransferDestinationBurstNum" type="ENUMERATION">
+                                                    <a:a name="DESC" value="EN: The size of the burst for each transfer from the destination address." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID" value="1c8d8386-65a1-11ee-81d9-f889d2d2ec8e" />
+                                                    <a:da name="DEFAULT" type="XPath" expr="ecu:list('Dma.ChannelBurstSize')[1]" />
+                                                    <a:da name="RANGE" type="XPath" expr="ecu:list('Dma.ChannelBurstSize')" />
+                                                </v:var>
+    
+                                                <v:var name="DmaTransferDataWidth" type="ENUMERATION">
+                                                    <a:a name="DESC" value="EN: The data width for each transfer." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID" value="202c8438-65a1-11ee-8afd-f889d2d2ec8e" />
+                                                    <a:da name="DEFAULT" type="XPath" expr="ecu:list(concat('Dma.ChannelTransferDataWidthDma', text:split(node:fallback(&quot;->node:value(node:current()/../../../DmaChannelHwUnitAllocation)&quot;, 'DMA0'), 'DMA')[1]))[1]" />
+                                                    <a:da name="RANGE" type="XPath" expr="ecu:list(concat('Dma.ChannelTransferDataWidthDma', text:split(node:fallback(&quot;->node:value(node:current()/../../../DmaChannelHwUnitAllocation)&quot;, 'DMA0'), 'DMA')[1]))" />
+                                                </v:var>
+    
+                                                <v:var name="DmaTransferSize" type="INTEGER">
+                                                    <a:a name="DESC" value="EN: The expected size of the data to be transferred." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID" value="22532e8c-65a1-11ee-8a16-f889d2d2ec8e" />
+                                                    <a:da name="DEFAULT" value="1" />
+                                                    <a:da name="INVALID" type="Range">
+                                                        <a:tst expr="&lt;=4095" />
+                                                        <a:tst expr="&gt;=1" />
+                                                    </a:da>
+                                                </v:var>
+
+                                                <v:var name="DmaTransferRemainingCountThr" type="INTEGER">
+                                                    <a:a name="DESC" value="EN: Configure the remaining count threshold for this transfer, used to trigger the Remaining Count Reached Interrupt when transfer size is less than this parameter.&lt;br/&gt;
+                                                        &lt;h1&gt;Note&lt;/h1&gt;
+                                                        1. The remaining count must less than transfer size of the channel.&lt;br/&gt;
+                                                        2. If this parameter is set to 0 then it indicates that it is not used.&lt;br/&gt;
+                                                        3. This parameter is available only when the parameter DmaChannelRemainCountInterruptEnable is set to true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID" value="cea56bd3-b778-4f11-ee3b-ba494c221343" />
+                                                    <a:da name="DEFAULT" value="0" />
+                                                    <a:a name="OPTIONAL" value="true" />
+                                                    <a:da name="EDITABLE" type="XPath" expr="../../../DmaChannelInterruptConfig/DmaChannelRemainCountInterruptEnable = 'true'" />
+                                                    <a:da name="INVALID" type="Range">
+                                                        <a:tst expr="&lt;=ecu:get('Dma.MaxSizeChannelTransfer')"/>
+                                                        <a:tst expr="&gt;=0"/>
+                                                    </a:da>
+                                                    <a:da name="INVALID" type="XPath">
+                                                        <a:tst expr="num:i(.) > num:i(../DmaTransferSize)" true="The remaining count must less than transfer size(DmaTransferSize)."/>
+                                                    </a:da>
+                                                </v:var>
+
+                                                <v:var name="DmaTransferLinkedListEnable" type="BOOLEAN">
+                                                    <a:a name="DESC" value="EN: Enables / Disables the linked list for this transfer.&lt;br/&gt;
+                                                        Set this parameter to true if this transfer is the head of the linked list.
+                                                        &lt;h1&gt;Note&lt;/h1&gt;
+                                                        This parameter is available only if the parameter DmaChannelLinkedListEnable is set to true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID" value="506850b6-659f-11ee-a324-f889d2d2ec8e" />
+                                                    <a:a name="OPTIONAL" value="true" />
+                                                    <a:da name="DEFAULT" value="false" />
+                                                    <a:da name="EDITABLE" type="XPath" expr="../../../DmaChannelLinkedListEnable = 'true'"/>
+                                                </v:var>
+
+                                                <v:ref name="DmaTransferLinkedListAssignment" type="REFERENCE">
+                                                    <a:a name="DESC" value="EN: Assignment of a linked list configuration to this transfer.&lt;br/&gt;
+                                                        This transfer must be the first member in the linked list.
+                                                        &lt;h1&gt;Note&lt;/h1&gt;
+                                                        This parameter is available only if the parameter DmaChannel-LinkedListEnable is set to true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="UUID" value="d9c10fbf-eca5-6acc-c572-b703e7b9ce3d" />
+                                                    <a:a name="OPTIONAL" value="true" />
+                                                    <a:a name="EDITABLE" type="XPath" expr="../DmaTransferLinkedListEnable = 'true'" />
+                                                    <a:da name="REF" value="ASPathDataOfSchema:/THA6_AS440_FuSa/Dma/DmaConfigSet/DmaChannel/DmaChLinkedListItemConfig" />
+                                                    <a:da name="INVALID" type="XPath">
+                                                        <a:tst expr=".=''" true="Select a linked list item in current channel." />
+                                                        <a:tst expr="node:refvalid(.)" false="Invalid or empty reference." />
+                                                        <a:tst expr="contains(., ../../../@name)" false="The selected linked list must be mapped on the current channel." />
+                                                        <a:tst expr="../DmaTransferId != node:ref(node:value(node:path(node:ref(.)/DmaChLinkedListTransferAssignment/*[1])))/DmaTransferId" true="The first member of the linked list must be equal to this transfer." />
+                                                    </a:da>
+                                                </v:ref>
+
+                                                <v:var name="DmaTransferDoubleBufferEnable" type="BOOLEAN">
+                                                    <a:a name="DESC" value="EN: Enables / Disables the double buffer for this transfer.&lt;br/&gt;
+                                                        &lt;h1&gt;Note&lt;/h1&gt;
+                                                        This parameter is available only if the parameter DmaChannelDoubleBufferEnable is set to true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID" value="e71e6a29-7359-a1d4-0f7d-06fe2d8cc549" />
+                                                    <a:a name="OPTIONAL" value="true" />
+                                                    <a:da name="DEFAULT" value="false" />
+                                                    <a:da name="EDITABLE" type="XPath" expr="../../../DmaChannelDoubleBufferEnable = 'true'"/>
+                                                </v:var>
+
+                                                <v:ref name="DmaTransferDoubleBufferAssignment" type="REFERENCE">
+                                                    <a:a name="DESC" value="EN: Assignment of a double buffer configuration to this transfer.&lt;br/&gt;
+                                                        &lt;h1&gt;Note&lt;/h1&gt;
+                                                        This parameter is available only if the parameter DmaChannelDoubleBufferEnable is set to true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="UUID" value="9092086a-5793-85fb-afff-bc4a9f3965ed" />
+                                                    <a:a name="OPTIONAL" value="true" />
+                                                    <a:a name="EDITABLE" type="XPath" expr="../DmaTransferDoubleBufferEnable = 'true'" />
+                                                    <a:da name="REF" value="ASPathDataOfSchema:/THA6_AS440_FuSa/Dma/DmaConfigSet/DmaDoubleBuffer" />
+                                                    <a:da name="INVALID" type="XPath">
+                                                        <a:tst expr=".=''" true="Select a double buffer configuration." />
+                                                        <a:tst expr="node:refvalid(.)" false="Invalid or empty reference." />
+                                                    </a:da>
+                                                </v:ref>
+
+                                                <v:var name="DmaTransferCircularBufferEnable" type="BOOLEAN">
+                                                    <a:a name="DESC" value="EN: Enables / Disables the circular buffer for this transfer.&lt;br/&gt;
+                                                        &lt;h1&gt;Note&lt;/h1&gt;
+                                                        This parameter is available only if the parameter DmaChannelCircularBufferEnable is set to true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID" value="d2a62e9b-f2d8-3259-558f-33df8835d75d" />
+                                                    <a:a name="OPTIONAL" value="true" />
+                                                    <a:da name="DEFAULT" value="false" />
+                                                    <a:da name="EDITABLE" type="XPath" expr="../../../DmaChannelCircularBufferEnable = 'true'"/>
+                                                </v:var>
+
+                                                <v:ref name="DmaTransferCircularBufferAssignment" type="REFERENCE">
+                                                    <a:a name="DESC" value="EN: Assignment of a circular buffer configuration to this transfer.&lt;br/&gt;
+                                                        &lt;h1&gt;Note&lt;/h1&gt;
+                                                        This parameter is available only if the parameter DmaChannelCircularBufferEnable is set to true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="UUID" value="9510416d-592d-85a9-81b0-c22bded328cf" />
+                                                    <a:a name="OPTIONAL" value="true" />
+                                                    <a:a name="EDITABLE" type="XPath" expr="../DmaTransferCircularBufferEnable = 'true'" />
+                                                    <a:da name="REF" value="ASPathDataOfSchema:/THA6_AS440_FuSa/Dma/DmaConfigSet/DmaCircularBuffer" />
+                                                    <a:da name="INVALID" type="XPath">
+                                                        <a:tst expr=".=''" true="Select a circular buffer configuration." />
+                                                        <a:tst expr="node:refvalid(.)" false="Invalid or empty reference." />
+                                                    </a:da>
+                                                </v:ref>
+
+                                                <v:var name="DmaTransferPatternEnable" type="BOOLEAN">
+                                                    <a:a name="DESC" value="EN: Enables / Disables the pattern match for this transfer.&lt;br/&gt;
+                                                        &lt;h1&gt;Note&lt;/h1&gt;
+                                                        This parameter is available only if the parameter DmaChannelPatternEnable is set to true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID" value="07c1832e-2c3a-6fd6-39b4-883aaa618ccc" />
+                                                    <a:a name="OPTIONAL" value="true" />
+                                                    <a:da name="DEFAULT" value="false" />
+                                                    <a:da name="EDITABLE" type="XPath" expr="../../../DmaChannelPatternEnable = 'true'"/>
+                                                </v:var>
+
+                                                <v:ref name="DmaTransferPatternAssignment" type="REFERENCE">
+                                                    <a:a name="DESC" value="EN: Assignment of a pattern match configuration to this transfer.&lt;br/&gt;
+                                                        &lt;h1&gt;Note&lt;/h1&gt;
+                                                        This parameter is available only if the parameter DmaChannelPatternEnable is set to true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="UUID" value="1f939145-5808-29de-cf7a-233c3809fb8f" />
+                                                    <a:a name="OPTIONAL" value="true" />
+                                                    <a:a name="EDITABLE" type="XPath" expr="../DmaTransferPatternEnable = 'true'" />
+                                                    <a:da name="REF" value="ASPathDataOfSchema:/THA6_AS440_FuSa/Dma/DmaConfigSet/DmaPattern" />
+                                                    <a:da name="INVALID" type="XPath">
+                                                        <a:tst expr=".=''" true="Select a pattern configuration." />
+                                                        <a:tst expr="node:refvalid(.)" false="Invalid or empty reference." />
+                                                    </a:da>
+                                                </v:ref>
+                                            </v:ctr>
+                                        </v:lst>
+
+                                        <v:lst name="DmaChLinkedListItemConfig" type="MAP">
+                                            <a:da name="MIN" value="0" />
+                                            <a:da name="MAX" value="254" />
+                                            <a:da name="EDITABLE" type="XPath" expr="node:exists(../DmaChannelLinkedListEnable) and (../DmaChannelLinkedListEnable = 'true')" />
+                                            <a:da name="INVALID" type="XPath" expr="(node:exists(../DmaChannelLinkedListEnable) and (../DmaChannelLinkedListEnable = 'true')) and (num:i(count(./*)) = 0)" true="At least one linked list item needs to be configured when DmaChannelLinkedListEnable is set to true."/>
+                                            <v:ctr name="DmaChLinkedListItemConfig" type="IDENTIFIABLE">
+                                                <a:a name="DESC" value="EN: This container contains the configuration parameters of the linked list information.&lt;br/&gt;
+                                                    &lt;h1&gt;Note&lt;/h1&gt;
+                                                    - This container is available only if the parameter DmaChannelLinkedListEnable for this channel is set to true.&lt;br/&gt;
+                                                    - The number of linked list elements must be greater than 2." />
+                                                <a:a name="REQUIRES-INDEX" value="true"/>
+                                                <a:a name="UUID" value="bf9f46b0-6c98-11ee-abb2-f889d2d2ec8e" />
+                                                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                    <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                                </a:a>
+                                                <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                                                <v:var name="DmaChLinkedListId" type="INTEGER">
+                                                    <a:a name="DESC" value="EN: Logical identifies of the linked list in the current channel." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID" value="ede66290-6c98-11ee-b809-f889d2d2ec8e" />
+                                                    <a:da name="DEFAULT" type="XPath" expr="node:fallback(node:current()/../@index, num:i(1))" />
+                                                    <a:da name="INVALID" type="Range">
+                                                        <a:tst expr="&lt;=254" />
+                                                        <a:tst expr="&gt;=0" />
+                                                    </a:da>
+                                                    <a:da name="INVALID" type="XPath">
+                                                        <a:tst expr="(node:fallback(., 0) &gt;= 0) and (node:fallback(., 0) &lt; num:i(count(node:fallback(node:current()/../../*, 1))))" 
+                                                               false="Value of DmaChLinkedListId is out of range: must be in range 0 to N-1 (N is number of configured all linked list of this channel). Use the Calc button to calculate correct default value." />
+                                                        <a:tst expr="text:uniq(node:fallback(../../*/DmaChLinkedListId, text:split('0')), node:fallback(., 1))" 
+                                                               false="Duplicated value, DmaChLinkedListId must be unique across this channel. Use the Calc button to calculate correct default value." />
+                                                    </a:da>
+                                                </v:var>
+
+                                                <v:lst name="DmaChLinkedListTransferAssignment">
+                                                    <a:da name="MIN" value="2" />
+                                                    
+                                                    <v:ref name="DmaChLinkedListTransferAssignment" type="REFERENCE">
+                                                        <a:a name="DESC" value="EN: Assignment of transfers to this linked list." />
+                                                        <a:a name="REQUIRES-INDEX" value="true"/>
+                                                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                            <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                            <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                        </a:a>
+                                                        <a:a name="ORIGIN" value="ChipowerTech" />
+                                                        <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                                        <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                        <a:a name="SCOPE" value="LOCAL" />
+                                                        <a:a name="UUID" value="c7ede6d2-6c97-11ee-a869-f889d2d2ec8e" />
+                                                        <a:da name="REF" value="ASPathDataOfSchema:/THA6_AS440_FuSa/Dma/DmaConfigSet/DmaChannel/DmaChTransferConfig" />
+                                                        <a:da name="INVALID" type="XPath">
+                                                            <a:tst expr=".=''" true="Select a transfer configuration for the linked list item in current channel." />
+                                                            <a:tst expr="node:refvalid(.)" false="Invalid or empty reference." />
+                                                            <a:tst expr="contains(., ../../../../@name)" false="The transfer must be mapped on the current channel." />
+                                                        </a:da>
+                                                    </v:ref>
+                                                </v:lst>
+
+                                            </v:ctr>
+                                        </v:lst>
+
+                                        <v:lst name="DmaChShadowConfig" type="MAP">
+                                            <a:da name="MIN" value="0" />
+                                            <a:da name="MAX" type="XPath" expr="node:fallback(&quot;->node:when(as:modconf('Dma')[1]/DmaGeneral/DmaShadowingUpdateApi = 'true', '254', '1')&quot;, '254')" />
+                                            <a:da name="EDITABLE" type="XPath" expr="node:exists(../DmaChannelShadowOperationEnable) and (../DmaChannelShadowOperationEnable = 'true')" />
+                                            <a:da name="INVALID" type="XPath" expr="(node:exists(../DmaChannelShadowOperationEnable) and (../DmaChannelShadowOperationEnable = 'true')) and (num:i(count(./*)) = 0)" true="At least one shadowing operation needs to be configured when DmaChannelShadowOperationEnable is set to true."/>
+                                            <v:ctr name="DmaChShadowConfig" type="IDENTIFIABLE">
+                                                <a:a name="DESC" value="EN: This container contains the configuration parameters of the shadowing operation information.&lt;br/&gt;
+                                                    &lt;h1&gt;Note&lt;/h1&gt;
+                                                    - This container is available only if the parameter DmaChannelShadowOperationEnable for this channel is set to true." />
+                                                <a:a name="REQUIRES-INDEX" value="true"/>
+                                                <a:a name="UUID" value="fafe5ee4-6cbb-11ee-9f07-f889d2d2ec8e" />
+                                                <a:da name="INVALID" type="XPath">
+                                                    <a:tst expr="text:uniq(../../../*/DmaChShadowConfig/*/@name, @name)" false="Duplicate DmaChShadowConfigNames, Shaodwing Symbolic names must be unique across Dma Channel."/>
+                                                </a:da> 
+                                                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                    <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                                </a:a>
+                                                <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                                                <v:var name="DmaChShadowId" type="INTEGER">
+                                                    <a:a name="DESC" value="EN: Logical identifiers of each shadowing in the current channel." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PreCompile">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="false" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID" value="fdd37518-6cbb-11ee-8e83-f889d2d2ec8e" />
+                                                    <a:da name="DEFAULT" type="XPath" expr="node:fallback(node:current()/../@index, num:i(1))" />
+                                                    <a:da name="INVALID" type="Range">
+                                                        <a:tst expr="&lt;=254" />
+                                                        <a:tst expr="&gt;=0" />
+                                                    </a:da>
+                                                    <a:da name="INVALID" type="XPath">
+                                                        <a:tst expr="(node:fallback(., 0) &gt;= 0) and (node:fallback(., 0) &lt; num:i(count(node:fallback(node:current()/../../*, 1))))" 
+                                                               false="Value of DmaChShadowId is out of range: must be in range 0 to N-1 (N is number of configured all linked list of this channel). Use the Calc button to calculate correct default value." />
+                                                        <a:tst expr="text:uniq(node:fallback(../../*/DmaChShadowId, text:split('0')), node:fallback(., 1))" 
+                                                               false="Duplicated value, DmaChShadowId must be unique across this channel. Use the Calc button to calculate correct default value." />
+                                                    </a:da>
+                                                </v:var>
+
+                                                <v:var name="DmaChShadowLinkedListEnable" type="BOOLEAN">
+                                                    <a:a name="DESC" value="EN: Enables / Disables the linked list for this shadowing operation in this channel.&lt;br/&gt;
+                                                        &lt;h1&gt;Note&lt;/h1&gt;
+                                                        This parameter is only valid when &quot;DmaChannelLinkedListEnable&quot; is true." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                                    <a:a name="UUID" value="8a180a98-6cc3-11ee-9e96-f889d2d2ec8e" />
+                                                    <a:a name="OPTIONAL" value="true" />
+                                                    <a:da name="DEFAULT" value="false" />
+                                                    <a:da name="EDITABLE" type="XPath" expr="../../../DmaChannelLinkedListEnable = 'true'" />
+                                                </v:var>
+
+                                                <v:ref name="DmaChShadowLinkedListAssignment" type="REFERENCE">
+                                                    <a:a name="DESC" value="EN: Assignment of a linked list to this shadowing." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                      <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                      <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="UUID" value="36c3385a-3f5b-07d6-c5d3-8ddaaf6c208b" />
+                                                    <a:a name="OPTIONAL" value="true" />
+                                                    <a:da name="EDITABLE" type="XPath" expr="../DmaChShadowLinkedListEnable = 'true'" />
+                                                    <a:da name="REF" value="ASPathDataOfSchema:/THA6_AS440_FuSa/Dma/DmaConfigSet/DmaChannel/DmaChLinkedListItemConfig" />
+                                                    <a:da name="REF-TYPE" value="ASPath"/>
+                                                    <a:da name="INVALID" type="XPath">
+                                                      <a:tst expr=".=''" true="Select a transfer configuration for the linked list item in current channel." />
+                                                      <a:tst expr="node:refvalid(.)" false="Invalid or empty reference." />
+                                                      <a:tst expr="contains(., ../../../@name)" false="The transfer must be mapped on the current channel." />
+                                                      <a:tst expr="node:ref(../DmaChShadowTransferAssignment)/DmaTransferId != node:ref(node:value(node:path(node:ref(.)/DmaChLinkedListTransferAssignment/*[1])))/DmaTransferId" true="The first member(transfer ID) of the linked list must be equal to the transfer ID which the shadowing assigned." />
+                                                    </a:da>
+                                                </v:ref>
+
+                                                <v:ref name="DmaChShadowTransferAssignment" type="REFERENCE">
+                                                    <a:a name="DESC" value="EN: Assignment of a transfer to this shadowing." />
+                                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                      <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                    </a:a>
+                                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false" />
+                                                    <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                    <a:a name="SCOPE" value="LOCAL" />
+                                                    <a:a name="UUID" value="008db8e4-6cbc-11ee-ac00-f889d2d2ec8e" />
+                                                    <a:da name="REF" value="ASPathDataOfSchema:/THA6_AS440_FuSa/Dma/DmaConfigSet/DmaChannel/DmaChTransferConfig" />
+                                                    <a:da name="INVALID" type="XPath">
+                                                      <a:tst expr=".=''" true="Select a transfer configuration for the linked list item in current channel." />
+                                                      <a:tst expr="node:refvalid(.)" false="Invalid or empty reference." />
+                                                      <a:tst expr="contains(., ../../../@name)" false="The transfer must be mapped on the current channel." />
+                                                    </a:da>
+                                                </v:ref>
+                                            </v:ctr>
+                                        </v:lst>
+                                    </v:ctr>
+                                </v:lst>
+
+                                <!-- Double buffer configuration -->
+                                <v:lst name="DmaDoubleBuffer" type="MAP">
+                                    <a:da name="MIN" value="0" />
+                                    <a:da name="MAX" value="254" />
+                                    <a:da name="EDITABLE" type="XPath" expr="as:modconf('Dma')[1]/DmaGeneral/DmaDoubleBufferEnable = 'true'" />
+                                    <a:da name="INVALID" type="XPath" expr="(as:modconf('Dma')[1]/DmaGeneral/DmaDoubleBufferEnable = 'true') and (num:i(count(./*))) = 0" true="At least one double buffer needs to be configured when DmaGeneral/DmaDoubleBufferEnable = true."/>
+                                    <v:ctr name="DmaDoubleBuffer" type="IDENTIFIABLE">
+                                        <a:a name="DESC" value="EN: This container contains the configuration parameters of the double buffer.&lt;br/&gt;
+                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                            This container is available only if the parameter DmaDoubleBufferEnable is set to true." />
+                                        <a:a name="REQUIRES-INDEX" value="true"/>
+                                        <a:a name="UUID" value="265bff1e-65a1-11ee-b1a3-f889d2d2ec8e" />
+                                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                            <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                        </a:a>
+                                        <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                                        <v:var name="DmaDoubleBufferId" type="INTEGER">
+                                            <a:a name="DESC" value="EN: Logical identifies for each double buffer." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="a7ef8900-befb-0623-702b-e691bdf085da" />
+                                            <a:da name="DEFAULT" type="XPath" expr="node:fallback(node:current()/../@index, num:i(1))" />
+                                            <a:da name="INVALID" type="Range">
+                                                <a:tst expr="&lt;=254" />
+                                                <a:tst expr="&gt;=0" />
+                                            </a:da>
+                                            <a:da name="INVALID" type="XPath">
+                                                <a:tst expr="(node:fallback(., 0) &gt;= 0) and (node:fallback(., 0) &lt; num:i(count(node:fallback(node:current()/../../*, 1))))" 
+                                                    false="Value of DmaDoubleBufferId is out of range: must be in range 0 to N-1 (N is number of configured all double buffer transfers). Use the Calc button to calculate correct default value." />
+                                                <a:tst expr="text:uniq(node:fallback(../../*/DmaDoubleBufferId, text:split('0')), node:fallback(., 1))" 
+                                                    false="Duplicated value, DmaDoubleBufferId must be unique across this double buffer list. Use the Calc button to calculate correct default value." />
+                                            </a:da>
+                                        </v:var>
+
+                                        <v:var name="DmaDoubleBufferAddress" type="STRING">
+                                            <a:a name="DESC" value="EN: Second address for this double buffering.
+                                                &lt;h1&gt;Note&lt;/h1&gt;
+                                                The input address can be a number or a variable address. &lt;br/&gt;
+                                                - If it is a number, the suffix &lt;b&gt;U&lt;/b&gt; must be added, such as &quot;0x8000000U&quot; &lt;br/&gt;
+                                                - If it is a variable, the address-of operator &lt;b&gt;&amp;&lt;/b&gt; must be used, for example &quot;&amp;DoubleBufferAddress&quot;. &lt;br/&gt;
+                                                - If it is an array, the array head address can be written directly, such as &quot;&amp;DoubleBufferAddressArray[0]&quot; or &quot;DoubleBufferAddressArray&quot;." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="294863ae-65a1-11ee-b955-f889d2d2ec8e" />
+                                            <a:da name="DEFAULT" value="NULL_PTR" />
+                                            <a:da name="INVALID" type="XPath">
+                                                <a:tst expr="(. = '')" 
+                                                        true="EN: Invalid Configuration, the address cannot be blank."/>
+                                                <a:tst expr= "text:grep(., '.*\s.*')" 
+                                                        true="EN: Invalid Configuration, Spaces not expected in the address configuration."/>
+                                                <a:tst expr= "(((count(text:grep(node:value(.), '^[0-9].*$'))) != 0) and ((count(text:grep(node:value(.), '^.*[U|u]$') )) = 0))" 
+                                                        true ="EN: Invalid Configuration, The address value should be unsigned, with a U suffix."/>
+                                            </a:da>
+                                        </v:var>
+
+                                        <v:var name="DmaDoubleBufferSelect" type="ENUMERATION">
+                                            <a:a name="DESC" value="EN: Select whether the double buffering applies to source buffer or destination buffer." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="2c6ddb9e-65a1-11ee-acd5-f889d2d2ec8e" />
+                                            <a:da name="DEFAULT" type="XPath" expr="ecu:list('Dma.ChannelDoubleBufferCategory')[1]" />
+                                            <a:da name="RANGE" type="XPath" expr="ecu:list('Dma.ChannelDoubleBufferCategory')" />
+                                        </v:var>
+                                        
+                                        <v:var name="DmaDoubleBufferSwitchMethod" type="ENUMERATION">
+                                            <a:a name="DESC" value="EN: Select double buffering switch method." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="2fe050a4-65a1-11ee-b0c3-f889d2d2ec8e" />
+                                            <a:da name="DEFAULT" type="XPath" expr="ecu:list('Dma.ChannelDoubleBufferSwitchMethod')[2]" />
+                                            <a:da name="RANGE" type="XPath" expr="ecu:list('Dma.ChannelDoubleBufferSwitchMethod')" />
+                                            <a:da name="INVALID" type="XPath">
+                                                <a:tst expr="(as:modconf('Dma')[1]/DmaGeneral/DmaDoubleBufferSoftwareSwitchApi = 'false') and (. = 'DMA_DBSWITCHMODE_SW')" 
+                                                        true="EN: DmaDoubleBufferSoftwareSwitchApi must be set to true when double buffer switching method is DMA_DBSWITCHMODE_SW."/>
+                                            </a:da>
+                                        </v:var>
+
+                                        <v:var name="DmaDoubleBufferFrozenNotification" type="FUNCTION-NAME">
+                                            <a:a name="DESC"
+                                              value="EN: Callback function for any buffer in the double buffering is frozen." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                              <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                              <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="OPTIONAL" value="true" />
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:da name="VISIBLE" value="true" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="cb31e611-9698-bfbf-2637-e7be80e5344c" />
+                                            <a:da name="DEFAULT" value="NULL_PTR" />
+                                            <a:da name="INVALID" type="XPath">
+                                              <a:tst expr="text:match(normalize-space(.),'^[_a-zA-Z]+[_0-9a-zA-Z]*$')"
+                                                false="Invalid name. Must be valid C function name or NULL_PTR." />
+                                            </a:da>
+                                        </v:var>
+                                    </v:ctr>
+                                </v:lst>
+
+                                <!-- Circular buffer configuration -->
+                                <v:lst name="DmaCircularBuffer" type="MAP">
+                                    <a:da name="MIN" value="0" />
+                                    <a:da name="MAX" value="254" />
+                                    <a:da name="EDITABLE" type="XPath" expr="as:modconf('Dma')[1]/DmaGeneral/DmaCircularBufferEnable = 'true'" />
+                                    <a:da name="INVALID" type="XPath" expr="(as:modconf('Dma')[1]/DmaGeneral/DmaCircularBufferEnable = 'true') and (num:i(count(./*)) = 0)" true="At least one circular buffer needs to be configured when DmaGeneral/DmaCircularBufferEnable = true."/>
+                                    <v:ctr name="DmaCircularBuffer" type="IDENTIFIABLE">
+                                        <a:a name="DESC" value="EN: This container contains the configuration parameters of the circular buffer.&lt;br/&gt;
+                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                            This parameter is available only if the parameter DmaCircularBufferEnable is set to true." />
+                                        <a:a name="REQUIRES-INDEX" value="true"/>
+                                        <a:a name="UUID" value="3b1e505c-65a1-11ee-9962-f889d2d2ec8e" />
+                                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                            <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                        </a:a>
+                                        <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                                        <v:var name="DmaCircularBufferId" type="INTEGER">
+                                            <a:a name="DESC" value="EN: Logical identifies for each circular buffer." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="a7ef8900-bef1-0623-702b-e691bdf085d0" />
+                                            <a:da name="DEFAULT" type="XPath" expr="node:fallback(node:current()/../@index, num:i(1))" />
+                                            <a:da name="INVALID" type="Range">
+                                                <a:tst expr="&lt;=254" />
+                                                <a:tst expr="&gt;=0" />
+                                            </a:da>
+                                            <a:da name="INVALID" type="XPath">
+                                                <a:tst expr="(node:fallback(., 0) &gt;= 0) and (node:fallback(., 0) &lt; num:i(count(node:fallback(node:current()/../../*, 1))))" 
+                                                    false="Value of DmaCircularBufferId is out of range: must be in range 0 to N-1 (N is number of configured all circualr buffer). Use the Calc button to calculate correct default value." />
+                                                <a:tst expr="text:uniq(node:fallback(../../*/DmaCircularBufferId, text:split('0')), node:fallback(., 1))" 
+                                                    false="Duplicated value, DmaCircularBufferId must be unique across this circular buffer list. Use the Calc button to calculate correct default value." />
+                                            </a:da>
+                                        </v:var>
+                                        
+                                        <v:var name="DmaSourceCircularBufferSize" type="ENUMERATION">
+                                            <a:a name="DESC" value="EN: Configure the circular size of the circular buffer for the source address." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="3f129164-65a1-11ee-86ad-f889d2d2ec8e" />
+                                            <a:da name="DEFAULT" type="XPath" expr="ecu:list('Dma.ChannelCircularBufferSize')[1]" />
+                                            <a:da name="RANGE" type="XPath" expr="ecu:list('Dma.ChannelCircularBufferSize')" />
+                                            <a:da name="INVALID" type="XPath">
+                                                <a:tst expr="(. = 'DMA_CBSIZE_NONE') and (../DmaDestinationCircularBufferSize = 'DMA_CBSIZE_NONE')" 
+                                                        true="EN: At least one of source or destination needs to use the circular buffer. Both DmaSourceCircularBufferSize and DmaDestinationCircularBufferSize being 'DMA_CBSIZE_NONE' is not allowed."/>
+                                            </a:da>
+                                        </v:var>
+
+                                        <v:var name="DmaDestinationCircularBufferSize" type="ENUMERATION">
+                                            <a:a name="DESC" value="EN: Configure the circular size of the circular buffer for the destination address." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="4263f802-65a1-11ee-b557-f889d2d2ec8e" />
+                                            <a:da name="DEFAULT" type="XPath" expr="ecu:list('Dma.ChannelCircularBufferSize')[1]" />
+                                            <a:da name="RANGE" type="XPath" expr="ecu:list('Dma.ChannelCircularBufferSize')" />
+                                            <a:da name="INVALID" type="XPath">
+                                                <a:tst expr="(. = 'DMA_CBSIZE_NONE') and (../DmaSourceCircularBufferSize = 'DMA_CBSIZE_NONE')" 
+                                                        true="EN: At least one of source or destination needs to use the circular buffer. Both DmaSourceCircularBufferSize and DmaDestinationCircularBufferSize being 'DMA_CBSIZE_NONE' is not allowed."/>
+                                            </a:da>
+                                        </v:var>
+
+                                        <v:var name="DmaDcbRollbackHaltEnable" type="BOOLEAN">
+                                            <a:a name="DESC" value="EN: Enables / Disables the destination circular buffer rollback halt functionablity for the circular buffer.&lt;br/&gt;" />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="OPTIONAL" value="true" />
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="b1b9a044-75f6-418f-6321-e6e30fa5cf85" />
+                                            <a:da name="DEFAULT" value="false" />
+                                            <a:da name="EDITABLE" type="XPath" expr="node:value(../DmaDestinationCircularBufferSize) != 'NONE'" />
+                                        </v:var>
+                                    </v:ctr>
+                                </v:lst>
+
+                                <!-- Pattern match configuration -->
+                                <v:lst name="DmaPattern" type="MAP">
+                                    <a:da name="MIN" value="0" />
+                                    <a:da name="MAX" value="254" />
+                                    <a:da name="EDITABLE" type="XPath" expr="as:modconf('Dma')[1]/DmaGeneral/DmaPatternEnable = 'true'" />
+                                    <a:da name="INVALID" type="XPath" expr="(as:modconf('Dma')[1]/DmaGeneral/DmaPatternEnable = 'true') and (num:i(count(./*)) = 0)" true="At least one data pattern match needs to be configured when DmaGeneral/DmaPatternEnable = true."/>
+                                    <v:ctr name="DmaPattern" type="IDENTIFIABLE">
+                                        <a:a name="DESC" value="EN: This container contains the configuration parameters of the pattern match.&lt;br/&gt;
+                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                            This parameter is available only if the parameter DmaPatternEnable is set to true." />
+                                        <a:a name="REQUIRES-INDEX" value="true"/>
+                                        <a:a name="UUID" value="45915ee8-65a1-11ee-a880-f889d2d2ec8e" />
+                                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                            <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                        </a:a>
+                                        <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                                        <v:var name="DmaPatternId" type="INTEGER">
+                                            <a:a name="DESC" value="EN: Logical identifies for each pattern." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="a7ef8900-befb-0623-702b-e691bdf085d0" />
+                                            <a:da name="DEFAULT" type="XPath" expr="node:fallback(node:current()/../@index, num:i(1))" />
+                                            <a:da name="INVALID" type="Range">
+                                                <a:tst expr="&lt;=254" />
+                                                <a:tst expr="&gt;=0" />
+                                            </a:da>
+                                            <a:da name="INVALID" type="XPath">
+                                                <a:tst expr="(node:fallback(., 0) &gt;= 0) and (node:fallback(., 0) &lt; num:i(count(node:fallback(node:current()/../../*, 1))))" 
+                                                    false="Value of DmaPatternId is out of range: must be in range 0 to N-1 (N is number of configured all pattern). Use the Calc button to calculate correct default value." />
+                                                <a:tst expr="text:uniq(node:fallback(../../*/DmaPatternId, text:split('0')), node:fallback(., 1))" 
+                                                    false="Duplicated value, DmaPatternId must be unique across this pattern. Use the Calc button to calculate correct default value." />
+                                            </a:da>
+                                        </v:var>
+
+                                        <v:var name="DmaPatternSize" type="ENUMERATION">
+                                            <a:a name="DESC" value="EN: Configure the data size for pattern matching." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="48318558-65a1-11ee-b7d2-f889d2d2ec8e" />
+                                            <a:da name="DEFAULT" type="XPath" expr="ecu:list('Dma.ChannelPatternSize')[1]" />
+                                            <a:da name="RANGE" type="XPath" expr="ecu:list('Dma.ChannelPatternSize')" />
+                                        </v:var>
+
+                                        <v:var name="DmaPatternData" type="INTEGER">
+                                            <a:da name="DESC" value="EN: Data for pattern matching." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                                            <a:da name="DEFAULT_RADIX" value="HEX"/>
+                                            <a:da name="DEFAULT" value="0"/>
+                                            <a:a name="UUID" value="4b0d5028-65a1-11ee-b622-f889d2d2ec8e"/>
+                                            <a:a name="ORIGIN" value="ChipowerTech"/>
+                                            <a:da name="INVALID" type="Range">
+                                                <a:tst expr="&lt;=0xFFFFFFFF"/>
+                                                <a:tst expr="&gt;=0x00"/>
+                                            </a:da>
+                                        </v:var>
+
+                                        <v:var name="DmaPatternDataMaskBits" type="INTEGER">
+                                            <a:da name="DESC" value="EN: Data mask bits of pattern matching." />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                                            <a:da name="DEFAULT_RADIX" value="HEX"/>
+                                            <a:da name="DEFAULT" value="0"/>
+                                            <a:a name="UUID" value="4dd63740-65a1-11ee-b7a0-f889d2d2ec8e"/>
+                                            <a:a name="OPTIONAL" value="true" />
+                                            <a:a name="ORIGIN" value="ChipowerTech"/>
+                                            <a:da name="INVALID" type="Range">
+                                                <a:tst expr="&lt;=0xFFFFFFFF"/>
+                                                <a:tst expr="&gt;=0x00"/>
+                                            </a:da>
+                                        </v:var>
+
+                                        <v:var name="DmaTransferStopPatternMatched" type="BOOLEAN">
+                                            <a:a name="DESC" value="EN: Whether to stop the current transfer when the data pattern matches successfully.&lt;br/&gt;
+                                                    true: Stop &lt;br/&gt;
+                                                    false: Not stop" />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                            <a:a name="UUID" value="5105aad8-65a1-11ee-a48c-f889d2d2ec8e" />
+                                            <a:a name="OPTIONAL" value="true" />
+                                            <a:da name="DEFAULT" value="false" />
+                                        </v:var>
+
+                                    </v:ctr>
+                                </v:lst>
+
+                                <!-- Daisy chain -->
+                                <v:lst name="DmaDaisyChain" type="MAP">
+                                    <a:da name="MIN" value="0" />
+                                    <a:da name="MAX" value="254" />
+                                    <a:da name="EDITABLE" type="XPath" expr="as:modconf('Dma')[1]/DmaGeneral/DmaDaisyChainEnable = 'true'" />
+                                    <a:da name="INVALID" type="XPath" expr="(as:modconf('Dma')[1]/DmaGeneral/DmaDaisyChainEnable = 'true') and (num:i(count(./*)) = 0)" true="At least one data pattern match needs to be configured when DmaGeneral/DmaDaisyChainEnable = true."/>
+                                    <v:ctr name="DmaDaisyChain" type="IDENTIFIABLE">
+                                        <a:a name="DESC" value="EN: This container contains the configuration parameters of the daisy chain.&lt;br/&gt;
+                                            &lt;h1&gt;Note&lt;/h1&gt;
+                                            This parameter is available only if the parameter DmaDaisyChainEnable is set to true." />
+                                        <a:a name="REQUIRES-INDEX" value="true"/>
+                                        <a:a name="UUID" value="3fa1e390-ce10-fc5d-9947-5a2e29f06eb3" />
+                                        <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                            <icc:v mclass="PreCompile">VariantPostBuild</icc:v>
+                                        </a:a>
+                                        <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false" />
+                                        <v:var name="DmaDaisyChainId" type="INTEGER">
+                                            <a:a name="DESC" value="EN: Logical identifies for each daisy chain&lt;br/&gt;
+                                                &lt;h1&gt;Note&lt;/h1&gt;
+                                                This parameter is only valid when DmaDaisyChainEnable = true" />
+                                            <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                            </a:a>
+                                            <a:a name="ORIGIN" value="ChipowerTech" />
+                                            <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                            <a:a name="SCOPE" value="LOCAL" />
+                                            <a:a name="SYMBOLICNAMEVALUE" value="true" />
+                                            <a:a name="UUID" value="2e849ab8-6c1f-fc98-b62c-1e7a51499ec4" />
+                                            <a:da name="DEFAULT" type="XPath" expr="node:fallback(node:current()/../@index, num:i(1))" />
+                                            <a:da name="INVALID" type="Range">
+                                                <a:tst expr="&lt;=65535" />
+                                                <a:tst expr="&gt;=0" />
+                                            </a:da>
+                                            <a:da name="INVALID" type="XPath">
+                                                <a:tst expr="(node:fallback( ., 0 ) &gt;= 0) and (node:fallback( ., 0 ) &lt; num:i(count(node:fallback( node:current()/../../*, 1 ))))" false="Value of DmaChannelId is out of range: must be in range 0 to N-1 (N is number of configured all channels of all HW units). Use the Calc button to calculate correct default value" />
+                                                <a:tst expr="text:uniq(node:fallback( ../../*/DmaChannelId, text:split('0') ), node:fallback( ., 1 ))" false="Duplicated value, DmaChannelId must be unique across all Dma HW units. Use the Calc button to calculate correct default value." />
+                                            </a:da>
+                                        </v:var>
+
+                                        <v:lst name="DmaDaisyChainAssignment">
+                                            <a:da name="MIN" value="2" />
+                                            <v:ref name="DmaDaisyChainAssignment" type="REFERENCE">
+                                                <a:a name="DESC" value="EN: Assignment of a channel configuration to this daisychain." />
+                                                <a:a name="REQUIRES-INDEX" value="true"/>
+                                                <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                                    <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                                    <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                                </a:a>
+                                                <a:a name="ORIGIN" value="ChipowerTech" />
+                                                <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                                <a:a name="POSTBUILDVARIANTVALUE" value="true" />
+                                                <a:a name="SCOPE" value="LOCAL" />
+                                                <a:a name="UUID" value="c2b7b66e-96a5-ab63-3253-ad33baa39793" />
+                                                <a:da name="REF" value="ASPathDataOfSchema:/THA6_AS440_FuSa/Dma/DmaConfigSet/DmaChannel" />
+                                                <a:da name="INVALID" type="XPath">
+                                                    <a:tst expr=".=''" true="Select a channel as a member for the this daisy chain." />
+                                                    <a:tst expr="node:refvalid(.)" false="Invalid or empty reference." />
+                                                    <a:tst expr="text:uniq(node:fallback(../*,text:split('')),node:fallback(.,text:split('')))" 
+                                                            false="Duplicate DmaDaisyChainAssignment element, the assignment channel transfer must be unique." />
+                                                    <a:tst expr="node:foreach(node:refs(../*)/DmaChannelHwUnitAllocation, 'HwUnit', '$HwUnit = node:value(node:ref(../*[1])/DmaChannelHwUnitAllocation)')[num:i(node:current()/@index + 1)]" 
+                                                            false="The hardware units must be the same - all channels in a daisy chain must be from the same hardware unit." />
+                                                    <a:tst expr="(@index != 0) and (num:i(node:ref(.)/DmaPhyChannel) != num:i(node:value(node:ref(../*[num:i(node:current()/@index)])/DmaPhyChannel) + 1))" 
+                                                            true="The physical channels must be contiguous. The physical channel of the current member is not contiguous with that of the previous member." />
+                                                </a:da>
+                                            </v:ref>
+                                        </v:lst>
+                                    </v:ctr>
+                                </v:lst>
+
+                                <v:lst name="DmaUserHeaderFile">
+                                    <v:var name="DmaUserHeaderFile" type="STRING">
+                                      <a:a name="DESC" value="EN: Header file name which will be included by the Dma. 
+                                        The value of this parameter shall be used as h-char-sequence or q-char-sequence according to ISO C90 section 6.10.2 
+                                        &quot;source file inclusion&quot;. The parameter value MUST NOT represent a path, 
+                                        since ISO C90 does not specify how such a path is treated (i.e., this is implementation defined 
+                                        (and additionally depends on the operating system and the underlying file system))." />
+                                      <a:a name="REQUIRES-INDEX" value="true"/>
+                                      <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PostBuild">VariantPostBuild</icc:v>
+                                        <icc:v mclass="PostBuild">VariantPostBuild</icc:v>
+                                      </a:a>
+                                      <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true" />
+                                      <a:a name="POSTBUILDVARIANTVALUE" value="true"/>
+                                      <a:a name="ORIGIN" value="ChipowerTech" />
+                                      <a:a name="SCOPE" value="LOCAL" />
+                                      <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                      <a:a name="UUID" value="56a9334c-65a1-11ee-8ad7-f889d2d2ec8e" />
+                                    </v:var>
+                                  </v:lst>
+
+                            </v:ctr>
+                            <v:ctr name="CommonPublishedInformation" type="IDENTIFIABLE">
+                                <a:a name="DESC">
+                                    <a:v>
+                                        <![CDATA[EN:<html> Common container, aggregated by all modules. It contains published information about vendor and versions.</html>]]>
+                                    </a:v>
+                                </a:a>
+                                <a:a name="UUID" value="5b1260f0-65a1-11ee-815c-f889d2d2ec8e" />
+
+                                <v:var name="ArReleaseMajorVersion" type="INTEGER">
+                                    <a:a name="DESC">
+                                        <a:v>
+                                            <![CDATA[EN:<html> Major version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]>
+                                        </a:v>
+                                    </a:a>
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="5d2b889c-65a1-11ee-a207-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="4" />
+                                    <a:da name="INVALID" type="Range">
+                                        <a:tst expr="&lt;=255" />
+                                        <a:tst expr="&gt;=0" />
+                                    </a:da>
+                                </v:var>
+
+                                <v:var name="ArReleaseMinorVersion" type="INTEGER">
+                                    <a:a name="DESC">
+                                        <a:v>
+                                            <![CDATA[EN:<html> Minor version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]>
+                                        </a:v>
+                                    </a:a>
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="61dc8c02-65a1-11ee-9056-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="4" />
+                                    <a:da name="INVALID" type="Range">
+                                        <a:tst expr="&lt;=255" />
+                                        <a:tst expr="&gt;=0" />
+                                    </a:da>
+                                </v:var>
+
+                                <v:var name="ArReleaseRevisionVersion" type="INTEGER">
+                                    <a:a name="DESC">
+                                        <a:v>
+                                            <![CDATA[EN:<html> Revision version number of AUTOSAR specification on which the appropriate implementation is based on.</html>]]>
+                                        </a:v>
+                                    </a:a>
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="643435f8-65a1-11ee-bca3-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="0" />
+                                    <a:da name="INVALID" type="Range">
+                                        <a:tst expr="&lt;=255" />
+                                        <a:tst expr="&gt;=0" />
+                                    </a:da>
+                                </v:var>
+
+                                <v:var name="ModuleId" type="INTEGER">
+                                    <a:a name="DESC">
+                                        <a:v>
+                                            <![CDATA[EN:<html> Module ID of this module from Module List.</html>]]>
+                                        </a:v>
+                                    </a:a>
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="6761a4ae-65a1-11ee-b7ea-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="255" />
+                                    <a:da name="INVALID" type="Range">
+                                        <a:tst expr="&lt;=255" />
+                                        <a:tst expr="&gt;=0" />
+                                    </a:da>
+                                </v:var>
+
+                                <v:var name="SwMajorVersion" type="INTEGER">
+                                    <a:a name="DESC">
+                                        <a:v>
+                                            <![CDATA[EN:<html> Major version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]>
+                                        </a:v>
+                                    </a:a>
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="6c69d74c-65a1-11ee-a35b-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="1" />
+                                    <a:da name="INVALID" type="Range">
+                                        <a:tst expr="&lt;=255" />
+                                        <a:tst expr="&gt;=0" />
+                                    </a:da>
+                                </v:var>
+
+                                <v:var name="SwMinorVersion" type="INTEGER">
+                                    <a:a name="DESC">
+                                        <a:v>
+                                            <![CDATA[EN:<html> Minor version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]>
+                                        </a:v>
+                                    </a:a>
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="6fe34410-65a1-11ee-a2c0-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="2" />
+                                    <a:da name="INVALID" type="Range">
+                                        <a:tst expr="&lt;=255" />
+                                        <a:tst expr="&gt;=0" />
+                                    </a:da>
+                                </v:var>
+
+                                <v:var name="SwPatchVersion" type="INTEGER">
+                                    <a:a name="DESC">
+                                        <a:v>
+                                            <![CDATA[EN:<html> Patch level version number of the vendor specific implementation of the module. The numbering is vendor specific.</html>]]>
+                                        </a:v>
+                                    </a:a>
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="73c0a2ca-65a1-11ee-b25a-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="0" />
+                                    <a:da name="INVALID" type="Range">
+                                        <a:tst expr="&lt;=255" />
+                                        <a:tst expr="&gt;=0" />
+                                    </a:da>
+                                </v:var>
+                                <v:var name="VendorId" type="INTEGER">
+                                    <a:a name="DESC">
+                                        <a:v>
+                                            <![CDATA[EN:<html> Vendor ID of the dedicated implementation of this module according to the AUTOSAR vendor list.</html>]]>
+                                        </a:v>
+                                    </a:a>
+                                    <a:a name="IMPLEMENTATIONCONFIGCLASS" type="IMPLEMENTATIONCONFIGCLASS">
+                                        <icc:v vclass="PublishedInformation">VariantPostBuild</icc:v>
+                                    </a:a>
+                                    <a:a name="ORIGIN" value="ChipowerTech" />
+                                    <a:a name="SCOPE" value="LOCAL" />
+                                    <a:a name="SYMBOLICNAMEVALUE" value="false" />
+                                    <a:a name="UUID" value="75e40e3a-65a1-11ee-9254-f889d2d2ec8e" />
+                                    <a:da name="DEFAULT" value="175" />
+                                    <a:da name="INVALID" type="Range">
+                                        <a:tst expr="&lt;=175" />
+                                        <a:tst expr="&gt;=175" />
+                                    </a:da>
+                                </v:var>
+                            </v:ctr>
+                        </v:ctr>
+                    </d:chc>
+                    <d:chc name="Dma_EcuParameterDefinition" type="AR-ELEMENT" value="ECU_PARAMETER_DEFINITION">
+                        <d:ctr type="AR-ELEMENT">
+                            <a:a name="DEF" value="ASPath:/AR_PACKAGE_SCHEMA/ECU_PARAMETER_DEFINITION" />
+                            <a:a name="UUID" value="0e39b7b2-592d-e086-07a6-ee57d7e4f073" />
+                            <d:lst name="MODULE_REF">
+                                <d:ref type="MODULE_REF" value="ASPath:/THA6_AS440_FuSa/Dma" />
+                            </d:lst>
+                        </d:ctr>
+                    </d:chc>
+                </d:lst>
+            </d:ctr>
+        </d:lst>
+    </d:ctr>
+</datamodel>

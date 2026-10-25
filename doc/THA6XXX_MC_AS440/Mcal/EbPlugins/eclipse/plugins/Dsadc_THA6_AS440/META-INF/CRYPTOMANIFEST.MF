@@ -1,0 +1,36 @@
+
+Name: generate_PB/Dsadc_Cfg_Common.m
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 28964594773965697164795819893575347381859636354053293243344
+ 948672567257585586064436464074031243660142286259972862
+
+Name: generate_PB/include/Dsadc_PBcfg.h
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377421145715457901274015054101263215672263024068150307
+ 1138126114656720689388149813981694981806638440761650
+
+Name: config/Dsadc.xdm
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 28964594773969980284073481765769367538550934838228081257012
+ 319056818875009330999472640827943757808110185384140429
+
+Name: generate_PB/src/Dsadc_PBcfg.c
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377422550732964084727995679856597307147948595095290715
+ 8828717959494186793059756446471969436184534915589624
+
+Name: generate_PB/include/Dsadc_Cfg.h
+SignatureKeyID: Chipower
+SignatureKeyProviderID: dreisoft.tresos.launcher2.CryptoKeyProvider
+SignatureAlgorithmID: DSA
+Signature: 11313377425687170504245013942841034507472555117515019921890
+ 5081201287067416202311506538583691612828001683377579
+
