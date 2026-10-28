@@ -2,7 +2,7 @@ metadata:
   name: "CAN FD High Speed"
   module: "Can"
   category: "Communication"
-  description: "CAN FD configuration with high speed data phase"
+  description: "CAN FD controller configuration, interrupt mode (baudrates are set in the CanControllerBaudrateConfig sub-container)"
   version: "1.0"
   author: "AUTOSAR Configurator"
   tags: ["can", "canfd", "communication", "high-speed"]
@@ -19,35 +19,21 @@ parameters:
       min: 0
       max: 7
 
-    - name: "CanControllerDefaultBaudrate"
-      display_name: "Arbitration Baudrate"
-      type: "integer"
-      default: 500000
-      min: 125000
-      max: 1000000
-      description: "Baudrate for arbitration phase"
 
-    - name: "CanControllerFdBaudRate"
-      display_name: "Data Phase Baudrate"
-      type: "integer"
-      default: 2000000
-      min: 1000000
-      max: 8000000
-      description: "Baudrate for data phase (CAN FD)"
 
-    - name: "CanControllerRxProcessing"
+    - name: "CanRxProcessing"
       display_name: "RX Processing"
       type: "enumeration"
       default: "INTERRUPT"
-      options: ["POLLING", "INTERRUPT"]
+      options: ["POLLING", "INTERRUPT", "MIXED"]
 
-    - name: "CanControllerTxProcessing"
+    - name: "CanTxProcessing"
       display_name: "TX Processing"
       type: "enumeration"
       default: "INTERRUPT"
-      options: ["POLLING", "INTERRUPT"]
+      options: ["POLLING", "INTERRUPT", "MIXED"]
 
   fixed:
     CanControllerActivation: true
-    CanControllerFdBaudrateConfig: true
-    CanControllerBusoffProcessing: "INTERRUPT"
+    CanFDSupport: true
+    CanBusoffProcessing: "INTERRUPT"

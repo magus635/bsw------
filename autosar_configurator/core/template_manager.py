@@ -158,18 +158,9 @@ class TemplateManager:
             name="CAN 500kbps Standard",
             module="Can",
             category="Communication",
-            description="Standard CAN configuration at 500kbps",
+            description="Standard CAN configuration, polling mode (baudrate is set in CanControllerBaudrateConfig)",
             container_def="CanConfigSet/CanController",
             adjustable_params=[
-                TemplateParameter(
-                    name="CanControllerDefaultBaudrate",
-                    display_name="Baudrate (bps)",
-                    param_type="integer",
-                    default_value=500000,
-                    min_value=10000,
-                    max_value=1000000,
-                    description="CAN bus baudrate in bits per second"
-                ),
                 TemplateParameter(
                     name="CanControllerId",
                     display_name="Controller ID",
@@ -182,8 +173,8 @@ class TemplateManager:
             ],
             fixed_params={
                 "CanControllerActivation": True,
-                "CanControllerRxProcessing": "POLLING",
-                "CanControllerTxProcessing": "POLLING",
+                "CanRxProcessing": "POLLING",
+                "CanTxProcessing": "POLLING",
             },
             tags=["can", "communication", "standard"]
         )
@@ -194,17 +185,9 @@ class TemplateManager:
             name="CAN 1Mbps High Speed",
             module="Can",
             category="Communication",
-            description="High speed CAN configuration at 1Mbps",
+            description="High speed CAN configuration, interrupt mode (baudrate is set in CanControllerBaudrateConfig)",
             container_def="CanConfigSet/CanController",
             adjustable_params=[
-                TemplateParameter(
-                    name="CanControllerDefaultBaudrate",
-                    display_name="Baudrate (bps)",
-                    param_type="integer",
-                    default_value=1000000,
-                    min_value=500000,
-                    max_value=1000000,
-                ),
                 TemplateParameter(
                     name="CanControllerId",
                     display_name="Controller ID",
@@ -216,8 +199,8 @@ class TemplateManager:
             ],
             fixed_params={
                 "CanControllerActivation": True,
-                "CanControllerRxProcessing": "INTERRUPT",
-                "CanControllerTxProcessing": "INTERRUPT",
+                "CanRxProcessing": "INTERRUPT",
+                "CanTxProcessing": "INTERRUPT",
             },
             tags=["can", "communication", "high-speed"]
         )
@@ -267,11 +250,11 @@ class TemplateManager:
             module="Adc",
             category="Analog",
             description="Single ADC channel configuration",
-            container_def="AdcConfigSet/AdcHwUnit/AdcGroup/AdcGroupDefinition",
+            container_def="AdcConfigSet/AdcHwUnit/AdcGroup",
             adjustable_params=[
                 TemplateParameter(
-                    name="AdcChannelId",
-                    display_name="Channel ID",
+                    name="AdcGroupId",
+                    display_name="Group ID",
                     param_type="integer",
                     default_value=0,
                     min_value=0,

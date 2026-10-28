@@ -38,8 +38,8 @@ parameters:
     - name: "SpiTransferStart"
       display_name: "Transfer Start"
       type: "enumeration"
-      default: "SPI_TRANSFER_START_MSB"
-      options: ["SPI_TRANSFER_START_MSB", "SPI_TRANSFER_START_LSB"]
+      default: "MSB"
+      options: ["MSB", "LSB"]
       description: "Bit order for transfer"
 
   fixed:

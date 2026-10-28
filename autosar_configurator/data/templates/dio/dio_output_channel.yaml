@@ -20,12 +20,4 @@ parameters:
       max: 255
       description: "Unique DIO channel identifier"
 
-    - name: "DioChannelInitValue"
-      display_name: "Initial Value"
-      type: "enumeration"
-      default: "STD_LOW"
-      options: ["STD_LOW", "STD_HIGH"]
-      description: "Initial channel value"
 
-  fixed:
-    DioChannelDirection: "DIO_OUTPUT"

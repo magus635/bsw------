@@ -19,5 +19,3 @@ parameters:
       min: 0
       max: 255
 
-  fixed:
-    DioChannelDirection: "DIO_INPUT"

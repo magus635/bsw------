@@ -20,11 +20,11 @@ parameters:
       max: 255
       description: "Hardware pin identifier"
 
-    - name: "PortPinPullUpDown"
+    - name: "PortPinPullMode"
       display_name: "Pull Up/Down"
       type: "enumeration"
-      default: "PORT_PIN_PULL_NONE"
-      options: ["PORT_PIN_PULL_NONE", "PORT_PIN_PULL_UP", "PORT_PIN_PULL_DOWN"]
+      default: "PORT_INPUTMODE_NONE"
+      options: ["PORT_INPUTMODE_NONE", "PORT_INPUTMODE_PULLUP", "PORT_INPUTMODE_PULLDOWN"]
       description: "Internal pull resistor configuration"
 
   fixed:
