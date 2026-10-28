@@ -18,12 +18,12 @@ The Port mapping SHALL NOT set `PortPinInitialMode`, so that each pin keeps the 
 - **WHEN** pin `P10_13` of THA6412 is mapped
 - **THEN** its container is created with `PortPinId` 173 and no action sets `PortPinInitialMode`
 
-### Requirement: Port Page Offers No Default Mode
-The hardware mapping wizard's Port page SHALL NOT offer a default pin mode, because the mapping sets no pin mode.
+### Requirement: Port Page Offers No Inoperative Options
+The hardware mapping wizard's Port page SHALL NOT offer a default pin mode or a default pin direction, because the mapping applies neither.
 
 #### Scenario: Options of the Port page
 - **WHEN** the options of the Port rule's page are listed
-- **THEN** they do not include a default mode
+- **THEN** they include neither a default mode nor a default direction
 
 ### Requirement: Port Configuration Templates Do Not Set PortPinMode
 The GPIO input and GPIO output configuration templates of the Port module SHALL NOT set `PortPinMode`, neither as a fixed nor as an adjustable parameter.

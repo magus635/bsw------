@@ -41,32 +41,7 @@ containers:
                 - "PORT_PIN_LEVEL_LOW"
                 - "PORT_PIN_LEVEL_HIGH"
 
-          - name: "PortPinMode"
-            default: "PORT_PIN_MODE_GPIO"
-            ui_type: "combo"
-            ui_options:
-              options:
-                - "PORT_PIN_MODE_GPIO"
-                - "PORT_PIN_MODE_ALT1"
-                - "PORT_PIN_MODE_ALT2"
-                - "PORT_PIN_MODE_ALT3"
-
 ui_config:
   title: "GPIO Ports"
   layout: "list_with_options"
   list_field: "resource"
-  options:
-    - name: "default_direction"
-      label: "Default Direction"
-      type: "combo"
-      options:
-        - "PORT_PIN_IN"
-        - "PORT_PIN_OUT"
-      default: "PORT_PIN_IN"
-    - name: "default_mode"
-      label: "Default Mode"
-      type: "combo"
-      options:
-        - "PORT_PIN_MODE_GPIO"
-        - "PORT_PIN_MODE_ALT1"
-      default: "PORT_PIN_MODE_GPIO"

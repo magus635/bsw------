@@ -31,4 +31,3 @@ parameters:
     PortPinDirection: "PORT_PIN_IN"
     PortPinDirectionChangeable: false
     PortPinModeChangeable: false
-    PortPinMode: "PORT_PIN_MODE_GPIO"

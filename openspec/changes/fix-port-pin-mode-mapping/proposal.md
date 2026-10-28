@@ -23,7 +23,7 @@ Port 的硬件映射规则 `port.yaml` 给每个引脚写一个 `PortPinMode` �
 
 - **Port 规则不再写 `PortPinMode`**：厂商默认值 `PORT_PIN_MODE_ALL` 生效。
 - **不写 `PortPinInitialMode`**：引脚保留定义的默认值 `GPIO`；每个引脚可选的功能由配置界面按厂商定义给出。理由见 design.md。
-- **向导 Port 页去掉"Default Mode"选项**；"Default Direction"同样没有作用，但处理它需要按端口区分只读端口，不在本变更内（见 design.md）。
+- **向导 Port 页去掉"Default Mode"和"Default Direction"两个选项**：两者都被 `_option_*` 过滤丢弃，没有作用。
 - **两个 Port 配置模板去掉 `PortPinMode`**。
 - **新增对照测试**：把 `port.yaml` 写的每个参数和取值与厂商 Port 定义对照，参数必须存在，定义列出了取值的枚举，值必须在其中。
 
@@ -41,6 +41,6 @@ Port 的硬件映射规则 `port.yaml` 给每个引脚写一个 `PortPinMode` �
   - 已经生成并保存的配置不会被自动改动，里面如果已有 `PORT_PIN_MODE_GPIO`，需要自行处理；
   - 两个配置模板的参数少了 `PortPinMode`。
 - **不在本变更范围内**：
-  - "Default Direction"选项没有作用的问题；
+  - 让引脚默认方向按端口生效（只读端口不能是输出，需要另做）；
   - 配置模板里其他与厂商定义不一致的参数名（例如输入模板的 `PortPinPullUpDown`，厂商定义里是 `PortPinPullMode`）；
   - 在引脚表里区分输出功能与输入功能，并据此在映射里设置 `PortPinInitialMode`。

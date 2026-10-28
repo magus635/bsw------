@@ -879,11 +879,6 @@ Hardware Mapping 向导采用**数据驱动的动态 UI 生成**机制，界面�
 │ │ ☐ Port D (16 pins)                                          │ │
 │ │ ☐ Port E (16 pins)                                          │ │
 │ └─────────────────────────────────────────────────────────────┘ │
-│                                                                  │
-│ ┌─Options─────────────────────────────────────────────────────┐ │
-│ │ Default Direction: [PORT_PIN_IN ▼]                          │ │
-│ │ Default Mode:      [PORT_PIN_MODE_GPIO ▼]                   │ │
-│ └─────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -1011,9 +1006,7 @@ user_configs = {
     },
     "Port": {
         "PORT_A": {"enable": True},
-        "PORT_B": {"enable": True},
-        "_option_default_direction": "PORT_PIN_IN",
-        "_option_default_mode": "PORT_PIN_MODE_GPIO"
+        "PORT_B": {"enable": True}
     }
 }
 ```
@@ -1116,21 +1109,11 @@ containers:
             ui_options:
               options: ["PORT_PIN_IN", "PORT_PIN_OUT", "PORT_PIN_INOUT"]
 
-          - name: "PortPinMode"
-            default: "PORT_PIN_MODE_GPIO"
-            ui_type: "combo"
-            ui_options:
-              options: ["PORT_PIN_MODE_GPIO", "PORT_PIN_MODE_ALT1", "PORT_PIN_MODE_ALT2"]
 
 ui_config:
   title: "GPIO Ports"
   layout: "list_with_options"
   list_field: "resource"
-  options:
-    - {name: "default_direction", label: "Default Direction", type: "combo",
-       options: ["PORT_PIN_IN", "PORT_PIN_OUT"]}
-    - {name: "default_mode", label: "Default Mode", type: "combo",
-       options: ["PORT_PIN_MODE_GPIO"]}
 ```
 
 ### 7.4 Adc模块规则

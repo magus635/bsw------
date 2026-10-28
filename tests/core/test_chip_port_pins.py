@@ -170,3 +170,11 @@ def test_demo_pin_table_warns_without_blocking():
 
 def test_no_warning_without_port_data():
     assert pin_table_differences(ChipDefinition(name="C", ports={"PORT_A": []})) == []
+
+
+def test_port_mapping_sets_no_pin_mode_and_keeps_pin_ids():
+    chip = _builtin("THA6412_BGA516")
+    port = _actions(chip, "Port")
+    assert not any("PortPinMode" in a or "PortPinInitialMode" in a for a in port)
+    create = "PortConfigSet/PortContainer_P10/PortPin_P10_13"
+    assert _value_after(port, create, "PortPinId").endswith("= 173")

@@ -28,7 +28,7 @@
   
   要在映射里设置初始功能，需要引脚表分别保存输出功能和输入功能，这会改动芯片 YAML 的格式、校验和、设计器的引脚表和引脚表导入，代价大于收益，留作以后的变更。
 - **也不写 `PortPinMode = PORT_PIN_MODE_ALL`。** 它是定义的默认值，而且不可编辑，写入没有任何作用。
-- **去掉"Default Mode"，保留"Default Direction"。** "Default Mode"是为 `PortPinMode` 准备的，参数没了它就没有意义。"Default Direction"同样没有作用（`_option_*` 键被丢弃），但如果让它生效，会给只读端口写 `PORT_PIN_OUT`，而定义明确把这种组合判为无效（`Port.xdm` 中 `PortPinDirection` 的 INVALID 条件）。要让它生效，映射必须按端口区分只读端口，这是单独的功能，不放进这次修正。
+- **"Default Mode"和"Default Direction"都去掉。** "Default Mode"是为 `PortPinMode` 准备的，参数没了它就没有意义。"Default Direction"同样没有作用（`_option_*` 键被丢弃）；让它生效会给只读端口写 `PORT_PIN_OUT`，而定义把这种组合判为无效（`Port.xdm` 中 `PortPinDirection` 的 INVALID 条件），要先按端口区分只读端口，是单独的功能。留一个不起作用的选项会误导用户，所以一并去掉；以后做按端口的默认方向时再加回来。
 - **对照测试用 `EcucDefParser.parse_module_def_file` 读 `Port.xdm`**，与 `test_chip_single_source.py` 读 `Resource.xdm` 的做法一致，不新增解析代码。
   - 对规则里的每个参数检查它在定义中存在，并且在定义列出了取值时，值在其中；
   - 容器名按规则里 `path_template` 的最后一段区分（`PortContainer`、`PortPin`）；
@@ -39,7 +39,7 @@
 ## Risks / Trade-offs
 
 - 已保存的配置里如果有 `PORT_PIN_MODE_GPIO`，本变更不会改动它。没有验证过配置界面对这种值的处理（定义里这个参数不可编辑）。
-- 取消"Default Mode"后，向导 Port 页少一个下拉框。它本来就不起作用，所以用户看到的结果没有变化。
+- 取消两个选项后，向导 Port 页少两个下拉框（如果页面因此没有别的选项，需确认页面仍能正常显示）。它们本来就不起作用，所以映射结果没有变化。
 - 本变更之后，Port 映射仍然不替用户选引脚功能：这是有意的，选择在配置界面里完成。
 
 ## Migration Plan
@@ -48,5 +48,4 @@
 
 ## Open Questions
 
-- "Default Direction"是删掉，还是按端口区分只读端口后让它生效？
 - 两个配置模板里还有哪些参数名与厂商定义不一致，是否值得单独做一次对齐？
