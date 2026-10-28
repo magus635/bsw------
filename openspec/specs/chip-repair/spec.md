@@ -178,8 +178,7 @@ The save step SHALL require a source text and an author, prefill the next versio
 - **THEN** the chip is saved with a backup and a history entry and the library returns the repaired chip
 
 ### Requirement: Repair Entry Points
-The application SHALL open the repair wizard from the main window menu with the project's chip preselected, from the chip definition designer for the chip being edited, from Project Properties for a chip whose data is incomplete, and from the chip pages of the new-project and hardware-mapping wizards for the chosen chip of the library. After a repair, the project's chip constraints SHALL be refreshed, and when the project keeps its own copy of the repaired chip the user SHALL be told to use "Update from Library".
-
+The application SHALL open the repair wizard from the main window menu (project's chip preselected), from the chip definition designer, from Project Properties for a chip with incomplete data, and from the chip pages of the new-project and hardware-mapping wizards. After a repair the project's chip constraints SHALL be refreshed, and when the project keeps its own copy of the chip the user SHALL be told to use "Update from Library".
 #### Scenario: From Project Properties
 - **WHEN** the selected chip is shown as `<name>（资料不完整）` and the user clicks "修复…"
 - **THEN** the wizard opens with that chip selected
