@@ -89,6 +89,12 @@ class ChipSelectionPage(WizardPage):
         new_chip_btn.clicked.connect(self._create_new_chip)
         chip_select_layout.addWidget(new_chip_btn)
 
+        self.repair_btn = QPushButton("🔧 Repair...")
+        self.repair_btn.setToolTip("Repair or supplement the chosen chip of the library in the chip repair wizard")
+        self.repair_btn.setEnabled(False)
+        self.repair_btn.clicked.connect(self._repair_chip)
+        chip_select_layout.addWidget(self.repair_btn)
+
         chip_layout.addLayout(chip_select_layout)
         chip_group.setLayout(chip_layout)
         self.layout.addWidget(chip_group)
@@ -157,6 +163,35 @@ class ChipSelectionPage(WizardPage):
             chip = chip_for_project(probe, probe.chip_database)[1]
             if chip is not None:
                 self.chip_database.register_chip(chip)
+
+    def _chip_library(self) -> ChipDatabase:
+        from ...core.hardware.chip_database import get_default_chip_database
+
+        return getattr(self.project, "chip_database", None) or get_default_chip_database()
+
+    def _repair_chip(self):
+        """Repair the chosen chip of the library in the repair wizard, then reload the list."""
+        from PySide6.QtWidgets import QMessageBox
+
+        from .chip_repair_wizard import ChipRepairWizard, project_copy_notice
+
+        name = self.chip_combo.currentData()
+        if not name:
+            return
+        library = self._chip_library()
+        wizard = ChipRepairWizard(library, name, self.project, parent=self.wizard() or self)
+        repaired = []
+        wizard.chip_repaired.connect(repaired.append)
+        wizard.exec()
+        if not repaired:
+            return
+        self._populate_chips()
+        index = self.chip_combo.findData(name)
+        if index >= 0:
+            self.chip_combo.setCurrentIndex(index)
+        notice = project_copy_notice(self.project, library, name) if self.project is not None else ""
+        if notice:
+            QMessageBox.information(self, "Chip repaired", notice)
 
     def _detect_chip(self):
         """Try to detect chip from project"""
@@ -251,6 +286,7 @@ class ChipSelectionPage(WizardPage):
         """Handle chip selection change"""
         chip_name = self.chip_combo.currentData()
         self.selected_chip = self._generic_chips.get(chip_name) if chip_name else None
+        self.repair_btn.setEnabled(bool(chip_name) and self._chip_library().get_chip(chip_name) is not None)
 
         if self.selected_chip:
             info = f"<b>{self.selected_chip.name}</b><br><br>"

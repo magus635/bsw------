@@ -163,6 +163,12 @@ class ChipSelectionPage(QWizardPage):
         new_btn.clicked.connect(self._on_create_new_chip)
         btn_layout.addWidget(new_btn)
 
+        self.repair_btn = QPushButton("🔧 修复所选…")
+        self.repair_btn.setToolTip("在芯片修复向导中修复或补充芯片库里所选的芯片")
+        self.repair_btn.setEnabled(False)
+        self.repair_btn.clicked.connect(self._on_repair_chip)
+        btn_layout.addWidget(self.repair_btn)
+
         left_layout.addLayout(btn_layout)
         splitter.addWidget(left_widget)
 
@@ -220,19 +226,40 @@ class ChipSelectionPage(QWizardPage):
         if not current:
             self._selected_chip_name = None
             self.chip_info.clear()
+            self.repair_btn.setEnabled(False)
             self.completeChanged.emit()
             return
 
         chip_name = current.data(Qt.UserRole)
         if not chip_name:
+            self.repair_btn.setEnabled(False)
             return
 
         self._selected_chip_name = chip_name
+        self.repair_btn.setEnabled(self.chip_database.get_chip(chip_name) is not None)
         chip = self.chip_database.get_chip(chip_name)
         if chip:
             self._show_chip_info(chip)
 
         self.completeChanged.emit()
+
+    def _on_repair_chip(self):
+        """Repair the selected chip in the repair wizard, then show the saved chip."""
+        from .chip_repair_wizard import ChipRepairWizard
+
+        name = self._selected_chip_name
+        if not name:
+            return
+        wizard = ChipRepairWizard(self.chip_database, name, None, parent=self)
+        repaired = []
+        wizard.chip_repaired.connect(repaired.append)
+        wizard.exec()
+        if repaired:
+            self._populate_chip_list()
+            for row in range(self.chip_list.count()):
+                if self.chip_list.item(row).data(Qt.UserRole) == name:
+                    self.chip_list.setCurrentRow(row)
+                    break
 
     def _show_chip_info(self, chip: ChipDefinition):
         """Display chip summary in info panel"""

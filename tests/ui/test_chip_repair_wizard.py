@@ -356,3 +356,39 @@ def test_project_properties_repair_button(monkeypatch, qtbot, tmp_path, library,
     assert dialog.chip_combo.currentText() == "C"            # no longer incomplete
     assert dialog.repair_chip_btn.isHidden()
     assert notices == []                                      # the project has no copy of C
+
+
+# --- entries in the new-project and hardware-mapping wizards -------------------------
+
+def test_new_project_wizard_repair_button(qtbot, library, messages, opened):
+    from PySide6.QtCore import Qt
+    from autosar_configurator.ui.wizards.new_project_wizard import ChipSelectionPage
+
+    page = ChipSelectionPage(library)
+    qtbot.addWidget(page)
+    assert not page.repair_btn.isEnabled()                      # nothing selected
+    page.chip_list.setCurrentRow(next(r for r in range(page.chip_list.count())
+                                      if page.chip_list.item(r).data(Qt.UserRole) == "C"))
+    assert page.repair_btn.isEnabled()
+
+    opened["repair"] = True
+    page.repair_btn.click()
+    assert opened["wizards"][-1].initial_chip == "C"
+    assert page.chip_list.currentItem().data(Qt.UserRole) == "C"      # still selected after the repair
+    assert "ports" not in (library.get_chip("C").metadata.get("unconfirmed") or {})
+
+
+def test_hardware_mapping_wizard_repair_button(qtbot, tmp_path, library, messages, opened):
+    from autosar_configurator.ui.wizards.hardware_mapping_wizard import ChipSelectionPage
+
+    project = _project(tmp_path, library, chip="C")
+    page = ChipSelectionPage(library, None, project)
+    qtbot.addWidget(page)
+    assert page.chip_combo.currentData() == "C" and page.repair_btn.isEnabled()
+
+    opened["repair"] = True
+    page.repair_btn.click()
+    wizard = opened["wizards"][-1]
+    assert wizard.initial_chip == "C" and wizard.project is project
+    assert page.chip_combo.currentData() == "C"
+    assert library.get_chip("C").resource_version != "1.0.0"
