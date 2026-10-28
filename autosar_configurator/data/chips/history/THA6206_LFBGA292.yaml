@@ -1,0 +1,16 @@
+chip: THA6206_LFBGA292
+entries:
+- date: '2026-10-28'
+  author: Claude Code
+  source: ecu_resources.Port (add-chip-ports-from-ecu-resources)
+  note: 引脚表由示例数据改为从 Port ECU 资源推导
+  resource_version: {old: 1.0.0, new: 1.0.1}
+  base_modified_outside: false
+  ecu_resources:
+    added: []
+    changed: []
+    removed: []
+  views: {resources: unchanged, metadata.cores: unchanged, ports: 'updated: 17 个端口，引脚 48→146'}
+  confirmed: []
+  marked: []
+  checksum: sha256:87aa0c207fee4fc86091034e4106b17ead6cfff3334024968d7f8c72e55b848f

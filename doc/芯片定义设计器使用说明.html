@@ -564,7 +564,9 @@ footer.colophon p + p { margin-top: 4px; }
           <li><span class="ui">➕ 添加引脚 (Add Pin)</span> 和 <span class="ui">➖ 删除选中 (Delete)</span> 逐行编辑。“端口过滤”只显示某个端口，右侧统计端口数和引脚数。</li>
           <li>表格有五列：端口、引脚号、引脚名称、默认方向、复用功能。复用功能用逗号分隔，带模式号时写成 <code>2:CAN0_TX</code>。</li>
           <li>同一端口下重复的引脚号会标红，保存时被拦下。引脚表为空时保存会再问一次。</li>
-          <li>每个端口会变成一个 <code>gpio_port</code>，每个引脚变成一个 <code>gpio_pin</code>，供 Port 和 Dio 模块的硬件映射使用。</li>
+          <li><span class="ui">🔄 从 ECU 资源生成引脚表</span> 按 <code>Port.AvailablePortsID</code>、<code>Port.Port&lt;N&gt;_AvailablePins</code> 生成端口和引脚，复用功能取 <code>Port.InputModesXDM&lt;hex&gt;</code> 与 <code>Port.OutputModesXDM&lt;hex&gt;</code>（<code>&lt;hex&gt;</code> 为端口号×16+引脚号的十六进制），只读端口只列输入功能。已有引脚且内容不同时先列出数量并询问，默认“否”。</li>
+          <li>引脚表的端口与 <code>Port.AvailablePortsID</code> 不一致时，页面上方和预览页都会给出提示（缺少哪些端口、多出哪些端口），只提示不拦截保存。</li>
+          <li>每个端口会变成一个 <code>gpio_port</code>，每个引脚变成一个 <code>gpio_pin</code>，供 Port 和 Dio 模块的硬件映射使用。端口号取端口名末尾的数字（<code>P10</code> → 10；以 A–P 结尾的旧名字按字母换算），<code>PortPinId</code> 与 Dio 通道号都是端口号×16+引脚号，端口里缺的引脚不生成容器。</li>
         </ul>
       </div>
 
@@ -740,14 +742,14 @@ checksum: sha256:…</code></pre>
             <tr><th>芯片</th><th class="num">核数</th><th class="num">ECU 资源键</th><th>Os 资源</th><th class="num">CAN</th><th class="num">ADC</th><th class="num">SPI</th><th class="num">LIN</th><th class="num">GPT</th><th>其他外设</th><th>引脚表</th></tr>
           </thead>
           <tbody>
-            <tr><td class="mono">THA610X_LFBGA180</td><td class="num">2</td><td class="num">1260</td><td>缺失</td><td class="num">6</td><td class="num">4</td><td class="num">6</td><td class="num">12</td><td class="num">4</td><td>ETH 1、WDG 1、时钟 3、中断源 382</td><td>2 个端口，32 个引脚</td></tr>
-            <tr><td class="mono">THA6206_LFBGA292</td><td class="num">2</td><td class="num">1544</td><td>已导入</td><td class="num">6</td><td class="num">6</td><td class="num">9</td><td class="num">8</td><td class="num">6</td><td>ETH 1、WDG 1、时钟 3、PWM 6、中断源 614</td><td>3 个端口，48 个引脚</td></tr>
-            <tr><td class="mono">THA6412_BGA516</td><td class="num">4</td><td class="num">2460</td><td>已导入</td><td class="num">12</td><td class="num">12</td><td class="num">9</td><td class="num">24</td><td class="num">6</td><td>ETH 1、WDG 1、时钟 3、中断源 1068</td><td>4 个端口，64 个引脚</td></tr>
+            <tr><td class="mono">THA610X_LFBGA180</td><td class="num">2</td><td class="num">1260</td><td>缺失</td><td class="num">6</td><td class="num">4</td><td class="num">6</td><td class="num">12</td><td class="num">4</td><td>ETH 1、WDG 1、时钟 3、中断源 382</td><td>16 个端口，123 个引脚</td></tr>
+            <tr><td class="mono">THA6206_LFBGA292</td><td class="num">2</td><td class="num">1544</td><td>已导入</td><td class="num">6</td><td class="num">6</td><td class="num">9</td><td class="num">8</td><td class="num">6</td><td>ETH 1、WDG 1、时钟 3、PWM 6、中断源 614</td><td>17 个端口，146 个引脚</td></tr>
+            <tr><td class="mono">THA6412_BGA516</td><td class="num">4</td><td class="num">2460</td><td>已导入</td><td class="num">12</td><td class="num">12</td><td class="num">9</td><td class="num">24</td><td class="num">6</td><td>ETH 1、WDG 1、时钟 3、中断源 1068</td><td>23 个端口，286 个引脚</td></tr>
           </tbody>
         </table>
       </div>
       <div class="warn">
-        <p><strong>仍是示例数据的部分。</strong>三颗芯片的引脚表和 THA6206 的 PWM 实例还是早期的演示数据，引脚统一是每个端口 16 个。拿到真实的引脚分配表后，请在第 3 页导入替换。</p>
+        <p><strong>仍是示例数据的部分。</strong>THA6206 的 PWM 实例还是早期的演示数据。三颗芯片的引脚表已经从各自的 <code>ecu_resources.Port</code> 推导（端口 <code>P&lt;两位端口号&gt;</code>，引脚 <code>P10_13</code> 这种写法，复用功能取自厂商的 <code>Input/OutputModesXDM</code>），不再是演示数据；THA610X 的 <code>ports</code> 待确认标记仍保留，核对后可在修复向导里确认。</p>
         <p><strong>Os 资源待补。</strong>THA610X 没有厂商的 Os 资源文件，Os 模块读取的核数、主核和 ISR 触发方式在这颗芯片上是空的。THA6206 的 ISR 触发方式表与 THA6412 逐项相同，已原样导入，等待厂商确认。</p>
       </div>
     </section>

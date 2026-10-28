@@ -48,3 +48,15 @@ GPIO 编号 = 端口号 × 16 + 引脚号；`<hex>` 是它的小写十六进制�
 
 - `OutputModesXDM<hex>` 名字与 `OutputModes<hex>` 模式号如何一一对应（`GPIO` 是否对应 `O0`）？需在实现时读 `Port.xdm` 的 `PortPinMode` 枚举确认；确认后再决定是否写 `alt_modes`。
 - 厂商 Port 定义中端口容器是否有 `PortNumber` 参数需要由映射规则写入（`Port.m` 读取 `./PortNumber`）？实现时核对 Port 定义后决定是否在 `port.yaml` 增加该参数。
+
+## Implementation Notes
+
+- **Open Questions 的结论**（读 `Port_THA6_AS440/config/Port.xdm`）：
+  - 模式号：`PortPinInitialMode` 的取值范围就是 `Port.OutputModesXDM<hex>` 里的**名字**，配置里不需要模式号，所以不写 `alt_modes`。
+  - `PortNumber`：不可编辑，默认值取 `Port.AvailablePortsID` 中与容器位置相同的那一项；`PortContainer` 的个数固定为 `Port.AvailablePortsTotalNumber`。映射不写 `PortNumber`，但端口容器必须按 `AvailablePortsID` 的顺序创建：两位数的 `P<NN>` 名字按字符串排序就是数字顺序，测试 `test_port_containers_follow_available_ports_order` 锁定这一点。
+- **Dio 原本就算错**：`dio.yaml` 用 `resource.properties.port_index`，但 `gpio_pin` 实例从来没有这个属性，所以 `DioChannelId` 一直是 `False`。现在 `convert_legacy_chip` 给每个引脚加上 `port_index`。spec 中"旧字母端口名的 Dio 动作与修改前相同"的场景已据此更正。
+- **只有 `pin_count` 的端口**（直接写在 `resources` 里、没有引脚表）：转换时补上 `pins = 0..pin_count-1`，否则按 `pins` 迭代的 Port 规则不会生成任何引脚。
+- **不回退到 `XDMxx` 列表**：每个可用引脚都有自己的 `Input/OutputModesXDM<hex>` 键。Port 定义把"缺少某个引脚的输出键"视为不允许输出，所以推导时不用 `OutputModesXDMxx` 这类全集补位。
+- **导出格式**：`metadata.unconfirmed` 改为按块写出（每个字段一行），以保持手写 YAML 的格式；重写前 4 颗内置芯片的原样重存都逐字相同。
+- **内置芯片的重写**通过 `RepairSession`（`chip-repair`）完成：`resource_version` 从 1.0.0 变为 1.0.1，并在 `data/chips/history/` 留下记录，修改人为 "Claude Code"。THA610X 的 `ports` 待确认标记没有去掉，留给芯片负责人确认。
+- **耗时**：THA6412 的 Port 映射生成 1476 个动作，约 5 ms；Dio 映射 572 个动作，约 4 ms；向导的 Port 页建表约 9 ms，Dio 页约 38 ms。

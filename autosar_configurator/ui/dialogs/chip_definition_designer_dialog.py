@@ -34,7 +34,8 @@ from ...core.hardware.ecu_resource_data import (
 )
 from ...core.hardware.ecu_resource_data import parse_selectors
 from ...core.hardware.ecu_resource_diagnostics import (
-    check_consistency, peripherals_from_ecu, typed_field_differences, typed_fields_from_ecu,
+    check_consistency, peripherals_from_ecu, pin_table_differences, ports_from_ecu,
+    typed_field_differences, typed_fields_from_ecu,
 )
 from .ecu_resource_editor import EcuResourceEditor
 from .peripheral_editor import PeripheralEditor
@@ -536,6 +537,12 @@ class ChipDefinitionDesignerDialog(QDialog):
         del_pin_btn.clicked.connect(self._on_delete_pin_clicked)
         toolbar.addWidget(del_pin_btn)
 
+        derive_pins_btn = QPushButton("🔄 从 ECU 资源生成引脚表")
+        derive_pins_btn.setToolTip("按 Port.AvailablePortsID、Port.Port<N>_AvailablePins 与 "
+                                   "Input/OutputModesXDM<hex> 生成端口、引脚与复用功能")
+        derive_pins_btn.clicked.connect(self._on_derive_pins_clicked)
+        toolbar.addWidget(derive_pins_btn)
+
         toolbar.addSpacing(15)
         toolbar.addWidget(QLabel("端口过滤:"))
         self.port_filter_combo = QComboBox()
@@ -548,6 +555,13 @@ class ChipDefinitionDesignerDialog(QDialog):
         toolbar.addWidget(self.pin_stats_label)
 
         layout.addLayout(toolbar)
+
+        # Pin table vs Port.AvailablePortsID: shown only, never blocks saving
+        self.pin_warning_label = QLabel()
+        self.pin_warning_label.setWordWrap(True)
+        self.pin_warning_label.setStyleSheet("color: #8a4b00;")
+        self.pin_warning_label.setVisible(False)
+        layout.addWidget(self.pin_warning_label)
 
         # Model/View: edits go straight into the model, so filtering,
         # adding or deleting rows can never discard pending changes.
@@ -583,12 +597,14 @@ class ChipDefinitionDesignerDialog(QDialog):
     def _on_ecu_edited(self):
         self._ecu_resources = self.ecu_editor.resources()
         self._refresh_typed_differences()
+        self._refresh_pin_warning()
 
     def _set_ecu_resources(self, resources: EcuResources):
         """Replace the chip's ECU resources everywhere they are shown."""
         self._ecu_resources = resources
         self.ecu_editor.set_resources(resources)
         self.ecu_preview.setPlainText(describe_ecu_resources(resources))
+        self._refresh_pin_warning()
 
     def _setup_preview_tab(self):
         """Tab 4: Preview & Export"""
@@ -811,6 +827,42 @@ class ChipDefinitionDesignerDialog(QDialog):
         dups = self.pin_model.duplicates()
         dup_info = f"，⚠ {len(dups)} 处重复" if dups else ""
         self.pin_stats_label.setText(f"共 {len(ports)} 个端口，{total} 个引脚{dup_info}")
+        self._refresh_pin_warning()
+
+    def _refresh_pin_warning(self):
+        if not hasattr(self, "pin_warning_label"):
+            return
+        probe = ChipDefinition(name="", ports=self.pin_model.ports_dict(), ecu_resources=self._ecu_resources)
+        messages = pin_table_differences(probe)
+        self.pin_warning_label.setText("⚠ " + "\n⚠ ".join(messages) if messages else "")
+        self.pin_warning_label.setVisible(bool(messages))
+
+    def _on_derive_pins_clicked(self):
+        """Replace the pin table with the one derived from the ECU resources (asks first)."""
+        derived = ports_from_ecu(self._ecu_resources)
+        if not derived:
+            QMessageBox.information(
+                self, "无可用推导数据",
+                "ECU 资源中没有 Port 数据（Port.AvailablePortsID 与 Port.Port<N>_AvailablePins）。\n"
+                "请先在“4. ECU 资源”页导入 Port 的 .properties 文件。")
+            return
+        current = self.pin_model.ports_dict()
+        new_pins = sum(len(p) for p in derived.values())
+        if current == derived:
+            self.status_label.setText("引脚表已与 ECU 资源一致，未改动")
+            return
+        if current:
+            old_pins = sum(len(p) for p in current.values())
+            reply = QMessageBox.question(
+                self, "替换引脚表",
+                f"当前引脚表有 {len(current)} 个端口、{old_pins} 个引脚，将整体替换为 ECU 资源推导出的 "
+                f"{len(derived)} 个端口、{new_pins} 个引脚，手工修改的引脚和复用功能会丢失。是否继续？",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if reply != QMessageBox.Yes:
+                self.status_label.setText("已取消从 ECU 资源生成引脚表，引脚表未改动")
+                return
+        self.pin_model.set_pins([p for pins in derived.values() for p in pins])
+        self.status_label.setText(f"已从 ECU 资源生成引脚表：{len(derived)} 个端口，{new_pins} 个引脚")
 
     def _filter_pin_table(self, filter_port: str):
         """Show only pins of the selected port (exact match, PORT_1 != PORT_10)"""
@@ -902,7 +954,7 @@ class ChipDefinitionDesignerDialog(QDialog):
             self.ecu_preview.setPlainText(describe_ecu_resources(chip.ecu_resources))
             self.consistency_label.setText("\n".join(
                 check_consistency(flatten_ecu_resources(chip.ecu_resources))
-                + typed_field_differences(chip)))
+                + typed_field_differences(chip) + pin_table_differences(chip)))
         elif index == 0:
             self._refresh_typed_differences()
 

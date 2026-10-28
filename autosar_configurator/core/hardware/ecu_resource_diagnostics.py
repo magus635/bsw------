@@ -612,3 +612,84 @@ def _intc_sources(intc: Dict[str, Any]) -> List[Any]:
                        ", ".join(skipped))
     return sources
 
+
+
+# --- pin table (add-chip-ports-from-ecu-resources) -------------------------------------
+
+_PORT_NUMBER_FORM = re.compile(r"_(\d+)_")
+
+
+def _port_numbers(value: Any) -> List[int]:
+    """Numbers of a vendor ``_n_`` list (``"_0_ _10_"``), in the order written."""
+    text = " ".join(str(v) for v in value) if isinstance(value, list) else str(value or "")
+    return [int(n) for n in _PORT_NUMBER_FORM.findall(text)]
+
+
+def _mode_names(value: Any) -> List[str]:
+    if value is None:
+        return []
+    items = value if isinstance(value, list) else str(value).split()
+    return [str(v).strip() for v in items if str(v).strip()]
+
+
+def port_name(number: int) -> str:
+    """Pin table name of a port: ``P`` and two digits, as in the vendor's ``P40_10``."""
+    return f"P{number:02d}"
+
+
+def ports_from_ecu(ecu_resources: Dict[str, Dict[str, Any]]) -> Dict[str, List[Any]]:
+    """Pin table (``ChipDefinition.ports``) derived from ``ecu_resources.Port``.
+
+    One port per number in ``Port.AvailablePortsID`` (that order, which is the order
+    of the Port definition's containers), one pin per number in
+    ``Port.Port<N>_AvailablePins``.  A pin's functions are the names of
+    ``Port.InputModesXDM<hex>`` then those of ``Port.OutputModesXDM<hex>`` not yet
+    listed, ``<hex>`` being port number * 16 + pin number in lower-case hex;
+    pins of ``Port.AvailableReadOnlyPorts`` get the input names only.  Empty when
+    there is no Port data.
+    """
+    from .chip_database import PortPinDef
+
+    port = (ecu_resources or {}).get("Port") or {}
+    numbers = _port_numbers(port.get("AvailablePortsID"))
+    read_only = set(_port_numbers(port.get("AvailableReadOnlyPorts")))
+    result: Dict[str, List[Any]] = {}
+    for number in numbers:
+        key = f"Port{number}_AvailablePins"
+        if key not in port:
+            logger.warning("Port.%s is missing; port %d has no pins and is left out", key, number)
+            continue
+        name = port_name(number)
+        pins = []
+        for pin in _port_numbers(port[key]):
+            gpio = format(number * 16 + pin, "x")
+            functions = _mode_names(port.get(f"InputModesXDM{gpio}"))
+            if number not in read_only:
+                functions += [f for f in _mode_names(port.get(f"OutputModesXDM{gpio}")) if f not in functions]
+            pins.append(PortPinDef(name=f"{name}_{pin}", port=name, pin=pin,
+                                   alternate_functions=functions, default_direction="INPUT"))
+        result[name] = pins
+    return result
+
+
+def pin_table_differences(chip) -> List[str]:
+    """Warnings when the pin table's port numbers differ from ``Port.AvailablePortsID``.
+
+    Only shown, never blocking; empty when the chip has no Port data.
+    """
+    from .generic_resource import port_number_of
+
+    port = (getattr(chip, "ecu_resources", None) or {}).get("Port") or {}
+    if "AvailablePortsID" not in port:
+        return []
+    declared = set(_port_numbers(port["AvailablePortsID"]))
+    in_table = {port_number_of(name) for name in (getattr(chip, "ports", None) or {})}
+    messages = []
+    missing, extra = sorted(declared - in_table), sorted(in_table - declared)
+    if missing:
+        messages.append("pin table lacks ports of Port.AvailablePortsID: "
+                        + ", ".join(port_name(n) for n in missing))
+    if extra:
+        messages.append("pin table has ports not in Port.AvailablePortsID: "
+                        + ", ".join(sorted(n for n in chip.ports if port_number_of(n) in extra)))
+    return messages

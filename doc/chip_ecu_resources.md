@@ -157,6 +157,17 @@ resources:
 - 旧格式的 `can_resources`、`adc_resources`、`spi_resources`、`intc_sources` 仍可读取，加载时转成 `can_controller`、`adc_unit`、`spi_unit`、`intc_source`；保存时只写 `resources`。两种写法都存在时以 `resources` 为准并警告。内置芯片已迁移为新格式（迁移前后数据逐项相同）。
 - 引脚仍在 `ports`（设计器"引脚复用矩阵"页）；硬件映射用的 `gpio_port` / `gpio_pin` 由引脚表推导。`resources` 里若直接写了引脚类型的实例（没有引脚表的芯片），会原样保留并参与映射，引脚表推导出的同名实例优先。
 
+### 引脚表来自 ECU 资源（`ports_from_ecu`）
+
+| 键 | 用途 |
+|---|---|
+| `Port.AvailablePortsID` | 端口号（按此顺序，即 Port 定义里 `PortContainer` 的顺序；`PortNumber` 由定义按容器位置推出，不由映射写入） |
+| `Port.Port<N>_AvailablePins` | 端口 N 的引脚号（可以有空缺） |
+| `Port.InputModesXDM<hex>` / `Port.OutputModesXDM<hex>` | 引脚的输入、输出功能名，`<hex>` 为端口号×16+引脚号的小写十六进制 |
+| `Port.AvailableReadOnlyPorts` | 只读端口：只列输入功能 |
+
+端口名为 `P` 加两位端口号（`P10`），引脚名为 `<端口>_<引脚号>`（`P10_13`），与厂商 ADC 通道名里的写法一致。功能只写名字、不写模式号：Port 定义的 `PortPinInitialMode` 取值本身就是这些名字。映射时 `PortPinId` 与 Dio 通道号都是端口号×16+引脚号，端口号取端口名末尾的数字（以 A–P 结尾的旧名字按字母换算），与 `Port.PinId_Port<N>` 一致。引脚表的端口集合与 `Port.AvailablePortsID` 不一致时，设计器和项目诊断会给出警告，只提示不拦截。内置三颗芯片的 `ports` 就是这样生成的，测试保证两者一致。
+
 ### 与硬件映射规则的关系
 
 `data/mapping_rules/*.yaml` 的每条规则对应一种外设类型，并通过 `resource.properties.<名>` 读取实例属性：
@@ -203,7 +214,7 @@ resources:
 4. **同步视图**：`derive_views(chip)`。
    - 能推导的外设类型整类替换，推导不出的类型保留。
    - 核字段只在没有任何对应键与之相符时才改：THA610X 的 `Resource.NumOfCores` 是 2（含锁步核），`OsResource.NumOfCores` 是 1，现有值 2 保持不变。
-   - 引脚表要等 `ports_from_ecu` 实施后才推导，此前记为"未推导"。
+   - 引脚表由 `ports_from_ecu` 推导，ECU 资源里没有 Port 数据时记为"未推导"。
 5. **待确认标记**：`confirm_fields` 去掉标记，`mark_unconfirmed` 增加标记；两者都不改动被标记的数据。
 6. **保存**：`save_repaired_chip(database, chip, base, record)`。
    - 改名、或文件在加载后被改过时拒绝保存。
@@ -265,7 +276,7 @@ entries:
 ## 已知限制
 
 - Os 模板只定义了 `OS_CORE_ID_0/1`，4 核芯片的 `OS_CORE_ID_2/3` 在模板里是未定义的（模板问题，不在本功能内）。
-- 不能从引脚表生成 `Port.*` 的模式列表（`InputModes*`、`OutputModes*` 等）；内置芯片的引脚表仍是示例数据。
+- 不能从引脚表反向生成 `Port.*` 的模式列表（`InputModes*`、`OutputModes*` 等），引脚表只由 ECU 资源推导。
 - 硬件映射向导的 Intc 页默认勾选全部中断源，THA6412 按默认设置会生成 942 个 `IntcSource_*` 容器；只配置用到的中断时请先取消勾选。
 - 内置芯片的 Os 资源：THA6206、THA6412 已导入各自的 `Os_Resource_*.properties`（`tests/fixtures/ecu_resources/`）；THA610X 没有厂商 Os 资源文件，`OsResource.*`、`Os.*` 键缺失，Os 模块需要项目自带的 .properties。THA6206 的 `Os.IsrTriggerMethodList` 与 THA6412 逐项相同，导入时未改动，待厂商确认。
 - 定义里的选择器取值范围在**解析定义时**确定：切换芯片或新增芯片后，已加载的模块要重新加载才会看到新的可选值。

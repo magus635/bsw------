@@ -3,57 +3,169 @@ family: THA6
 package: LFBGA292
 description: THA6206 Series - Mid-range automotive MCU
 ports:
-  PORT_A:
-  - {pin: 0, name: PA0, alternate_functions: [GPIO, ADC0_CH0, TIM0_CH0]}
-  - {pin: 1, name: PA1, alternate_functions: [GPIO, ADC0_CH1, TIM0_CH1]}
-  - {pin: 2, name: PA2, alternate_functions: [GPIO, ADC0_CH2, TIM0_CH2]}
-  - {pin: 3, name: PA3, alternate_functions: [GPIO, ADC0_CH3, TIM0_CH3]}
-  - {pin: 4, name: PA4, alternate_functions: [GPIO, SPI0_MOSI]}
-  - {pin: 5, name: PA5, alternate_functions: [GPIO, SPI0_MISO]}
-  - {pin: 6, name: PA6, alternate_functions: [GPIO, SPI0_SCK]}
-  - {pin: 7, name: PA7, alternate_functions: [GPIO, SPI0_CS]}
-  - {pin: 8, name: PA8, alternate_functions: [GPIO, UART0_TX]}
-  - {pin: 9, name: PA9, alternate_functions: [GPIO, UART0_RX]}
-  - {pin: 10, name: PA10, alternate_functions: [GPIO, CAN0_TX]}
-  - {pin: 11, name: PA11, alternate_functions: [GPIO, CAN0_RX]}
-  - {pin: 12, name: PA12, alternate_functions: [GPIO, CAN1_TX]}
-  - {pin: 13, name: PA13, alternate_functions: [GPIO, CAN1_RX]}
-  - {pin: 14, name: PA14, alternate_functions: [GPIO, CAN2_TX]}
-  - {pin: 15, name: PA15, alternate_functions: [GPIO, CAN2_RX]}
-  PORT_B:
-  - {pin: 0, name: PB0, alternate_functions: [GPIO, ADC0_CH4]}
-  - {pin: 1, name: PB1, alternate_functions: [GPIO, ADC0_CH5]}
-  - {pin: 2, name: PB2, alternate_functions: [GPIO, ADC0_CH6]}
-  - {pin: 3, name: PB3, alternate_functions: [GPIO, ADC0_CH7]}
-  - {pin: 4, name: PB4, alternate_functions: [GPIO, ADC1_CH0]}
-  - {pin: 5, name: PB5, alternate_functions: [GPIO, ADC1_CH1]}
-  - {pin: 6, name: PB6, alternate_functions: [GPIO, ADC1_CH2]}
-  - {pin: 7, name: PB7, alternate_functions: [GPIO, ADC1_CH3]}
-  - {pin: 8, name: PB8, alternate_functions: [GPIO, SPI1_MOSI]}
-  - {pin: 9, name: PB9, alternate_functions: [GPIO, SPI1_MISO]}
-  - {pin: 10, name: PB10, alternate_functions: [GPIO, SPI1_SCK]}
-  - {pin: 11, name: PB11, alternate_functions: [GPIO, SPI1_CS]}
-  - {pin: 12, name: PB12, alternate_functions: [GPIO]}
-  - {pin: 13, name: PB13, alternate_functions: [GPIO]}
-  - {pin: 14, name: PB14, alternate_functions: [GPIO]}
-  - {pin: 15, name: PB15, alternate_functions: [GPIO]}
-  PORT_C:
-  - {pin: 0, name: PC0, alternate_functions: [GPIO, TIM1_CH0]}
-  - {pin: 1, name: PC1, alternate_functions: [GPIO, TIM1_CH1]}
-  - {pin: 2, name: PC2, alternate_functions: [GPIO, TIM1_CH2]}
-  - {pin: 3, name: PC3, alternate_functions: [GPIO, TIM1_CH3]}
-  - {pin: 4, name: PC4, alternate_functions: [GPIO]}
-  - {pin: 5, name: PC5, alternate_functions: [GPIO]}
-  - {pin: 6, name: PC6, alternate_functions: [GPIO]}
-  - {pin: 7, name: PC7, alternate_functions: [GPIO]}
-  - {pin: 8, name: PC8, alternate_functions: [GPIO]}
-  - {pin: 9, name: PC9, alternate_functions: [GPIO]}
-  - {pin: 10, name: PC10, alternate_functions: [GPIO]}
-  - {pin: 11, name: PC11, alternate_functions: [GPIO]}
-  - {pin: 12, name: PC12, alternate_functions: [GPIO]}
-  - {pin: 13, name: PC13, alternate_functions: [GPIO]}
-  - {pin: 14, name: PC14, alternate_functions: [GPIO]}
-  - {pin: 15, name: PC15, alternate_functions: [GPIO]}
+  P00:
+  - {pin: 0, name: P00_0, alternate_functions: [GPIO, GETH_MDIOA, GTM_TIM2_IN0_1, MSC0_INJ0, GTM_TOUT9, ASI3_ATX, CAN10_TXD, GETH_MDIO]}
+  - {pin: 1, name: P00_1, alternate_functions: [GPIO, ASI3_ARXE, CAN10_RXDA, GTM_TIM2_IN1_1, SENT_SENT0B, GTM_TOUT10, ASI3_ATX, SENT_SPC0]}
+  - {pin: 2, name: P00_2, alternate_functions: [GPIO, GTM_TIM2_IN1_2, SENT_SENT1B, GTM_TOUT11, ESPI3_SLSO4]}
+  - {pin: 3, name: P00_3, alternate_functions: [GPIO, GTM_TIM2_IN2_1, SENT_SENT2B, GTM_TOUT12, SENT_SPC2]}
+  - {pin: 4, name: P00_4, alternate_functions: [GPIO, E_REQ2_2, GTM_TIM2_IN3_1, SENT_SENT3B, GTM_TOUT13, CAN11_TXD, SENT_SPC3]}
+  - {pin: 5, name: P00_5, alternate_functions: [GPIO, CAN11_RXDB, GTM_DTMT1_1, GTM_TIM2_IN4_1, SENT_SENT4B, GTM_TOUT14, RDC_WAVEN, ESPI3_SLSO3, DSADC_WAVEN, FC_FC0BFLOUT, SENT_SPC4]}
+  - {pin: 6, name: P00_6, alternate_functions: [GPIO, ASI5_ARXA, GTM_TIM2_IN5_1, SENT_SENT5B, GTM_TOUT15, RDC_WAVEP, DSADC_WAVEP, SENT_SPC5]}
+  - {pin: 7, name: P00_7, alternate_functions: [GPIO, GTM_DTMT0_2, GTM_TIM2_IN6_1, SENT_SENT6B, GTM_TOUT16, ASI5_ATX, SENT_SPC6]}
+  - {pin: 8, name: P00_8, alternate_functions: [GPIO, GTM_TIM2_IN7_1, SENT_SENT7B, GTM_TOUT17, ESPI3_SLSO6, SENT_SPC7]}
+  - {pin: 9, name: P00_9, alternate_functions: [GPIO, DSADC_ITR3F, GTM_TIM0_IN0_1, GTM_TIM1_IN0_1, SENT_SENT8B, GTM_TOUT18, ESPI3_SLSO7, ASI4_ATX, SENT_SPC8]}
+  - {pin: 10, name: P00_10, alternate_functions: [GPIO, GTM_TIM0_IN1_1, GTM_TIM1_IN1_1, SENT_SENT9B, GTM_TOUT19, SENT_SPC9]}
+  - {pin: 11, name: P00_11, alternate_functions: [GPIO, GTM_TIM0_IN2_1, GTM_TIM1_IN2_1, GTM_TOUT20]}
+  - {pin: 12, name: P00_12, alternate_functions: [GPIO, ASI4_ARXA, GTM_TIM0_IN3_1, GTM_TIM1_IN3_1, GTM_TOUT21]}
+  P01:
+  - {pin: 4, name: P01_4, alternate_functions: [GPIO, ESPI7_SLSIA, ESPI7_SLSO1]}
+  - {pin: 5, name: P01_5, alternate_functions: [GPIO, ESPI7_MRSTA, ESPI7_MRST]}
+  - {pin: 6, name: P01_6, alternate_functions: [GPIO, ESPI7_SCLKA, ESPI7_SCLK]}
+  - {pin: 7, name: P01_7, alternate_functions: [GPIO, ESPI7_MRSTB, ESPI7_MTSRA, ESPI7_MTSR, ESPI7_MRST]}
+  P02:
+  - {pin: 0, name: P02_0, alternate_functions: [GPIO, ASI2_ARXG, E_REQ3_2, GTM_DTMA0_0, GTM_TIM0_IN0_2, GTM_TIM1_IN0_2, GTM_TOUT0, ASI2_ATX, ESPI3_SLSO1, RDC_WAVEN, CAN00_TXD, DSADC_WAVEN]}
+  - {pin: 1, name: P02_1, alternate_functions: [GPIO, ASI2_ARXB, CAN00_RXDA, E_REQ2_1, GTM_TIM0_IN1_2, GTM_TIM1_IN1_2, GTM_TOUT1, ESPI3_SLSO2, RDC_WAVEP, DSADC_WAVEP]}
+  - {pin: 2, name: P02_2, alternate_functions: [GPIO, GTM_TIM0_IN2_2, GTM_TIM1_IN2_2, GTM_TOUT2, ASI1_ATX, ESPI3_SLSO3, CAN02_TXD]}
+  - {pin: 3, name: P02_3, alternate_functions: [GPIO, ASI1_ARXG, CAN02_RXDB, GTM_TIM0_IN3_2, GTM_TIM1_IN3_2, GTM_TOUT3, ESPI3_SLSO4]}
+  - {pin: 4, name: P02_4, alternate_functions: [GPIO, CAN0_ECTT1, CAN11_RXDA, ESPI3_SLSIA, GTM_TIM0_IN4_1, GTM_TIM1_IN4_1, I2C0_SDAA, GTM_TOUT4, ESPI3_SLSO0, I2C0_SDA]}
+  - {pin: 5, name: P02_5, alternate_functions: [GPIO, CAN0_ECTT2, ESPI3_MRSTA, GTM_TIM0_IN5_1, GTM_TIM1_IN5_1, I2C0_SCLA, SENT_SENT3C, GTM_TOUT5, CAN11_TXD, ESPI3_MRST, I2C0_SCL]}
+  - {pin: 6, name: P02_6, alternate_functions: [GPIO, ESPI3_MTSRA, GTM_TIM0_IN6_1, GTM_TIM1_IN6_1, SENT_SENT2C, GTM_TOUT6, I2C0_IRQ, ESPI3_MTSR]}
+  - {pin: 7, name: P02_7, alternate_functions: [GPIO, ESPI3_SCLKA, GTM_TIM0_IN7_1, GTM_TIM1_IN7_1, SENT_SENT1C, GTM_TOUT7, ESPI3_SCLK, SENT_SPC1]}
+  - {pin: 8, name: P02_8, alternate_functions: [GPIO, DSADC_ITR3E, GTM_DTMA0_1, GTM_TIM2_IN0_2, SENT_SENT0C, GTM_TOUT8, ESPI3_SLSO5, GETH_MDC]}
+  P10:
+  - {pin: 0, name: P10_0, alternate_functions: [GPIO, GETH_RXERC, GTM_TIM0_IN4_2, GTM_TIM1_IN4_2, GTM_TOUT102, ESPI1_SLSO10]}
+  - {pin: 1, name: P10_1, alternate_functions: [GPIO, ESPI1_MRSTA, GTM_DTMT0_1, GTM_TIM0_IN1_3, GTM_TIM1_IN1_3, GTM_TOUT103, ESPI1_MTSR, ESPI1_MRST, MSC0_EN1, FC_FC1BFLOUT]}
+  - {pin: 2, name: P10_2, alternate_functions: [GPIO, CAN02_RXDE, ESPI1_SCLKA, E_REQ2_0, GTM_TIM0_IN2_3, GTM_TIM1_IN2_3, MSC0_SDI1, GTM_TOUT104, ESPI1_SCLK, MSC0_EN0]}
+  - {pin: 3, name: P10_3, alternate_functions: [GPIO, ESPI1_MTSRA, E_REQ3_0, GTM_TIM0_IN3_3, GTM_TIM1_IN3_3, GTM_TOUT105, ESPI1_MTSR, MSC0_EN0, CAN02_TXD]}
+  - {pin: 4, name: P10_4, alternate_functions: [GPIO, ESPI1_MTSRC, GTM_TIM0_IN6_2, GTM_TIM1_IN6_2, GTM_TOUT106, ESPI1_SLSO8, ESPI1_MTSR, MSC0_EN0]}
+  - {pin: 5, name: P10_5, alternate_functions: [GPIO, GTM_TIM0_IN2_4, GTM_TIM1_IN2_4, HWCFG4IN, MSC0_INJ1, GTM_TOUT107, ASI2_ATX, ESPI3_SLSO8, ESPI1_SLSO9]}
+  - {pin: 6, name: P10_6, alternate_functions: [GPIO, ASI2_ARXD, ESPI3_MTSRB, GTM_TIM0_IN3_4, GTM_TIM1_IN3_4, HWCFG5IN, GTM_TOUT108, ESPI3_MTSR, ESPI1_MRST]}
+  - {pin: 7, name: P10_7, alternate_functions: [GPIO, ESPI3_MRSTB, E_REQ0_2, GTM_TIM0_IN0_3, GTM_TIM1_IN0_3, GTM_TOUT109, ESPI3_MRST, CAN12_TXD]}
+  - {pin: 8, name: P10_8, alternate_functions: [GPIO, CAN12_RXDB, ESPI3_SCLKB, E_REQ1_2, GTM_TIM0_IN5_2, GTM_TIM1_IN5_2, GTM_TOUT110, ESPI3_SCLK]}
+  P11:
+  - {pin: 0, name: P11_0, alternate_functions: [GPIO, ASI3_ARXB, GTM_DTMA2_1, GTM_TIM2_IN0_7, QSPI_MOSIB, GTM_TOUT119, ASI3_ATX, TRACE_DATA0, CAN11_TXD, GETH_TXD3, QSPI_MOSI]}
+  - {pin: 1, name: P11_1, alternate_functions: [GPIO, GTM_TIM2_IN1_6, QSPI_MISOB, GTM_TOUT120, TRACE_DATA1, ASI3_ATX, CAN12_TXD, GETH_TXD2, QSPI_MISO]}
+  - {pin: 2, name: P11_2, alternate_functions: [GPIO, GTM_TIM2_IN1_3, QSPI_D2B, GTM_TOUT95, TRACE_DATA2, ESPI0_SLSO5, ESPI1_SLSO5, MSC0_EN1, GETH_TXD1, QSPI_D2]}
+  - {pin: 3, name: P11_3, alternate_functions: [GPIO, ESPI1_MRSTB, GTM_TIM2_IN2_2, MSC0_SDI3, QSPI_D3B, GTM_TOUT96, TRACE_DATA3, ESPI1_MRST, GETH_TXD0, QSPI_D3]}
+  - {pin: 4, name: P11_4, alternate_functions: [GPIO, GETH_RXCLKB, GTM_TIM2_IN2_6, QSPI_CLKINB, GTM_TOUT121, TRACE_DATA4, QSPI_CLK, GETH_TXER, GETH_TXCLK]}
+  - {pin: 5, name: P11_5, alternate_functions: [GPIO, GETH_GREFCLK, GETH_TXCLKA, GTM_TIM2_IN3_8, GTM_TOUT122, TRACE_DATA5]}
+  - {pin: 6, name: P11_6, alternate_functions: [GPIO, ESPI1_SCLKB, GTM_TIM2_IN3_2, QSPI_CLKINB, GTM_TOUT97, TRACE_DATA6, ESPI1_SCLK, MSC0_FCL, GETH_TCTL, GETH_TXEN, QSPI_CLKOUT]}
+  - {pin: 7, name: P11_7, alternate_functions: [GPIO, CAN11_RXDD, GETH_RXD3A, GTM_TIM2_IN4_7, GTM_TOUT123, TRACE_DATA7]}
+  - {pin: 8, name: P11_8, alternate_functions: [GPIO, CAN12_RXDD, GETH_RXD2A, GTM_TIM2_IN5_8, GTM_TOUT124, TRACE_DATA8, QSPI_SSN0]}
+  - {pin: 9, name: P11_9, alternate_functions: [GPIO, ESPI1_MTSRB, GETH_RXD1A, GTM_TIM2_IN4_2, GTM_TOUT98, TRACE_DATA9, ESPI1_MTSR, MSC0_SO, QSPI_SSN1]}
+  - {pin: 10, name: P11_10, alternate_functions: [GPIO, ASI1_ARXE, ESPI1_SLSIA, E_REQ6_3, GETH_RXD0A, GTM_TIM2_IN0_9, GTM_TIM2_IN5_2, MSC0_SDI0, GTM_TOUT99, TRACE_DATA10, ESPI0_SLSO3, ESPI1_SLSO3, QSPI_SSN2]}
+  - {pin: 11, name: P11_11, alternate_functions: [GPIO, GETH_CRSB, GETH_CRSDVA, GETH_RCTLA, GETH_RXDVA, GTM_TIM2_IN6_2, GTM_TOUT100, TRACE_DATA11, ESPI0_SLSO4, ESPI1_SLSO4, MSC0_EN0, QSPI_SSN3]}
+  - {pin: 12, name: P11_12, alternate_functions: [GPIO, GETH_REFCLKA, GETH_RXCLKA, GETH_TXCLKB, GTM_TIM2_IN7_2, GTM_TOUT101, ASI1_ATX, GTM_CLK2, TRACE_DATA12, RCC_EXTCLK1]}
+  - {pin: 13, name: P11_13, alternate_functions: [GPIO, GETH_RXERA, GTM_TIM2_IN6_7, GTM_TOUT125, TRACE_DATA13]}
+  - {pin: 14, name: P11_14, alternate_functions: [GPIO, GETH_CRSA, GETH_CRSDVB, GETH_RXDVB, GTM_TIM2_IN7_8, GTM_TOUT126, TRACE_DATA14]}
+  - {pin: 15, name: P11_15, alternate_functions: [GPIO, GETH_COLA, GTM_TIM0_IN7_8, GTM_TOUT127, TRACE_DATA15]}
+  P12:
+  - {pin: 0, name: P12_0, alternate_functions: [GPIO, CAN00_RXDC, GETH_RXCLKC, GTM_TOUT128, TRACE_CLK, GETH_MDC]}
+  - {pin: 1, name: P12_1, alternate_functions: [GPIO, GETH_MDIOC, GTM_TOUT129, TRACE_CTL, CAN00_TXD, GETH_MDIO]}
+  P13:
+  - {pin: 0, name: P13_0, alternate_functions: [GPIO, GTM_TIM2_IN5_3, GTM_TOUT91, ESPI2_SCLK, MSC0_EN1, MSC0_FCLN, CAN10_TXD]}
+  - {pin: 1, name: P13_1, alternate_functions: [GPIO, CAN10_RXDD, GTM_TIM2_IN6_3, I2C0_SCLB, GTM_TOUT92, ESPI2_SCLK, MSC0_FCLP, I2C0_SCL]}
+  - {pin: 2, name: P13_2, alternate_functions: [GPIO, GTM_TIM2_IN7_3, I2C0_SDAB, GTM_TOUT93, ESPI2_MTSR, MSC0_FCL, MSC0_SON, I2C0_SDA]}
+  - {pin: 3, name: P13_3, alternate_functions: [GPIO, GTM_TIM2_IN0_3, GTM_TOUT94, I2C0_IRQ, ESPI2_MTSR, MSC0_SOP]}
+  P14:
+  - {pin: 0, name: P14_0, alternate_functions: [GPIO, GTM_TIM0_IN3_5, GTM_TIM1_IN3_5, GTM_TOUT80, ASI0_ATX, CAN01_TXD]}
+  - {pin: 1, name: P14_1, alternate_functions: [GPIO, ASI0_ARXA, CAN01_RXDB, E_REQ3_1, GTM_TIM0_IN4_3, GTM_TIM1_IN4_3, PINAWKP, GTM_TOUT81, ASI0_ATX]}
+  - {pin: 2, name: P14_2, alternate_functions: [GPIO, GTM_TIM0_IN5_3, GTM_TIM1_IN5_3, HWCFG2IN, GTM_TOUT82, ASI2_ATX, ESPI2_SLSO1]}
+  - {pin: 3, name: P14_3, alternate_functions: [GPIO, ASI2_ARXA, E_REQ1_0, GTM_TIM0_IN6_3, GTM_TIM1_IN6_3, HWCFG3IN, MSC0_SDI2, GTM_TOUT83, ASI2_ATX, ESPI2_SLSO3]}
+  - {pin: 4, name: P14_4, alternate_functions: [GPIO, GTM_DTMT0_0, GTM_TIM0_IN7_2, GTM_TIM1_IN7_2, HWCFG6IN, GTM_TOUT84, GETH_PPS]}
+  - {pin: 5, name: P14_5, alternate_functions: [GPIO, ESPI5_MRSTB, GTM_DTMA2_0, GTM_TIM0_IN0_4, GTM_TIM1_IN0_4, HWCFG1IN, GTM_TOUT85, ESPI5_MRST]}
+  - {pin: 6, name: P14_6, alternate_functions: [GPIO, ESPI5_MTSRB, GTM_TIM0_IN1_4, GTM_TIM1_IN1_4, GTM_TOUT86, ESPI5_MTSR, ESPI2_SLSO2]}
+  - {pin: 7, name: P14_7, alternate_functions: [GPIO, CAN10_RXDB, ESPI7_MTSRB, GTM_TIM0_IN0_5, GTM_TIM1_IN0_5, GTM_TOUT87, ESPI2_SLSO4, ESPI7_MTSR]}
+  - {pin: 8, name: P14_8, alternate_functions: [GPIO, ASI1_ARXD, CAN02_RXDD, GTM_TIM2_IN2_3, GTM_TOUT88]}
+  - {pin: 9, name: P14_9, alternate_functions: [GPIO, ESPI2_MRSTG, ESPI7_MRSTD, GTM_TIM2_IN3_3, GTM_TOUT89, MSC0_EN1, CAN10_TXD]}
+  - {pin: 10, name: P14_10, alternate_functions: [GPIO, ESPI2_MRSTF, ESPI5_SCLKA, GTM_TIM2_IN4_3, GTM_TOUT90, ESPI5_SCLK, MSC0_EN0, ASI1_ATX, CAN02_TXD]}
+  P15:
+  - {pin: 0, name: P15_0, alternate_functions: [GPIO, GTM_TIM2_IN3_4, GTM_TOUT71, ASI1_ATX, ESPI0_SLSO13, CAN02_TXD]}
+  - {pin: 1, name: P15_1, alternate_functions: [GPIO, ASI1_ARXA, CAN02_RXDA, ESPI2_SLSIB, E_REQ7_2, GTM_TIM2_IN4_4, GTM_TOUT72, ASI1_ATX, ESPI2_SLSO5]}
+  - {pin: 2, name: P15_2, alternate_functions: [GPIO, ESPI2_MRSTE, ESPI2_SLSIA, GTM_TIM2_IN5_4, GTM_TOUT73, ASI0_ATX, ESPI2_SLSO0, CAN01_TXD]}
+  - {pin: 3, name: P15_3, alternate_functions: [GPIO, ASI0_ARXB, CAN01_RXDA, ESPI2_SCLKA, GTM_TIM2_IN6_4, GTM_TOUT74, ASI0_ATX, ESPI2_SCLK, MSC0_EN1]}
+  - {pin: 4, name: P15_4, alternate_functions: [GPIO, ESPI2_MRSTA, E_REQ0_0, GTM_TIM2_IN7_4, I2C0_SCLC, GTM_TOUT75, ASI1_ATX, ESPI2_MRST, I2C0_SCL]}
+  - {pin: 5, name: P15_5, alternate_functions: [GPIO, ASI1_ARXB, ESPI2_MTSRA, E_REQ4_3, GTM_TIM2_IN0_4, I2C0_SDAC, GTM_TOUT76, ASI1_ATX, ESPI2_MTSR, MSC0_EN0, I2C0_SDA]}
+  - {pin: 6, name: P15_6, alternate_functions: [GPIO, ESPI2_MTSRB, ESPI5_SLSIA, GTM_TIM0_IN0_6, GTM_TIM1_IN0_6, GTM_TIM2_IN2_14, GTM_TOUT77, ASI3_ATX, ESPI2_MTSR, ESPI5_SLSO3, ESPI2_SCLK]}
+  - {pin: 7, name: P15_7, alternate_functions: [GPIO, ASI3_ARXA, ESPI2_MRSTB, GTM_TIM0_IN1_5, GTM_TIM1_IN1_5, GTM_TOUT78, ASI3_ATX, ESPI2_MRST]}
+  - {pin: 8, name: P15_8, alternate_functions: [GPIO, ESPI2_SCLKB, E_REQ5_0, GTM_TIM0_IN2_5, GTM_TIM1_IN2_5, GTM_TOUT79, I2C0_IRQ, ESPI2_SCLK]}
+  P20:
+  - {pin: 0, name: P20_0, alternate_functions: [GPIO, E_REQ6_0, GTM_TIM0_IN6_7, GTM_TIM1_IN4_9, GTM_TIM1_IN6_7, TRIG_IO, GTM_TOUT59, ASI3_ATX]}
+  - {pin: 1, name: P20_1, alternate_functions: [GPIO, GTM_DTMA1_1, GTM_TIM2_IN3_5, GTM_TOUT60, TRIG_INACK]}
+  - {pin: 3, name: P20_3, alternate_functions: [GPIO, ASI3_ARXC, GTM_TIM2_IN4_5, GTM_TOUT61, ASI3_ATX, ESPI0_SLSO9, ESPI2_SLSO9]}
+  - {pin: 6, name: P20_6, alternate_functions: [GPIO, CAN12_RXDA, ESPI7_MRSTE, GTM_TIM2_IN6_5, GTM_TOUT62, ESPI0_SLSO8, ESPI2_SLSO8]}
+  - {pin: 7, name: P20_7, alternate_functions: [GPIO, CAN00_RXDB, ESPI7_MRSTF, GTM_TIM1_IN5_8, GTM_TIM2_IN7_5, GTM_TOUT63, ESPI7_MTSR, CAN12_TXD]}
+  - {pin: 8, name: P20_8, alternate_functions: [GPIO, GTM_TIM0_IN7_3, GTM_TIM1_IN7_3, GTM_TOUT64, ESPI0_SLSO0, ESPI1_SLSO0, CAN00_TXD]}
+  - {pin: 9, name: P20_9, alternate_functions: [GPIO, ASI1_ARXC, ESPI0_SLSIB, E_REQ7_0, GTM_TIM2_IN5_5, GTM_TOUT65, ESPI0_SLSO1, ESPI1_SLSO1]}
+  - {pin: 10, name: P20_10, alternate_functions: [GPIO, GTM_TIM2_IN6_6, GTM_TOUT66, ASI1_ATX, ESPI0_SLSO6, ESPI2_SLSO7]}
+  - {pin: 11, name: P20_11, alternate_functions: [GPIO, ESPI0_SCLKA, GTM_TIM2_IN7_6, GTM_TOUT67, ESPI0_SCLK]}
+  - {pin: 12, name: P20_12, alternate_functions: [GPIO, ESPI0_MRSTA, GTM_TIM2_IN0_5, GTM_TOUT68, ESPI0_MRST, ESPI0_MTSR]}
+  - {pin: 13, name: P20_13, alternate_functions: [GPIO, ESPI0_SLSIA, GTM_TIM2_IN1_4, GTM_TOUT69, ESPI0_SLSO2, ESPI1_SLSO2, ESPI0_SCLK]}
+  - {pin: 14, name: P20_14, alternate_functions: [GPIO, ESPI0_MTSRA, GTM_TIM2_IN2_4, GTM_TOUT70, ESPI0_MTSR]}
+  P21:
+  - {pin: 0, name: P21_0, alternate_functions: [GPIO, GTM_TIM2_IN4_6, GTM_TOUT51, HSM_HSM1]}
+  - {pin: 1, name: P21_1, alternate_functions: [GPIO, GTM_TIM2_IN5_6, GTM_TOUT52, HSM_HSM2]}
+  - {pin: 2, name: P21_2, alternate_functions: [GPIO, ASI3_ARXH, EMGSTOP_PORT_B, ESPI2_MRSTD, ESPI8_MRSTA, GTM_DTMA1_0, GTM_TIM0_IN0_7, GTM_TIM1_IN0_7, GTM_TOUT53, ESPI8_MRST, GETH_MDC]}
+  - {pin: 3, name: P21_3, alternate_functions: [GPIO, ASI3_ARXG, ESPI2_MRSTC, ESPI8_SCLKA, GETH_MDIOD, GTM_TIM0_IN1_6, GTM_TIM1_IN1_6, GTM_TOUT54, ESPI8_SCLK, GETH_MDIO]}
+  - {pin: 4, name: P21_4, alternate_functions: [GPIO, ESPI8_SLSIA, GTM_TIM0_IN2_6, GTM_TIM1_IN2_6, TRIG_IN, GTM_TOUT55, ESPI8_SLSO1]}
+  - {pin: 5, name: P21_5, alternate_functions: [GPIO, ESPI8_MTSRA, GTM_TIM0_IN3_6, GTM_TIM1_IN3_6, GTM_TOUT56, TRIG_OUT, ESPI8_MTSR]}
+  - {pin: 6, name: P21_6, alternate_functions: [GPIO, ASI3_ARXF, GTM_TIM0_IN4_8, GTM_TIM1_IN4_8, TDI, GTM_TOUT57]}
+  - {pin: 7, name: P21_7, alternate_functions: [GPIO, GETH_RXERB, GTM_TIM0_IN5_7, GTM_TIM1_IN5_7, GTM_TOUT58, ASI3_ATX, TDO]}
+  P22:
+  - {pin: 0, name: P22_0, alternate_functions: [GPIO, ASI6_ARXE, ESPI3_MTSRD, ESPI4_MTSRB, GTM_TIM0_IN1_7, GTM_TIM1_IN1_7, GTM_TOUT47, ASI3_ATX, ESPI3_MTSR, ESPI4_MTSR, QSPI_SSN0, ASI6_ATX]}
+  - {pin: 1, name: P22_1, alternate_functions: [GPIO, ASI7_ARXE, ESPI3_MRSTD, ESPI4_MRSTB, GTM_TIM0_IN0_8, GTM_TIM1_IN0_8, GTM_TOUT48, ASI3_ATX, ESPI3_MRST, ESPI4_MRST, QSPI_SSN1, ASI7_ATX]}
+  - {pin: 2, name: P22_2, alternate_functions: [GPIO, ESPI4_SLSIB, GTM_TIM0_IN3_7, GTM_TIM1_IN3_7, GTM_TOUT49, ASI5_ATX, ESPI3_SLSO12, ESPI4_SLSO3, QSPI_SSN2]}
+  - {pin: 3, name: P22_3, alternate_functions: [GPIO, ASI5_ARXC, ESPI3_SCLKD, ESPI4_SCLKB, GTM_TIM0_IN4_4, GTM_TIM1_IN4_4, GTM_TOUT50, ESPI3_SCLK, ESPI4_SCLK, QSPI_SSN3]}
+  - {pin: 4, name: P22_4, alternate_functions: [GPIO, ESPI6_SLSIA, ESPI6_SLSO1]}
+  - {pin: 5, name: P22_5, alternate_functions: [GPIO, ESPI6_MTSRA, ESPI6_MTSR]}
+  - {pin: 6, name: P22_6, alternate_functions: [GPIO, ESPI6_MRSTB, ESPI6_MRST]}
+  - {pin: 7, name: P22_7, alternate_functions: [GPIO, ESPI6_SCLKA, ESPI6_SCLK]}
+  - {pin: 9, name: P22_9, alternate_functions: [GPIO, ESPI6_MRSTC, ESPI6_MRST]}
+  - {pin: 10, name: P22_10, alternate_functions: [GPIO, ESPI6_MTSRB, ESPI6_MTSR]}
+  - {pin: 11, name: P22_11, alternate_functions: [GPIO, ESPI6_SLSIB, ESPI6_SLSO2]}
+  P23:
+  - {pin: 0, name: P23_0, alternate_functions: [GPIO, CAN10_RXDC, GTM_TIM0_IN5_4, GTM_TIM1_IN5_4, QSPI_MOSIA, GTM_TOUT41, QSPI_MOSI]}
+  - {pin: 1, name: P23_1, alternate_functions: [GPIO, ASI6_ARXF, GTM_TIM0_IN6_4, GTM_TIM1_IN6_4, QSPI_MISOA, GTM_TOUT42, ESPI4_SLSO6, QSPI_MISO, GTM_CLK0, CAN10_TXD, RCC_EXTCLK0]}
+  - {pin: 2, name: P23_2, alternate_functions: [GPIO, ASI7_ARXC, GTM_TIM0_IN6_5, GTM_TIM1_IN6_5, QSPI_D2A, GTM_TOUT43, CAN12_TXD, QSPI_D2]}
+  - {pin: 3, name: P23_3, alternate_functions: [GPIO, ASI6_ARXA, CAN12_RXDC, GTM_TIM0_IN7_4, GTM_TIM1_IN7_4, QSPI_D3A, GTM_TOUT44, ASI7_ATX, QSPI_D3]}
+  - {pin: 4, name: P23_4, alternate_functions: [GPIO, GTM_TIM0_IN7_5, GTM_TIM1_IN7_5, QSPI_CLKINA, GTM_TOUT45, ESPI4_SLSO5, QSPI_CLK]}
+  - {pin: 5, name: P23_5, alternate_functions: [GPIO, GTM_TIM0_IN2_7, GTM_TIM1_IN2_7, QSPI_CLKINA, GTM_TOUT46, ASI6_ATX, ESPI4_SLSO4, QSPI_CLKOUT]}
+  P32:
+  - {pin: 0, name: P32_0, alternate_functions: [GPIO]}
+  - {pin: 1, name: P32_1, alternate_functions: [GPIO]}
+  - {pin: 2, name: P32_2, alternate_functions: [GPIO, ASI3_ARXD, GTM_TIM0_IN3_8, GTM_TIM1_IN3_8, GTM_TOUT38, ASI3_ATX]}
+  - {pin: 3, name: P32_3, alternate_functions: [GPIO]}
+  - {pin: 4, name: P32_4, alternate_functions: [GPIO, GTM_TIM0_IN5_5, GTM_TIM1_IN5_5, GTM_TOUT40, GTM_CLK1, RCC_EXTCLK1]}
+  P33:
+  - {pin: 0, name: P33_0, alternate_functions: [GPIO, DSADC_ITR0E, GTM_DTMT1_2, GTM_TIM0_IN4_6, GTM_TIM1_IN4_6, GTM_TOUT22, ASI5_ATX]}
+  - {pin: 1, name: P33_1, alternate_functions: [GPIO, DSADC_ITR1E, GTM_TIM0_IN5_6, GTM_TIM1_IN5_6, SENT_SENT9C, GTM_TOUT23, ESPI2_SCLK]}
+  - {pin: 2, name: P33_2, alternate_functions: [GPIO, DSADC_ITR2E, GTM_TIM0_IN6_6, GTM_TIM1_IN6_6, SENT_SENT8C, GTM_TOUT24, ESPI2_SLSO10]}
+  - {pin: 3, name: P33_3, alternate_functions: [GPIO, GTM_TIM0_IN7_6, GTM_TIM1_IN7_6, SENT_SENT7C, GTM_TOUT25, ESPI4_SLSO2]}
+  - {pin: 4, name: P33_4, alternate_functions: [GPIO, ASI5_ARXB, DSADC_ITR0F, GTM_TIM0_IN0_10, GTM_TIM1_IN0_10, SENT_SENT6C, GTM_TOUT26, ESPI2_SLSO12, FC_FC0BFLOUT]}
+  - {pin: 5, name: P33_5, alternate_functions: [GPIO, DSADC_ITR1F, GTM_TIM0_IN1_8, GTM_TIM1_IN1_8, SENT_SENT5C, GTM_TOUT27, ESPI0_SLSO7, ESPI1_SLSO7]}
+  - {pin: 6, name: P33_6, alternate_functions: [GPIO, DSADC_ITR2F, GTM_TIM0_IN2_9, GTM_TIM1_IN2_9, SENT_SENT4C, GTM_TOUT28, ESPI2_SLSO11, FC_FC1BFLOUT]}
+  - {pin: 7, name: P33_7, alternate_functions: [GPIO, CAN00_RXDE, E_REQ4_0, GTM_TIM0_IN3_9, GTM_TIM1_IN3_9, GTM_TOUT29, ESPI4_SLSO7]}
+  - {pin: 8, name: P33_8, alternate_functions: [GPIO, ASI2_ARXE, EMGSTOP_PORT_A, GTM_TIM0_IN4_7, GTM_TIM1_IN4_7, SAC_FIP0, GTM_TOUT30, ASI2_ATX, ESPI4_SLSO2, CAN00_TXD]}
+  - {pin: 9, name: P33_9, alternate_functions: [GPIO, GTM_TIM0_IN1_9, GTM_TIM1_IN1_9, GTM_TOUT31, ASI2_ATX, ESPI4_SLSO1, CAN01_TXD, ASI0_ATX]}
+  - {pin: 10, name: P33_10, alternate_functions: [GPIO, ASI0_ARXD, CAN01_RXDD, ESPI4_SLSIA, GTM_TIM0_IN0_9, GTM_TIM1_IN0_9, SAC_FIP1, GTM_TOUT32, ESPI1_SLSO6, ESPI4_SLSO0]}
+  - {pin: 11, name: P33_11, alternate_functions: [GPIO, ESPI4_SCLKA, GTM_TIM0_IN2_8, GTM_TIM1_IN2_8, GTM_TOUT33, ESPI4_SCLK, RDC_WAVEN, DSADC_WAVEN]}
+  - {pin: 12, name: P33_12, alternate_functions: [GPIO, CAN00_RXDD, ESPI4_MTSRA, GTM_TIM2_IN0_6, PINBWKP, GTM_TOUT34, ASI1_ATX, ESPI4_MTSR, RDC_WAVEP, DSADC_WAVEP]}
+  - {pin: 13, name: P33_13, alternate_functions: [GPIO, ASI1_ARXF, ESPI4_MRSTA, GTM_TIM2_IN1_5, GTM_TOUT35, ASI1_ATX, ESPI4_MRST, ESPI2_SLSO6, CAN00_TXD]}
+  P34:
+  - {pin: 2, name: P34_2, alternate_functions: [GPIO, ESPI6_MRSTA, ESPI6_MRST]}
+  - {pin: 3, name: P34_3, alternate_functions: [GPIO, ESPI6_SCLKB, ESPI6_SCLK]}
+  - {pin: 4, name: P34_4, alternate_functions: [GPIO, ESPI6_SLSIC, ESPI6_SLSO3]}
+  P40:
+  - {pin: 0, name: P40_0, alternate_functions: [GPIO, SENT_SENT0A]}
+  - {pin: 1, name: P40_1, alternate_functions: [GPIO, SENT_SENT1A]}
+  - {pin: 2, name: P40_2, alternate_functions: [GPIO, SENT_SENT2A]}
+  - {pin: 3, name: P40_3, alternate_functions: [GPIO, SENT_SENT3A]}
+  - {pin: 4, name: P40_4, alternate_functions: [GPIO, SENT_SENT4A]}
+  - {pin: 5, name: P40_5, alternate_functions: [GPIO, SENT_SENT5A]}
+  - {pin: 6, name: P40_6, alternate_functions: [GPIO, SENT_SENT6A]}
+  - {pin: 7, name: P40_7, alternate_functions: [GPIO, SENT_SENT7A]}
+  - {pin: 8, name: P40_8, alternate_functions: [GPIO, SENT_SENT8A]}
+  - {pin: 9, name: P40_9, alternate_functions: [GPIO, SENT_SENT9A]}
 resources:
   can_controller:
   - {resource_id: CAN_CONTROLLER_00, display_name: CAN Controller 0, properties: {controller_id: 0, max_baudrate: 1000000, supports_fd: true}}
@@ -734,7 +846,7 @@ metadata:
     count: 2
     available: [CORE0, CORE1]
     master: CORE0
-resource_version: 1.0.0
+resource_version: 1.0.1
 selectors: {Os.OsResourceSubderivative: Os_THA6206, Resource.ResourceSubderivative: THA6206_LFBGA292}
 ecu_resources:
   Resource:
@@ -1694,4 +1806,4 @@ ecu_resources:
     AppModeDefaultName: [OSDEFAULTAPPMODE, OSALLRUNNINGMODE]
     IocPrimitiveDataType: [uint8, uint16, uint32, uint64, boolean, AppModeType, ApplicationType, CoreIdType, IdleModeType, TickType, Os_TickDiffType, AlarmType, CounterType, sint8, sint16, sint32, sint64, float32, float64, ISRType, ResourceType, SpinlockIdType, TaskType]
     IocPrimitiveDataTypeNum: 23
-checksum: sha256:d558da38044707ddfc07b62bc1259ce8408e733b12874ba90a306178aa9473fb
+checksum: sha256:87aa0c207fee4fc86091034e4106b17ead6cfff3334024968d7f8c72e55b848f

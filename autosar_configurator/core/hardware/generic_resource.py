@@ -2,11 +2,33 @@
 Generic Resource Model
 Provides a universal model for describing hardware resources
 """
+import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
+
+logger = logging.getLogger(__name__)
+
+_TRAILING_DIGITS = re.compile(r"(\d+)$")
+_PORT_LETTERS = "ABCDEFGHIJKLMNOP"
+
+
+def port_number_of(port_name: str) -> int:
+    """Port number from a pin table port name.
+
+    Digits ending the name give the number (``P10`` -> 10); a final letter A-P
+    counts from A = 0 (``PORT_B`` -> 1); anything else is 0, with a warning.
+    """
+    match = _TRAILING_DIGITS.search(port_name or "")
+    if match:
+        return int(match.group(1))
+    if port_name and port_name[-1] in _PORT_LETTERS:
+        return _PORT_LETTERS.index(port_name[-1])
+    logger.warning("port '%s': no port number in its name, using 0", port_name)
+    return 0
 
 
 @dataclass
@@ -163,14 +185,15 @@ def convert_legacy_chip(legacy_chip) -> ChipDefinition:
             ))
 
     for port_name, pins in getattr(legacy_chip, 'ports', {}).items():
-        port_index = ord(port_name[-1]) - ord('A') if port_name.endswith(tuple('ABCDEFGHIJKLMNOP')) else 0
+        port_index = port_number_of(port_name)
         chip.add_resource(GenericResourceDef(
             resource_type='gpio_port',
             resource_id=port_name,
-            display_name=f"Port {port_name[-1] if port_name else port_name}",
+            display_name=f"Port {port_name}",
             properties={
                 'port_index': port_index,
-                'pin_count': len(pins)
+                'pin_count': len(pins),
+                'pins': sorted(p.pin for p in pins),     # real pin numbers; a port may have gaps
             }
         ))
         for pin in pins:
@@ -180,6 +203,7 @@ def convert_legacy_chip(legacy_chip) -> ChipDefinition:
                 display_name=pin.name,
                 properties={
                     'port': pin.port,
+                    'port_index': port_index,
                     'pin': pin.pin,
                     'alternate_functions': pin.alternate_functions,
                     'default_direction': pin.default_direction
@@ -193,11 +217,17 @@ def convert_legacy_chip(legacy_chip) -> ChipDefinition:
     for res_type in sorted(pin_types):
         for res in effective.get(res_type, []):
             if (res_type, res.resource_id) not in derived:
+                properties = dict(res.properties)
+                # The Port rule iterates real pin numbers: a port given only by its
+                # pin count has pins 0 .. pin_count-1
+                if (res_type == 'gpio_port' and 'pins' not in properties
+                        and isinstance(properties.get('pin_count'), int)):
+                    properties['pins'] = list(range(properties['pin_count']))
                 chip.add_resource(GenericResourceDef(
                     resource_type=res_type,
                     resource_id=res.resource_id,
                     display_name=res.display_name,
-                    properties=dict(res.properties),
+                    properties=properties,
                 ))
 
     return chip

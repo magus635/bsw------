@@ -298,9 +298,9 @@ def test_port_mapping_rule_generates_pin_subcontainers():
     mapper = GenericResourceMapper(chip=convert_legacy_chip(chip), rule_loader=get_default_rule_loader())
     actions = [str(a) for a in mapper.generate_mapping("Port")]
     assert "[CREATE] PortConfigSet/PortContainer_PORT_A" in actions
-    assert "[CREATE] PortConfigSet/PortContainer_PORT_A/PortPin_PORT_A2" in actions
-    assert "[CREATE] PortConfigSet/PortContainer_PORT_B/PortPin_PORT_B1" in actions
-    assert "  [SET] PortPinId = 17" in actions  # port_index(1) * 16 + item_index(1)
+    assert "[CREATE] PortConfigSet/PortContainer_PORT_A/PortPin_PORT_A_2" in actions
+    assert "[CREATE] PortConfigSet/PortContainer_PORT_B/PortPin_PORT_B_1" in actions
+    assert "  [SET] PortPinId = 17" in actions  # port_index(1) * 16 + pin(1)
 
 
 def test_peripherals_derived_from_ecu_resources():

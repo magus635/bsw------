@@ -12,13 +12,16 @@ containers:
         source: "resource.properties.pin_count"
         ui_type: "readonly"
 
+    # PortNumber is not written: the Port definition derives it (not editable) from the
+    # container's position in Port.AvailablePortsID, the order of the pin table's ports.
     sub_containers:
-      - path_template: "PortPin_{resource.resource_id}{item_index}"
-        iterate: "range(resource.properties.pin_count)"
-        iterate_var: "pin_index"
+      # One container per existing pin; a port may have gaps (THA6412 P10 has no pin 12)
+      - path_template: "PortPin_{resource.resource_id}_{pin}"
+        iterate: "resource.properties.pins"
+        iterate_var: "pin"
         parameters:
           - name: "PortPinId"
-            transform: "resource.properties.port_index * 16 + item_index"
+            transform: "resource.properties.port_index * 16 + pin"
             ui_type: "readonly"
 
           - name: "PortPinDirection"

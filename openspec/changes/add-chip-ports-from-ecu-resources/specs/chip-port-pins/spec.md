@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Pin Table Derived From ECU Resources
-The system SHALL derive a chip's pin table from `ecu_resources.Port`: one port for each number in `Port.AvailablePortsID`, named `P` followed by the port number written with two digits, holding one pin for each number in `Port.Port<N>_AvailablePins`, named `<port>_<pin number>`, with default direction INPUT. A pin's alternate functions SHALL be the names in `Port.InputModesXDM<hex>` followed by those in `Port.OutputModesXDM<hex>` not already listed, where `<hex>` is the lower-case hexadecimal of port number × 16 + pin number. Pins of ports listed in `Port.AvailableReadOnlyPorts` SHALL get only the input function names.
+The system SHALL derive a chip's pin table from `ecu_resources.Port`: ports `P<NN>` from `Port.AvailablePortsID`, pins `<port>_<pin>` from `Port.Port<N>_AvailablePins` with default direction INPUT, and each pin's functions from `Port.InputModesXDM<hex>` then `Port.OutputModesXDM<hex>` (`<hex>` = port × 16 + pin, lower-case), input names only for ports in `Port.AvailableReadOnlyPorts`.
 
 #### Scenario: Ports and pins with gaps
 - **WHEN** `Port.AvailablePortsID` is `_0_ _10_` and `Port.Port10_AvailablePins` lists 0 to 11 and 13 to 15
@@ -32,7 +32,7 @@ The hardware mapping SHALL take a port's number from the digits ending its name,
 
 #### Scenario: Letter-named ports keep their numbers
 - **WHEN** a chip uses ports `PORT_A` and `PORT_B` with pins 0 to 15
-- **THEN** the `PortPinId` values and Dio actions are the same as before this change
+- **THEN** the `PortPinId` values are the same as before this change, and pin 1 of `PORT_B` gets Dio channel ID 17 (before this change Dio pins carried no port number and every Dio channel ID was invalid)
 
 ### Requirement: Designer Generates The Pin Table From ECU Resources
 The chip designer's pinout page SHALL offer to replace the pin table with the one derived from the chip's ECU resources. When the current pin table is not empty and differs from the derived one, the designer SHALL state how many ports and pins will be replaced and SHALL change nothing unless the user confirms; the default answer SHALL be No.

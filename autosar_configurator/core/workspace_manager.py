@@ -356,14 +356,17 @@ class WorkspaceProject:
         from .hardware.ecu_resource_resolver import other_chip_keys
 
         try:
-            from .hardware.ecu_resource_diagnostics import check_selectors
+            from .hardware.ecu_resource_diagnostics import check_selectors, pin_table_differences
             from .hardware.ecu_resource_resolver import chip_for_project
 
             previous = self.ecu_resource_report
             report = diagnose(self, self.ecu_resources,
                               other_chip_keys=other_chip_keys(self, self.chip_database),
                               log=False)
-            report.consistency.extend(check_selectors(self, chip_for_project(self, self.chip_database)[1]))
+            chip = chip_for_project(self, self.chip_database)[1]
+            report.consistency.extend(check_selectors(self, chip))
+            if chip is not None:
+                report.consistency.extend(pin_table_differences(chip))
             report.consistency.extend(self.chip_data_findings())
             # The same finding is not logged again on every reload
             if previous is None or previous.warning_lines() != report.warning_lines():

@@ -241,11 +241,11 @@ def test_save_with_backup_version_checksum_and_library(tmp_path):
 
     result = repair.save_repaired_chip(db, chip, base, _record(
         note="n", confirm_notes={"metadata.flash_size": "按 SDK 链接脚本核对"}))
-    assert result.saved and result.version == "1.0.1"
+    assert result.saved and result.version == repair.next_version(base.resource_version)
     assert result.backup.read_text(encoding="utf-8") == old_text
     reloaded = ChipDatabase()._load_chip_from_yaml(result.path)
     assert not reloaded.content_modified
-    assert reloaded.resource_version == "1.0.1"
+    assert reloaded.resource_version == result.version
     assert reloaded.ecu_resources["Port"]["MaxAvailablePinID"] == 99
     assert db.get_chip(THA610X).ecu_resources["Port"]["MaxAvailablePinID"] == 99
 
@@ -253,7 +253,7 @@ def test_save_with_backup_version_checksum_and_library(tmp_path):
     assert history["chip"] == THA610X and len(history["entries"]) == 1
     entry = history["entries"][0]
     assert entry["author"] == "tester" and entry["source"] == "test.properties"
-    assert entry["resource_version"] == {"old": "1.0.0", "new": "1.0.1"}
+    assert entry["resource_version"] == {"old": base.resource_version, "new": result.version}
     assert entry["ecu_resources"]["changed"] == [{"key": "Port.MaxAvailablePinID", "old": 15, "new": 99}]
     assert entry["confirmed"] == [{"field": "metadata.flash_size", "note": "按 SDK 链接脚本核对"}]
     assert entry["checksum"] == chip_checksum(reloaded)

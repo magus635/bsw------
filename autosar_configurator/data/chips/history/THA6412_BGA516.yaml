@@ -1,0 +1,16 @@
+chip: THA6412_BGA516
+entries:
+- date: '2026-10-28'
+  author: Claude Code
+  source: ecu_resources.Port (add-chip-ports-from-ecu-resources)
+  note: 引脚表由示例数据改为从 Port ECU 资源推导
+  resource_version: {old: 1.0.0, new: 1.0.1}
+  base_modified_outside: false
+  ecu_resources:
+    added: []
+    changed: []
+    removed: []
+  views: {resources: unchanged, metadata.cores: unchanged, ports: 'updated: 23 个端口，引脚 64→286'}
+  confirmed: []
+  marked: []
+  checksum: sha256:5f394c5b952581074ab93efb1793f3c171c97f0e3bb9743e56649d78983f7c5c

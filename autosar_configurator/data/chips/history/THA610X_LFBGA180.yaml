@@ -1,0 +1,16 @@
+chip: THA610X_LFBGA180
+entries:
+- date: '2026-10-28'
+  author: Claude Code
+  source: ecu_resources.Port (add-chip-ports-from-ecu-resources)
+  note: 引脚表由示例数据改为从 Port ECU 资源推导
+  resource_version: {old: 1.0.0, new: 1.0.1}
+  base_modified_outside: false
+  ecu_resources:
+    added: []
+    changed: []
+    removed: []
+  views: {resources: unchanged, metadata.cores: unchanged, ports: 'updated: 16 个端口，引脚 32→123'}
+  confirmed: []
+  marked: []
+  checksum: sha256:a3eed2292706dcfe050f11e883dfe9448b86c8a5064124b73ecadb986b1d4b16

@@ -175,6 +175,9 @@ class ChipDefinitionExporter:
 
         if chip.metadata:
             data['metadata'] = dict(chip.metadata)
+            # One line per unconfirmed field: its notes are long sentences
+            if isinstance(data['metadata'].get('unconfirmed'), dict):
+                data['metadata']['unconfirmed'] = _BlockMap(data['metadata']['unconfirmed'])
 
         if chip.resource_version:
             data['resource_version'] = chip.resource_version
