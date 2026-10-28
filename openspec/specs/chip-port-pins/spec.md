@@ -1,7 +1,7 @@
 # chip-port-pins Specification
 
 ## Purpose
-TBD - created by archiving change add-chip-ports-from-ecu-resources. Update Purpose after archive.
+Keep a chip's pin table derived from its `ecu_resources.Port` data, and keep the Port and Dio mapping consistent with it and with the vendor Port definition.
 
 ## Requirements
 
