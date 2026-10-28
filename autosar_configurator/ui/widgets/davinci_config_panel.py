@@ -670,13 +670,27 @@ class DaVinciConfigPanel(QWidget):
 
             combo.addItems(literals)
 
+            # A stored value outside the options is shown as it is, marked, instead of
+            # falling back to the first entry; the entry carries the real value as data.
+            # Without any option (range resolved elsewhere) nothing can be called out of range.
+            if current_value is not None and str(current_value) not in literals:
+                if literals:
+                    combo.addItem(f"{current_value}（不在可选范围）", str(current_value))
+                    combo.setToolTip(f"当前值不在可选范围内；可选：{', '.join(literals)}")
+                else:
+                    combo.addItem(str(current_value))
+                combo.setCurrentIndex(combo.count() - 1)
             # Set current value
-            if current_value is not None:
+            elif current_value is not None:
                 combo.setCurrentText(str(current_value))
             elif not param_def.is_required:
                 combo.setCurrentIndex(0)  # Select "(未配置)"
 
-            return combo, combo.currentText, combo.currentTextChanged
+            def current_enum_value():
+                data = combo.currentData()
+                return data if data is not None else combo.currentText()
+
+            return combo, current_enum_value, combo.currentTextChanged
             
         elif param_def.param_type == EcucParameterType.BOOLEAN:
             # Centered CheckBox for booleans
