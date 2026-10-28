@@ -583,9 +583,8 @@ metadata:
     metadata.cores: SDK tha6104_cfg.h 只有 1 个 Os 核（INTC_CORE_MAXID 0）；MCAL 的 2 核是锁步的物理核
     metadata.flash_size: SDK 链接脚本为 PFLASH0/1 各 2 MB、DFLASH 256 KB
     metadata.ram_size: SDK 链接脚本为 ATCM 32 KB、BTCM 256 KB、CTCM 128 KB、GMU0/1 各 40 KB、LMU2 16 KB
-    ports: 引脚复用像是占位数据，待芯片负责人核对
     ecu_resources.Os.IsrTriggerMethodList: 沿用 THA6206/THA6412 的表；INTID 0-31 由 Cortex-R52 决定，SPI 的触发方式待按 THA6104 中断表核对
-resource_version: 1.0.1
+resource_version: 1.0.2
 selectors: {Os.OsResourceSubderivative: Os_THA610X, Resource.ResourceSubderivative: THA610X_LFBGA180}
 ecu_resources:
   Resource:
@@ -1252,4 +1251,4 @@ ecu_resources:
     AppModeDefaultName: [OSDEFAULTAPPMODE, OSALLRUNNINGMODE]
     IocPrimitiveDataType: [uint8, uint16, uint32, uint64, boolean, AppModeType, ApplicationType, CoreIdType, IdleModeType, TickType, Os_TickDiffType, AlarmType, CounterType, sint8, sint16, sint32, sint64, float32, float64, ISRType, ResourceType, SpinlockIdType, TaskType]
     IocPrimitiveDataTypeNum: 23
-checksum: sha256:a3eed2292706dcfe050f11e883dfe9448b86c8a5064124b73ecadb986b1d4b16
+checksum: sha256:d311ed412bd88e066e63ea7655788952fa540d2bfcb7ca557f6f5b23e5b15975

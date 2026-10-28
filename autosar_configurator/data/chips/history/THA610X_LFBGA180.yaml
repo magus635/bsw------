@@ -14,3 +14,18 @@ entries:
   confirmed: []
   marked: []
   checksum: sha256:a3eed2292706dcfe050f11e883dfe9448b86c8a5064124b73ecadb986b1d4b16
+- date: '2026-10-28'
+  author: Your Name
+  source: LFBGA180 球图（用户提供）
+  note: 球图 123 个 P<端口>.<引脚> 与 ecu_resources.Port 的 Port<N>_AvailablePins 完全一致
+  resource_version: {old: 1.0.1, new: 1.0.2}
+  base_modified_outside: false
+  ecu_resources:
+    added: []
+    changed: []
+    removed: []
+  views: {resources: unchanged, metadata.cores: unchanged, ports: unchanged}
+  confirmed:
+  - {field: ports, note: 球图核对：16 个端口 123 个引脚一致}
+  marked: []
+  checksum: sha256:d311ed412bd88e066e63ea7655788952fa540d2bfcb7ca557f6f5b23e5b15975
