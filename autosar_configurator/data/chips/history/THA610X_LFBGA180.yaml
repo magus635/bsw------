@@ -29,3 +29,20 @@ entries:
   - {field: ports, note: 球图核对：16 个端口 123 个引脚一致}
   marked: []
   checksum: sha256:d311ed412bd88e066e63ea7655788952fa540d2bfcb7ca557f6f5b23e5b15975
+- date: '2026-10-28'
+  author: Your Name
+  source: 芯片负责人确认（SDK 链接脚本与 tha6104_cfg.h）
+  note: 核数、Flash、RAM 按 SDK 值更正并确认
+  resource_version: {old: 1.0.2, new: 1.0.3}
+  base_modified_outside: false
+  ecu_resources:
+    added: []
+    changed: []
+    removed: []
+  views: {resources: unchanged, metadata.cores: unchanged, ports: unchanged}
+  confirmed:
+  - {field: metadata.cores, note: 芯片负责人确认：1 个内核（与 SDK 的 INTC_CORE_MAXID 0 一致）}
+  - {field: metadata.flash_size, note: 芯片负责人确认 SDK 链接脚本为真实容量：PFLASH0/1 各 2 MB（程序 Flash 共 4MB，与 THA6412 的写法一致）；DFLASH 256 KB 未计入}
+  - {field: metadata.ram_size, note: 芯片负责人确认全部可用：ATCM 32 + BTCM 256 + CTCM 128 + GMU0/1 各 40 + LMU2 16 = 512 KB}
+  marked: []
+  checksum: sha256:47cc8d1999a11108edac19d3414dc7d16e4cca4ba32d986331cd01a3f3e240ab

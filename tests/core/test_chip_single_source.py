@@ -272,6 +272,16 @@ def test_core_count_difference_is_reported_and_can_be_taken_over():
     assert typed_fields_from_ecu(chip) == {"count": 4}
 
 
+def test_core_field_agreeing_with_one_key_is_not_a_difference():
+    # THA610X: MCAL counts the lockstep pair (2), the Os uses one core
+    chip = _cores_chip(count=1, available=("CORE0",),
+                       OsResource={"NumOfCores": 1, "AvailableCores": ["CORE0"]},
+                       Resource={"NumOfCores": 2, "AvailableCores": ["CORE0", "CORE1"]})
+    assert typed_field_differences(chip) == []
+    chip.metadata["cores"]["count"] = 3
+    assert len(typed_field_differences(chip)) == 2           # neither key agrees: both are named
+
+
 def test_absent_key_is_not_compared():
     assert typed_field_differences(_cores_chip(count=8)) == []
 

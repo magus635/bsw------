@@ -21,6 +21,7 @@ from autosar_configurator.core.workspace_manager import WorkspaceProject
 from tools import chip_repair as cli
 
 THA610X = "THA610X_LFBGA180"
+MARK = "ecu_resources.Os.IsrTriggerMethodList"      # the mark THA610X still carries
 
 
 def _props(path: Path, text: str) -> Path:
@@ -144,7 +145,8 @@ def test_nothing_selected_and_unknown_key():
 # --- unconfirmed marks ------------------------------------------------------------
 
 def test_confirm_removes_only_the_mark():
-    chip = ChipDatabase()._load_chip_from_yaml(default_chips_dir() / f"{THA610X}.yaml")
+    chip = ChipDefinition(name="C", metadata={"flash_size": "4MB", "ram_size": "512KB",
+                                              "unconfirmed": {"metadata.flash_size": "a", "metadata.ram_size": "b"}})
     confirmed = repair.confirm_fields(chip, ["metadata.flash_size"])
     assert "metadata.flash_size" not in unconfirmed_marks(confirmed)
     assert "metadata.ram_size" in unconfirmed_marks(confirmed)
@@ -237,10 +239,10 @@ def test_save_with_backup_version_checksum_and_library(tmp_path):
     base = _base(db, THA610X)
     old_text = (tmp_path / "chips" / f"{THA610X}.yaml").read_text(encoding="utf-8")
     diff = repair.diff_from_source(base.ecu_resources, {"Port": {"MaxAvailablePinID": 99}})
-    chip = repair.confirm_fields(repair.apply_changes(base, diff, diff.keys()), ["metadata.flash_size"])
+    chip = repair.confirm_fields(repair.apply_changes(base, diff, diff.keys()), [MARK])
 
     result = repair.save_repaired_chip(db, chip, base, _record(
-        note="n", confirm_notes={"metadata.flash_size": "按 SDK 链接脚本核对"}))
+        note="n", confirm_notes={MARK: "按 SDK 链接脚本核对"}))
     assert result.saved and result.version == repair.next_version(base.resource_version)
     assert result.backup.read_text(encoding="utf-8") == old_text
     reloaded = ChipDatabase()._load_chip_from_yaml(result.path)
@@ -255,7 +257,7 @@ def test_save_with_backup_version_checksum_and_library(tmp_path):
     assert entry["author"] == "tester" and entry["source"] == "test.properties"
     assert entry["resource_version"] == {"old": base.resource_version, "new": result.version}
     assert entry["ecu_resources"]["changed"] == [{"key": "Port.MaxAvailablePinID", "old": 15, "new": 99}]
-    assert entry["confirmed"] == [{"field": "metadata.flash_size", "note": "按 SDK 链接脚本核对"}]
+    assert entry["confirmed"] == [{"field": MARK, "note": "按 SDK 链接脚本核对"}]
     assert entry["checksum"] == chip_checksum(reloaded)
 
 

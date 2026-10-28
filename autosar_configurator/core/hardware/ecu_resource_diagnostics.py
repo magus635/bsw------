@@ -331,7 +331,10 @@ def typed_field_differences(chip) -> List[str]:
     """Differences between the designer's typed fields and ``ecu_resources``.
 
     Compared only where ``ecu_resources`` has the mapped key; ``ecu_resources``
-    is the data templates read, so it is the one that counts.
+    is the data templates read, so it is the one that counts.  A field agreeing with
+    one of its keys is not a difference: MCAL may count lockstep cores that the Os
+    does not use (THA610X: ``Resource.NumOfCores`` 2, ``OsResource.NumOfCores`` 1),
+    the same rule the repair applies when it derives the core fields.
     """
     from .ecu_resource_data import flatten_ecu_resources
 
@@ -341,12 +344,11 @@ def typed_field_differences(chip) -> List[str]:
         typed = _typed_value(chip, field_path)
         if typed is None:
             continue
-        for key, convert in keys:
-            if key not in flat:
-                continue
-            ecu_value = convert(flat[key])
-            if ecu_value != typed:
-                messages.append(f"{field_path} is {typed!r} but ECU resource {key} gives {ecu_value!r}")
+        values = [(key, convert(flat[key])) for key, convert in keys if key in flat]
+        if any(value == typed for _, value in values):
+            continue
+        messages.extend(f"{field_path} is {typed!r} but ECU resource {key} gives {value!r}"
+                        for key, value in values)
     return messages
 
 

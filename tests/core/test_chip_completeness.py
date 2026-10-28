@@ -130,7 +130,8 @@ def test_library_chips_are_flagged_as_marked():
     from autosar_configurator.core.hardware.chip_database import default_chips_dir
 
     db = ChipDatabase(default_chips_dir())
-    assert "metadata.flash_size" in _fields(check_chip(db.get_chip("THA610X_LFBGA180")))
+    # THA610X keeps one mark until its THA6104 interrupt table has been checked
+    assert _fields(check_chip(db.get_chip("THA610X_LFBGA180"))) == ["ecu_resources.Os.IsrTriggerMethodList"]
     assert check_chip(db.get_chip("THA6206_LFBGA292")) == []
     assert check_chip(db.get_chip("THA6412_BGA516")) == []
     # Os only: no pins or peripherals is not missing data; the 73 external interrupts are confirmed
