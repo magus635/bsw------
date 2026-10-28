@@ -59,7 +59,7 @@ def test_saving_an_edited_chip_keeps_its_ecu_resources(qtbot, tmp_path, monkeypa
 
     reloaded = ChipDatabase(tmp_path).get_chip("CHIP_X")
     assert reloaded.description == "edited"
-    assert reloaded.resource_version == "2.0.0"
+    assert reloaded.resource_version == "2.0.1"        # a save of a library chip is a repair
     assert reloaded.ecu_resources == {"OsResource": {"NumOfCores": 2}}
 
 

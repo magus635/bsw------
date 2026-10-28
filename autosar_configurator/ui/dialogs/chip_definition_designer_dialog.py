@@ -29,6 +29,7 @@ from ...core.hardware.chip_database import (
 )
 from ...core.hardware.pinout_importer import PinoutTableImporter
 from ...core.hardware.chip_exporter import ChipDefinitionExporter, chip_checksum
+from ...core.hardware.chip_repair import ChipFileChanged, RepairRecord, save_repaired_chip
 from ...core.hardware.ecu_resource_data import (
     EcuResources, count_placeholders, describe_ecu_resources, flatten_ecu_resources,
 )
@@ -1095,21 +1096,48 @@ class ChipDefinitionDesignerDialog(QDialog):
             if reply != QMessageBox.Yes:
                 return
 
-        try:
-            self.exporter.save_yaml(chip, target_file)
-        except Exception as e:
-            logger.exception("Failed to save chip definition")
-            QMessageBox.critical(self, "保存错误", f"保存芯片定义失败:\n{str(e)}")
+        if is_own_file and self._base_chip is not None and target_file.exists() and not self._has_unsaved_edits():
+            self.status_label.setText(f"没有改动，未写入: {chip.name}")
             return
 
-        self.chip_database.register_chip(copy.deepcopy(chip))
+        # Editing a library chip is a repair: backup, new version and history entry
+        result = None
+        if is_own_file and self._base_chip is not None and target_file.exists():
+            try:
+                result = save_repaired_chip(self.chip_database, chip, self._base_chip,
+                                            RepairRecord(source="设计器手工编辑"), path=target_file)
+            except ChipFileChanged as e:
+                reply = QMessageBox.question(
+                    self, "文件已被改动",
+                    f"{e}\n\n仍然覆盖吗？覆盖不会留下修复历史，也不会备份。",
+                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+                if reply != QMessageBox.Yes:
+                    return
+            except Exception as e:
+                logger.exception("Failed to save chip definition")
+                QMessageBox.critical(self, "保存错误", f"保存芯片定义失败:\n{str(e)}")
+                return
+
+        if result is None:
+            try:
+                self.exporter.save_yaml(chip, target_file)
+            except Exception as e:
+                logger.exception("Failed to save chip definition")
+                QMessageBox.critical(self, "保存错误", f"保存芯片定义失败:\n{str(e)}")
+                return
+            self.chip_database.register_chip(copy.deepcopy(chip))
+        elif result.saved:
+            chip = copy.deepcopy(self.chip_database.get_chip(chip.name))
+            self._resource_version = chip.resource_version
         self._base_chip = copy.deepcopy(chip)
         self._editing_name = chip.name
         self._last_saved_chip = chip.name
         self._mark_clean()
         self._populate_clone_dropdown()
 
-        self.status_label.setText(f"✅ 已成功保存芯片: {chip.name}")
+        versioned = result is not None and result.saved
+        self.status_label.setText(
+            f"✅ 已成功保存芯片: {chip.name}" + (f"（版本 {chip.resource_version}）" if versioned else ""))
         self.status_label.setStyleSheet("color: #4caf50; font-weight: bold; font-size: 12px;")
         self.chip_saved.emit(chip.name)
 
@@ -1117,7 +1145,9 @@ class ChipDefinitionDesignerDialog(QDialog):
             self,
             "保存成功",
             f"芯片定义已成功保存到系统数据库！\n\n文件路径: {target_file}\n"
-            f"在后续的硬件映射向导和配置面板中，可以直接选择此芯片。\n\n"
+            + (f"版本 {chip.resource_version}，旧文件备份为 {result.backup.name}，修改记录已写入 history。\n"
+               if versioned else "")
+            + f"在后续的硬件映射向导和配置面板中，可以直接选择此芯片。\n\n"
             f"您可以继续编辑或导出 .properties 文件，也可以直接关闭。"
         )
 
