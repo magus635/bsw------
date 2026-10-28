@@ -2056,7 +2056,7 @@ class ListEditorWidget(QWidget):
         dlg_layout = QVBoxLayout(dialog)
         
         # Reuse creation logic
-        editor, getter, signal = self.parent_panel._create_single_value_editor(self.param_def, current_val)
+        editor, getter, signal = self.parent_panel._create_single_value_editor(self.param_name, self.param_def, current_val)
         dlg_layout.addWidget(editor)
         
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
