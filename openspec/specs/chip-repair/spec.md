@@ -178,7 +178,7 @@ The save step SHALL require a source text and an author, prefill the next versio
 - **THEN** the chip is saved with a backup and a history entry and the library returns the repaired chip
 
 ### Requirement: Repair Entry Points
-The application SHALL open the repair wizard from the main window menu with the project's chip preselected, from the chip definition designer for the chip being edited, and from Project Properties for a chip whose data is incomplete. After a repair, the project's chip constraints SHALL be refreshed, and when the project keeps its own copy of the repaired chip the user SHALL be told to use "Update from Library".
+The application SHALL open the repair wizard from the main window menu with the project's chip preselected, from the chip definition designer for the chip being edited, from Project Properties for a chip whose data is incomplete, and from the chip pages of the new-project and hardware-mapping wizards for the chosen chip of the library. After a repair, the project's chip constraints SHALL be refreshed, and when the project keeps its own copy of the repaired chip the user SHALL be told to use "Update from Library".
 
 #### Scenario: From Project Properties
 - **WHEN** the selected chip is shown as `<name>（资料不完整）` and the user clicks "修复…"
@@ -191,6 +191,14 @@ The application SHALL open the repair wizard from the main window menu with the 
 #### Scenario: Project keeps a copy
 - **WHEN** the repaired chip is the one the project keeps in `chips/`
 - **THEN** the user is told that "Update from Library" brings the repair into the project, and the project copy is not changed automatically
+
+#### Scenario: From the new-project wizard
+- **WHEN** a chip of the library is selected on the chip page and the user clicks "修复所选…"
+- **THEN** the wizard opens with that chip, and after a repair the list is refreshed with the same chip still selected
+
+#### Scenario: From the hardware-mapping wizard
+- **WHEN** the chosen chip is in the library and the user clicks "Repair..."
+- **THEN** the wizard opens with that chip and the project, and after a repair the chip list is reloaded with the same chip chosen
 
 ### Requirement: Designer Saves Are Recorded
 Saving a chip of the library in the chip definition designer SHALL be recorded like a repair: the previous file kept as a backup, the version raised, and one history entry added whose source names the designer. A file changed since it was loaded SHALL not be overwritten without asking, and a save without edits SHALL write nothing.
