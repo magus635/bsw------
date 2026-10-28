@@ -160,6 +160,14 @@ class ProjectPropertiesDialog(QDialog):
         self.completeness_label.setStyleSheet("color: #B35C00;")
         self.completeness_label.setVisible(False)
         chip_outer.addWidget(self.completeness_label)
+        repair_row = QHBoxLayout()
+        self.repair_chip_btn = QPushButton("修复…")
+        self.repair_chip_btn.setToolTip("在芯片修复向导中修复芯片库里的这颗芯片")
+        self.repair_chip_btn.setVisible(False)
+        self.repair_chip_btn.clicked.connect(self._repair_chip)
+        repair_row.addWidget(self.repair_chip_btn)
+        repair_row.addStretch()
+        chip_outer.addLayout(repair_row)
         chip_actions = QHBoxLayout()
         self.adopt_chip_btn = QPushButton("Save Chip to Project")
         self.adopt_chip_btn.setToolTip(
@@ -377,6 +385,32 @@ class ProjectPropertiesDialog(QDialog):
                                 chip_database=getattr(self.project, 'chip_database', None))
         return chip_for_project(probe, probe.chip_database)[0]
 
+    def _chip_library(self):
+        from ...core.hardware.chip_database import get_default_chip_database
+
+        return getattr(self.project, 'chip_database', None) or get_default_chip_database()
+
+    def _repair_chip(self):
+        """Repair the chosen chip of the library in the repair wizard, then refresh the markers."""
+        from ..wizards.chip_repair_wizard import ChipRepairWizard, project_copy_notice
+
+        chosen = self.chip_combo.currentData()
+        database = self._chip_library()
+        wizard = ChipRepairWizard(database, chosen, self.project, parent=self)
+        repaired = []
+        wizard.chip_repaired.connect(repaired.append)
+        wizard.exec()
+        if not repaired:
+            return
+        self._populate_chip_combo()
+        index = self.chip_combo.findData(chosen)
+        if index >= 0:
+            self.chip_combo.setCurrentIndex(index)
+        self._refresh_chip_status()
+        notice = project_copy_notice(self.project, database, repaired[0])
+        if notice:
+            QMessageBox.information(self, "芯片已修复", notice)
+
     def _refresh_chip_status(self, *_):
         """Show the source of the chip data and enable the matching action."""
         from ...core.hardware.project_chip_store import (
@@ -404,6 +438,8 @@ class ProjectPropertiesDialog(QDialog):
             f"{chosen} 的芯片资料不完整（仍可选择和生成）：\n"
             + "\n".join(f"- {item.text}" for item in items) if items else "")
         self.completeness_label.setVisible(bool(items))
+        # Repairs go to the chip library; a chip only in the project's .properties has nothing to repair
+        self.repair_chip_btn.setVisible(bool(items) and self._chip_library().get_chip(chosen) is not None)
         has_location = bool(getattr(self.project, 'path', None))
         self.adopt_chip_btn.setEnabled(
             has_location and not pending and source not in (SOURCE_NONE, SOURCE_PROJECT))

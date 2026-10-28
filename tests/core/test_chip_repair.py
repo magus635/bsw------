@@ -429,3 +429,69 @@ def test_cli_changed_file_and_bad_arguments(tmp_path, monkeypatch):
     assert cli.main(args + ["--all-changed"]) == cli.EXIT_ERROR
     assert cli.main(args + ["--keys", "Port.Nope"]) == cli.EXIT_ERROR
     assert cli.main(args + ["--confirm", "no-equals-sign"]) == cli.EXIT_ERROR
+
+
+# --- session ----------------------------------------------------------------------
+
+def _session_library(tmp_path):
+    return _library(tmp_path, ChipDefinition(
+        name="C", resource_version="1.0.0",
+        metadata={"unconfirmed": {"metadata.flash_size": "x", "ports": "y"}},
+        ecu_resources={"Port": {"A": 1, "B": 2, "Gone": 0}}))
+
+
+def test_session_properties_win_over_missing_keys(tmp_path, monkeypatch):
+    from autosar_configurator.core.hardware import ecu_resource_diagnostics
+
+    db = _session_library(tmp_path)
+    monkeypatch.setattr(ecu_resource_diagnostics, "collect_referenced_keys_in_dirs",
+                        lambda dirs: {"Port.New": {"Port"}, "Os.Missing": {"Os"}})
+    session = repair.RepairSession(db, "C")
+    session.properties = [_props(tmp_path / "p.properties", "Port.A: 1\nPort.B: 5\nPort.New: 7\n")]
+    session.scan_dirs = [tmp_path]
+    diff = session.load_sources()
+    assert diff.keys() == ["Os.Missing", "Port.B", "Port.Gone", "Port.New"]
+    assert diff.get("Port.New").new == 7                      # the file's value, not the placeholder
+    assert diff.get("Os.Missing").new is repair.PLACEHOLDER
+
+
+def test_session_default_selection_excludes_removals(tmp_path):
+    session = repair.RepairSession(_session_library(tmp_path), "C")
+    session.properties = [_props(tmp_path / "p.properties", "Port.A: 1\nPort.B: 5\nPort.New: 7\n")]
+    session.load_sources()
+    assert session.selected == {"Port.B", "Port.New"}
+    chip, _ = session.build()
+    assert chip.ecu_resources["Port"] == {"A": 1, "B": 5, "Gone": 0, "New": 7}
+
+
+def test_session_marks_only(tmp_path):
+    db = _session_library(tmp_path)
+    session = repair.RepairSession(db, "C")
+    session.load_sources()
+    assert not session.diff
+    session.confirm_notes = {"metadata.flash_size": "核对过"}
+    session.new_marks = {"ecu_resources.Port": "待核对"}
+    chip, _ = session.build()
+    assert unconfirmed_marks(chip) == {"ports": "y", "ecu_resources.Port": "待核对"}
+    assert chip.ecu_resources == session.base.ecu_resources
+
+    resolved, remaining, new = session.completeness_change(chip)
+    assert [i.field for i in resolved] == ["metadata.flash_size"]
+    assert [i.field for i in remaining] == ["ports"]
+    assert [i.field for i in new] == ["ecu_resources.Port"]
+
+    result = session.save(repair.RepairRecord(source="核实", author="tester"))
+    entry = yaml.safe_load(result.history.read_text(encoding="utf-8"))["entries"][0]
+    assert entry["confirmed"] == [{"field": "metadata.flash_size", "note": "核对过"}]
+    assert entry["marked"] == [{"field": "ecu_resources.Port", "note": "待核对"}]
+    assert repair.read_history(result.path)[0]["source"] == "核实"
+
+
+def test_session_unknown_chip_and_unchanged(tmp_path):
+    db = _session_library(tmp_path)
+    with pytest.raises(ValueError):
+        repair.RepairSession(db, "NOPE")
+    session = repair.RepairSession(db, "C")
+    assert not session.has_changes(session.build()[0])
+    assert not session.save(repair.RepairRecord(source="s", author="t")).saved
+    assert repair.read_history(session.chip_file) == []

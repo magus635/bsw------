@@ -326,6 +326,10 @@ class DaVinciMainWindow(QMainWindow):
         self.chip_designer_action.setStatusTip("Open Chip Definition Designer to author, edit, or import MCU hardware definitions")
         self.chip_designer_action.triggered.connect(self._launch_chip_definition_designer)
 
+        self.chip_repair_action = QAction("修复芯片...", self)
+        self.chip_repair_action.setStatusTip("按厂商数据和插件所需键修复、补充芯片库中已有的芯片，并处理待确认项")
+        self.chip_repair_action.triggered.connect(lambda: self._launch_chip_repair_wizard())
+
         self.chip_scan_action = QAction("芯片依赖扫描...", self)
         self.chip_scan_action.setStatusTip("列出依赖具体芯片的判断、默认分支、写死数值和资源覆盖，作为新增芯片的检查清单")
         self.chip_scan_action.triggered.connect(self._launch_chip_dependency_scan)
@@ -429,6 +433,7 @@ class DaVinciMainWindow(QMainWindow):
         # Tools menu
         tools_menu = menubar.addMenu("Tools")
         tools_menu.addAction(self.chip_designer_action)
+        tools_menu.addAction(self.chip_repair_action)
         tools_menu.addAction(self.chip_scan_action)
         tools_menu.addAction(self.hardware_mapping_action)
 
@@ -840,6 +845,28 @@ class DaVinciMainWindow(QMainWindow):
         dialog = ChipDefinitionDesignerDialog(initial_chip=initial_chip, parent=self, project=self.current_project)
         dialog.chip_saved.connect(self._on_designer_chip_saved)
         dialog.exec()
+
+    def _launch_chip_repair_wizard(self, chip_name=None):
+        """Open the chip repair wizard, preselecting the project's chip."""
+        from ..core.hardware.chip_database import get_default_chip_database
+        from .wizards.chip_repair_wizard import ChipRepairWizard
+
+        project = self.current_project
+        if chip_name is None:
+            service = getattr(self, 'chip_constraint_service', None)
+            chip_name = (service.current_chip if service else None) or getattr(project, 'selected_chip', None)
+        database = getattr(project, 'chip_database', None) or get_default_chip_database()
+        wizard = ChipRepairWizard(database, chip_name, project, parent=self)
+        wizard.chip_repaired.connect(lambda name: self._on_chip_repaired(name, database))
+        wizard.exec()
+
+    def _on_chip_repaired(self, chip_name: str, database):
+        from .wizards.chip_repair_wizard import project_copy_notice
+
+        self._on_designer_chip_saved(chip_name)
+        notice = project_copy_notice(self.current_project, database, chip_name)
+        if notice:
+            QMessageBox.information(self, "芯片已修复", notice)
 
     def _launch_chip_dependency_scan(self):
         """Open the chip dependency scan (read-only)."""

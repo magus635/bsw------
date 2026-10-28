@@ -38,7 +38,7 @@ __all__ = [
     "PLACEHOLDER", "view_text", "KeyChange", "EcuDiff", "ViewStatus", "RepairRecord", "SaveResult", "ChipFileChanged",
     "ecu_resources_from_properties", "diff_ecu_resources", "diff_from_source", "missing_key_changes",
     "apply_changes", "derive_views", "confirm_fields", "mark_unconfirmed",
-    "next_version", "git_author", "history_path", "save_repaired_chip",
+    "next_version", "git_author", "history_path", "save_repaired_chip", "read_history", "RepairSession",
 ]
 
 
@@ -422,3 +422,105 @@ def save_repaired_chip(database: ChipDatabase, chip: ChipDefinition, base: ChipD
     logger.info("repaired chip %s saved to %s (resource_version %s)", saved.name, path, saved.resource_version)
     return SaveResult(saved=True, path=path, backup=backup, history=hist,
                       version=saved.resource_version, checksum=saved.checksum)
+
+
+def read_history(chip_file: Path) -> List[Dict[str, Any]]:
+    """Entries of a chip's repair history, oldest first (empty without a history)."""
+    path = history_path(Path(chip_file))
+    if not path.is_file():
+        return []
+    try:
+        return list((yaml.safe_load(path.read_text(encoding="utf-8")) or {}).get("entries") or [])
+    except (OSError, yaml.YAMLError) as e:
+        logger.warning("%s: cannot read the repair history: %s", path, e)
+        return []
+
+
+# --- session (state shared by the steps of the repair wizard and the command line) --
+
+class RepairSession:
+    """One repair of one library chip: sources, selection, marks, then build and save.
+
+    Holds no Qt object, so the repair wizard's logic is testable without a display.
+    """
+
+    def __init__(self, database: ChipDatabase, chip_name: str, project=None):
+        chip = database.get_chip(chip_name)
+        if chip is None:
+            raise ValueError(f"the chip library has no chip {chip_name}")
+        self.database = database
+        self.project = project
+        self.base = copy.deepcopy(chip)
+        self.properties: List[Path] = []
+        self.scan_project = False
+        self.scan_dirs: List[Path] = []
+        self.diff = EcuDiff()
+        self.selected: set = set()
+        self.confirm_notes: Dict[str, str] = {}     # field -> confirmation note
+        self.new_marks: Dict[str, str] = {}         # field -> note
+
+    @property
+    def chip_file(self) -> Optional[Path]:
+        data_dir = self.database.data_dir
+        return None if data_dir is None else Path(data_dir) / f"{self.base.name}.yaml"
+
+    def load_sources(self) -> EcuDiff:
+        """Difference to the chosen sources; the selection is reset to the default.
+
+        A key both in a .properties file and among the missing keys takes the file's value.
+        """
+        from .ecu_resource_diagnostics import collect_referenced_keys, collect_referenced_keys_in_dirs
+
+        changes: Dict[str, KeyChange] = {}
+        if self.properties:
+            source = ecu_resources_from_properties([Path(p) for p in self.properties])
+            changes.update((c.key, c) for c in diff_from_source(self.base.ecu_resources, source).changes)
+        referenced = set()
+        if self.scan_project and self.project is not None:
+            referenced |= set(collect_referenced_keys(self.project))
+        if self.scan_dirs:
+            referenced |= set(collect_referenced_keys_in_dirs([Path(d) for d in self.scan_dirs]))
+        for c in missing_key_changes(self.base, referenced).changes:
+            changes.setdefault(c.key, c)
+        self.diff = EcuDiff([changes[k] for k in sorted(changes)])
+        self.selected = set(self.default_selection())
+        return self.diff
+
+    def default_selection(self) -> List[str]:
+        """Added and changed keys; removals are never preselected."""
+        return self.diff.keys(ADDED, CHANGED)
+
+    def build(self) -> Tuple[ChipDefinition, List[ViewStatus]]:
+        """The repaired chip: selected changes, views from ECU resources, then the marks."""
+        chip = apply_changes(self.base, self.diff, self.selected)
+        chip, views = derive_views(chip)
+        if self.confirm_notes:
+            chip = confirm_fields(chip, self.confirm_notes)
+        for field_path, note in self.new_marks.items():
+            chip = mark_unconfirmed(chip, field_path, note)
+        return chip, views
+
+    def completeness(self, chip: ChipDefinition) -> list:
+        from .chip_completeness import check_chip
+
+        return check_chip(chip, self.project)
+
+    def completeness_change(self, chip: ChipDefinition) -> Tuple[list, list, list]:
+        """(resolved, remaining, new) completeness items of ``chip`` against the base chip."""
+        before, after = self.completeness(self.base), self.completeness(chip)
+        before_fields, after_fields = {i.field for i in before}, {i.field for i in after}
+        return ([i for i in before if i.field not in after_fields],
+                [i for i in after if i.field in before_fields],
+                [i for i in after if i.field not in before_fields])
+
+    def has_changes(self, chip: ChipDefinition) -> bool:
+        from .chip_exporter import chip_checksum
+
+        return chip_checksum(chip) != chip_checksum(self.base)
+
+    def save(self, record: RepairRecord) -> SaveResult:
+        chip, views = self.build()
+        if not record.views:
+            record.views = views
+        record.confirm_notes = dict(self.confirm_notes)
+        return save_repaired_chip(self.database, chip, self.base, record)

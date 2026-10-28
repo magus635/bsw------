@@ -28,7 +28,7 @@ from ...core.hardware.chip_database import (
     ChipDatabase, ChipDefinition, PortPinDef
 )
 from ...core.hardware.pinout_importer import PinoutTableImporter
-from ...core.hardware.chip_exporter import ChipDefinitionExporter
+from ...core.hardware.chip_exporter import ChipDefinitionExporter, chip_checksum
 from ...core.hardware.ecu_resource_data import (
     EcuResources, count_placeholders, describe_ecu_resources, flatten_ecu_resources,
 )
@@ -248,6 +248,8 @@ class ChipDefinitionDesignerDialog(QDialog):
         # Name of the chip whose file is being edited (None for new / cloned chips)
         self._editing_name: Optional[str] = None
         self._last_saved_chip: Optional[str] = None
+        # Checksum of the editor content right after loading/saving (unsaved edits differ)
+        self._loaded_checksum: Optional[str] = None
         # ECU resources (ecu:get/ecu:list data) and their version: not edited
         # field by field; filled by "Import properties" or loaded with the chip.
         self._ecu_resources: EcuResources = {}
@@ -298,6 +300,12 @@ class ChipDefinitionDesignerDialog(QDialog):
         clone_btn.clicked.connect(self._on_clone_clicked)
         clone_layout.addWidget(clone_btn)
         clone_layout.addStretch()
+
+        self.repair_btn = QPushButton("🔧 修复此芯片…")
+        self.repair_btn.setToolTip("用厂商 .properties、插件所需键修复正在编辑的芯片，处理待确认项，并留下修改记录")
+        self.repair_btn.setEnabled(False)
+        self.repair_btn.clicked.connect(self._on_repair_clicked)
+        clone_layout.addWidget(self.repair_btn)
 
         main_layout.addWidget(clone_bar)
 
@@ -652,6 +660,7 @@ class ChipDefinitionDesignerDialog(QDialog):
             return
         # A clone is a new chip: saving must not silently overwrite the source
         self._editing_name = None
+        self._mark_clean()
         self.name_edit.setText(f"{chip_name}_COPY")
         self.status_label.setText(f"已克隆芯片模板: {chip_name}")
         QMessageBox.information(self, "克隆成功", f"已成功载入 {chip_name} 的全部规格与引脚定义，您可以直接在此基础上修改。")
@@ -685,7 +694,41 @@ class ChipDefinitionDesignerDialog(QDialog):
         self.peripheral_editor.set_resources(copy.deepcopy(chip.effective_resources()))
 
         self.pin_model.set_pins(chip.get_all_pins())
+        self._mark_clean()
         return True
+
+    def _mark_clean(self):
+        """Remember the editor content as saved; repair is offered only for a library chip."""
+        self._loaded_checksum = chip_checksum(self._build_current_chip())
+        self.repair_btn.setEnabled(self._editing_name is not None)
+
+    def _has_unsaved_edits(self) -> bool:
+        return chip_checksum(self._build_current_chip()) != self._loaded_checksum
+
+    def _on_repair_clicked(self):
+        """Repair the chip being edited in the repair wizard, then reload it."""
+        from ..wizards.chip_repair_wizard import ChipRepairWizard
+
+        name = self._editing_name
+        if not name:
+            return
+        if self._has_unsaved_edits():
+            reply = QMessageBox.question(
+                self, "放弃未保存的修改",
+                f"{name} 有未保存的修改。修复向导以芯片库中已保存的版本为准，"
+                "修复完成后会重新载入芯片，未保存的修改将丢失。是否继续？",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if reply != QMessageBox.Yes:
+                return
+        wizard = ChipRepairWizard(self.chip_database, name, self._project, parent=self)
+        wizard.chip_repaired.connect(self._on_chip_repaired)
+        wizard.exec()
+
+    def _on_chip_repaired(self, chip_name: str):
+        self._load_chip_by_name(chip_name)
+        self._last_saved_chip = chip_name
+        self.status_label.setText(f"✅ 已修复芯片: {chip_name}（版本 {self._resource_version}）")
+        self.chip_saved.emit(chip_name)
 
     def _init_default_fields(self):
         """Set up initial blank values"""
@@ -699,6 +742,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         self.family_edit.setText("THA6")
         self.package_edit.setText("LQFP144")
         self.desc_edit.setText("Automotive MCU Resource Definition")
+        self._mark_clean()
 
     def _update_core_defaults(self, count: int):
         """Update core lists when count changes"""
@@ -1010,6 +1054,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._base_chip = copy.deepcopy(chip)
         self._editing_name = chip.name
         self._last_saved_chip = chip.name
+        self._mark_clean()
         self._populate_clone_dropdown()
 
         self.status_label.setText(f"✅ 已成功保存芯片: {chip.name}")

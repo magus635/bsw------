@@ -13,7 +13,6 @@ only with ``--include-removed`` (or when named in ``--keys``).
 Exit codes: 0 done, 1 invalid arguments or the chip file changed, 2 nothing to change.
 """
 import argparse
-import copy
 import sys
 from pathlib import Path
 
@@ -22,9 +21,6 @@ if __package__ in (None, ""):       # run as a script: make the repository impor
 
 from autosar_configurator.core.hardware import chip_repair as repair  # noqa: E402
 from autosar_configurator.core.hardware.chip_database import ChipDatabase, default_chips_dir  # noqa: E402
-from autosar_configurator.core.hardware.ecu_resource_diagnostics import (  # noqa: E402
-    collect_referenced_keys_in_dirs,
-)
 
 EXIT_OK, EXIT_ERROR, EXIT_NOTHING = 0, 1, 2
 _MAX_VALUE_TEXT = 80
@@ -50,18 +46,13 @@ def _print_diff(diff: repair.EcuDiff) -> None:
     print(f"新增 {counts['added']}，变化 {counts['changed']}，删除 {counts['removed']}")
 
 
-def _difference(chip, args) -> repair.EcuDiff:
-    """Changes from the .properties files (whole ECU resources) plus keys missing for the scanned modules."""
-    changes = {}
-    if args.properties:
-        source = repair.ecu_resources_from_properties([Path(p) for p in args.properties])
-        for c in repair.diff_from_source(chip.ecu_resources, source).changes:
-            changes[c.key] = c
-    if args.scan_dir:
-        referenced = collect_referenced_keys_in_dirs([Path(d) for d in args.scan_dir])
-        for c in repair.missing_key_changes(chip, referenced).changes:
-            changes.setdefault(c.key, c)
-    return repair.EcuDiff([changes[k] for k in sorted(changes)])
+def _session(database, args) -> repair.RepairSession:
+    """Session with the .properties files and the scanned plugin directories as sources."""
+    session = repair.RepairSession(database, args.chip)
+    session.properties = [Path(p) for p in args.properties]
+    session.scan_dirs = [Path(d) for d in args.scan_dir or []]
+    session.load_sources()
+    return session
 
 
 def _selected(diff: repair.EcuDiff, args):
@@ -82,8 +73,8 @@ def _confirmations(items):
     return notes
 
 
-def _apply(database, base, args) -> int:
-    diff = _difference(base, args)
+def _apply(session: repair.RepairSession, args) -> int:
+    base, diff = session.base, session.diff
     selected = _selected(diff, args)
     confirm_notes = _confirmations(args.confirm)
     if not diff and not confirm_notes:
@@ -93,18 +84,16 @@ def _apply(database, base, args) -> int:
         print("没有选中任何改动（用 --keys、--all-added、--all-changed、--include-removed 或 --confirm）")
         return EXIT_NOTHING
 
-    chip = repair.apply_changes(base, diff, selected)
-    chip, views = repair.derive_views(chip)
-    if confirm_notes:
-        chip = repair.confirm_fields(chip, confirm_notes)
+    session.selected = set(selected)
+    session.confirm_notes = confirm_notes
+    chip, views = session.build()           # also validates the keys and the confirmed fields
     record = repair.RepairRecord(source=args.source, note=args.note or "", version=args.version or "",
-                                 views=views, confirm_notes=confirm_notes)
-    result = repair.save_repaired_chip(database, chip, base, record)
+                                 views=views)
+    result = session.save(record)
     if not result.saved:
         print(f"{base.name} 没有变化，未保存")
         return EXIT_NOTHING
-    applied = repair.diff_ecu_resources(base.ecu_resources, chip.ecu_resources)
-    _print_diff(applied)
+    _print_diff(repair.diff_ecu_resources(base.ecu_resources, chip.ecu_resources))
     for v in views:
         print(f"视图 {v.view}: {repair.view_text(v)}")
     print(f"已保存 {result.path}（resource_version {base.resource_version or '-'} -> {result.version}）")
@@ -137,23 +126,21 @@ def main(argv=None) -> int:
         parser.error("give .properties files, --scan-dir or --confirm")
 
     database = ChipDatabase(Path(args.chips_dir) if args.chips_dir else default_chips_dir())
-    base = database.get_chip(args.chip)
-    if base is None:
+    if database.get_chip(args.chip) is None:
         print(f"芯片库中没有 {args.chip}", file=sys.stderr)
         return EXIT_ERROR
-    base = copy.deepcopy(base)
-    if base.content_modified:
+    if database.get_chip(args.chip).content_modified:
         print(f"注意：{args.chip} 的文件在芯片设计器之外被修改过", file=sys.stderr)
 
     try:
+        session = _session(database, args)
         if args.command == "diff":
-            diff = _difference(base, args)
-            if not diff:
+            if not session.diff:
                 print(f"{args.chip} 与来源没有差异")
                 return EXIT_NOTHING
-            _print_diff(diff)
+            _print_diff(session.diff)
             return EXIT_OK
-        return _apply(database, base, args)
+        return _apply(session, args)
     except (ValueError, repair.ChipFileChanged) as e:
         print(f"错误：{e}", file=sys.stderr)
         return EXIT_ERROR

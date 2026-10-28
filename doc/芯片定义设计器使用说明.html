@@ -417,6 +417,7 @@ footer.colophon p + p { margin-top: 4px; }
       <li class="sub"><a href="#workflow">新建芯片的步骤</a></li>
       <li class="sub"><a href="#tabs">五个页签</a></li>
       <li class="sub"><a href="#save">保存时的检查</a></li>
+      <li class="sub"><a href="#repair">修复已有芯片</a></li>
       <li><a href="#outputs">输出文件给谁用</a></li>
       <li><a href="#impact">影响了什么</a></li>
       <li><a href="#builtin">内置芯片现状</a></li>
@@ -607,6 +608,29 @@ footer.colophon p + p { margin-top: 4px; }
         </table>
       </div>
       <p>检查通过后，YAML 以原子方式写入芯片库并附上 <code>checksum: sha256:…</code>，同时注册到内存中的芯片库。设计器关闭后，打开它的窗口会刷新芯片列表。</p>
+
+      <h3 id="repair">修复已有芯片</h3>
+      <p>已有芯片的数据需要更新时（新版 MCAL 的 <code>.properties</code>、插件需要新的键、待确认项已经核实），用<strong>芯片修复向导</strong>，不要克隆后再改名。向导以 <code>ecu_resources</code> 为准：先改 ECU 资源，再由它同步外设、核与引脚表。向导不会改芯片名，缺失或待确认的数据只标记、不删除。</p>
+      <p>有三个入口：</p>
+      <ul>
+        <li>主窗口 <span class="ui">Tools › 修复芯片...</span>：预选当前项目的芯片。</li>
+        <li>设计器顶部的 <span class="ui">🔧 修复此芯片…</span>：只在编辑芯片库里的已有芯片时可用。有未保存的修改时会先询问，修复后重新载入这颗芯片。</li>
+        <li>项目属性里"资料不完整"提示旁边的 <span class="ui">修复…</span>：预选这颗芯片。</li>
+      </ul>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>页</th><th>做什么</th></tr></thead>
+          <tbody>
+            <tr><td>1. 选择芯片</td><td>显示版本、完整性问题、最近一次修复记录；文件在设计器之外被改过时会提示</td></tr>
+            <tr><td>2. 修复来源</td><td>厂商 <code>.properties</code>（只比较其中出现的模块）、项目或插件目录所需的键；也可以都不选，只处理待确认项</td></tr>
+            <tr><td>3. 差异与选择</td><td>按模块列出新增、变化、删除的键，标出"仅类型不同"。默认勾选新增和变化，<strong>删除需要手动勾选</strong></td></tr>
+            <tr><td>4. 待确认标记</td><td>逐条"保留"或"确认"（写明依据），也可以新增标记；确认只去掉标记，不改数据</td></tr>
+            <tr><td>5. 视图与检查</td><td>外设、核、引脚表的同步结果；修复前后的完整性分为已解决、仍存在、新出现</td></tr>
+            <tr><td>6. 保存</td><td>填写来源、说明、版本（预填下一个版本）、修改人（预填 <code>git config user.name</code>）。保存时备份为 <code>&lt;芯片&gt;.yaml.bak</code>，并在 <code>history/&lt;芯片&gt;.yaml</code> 追加一条修改记录</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>向导打开期间，如果文件被设计器或别人改过，保存会被拦下并提示重新打开，不会覆盖别人的修改。向导只修改芯片库；如果项目的 <code>chips/</code> 里存有这颗芯片的副本，修复后会提示用项目属性里的 <span class="ui">Update from Library</span> 同步。同样的修复也可以用命令行 <code>python -m tools.chip_repair</code> 完成，见 <code>doc/chip_ecu_resources.md</code>。</p>
     </section>
 
     <section id="outputs">
