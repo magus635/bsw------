@@ -187,6 +187,71 @@ resources:
 - 打开项目时，向导的芯片来自项目：项目 `chips/` 里的副本优先，其次芯片库；默认选中项目的芯片。
 - "Load from File…" 读取芯片 YAML 时会带上引脚表。
 
+## 修复已有芯片
+
+`ecu_resources` 是芯片数据的唯一权威，`resources`、`metadata.cores`、`ports` 都是由它推导出的视图。修复已有芯片时，先改 ECU 资源，再用它同步视图。修复不改芯片名，要改名请在设计器里另存为新芯片。缺失或待确认的数据只标记、不删除。
+
+### 流程（`core/hardware/chip_repair.py`）
+
+1. **取来源**：
+   - `ecu_resources_from_properties(paths)`：读取一个或多个 `.properties`，后读的文件覆盖先读的同名键，不改动任何芯片；
+   - `missing_key_changes(chip, keys)`：模块引用了、芯片却没有的键，作为值为空的新增项。
+2. **看差异**：`diff_from_source(chip.ecu_resources, source)` 只比较来源里出现的模块，所以只含 Port 的文件不会把其他模块的键报成"删除"。
+   - 按扁平键分为新增、删除、值变化三类。
+   - 区间写法与列表写法算相同；只是类型不同（`1` 与 `"1"`）也算变化，并标出"仅类型不同"。
+3. **选择性合并**：`apply_changes(chip, diff, keys)` 只应用选中的键，删除必须显式选中。已有键保持原位，新增键追加在所在模块末尾。
+4. **同步视图**：`derive_views(chip)`。
+   - 能推导的外设类型整类替换，推导不出的类型保留。
+   - 核字段只在没有任何对应键与之相符时才改：THA610X 的 `Resource.NumOfCores` 是 2（含锁步核），`OsResource.NumOfCores` 是 1，现有值 2 保持不变。
+   - 引脚表要等 `ports_from_ecu` 实施后才推导，此前记为"未推导"。
+5. **待确认标记**：`confirm_fields` 去掉标记，`mark_unconfirmed` 增加标记；两者都不改动被标记的数据。
+6. **保存**：`save_repaired_chip(database, chip, base, record)`。
+   - 改名、或文件在加载后被改过时拒绝保存。
+   - 旧文件备份为 `<name>.yaml.bak`。
+   - `resource_version` 默认末位加一，重新计算校验和，并刷新芯片库里的芯片。
+   - 已经使用这颗芯片的项目，打开时会提示"芯片库有不同版本"。
+
+### 命令行
+
+```bash
+# 只看差异，不写文件
+python -m tools.chip_repair diff THA6412_BGA516 new/CotexR52_THA6412_BGA516.properties
+# 检查插件模块引用、芯片却没有的键
+python -m tools.chip_repair diff THA6412_BGA516 --scan-dir test_import_project/Def/plugins
+# 应用新增和变化（不含删除），同步视图，确认一个待确认项，保存
+python -m tools.chip_repair apply THA610X_LFBGA180 new.properties --all-added --all-changed \
+    --source "MCAL R440 CotexR52_THA610X_LFBGA180.properties" --note "补 Port 键" \
+    --confirm "metadata.flash_size=按 SDK 链接脚本核对"
+```
+
+- `--keys K1,K2` 只应用列出的键；`--include-removed` 才会应用删除；`--version` 指定新版本号；`--chips-dir` 指定其他芯片库目录。
+- 退出码：0 表示完成，1 表示参数错误或文件已被改动，2 表示没有可改的内容。
+
+### 修改记录（`data/chips/history/<name>.yaml`）
+
+每次保存追加一条，已有条目不改。修改记录不参与芯片校验和；芯片库只扫描 `data/chips/*.yaml`，不会把它当作芯片加载。
+
+```yaml
+chip: THA610X_LFBGA180
+entries:
+- date: '2026-10-28'
+  author: <git config user.name，取不到时为操作系统用户名>
+  source: MCAL R440 CotexR52_THA610X_LFBGA180.properties
+  note: 补 Port 键
+  resource_version: {old: 1.0.0, new: 1.0.1}
+  base_modified_outside: false      # 修复前文件是否在设计器之外被改过
+  ecu_resources:
+    added:   [{key: Port.X, new: 3}]
+    changed: [{key: Port.MaxAvailablePinID, old: 15, new: 16}]
+    removed: []
+  views: {resources: unchanged, metadata.cores: unchanged, ports: 'not derived: …'}
+  confirmed: [{field: metadata.flash_size, note: 按 SDK 链接脚本核对}]
+  marked: []
+  checksum: sha256:…
+```
+
+芯片设计器的保存流程暂时不写修改记录，后续修复向导会统一。
+
 ## 已知限制
 
 - Os 模板只定义了 `OS_CORE_ID_0/1`，4 核芯片的 `OS_CORE_ID_2/3` 在模板里是未定义的（模板问题，不在本功能内）。

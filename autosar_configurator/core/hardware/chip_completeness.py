@@ -35,16 +35,20 @@ class CompletenessItem:
     text: str       # what is missing or unconfirmed, for the user
 
 
-def unconfirmed_fields(chip) -> List[CompletenessItem]:
-    """The fields the chip YAML marks as unconfirmed, in the order written."""
+def unconfirmed_marks(chip) -> Dict[str, str]:
+    """``metadata.unconfirmed`` as field -> note (written as a mapping or a list), in the order written."""
     marked = (getattr(chip, "metadata", None) or {}).get("unconfirmed") or {}
     if isinstance(marked, dict):
-        pairs = [(str(k), "" if v is None else str(v)) for k, v in marked.items()]
-    elif isinstance(marked, (list, tuple)):
-        pairs = [(str(k), "") for k in marked]
-    else:
-        pairs = [(str(marked), "")]
-    return [CompletenessItem(f, f"{f} 待确认" + (f"：{note}" if note else "")) for f, note in pairs]
+        return {str(k): "" if v is None else str(v) for k, v in marked.items()}
+    if isinstance(marked, (list, tuple)):
+        return {str(k): "" for k in marked}
+    return {str(marked): ""}
+
+
+def unconfirmed_fields(chip) -> List[CompletenessItem]:
+    """The fields the chip YAML marks as unconfirmed, in the order written."""
+    return [CompletenessItem(f, f"{f} 待确认" + (f"：{note}" if note else ""))
+            for f, note in unconfirmed_marks(chip).items()]
 
 
 def plugin_entries(project) -> List[Any]:

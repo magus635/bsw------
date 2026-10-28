@@ -223,6 +223,31 @@ def parse_peripheral_resources(data: Any) -> PeripheralResources:
     return result
 
 
+def read_properties_flat(path: Path) -> Dict[str, Any]:
+    """Flat ``{"module.name": value}`` of one .properties file.
+
+    Keys without a module prefix cannot be represented and are skipped with a warning.
+    """
+    from .tresos_properties_parser import TresosPropertiesParser
+
+    props = TresosPropertiesParser().parse_file(Path(path)).properties
+    nested, skipped = nest_flat_resources(props)
+    for key in skipped:
+        logger.warning("%s: key '%s' has no module prefix and was skipped", path, key)
+    return flatten_ecu_resources(nested)
+
+
+def ecu_resources_from_properties(properties_paths: List[Path]) -> EcuResources:
+    """ECU resources of one or more .properties files, without touching any chip.
+
+    Later files replace earlier values of the same key.
+    """
+    flat: Dict[str, Any] = {}
+    for path in properties_paths:
+        flat.update(read_properties_flat(Path(path)))
+    return nest_flat_resources(flat)[0]
+
+
 class ChipDatabase:
     """Database of chip definitions"""
 
@@ -389,17 +414,10 @@ class ChipDatabase:
             Number of keys read from the files (keys without a module prefix
             cannot be represented and are skipped with a warning)
         """
-        from .tresos_properties_parser import TresosPropertiesParser
-
-        parser = TresosPropertiesParser()
         existing = flatten_ecu_resources(chip.ecu_resources)
         total = 0
         for path in properties_paths:
-            props = parser.parse_file(Path(path)).properties
-            nested, skipped = nest_flat_resources(props)
-            for key in skipped:
-                logger.warning("%s: key '%s' has no module prefix and was skipped", path, key)
-            for key, value in flatten_ecu_resources(nested).items():
+            for key, value in read_properties_flat(Path(path)).items():
                 if key in existing and existing[key] != value:
                     logger.info("ECU resource %s replaced: %r -> %r (from %s)",
                                 key, existing[key], value, Path(path).name)
