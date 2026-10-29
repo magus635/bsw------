@@ -579,9 +579,7 @@ metadata:
     count: 1
     available: [CORE0]
     master: CORE0
-  unconfirmed:
-    ecu_resources.Os.IsrTriggerMethodList: 沿用 THA6206/THA6412 的表；INTID 0-31 由 Cortex-R52 决定，SPI 的触发方式待按 THA6104 中断表核对
-resource_version: 1.0.3
+resource_version: 1.0.4
 selectors: {Os.OsResourceSubderivative: Os_THA610X, Resource.ResourceSubderivative: THA610X_LFBGA180}
 ecu_resources:
   Resource:
@@ -1248,4 +1246,4 @@ ecu_resources:
     AppModeDefaultName: [OSDEFAULTAPPMODE, OSALLRUNNINGMODE]
     IocPrimitiveDataType: [uint8, uint16, uint32, uint64, boolean, AppModeType, ApplicationType, CoreIdType, IdleModeType, TickType, Os_TickDiffType, AlarmType, CounterType, sint8, sint16, sint32, sint64, float32, float64, ISRType, ResourceType, SpinlockIdType, TaskType]
     IocPrimitiveDataTypeNum: 23
-checksum: sha256:47cc8d1999a11108edac19d3414dc7d16e4cca4ba32d986331cd01a3f3e240ab
+checksum: sha256:820c1f6f10aa41970d4f88425112b4a043e74fdba918b9a86f8b9d68a0ff927c

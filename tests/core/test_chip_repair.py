@@ -21,7 +21,7 @@ from autosar_configurator.core.workspace_manager import WorkspaceProject
 from tools import chip_repair as cli
 
 THA610X = "THA610X_LFBGA180"
-MARK = "ecu_resources.Os.IsrTriggerMethodList"      # the mark THA610X still carries
+MARK = "ecu_resources.Os.IsrTriggerMethodList"
 
 
 def _props(path: Path, text: str) -> Path:
@@ -235,9 +235,16 @@ def _record(**kw):
 
 
 def test_save_with_backup_version_checksum_and_library(tmp_path):
-    db = _builtin_copy(tmp_path)
+    _builtin_copy(tmp_path)
+    # the library chips are all confirmed, so mark one field to have something to confirm
+    chip_file = tmp_path / "chips" / f"{THA610X}.yaml"
+    marked = chip_file.read_text(encoding="utf-8").replace(
+        "    master: CORE0\n", f"    master: CORE0\n  unconfirmed:\n    {MARK}: 待核对\n", 1)
+    chip_file.write_text(marked, encoding="utf-8")
+    db = ChipDatabase(tmp_path / "chips")
     base = _base(db, THA610X)
-    old_text = (tmp_path / "chips" / f"{THA610X}.yaml").read_text(encoding="utf-8")
+    assert MARK in base.metadata["unconfirmed"]
+    old_text = chip_file.read_text(encoding="utf-8")
     diff = repair.diff_from_source(base.ecu_resources, {"Port": {"MaxAvailablePinID": 99}})
     chip = repair.confirm_fields(repair.apply_changes(base, diff, diff.keys()), [MARK])
 

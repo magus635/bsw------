@@ -126,12 +126,11 @@ def test_check_does_not_change_the_chip_or_its_file(tmp_path):
     assert hashlib.sha256(yaml_file.read_bytes()).hexdigest() == digest
 
 
-def test_library_chips_are_flagged_as_marked():
+def test_library_chips_are_all_confirmed():
     from autosar_configurator.core.hardware.chip_database import default_chips_dir
 
     db = ChipDatabase(default_chips_dir())
-    # THA610X keeps one mark until its THA6104 interrupt table has been checked
-    assert _fields(check_chip(db.get_chip("THA610X_LFBGA180"))) == ["ecu_resources.Os.IsrTriggerMethodList"]
+    assert check_chip(db.get_chip("THA610X_LFBGA180")) == []
     assert check_chip(db.get_chip("THA6206_LFBGA292")) == []
     assert check_chip(db.get_chip("THA6412_BGA516")) == []
     # Os only: no pins or peripherals is not missing data; the 73 external interrupts are confirmed
