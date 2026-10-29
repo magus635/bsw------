@@ -97,3 +97,36 @@ def test_file_changed_outside_can_be_overwritten_without_history(qtbot, tmp_path
 
     assert ChipDatabase(tmp_path).get_chip("CHIP_X").description == "edited"
     assert read_history(tmp_path / "CHIP_X.yaml") == []
+
+
+# --- mark-chip-entries-to-fill-in ----------------------------------------------------
+
+def test_entry_added_by_the_guide_is_marked_until_filled(qtbot, tmp_path, ask):
+    from autosar_configurator.core.hardware.chip_completeness import unconfirmed_marks
+    from autosar_configurator.core.hardware.chip_repair import FILLED_NOTE, TO_FILL_IN
+
+    field = "ecu_resources.Os.Missing"
+    dialog = _open(qtbot, tmp_path)
+    assert dialog.ecu_editor.add_placeholders(["Os.Missing"]) == 1
+    dialog._on_save_clicked()
+    assert "ECU 资源待填写" in ask["questions"]
+    chip = ChipDatabase(tmp_path).get_chip("CHIP_X")
+    assert chip.ecu_resources["Os"] == {"Missing": None}
+    assert unconfirmed_marks(chip) == {field: TO_FILL_IN}
+    assert read_history(tmp_path / "CHIP_X.yaml")[-1]["marked"] == [{"field": field, "note": TO_FILL_IN}]
+
+    assert dialog.ecu_editor._select("Os", "Missing")
+    dialog.ecu_editor.scalar_edit.setText("3")
+    dialog.ecu_editor._apply_scalar()
+    dialog._on_save_clicked()
+    chip = ChipDatabase(tmp_path).get_chip("CHIP_X")
+    assert chip.ecu_resources["Os"]["Missing"] == 3
+    assert "unconfirmed" not in chip.metadata
+    assert read_history(tmp_path / "CHIP_X.yaml")[-1]["confirmed"] == [{"field": field, "note": FILLED_NOTE}]
+
+
+def test_loaded_empty_values_are_not_marked(qtbot, tmp_path, ask):
+    (tmp_path / "CHIP_X.yaml").write_text(CHIP + "  Gtm:\n    TriggerXModule4: null\n", encoding="utf-8")
+    dialog = ChipDefinitionDesignerDialog(chip_database=ChipDatabase(tmp_path), initial_chip="CHIP_X")
+    qtbot.addWidget(dialog)
+    assert "unconfirmed" not in dialog._build_current_chip().metadata

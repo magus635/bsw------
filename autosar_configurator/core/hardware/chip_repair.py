@@ -32,12 +32,18 @@ logger = logging.getLogger(__name__)
 ADDED, REMOVED, CHANGED = "added", "removed", "changed"
 UNCHANGED, UPDATED, NOT_DERIVED = "unchanged", "updated", "not derived"
 HISTORY_DIR = "history"
+# Note of the unconfirmed mark of an entry added without a value because the modules
+# reference its key; an empty value read from a vendor file is data and not marked.
+TO_FILL_IN = "待填写"
+FILLED_NOTE, GONE_NOTE = "已填写", "条目已删除"     # history notes of a mark removed automatically
+_ECU_FIELD = "ecu_resources."
 
 __all__ = [
-    "ADDED", "REMOVED", "CHANGED", "UNCHANGED", "UPDATED", "NOT_DERIVED",
+    "ADDED", "REMOVED", "CHANGED", "UNCHANGED", "UPDATED", "NOT_DERIVED", "TO_FILL_IN",
     "PLACEHOLDER", "view_text", "KeyChange", "EcuDiff", "ViewStatus", "RepairRecord", "SaveResult", "ChipFileChanged",
     "ecu_resources_from_properties", "diff_ecu_resources", "diff_from_source", "missing_key_changes",
     "apply_changes", "derive_views", "confirm_fields", "mark_unconfirmed",
+    "mark_to_fill_in", "drop_filled_marks", "to_fill_in_keys",
     "next_version", "git_author", "history_path", "save_repaired_chip", "read_history", "RepairSession",
 ]
 
@@ -51,6 +57,7 @@ class KeyChange:
     old: Any = None
     new: Any = None
     type_only: bool = False     # CHANGED only: same text, different type (1 vs "1")
+    to_fill_in: bool = False    # ADDED only: referenced by the modules, no value from any source
 
 
 @dataclass
@@ -113,7 +120,7 @@ def missing_key_changes(chip: ChipDefinition, referenced_keys: Iterable[str]) ->
         if "." not in key:
             logger.warning("referenced ECU resource key '%s' has no module prefix and is skipped", key)
         elif key not in flat:
-            changes.append(KeyChange(key, ADDED, new=PLACEHOLDER))
+            changes.append(KeyChange(key, ADDED, new=PLACEHOLDER, to_fill_in=True))
     return EcuDiff(changes)
 
 
@@ -275,6 +282,52 @@ def mark_unconfirmed(chip: ChipDefinition, field_path: str, note: str = "") -> C
     return result
 
 
+def _entry_key(field_path: str) -> Optional[str]:
+    """``ecu_resources.Os.Key`` -> ``Os.Key``; None for any other field (``ecu_resources.Os`` too)."""
+    if not field_path.startswith(_ECU_FIELD):
+        return None
+    key = field_path[len(_ECU_FIELD):]
+    return key if "." in key else None
+
+
+def mark_to_fill_in(chip: ChipDefinition, keys: Iterable[str]) -> ChipDefinition:
+    """A copy of ``chip`` whose entries of ``keys`` still without a value are marked ``待填写``.
+
+    An entry that has a value, is absent or is already marked keeps its marks.
+    """
+    flat = flatten_ecu_resources(chip.ecu_resources)
+    result = copy.deepcopy(chip)
+    marks = unconfirmed_marks(result)
+    for key in keys:
+        if key in flat and flat[key] is PLACEHOLDER:
+            marks.setdefault(_ECU_FIELD + key, TO_FILL_IN)
+    _set_marks(result, marks)
+    return result
+
+
+def drop_filled_marks(chip: ChipDefinition) -> ChipDefinition:
+    """A copy of ``chip`` without the ``待填写`` marks of entries that have a value or are gone.
+
+    Marks with any other note stay: only a person confirms them.
+    """
+    flat = flatten_ecu_resources(chip.ecu_resources)
+
+    def done(field_path: str, note: str) -> bool:
+        key = _entry_key(field_path)
+        return note == TO_FILL_IN and key is not None and (key not in flat or flat[key] is not PLACEHOLDER)
+
+    result = copy.deepcopy(chip)
+    _set_marks(result, {f: n for f, n in unconfirmed_marks(result).items() if not done(f, n)})
+    return result
+
+
+def to_fill_in_keys(chip) -> List[str]:
+    """Flat keys of the entries marked ``待填写`` that still have no value, in key order."""
+    flat = flatten_ecu_resources(getattr(chip, "ecu_resources", None) or {})
+    keys = (_entry_key(f) for f, n in unconfirmed_marks(chip).items() if n == TO_FILL_IN)
+    return sorted(k for k in keys if k and k in flat and flat[k] is PLACEHOLDER)
+
+
 # --- saving -----------------------------------------------------------------------
 
 class ChipFileChanged(Exception):
@@ -343,6 +396,13 @@ def _history_entry(base: ChipDefinition, saved: ChipDefinition, record: RepairRe
             entry["new"] = c.new
         ecu[c.kind].append(entry)
     before, after = unconfirmed_marks(base), unconfirmed_marks(saved)
+    flat_saved = flatten_ecu_resources(saved.ecu_resources)
+
+    def confirm_note(field_path: str) -> str:
+        if field_path in record.confirm_notes or before[field_path] != TO_FILL_IN:
+            return record.confirm_notes.get(field_path, "")
+        return FILLED_NOTE if _entry_key(field_path) in flat_saved else GONE_NOTE
+
     return {
         "date": datetime.date.today().isoformat(),
         "author": author,
@@ -352,7 +412,7 @@ def _history_entry(base: ChipDefinition, saved: ChipDefinition, record: RepairRe
         "base_modified_outside": bool(base.content_modified),
         "ecu_resources": ecu,
         "views": {v.view: view_text(v) for v in record.views},
-        "confirmed": [{"field": f, "note": record.confirm_notes.get(f, "")} for f in before if f not in after],
+        "confirmed": [{"field": f, "note": confirm_note(f)} for f in before if f not in after],
         "marked": [{"field": f, "note": n} for f, n in after.items() if before.get(f) != n],
         "checksum": checksum,
     }
@@ -487,18 +547,26 @@ class RepairSession:
         return self.diff
 
     def default_selection(self) -> List[str]:
-        """Added and changed keys; removals are never preselected."""
-        return self.diff.keys(ADDED, CHANGED)
+        """Added and changed keys; removals and entries still to fill in are never preselected."""
+        return [c.key for c in self.diff.changes if c.kind in (ADDED, CHANGED) and not c.to_fill_in]
 
     def build(self) -> Tuple[ChipDefinition, List[ViewStatus]]:
-        """The repaired chip: selected changes, views from ECU resources, then the marks."""
+        """The repaired chip: selected changes (entries to fill in marked), views from
+        ECU resources, then the marks; ``待填写`` marks of filled entries go last, so a
+        confirmation of the base chip's marks never meets a mark already removed."""
         chip = apply_changes(self.base, self.diff, self.selected)
+        chip = mark_to_fill_in(chip, [c.key for c in self.diff.changes if c.to_fill_in and c.key in self.selected])
         chip, views = derive_views(chip)
         if self.confirm_notes:
             chip = confirm_fields(chip, self.confirm_notes)
         for field_path, note in self.new_marks.items():
             chip = mark_unconfirmed(chip, field_path, note)
-        return chip, views
+        return drop_filled_marks(chip), views
+
+    def added_to_fill_in(self, chip: ChipDefinition) -> List[str]:
+        """Entries of ``chip`` still to fill in that the base chip did not have, in key order."""
+        before = set(to_fill_in_keys(self.base))
+        return [k for k in to_fill_in_keys(chip) if k not in before]
 
     def completeness(self, chip: ChipDefinition) -> list:
         from .chip_completeness import check_chip

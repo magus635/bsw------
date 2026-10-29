@@ -219,9 +219,11 @@ class WorkspaceProject:
         """Problems with the integrity of the chip data, as messages (empty when fine).
 
         Reports a project copy changed outside the designer or no longer matching
-        the recorded checksum, and a library chip that differs from the copy.
+        the recorded checksum, a library chip that differs from the copy, and each
+        entry the chip marks as still to fill in (待填写).
         """
         from .hardware.chip_exporter import chip_checksum
+        from .hardware.chip_repair import to_fill_in_keys
         from .hardware.ecu_resource_resolver import chip_for_project
         from .hardware.project_chip_store import SOURCE_LIBRARY, SOURCE_PROJECT
 
@@ -243,6 +245,8 @@ class WorkspaceProject:
                                 f"(Project Properties > Update from Library)")
         elif source == SOURCE_LIBRARY and chip.content_modified:
             messages.append(f"The chip library's {chip.name} was modified outside the chip designer")
+        messages.extend(f"ECU resource '{key}' of chip {chip.name} is still to fill in (marked 待填写)"
+                        for key in to_fill_in_keys(chip))
         return messages
 
     def chip_update_differences(self):

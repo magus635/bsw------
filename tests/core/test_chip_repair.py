@@ -504,3 +504,127 @@ def test_session_unknown_chip_and_unchanged(tmp_path):
     assert not session.has_changes(session.build()[0])
     assert not session.save(repair.RepairRecord(source="s", author="t")).saved
     assert repair.read_history(session.chip_file) == []
+
+
+# --- entries to fill in (mark-chip-entries-to-fill-in) --------------------------------
+
+MISSING = "ecu_resources.Os.Missing"
+
+
+def _scan(monkeypatch, *keys):
+    from autosar_configurator.core.hardware import ecu_resource_diagnostics
+
+    monkeypatch.setattr(ecu_resource_diagnostics, "collect_referenced_keys_in_dirs",
+                        lambda dirs: {k: {k.split(".", 1)[0]} for k in keys})
+
+
+def _scan_session(tmp_path, monkeypatch, *keys, properties=None):
+    _scan(monkeypatch, *keys)
+    session = repair.RepairSession(_session_library(tmp_path), "C")
+    session.properties = [properties] if properties else []
+    session.scan_dirs = [tmp_path]
+    session.load_sources()
+    return session
+
+
+def test_scanned_keys_are_to_fill_in_and_not_preselected(tmp_path, monkeypatch):
+    src = _props(tmp_path / "p.properties", "Port.B: 5\nPort.New: 7\n")
+    session = _scan_session(tmp_path, monkeypatch, "Os.Missing", "Port.New", properties=src)
+    assert session.diff.get("Os.Missing").to_fill_in
+    assert not session.diff.get("Port.New").to_fill_in       # the file's value wins
+    assert session.selected == {"Port.B", "Port.New"}
+
+
+def test_selected_entry_to_fill_in_is_marked(tmp_path, monkeypatch):
+    session = _scan_session(tmp_path, monkeypatch, "Os.Missing")
+    session.selected = {"Os.Missing"}
+    chip, _ = session.build()
+    assert chip.ecu_resources["Os"] == {"Missing": None}
+    assert unconfirmed_marks(chip)[MISSING] == repair.TO_FILL_IN
+    assert repair.to_fill_in_keys(chip) == ["Os.Missing"]
+    assert session.added_to_fill_in(chip) == ["Os.Missing"]
+    assert any(i.field == MISSING for i in check_chip(chip))
+    assert MISSING not in unconfirmed_marks(session.base)
+
+
+def test_empty_vendor_value_is_not_marked(tmp_path):
+    session = repair.RepairSession(_session_library(tmp_path), "C")
+    session.properties = [_props(tmp_path / "p.properties", "Gtm.TriggerXModule4:\n")]
+    session.load_sources()
+    assert session.selected == {"Gtm.TriggerXModule4"}
+    chip, _ = session.build()
+    assert chip.ecu_resources["Gtm"] == {"TriggerXModule4": None}
+    assert not [f for f in unconfirmed_marks(chip) if f.startswith("ecu_resources.")]
+    assert repair.to_fill_in_keys(chip) == []
+
+
+def test_only_entries_without_value_are_marked_and_existing_marks_kept():
+    chip = ChipDefinition(name="C", metadata={"unconfirmed": {"ecu_resources.Os.C": "人工"}},
+                          ecu_resources={"Os": {"A": 1, "B": None, "C": None}})
+    marked = repair.mark_to_fill_in(chip, ["Os.A", "Os.B", "Os.C", "Os.Absent"])
+    assert unconfirmed_marks(marked) == {"ecu_resources.Os.C": "人工", "ecu_resources.Os.B": repair.TO_FILL_IN}
+    assert unconfirmed_marks(chip) == {"ecu_resources.Os.C": "人工"}         # input unchanged
+    assert repair.to_fill_in_keys(marked) == ["Os.B"]
+
+
+def test_marks_of_filled_or_removed_entries_are_dropped_others_kept():
+    chip = ChipDefinition(name="C", metadata={"unconfirmed": {
+        "ecu_resources.Os.Filled": repair.TO_FILL_IN, "ecu_resources.Os.Gone": repair.TO_FILL_IN,
+        "ecu_resources.Os.Empty": repair.TO_FILL_IN, "ecu_resources.Os.Copied": "从别的芯片拷来",
+        "ecu_resources.Intc": repair.TO_FILL_IN, "metadata.flash_size": "x"}},
+        ecu_resources={"Os": {"Filled": 3, "Empty": None, "Copied": 1}})
+    assert unconfirmed_marks(repair.drop_filled_marks(chip)) == {
+        "ecu_resources.Os.Empty": repair.TO_FILL_IN, "ecu_resources.Os.Copied": "从别的芯片拷来",
+        "ecu_resources.Intc": repair.TO_FILL_IN, "metadata.flash_size": "x"}
+
+
+def test_history_records_mark_and_automatic_confirmation(tmp_path, monkeypatch):
+    session = _scan_session(tmp_path, monkeypatch, "Os.Missing")
+    session.selected = {"Os.Missing"}
+    assert session.save(_record()).saved
+    assert {"field": MISSING, "note": repair.TO_FILL_IN} in repair.read_history(session.chip_file)[-1]["marked"]
+
+    later = repair.RepairSession(ChipDatabase(session.database.data_dir), "C")
+    later.properties = [_props(tmp_path / "os.properties", "Os.Missing: 4\n")]
+    later.load_sources()
+    assert later.selected == {"Os.Missing"}                  # changed from no value to 4
+    assert later.save(_record()).saved
+    chip = ChipDatabase(session.database.data_dir).get_chip("C")
+    assert chip.ecu_resources["Os"]["Missing"] == 4 and MISSING not in unconfirmed_marks(chip)
+    assert repair.read_history(session.chip_file)[-1]["confirmed"] == [{"field": MISSING, "note": repair.FILLED_NOTE}]
+
+
+def test_confirmation_of_a_removed_entry_says_so(tmp_path):
+    db = _library(tmp_path, ChipDefinition(name="C", metadata={"unconfirmed": {MISSING: repair.TO_FILL_IN}},
+                                           ecu_resources={"Os": {"Missing": None, "A": 1}}))
+    base = _base(db, "C")
+    chip = copy.deepcopy(base)
+    del chip.ecu_resources["Os"]["Missing"]
+    repair.save_repaired_chip(db, repair.drop_filled_marks(chip), base, _record())
+    assert repair.read_history(db.data_dir / "C.yaml")[-1]["confirmed"] == [{"field": MISSING, "note": repair.GONE_NOTE}]
+
+
+def test_cli_marks_scanned_entries_without_value(tmp_path, monkeypatch):
+    monkeypatch.setattr(repair, "git_author", lambda cwd=None: "tester")
+    _scan(monkeypatch, "Os.Missing")
+    db, _ = _cli_library(tmp_path)
+    code = cli.main(["apply", "C", "--scan-dir", str(tmp_path), "--chips-dir", str(db.data_dir),
+                     "--all-added", "--source", "scan"])
+    assert code == cli.EXIT_OK
+    assert unconfirmed_marks(ChipDatabase(db.data_dir).get_chip("C"))[MISSING] == repair.TO_FILL_IN
+
+
+def test_project_warns_about_entries_to_fill_in(tmp_path):
+    db = _library(tmp_path, ChipDefinition(name="C", metadata={"unconfirmed": {MISSING: repair.TO_FILL_IN}},
+                                           ecu_resources={"Os": {"Missing": None, "Empty": None}}))
+    project_dir = tmp_path / "proj"
+    project_dir.mkdir()
+    project = WorkspaceProject("p", project_dir / "p.dpa")
+    project.selected_chip = "C"
+    project.chip_database = db
+    expected = ["ECU resource 'Os.Missing' of chip C is still to fill in (marked 待填写)"]
+    assert project.chip_data_findings() == expected          # library chip; Os.Empty is not marked
+    project.diagnose_ecu_resources()
+    assert expected[0] in project.ecu_resource_report.warning_lines()
+    project.adopt_selected_chip()
+    assert project.chip_data_findings() == expected          # the project's copy
