@@ -29,7 +29,9 @@ from ...core.hardware.chip_database import (
 )
 from ...core.hardware.pinout_importer import PinoutTableImporter
 from ...core.hardware.chip_exporter import ChipDefinitionExporter, chip_checksum
-from ...core.hardware.chip_repair import ChipFileChanged, RepairRecord, save_repaired_chip
+from ...core.hardware.chip_repair import (
+    ChipFileChanged, RepairRecord, drop_filled_marks, mark_to_fill_in, save_repaired_chip,
+)
 from ...core.hardware.ecu_resource_data import (
     EcuResources, count_placeholders, describe_ecu_resources, flatten_ecu_resources,
 )
@@ -938,7 +940,8 @@ class ChipDefinitionDesignerDialog(QDialog):
             'master': self.master_core_edit.text().strip() or "CORE0",
         }
 
-        return chip
+        # Entries the needed-keys guide added stay marked 待填写 until they get a value
+        return drop_filled_marks(mark_to_fill_in(chip, self.ecu_editor.added_placeholders()))
 
     def _on_tab_changed(self, index: int):
         """Update preview when tab 4 is selected"""

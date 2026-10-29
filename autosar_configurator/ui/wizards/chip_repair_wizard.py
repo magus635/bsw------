@@ -211,7 +211,8 @@ class ChangesPage(_Page):
     COL_KEY, COL_KIND, COL_OLD, COL_NEW = range(4)
 
     def __init__(self):
-        super().__init__("3. 差异与选择", "勾选要应用的改动。默认勾选新增和变化；删除需要手动勾选。")
+        super().__init__("3. 差异与选择", "勾选要应用的改动。默认勾选新增和变化；删除和（待填写）项需要手动勾选，"
+                                          "待填写项保存后标为“待填写”，填值后自动消除。")
         row = QHBoxLayout()
         row.addWidget(QLabel("显示:"))
         self.filter_combo = QComboBox()
@@ -447,9 +448,30 @@ class SavePage(_Page):
             self.summary.setText("没有任何改动，无需保存。")
             return
         applied = repair.diff_ecu_resources(session.base.ecu_resources, chip.ecu_resources)
+        to_fill_in = session.added_to_fill_in(chip)
         self.summary.setText(
             f"{session.base.name}：ECU 资源改动 {len(applied.changes)} 处，确认 {len(session.confirm_notes)} 项，"
-            f"新增标记 {len(session.new_marks)} 项。\n写入 {session.chip_file}")
+            f"新增标记 {len(session.new_marks)} 项。"
+            + (f"\n⚠ 其中 {len(to_fill_in)} 个条目没有值（待填写），保存后标为待填写，"
+               "请在芯片定义设计器“4. ECU 资源”页填值。" if to_fill_in else "")
+            + f"\n写入 {session.chip_file}")
+
+    def _confirm_to_fill_in(self) -> bool:
+        """Ask before saving entries without a value; True when there are none or the user agrees."""
+        session = self.session
+        try:
+            keys = session.added_to_fill_in(session.build()[0])
+        except ValueError:
+            return True             # the save reports the error
+        if not keys:
+            return True
+        shown = "\n".join(f"  • {k}" for k in keys[:10]) + (f"\n  … 另有 {len(keys) - 10} 个" if len(keys) > 10 else "")
+        reply = QMessageBox.question(
+            self, "ECU 资源待填写",
+            f"本次修复新增 {len(keys)} 个没有值的条目：\n{shown}\n\n"
+            "ecu:get() 会得到空值。保存后它们标为“待填写”，芯片显示为资料不完整，直到填写。确定要保存吗？",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        return reply == QMessageBox.Yes
 
     def validatePage(self) -> bool:
         if self.wizard().result_info is not None:
@@ -458,6 +480,8 @@ class SavePage(_Page):
         source, author = self.source_edit.text().strip(), self.author_edit.text().strip()
         if not source or not author:
             QMessageBox.warning(self, "信息不完整", "请填写来源和修改人。")
+            return False
+        if not self._confirm_to_fill_in():
             return False
         record = repair.RepairRecord(source=source, note=self.note_edit.text().strip(), author=author,
                                      version=self.version_edit.text().strip())

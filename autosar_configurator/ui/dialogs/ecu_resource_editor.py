@@ -142,6 +142,7 @@ class EcuResourceEditor(QWidget):
         super().__init__(parent)
         self._res: EcuResources = {}
         self._problem_keys: Set[str] = set()
+        self._added_placeholders: Set[str] = set()           # flat keys added by the needed-keys guide
         self._current: Optional[Tuple[str, str]] = None      # (module, name) being edited
         self._chip_database = None
         self._chip_name = None
@@ -153,11 +154,16 @@ class EcuResourceEditor(QWidget):
     def set_resources(self, resources: EcuResources) -> None:
         """Replace the edited data (the editor works on its own copy)."""
         self._res = copy.deepcopy(resources or {})
+        self._added_placeholders = set()
         self._current = None
         self._refresh_all()
 
     def resources(self) -> EcuResources:
         return copy.deepcopy(self._res)
+
+    def added_placeholders(self) -> List[str]:
+        """Flat keys added as entries to fill in since the resources were set, in key order."""
+        return sorted(self._added_placeholders)
 
     def set_context(self, chip_database=None, chip_name: Optional[str] = None, project=None) -> None:
         """What the needed-keys guide may use: the chip library, the chip's name (or a
@@ -672,6 +678,7 @@ class EcuResourceEditor(QWidget):
                 set_entry(self._res, module, name, PLACEHOLDER)
             except ValueError:
                 continue
+            self._added_placeholders.add(f"{module}.{name}")
             added += 1
         if added:
             self._refresh_all()

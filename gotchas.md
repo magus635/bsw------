@@ -6,3 +6,7 @@
 - When constructing `ConfigurationNode` in quick probes, use keyword arguments for `value` and `param_type`. Positional arguments can silently miss the intended boolean type and invalidate template-engine conclusions.
 - Pytest `--basetemp` may leave a `...current` symlink, not only directories. Check with `ls -la` before cleanup; use `unlink` for the symlink and `rmdir` only for empty directories.
 - Do not put Markdown backticks unescaped inside shell command strings. The shell treats backticks as command substitution, so quote patterns with single quotes that contain no backticks or escape them first.
+
+## 2026-10-28
+
+- In zsh, an unmatched shell glob aborts the command before it runs. Discover optional files with rg --files -g instead of passing an unchecked wildcard path.
