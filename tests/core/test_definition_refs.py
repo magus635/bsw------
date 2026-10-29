@@ -27,6 +27,10 @@ XDM = """<?xml version="1.0"?>
                   <a:da name="DEFAULT" value="STANDARD"/>
                   <a:da name="RANGE"><a:v>STANDARD</a:v><a:v>EXTENDED</a:v></a:da>
                 </v:var>
+                <v:var name="OsStackAlign" type="ENUMERATION">
+                  <a:da name="DEFAULT" value="64"/>
+                  <a:da name="RANGE"><a:v>NON</a:v><a:v>128</a:v><a:v>64</a:v></a:da>
+                </v:var>
                 <v:var name="ArMajorVersion" type="INTEGER_LABEL"><a:da name="DEFAULT" value="4"/></v:var>
                 <v:ctr name="OsHooks" type="IDENTIFIABLE">
                   <v:var name="OsErrorHook" type="BOOLEAN"><a:da name="DEFAULT" value="false"/></v:var>
@@ -196,3 +200,62 @@ def test_correct_eb_references_are_left_alone(os_def, tmp_path):
     manager = ConfigurationManager(os_def)
     manager.load_configuration(src)
     assert manager.repair_definition_refs() == 0
+
+
+# Values written under the generic DEST (ECUC-PARAMETER-DEF) were read by the type of their
+# text: an enumeration literal 64 in an ECUC-NUMERICAL-PARAM-VALUE became the number 64.
+GENERIC_DEST_VALUES = """<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Os</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>Os</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/THA6_ASR21/Os</DEFINITION-REF>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>OsOS</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_ASR21/Os/OsOS</DEFINITION-REF>
+          <PARAMETER-VALUES>
+            <ECUC-NUMERICAL-PARAM-VALUE>
+              <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/THA6_ASR21/Os/OsOS/OsStackAlign</DEFINITION-REF>
+              <VALUE>64</VALUE>
+            </ECUC-NUMERICAL-PARAM-VALUE>
+            <ECUC-NUMERICAL-PARAM-VALUE>
+              <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/THA6_ASR21/Os/OsOS/OsUseArti</DEFINITION-REF>
+              <VALUE>1</VALUE>
+            </ECUC-NUMERICAL-PARAM-VALUE>
+            <ECUC-NUMERICAL-PARAM-VALUE>
+              <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/THA6_ASR21/Os/OsOS/OsNumberOfCores</DEFINITION-REF>
+              <VALUE>2</VALUE>
+            </ECUC-NUMERICAL-PARAM-VALUE>
+          </PARAMETER-VALUES>
+        </ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>
+"""
+
+
+def test_values_under_the_generic_dest_are_typed_by_their_definition(os_def, tmp_path):
+    from autosar_configurator.core.rules.base_rules import EnumerationValidationRule, TypeValidationRule
+    src = tmp_path / "in.arxml"
+    src.write_text(GENERIC_DEST_VALUES, encoding="utf-8")
+    manager = ConfigurationManager(os_def)
+    manager.load_configuration(src)
+
+    values = manager.configuration.containers[0].parameter_values
+    assert values["OsStackAlign"].value == "64"
+    assert values["OsUseArti"].value is True
+    assert values["OsNumberOfCores"].value == 2
+    for rule in (EnumerationValidationRule(), TypeValidationRule()):
+        assert rule.validate(os_def, manager.configuration).messages == []
+
+    # The first save already writes what later saves write
+    first = tmp_path / "first.arxml"
+    manager.save_configuration(first)
+    reloaded = ConfigurationManager(os_def)
+    reloaded.load_configuration(first)
+    second = tmp_path / "second.arxml"
+    reloaded.save_configuration(second)
+    assert first.read_text(encoding="utf-8") == second.read_text(encoding="utf-8")
+    assert '<ECUC-TEXTUAL-PARAM-VALUE>' in first.read_text(encoding="utf-8")

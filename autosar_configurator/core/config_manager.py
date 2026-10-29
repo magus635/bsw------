@@ -844,8 +844,8 @@ class ConfigurationManager:
                 if self.module_def and not skip_cleanup:
                     remapped = self._normalize_definition_refs()
                     if remapped:
-                        logger.info("%s: corrected the DEFINITION-REF of %d container(s) naming an "
-                                    "instance instead of its definition in %s; saved on the next save",
+                        logger.info("%s: corrected %d DEFINITION-REF(s) naming an instance "
+                                    "instead of its definition in %s; saved on the next save",
                                     self.module_def.short_name, remapped, file_path.name)
                     # Relative / wrongly prefixed DEFINITION-REFs and generic DESTs written by
                     # earlier versions: corrected in memory, written on the next save
@@ -873,8 +873,12 @@ class ConfigurationManager:
     def repair_definition_refs(self) -> int:
         """Give every value the DEFINITION-REF and DEST a value file needs: the absolute path
         under the module's path in its definition file (module_def.ar_path) and the specific
-        type of the definition element. References that are already right (EB values) are
-        left as they are. Returns the number of corrected items."""
+        type of the definition element, the value typed as that DEST reads it. References
+        that are already right (EB values) are left as they are. Returns the number of
+        corrected items."""
+        from .parser.arxml_parser import ArxmlParser
+        from .serializer.ecuc_serializer import _param_value_tag
+
         md = self.module_def
         cfg = self.configuration
         if md is None or cfg is None:
@@ -892,11 +896,22 @@ class ConfigurationManager:
                 return 1
             return 0
 
+        def retyped(value):
+            """The value as reading it back under its new DEST gives it: read under the
+            generic DEST, an enumeration literal 64 was a number and a boolean 1 an int."""
+            if value.value is None:
+                return None
+            text = (('true' if value.value else 'false') if isinstance(value.value, bool)
+                    else str(value.value))
+            numerical = _param_value_tag(value) == 'ECUC-NUMERICAL-PARAM-VALUE'
+            return ArxmlParser.typed_value(text, value.dest_type, numerical)
+
         def fix_param(value, param_def) -> int:
             n = fix_path(value)
             dest = defrefs.parameter_dest(param_def) if param_def is not None else None
             if dest and getattr(value, 'dest_type', None) in (None, defrefs.GENERIC_PARAM_DEST):
                 value.dest_type = dest
+                value.value = retyped(value)
                 n += 1
             return n
 
@@ -1044,7 +1059,7 @@ class ConfigurationManager:
         4. **List instance**: an instance the scoring cannot place (only
            references, or no values at all), see ``_list_instance_def``.
 
-        Returns the number of remapped containers.
+        Returns the number of corrected references (containers and their values).
         """
         # Extract the definition_ref prefix (everything up to and including the
         # module name).  E.g. for ``/THA6_ASR21/Os/Foo`` the prefix is
@@ -1171,18 +1186,21 @@ class ConfigurationManager:
             smallest = [cdef for cdef in fits if len(defined(cdef)) == least]
             return smallest[0] if len(smallest) == 1 else None
 
-        def _rebase_values(container, container_ref: str):
-            """Value references follow their container's corrected definition."""
-            for name, value in container.parameter_values.items():
-                value.definition_ref = f"{container_ref}/{name}"
-            for name, value in container.reference_values.items():
-                value.definition_ref = f"{container_ref}/{name}"
-            for name, values in container.multi_parameter_values.items():
-                for value in values:
+        def _rebase_values(container, container_ref: str) -> int:
+            """Value references follow their container's definition: one under another
+            container (an instance name, a remapped container) is rewritten. Returns the
+            number of rewritten values."""
+            values = list(container.parameter_values.items()) + list(container.reference_values.items())
+            for name, multi in (list(container.multi_parameter_values.items())
+                                + list(container.multi_reference_values.items())):
+                values += [(name, value) for value in multi]
+            count = 0
+            for name, value in values:
+                parent = (value.definition_ref or '').rpartition('/')[0]
+                if not defrefs.same_definition(parent, container_ref, module_name):
                     value.definition_ref = f"{container_ref}/{name}"
-            for name, values in container.multi_reference_values.items():
-                for value in values:
-                    value.definition_ref = f"{container_ref}/{name}"
+                    count += 1
+            return count
 
         remapped = 0
 
@@ -1212,7 +1230,9 @@ class ConfigurationManager:
             if resolved_def is not None and leaf == resolved_def.short_name and (
                     parent_normalized_ref is None
                     or defrefs.same_definition(parent_ref, parent_normalized_ref, module_name)):
-                # Already valid – recurse into sub-containers using this container's ref
+                # Already valid – its values may still name an instance (written before
+                # the container itself was corrected); recurse using this container's ref
+                remapped += _rebase_values(container, container.definition_ref)
                 for sub in container.sub_containers:
                     _normalize_container(sub, resolved_def, container.definition_ref)
                 return
@@ -1253,8 +1273,7 @@ class ConfigurationManager:
                 log("%s DEFINITION-REF remap for container '%s': %s -> %s",
                     how, container.short_name, container.definition_ref, new_ref)
                 container.definition_ref = new_ref
-                _rebase_values(container, new_ref)
-                remapped += 1
+                remapped += 1 + _rebase_values(container, new_ref)
 
                 # Recurse with matched definition context, passing the new ref
                 for sub in container.sub_containers:

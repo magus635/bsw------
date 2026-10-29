@@ -529,13 +529,33 @@ class ArxmlParser:
 
         # Get DEST attribute from DEFINITION-REF
         dest_type = self._get_def_ref_dest(element)
-        
+
         # Get value
-        value = self._get_text_value(element, 'VALUE')
+        value = self.typed_value(self._get_text_value(element, 'VALUE'), dest_type,
+                                 'NUMERICAL-PARAM-VALUE' in element.tag)
 
         # Check for INDEX (multi-valued parameters)
         index_text = self._get_text_value(element, 'INDEX')
-        
+
+        if index_text is not None:
+            try:
+                index_val = int(index_text)
+            except (ValueError, TypeError):
+                index_val = 0
+            container.add_multi_parameter_value(param_name, value, definition_ref, index_val)
+            # Set dest_type on the newly added multi-param
+            if dest_type and param_name in container.multi_parameter_values:
+                container.multi_parameter_values[param_name][-1].dest_type = dest_type
+        else:
+            container.set_parameter_value(param_name, value, definition_ref)
+            # Set dest_type on the parameter
+            if dest_type and param_name in container.parameter_values:
+                container.parameter_values[param_name].dest_type = dest_type
+
+    @classmethod
+    def typed_value(cls, value: Optional[str], dest_type: Optional[str], numerical: bool):
+        """Python value of a parameter's <VALUE> text under its DEST, read from an
+        ECUC-NUMERICAL-PARAM-VALUE (``numerical``) or an ECUC-TEXTUAL-PARAM-VALUE."""
         # Determine if it's numerical (try to convert) if tag implies it
         # Or just try smart conversion based on content?
         # The element tag tells us if it's numerical or textual.
@@ -543,7 +563,7 @@ class ArxmlParser:
         # String-typed parameters keep their text: "TRUE" in an ArtiConstantString is a C constant, not a boolean
         # (and writing it back as "true" would change it).
         if (value is not None and isinstance(value, str)
-                and dest_type not in self._STRING_PARAM_DESTS):
+                and dest_type not in cls._STRING_PARAM_DESTS):
             val_lower = value.strip().lower()
             if val_lower == 'true':
                 value = True
@@ -557,7 +577,7 @@ class ArxmlParser:
                 elif val_lower == '0':
                     value = False
                 
-        if 'NUMERICAL-PARAM-VALUE' in element.tag:
+        if numerical:
             if value is not None and isinstance(value, str):
                 val_stripped = value.strip()
                 try:
@@ -581,21 +601,7 @@ class ArxmlParser:
                 except (ValueError, TypeError):
                     # Keep as original string
                     pass
-                
-        if index_text is not None:
-            try:
-                index_val = int(index_text)
-            except (ValueError, TypeError):
-                index_val = 0
-            container.add_multi_parameter_value(param_name, value, definition_ref, index_val)
-            # Set dest_type on the newly added multi-param
-            if dest_type and param_name in container.multi_parameter_values:
-                container.multi_parameter_values[param_name][-1].dest_type = dest_type
-        else:
-            container.set_parameter_value(param_name, value, definition_ref)
-            # Set dest_type on the parameter
-            if dest_type and param_name in container.parameter_values:
-                container.parameter_values[param_name].dest_type = dest_type
+        return value
 
     def _parse_ecuc_reference_value(self, element: etree._Element, container: EcucContainerValue):
         """Parse reference value and add to container"""

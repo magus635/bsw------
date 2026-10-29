@@ -401,8 +401,8 @@ class TestDefinitionRefResolution:
 
         assert self._missing_container_defs(manager) == []
         assert not any("Heuristic DEFINITION-REF remap" in r.message for r in caplog.records)
-        assert any("corrected the DEFINITION-REF of 4 container(s)" in r.getMessage()
-                   for r in caplog.records)
+        # 4 containers and the 4 values in them
+        assert any("corrected 8 DEFINITION-REF(s)" in r.getMessage() for r in caplog.records)
 
     def test_corrected_list_instances_are_saved(self, tmp_path):
         manager = self._load_os(tmp_path, self._os_module_def())
@@ -419,6 +419,36 @@ class TestDefinitionRefResolution:
         reloaded.load_configuration(saved)
         assert reloaded._normalize_definition_refs() == 0
         assert self._missing_container_defs(reloaded) == []
+
+    def test_values_naming_an_instance_in_a_correct_container_are_rebased(self, tmp_path):
+        # Saved by a version that corrected the container but not its multi-valued references
+        block = """<ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>CODE_QM_CORE0</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_ASR21/Os/OsMemoryMap</DEFINITION-REF>
+          <REFERENCE-VALUES>
+            <ECUC-REFERENCE-VALUE>
+              <INDEX>0</INDEX>
+              <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/THA6_ASR21/Os/CODE_QM_CORE0/MemorySectionMatch</DEFINITION-REF>
+              <VALUE-REF DEST="ECUC-CONTAINER-VALUE">/Os/Os/os_text_qm_core0</VALUE-REF>
+            </ECUC-REFERENCE-VALUE>
+            <ECUC-REFERENCE-VALUE>
+              <INDEX>1</INDEX>
+              <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/THA6_ASR21/Os/CODE_QM_CORE0/MemorySectionMatch</DEFINITION-REF>
+              <VALUE-REF DEST="ECUC-CONTAINER-VALUE">/Os/Os/os_text_qm_core1</VALUE-REF>
+            </ECUC-REFERENCE-VALUE>
+          </REFERENCE-VALUES>
+        </ECUC-CONTAINER-VALUE>"""
+        start = self.INSTANCE_NAMED_OS.index("<ECUC-CONTAINER-VALUE>\n          <SHORT-NAME>CODE_QM_CORE0")
+        end = self.INSTANCE_NAMED_OS.index("<ECUC-CONTAINER-VALUE>\n          <SHORT-NAME>OsTask_0")
+        (tmp_path / "Os_Config.arxml").write_text(
+            self.INSTANCE_NAMED_OS[:start] + block + "\n        " + self.INSTANCE_NAMED_OS[end:],
+            encoding="utf-8")
+        manager = self._load_os(tmp_path, self._os_module_def())
+        memory_map = next(c for c in manager.configuration.containers if c.short_name == "CODE_QM_CORE0")
+        assert memory_map.definition_ref == "/THA6_ASR21/Os/OsMemoryMap"
+        refs = memory_map.multi_reference_values["MemorySectionMatch"]
+        assert [r.value_ref for r in refs] == ["/Os/Os/os_text_qm_core0", "/Os/Os/os_text_qm_core1"]
+        assert {r.definition_ref for r in refs} == {"/THA6_ASR21/Os/OsMemoryMap/MemorySectionMatch"}
 
     def test_ambiguous_list_instance_is_left_alone(self, tmp_path):
         # Two multi-instance definitions with nothing to configure: no way to tell
