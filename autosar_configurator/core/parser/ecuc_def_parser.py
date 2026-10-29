@@ -4,6 +4,7 @@ Parses module/container/parameter definitions (the "blueprint")
 """
 import re
 from lxml import etree
+from .xdm_expression_resolver import XdmExpressionResolver, typed_value, upper_limit
 from typing import Optional, List, Any
 from pathlib import Path
 
@@ -40,7 +41,6 @@ class EcucDefParser:
 
     def __init__(self, constraints=None):
         """Initialize parser with optional chip constraints for resolving XDM expressions."""
-        from .xdm_expression_resolver import XdmExpressionResolver
         self._resolver = XdmExpressionResolver(constraints or {})
         self.NAMESPACES = dict(type(self).NAMESPACES)     # per instance: the 'a' entry follows the parsed file
         # "<Module>.<parameter>" -> extra enumeration values declared by chips
@@ -206,6 +206,7 @@ class EcucDefParser:
                 # Extract multiplicity from v:lst if applicable
                 lst_lower = None
                 lst_upper = None
+                lst_upper_expr = None
                 if tag_local == 'lst':
                     ns_a = self.NAMESPACES['a']
                     min_da = container_elem.xpath("a:da[@name='MIN']/@value", namespaces={'a': ns_a})
@@ -226,11 +227,8 @@ class EcucDefParser:
                             da_type = max_da_elems[0].get('type', '')
                             da_expr = max_da_elems[0].get('expr', '')
                             if da_type == 'XPath' and da_expr:
-                                resolved = self._resolver.resolve_expression(da_expr)
-                                if isinstance(resolved, int) and resolved > 0:
-                                    lst_upper = resolved
-                                else:
-                                    lst_upper = -1
+                                lst_upper_expr = da_expr
+                                lst_upper = upper_limit(self._resolver.resolve_expression(da_expr))
                         else:
                             lst_upper = -1
 
@@ -249,7 +247,8 @@ class EcucDefParser:
                             container_def.lower_multiplicity = lst_lower
                         if lst_upper is not None:
                             container_def.upper_multiplicity = lst_upper
-                            
+                        if lst_upper_expr:
+                            container_def.upper_multiplicity_expr = lst_upper_expr
                         # Set full definition reference path
                         container_def.definition_ref = f"/AUTOSAR/EcucDefs/{module_def.short_name}/{container_def.short_name}"
                         # Avoid duplicates if already added
@@ -442,11 +441,7 @@ class EcucDefParser:
                     da_expr = max_da_elems[0].get('expr', '')
                     if da_type == 'XPath' and da_expr:
                         lst_upper_expr = da_expr
-                        resolved = self._resolver.resolve_expression(da_expr)
-                        if isinstance(resolved, int) and resolved > 0:
-                            lst_upper = resolved
-                        else:
-                            lst_upper = -1  # unresolvable or 0 -> treat as unbounded
+                        lst_upper = upper_limit(self._resolver.resolve_expression(da_expr))
 
                 # Handle v:ctr inside v:lst (multi-container / sub-container)
                 ctr_children = sub_elem.xpath("v:ctr", namespaces={'v': ns_v})
@@ -463,6 +458,8 @@ class EcucDefParser:
                             sub_container_def.upper_multiplicity = lst_upper
                         elif not max_da and not max_da_elems:
                              sub_container_def.upper_multiplicity = -1
+                        if lst_upper_expr:
+                            sub_container_def.upper_multiplicity_expr = lst_upper_expr
                         
                         container_def.add_sub_container(sub_container_def)
 
@@ -879,9 +876,10 @@ class EcucDefParser:
                     expr = tst[0]
             if expr:
                 param_def.default_expr = expr
+                param_def.static_default = param_def.default_value
                 resolved = self._resolver.resolve_expression(expr)
                 if resolved is not None:
-                    param_def.default_value = resolved
+                    param_def.default_value = typed_value(resolved, param_type)
         elif da_value and param_def.default_value is None:
             # Static default - only set if not already set by ARXML path
             param_def.default_value = self._convert_value(da_value, param_type)
@@ -898,6 +896,7 @@ class EcucDefParser:
                     expr = tst_elems[0]
             if expr:
                 param_def.range_expr = expr
+                param_def.static_literals = list(param_def.literals or [])
                 resolved = self._resolver.resolve_expression(expr)
                 if isinstance(resolved, list) and len(resolved) > 0 and param_type == EcucParameterType.ENUMERATION:
                     param_def.literals = resolved

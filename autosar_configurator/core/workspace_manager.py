@@ -135,8 +135,15 @@ class WorkspaceProject:
             Flat dict mapping property keys (e.g. 'Adc.HwUnitId') to values.
         """
         from .hardware.ecu_resource_resolver import EcuResourceResolver
+        from .parser.xdm_expression_resolver import apply_chip_expressions
 
         self.ecu_resources = EcuResourceResolver(self.chip_database).resolve(self)
+        # Defaults, ranges and maximum counts written as chip expressions in the
+        # loaded definitions follow the same resources as ecu:get()
+        for manager in self.module_managers.values():
+            module_def = getattr(manager, "module_def", None)
+            if module_def is not None:
+                apply_chip_expressions(module_def, self.ecu_resources)
         return self.ecu_resources
 
     # --- project-local chip definition (<project dir>/chips/<chip>.yaml) -------------

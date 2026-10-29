@@ -77,6 +77,9 @@ class EcucParameterDef:
     # XDM dynamic expressions (stored for UI tooltip/debug, resolved via .properties)
     default_expr: Optional[str] = None   # e.g., "ecu:list('Adc.RequestSrcPrio')[1]"
     range_expr: Optional[str] = None     # e.g., "ecu:list('Adc.HwUnitId')"
+    # What applies when those expressions cannot be evaluated for the project's chip
+    static_default: Any = None
+    static_literals: Optional[List[str]] = None
 
     # XDM ENABLE condition (XPath, context: this parameter); false -> not part of the
     # configuration. For a v:lst of values it is the list's condition.
