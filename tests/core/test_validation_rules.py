@@ -79,11 +79,23 @@ class TestTypeValidationRule:
         )
         container.set_parameter_value("IntParam", "not_an_int", "/AUTOSAR/EcucDefs/Test/Container/IntParam")
         config.add_container(container)
-        
+
         rule = TypeValidationRule()
         result = rule.validate(module_def, config)
         assert not result.is_valid
         assert result.error_count == 1
+
+    def test_parameter_without_value_is_not_a_type_error(self, module_def):
+        """No value (EB writes it without <VALUE>): the default applies"""
+        config = EcucModuleConfiguration(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
+        container = EcucContainerValue(
+            short_name="Container_0",
+            definition_ref="/AUTOSAR/EcucDefs/Test/Container"
+        )
+        container.set_parameter_value("IntParam", None, "/AUTOSAR/EcucDefs/Test/Container/IntParam")
+        config.add_container(container)
+
+        assert TypeValidationRule().validate(module_def, config).messages == []
 
 
 class TestRangeValidationRule:
@@ -197,11 +209,23 @@ class TestEnumerationValidationRule:
         )
         container.set_parameter_value("EnumParam", "OPTION_X", "/AUTOSAR/EcucDefs/Test/Container/EnumParam")
         config.add_container(container)
-        
+
         rule = EnumerationValidationRule()
         result = rule.validate(module_def, config)
         assert not result.is_valid
         assert result.error_count == 1
+
+    def test_parameter_without_value_is_not_a_literal_error(self, module_def):
+        """No value (EB writes it without <VALUE>): the default applies"""
+        config = EcucModuleConfiguration(short_name="Config", definition_ref="/AUTOSAR/EcucDefs/Test")
+        container = EcucContainerValue(
+            short_name="Container_0",
+            definition_ref="/AUTOSAR/EcucDefs/Test/Container"
+        )
+        container.set_parameter_value("EnumParam", None, "/AUTOSAR/EcucDefs/Test/Container/EnumParam")
+        config.add_container(container)
+
+        assert EnumerationValidationRule().validate(module_def, config).messages == []
 
 
 class TestReferenceIntegrityRule:

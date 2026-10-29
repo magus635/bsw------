@@ -100,6 +100,8 @@ class TypeValidationRule(ValidationRule):
         for param_name, param_value in container.parameter_values.items():
             param_def = container_def.parameters.get(param_name)
             if not param_def:
+                if container_def.vendor_reference(param_name):
+                    continue        # a reference's target written as text (RegionSelect), kept for EB
                 # Try to find where this parameter should be defined
                 correct_location = self._find_parameter_location(param_name, module_def)
                 if correct_location:
@@ -137,7 +139,10 @@ class TypeValidationRule(ValidationRule):
                       container_path: str, result: ValidationResult):
         """Validate parameter value against its type"""
         value = param_value.value
-        
+        if value is None:
+            # No value (EB writes it without <VALUE>): the definition's default applies
+            return
+
         if param_def.param_type == EcucParameterType.INTEGER:
             # Accept int directly, or string representations of integers
             is_valid = isinstance(value, int) and not isinstance(value, bool)
@@ -401,6 +406,8 @@ class EnumerationValidationRule(ValidationRule):
         # Only validate enumeration types
         if param_def.param_type == EcucParameterType.ENUMERATION:
             value = param_value.value
+            if value is None:
+                return                          # no value: the definition's default applies
 
             chip_range = _chip_range(getattr(param_def, "range_expr", None),
                                      self._resources, self._resources_ci)

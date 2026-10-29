@@ -863,12 +863,47 @@ class ConfigurationManager:
                         logger.warning(
                             "Preserved %d unrecognised parameter(s) in unknown_parameters (not deleted)",
                             cleanup_count)
+                    qualified = self._qualify_bare_references()
+                    if qualified:
+                        logger.info("%s: %d reference(s) naming the target by its short name "
+                                    "given the target's path in %s; saved on the next save",
+                                    self.module_def.short_name, qualified, file_path.name)
 
                 # Mark as saved (just loaded, no modifications)
                 self.configuration.mark_saved()
                     
         except Exception as e:
             raise ValueError(f"Failed to load configuration: {e}")
+
+    def _qualify_bare_references(self) -> int:
+        """Give a reference naming its target by short name only (the vendor RegionSelect
+        text 'EX_CODE' taken as MemoryBlockRef) the target's path, when exactly one
+        instance of the reference's destination in this module has that name. Returns the
+        number of qualified references."""
+        module_name = self.module_def.short_name
+
+        def qualify(ref_value, ref_def) -> int:
+            name = ref_value.value_ref
+            if not name or name.startswith('/') or ref_def is None:
+                return 0
+            destinations = [d for d in [ref_def.destination_ref, *(ref_def.choice_destination_refs or [])]
+                            if d and module_name in d.split('/')]
+            targets = [c for d in destinations for c in self.configuration.get_all_instances_of_def(d)
+                       if c.short_name == name]
+            if len(targets) != 1:
+                return 0
+            ref_value.value_ref = targets[0].get_path()
+            return 1
+
+        def walk(container) -> int:
+            container_def = self.get_container_def(container.definition_ref)
+            refs = container_def.references if container_def is not None else {}
+            n = sum(qualify(value, refs.get(name)) for name, value in container.reference_values.items())
+            n += sum(qualify(value, refs.get(name))
+                     for name, values in container.multi_reference_values.items() for value in values)
+            return n + sum(walk(sub) for sub in container.sub_containers)
+
+        return sum(walk(container) for container in self.configuration.containers)
 
     def repair_definition_refs(self) -> int:
         """Give every value the DEFINITION-REF and DEST a value file needs: the absolute path
@@ -983,15 +1018,8 @@ class ConfigurationManager:
                         # Check if this parameter matches a reference definition (vendor pattern
                         # where a reference is serialized as a textual parameter, e.g. RegionSelect
                         # storing MemoryBlockRef target).
-                        is_vendor_ref = (
-                            param_name in container_def.references or
-                            (param_name == container_def.short_name and len(container_def.references) == 1)
-                        )
-                        if is_vendor_ref:
-                            ref_def_name = (
-                                param_name if param_name in container_def.references
-                                else list(container_def.references.keys())[0]
-                            )
+                        ref_def_name = container_def.vendor_reference(param_name)
+                        if ref_def_name:
                             logger.debug(
                                 "'%s' in '%s' matches vendor reference '%s' in DEF '%s'",
                                 param_name, container.short_name, ref_def_name, container_def.short_name

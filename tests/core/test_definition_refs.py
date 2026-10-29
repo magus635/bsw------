@@ -31,6 +31,9 @@ XDM = """<?xml version="1.0"?>
                   <a:da name="DEFAULT" value="64"/>
                   <a:da name="RANGE"><a:v>NON</a:v><a:v>128</a:v><a:v>64</a:v></a:da>
                 </v:var>
+                <v:var name="OsTimeBudget" type="FLOAT"/>
+                <v:var name="OsHookName" type="FUNCTION-NAME"/>
+                <v:var name="OsComment" type="STRING"/>
                 <v:var name="ArMajorVersion" type="INTEGER_LABEL"><a:da name="DEFAULT" value="4"/></v:var>
                 <v:ctr name="OsHooks" type="IDENTIFIABLE">
                   <v:var name="OsErrorHook" type="BOOLEAN"><a:da name="DEFAULT" value="false"/></v:var>
@@ -259,3 +262,73 @@ def test_values_under_the_generic_dest_are_typed_by_their_definition(os_def, tmp
     reloaded.save_configuration(second)
     assert first.read_text(encoding="utf-8") == second.read_text(encoding="utf-8")
     assert '<ECUC-TEXTUAL-PARAM-VALUE>' in first.read_text(encoding="utf-8")
+
+
+# Earlier versions wrote a parameter without a value as the text "None"
+NONE_TEXT_VALUES = """<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Os</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>Os</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/THA6_ASR21/Os</DEFINITION-REF>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>OsOS</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_ASR21/Os/OsOS</DEFINITION-REF>
+          <PARAMETER-VALUES>
+            <ECUC-NUMERICAL-PARAM-VALUE>
+              <DEFINITION-REF DEST="ECUC-FLOAT-PARAM-DEF">/THA6_ASR21/Os/OsOS/OsTimeBudget</DEFINITION-REF>
+              <VALUE>None</VALUE>
+            </ECUC-NUMERICAL-PARAM-VALUE>
+            <ECUC-TEXTUAL-PARAM-VALUE>
+              <DEFINITION-REF DEST="ECUC-FUNCTION-NAME-DEF">/THA6_ASR21/Os/OsOS/OsHookName</DEFINITION-REF>
+              <VALUE>None</VALUE>
+            </ECUC-TEXTUAL-PARAM-VALUE>
+            <ECUC-TEXTUAL-PARAM-VALUE>
+              <DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">/THA6_ASR21/Os/OsOS/OsComment</DEFINITION-REF>
+              <VALUE>None</VALUE>
+            </ECUC-TEXTUAL-PARAM-VALUE>
+          </PARAMETER-VALUES>
+        </ECUC-CONTAINER-VALUE>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>Task_A</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_ASR21/Os/OsTask</DEFINITION-REF>
+          <PARAMETER-VALUES>
+            <ECUC-TEXTUAL-PARAM-VALUE>
+              <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/THA6_ASR21/Os/OsTask/OsTaskPriority</DEFINITION-REF>
+              <VALUE>None</VALUE>
+            </ECUC-TEXTUAL-PARAM-VALUE>
+          </PARAMETER-VALUES>
+        </ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>
+"""
+
+
+def test_none_text_is_read_as_no_value(os_def, tmp_path):
+    from autosar_configurator.core.rules.base_rules import EnumerationValidationRule, TypeValidationRule
+    src = tmp_path / "in.arxml"
+    src.write_text(NONE_TEXT_VALUES, encoding="utf-8")
+    manager = ConfigurationManager(os_def)
+    manager.load_configuration(src)
+
+    os_os, task = manager.configuration.containers
+    assert os_os.parameter_values["OsTimeBudget"].value is None
+    assert os_os.parameter_values["OsHookName"].value is None
+    assert os_os.parameter_values["OsComment"].value == "None"           # free text says it
+    # Generic DEST: kept as text until the definition gives the type (INTEGER)
+    assert task.parameter_values["OsTaskPriority"].value is None
+    assert task.parameter_values["OsTaskPriority"].dest_type == "ECUC-INTEGER-PARAM-DEF"
+    for rule in (EnumerationValidationRule(), TypeValidationRule()):
+        assert rule.validate(os_def, manager.configuration).messages == []
+
+    # Saved without <VALUE>, as EB writes it; the text stays only where it is text
+    out = tmp_path / "out.arxml"
+    manager.save_configuration(out)
+    text = out.read_text(encoding="utf-8")
+    assert text.count("<VALUE>None</VALUE>") == 1
+    reloaded = ConfigurationManager(os_def)
+    reloaded.load_configuration(out)
+    assert reloaded.configuration.containers[0].parameter_values["OsTimeBudget"].value is None

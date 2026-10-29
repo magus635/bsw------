@@ -595,3 +595,78 @@ class TestEpcExport:
         # 3. Parameter value is preserved for round-trip serialization
         assert "RegionSelect" in container.parameter_values
 
+
+    # The vendor text names the target by its short name; the reference needs its path.
+
+    REGION_SELECT_CONFIG = """<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MemMap_Config</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>MemMap</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/AUTOSAR/EcucDefs/MemMap</DEFINITION-REF>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>RegionSelect</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR/EcucDefs/MemMap/RegionSelect</DEFINITION-REF>
+          <PARAMETER-VALUES>
+            <ECUC-TEXTUAL-PARAM-VALUE>
+              <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/AUTOSAR/EcucDefs/MemMap/RegionSelect/RegionSelect</DEFINITION-REF>
+              <VALUE>EX_CODE</VALUE>
+            </ECUC-TEXTUAL-PARAM-VALUE>
+          </PARAMETER-VALUES>
+          {saved_reference}
+        </ECUC-CONTAINER-VALUE>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>EX_CODE</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR/EcucDefs/MemMap/MemoryBlock</DEFINITION-REF>
+        </ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>
+"""
+    # What earlier versions saved after taking the text as the reference
+    SAVED_BARE_REFERENCE = """<REFERENCE-VALUES>
+            <ECUC-REFERENCE-VALUE>
+              <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/AUTOSAR/EcucDefs/MemMap/RegionSelect/MemoryBlockRef</DEFINITION-REF>
+              <VALUE-REF DEST="ECUC-CONTAINER-VALUE">EX_CODE</VALUE-REF>
+            </ECUC-REFERENCE-VALUE>
+          </REFERENCE-VALUES>"""
+
+    def _memmap_def(self) -> EcucModuleDef:
+        from autosar_configurator.core.model.definition_model import EcucReferenceDef
+        region_select = EcucContainerDef(short_name="RegionSelect")
+        region_select.references["MemoryBlockRef"] = EcucReferenceDef(
+            short_name="MemoryBlockRef", destination_ref="/AUTOSAR/EcucDefs/MemMap/MemoryBlock")
+        module_def = EcucModuleDef(short_name="MemMap", definition_ref="/AUTOSAR/EcucDefs/MemMap")
+        module_def.containers["RegionSelect"] = region_select
+        module_def.containers["MemoryBlock"] = EcucContainerDef(short_name="MemoryBlock", upper_multiplicity=-1)
+        return module_def
+
+    @pytest.mark.parametrize("saved_reference", ["", SAVED_BARE_REFERENCE], ids=["text-only", "saved-bare-ref"])
+    def test_vendor_reference_text_gets_the_target_path(self, tmp_path, saved_reference):
+        from autosar_configurator.core.rules.base_rules import TypeValidationRule
+        config_path = tmp_path / "MemMap_Config.arxml"
+        config_path.write_text(self.REGION_SELECT_CONFIG.format(saved_reference=saved_reference),
+                               encoding="utf-8")
+        module_def = self._memmap_def()
+        manager = ConfigurationManager(module_def)
+        manager.load_configuration(config_path)
+
+        region_select, ex_code = manager.configuration.containers
+        ref = region_select.reference_values["MemoryBlockRef"]
+        assert ref.value_ref == ex_code.get_path()
+        manager.configuration.resolve_references(manager.configuration.get_instance_by_path)
+        assert ref.target is ex_code
+        # The text stays for EB, recognised as the reference: no "not defined" warning
+        assert region_select.parameter_values["RegionSelect"].value == "EX_CODE"
+        assert TypeValidationRule().validate(module_def, manager.configuration).messages == []
+
+    def test_vendor_reference_text_without_a_unique_target_is_left_alone(self, tmp_path):
+        xml = self.REGION_SELECT_CONFIG.format(saved_reference="").replace(
+            "<SHORT-NAME>EX_CODE</SHORT-NAME>", "<SHORT-NAME>EX_DATA</SHORT-NAME>")
+        config_path = tmp_path / "MemMap_Config.arxml"
+        config_path.write_text(xml, encoding="utf-8")
+        manager = ConfigurationManager(self._memmap_def())
+        manager.load_configuration(config_path)
+        assert manager.configuration.containers[0].reference_values["MemoryBlockRef"].value_ref == "EX_CODE"

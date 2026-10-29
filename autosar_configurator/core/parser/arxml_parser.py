@@ -31,6 +31,14 @@ class ArxmlParser:
         'ECUC-FUNCTION-NAME-DEF',
         'ECUC-LINKER-SYMBOL-DEF',
     })
+    # Values that may say "None" themselves: free text, and a textual value whose
+    # definition type is not known (generic DEST)
+    _NONE_IS_TEXT_DESTS = frozenset({
+        None,
+        'ECUC-PARAMETER-DEF',
+        'ECUC-STRING-PARAM-DEF',
+        'ECUC-MULTILINE-STRING-PARAM-DEF',
+    })
 
     def __init__(self, schema_path: Optional[Path] = None):
         """Initialize parser
@@ -556,6 +564,12 @@ class ArxmlParser:
     def typed_value(cls, value: Optional[str], dest_type: Optional[str], numerical: bool):
         """Python value of a parameter's <VALUE> text under its DEST, read from an
         ECUC-NUMERICAL-PARAM-VALUE (``numerical``) or an ECUC-TEXTUAL-PARAM-VALUE."""
+        # Earlier versions wrote a parameter without a value as the text "None": it has
+        # no value (EB writes it without <VALUE>), unless the text could be "None" itself
+        if isinstance(value, str) and value.strip() == 'None' and (
+                numerical or dest_type not in cls._NONE_IS_TEXT_DESTS):
+            return None
+
         # Determine if it's numerical (try to convert) if tag implies it
         # Or just try smart conversion based on content?
         # The element tag tells us if it's numerical or textual.
