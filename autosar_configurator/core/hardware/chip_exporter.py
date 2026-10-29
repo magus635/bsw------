@@ -13,6 +13,7 @@ import yaml
 
 from .chip_database import ChipDefinition
 from .ecu_resource_data import serialize_value
+from .memory_regions import memory_region_dict
 
 
 class _FlowMap(dict):
@@ -184,6 +185,9 @@ class ChipDefinitionExporter:
 
         if chip.selectors:
             data['selectors'] = {k: chip.selectors[k] for k in sorted(chip.selectors)}
+
+        if chip.memory_regions:
+            data['memory_regions'] = [_FlowMap(memory_region_dict(r)) for r in chip.memory_regions]
 
         if chip.ecu_resources:
             ecu: Dict[str, Any] = {}

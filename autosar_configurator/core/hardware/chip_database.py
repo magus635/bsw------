@@ -119,6 +119,9 @@ class ChipDefinition:
     # keyed "<Module>.<parameter>" (e.g. "Os.OsResourceSubderivative": "Os_THA6412")
     selectors: Dict[str, str] = field(default_factory=dict)
 
+    # Address map (optional YAML section "memory_regions"), see memory_regions.py
+    memory_regions: List[MemoryRegionDef] = field(default_factory=list)
+
     # Checksum stored in the YAML and whether the content no longer matches it
     # (set when loading; content_modified is not written back)
     checksum: str = field(default="", compare=False)
@@ -389,6 +392,10 @@ class ChipDatabase:
         chip.resource_version = str(data.get('resource_version', '') or '')
         try:
             chip.selectors = parse_selectors(data.get('selectors'))
+        except ValueError as e:
+            raise ValueError(f"{yaml_path}: {e}") from e
+        try:
+            chip.memory_regions = parse_memory_regions(data.get('memory_regions'))
         except ValueError as e:
             raise ValueError(f"{yaml_path}: {e}") from e
 
