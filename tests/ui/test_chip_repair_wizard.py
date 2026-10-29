@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog
 
 from autosar_configurator.core.hardware import chip_repair as repair
-from autosar_configurator.core.hardware.chip_completeness import unconfirmed_marks
+from autosar_configurator.core.hardware.chip_completeness import check_chip, unconfirmed_marks
 from autosar_configurator.core.hardware.chip_database import ChipDatabase, ChipDefinition
 from autosar_configurator.core.hardware.chip_exporter import ChipDefinitionExporter, chip_checksum
 from autosar_configurator.ui.wizards import chip_repair_wizard as wiz
@@ -228,6 +228,74 @@ def test_port_tree_of_thA6412_builds_quickly(qtbot, tmp_path, messages):
     elapsed = time.perf_counter() - start
     assert sum(1 for _ in wizard.changes_page.key_items()) == len(session.base.ecu_resources["Port"])
     assert elapsed < 1.0, elapsed
+
+
+# --- entries to fill in (mark-chip-entries-to-fill-in) --------------------------------
+
+@pytest.fixture
+def scanned(monkeypatch, tmp_path):
+    """A plugin directory whose modules reference Os.Missing, which chip C lacks."""
+    from autosar_configurator.core.hardware import ecu_resource_diagnostics
+
+    monkeypatch.setattr(ecu_resource_diagnostics, "collect_referenced_keys_in_dirs",
+                        lambda dirs: {"Os.Missing": {"Os"}})
+    return tmp_path
+
+
+@pytest.fixture
+def answer(monkeypatch):
+    state = {"questions": [], "reply": wiz.QMessageBox.Yes}
+
+    def question(*a, **k):
+        state["questions"].append(a[1])
+        return state["reply"]
+
+    monkeypatch.setattr(wiz.QMessageBox, "question", question)
+    return state
+
+
+def _to_changes_scanning(wizard, directory, *files):
+    wizard.next()
+    for f in files:
+        wizard.sources_page.add_file(f)
+    wizard.sources_page.add_dir(directory)
+    wizard.next()
+    assert wizard.currentPage() is wizard.changes_page
+
+
+def _key_item(wizard, key):
+    return next(i for i in wizard.changes_page.key_items() if i.data(0, Qt.UserRole) == key)
+
+
+def test_entry_to_fill_in_is_listed_but_not_preselected(qtbot, library, source, scanned, messages):
+    wizard = _wizard(qtbot, library)
+    _to_changes_scanning(wizard, scanned, source)
+    assert _checked(wizard) == {"Port.B", "Port.New"}
+    assert _key_item(wizard, "Os.Missing").text(wizard.changes_page.COL_NEW) == "（待填写）"
+
+
+def test_saving_an_entry_to_fill_in_asks_first_and_marks_it(qtbot, library, scanned, messages, answer):
+    wizard = _wizard(qtbot, library)
+    _to_changes_scanning(wizard, scanned)
+    _key_item(wizard, "Os.Missing").setCheckState(0, Qt.Checked)
+    assert wizard.session.selected == {"Os.Missing"}
+    wizard.next()
+    wizard.next()
+    assert "新出现:\n  • ecu_resources.Os.Missing 待确认：待填写" in wizard.review_page.text.toPlainText()
+    wizard.next()
+    assert "1 个条目没有值" in wizard.save_page.summary.text()
+
+    answer["reply"] = wiz.QMessageBox.No
+    assert not wizard.save_page.validatePage()
+    assert answer["questions"] == ["ECU 资源待填写"]
+    assert not (library.data_dir / "C.yaml.bak").exists()
+
+    answer["reply"] = wiz.QMessageBox.Yes
+    _finish(wizard, messages)
+    chip = library.get_chip("C")
+    assert chip.ecu_resources["Os"] == {"Missing": None}
+    assert unconfirmed_marks(chip)["ecu_resources.Os.Missing"] == repair.TO_FILL_IN
+    assert any(i.field == "ecu_resources.Os.Missing" for i in check_chip(chip))
 
 
 # --- entry points -------------------------------------------------------------------

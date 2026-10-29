@@ -31,14 +31,14 @@
 ### D3 标记的说明固定为 `待填写`，自动去除只处理这个说明
 - 规则按当前状态判断，不依赖"上一版"：带 `待填写` 说明的 `ecu_resources.<模块>.<键>` 标记，条目有值或不存在时去掉。这样在 YAML 外部填了值的情况，下一次保存也会收拾干净。
 - 其他说明的标记（例如人工标的"数据从别的芯片拷来，需要核对"）即使条目有值也保留，只能在修复向导第 4 步确认。
-- 历史的 `confirmed` 由前后标记的差异算出（现有逻辑）；自动去掉的标记，说明默认为"已填写"。
+- 历史的 `confirmed` 由前后标记的差异算出（现有逻辑）；自动去掉的标记，说明默认为"已填写"（条目被删除时为"条目已删除"）。
 
 核心函数放在 `chip_repair.py`，与 `confirm_fields`、`mark_unconfirmed` 并列，都返回新芯片：
 - `mark_to_fill_in(chip, keys)`：给仍为 `null` 的条目加 `待填写` 标记，已有标记不覆盖；
 - `drop_filled_marks(chip)`：按 D3 去掉标记；
 - `to_fill_in_keys(chip)`：带 `待填写` 标记且仍为 `null` 的平铺键，按键排序。
 
-调用位置：`RepairSession.build`（顺序：合并 → 加标记 → 去标记 → 推导视图 → 确认/新增标记）和设计器 `_build_current_chip`。`save_repaired_chip` 不做隐式改写，保存的就是调用方生成的芯片。
+调用位置：`RepairSession.build`（顺序：合并 → 加标记 → 推导视图 → 确认/新增标记 → 去标记。去标记放在最后：如果第 4 步要确认的旧标记已被自动去掉，`confirm_fields` 会报"未标记"）和设计器 `_build_current_chip`。`save_repaired_chip` 不做隐式改写，保存的就是调用方生成的芯片。
 
 ### D4 工程告警放在 `chip_data_findings`，不改 `diagnose`
 `diagnose` 只拿到平铺后的 `project.ecu_resources`，看不到芯片的标记。`WorkspaceProject.chip_data_findings` 已经拿到工程实际使用的芯片（工程副本或芯片库），并把结果并入 ECU 资源报告的 `consistency`。在这里对 `to_fill_in_keys(chip)` 的每个键加一条告警，这样告警会出现在日志和状态栏计数中，与其他芯片数据问题放在一起。
