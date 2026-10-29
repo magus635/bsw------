@@ -8,7 +8,7 @@ import copy
 import re
 from collections import Counter
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 import logging
 
 from PySide6.QtWidgets import (
@@ -30,8 +30,9 @@ from ...core.hardware.chip_database import (
 from ...core.hardware.pinout_importer import PinoutTableImporter
 from ...core.hardware.chip_exporter import ChipDefinitionExporter, chip_checksum
 from ...core.hardware.chip_repair import (
-    ChipFileChanged, RepairRecord, drop_filled_marks, mark_to_fill_in, save_repaired_chip,
+    TO_FILL_IN, ChipFileChanged, RepairRecord, drop_filled_marks, mark_to_fill_in, save_repaired_chip,
 )
+from ...core.hardware.chip_completeness import unconfirmed_marks
 from ...core.hardware.ecu_resource_data import (
     EcuResources, count_placeholders, describe_ecu_resources, flatten_ecu_resources,
 )
@@ -57,6 +58,13 @@ VALID_DIRECTIONS = ("INPUT", "OUTPUT", "INOUT")
 # Chip name doubles as the YAML file name: no path separators or leading dots.
 CHIP_NAME_PATTERN = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.\-]*$')
 _MODE_TOKEN = re.compile(r'^(\d+)\s*[:=]\s*(.+)$')
+# Basic chip data under metadata: (field, label)
+BASIC_FIELDS = (
+    ("cpu_frequency", "主频 (CPU Frequency, Hz)"),
+    ("flash_size", "Flash 容量 (Flash Size)"),
+    ("ram_size", "RAM 容量 (RAM Size)"),
+)
+_SIZE = re.compile(r'^\d+(\.\d+)?\s*(B|KB|MB|GB)$', re.IGNORECASE)
 
 
 def format_pin_functions(pin: PortPinDef) -> str:
@@ -313,6 +321,13 @@ class ChipDefinitionDesignerDialog(QDialog):
 
         main_layout.addWidget(clone_bar)
 
+        # Which copy is edited, when the project uses a differing copy of its own
+        self.copy_notice_label = QLabel()
+        self.copy_notice_label.setWordWrap(True)
+        self.copy_notice_label.setStyleSheet("color: #8a4b00;")
+        self.copy_notice_label.setVisible(False)
+        main_layout.addWidget(self.copy_notice_label)
+
         # Tabs
         self.tabs = QTabWidget()
         self.tabs.currentChanged.connect(self._on_tab_changed)
@@ -381,6 +396,22 @@ class ChipDefinitionDesignerDialog(QDialog):
 
         self.master_core_edit = QLineEdit("CORE0")
         form.addRow("主核 (Master Core):", self.master_core_edit)
+
+        # Basic data: left empty when unknown (marked 待填写 on save), never invented
+        self.basic_edits: Dict[str, QLineEdit] = {}
+        self.basic_mark_labels: Dict[str, QLabel] = {}
+        for field, label in BASIC_FIELDS:
+            row = QHBoxLayout()
+            edit = QLineEdit()
+            edit.setPlaceholderText("例: 300000000" if field == "cpu_frequency" else "例: 4MB, 512KB")
+            row.addWidget(edit, 1)
+            mark = QLabel()
+            mark.setStyleSheet("color: #8a4b00;")
+            mark.setVisible(False)
+            row.addWidget(mark)
+            form.addRow(f"{label}:", row)
+            self.basic_edits[field] = edit
+            self.basic_mark_labels[field] = mark
 
         self.desc_edit = QTextEdit()
         self.desc_edit.setMaximumHeight(80)
@@ -674,6 +705,8 @@ class ChipDefinitionDesignerDialog(QDialog):
         if not chip_name:
             QMessageBox.information(self, "提示", "请先从下拉菜单中选择一个要克隆的芯片型号。")
             return
+        if not self._confirm_discard_edits(f"克隆 {chip_name} 会替换正在编辑的内容，未保存的修改将丢失。是否继续？"):
+            return
 
         if not self._load_chip_by_name(chip_name):
             return
@@ -709,6 +742,11 @@ class ChipDefinitionDesignerDialog(QDialog):
         available = cores.get('available') or [f"CORE{i}" for i in range(self.core_count_spin.value())]
         self.avail_cores_edit.setText(", ".join(available))
         self.master_core_edit.setText(cores.get('master', "CORE0"))
+        for field, edit in self.basic_edits.items():
+            value = chip.metadata.get(field)
+            edit.setText("" if value is None else str(value))
+        self._show_basic_marks(chip)
+        self._show_copy_notice(chip.name)
 
         self.peripheral_editor.set_resources(copy.deepcopy(chip.effective_resources()))
 
@@ -723,6 +761,88 @@ class ChipDefinitionDesignerDialog(QDialog):
 
     def _has_unsaved_edits(self) -> bool:
         return chip_checksum(self._build_current_chip()) != self._loaded_checksum
+
+    def _confirm_discard_edits(self, question: str) -> bool:
+        """True when there is nothing unsaved, or the user agrees to drop it."""
+        if not self._has_unsaved_edits():
+            return True
+        reply = QMessageBox.question(self, "放弃未保存的修改", question,
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        return reply == QMessageBox.Yes
+
+    # --- basic data and the project's copy ---------------------------------------
+
+    def _show_basic_marks(self, chip: Optional[ChipDefinition]):
+        marks = unconfirmed_marks(chip) if chip is not None else {}
+        for field, label in self.basic_mark_labels.items():
+            note = marks.get(f"metadata.{field}")
+            label.setText(("⚠ 待填写" if note == TO_FILL_IN else f"⚠ 待确认：{note}") if note else "")
+            label.setVisible(bool(note))
+
+    def _basic_field_problems(self) -> List[Tuple[str, str]]:
+        """(field, message) for each basic field whose text has the wrong form."""
+        problems = []
+        for field, label in BASIC_FIELDS:
+            text = self.basic_edits[field].text().strip()
+            if not text:
+                continue
+            if field == "cpu_frequency":
+                if not (text.isdigit() and int(text) > 0):
+                    problems.append((field, f"{label} 应为正整数（Hz），当前为 '{text}'"))
+            elif not _SIZE.match(text):
+                problems.append((field, f"{label} 应为带单位的容量（如 4MB、512KB），当前为 '{text}'"))
+        return problems
+
+    def _apply_basic_fields(self, chip: ChipDefinition, base: Optional[ChipDefinition]):
+        """Write the basic fields into ``chip.metadata``; an emptied field is left out and marked 待填写.
+
+        A field the base chip never had stays absent and unmarked, so loading an
+        existing chip does not add marks to it.
+        """
+        base_meta = base.metadata if base is not None and base.metadata else {}
+        marks = unconfirmed_marks(chip)
+        for field, _label in BASIC_FIELDS:
+            text = self.basic_edits[field].text().strip()
+            if text:
+                old = base_meta.get(field)
+                if old is not None and str(old) == text:
+                    chip.metadata[field] = copy.deepcopy(old)       # keep the stored type
+                elif field == "cpu_frequency" and text.isdigit():
+                    chip.metadata[field] = int(text)
+                else:
+                    chip.metadata[field] = text
+            else:
+                chip.metadata.pop(field, None)
+                if base is None or field in base_meta:
+                    marks.setdefault(f"metadata.{field}", TO_FILL_IN)
+        if marks:
+            chip.metadata["unconfirmed"] = marks
+        else:
+            chip.metadata.pop("unconfirmed", None)
+
+    def _project_copy_differs(self, chip_name: Optional[str]) -> bool:
+        store = getattr(self._project, "chip_store", None) if self._project is not None else None
+        if not chip_name or store is None:
+            return False
+        try:
+            local = store.load(chip_name)
+        except Exception:  # noqa: BLE001 - a notice must never break loading
+            return False
+        library = self.chip_database.get_chip(chip_name)
+        return local is not None and library is not None and chip_checksum(local) != chip_checksum(library)
+
+    def _show_copy_notice(self, chip_name: Optional[str]):
+        differs = self._project_copy_differs(chip_name)
+        self.copy_notice_label.setText(
+            f"⚠ 工程正在使用 chips/ 里自己的 {chip_name} 副本，与芯片库不同；这里编辑的是芯片库，"
+            "保存后需在“项目属性”里点 “Update from Library” 才会进入工程。" if differs else "")
+        self.copy_notice_label.setVisible(differs)
+
+    def _tell_project_copy(self, chip_name: str):
+        from ..wizards.chip_repair_wizard import project_copy_notice
+        notice = project_copy_notice(self._project, self.chip_database, chip_name)
+        if notice:
+            QMessageBox.information(self, "工程副本未更新", notice)
 
     def _on_repair_clicked(self):
         """Repair the chip being edited in the repair wizard, then reload it."""
@@ -748,6 +868,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._last_saved_chip = chip_name
         self.status_label.setText(f"✅ 已修复芯片: {chip_name}（版本 {self._resource_version}）")
         self.chip_saved.emit(chip_name)
+        self._tell_project_copy(chip_name)
 
     def _init_default_fields(self):
         """Set up initial blank values"""
@@ -761,14 +882,36 @@ class ChipDefinitionDesignerDialog(QDialog):
         self.family_edit.setText("THA6")
         self.package_edit.setText("LQFP144")
         self.desc_edit.setText("Automotive MCU Resource Definition")
+        for edit in self.basic_edits.values():
+            edit.clear()
+        self._show_basic_marks(None)
+        self._show_copy_notice(None)
         self._mark_clean()
 
+    def _core_list(self) -> List[str]:
+        return [c.strip() for c in self.avail_cores_edit.text().split(",") if c.strip()]
+
     def _update_core_defaults(self, count: int):
-        """Update core lists when count changes"""
+        """Follow the core count with CORE0..CORE<n-1>, unless the list was typed by hand."""
+        current = self._core_list()
+        if current and current != [f"CORE{i}" for i in range(len(current))]:
+            return      # a hand-written list (e.g. CORE0, CORE2) is the user's; the save checks it
         cores = [f"CORE{i}" for i in range(count)]
         self.avail_cores_edit.setText(", ".join(cores))
         if self.master_core_edit.text() not in cores:
             self.master_core_edit.setText("CORE0")
+
+    def _core_field_problems(self, cores: Dict[str, Any]) -> List[str]:
+        """Disagreements between the core count, the core list and the master core."""
+        problems = []
+        if cores['count'] != len(cores['available']):
+            problems.append(f"CPU 核数为 {cores['count']}，可用核心列表却有 {len(cores['available'])} 个："
+                            f"{', '.join(cores['available']) or '（空）'}")
+        if len(set(cores['available'])) != len(cores['available']):
+            problems.append("可用核心列表里有重复的核")
+        if cores['master'] not in cores['available']:
+            problems.append(f"主核 {cores['master']} 不在可用核心列表里")
+        return problems
 
     def _on_import_pinout_clicked(self):
         """Launch file dialog to import pinout Excel/CSV"""
@@ -910,12 +1053,7 @@ class ChipDefinitionDesignerDialog(QDialog):
     def _build_current_chip(self) -> ChipDefinition:
         """Construct a ChipDefinition (independent copy) from all tabs"""
         base = self._base_chip
-        default_metadata = {
-            'cpu_frequency': 80000000,
-            'flash_size': '512KB',
-            'ram_size': '64KB',
-        }
-        initial_metadata = copy.deepcopy(base.metadata) if base and base.metadata else default_metadata
+        initial_metadata = copy.deepcopy(base.metadata) if base and base.metadata else {}
 
         chip = ChipDefinition(
             name=self.name_edit.text().strip() or "UNNAMED_CHIP",
@@ -933,12 +1071,12 @@ class ChipDefinitionDesignerDialog(QDialog):
         except ValueError:
             chip.selectors = {}
 
-        avail_cores = [c.strip() for c in self.avail_cores_edit.text().split(",") if c.strip()]
         chip.metadata['cores'] = {
             'count': self.core_count_spin.value(),
-            'available': avail_cores,
+            'available': self._core_list(),
             'master': self.master_core_edit.text().strip() or "CORE0",
         }
+        self._apply_basic_fields(chip, base)
 
         # Entries the needed-keys guide added stay marked 待填写 until they get a value
         return drop_filled_marks(mark_to_fill_in(chip, self.ecu_editor.added_placeholders()))
@@ -1073,6 +1211,24 @@ class ChipDefinitionDesignerDialog(QDialog):
             self.tabs.setCurrentIndex(1)
             return
 
+        basic_problems = self._basic_field_problems()
+        if basic_problems:
+            QMessageBox.warning(self, "基础信息格式不对", "\n".join(m for _f, m in basic_problems))
+            self.tabs.setCurrentIndex(0)
+            self.basic_edits[basic_problems[0][0]].setFocus()
+            return
+
+        core_problems = self._core_field_problems(chip.metadata['cores'])
+        if core_problems:
+            reply = QMessageBox.question(
+                self, "核心信息不一致",
+                "\n".join(core_problems) + "\n\n确定要保存吗？",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if reply != QMessageBox.Yes:
+                self.tabs.setCurrentIndex(0)
+                self.avail_cores_edit.setFocus()
+                return
+
         pending = count_placeholders(chip.ecu_resources)
         if pending:
             reply = QMessageBox.question(
@@ -1137,6 +1293,8 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._last_saved_chip = chip.name
         self._mark_clean()
         self._populate_clone_dropdown()
+        self._show_basic_marks(chip)
+        self._show_copy_notice(chip.name)
 
         versioned = result is not None and result.saved
         self.status_label.setText(
@@ -1153,9 +1311,12 @@ class ChipDefinitionDesignerDialog(QDialog):
             + f"在后续的硬件映射向导和配置面板中，可以直接选择此芯片。\n\n"
             f"您可以继续编辑或导出 .properties 文件，也可以直接关闭。"
         )
+        self._tell_project_copy(chip.name)
 
     def reject(self):
         """Closing after a successful save reports Accepted so callers using exec() refresh"""
+        if not self._confirm_discard_edits("芯片定义有未保存的修改，关闭后将丢失。确定要关闭吗？"):
+            return
         if self._last_saved_chip:
             self.accept()
         else:

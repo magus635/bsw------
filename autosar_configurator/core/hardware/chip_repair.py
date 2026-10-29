@@ -37,6 +37,7 @@ HISTORY_DIR = "history"
 TO_FILL_IN = "待填写"
 FILLED_NOTE, GONE_NOTE = "已填写", "条目已删除"     # history notes of a mark removed automatically
 _ECU_FIELD = "ecu_resources."
+_METADATA_FIELD = "metadata."
 
 __all__ = [
     "ADDED", "REMOVED", "CHANGED", "UNCHANGED", "UPDATED", "NOT_DERIVED", "TO_FILL_IN",
@@ -311,10 +312,15 @@ def drop_filled_marks(chip: ChipDefinition) -> ChipDefinition:
     Marks with any other note stay: only a person confirms them.
     """
     flat = flatten_ecu_resources(chip.ecu_resources)
+    metadata = chip.metadata or {}
 
     def done(field_path: str, note: str) -> bool:
+        if note != TO_FILL_IN:
+            return False
+        if field_path.startswith(_METADATA_FIELD):          # a basic field such as metadata.flash_size
+            return metadata.get(field_path[len(_METADATA_FIELD):]) not in (None, "")
         key = _entry_key(field_path)
-        return note == TO_FILL_IN and key is not None and (key not in flat or flat[key] is not PLACEHOLDER)
+        return key is not None and (key not in flat or flat[key] is not PLACEHOLDER)
 
     result = copy.deepcopy(chip)
     _set_marks(result, {f: n for f, n in unconfirmed_marks(result).items() if not done(f, n)})
@@ -397,6 +403,16 @@ def _history_entry(base: ChipDefinition, saved: ChipDefinition, record: RepairRe
         ecu[c.kind].append(entry)
     before, after = unconfirmed_marks(base), unconfirmed_marks(saved)
     flat_saved = flatten_ecu_resources(saved.ecu_resources)
+    old_meta, new_meta = base.metadata or {}, saved.metadata or {}
+    metadata = []
+    for name in sorted((set(old_meta) | set(new_meta)) - {"unconfirmed"}):
+        if old_meta.get(name) != new_meta.get(name):
+            change: Dict[str, Any] = {"field": name}
+            if name in old_meta:
+                change["old"] = old_meta[name]
+            if name in new_meta:
+                change["new"] = new_meta[name]
+            metadata.append(change)
 
     def confirm_note(field_path: str) -> str:
         if field_path in record.confirm_notes or before[field_path] != TO_FILL_IN:
@@ -411,6 +427,7 @@ def _history_entry(base: ChipDefinition, saved: ChipDefinition, record: RepairRe
         "resource_version": {"old": base.resource_version, "new": saved.resource_version},
         "base_modified_outside": bool(base.content_modified),
         "ecu_resources": ecu,
+        "metadata": metadata,
         "views": {v.view: view_text(v) for v in record.views},
         "confirmed": [{"field": f, "note": confirm_note(f)} for f in before if f not in after],
         "marked": [{"field": f, "note": n} for f, n in after.items() if before.get(f) != n],

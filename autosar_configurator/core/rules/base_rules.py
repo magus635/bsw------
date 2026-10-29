@@ -4,7 +4,8 @@ Base Validation Rules - Fundamental parameter and type validation
 These rules implement basic validation logic for parameters,
 migrating and extending existing validation from ConfigurationManager.
 """
-from typing import Optional
+import re
+from typing import Any, Dict, Optional
 
 from ..validation_engine import ValidationRule, ValidationResult
 from ..model.definition_model import (
@@ -315,21 +316,60 @@ class RangeValidationRule(ValidationRule):
         return _resolve_container_def(definition_ref, module_def)
 
 
+_PLAIN_ECU_LIST = re.compile(r"""^\s*ecu:list\s*\(\s*['"]([^'"]+)['"]\s*\)\s*$""")
+
+
+def _chip_range(range_expr: Optional[str], resources: Dict[str, Any],
+                resources_ci: Dict[str, Any]) -> Optional[tuple]:
+    """(key, values) the ECU resources give for a plain ``ecu:list('<key>')`` range, else None.
+
+    The key is matched like ``ecu:get``: exactly first, then ignoring case.  A
+    comma-separated string is split into its values.
+    """
+    match = _PLAIN_ECU_LIST.match(range_expr or "")
+    if not match:
+        return None
+    key = match.group(1)
+    value = resources.get(key)
+    if value is None:
+        value = resources_ci.get(key.lower())
+    if value is None:
+        return None
+    if isinstance(value, (list, tuple)):
+        values = [str(v).strip() for v in value]
+    else:
+        values = [v.strip() for v in str(value).split(",")]
+    values = [v for v in values if v]
+    return (key, values) if values else None
+
+
 class EnumerationValidationRule(ValidationRule):
-    """Validate enumeration parameter values"""
-    
+    """Validate enumeration parameter values
+
+    With a project, a parameter whose range is a plain ``ecu:list('<key>')`` is
+    checked against the project's current ECU resources rather than the options
+    left from parsing the definition (which may have been parsed without a chip,
+    or for another one).
+    """
+
     def __init__(self):
         super().__init__(
             name="EnumerationValidation",
             description="Validates that enumeration parameters have allowed literal values"
         )
-    
+        self._resources: Dict[str, Any] = {}
+        self._resources_ci: Dict[str, Any] = {}
+        self._chip: Optional[str] = None
+
     def validate(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration, project_context=None) -> ValidationResult:
         result = ValidationResult()
-        
+        self._resources = dict(getattr(project_context, "ecu_resources", None) or {})
+        self._resources_ci = {k.lower(): v for k, v in self._resources.items() if isinstance(k, str)}
+        self._chip = getattr(project_context, "selected_chip", None)
+
         for container in configuration.containers:
             self._validate_container(container, module_def, result)
-        
+
         return result
     
     def _validate_container(self, container: EcucContainerValue, module_def: EcucModuleDef, result: ValidationResult):
@@ -361,6 +401,21 @@ class EnumerationValidationRule(ValidationRule):
         # Only validate enumeration types
         if param_def.param_type == EcucParameterType.ENUMERATION:
             value = param_value.value
+
+            chip_range = _chip_range(getattr(param_def, "range_expr", None),
+                                     self._resources, self._resources_ci)
+            if chip_range is not None:
+                key, allowed = chip_range
+                if str(value) not in allowed:
+                    chip = f"chip {self._chip}" if self._chip else "the project's ECU resources"
+                    result.add_message(self._create_error(
+                        f"Value '{value}' is not available on {chip}: "
+                        f"{key} allows {allowed}",
+                        container_path=container.get_path(),
+                        parameter_name=param_name,
+                        suggested_fix=f"Choose from: {', '.join(allowed)}"
+                    ))
+                return
 
             if param_def.literals and value not in param_def.literals:
                 result.add_message(self._create_error(

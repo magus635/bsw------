@@ -524,12 +524,12 @@ def test_dialog_add_pin_picks_existing_port_when_on_all_ports(qtbot, silent_boxe
     assert all_pins[1].pin == 1
 
 
-def test_dialog_new_chip_has_baseline_metadata(qtbot, silent_boxes):
+def test_dialog_new_chip_invents_no_basic_data(qtbot, silent_boxes):
     dialog = _make_dialog(qtbot, ChipDatabase())
     chip = dialog._build_current_chip()
-    assert "cpu_frequency" in chip.metadata
-    assert "flash_size" in chip.metadata
-    assert "ram_size" in chip.metadata
+    for field in ("cpu_frequency", "flash_size", "ram_size"):
+        assert field not in chip.metadata
+        assert chip.metadata["unconfirmed"][f"metadata.{field}"] == "待填写"
     assert chip.metadata["cores"]["count"] == 2
 
 

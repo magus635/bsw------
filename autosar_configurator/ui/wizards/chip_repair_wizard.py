@@ -48,7 +48,7 @@ def project_copy_notice(project, database: ChipDatabase, chip_name: str) -> Opti
     library = database.get_chip(chip_name)
     if local is None or library is None or chip_checksum(local) == chip_checksum(library):
         return None
-    return (f"项目的 chips/ 里保存着 {chip_name} 的副本，仍是修复前的数据。\n"
+    return (f"项目的 chips/ 里保存着 {chip_name} 的副本，仍是修改前的数据。\n"
             "需要时请在“项目属性”里点 “Update from Library” 同步到项目。")
 
 

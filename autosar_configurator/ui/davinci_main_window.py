@@ -842,7 +842,11 @@ class DaVinciMainWindow(QMainWindow):
         if hasattr(self, 'chip_constraint_service') and self.chip_constraint_service:
             initial_chip = self.chip_constraint_service.current_chip
 
-        dialog = ChipDefinitionDesignerDialog(initial_chip=initial_chip, parent=self, project=self.current_project)
+        from ..core.hardware.chip_database import get_default_chip_database
+        # The library the project resolves its chip from, so the designer edits what the project reads
+        database = getattr(self.current_project, 'chip_database', None) or get_default_chip_database()
+        dialog = ChipDefinitionDesignerDialog(chip_database=database, initial_chip=initial_chip,
+                                              parent=self, project=self.current_project)
         dialog.chip_saved.connect(self._on_designer_chip_saved)
         dialog.exec()
 
