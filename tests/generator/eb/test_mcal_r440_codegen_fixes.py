@@ -7,6 +7,8 @@ errors/warnings seen when generating the MCAL_R440_FuSa project:
 * loop-body [!VAR!] propagation         -> Can $ResHardwareModule / MessageRAM
 * macro named-arg output parameters     -> Eth $RetVal / 88-000-15 scheduler
 * enum dedup by definition_ref          -> Mcu "Enum name collision" warning
+* [!FOR "$i"!] leaves $i to the body    -> Mcu 101-00-02 TOUT repeat ERROR
+* empty v:lst parameter has no children -> Ocu 125-00-03 event ERROR
 """
 import os
 import sys
@@ -351,6 +353,57 @@ class TestParentAxisAbsentChild(unittest.TestCase):
         # Parent-axis lookup of the absent name -> empty; direct child -> 7.
         self.assertIn("P=<", out)
         self.assertIn("D=7<", out)
+
+
+class TestDollarForCounter(unittest.TestCase):
+    """[!FOR "$i"!] does not bind $i; the body keeps it.
+
+    Mcu.m GTM_TOUT_REPEAT_ERROR_CHECK presets $i to the current channel and
+    increments it at the end of the body, so the duplicate-TOUT check starts
+    after the current channel. Binding $i restarted it at 0 and every used
+    channel matched itself (101-00-02-ERROR, Mcu_PBcfg.c not generated).
+    """
+
+    def test_dollar_counter_is_kept_by_the_body(self):
+        r = Renderer(strict=False)
+        tpl = ('[!VAR "i" = "num:i(2)"!]'
+               '[!FOR "$i" = "0" TO "2"!][!"$i"!][!VAR "i" = "num:i($i + 1)"!][!ENDFOR!]')
+        self.assertEqual(r.render(tpl).strip(), '234')
+
+    def test_plain_counter_is_bound_each_iteration(self):
+        r = Renderer(strict=False)
+        tpl = '[!FOR "i" = "0" TO "2"!][!"$i"!][!VAR "i" = "num:i($i + 5)"!][!ENDFOR!]'
+        self.assertEqual(r.render(tpl).strip(), '012')
+
+
+class TestEmptyListParameterChildren(unittest.TestCase):
+    """param/* of a parameter without a configured value is empty.
+
+    A v:lst with MAX=1 (OcuHardwareTriggeredAdc) is a single parameter here;
+    with no entry in the configuration EB has no children, so
+    count(OcuHardwareTriggeredAdc/*) is 0. Counting it as 1 made every Ocu
+    channel with an output pin report 125-00-03-ERROR.
+    """
+
+    def _renderer(self, value):
+        from autosar_configurator.generator.eb.symbol_table import ConfigurationNode
+        r = Renderer(strict=False)
+        root = ConfigurationNode(short_name="Ocu", node_type="module", path="/Ocu")
+        ch = ConfigurationNode(short_name="Ch0", node_type="container", path="/Ocu/Ch0")
+        ch.add_child(ConfigurationNode(short_name="Adc", node_type="parameter", path="/Ocu/Ch0/Adc",
+                                       value=value, default_value=0, param_type="INTEGER"))
+        root.add_child(ch)
+        r.symbol_table.register_module("Ocu", root)
+        return r
+
+    def test_unconfigured_parameter_has_no_children(self):
+        tpl = '[!SELECT "Ch0"!][!"num:i(count(./Adc/*))"!][!ENDSELECT!]'
+        self.assertEqual(self._renderer(None).render(tpl, "Ocu").strip(), '0')
+
+    def test_configured_parameter_is_its_own_child(self):
+        tpl = ('[!SELECT "Ch0"!][!"num:i(count(./Adc/*))"!]:'
+               '[!"node:value(./Adc/*[1])"!][!ENDSELECT!]')
+        self.assertEqual(self._renderer(0).render(tpl, "Ocu").strip(), '1:0')
 
 
 if __name__ == "__main__":

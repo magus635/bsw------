@@ -1940,10 +1940,7 @@ class Renderer:
         
         # Parse: "var" = expr TO expr
         # The expr can be a number, a function call, or a complex expression
-        match = re.match(r'"?(\w+)"?\s*=\s*(.+?)\s+TO\s+(.+)', content, re.IGNORECASE)
-        if not match:
-            # Try with $ prefix in variable name (EB Tresos allows $var in FOR)
-            match = re.match(r'"?\$(\w+)"?\s*=\s*(.+?)\s+TO\s+(.+)', content, re.IGNORECASE)
+        match = re.match(r'"?(\$?\w+)"?\s*=\s*(.+?)\s+TO\s+(.+)', content, re.IGNORECASE)
         if not match:
             if self.strict:
                 raise TemplateParseError(f"Invalid FOR syntax: {content}")
@@ -1991,24 +1988,21 @@ class Renderer:
         loop_nodes = self._extract_for_loop_nodeset(end_expr)
 
         # NOTE: [!FOR!] uses a fixed range() and OVERWRITES the counter each
-        # iteration. This intentionally ignores body-side "[!VAR "i"="$i+1"!]"
-        # increments. Some vendor macros (Mcu.m GTM_TOUT_REPEAT_ERROR_CHECK)
-        # rely on that body increment combining with an engine increment (a
-        # "double step") plus a pre-set counter to skip the current sibling,
-        # which is why their 101-00-0x / Ocu 125-00-03 duplicate-check ERRORs
-        # fire here as false positives (suppressed in non-strict mode; generation
-        # still completes). Honoring the body increment was tried and REVERTED:
-        # the same idiom is used with the OPPOSITE intent elsewhere (Sent_PBcfg.c
-        # line ~388/414 increments its FOR counter and a double step drops
-        # entries), so no single rule satisfies both. Fixing the GTM/Ocu checks
-        # needs per-idiom handling, not a global FOR-counter change.
+        # iteration, ignoring body-side "[!VAR "i"="$i+1"!]" increments.
+        # A counter written "$i" is a variable of its own: $i in the body is
+        # not the counter. Vendor macros (Mcu.m GTM_TOUT_REPEAT_ERROR_CHECK)
+        # rely on that: they use [!FOR "$i"!] only to repeat the body and keep
+        # $i themselves (preset before the loop, incremented at its end), so
+        # the duplicate check starts after the current channel. Binding $i
+        # restarts it at 0 and the channel matches itself (101-00-02 ERROR).
         for val in range(start_val, end_val + 1):
             if self._break_requested:
                 self._break_requested = False
                 break
 
             # EB keeps the loop counter as Integer.toString(): "0", "1", ...
-            self._context_stack.set_variable(var_name, str(val))
+            if not var_name.startswith('$'):
+                self._context_stack.set_variable(var_name, str(val))
 
             # Push context if we have matching nodes
             pushed = False
