@@ -7,7 +7,239 @@ metadata:
     count: 1
     available: [CORE0]
     master: CORE0
-resource_version: 1.0.0
+  unconfirmed:
+    ecu_resources.Adc.AnalogClockMaxMHz: 待填写
+    ecu_resources.Adc.AnalogClockMinMHz: 待填写
+    ecu_resources.Adc.ConvTimeForChannel: 待填写
+    ecu_resources.Adc.HwUnitId: 待填写
+    ecu_resources.Adc.MaxControllers: 待填写
+    ecu_resources.Adc.RefVoltForChannel: 待填写
+    ecu_resources.Adc.RefVoltSrcHigh: 待填写
+    ecu_resources.Adc.RefVoltSrcLow: 待填写
+    ecu_resources.Adc.ReqSrcClass: 待填写
+    ecu_resources.Adc.ReqSrcCount: 待填写
+    ecu_resources.Adc.RequestSrcPrio: 待填写
+    ecu_resources.Adc.Resolution: 待填写
+    ecu_resources.Adc.ResolutionForChannel: 待填写
+    ecu_resources.Adc.StartUpCalEn: 待填写
+    ecu_resources.Asi.AvailableHWUnit: 待填写
+    ecu_resources.Asi.MaxHwUnit: 待填写
+    ecu_resources.Basetimer.HwUnitList: 待填写
+    ecu_resources.Basetimer.MaxHwUnit: 待填写
+    ecu_resources.Can.HwUnitNode: 待填写
+    ecu_resources.Can.MaxModules: 待填写
+    ecu_resources.Can.MaxNodes: 待填写
+    ecu_resources.Dio.PortMask: 待填写
+    ecu_resources.Dma.AllChannelNum: 待填写
+    ecu_resources.Dma.ChannelBurstSize: 待填写
+    ecu_resources.Dma.ChannelCircularBufferCategory: 待填写
+    ecu_resources.Dma.ChannelCircularBufferSize: 待填写
+    ecu_resources.Dma.ChannelDoubleBufferCategory: 待填写
+    ecu_resources.Dma.ChannelDoubleBufferSwitchMethod: 待填写
+    ecu_resources.Dma.ChannelFlowControl: 待填写
+    ecu_resources.Dma.ChannelPatternSize: 待填写
+    ecu_resources.Dma.ChannelTransferAddrMovement: 待填写
+    ecu_resources.Dma.HwUnitList: 待填写
+    ecu_resources.Dma.MaxSizeChannelTransfer: 待填写
+    ecu_resources.Dma.Request.Peripheral.MUX: 待填写
+    ecu_resources.Dma.TotalHwUnit: 待填写
+    ecu_resources.Dsadc.Aux.CIC.ParallelSeries: 待填写
+    ecu_resources.Dsadc.Aux.CIC.SamplingFactor: 待填写
+    ecu_resources.Dsadc.CarrierSignalMode: 待填写
+    ecu_resources.Dsadc.CommModeVolt.type: 待填写
+    ecu_resources.Dsadc.GainSelect: 待填写
+    ecu_resources.Dsadc.HwUnitList: 待填写
+    ecu_resources.Dsadc.Integrator.ShiftLen: 待填写
+    ecu_resources.Dsadc.Main.CIC.ParallelSeries: 待填写
+    ecu_resources.Dsadc.Main.CIC.SamplingFactor: 待填写
+    ecu_resources.Dsadc.Main.Decimation.FIR0: 待填写
+    ecu_resources.Dsadc.Main.Decimation.FIR1: 待填写
+    ecu_resources.Dsadc.Main.OffsetCompFilter: 待填写
+    ecu_resources.Dsadc.Main.OutputShift.FIR0: 待填写
+    ecu_resources.Dsadc.Main.OutputShift.FIR1: 待填写
+    ecu_resources.Dsadc.NegInputLine: 待填写
+    ecu_resources.Dsadc.PosInputLine: 待填写
+    ecu_resources.Eth.EthPhyIntf: 待填写
+    ecu_resources.Eth.EthSpeed: 待填写
+    ecu_resources.Eth.FifoNum: 待填写
+    ecu_resources.Eth.MaxControllers: 待填写
+    ecu_resources.Eth.MaxRxRam: 待填写
+    ecu_resources.Eth.MaxTxRam: 待填写
+    ecu_resources.Fls.BaseAddress: 待填写
+    ecu_resources.Fls.DFlashRowSize: 待填写
+    ecu_resources.Fls.PFlashBaseAddress: 待填写
+    ecu_resources.Fls.PFlashPageSize: 待填写
+    ecu_resources.Fls.PFlashRowSize: 待填写
+    ecu_resources.Fls.PFlashSectorSize: 待填写
+    ecu_resources.Fls.PFlashTotalSize: 待填写
+    ecu_resources.Fls.PFlashVirtualBaseAddress: 待填写
+    ecu_resources.Fls.PFlashVirtualEndAddress: 待填写
+    ecu_resources.Fls.PageSize: 待填写
+    ecu_resources.Fls.SectorNum: 待填写
+    ecu_resources.Fls.SectorSize: 待填写
+    ecu_resources.Fls.TotalSize: 待填写
+    ecu_resources.Gtm.DmaRequestNum: 待填写
+    ecu_resources.Gtm.DsadcNum: 待填写
+    ecu_resources.Gtm.IntVauleOfGTM_CLS_CLK_CFG: 待填写
+    ecu_resources.Gtm.MscBitx: 待填写
+    ecu_resources.Gtm.NumberOfAtomChannels: 待填写
+    ecu_resources.Gtm.NumberOfAtomModules: 待填写
+    ecu_resources.Gtm.NumberOfCluster: 待填写
+    ecu_resources.Gtm.NumberOfMsc: 待填写
+    ecu_resources.Gtm.NumberOfMscSel: 待填写
+    ecu_resources.Gtm.NumberOfTbuModules: 待填写
+    ecu_resources.Gtm.NumberOfTimChannels: 待填写
+    ecu_resources.Gtm.NumberOfTimModules: 待填写
+    ecu_resources.Gtm.NumberOfTomChannels: 待填写
+    ecu_resources.Gtm.NumberOfTomModules: 待填写
+    ecu_resources.Gtm.NumberOfTriggerChannel: 待填写
+    ecu_resources.I2c.AvailableChannels: 待填写
+    ecu_resources.I2c.NumofAvailableI2c: 待填写
+    ecu_resources.Intc.CoreFixedIntClass: 待填写
+    ecu_resources.Intc.GicIntTriggerMethod: 待填写
+    ecu_resources.Intc.Group0BinaryPoint: 待填写
+    ecu_resources.Intc.Group1BinaryPoint: 待填写
+    ecu_resources.Intc.IntSrcClass: 待填写
+    ecu_resources.Intc.InterruptPriority: 待填写
+    ecu_resources.Iom.GTMExorFunctionSupport: 待填写
+    ecu_resources.Iom.LPUChannelID: 待填写
+    ecu_resources.Iom.PPUmode: 待填写
+    ecu_resources.Mcu.AHBClkMaxFrequency: 待填写
+    ecu_resources.Mcu.ATCMEnd: 待填写
+    ecu_resources.Mcu.ATCMStart: 待填写
+    ecu_resources.Mcu.ATCM_AXIM_End: 待填写
+    ecu_resources.Mcu.ATCM_AXIM_Start: 待填写
+    ecu_resources.Mcu.AXIClkMaxFrequency: 待填写
+    ecu_resources.Mcu.AhbDivDefault: 待填写
+    ecu_resources.Mcu.BTCM_AXIM_End: 待填写
+    ecu_resources.Mcu.BTCM_AXIM_Start: 待填写
+    ecu_resources.Mcu.BaseTimeMaxFrequency: 待填写
+    ecu_resources.Mcu.BasetimerMinDiv: 待填写
+    ecu_resources.Mcu.CTCMEnd: 待填写
+    ecu_resources.Mcu.CTCMStart: 待填写
+    ecu_resources.Mcu.CTCM_AXIM_End: 待填写
+    ecu_resources.Mcu.CTCM_AXIM_Start: 待填写
+    ecu_resources.Mcu.CpuClkMaxDiv: 待填写
+    ecu_resources.Mcu.CpuClkMaxFrequency: 待填写
+    ecu_resources.Mcu.Div16BitMax: 待填写
+    ecu_resources.Mcu.Div3BitMax: 待填写
+    ecu_resources.Mcu.Div5BitMax: 待填写
+    ecu_resources.Mcu.Div6BitMax: 待填写
+    ecu_resources.Mcu.Div9BitMax: 待填写
+    ecu_resources.Mcu.ESPIMaxFrequency: 待填写
+    ecu_resources.Mcu.GMU_CACHED_End: 待填写
+    ecu_resources.Mcu.GMU_CACHED_Start: 待填写
+    ecu_resources.Mcu.GMU_NON_CACHED_End: 待填写
+    ecu_resources.Mcu.GMU_NON_CACHED_Start: 待填写
+    ecu_resources.Mcu.GTMClockDivDefault: 待填写
+    ecu_resources.Mcu.GTMMaxFrequency: 待填写
+    ecu_resources.Mcu.HSEClkFrequency: 待填写
+    ecu_resources.Mcu.HSEClkMaxFrequency: 待填写
+    ecu_resources.Mcu.HSEClkMinFrequency: 待填写
+    ecu_resources.Mcu.HSIClkFrequency: 待填写
+    ecu_resources.Mcu.LMU1_NON_CACHED_End: 待填写
+    ecu_resources.Mcu.LMU1_NON_CACHED_Start: 待填写
+    ecu_resources.Mcu.LMU2_NON_CACHED_End: 待填写
+    ecu_resources.Mcu.LMU2_NON_CACHED_Start: 待填写
+    ecu_resources.Mcu.LMU3_NON_CACHED_End: 待填写
+    ecu_resources.Mcu.LMU3_NON_CACHED_Start: 待填写
+    ecu_resources.Mcu.LMU_CACHED_End: 待填写
+    ecu_resources.Mcu.LMU_CACHED_Start: 待填写
+    ecu_resources.Mcu.McuPerPllFRACMax: 待填写
+    ecu_resources.Mcu.McuPerPllFRACMin: 待填写
+    ecu_resources.Mcu.McuSysPllFBDivDefault: 待填写
+    ecu_resources.Mcu.McuSysPllFBDivMaxDiv: 待填写
+    ecu_resources.Mcu.McuSysPllFBDivMinDiv: 待填写
+    ecu_resources.Mcu.McuSysPllFRACMax: 待填写
+    ecu_resources.Mcu.McuSysPllFRACMin: 待填写
+    ecu_resources.Mcu.NoOfCoreAvailable: 待填写
+    ecu_resources.Mcu.PerPllClkDivValue: 待填写
+    ecu_resources.Mcu.PerPllClkMaxFrequency: 待填写
+    ecu_resources.Mcu.PerPllFBDivMaxDiv: 待填写
+    ecu_resources.Mcu.PerPllFBDivMinDiv: 待填写
+    ecu_resources.Mcu.PerPllPostDiv1Default: 待填写
+    ecu_resources.Mcu.PerPllPostDiv1MaxDiv: 待填写
+    ecu_resources.Mcu.PerPllPostDiv1MinDiv: 待填写
+    ecu_resources.Mcu.PerPllPostDiv2MaxDiv: 待填写
+    ecu_resources.Mcu.PerPllPostDiv2MinDiv: 待填写
+    ecu_resources.Mcu.RDC_DSADC_CAN_FCMaxFrequency: 待填写
+    ecu_resources.Mcu.RefMaxDiv: 待填写
+    ecu_resources.Mcu.RefMinDiv: 待填写
+    ecu_resources.Mcu.SysClkDivDefault: 待填写
+    ecu_resources.Mcu.SysClkMaxFrequency: 待填写
+    ecu_resources.Mcu.SysClkMinFrequency: 待填写
+    ecu_resources.Mcu.SysPllClkMaxFrequency: 待填写
+    ecu_resources.Mcu.SysPllPostDiv1MaxDiv: 待填写
+    ecu_resources.Mcu.SysPllPostDiv1MinDiv: 待填写
+    ecu_resources.Mcu.SysPllPostDiv2MaxDiv: 待填写
+    ecu_resources.Mcu.SysPllPostDiv2MinDiv: 待填写
+    ecu_resources.Mcu.WDGClkMaxFrequency: 待填写
+    ecu_resources.Msc.HwUnitList: 待填写
+    ecu_resources.Msc.MaxHwUnit: 待填写
+    ecu_resources.Port.AvailableASIModule: 待填写
+    ecu_resources.Port.AvailableASIModuleNodeNumber: 待填写
+    ecu_resources.Port.AvailableCANModule: 待填写
+    ecu_resources.Port.AvailableCANModuleNodeNumber: 待填写
+    ecu_resources.Port.AvailableDBGModule: 待填写
+    ecu_resources.Port.AvailableDBGModuleNodeNumber: 待填写
+    ecu_resources.Port.AvailableDSADCModule: 待填写
+    ecu_resources.Port.AvailableDSADCModuleNodeNumber: 待填写
+    ecu_resources.Port.AvailableESPIModule: 待填写
+    ecu_resources.Port.AvailableESPIModuleNodeNumber: 待填写
+    ecu_resources.Port.AvailableETHModule: 待填写
+    ecu_resources.Port.AvailableETHModuleNodeNumber: 待填写
+    ecu_resources.Port.AvailableEXTIModule: 待填写
+    ecu_resources.Port.AvailableEXTIModuleNodeNumber: 待填写
+    ecu_resources.Port.AvailableGTMModule: 待填写
+    ecu_resources.Port.AvailableGTMModuleNodeNumber: 待填写
+    ecu_resources.Port.AvailableI2CModule: 待填写
+    ecu_resources.Port.AvailableI2CModuleNodeNumber: 待填写
+    ecu_resources.Port.AvailableIOMMONModule: 待填写
+    ecu_resources.Port.AvailableIOMMONModuleIDNumber: 待填写
+    ecu_resources.Port.AvailableIOMMONModuleNodeNumber: 待填写
+    ecu_resources.Port.AvailableIOMPINModule: 待填写
+    ecu_resources.Port.AvailableIOMPINModuleNodeNumber: 待填写
+    ecu_resources.Port.AvailableLVDSPorts: 待填写
+    ecu_resources.Port.AvailablePSI5Module: 待填写
+    ecu_resources.Port.AvailablePSI5ModuleNodeNumber: 待填写
+    ecu_resources.Port.AvailablePortsID: 待填写
+    ecu_resources.Port.AvailablePortsTotalNumber: 待填写
+    ecu_resources.Port.AvailableReadOnlyPorts: 待填写
+    ecu_resources.Port.AvailableSENTModule: 待填写
+    ecu_resources.Port.AvailableSENTModuleNodeNumber: 待填写
+    ecu_resources.Port.AvailableTotalPortPinNum: 待填写
+    ecu_resources.Port.AvailabletAnalogInputCtrlPortPin: 待填写
+    ecu_resources.Port.AvailabletPeripheralAltMode: 待填写
+    ecu_resources.Port.AvailabletPeripheralCtrlrPortPin: 待填写
+    ecu_resources.Port.DefaultAnalogInputCtrIPin: 待填写
+    ecu_resources.Port.DefaultHighStrengthCtrIPin: 待填写
+    ecu_resources.Port.DefaultNoPullDownCtrPin: 待填写
+    ecu_resources.Port.DefaultPeripheralsCtrIPin: 待填写
+    ecu_resources.Port.InputModesXDMxx: 待填写
+    ecu_resources.Port.LVDSMaxPairNumber: 待填写
+    ecu_resources.Port.MaxAvailablePinID: 待填写
+    ecu_resources.Port.MaxAvailablePortID: 待填写
+    ecu_resources.Port.MaxPortPinModeNumber: 待填写
+    ecu_resources.Port.OutputModesXDMxx: 待填写
+    ecu_resources.Port.Pin_AvaliabeleMode: 待填写
+    ecu_resources.Port.RxMuxNotCheck: 待填写
+    ecu_resources.Resource.AvailableCores: 待填写
+    ecu_resources.Resource.MasterCore: 待填写
+    ecu_resources.Resource.MultiCoreModules: 待填写
+    ecu_resources.Resource.NumOfCores: 待填写
+    ecu_resources.Resource.SupportProcessor: 待填写
+    ecu_resources.Sent.AvailableSentChannels: 待填写
+    ecu_resources.Sent.MaxChannelsSupported: 待填写
+    ecu_resources.Spi.HwUnitList: 待填写
+    ecu_resources.Spi.MaxHwUnit: 待填写
+    ecu_resources.Wdg.WdgDefaultmodeDefault: 待填写
+    ecu_resources.Wdg.WdgDeviceInitialTimeout: 待填写
+    ecu_resources.Wdg.WdgFastModeRefreshTimeDefault: 待填写
+    ecu_resources.Wdg.WdgMaxTimeoutDefault: 待填写
+    ecu_resources.Wdg.WdgMaximumFrequency: 待填写
+    ecu_resources.Wdg.WdgSecondIntervalTimeout: 待填写
+    ecu_resources.Wdg.WdgSlowModeRefreshTimeDefault: 待填写
+resource_version: 1.0.1
 selectors: {Os.OsResourceSubderivative: Os_SC300}
 ecu_resources:
   OsResource:
@@ -23,4 +255,24 @@ ecu_resources:
     AppModeDefaultName: [OSDEFAULTAPPMODE, OSALLRUNNINGMODE]
     IocPrimitiveDataType: [uint8, uint16, uint32, uint64, boolean, AppModeType, ApplicationType, CoreIdType, IdleModeType, TickType, Os_TickDiffType, AlarmType, CounterType, sint8, sint16, sint32, sint64, float32, float64, ISRType, ResourceType, SpinlockIdType, TaskType]
     IocPrimitiveDataTypeNum: 23
-checksum: sha256:b7017f4acf1de8611db0470985dbbdd43c646d9b515b507e3542b4ebbf48eb18
+  Adc: {AnalogClockMaxMHz: null, AnalogClockMinMHz: null, ConvTimeForChannel: null, HwUnitId: null, MaxControllers: null, RefVoltForChannel: null, RefVoltSrcHigh: null, RefVoltSrcLow: null, ReqSrcClass: null, ReqSrcCount: null, RequestSrcPrio: null, Resolution: null, ResolutionForChannel: null, StartUpCalEn: null}
+  Asi: {AvailableHWUnit: null, MaxHwUnit: null}
+  Basetimer: {HwUnitList: null, MaxHwUnit: null}
+  Can: {HwUnitNode: null, MaxModules: null, MaxNodes: null}
+  Dio: {PortMask: null}
+  Dma: {AllChannelNum: null, ChannelBurstSize: null, ChannelCircularBufferCategory: null, ChannelCircularBufferSize: null, ChannelDoubleBufferCategory: null, ChannelDoubleBufferSwitchMethod: null, ChannelFlowControl: null, ChannelPatternSize: null, ChannelTransferAddrMovement: null, HwUnitList: null, MaxSizeChannelTransfer: null, Request.Peripheral.MUX: null, TotalHwUnit: null}
+  Dsadc: {Aux.CIC.ParallelSeries: null, Aux.CIC.SamplingFactor: null, CarrierSignalMode: null, CommModeVolt.type: null, GainSelect: null, HwUnitList: null, Integrator.ShiftLen: null, Main.CIC.ParallelSeries: null, Main.CIC.SamplingFactor: null, Main.Decimation.FIR0: null, Main.Decimation.FIR1: null, Main.OffsetCompFilter: null, Main.OutputShift.FIR0: null, Main.OutputShift.FIR1: null, NegInputLine: null, PosInputLine: null}
+  Eth: {EthPhyIntf: null, EthSpeed: null, FifoNum: null, MaxControllers: null, MaxRxRam: null, MaxTxRam: null}
+  Fls: {BaseAddress: null, DFlashRowSize: null, PFlashBaseAddress: null, PFlashPageSize: null, PFlashRowSize: null, PFlashSectorSize: null, PFlashTotalSize: null, PFlashVirtualBaseAddress: null, PFlashVirtualEndAddress: null, PageSize: null, SectorNum: null, SectorSize: null, TotalSize: null}
+  Gtm: {DmaRequestNum: null, DsadcNum: null, IntVauleOfGTM_CLS_CLK_CFG: null, MscBitx: null, NumberOfAtomChannels: null, NumberOfAtomModules: null, NumberOfCluster: null, NumberOfMsc: null, NumberOfMscSel: null, NumberOfTbuModules: null, NumberOfTimChannels: null, NumberOfTimModules: null, NumberOfTomChannels: null, NumberOfTomModules: null, NumberOfTriggerChannel: null}
+  I2c: {AvailableChannels: null, NumofAvailableI2c: null}
+  Intc: {CoreFixedIntClass: null, GicIntTriggerMethod: null, Group0BinaryPoint: null, Group1BinaryPoint: null, IntSrcClass: null, InterruptPriority: null}
+  Iom: {GTMExorFunctionSupport: null, LPUChannelID: null, PPUmode: null}
+  Mcu: {AHBClkMaxFrequency: null, ATCMEnd: null, ATCMStart: null, ATCM_AXIM_End: null, ATCM_AXIM_Start: null, AXIClkMaxFrequency: null, AhbDivDefault: null, BTCM_AXIM_End: null, BTCM_AXIM_Start: null, BaseTimeMaxFrequency: null, BasetimerMinDiv: null, CTCMEnd: null, CTCMStart: null, CTCM_AXIM_End: null, CTCM_AXIM_Start: null, CpuClkMaxDiv: null, CpuClkMaxFrequency: null, Div16BitMax: null, Div3BitMax: null, Div5BitMax: null, Div6BitMax: null, Div9BitMax: null, ESPIMaxFrequency: null, GMU_CACHED_End: null, GMU_CACHED_Start: null, GMU_NON_CACHED_End: null, GMU_NON_CACHED_Start: null, GTMClockDivDefault: null, GTMMaxFrequency: null, HSEClkFrequency: null, HSEClkMaxFrequency: null, HSEClkMinFrequency: null, HSIClkFrequency: null, LMU1_NON_CACHED_End: null, LMU1_NON_CACHED_Start: null, LMU2_NON_CACHED_End: null, LMU2_NON_CACHED_Start: null, LMU3_NON_CACHED_End: null, LMU3_NON_CACHED_Start: null, LMU_CACHED_End: null, LMU_CACHED_Start: null, McuPerPllFRACMax: null, McuPerPllFRACMin: null, McuSysPllFBDivDefault: null, McuSysPllFBDivMaxDiv: null, McuSysPllFBDivMinDiv: null, McuSysPllFRACMax: null, McuSysPllFRACMin: null, NoOfCoreAvailable: null, PerPllClkDivValue: null, PerPllClkMaxFrequency: null, PerPllFBDivMaxDiv: null, PerPllFBDivMinDiv: null, PerPllPostDiv1Default: null, PerPllPostDiv1MaxDiv: null, PerPllPostDiv1MinDiv: null, PerPllPostDiv2MaxDiv: null, PerPllPostDiv2MinDiv: null, RDC_DSADC_CAN_FCMaxFrequency: null, RefMaxDiv: null, RefMinDiv: null, SysClkDivDefault: null, SysClkMaxFrequency: null, SysClkMinFrequency: null, SysPllClkMaxFrequency: null, SysPllPostDiv1MaxDiv: null, SysPllPostDiv1MinDiv: null, SysPllPostDiv2MaxDiv: null, SysPllPostDiv2MinDiv: null, WDGClkMaxFrequency: null}
+  Msc: {HwUnitList: null, MaxHwUnit: null}
+  Port: {AvailableASIModule: null, AvailableASIModuleNodeNumber: null, AvailableCANModule: null, AvailableCANModuleNodeNumber: null, AvailableDBGModule: null, AvailableDBGModuleNodeNumber: null, AvailableDSADCModule: null, AvailableDSADCModuleNodeNumber: null, AvailableESPIModule: null, AvailableESPIModuleNodeNumber: null, AvailableETHModule: null, AvailableETHModuleNodeNumber: null, AvailableEXTIModule: null, AvailableEXTIModuleNodeNumber: null, AvailableGTMModule: null, AvailableGTMModuleNodeNumber: null, AvailableI2CModule: null, AvailableI2CModuleNodeNumber: null, AvailableIOMMONModule: null, AvailableIOMMONModuleIDNumber: null, AvailableIOMMONModuleNodeNumber: null, AvailableIOMPINModule: null, AvailableIOMPINModuleNodeNumber: null, AvailableLVDSPorts: null, AvailablePSI5Module: null, AvailablePSI5ModuleNodeNumber: null, AvailablePortsID: null, AvailablePortsTotalNumber: null, AvailableReadOnlyPorts: null, AvailableSENTModule: null, AvailableSENTModuleNodeNumber: null, AvailableTotalPortPinNum: null, AvailabletAnalogInputCtrlPortPin: null, AvailabletPeripheralAltMode: null, AvailabletPeripheralCtrlrPortPin: null, DefaultAnalogInputCtrIPin: null, DefaultHighStrengthCtrIPin: null, DefaultNoPullDownCtrPin: null, DefaultPeripheralsCtrIPin: null, InputModesXDMxx: null, LVDSMaxPairNumber: null, MaxAvailablePinID: null, MaxAvailablePortID: null, MaxPortPinModeNumber: null, OutputModesXDMxx: null, Pin_AvaliabeleMode: null, RxMuxNotCheck: null}
+  Resource: {AvailableCores: null, MasterCore: null, MultiCoreModules: null, NumOfCores: null, SupportProcessor: null}
+  Sent: {AvailableSentChannels: null, MaxChannelsSupported: null}
+  Spi: {HwUnitList: null, MaxHwUnit: null}
+  Wdg: {WdgDefaultmodeDefault: null, WdgDeviceInitialTimeout: null, WdgFastModeRefreshTimeDefault: null, WdgMaxTimeoutDefault: null, WdgMaximumFrequency: null, WdgSecondIntervalTimeout: null, WdgSlowModeRefreshTimeDefault: null}
+checksum: sha256:3b726f6a66fd28adea547d110a92d6d07c42cdd00857aeba6374e719c14fdb4b

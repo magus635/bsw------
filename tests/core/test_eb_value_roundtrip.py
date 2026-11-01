@@ -278,6 +278,187 @@ class TestDefinitionRefResolution:
         assert container.definition_ref.endswith("/Demo/DemoCounter")
         assert any("Heuristic DEFINITION-REF remap" in r.message for r in caplog.records)
 
+    # Value files written before the XDM import used the list name (5496c7c) name list
+    # instances after themselves: /THA6_ASR21/Os/OSTRUSTAPP01MODE for an OsAppMode.
+
+    def _os_module_def(self, spare_mode: bool = False) -> EcucModuleDef:
+        from autosar_configurator.core.model.definition_model import EcucReferenceDef
+        module_def = EcucModuleDef(short_name="Os", definition_ref="/THA6_ASR21/Os")
+        module_def.containers["OsAppMode"] = EcucContainerDef(short_name="OsAppMode", upper_multiplicity=31)
+        module_def.containers["OSDEFAULTAPPMODE"] = EcucContainerDef(short_name="OSDEFAULTAPPMODE")
+        if spare_mode:
+            module_def.containers["OsSpareMode"] = EcucContainerDef(short_name="OsSpareMode", upper_multiplicity=-1)
+        memory_map = EcucContainerDef(short_name="OsMemoryMap", upper_multiplicity=-1)
+        memory_map.references["MemorySectionMatch"] = EcucReferenceDef(short_name="MemorySectionMatch")
+        module_def.containers["OsMemoryMap"] = memory_map
+        autostart = EcucContainerDef(short_name="OsTaskAutostart")
+        autostart.references["OsTaskAppModeRef"] = EcucReferenceDef(short_name="OsTaskAppModeRef")
+        task = EcucContainerDef(short_name="OsTask", upper_multiplicity=-1)
+        task.parameters["OsTaskPriority"] = EcucParameterDef(
+            short_name="OsTaskPriority", param_type=EcucParameterType.INTEGER)
+        task.sub_containers["OsTaskAutostart"] = autostart
+        module_def.containers["OsTask"] = task
+        return module_def
+
+    INSTANCE_NAMED_OS = """<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Os_Config</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>Os</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/THA6_ASR21/Os</DEFINITION-REF>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>OSDEFAULTAPPMODE</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_ASR21/Os/OSDEFAULTAPPMODE</DEFINITION-REF>
+        </ECUC-CONTAINER-VALUE>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>OSTRUSTAPP01MODE</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_ASR21/Os/OSTRUSTAPP01MODE</DEFINITION-REF>
+        </ECUC-CONTAINER-VALUE>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>CODE_QM_CORE0</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_ASR21/Os/CODE_QM_CORE0</DEFINITION-REF>
+          <REFERENCE-VALUES>
+            <ECUC-REFERENCE-VALUE>
+              <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/THA6_ASR21/Os/CODE_QM_CORE0/MemorySectionMatch</DEFINITION-REF>
+              <VALUE-REF DEST="ECUC-CONTAINER-VALUE">/Os/Os/os_text_qm_core0</VALUE-REF>
+            </ECUC-REFERENCE-VALUE>
+          </REFERENCE-VALUES>
+        </ECUC-CONTAINER-VALUE>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>OsTask_0</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_ASR21/Os/OsTask_0</DEFINITION-REF>
+          <PARAMETER-VALUES>
+            <ECUC-NUMERICAL-PARAM-VALUE>
+              <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/THA6_ASR21/Os/OsTask_0/OsTaskPriority</DEFINITION-REF>
+              <VALUE>5</VALUE>
+            </ECUC-NUMERICAL-PARAM-VALUE>
+          </PARAMETER-VALUES>
+          <SUB-CONTAINERS>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>OsTaskAutostart</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_ASR21/Os/OsTask_0/OsTaskAutostart</DEFINITION-REF>
+              <REFERENCE-VALUES>
+                <ECUC-REFERENCE-VALUE>
+                  <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/THA6_ASR21/Os/OsTask_0/OsTaskAutostart/OsTaskAppModeRef</DEFINITION-REF>
+                  <VALUE-REF DEST="ECUC-CONTAINER-VALUE">/Os/Os/OSDEFAULTAPPMODE</VALUE-REF>
+                </ECUC-REFERENCE-VALUE>
+                <ECUC-REFERENCE-VALUE>
+                  <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/THA6_ASR21/Os/OsTask_0/OsTaskAutostart/OsTaskAppModeRef</DEFINITION-REF>
+                  <VALUE-REF DEST="ECUC-CONTAINER-VALUE">/Os/Os/OSTRUSTAPP01MODE</VALUE-REF>
+                </ECUC-REFERENCE-VALUE>
+              </REFERENCE-VALUES>
+            </ECUC-CONTAINER-VALUE>
+          </SUB-CONTAINERS>
+        </ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>
+"""
+
+    def _load_os(self, tmp_path, module_def, name="Os_Config.arxml") -> ConfigurationManager:
+        config_file = tmp_path / name
+        if not config_file.exists():
+            config_file.write_text(self.INSTANCE_NAMED_OS, encoding="utf-8")
+        manager = ConfigurationManager(module_def)
+        manager.load_configuration(config_file)
+        return manager
+
+    @staticmethod
+    def _missing_container_defs(manager):
+        from autosar_configurator.core.rules.base_rules import TypeValidationRule
+        result = TypeValidationRule().validate(manager.module_def, manager.configuration)
+        return [m.message for m in result.messages if "Container definition not found" in m.message]
+
+    def test_list_instances_named_after_themselves_get_their_definition(self, tmp_path, caplog):
+        import logging
+        with caplog.at_level(logging.INFO, logger="autosar_configurator.core.config_manager"):
+            manager = self._load_os(tmp_path, self._os_module_def())
+        by_name = {c.short_name: c for c in manager.configuration.containers}
+
+        # Empty instance: the multi-instance definition with nothing to configure,
+        # not OSDEFAULTAPPMODE (a single container, always named after its definition)
+        assert by_name["OSTRUSTAPP01MODE"].definition_ref == "/THA6_ASR21/Os/OsAppMode"
+        assert by_name["OSDEFAULTAPPMODE"].definition_ref == "/THA6_ASR21/Os/OSDEFAULTAPPMODE"
+        # Instance holding only a reference: the definition defining that reference
+        memory_map = by_name["CODE_QM_CORE0"]
+        assert memory_map.definition_ref == "/THA6_ASR21/Os/OsMemoryMap"
+        assert memory_map.reference_values["MemorySectionMatch"].definition_ref == \
+            "/THA6_ASR21/Os/OsMemoryMap/MemorySectionMatch"
+        assert memory_map.reference_values["MemorySectionMatch"].value_ref == "/Os/Os/os_text_qm_core0"
+        # '_N' instance: rewritten although it resolves, its sub-container and
+        # multi-valued references along with it
+        task = by_name["OsTask_0"]
+        assert task.definition_ref == "/THA6_ASR21/Os/OsTask"
+        assert task.parameter_values["OsTaskPriority"].definition_ref == "/THA6_ASR21/Os/OsTask/OsTaskPriority"
+        autostart = task.sub_containers[0]
+        assert autostart.definition_ref == "/THA6_ASR21/Os/OsTask/OsTaskAutostart"
+        app_mode_refs = autostart.multi_reference_values["OsTaskAppModeRef"]
+        assert [r.value_ref for r in app_mode_refs] == ["/Os/Os/OSDEFAULTAPPMODE", "/Os/Os/OSTRUSTAPP01MODE"]
+        assert {r.definition_ref for r in app_mode_refs} == \
+            {"/THA6_ASR21/Os/OsTask/OsTaskAutostart/OsTaskAppModeRef"}
+
+        assert self._missing_container_defs(manager) == []
+        assert not any("Heuristic DEFINITION-REF remap" in r.message for r in caplog.records)
+        # 4 containers and the 4 values in them
+        assert any("corrected 8 DEFINITION-REF(s)" in r.getMessage() for r in caplog.records)
+
+    def test_corrected_list_instances_are_saved(self, tmp_path):
+        manager = self._load_os(tmp_path, self._os_module_def())
+        saved = tmp_path / "saved" / "Os_Config.arxml"
+        saved.parent.mkdir()
+        manager.save_configuration(saved)
+        import re
+        def_refs = re.findall(r"<DEFINITION-REF[^>]*>([^<]*)<", saved.read_text(encoding="utf-8"))
+        assert not [r for r in def_refs
+                    if any(name in r for name in ("OSTRUSTAPP01MODE", "CODE_QM_CORE0", "OsTask_0"))]
+        assert "/THA6_ASR21/Os/OsAppMode" in def_refs
+
+        reloaded = ConfigurationManager(self._os_module_def())
+        reloaded.load_configuration(saved)
+        assert reloaded._normalize_definition_refs() == 0
+        assert self._missing_container_defs(reloaded) == []
+
+    def test_values_naming_an_instance_in_a_correct_container_are_rebased(self, tmp_path):
+        # Saved by a version that corrected the container but not its multi-valued references
+        block = """<ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>CODE_QM_CORE0</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_ASR21/Os/OsMemoryMap</DEFINITION-REF>
+          <REFERENCE-VALUES>
+            <ECUC-REFERENCE-VALUE>
+              <INDEX>0</INDEX>
+              <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/THA6_ASR21/Os/CODE_QM_CORE0/MemorySectionMatch</DEFINITION-REF>
+              <VALUE-REF DEST="ECUC-CONTAINER-VALUE">/Os/Os/os_text_qm_core0</VALUE-REF>
+            </ECUC-REFERENCE-VALUE>
+            <ECUC-REFERENCE-VALUE>
+              <INDEX>1</INDEX>
+              <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/THA6_ASR21/Os/CODE_QM_CORE0/MemorySectionMatch</DEFINITION-REF>
+              <VALUE-REF DEST="ECUC-CONTAINER-VALUE">/Os/Os/os_text_qm_core1</VALUE-REF>
+            </ECUC-REFERENCE-VALUE>
+          </REFERENCE-VALUES>
+        </ECUC-CONTAINER-VALUE>"""
+        start = self.INSTANCE_NAMED_OS.index("<ECUC-CONTAINER-VALUE>\n          <SHORT-NAME>CODE_QM_CORE0")
+        end = self.INSTANCE_NAMED_OS.index("<ECUC-CONTAINER-VALUE>\n          <SHORT-NAME>OsTask_0")
+        (tmp_path / "Os_Config.arxml").write_text(
+            self.INSTANCE_NAMED_OS[:start] + block + "\n        " + self.INSTANCE_NAMED_OS[end:],
+            encoding="utf-8")
+        manager = self._load_os(tmp_path, self._os_module_def())
+        memory_map = next(c for c in manager.configuration.containers if c.short_name == "CODE_QM_CORE0")
+        assert memory_map.definition_ref == "/THA6_ASR21/Os/OsMemoryMap"
+        refs = memory_map.multi_reference_values["MemorySectionMatch"]
+        assert [r.value_ref for r in refs] == ["/Os/Os/os_text_qm_core0", "/Os/Os/os_text_qm_core1"]
+        assert {r.definition_ref for r in refs} == {"/THA6_ASR21/Os/OsMemoryMap/MemorySectionMatch"}
+
+    def test_ambiguous_list_instance_is_left_alone(self, tmp_path):
+        # Two multi-instance definitions with nothing to configure: no way to tell
+        manager = self._load_os(tmp_path, self._os_module_def(spare_mode=True))
+        by_name = {c.short_name: c for c in manager.configuration.containers}
+        assert by_name["OSTRUSTAPP01MODE"].definition_ref == "/THA6_ASR21/Os/OSTRUSTAPP01MODE"
+        assert by_name["CODE_QM_CORE0"].definition_ref == "/THA6_ASR21/Os/OsMemoryMap"
+        assert self._missing_container_defs(manager) == [
+            "Container definition not found: /THA6_ASR21/Os/OSTRUSTAPP01MODE"]
+
 
 class TestEpcExport:
     """EB Tresos-compatible EPC export: layout, determinism, lossless round-trip"""
@@ -414,3 +595,78 @@ class TestEpcExport:
         # 3. Parameter value is preserved for round-trip serialization
         assert "RegionSelect" in container.parameter_values
 
+
+    # The vendor text names the target by its short name; the reference needs its path.
+
+    REGION_SELECT_CONFIG = """<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MemMap_Config</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>MemMap</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/AUTOSAR/EcucDefs/MemMap</DEFINITION-REF>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>RegionSelect</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR/EcucDefs/MemMap/RegionSelect</DEFINITION-REF>
+          <PARAMETER-VALUES>
+            <ECUC-TEXTUAL-PARAM-VALUE>
+              <DEFINITION-REF DEST="ECUC-PARAMETER-DEF">/AUTOSAR/EcucDefs/MemMap/RegionSelect/RegionSelect</DEFINITION-REF>
+              <VALUE>EX_CODE</VALUE>
+            </ECUC-TEXTUAL-PARAM-VALUE>
+          </PARAMETER-VALUES>
+          {saved_reference}
+        </ECUC-CONTAINER-VALUE>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>EX_CODE</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR/EcucDefs/MemMap/MemoryBlock</DEFINITION-REF>
+        </ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>
+"""
+    # What earlier versions saved after taking the text as the reference
+    SAVED_BARE_REFERENCE = """<REFERENCE-VALUES>
+            <ECUC-REFERENCE-VALUE>
+              <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/AUTOSAR/EcucDefs/MemMap/RegionSelect/MemoryBlockRef</DEFINITION-REF>
+              <VALUE-REF DEST="ECUC-CONTAINER-VALUE">EX_CODE</VALUE-REF>
+            </ECUC-REFERENCE-VALUE>
+          </REFERENCE-VALUES>"""
+
+    def _memmap_def(self) -> EcucModuleDef:
+        from autosar_configurator.core.model.definition_model import EcucReferenceDef
+        region_select = EcucContainerDef(short_name="RegionSelect")
+        region_select.references["MemoryBlockRef"] = EcucReferenceDef(
+            short_name="MemoryBlockRef", destination_ref="/AUTOSAR/EcucDefs/MemMap/MemoryBlock")
+        module_def = EcucModuleDef(short_name="MemMap", definition_ref="/AUTOSAR/EcucDefs/MemMap")
+        module_def.containers["RegionSelect"] = region_select
+        module_def.containers["MemoryBlock"] = EcucContainerDef(short_name="MemoryBlock", upper_multiplicity=-1)
+        return module_def
+
+    @pytest.mark.parametrize("saved_reference", ["", SAVED_BARE_REFERENCE], ids=["text-only", "saved-bare-ref"])
+    def test_vendor_reference_text_gets_the_target_path(self, tmp_path, saved_reference):
+        from autosar_configurator.core.rules.base_rules import TypeValidationRule
+        config_path = tmp_path / "MemMap_Config.arxml"
+        config_path.write_text(self.REGION_SELECT_CONFIG.format(saved_reference=saved_reference),
+                               encoding="utf-8")
+        module_def = self._memmap_def()
+        manager = ConfigurationManager(module_def)
+        manager.load_configuration(config_path)
+
+        region_select, ex_code = manager.configuration.containers
+        ref = region_select.reference_values["MemoryBlockRef"]
+        assert ref.value_ref == ex_code.get_path()
+        manager.configuration.resolve_references(manager.configuration.get_instance_by_path)
+        assert ref.target is ex_code
+        # The text stays for EB, recognised as the reference: no "not defined" warning
+        assert region_select.parameter_values["RegionSelect"].value == "EX_CODE"
+        assert TypeValidationRule().validate(module_def, manager.configuration).messages == []
+
+    def test_vendor_reference_text_without_a_unique_target_is_left_alone(self, tmp_path):
+        xml = self.REGION_SELECT_CONFIG.format(saved_reference="").replace(
+            "<SHORT-NAME>EX_CODE</SHORT-NAME>", "<SHORT-NAME>EX_DATA</SHORT-NAME>")
+        config_path = tmp_path / "MemMap_Config.arxml"
+        config_path.write_text(xml, encoding="utf-8")
+        manager = ConfigurationManager(self._memmap_def())
+        manager.load_configuration(config_path)
+        assert manager.configuration.containers[0].reference_values["MemoryBlockRef"].value_ref == "EX_CODE"

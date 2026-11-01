@@ -1342,12 +1342,16 @@ class XPathEngine:
                                     next_nodes.extend(c.get_children_list())
                                 else:
                                     next_nodes.append(c)
-                        elif hasattr(n, 'node_type') and n.node_type == 'parameter' and not getattr(n, 'is_wrapper', False):
+                        elif hasattr(n, 'node_type') and n.node_type == 'parameter' and not getattr(n, 'is_wrapper', False) \
+                                and getattr(n, 'value', None) is not None:
                             # EB Tresos compatibility: param/*[1] on a simple parameter
                             # (leaf node with no children) returns the parameter itself.
                             # This allows patterns like GptNotification/*[1] to retrieve
                             # the parameter value.
-                            # But NOT for empty wrapper nodes (multi-valued with 0 entries).
+                            # But NOT for empty wrapper nodes (multi-valued with 0 entries),
+                            # nor for a parameter without a configured value: that is an
+                            # empty v:lst (MAX=1) in EB, so count(OcuHardwareTriggeredAdc/*)
+                            # is 0 there.
                             next_nodes.append(n)
                     elif name == '.':
                         next_nodes.append(n)

@@ -842,7 +842,11 @@ class ConfigurationManager:
                 # instance short names in DEFINITION-REF instead of definition
                 # container names.  Fix them before cleanup runs.
                 if self.module_def and not skip_cleanup:
-                    self._normalize_definition_refs()
+                    remapped = self._normalize_definition_refs()
+                    if remapped:
+                        logger.info("%s: corrected %d DEFINITION-REF(s) naming an instance "
+                                    "instead of its definition in %s; saved on the next save",
+                                    self.module_def.short_name, remapped, file_path.name)
                     # Relative / wrongly prefixed DEFINITION-REFs and generic DESTs written by
                     # earlier versions: corrected in memory, written on the next save
                     repaired = self.repair_definition_refs()
@@ -859,6 +863,11 @@ class ConfigurationManager:
                         logger.warning(
                             "Preserved %d unrecognised parameter(s) in unknown_parameters (not deleted)",
                             cleanup_count)
+                    qualified = self._qualify_bare_references()
+                    if qualified:
+                        logger.info("%s: %d reference(s) naming the target by its short name "
+                                    "given the target's path in %s; saved on the next save",
+                                    self.module_def.short_name, qualified, file_path.name)
 
                 # Mark as saved (just loaded, no modifications)
                 self.configuration.mark_saved()
@@ -866,11 +875,45 @@ class ConfigurationManager:
         except Exception as e:
             raise ValueError(f"Failed to load configuration: {e}")
 
+    def _qualify_bare_references(self) -> int:
+        """Give a reference naming its target by short name only (the vendor RegionSelect
+        text 'EX_CODE' taken as MemoryBlockRef) the target's path, when exactly one
+        instance of the reference's destination in this module has that name. Returns the
+        number of qualified references."""
+        module_name = self.module_def.short_name
+
+        def qualify(ref_value, ref_def) -> int:
+            name = ref_value.value_ref
+            if not name or name.startswith('/') or ref_def is None:
+                return 0
+            destinations = [d for d in [ref_def.destination_ref, *(ref_def.choice_destination_refs or [])]
+                            if d and module_name in d.split('/')]
+            targets = [c for d in destinations for c in self.configuration.get_all_instances_of_def(d)
+                       if c.short_name == name]
+            if len(targets) != 1:
+                return 0
+            ref_value.value_ref = targets[0].get_path()
+            return 1
+
+        def walk(container) -> int:
+            container_def = self.get_container_def(container.definition_ref)
+            refs = container_def.references if container_def is not None else {}
+            n = sum(qualify(value, refs.get(name)) for name, value in container.reference_values.items())
+            n += sum(qualify(value, refs.get(name))
+                     for name, values in container.multi_reference_values.items() for value in values)
+            return n + sum(walk(sub) for sub in container.sub_containers)
+
+        return sum(walk(container) for container in self.configuration.containers)
+
     def repair_definition_refs(self) -> int:
         """Give every value the DEFINITION-REF and DEST a value file needs: the absolute path
         under the module's path in its definition file (module_def.ar_path) and the specific
-        type of the definition element. References that are already right (EB values) are
-        left as they are. Returns the number of corrected items."""
+        type of the definition element, the value typed as that DEST reads it. References
+        that are already right (EB values) are left as they are. Returns the number of
+        corrected items."""
+        from .parser.arxml_parser import ArxmlParser
+        from .serializer.ecuc_serializer import _param_value_tag
+
         md = self.module_def
         cfg = self.configuration
         if md is None or cfg is None:
@@ -888,11 +931,22 @@ class ConfigurationManager:
                 return 1
             return 0
 
+        def retyped(value):
+            """The value as reading it back under its new DEST gives it: read under the
+            generic DEST, an enumeration literal 64 was a number and a boolean 1 an int."""
+            if value.value is None:
+                return None
+            text = (('true' if value.value else 'false') if isinstance(value.value, bool)
+                    else str(value.value))
+            numerical = _param_value_tag(value) == 'ECUC-NUMERICAL-PARAM-VALUE'
+            return ArxmlParser.typed_value(text, value.dest_type, numerical)
+
         def fix_param(value, param_def) -> int:
             n = fix_path(value)
             dest = defrefs.parameter_dest(param_def) if param_def is not None else None
             if dest and getattr(value, 'dest_type', None) in (None, defrefs.GENERIC_PARAM_DEST):
                 value.dest_type = dest
+                value.value = retyped(value)
                 n += 1
             return n
 
@@ -964,15 +1018,8 @@ class ConfigurationManager:
                         # Check if this parameter matches a reference definition (vendor pattern
                         # where a reference is serialized as a textual parameter, e.g. RegionSelect
                         # storing MemoryBlockRef target).
-                        is_vendor_ref = (
-                            param_name in container_def.references or
-                            (param_name == container_def.short_name and len(container_def.references) == 1)
-                        )
-                        if is_vendor_ref:
-                            ref_def_name = (
-                                param_name if param_name in container_def.references
-                                else list(container_def.references.keys())[0]
-                            )
+                        ref_def_name = container_def.vendor_reference(param_name)
+                        if ref_def_name:
                             logger.debug(
                                 "'%s' in '%s' matches vendor reference '%s' in DEF '%s'",
                                 param_name, container.short_name, ref_def_name, container_def.short_name
@@ -1029,12 +1076,18 @@ class ConfigurationManager:
 
         Strategy (applied at each hierarchy level, candidates constrained to
         the parent container definition's sub-containers):
-        1. If the definition_ref already resolves → keep it.
+        1. If the definition_ref names its definition (not merely resolving
+           through the ``_N`` instance-suffix fallback, not under a parent
+           that was remapped) → keep it.
         2. **Exact match**: the ref's leaf segment or the instance short-name
            equals a candidate definition name (including one level through
            choice containers).
         3. **Heuristic fallback** (logged as a warning): score candidates by
            parameter/sub-container overlap and name-prefix match.
+        4. **List instance**: an instance the scoring cannot place (only
+           references, or no values at all), see ``_list_instance_def``.
+
+        Returns the number of corrected references (containers and their values).
         """
         # Extract the definition_ref prefix (everything up to and including the
         # module name).  E.g. for ``/THA6_ASR21/Os/Foo`` the prefix is
@@ -1130,6 +1183,55 @@ class ConfigurationManager:
                 return best_def
             return None
 
+        def _leaf(ref: str) -> str:
+            return ref.rstrip('/').rsplit('/', 1)[-1]
+
+        def _list_instance_def(container, candidate_defs: dict) -> Optional[EcucContainerDef]:
+            """Definition of an instance of a list (EB ``d:lst``) written with its
+            own name as the last DEFINITION-REF segment, as earlier versions did
+            (``/THA6_ASR21/Os/CODE_QM_CORE0`` for an ``OsMemoryMap`` holding only a
+            reference, ``/THA6_ASR21/Os/OSTRUSTAPP01MODE`` for an empty ``OsAppMode``).
+
+            Candidates are the multi-instance definitions defining everything the
+            instance holds; of those, the one defining the least. None unless that
+            leaves a single definition.
+            """
+            if _leaf(container.definition_ref) != container.short_name:
+                return None
+            held = (set(container.parameter_values) | set(container.multi_parameter_values)
+                    | set(container.reference_values) | set(container.multi_reference_values)
+                    | {_leaf(s.definition_ref) for s in container.sub_containers})
+
+            def defined(cdef):
+                return set(cdef.parameters) | set(cdef.references) | set(cdef.sub_containers)
+
+            fits = [cdef for cdef in candidate_defs.values()
+                    if (cdef.upper_multiplicity != 1 or cdef.upper_multiplicity_expr)
+                    and held <= defined(cdef)]
+            if not fits:
+                return None
+            least = min(len(defined(cdef)) for cdef in fits)
+            smallest = [cdef for cdef in fits if len(defined(cdef)) == least]
+            return smallest[0] if len(smallest) == 1 else None
+
+        def _rebase_values(container, container_ref: str) -> int:
+            """Value references follow their container's definition: one under another
+            container (an instance name, a remapped container) is rewritten. Returns the
+            number of rewritten values."""
+            values = list(container.parameter_values.items()) + list(container.reference_values.items())
+            for name, multi in (list(container.multi_parameter_values.items())
+                                + list(container.multi_reference_values.items())):
+                values += [(name, value) for value in multi]
+            count = 0
+            for name, value in values:
+                parent = (value.definition_ref or '').rpartition('/')[0]
+                if not defrefs.same_definition(parent, container_ref, module_name):
+                    value.definition_ref = f"{container_ref}/{name}"
+                    count += 1
+            return count
+
+        remapped = 0
+
         def _normalize_container(container, parent_def: Optional[EcucContainerDef],
                                 parent_normalized_ref: Optional[str] = None):
             """Normalize a single container and its sub-containers recursively.
@@ -1141,27 +1243,38 @@ class ConfigurationManager:
                     PARENT container (or None for top-level).  Used to build
                     sub-container refs when the parent name was also remapped.
             """
+            nonlocal remapped
             # Determine the pool of candidate definitions at this level
             if parent_def is not None:
                 candidate_defs = parent_def.sub_containers
             else:
                 candidate_defs = self.module_def.containers
 
-            # Check if current definition_ref already resolves
+            # Keep a definition_ref that names its definition. One resolving only
+            # through the '_N' fallback (OsAlarm_0 for OsAlarm), or still carrying
+            # the stale name of a remapped parent, is rewritten below.
             resolved_def = self.get_container_def(container.definition_ref)
-            if resolved_def is not None:
-                # Already valid – recurse into sub-containers using this container's ref
+            parent_ref, _, leaf = container.definition_ref.rstrip('/').rpartition('/')
+            if resolved_def is not None and leaf == resolved_def.short_name and (
+                    parent_normalized_ref is None
+                    or defrefs.same_definition(parent_ref, parent_normalized_ref, module_name)):
+                # Already valid – its values may still name an instance (written before
+                # the container itself was corrected); recurse using this container's ref
+                remapped += _rebase_values(container, container.definition_ref)
                 for sub in container.sub_containers:
                     _normalize_container(sub, resolved_def, container.definition_ref)
                 return
 
             # Try to find the correct definition: exact structural match
-            # first, heuristic scoring only as a last resort.
+            # first, heuristic scoring and list instances only as a last resort.
             matched_def, choice_segment = _exact_match_def(container, candidate_defs)
-            heuristic_used = False
+            how = 'Exact'
             if matched_def is None:
                 matched_def = _best_match_def(container, candidate_defs)
-                heuristic_used = matched_def is not None
+                how = 'Heuristic'
+            if matched_def is None:
+                matched_def = _list_instance_def(container, candidate_defs)
+                how = 'List-instance'
 
             if matched_def is not None:
                 # Build the correct definition_ref.
@@ -1174,29 +1287,21 @@ class ConfigurationManager:
                 elif parent_def is not None:
                     # Sub-container: parent was valid, just replace last segment
                     base_ref = container.definition_ref.rsplit('/', 1)[0]
-                else:
+                elif container.definition_ref.startswith('/'):
                     # Top-level container
                     base_ref = _extract_prefix(container.definition_ref)
+                else:
+                    base_ref = defrefs.module_path(self.module_def)
                 if choice_segment:
                     new_ref = f"{base_ref}/{choice_segment}/{matched_def.short_name}"
                 else:
                     new_ref = f"{base_ref}/{matched_def.short_name}"
 
-                if heuristic_used:
-                    logger.warning(
-                        "Heuristic DEFINITION-REF remap for container '%s': %s -> %s",
-                        container.short_name, container.definition_ref, new_ref)
-                else:
-                    logger.debug(
-                        "Exact DEFINITION-REF remap for container '%s': %s -> %s",
-                        container.short_name, container.definition_ref, new_ref)
+                log = logger.warning if how == 'Heuristic' else logger.debug
+                log("%s DEFINITION-REF remap for container '%s': %s -> %s",
+                    how, container.short_name, container.definition_ref, new_ref)
                 container.definition_ref = new_ref
-
-                # Also fix parameter definition_refs
-                for param_name, param_val in container.parameter_values.items():
-                    param_val.definition_ref = new_ref + '/' + param_name
-                for ref_name, ref_val in container.reference_values.items():
-                    ref_val.definition_ref = new_ref + '/' + ref_name
+                remapped += 1 + _rebase_values(container, new_ref)
 
                 # Recurse with matched definition context, passing the new ref
                 for sub in container.sub_containers:
@@ -1208,6 +1313,7 @@ class ConfigurationManager:
 
         for container in self.configuration.containers:
             _normalize_container(container, None)
+        return remapped
 
     def _update_counters_recursive(self, container: EcucContainerValue):
         """Update instance counters based on existing container"""

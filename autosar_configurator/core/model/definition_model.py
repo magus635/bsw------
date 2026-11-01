@@ -229,6 +229,18 @@ class EcucContainerDef:
         """Add a sub-container definition"""
         self.sub_containers[container_def.short_name] = container_def
 
+    def vendor_reference(self, param_name: str) -> Optional[str]:
+        """Reference a vendor value file stores as a textual parameter (RegionSelect
+        holding the target of MemoryBlockRef): the reference of that name, or the only
+        reference of a container the parameter is named after. None otherwise."""
+        if param_name in self.parameters:
+            return None
+        if param_name in self.references:
+            return param_name
+        if param_name == self.short_name and len(self.references) == 1:
+            return next(iter(self.references))
+        return None
+
 
 @dataclass
 class EcucModuleDef:
