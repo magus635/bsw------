@@ -34,19 +34,25 @@ UNMAPPED = "unmapped"
 USAGE = "usage"
 DUPLICATE = "duplicate"
 UNPLACED = "unplaced"
+MULTIPLE = "multiple"
 CORE = "core"
 CACHE = "cache"
+FLASH = "flash"
 WILDCARD = "wildcard"
-CATEGORIES = (UNMAPPED, USAGE, DUPLICATE, UNPLACED, CORE, CACHE, WILDCARD)
+CATEGORIES = (UNMAPPED, USAGE, DUPLICATE, UNPLACED, MULTIPLE, CORE, CACHE, FLASH, WILDCARD)
 CATEGORY_LABELS = {
     UNMAPPED: "用到但没有映射的段",
     USAGE: "段声明写法问题",
     DUPLICATE: "重复映射的段",
     UNPLACED: "没有区域接收的段",
+    MULTIPLE: "被多个区域显式选中的段",
     CORE: "核心数据不在本核心内存",
     CACHE: "不可缓存的段在可缓存内存",
+    FLASH: "数据段放在 flash",
     WILDCARD: "未显式放置的段",
 }
+NO_REGIONS_NOTE = "芯片没有内存区域数据（memory_regions），核心、缓存和 flash 类型检查已跳过"
+DATA_KINDS = ("DATA", "BSS")
 STATIC_NOTE = ("静态检查：#if 分支一律当作会编译，其中的问题标为“可能”；"
                "通配选择器的归属按段的种类推断，与链接器的实际结果可能不同。")
 
@@ -72,6 +78,32 @@ class Finding:
         return (CATEGORIES.index(self.category), self.path.lower(), self.line, self.text)
 
 
+@dataclass(frozen=True)
+class RowPlacement:
+    """Where the linker file puts one output section."""
+    region: str                     # execution region
+    line: int                       # line of the selecting selector in the linker file
+    selector: str                   # e.g. *(+BSS)
+    explicit: bool                  # selected by name, not only caught by a wildcard
+    address: Optional[int] = None   # base of the execution region, None when unresolved
+    chip_region: Optional[str] = None       # chip region containing that base
+    also: Tuple[str, ...] = ()      # further execution regions selecting it by name
+
+
+@dataclass
+class SectionRow:
+    """One output section: what maps to it, who uses it and where it is placed."""
+    output: str
+    kind: str                       # TEXT, RODATA, DATA or BSS
+    names: Tuple[str, ...]          # <X>_START_SEC_<Y> names mapped to it
+    modules: Tuple[str, ...]        # the <X> of those names
+    core: Optional[int]
+    non_cacheable: bool
+    uses: Tuple[Tuple[str, int], ...]       # (path, line) of the uses
+    placement: Optional[RowPlacement] = None
+    findings: List[Finding] = field(default_factory=list)
+
+
 @dataclass
 class CheckResult:
     findings: List[Finding] = field(default_factory=list)
@@ -84,6 +116,9 @@ class CheckResult:
     templates_skipped: int = 0
     skipped: List[str] = field(default_factory=list)       # over the size limit
     notes: List[str] = field(default_factory=list)
+    rows: List[SectionRow] = field(default_factory=list)   # one per mapped output section
+    regions: List[MemoryRegionDef] = field(default_factory=list)
+    regions_unconfirmed: bool = False
 
     def by_category(self, category: str) -> List[Finding]:
         return [f for f in self.findings if f.category == category]
@@ -115,6 +150,11 @@ def _read(path: Path) -> Optional[str]:
         return path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return None
+
+
+def section_module(name: str) -> str:
+    """The module of ``<X>_START_SEC_<Y>`` (or ``_STOP_SEC_``): ``<X>``."""
+    return re.split(r"_(?:START|STOP)_SEC_", name, maxsplit=1)[0]
 
 
 def _where(use: SectionUse) -> str:
@@ -201,6 +241,7 @@ def run_check(source_dirs: Iterable[Path], header_dirs: Iterable[Path] = (),
             for section, mapping in table.items():
                 everywhere.setdefault(section, mapping)
     outputs: Dict[str, Tuple[SectionMapping, List[SectionUse]]] = {}
+    names: Dict[str, set] = {}                    # output section -> <X>_START_SEC_<Y> names
     missing_headers: Dict[str, List[SectionUse]] = {}
     for use in uses:
         if use.header and use.header.lower() not in mappings:
@@ -217,6 +258,9 @@ def run_check(source_dirs: Iterable[Path], header_dirs: Iterable[Path] = (),
                                            use.conditional))
             continue
         outputs.setdefault(mapping.output, (mapping, []))[1].append(use)
+        names.setdefault(mapping.output, set()).add(use.name)
+    result.rows = _rows(outputs, names)
+    result.regions, result.regions_unconfirmed = list(regions or []), regions_unconfirmed
     for header, header_uses in sorted(missing_headers.items()):
         first = header_uses[0]
         result.findings.append(Finding(UNMAPPED, first.path, first.line,
@@ -239,17 +283,38 @@ def run_check(source_dirs: Iterable[Path], header_dirs: Iterable[Path] = (),
         return _finish(result, progress, len(ordered))
     scatter = parse_scatter(text, result.linker_file)
     if not regions:
-        result.notes.append("芯片没有内存区域数据（memory_regions），核心和缓存检查已跳过")
+        result.notes.append(NO_REGIONS_NOTE)
     elif regions_unconfirmed:
-        result.notes.append("芯片的内存区域数据标记为待确认，核心和缓存检查的结论需人工核对")
+        result.notes.append("芯片的内存区域数据标记为待确认，核心、缓存和 flash 类型检查的结论需人工核对")
     _check_placement(result, scatter, outputs, regions or [])
     return _finish(result, progress, len(ordered))
+
+
+def _rows(outputs: Dict[str, Tuple[SectionMapping, List[SectionUse]]],
+          names: Dict[str, set]) -> List[SectionRow]:
+    rows = []
+    for output in sorted(outputs):
+        mapping, uses = outputs[output]
+        section_names = tuple(sorted(names[output]))
+        rows.append(SectionRow(
+            output=output, kind=mapping.kind, names=section_names,
+            modules=tuple(sorted({section_module(n) for n in section_names})),
+            core=section_core(*section_names, output),
+            non_cacheable=is_non_cacheable(*section_names, output),
+            uses=tuple(sorted({(u.path, u.line) for u in uses}))))
+    return rows
 
 
 def _check_placement(result: CheckResult, scatter: ScatterFile,
                      outputs: Dict[str, Tuple[SectionMapping, List[SectionUse]]],
                      regions: List[MemoryRegionDef]):
     unresolved, outside = set(), set()
+    rows = {row.output: row for row in result.rows}
+
+    def report(output: str, finding: Finding):
+        result.findings.append(finding)
+        rows[output].findings.append(finding)
+
     for output in sorted(outputs):
         mapping, uses = outputs[output]
         note = f"{mapping.name}；{_uses_text(uses)}"
@@ -257,17 +322,26 @@ def _check_placement(result: CheckResult, scatter: ScatterFile,
         found = placements(scatter, output, mapping.kind)
         if not found:
             first = uses[0]
-            result.findings.append(Finding(UNPLACED, first.path, first.line,
-                                           f"{output}（{mapping.kind}）没有被任何执行区域接收", note, possible))
+            report(output, Finding(UNPLACED, first.path, first.line,
+                                   f"{output}（{mapping.kind}）没有被任何执行区域接收", note, possible))
             continue
         chosen = found[0]
         region, selector = chosen.region, chosen.selector
+        others = tuple(dict.fromkeys(p.region.name for p in found[1:] if p.region.name != region.name))
+        row = rows[output]
+        row.placement = RowPlacement(region.name, selector.line, selector.text(), chosen.explicit,
+                                     region.address, None, others)
+        if chosen.explicit and others:
+            report(output, Finding(
+                MULTIPLE, scatter.path, selector.line,
+                f"{output} 被多个执行区域显式选中：{region.name}、{'、'.join(others)}",
+                f"{note}；链接器取哪一个由其选择规则决定，请只保留一处", possible))
         if not chosen.explicit:
-            others = "；另有 " + "、".join(f"{p.region.name} 的 {p.selector.text()}" for p in found[1:]) \
+            more = "；另有 " + "、".join(f"{p.region.name} 的 {p.selector.text()}" for p in found[1:]) \
                 if len(found) > 1 else ""
-            result.findings.append(Finding(WILDCARD, scatter.path, selector.line,
-                                           f"{output} 未显式放置，由 {region.name} 的 {selector.text()} 接收",
-                                           note + others, possible))
+            report(output, Finding(WILDCARD, scatter.path, selector.line,
+                                   f"{output} 未显式放置，由 {region.name} 的 {selector.text()} 接收",
+                                   note + more, possible))
         if not regions:
             continue
         if region.address is None:
@@ -277,17 +351,24 @@ def _check_placement(result: CheckResult, scatter: ScatterFile,
         if memory is None:
             outside.add((region.name, region.address))
             continue
+        row.placement = RowPlacement(region.name, selector.line, selector.text(), chosen.explicit,
+                                     region.address, memory.name, others)
         core = section_core(mapping.name, output)
-        if (core is not None and mapping.kind in ("DATA", "BSS") and memory.core != LOCAL
+        if (core is not None and mapping.kind in DATA_KINDS and memory.core != LOCAL
                 and memory.core != core):
-            result.findings.append(Finding(
+            report(output, Finding(
                 CORE, scatter.path, selector.line,
                 f"核心 {core} 的 {output} 放在 {region.name}，位于 {memory.name}（{memory.core_text()}）",
                 note, possible))
         if is_non_cacheable(mapping.name, output) and memory.cacheable:
-            result.findings.append(Finding(
+            report(output, Finding(
                 CACHE, scatter.path, selector.line,
                 f"不可缓存的 {output} 放在 {region.name}，位于可缓存的 {memory.name}", note, possible))
+        if mapping.kind in DATA_KINDS and memory.type == "flash":
+            report(output, Finding(
+                FLASH, scatter.path, selector.line,
+                f"{mapping.kind} 段 {output} 放在 {region.name}，位于 flash 区域 {memory.name}",
+                note, possible))
     for name in sorted(unresolved):
         result.notes.append(f"执行区域 {name} 的基址无法解析，其中的段未做核心和缓存检查")
     for name, address in sorted(outside):

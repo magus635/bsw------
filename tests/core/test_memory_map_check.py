@@ -352,7 +352,7 @@ def test_check_t1_like_project(tmp_path):
     assert (wildcard.path, wildcard.line) == ("scatter.scat", 29)
     assert wildcard.note == ("CAN_START_SEC_VAR_CLEARED_ASIL_D_CORE0_UNSPECIFIED；"
                              "使用于 Mcal/Can/src/Can.c:9")
-    assert result.notes == ["芯片的内存区域数据标记为待确认，核心和缓存检查的结论需人工核对"]
+    assert result.notes == ["芯片的内存区域数据标记为待确认，核心、缓存和 flash 类型检查的结论需人工核对"]
     assert (result.files_scanned, result.headers_read, result.sections_used) == (2, 1, 3)
 
 
@@ -372,7 +372,7 @@ def test_check_unmapped_and_missing_header(tmp_path):
     unmapped = [(f.line, f.text) for f in result.by_category(check.UNMAPPED)]
     assert unmapped == [(21, "CAN_START_SEC_CONFIG_DATA_UNSPECIFIED 在 Can_MemMap.h 中没有映射"),
                         (25, "找不到 Dem_MemMap.h（已添加的目录中没有）")]
-    assert "芯片没有内存区域数据（memory_regions），核心和缓存检查已跳过" in result.notes
+    assert check.NO_REGIONS_NOTE in result.notes
     assert not result.by_category(check.CORE)
 
 

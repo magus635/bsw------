@@ -338,6 +338,10 @@ class DaVinciMainWindow(QMainWindow):
         self.memmap_check_action.setStatusTip("检查段声明、MemMap 头映射和链接文件放置是否一致，以及核心数据、不可缓存数据是否放对内存")
         self.memmap_check_action.triggered.connect(self._launch_memory_map_check)
 
+        self.memory_layout_action = QAction("内存布局...", self)
+        self.memory_layout_action.setStatusTip("按物理区域或按模块查看各模块的段放在哪里，以及放置中的问题（只读）")
+        self.memory_layout_action.triggered.connect(self._launch_memory_layout)
+
         # View actions
         self.toggle_search_action = QAction("Search...", self)
         self.toggle_search_action.setShortcut(QKeySequence.Find)  # Ctrl+F
@@ -440,6 +444,7 @@ class DaVinciMainWindow(QMainWindow):
         tools_menu.addAction(self.chip_repair_action)
         tools_menu.addAction(self.chip_scan_action)
         tools_menu.addAction(self.memmap_check_action)
+        tools_menu.addAction(self.memory_layout_action)
         tools_menu.addAction(self.hardware_mapping_action)
 
         # Help menu
@@ -898,6 +903,14 @@ class DaVinciMainWindow(QMainWindow):
         # the directories and the linker file are saved with the project
         dialog.settings_changed.connect(lambda: self.save_project_action.setEnabled(True))
         dialog.exec()
+
+    def _launch_memory_layout(self):
+        """Open the memory layout view (read-only; settings are those of the check)."""
+        if not self.current_project:
+            QMessageBox.information(self, "内存布局", "请先打开一个项目。")
+            return
+        from .dialogs.memory_layout_dialog import MemoryLayoutDialog
+        MemoryLayoutDialog(self.current_project, parent=self).exec()
 
     def _on_designer_chip_saved(self, chip_name: str):
         """Handle new chip saved from designer"""
