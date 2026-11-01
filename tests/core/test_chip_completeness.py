@@ -131,7 +131,9 @@ def test_library_chips_are_all_confirmed():
 
     db = ChipDatabase(default_chips_dir())
     assert check_chip(db.get_chip("THA610X_LFBGA180")) == []
-    assert check_chip(db.get_chip("THA6206_LFBGA292")) == []
+    # memory_regions (add-memory-map-check) are taken from the linker comment table, still to confirm
+    assert [i.text.split(" ", 1)[0] for i in check_chip(db.get_chip("THA6206_LFBGA292"))] == [
+        "memory_regions"]
     assert check_chip(db.get_chip("THA6412_BGA516")) == []
     # Os only: no pins or peripherals is not missing data; the 73 external interrupts are confirmed
     sc300 = db.get_chip("SC300")

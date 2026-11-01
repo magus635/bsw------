@@ -62,6 +62,12 @@ class WorkspaceProject:
         self.chip_scan_dirs: List[str] = []
         self.chip_scan_keywords: List[str] = []
 
+        # Memory map check: source and MemMap header directories and the linker
+        # file (POSIX, relative to the project directory or absolute)
+        self.memmap_source_dirs: List[str] = []
+        self.memmap_header_dirs: List[str] = []
+        self.memmap_linker_file: Optional[str] = None
+
         # EB project import: original source root (kept read-only, separate from save location)
         self.eb_source_root: Optional[Path] = None
 
@@ -833,6 +839,9 @@ class WorkspaceManager:
             "import_mode": self.current_project.import_mode,
             "chip_scan_dirs": list(self.current_project.chip_scan_dirs),
             "chip_scan_keywords": list(self.current_project.chip_scan_keywords),
+            "memmap_source_dirs": list(self.current_project.memmap_source_dirs),
+            "memmap_header_dirs": list(self.current_project.memmap_header_dirs),
+            "memmap_linker_file": self.current_project.memmap_linker_file,
             "modules": []
         }
         
@@ -1033,6 +1042,9 @@ class WorkspaceManager:
         project.chip_data_record = data.get("chip_data") or None
         project.chip_scan_dirs = list(data.get("chip_scan_dirs") or [])
         project.chip_scan_keywords = list(data.get("chip_scan_keywords") or [])
+        project.memmap_source_dirs = list(data.get("memmap_source_dirs") or [])
+        project.memmap_header_dirs = list(data.get("memmap_header_dirs") or [])
+        project.memmap_linker_file = data.get("memmap_linker_file") or None
 
         # Load EB source root (for imported EB projects).
         # Saved relative to the project root when inside it (v7); older

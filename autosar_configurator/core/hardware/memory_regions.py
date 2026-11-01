@@ -46,7 +46,7 @@ class MemoryRegionDef:
 
 def _number(value: Any, what: str) -> int:
     if isinstance(value, bool):
-        raise ValueError(f"{what} must be a number")
+        raise ValueError(f"{what} must be a number")  # noqa: TRY004 - callers handle ValueError only
     if isinstance(value, int):
         return value
     try:
@@ -76,7 +76,7 @@ def parse_memory_regions(data: Any) -> List[MemoryRegionDef]:
             core = LOCAL if str(core).strip().lower() == LOCAL else _number(core, f"{where}.core")
         cacheable = entry.get("cacheable", True)
         if not isinstance(cacheable, bool):
-            raise ValueError(f"{where}.cacheable must be true or false")
+            raise ValueError(f"{where}.cacheable must be true or false")  # noqa: TRY004 - callers handle ValueError only
         size = _number(entry.get("size"), f"{where}.size")
         if size <= 0:
             raise ValueError(f"{where}.size must be positive")

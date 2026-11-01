@@ -18,6 +18,7 @@ from .ecu_resource_data import (
     parse_selectors,
 )
 from .generic_resource import GenericResourceDef
+from .memory_regions import MemoryRegionDef, parse_memory_regions
 
 # Peripheral instances: {resource type: [GenericResourceDef, ...]}
 PeripheralResources = Dict[str, List[GenericResourceDef]]

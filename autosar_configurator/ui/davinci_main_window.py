@@ -334,6 +334,10 @@ class DaVinciMainWindow(QMainWindow):
         self.chip_scan_action.setStatusTip("列出依赖具体芯片的判断、默认分支、写死数值和资源覆盖，作为新增芯片的检查清单")
         self.chip_scan_action.triggered.connect(self._launch_chip_dependency_scan)
 
+        self.memmap_check_action = QAction("检查内存映射...", self)
+        self.memmap_check_action.setStatusTip("检查段声明、MemMap 头映射和链接文件放置是否一致，以及核心数据、不可缓存数据是否放对内存")
+        self.memmap_check_action.triggered.connect(self._launch_memory_map_check)
+
         # View actions
         self.toggle_search_action = QAction("Search...", self)
         self.toggle_search_action.setShortcut(QKeySequence.Find)  # Ctrl+F
@@ -435,6 +439,7 @@ class DaVinciMainWindow(QMainWindow):
         tools_menu.addAction(self.chip_designer_action)
         tools_menu.addAction(self.chip_repair_action)
         tools_menu.addAction(self.chip_scan_action)
+        tools_menu.addAction(self.memmap_check_action)
         tools_menu.addAction(self.hardware_mapping_action)
 
         # Help menu
@@ -880,6 +885,17 @@ class DaVinciMainWindow(QMainWindow):
         from .dialogs.chip_dependency_scan_dialog import ChipDependencyScanDialog
         dialog = ChipDependencyScanDialog(self.current_project, parent=self)
         # the scan directories and keywords are saved with the project
+        dialog.settings_changed.connect(lambda: self.save_project_action.setEnabled(True))
+        dialog.exec()
+
+    def _launch_memory_map_check(self):
+        """Open the memory map check (read-only)."""
+        if not self.current_project:
+            QMessageBox.information(self, "检查内存映射", "请先打开一个项目。")
+            return
+        from .dialogs.memory_map_check_dialog import MemoryMapCheckDialog
+        dialog = MemoryMapCheckDialog(self.current_project, parent=self)
+        # the directories and the linker file are saved with the project
         dialog.settings_changed.connect(lambda: self.save_project_action.setEnabled(True))
         dialog.exec()
 

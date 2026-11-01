@@ -846,8 +846,36 @@ metadata:
     count: 2
     available: [CORE0, CORE1]
     master: CORE0
-resource_version: 1.0.1
+  unconfirmed:
+    memory_regions: 按 MCAL LinkFiles/Ads/LinkerAdsPf.scat 与 T1 scatter.scat 的 Memory 注释表填写；TCM 视为不可缓存、CPUX* 视为核心本地别名、Flash 本地访问的缓存属性和 LMU 所属核心均未确认
+resource_version: 1.0.2
 selectors: {Os.OsResourceSubderivative: Os_THA6206, Resource.ResourceSubderivative: THA6206_LFBGA292}
+memory_regions:
+- {name: CPUXATCM, start: '0x0', size: '0x10000', type: ram, core: local, cacheable: false}
+- {name: CPUXBTCM, start: '0x100000', size: '0x30000', type: ram, core: local, cacheable: false}
+- {name: CPUXCTCM, start: '0x200000', size: '0x10000', type: ram, core: local, cacheable: false}
+- {name: CPUXPFLASH0, start: '0x8000000', size: '0x300000', type: flash, cacheable: true}
+- {name: CPUXPFLASH1, start: '0x8300000', size: '0x300000', type: flash, cacheable: true}
+- {name: GMU_NORMAL, start: '0x10000000', size: '0x40000', type: ram, cacheable: true}
+- {name: LMU1_NORMAL, start: '0x10054000', size: '0x4000', type: ram, cacheable: true}
+- {name: LMU2_NORMAL, start: '0x10058000', size: '0x4000', type: ram, cacheable: true}
+- {name: LMU3_NORMAL, start: '0x1005c000', size: '0x4000', type: ram, cacheable: true}
+- {name: CPU0ATCM, start: '0x30000000', size: '0x10000', type: ram, core: 0, cacheable: false}
+- {name: CPU0BTCM, start: '0x30100000', size: '0x30000', type: ram, core: 0, cacheable: false}
+- {name: CPU0CTCM, start: '0x30200000', size: '0x10000', type: ram, core: 0, cacheable: false}
+- {name: CPU1ATCM, start: '0x30400000', size: '0x10000', type: ram, core: 1, cacheable: false}
+- {name: CPU1BTCM, start: '0x30500000', size: '0x30000', type: ram, core: 1, cacheable: false}
+- {name: CPU1CTCM, start: '0x30600000', size: '0x10000', type: ram, core: 1, cacheable: false}
+- {name: PFLASH0_NORMAL, start: '0x40400000', size: '0x300000', type: flash, cacheable: true}
+- {name: PFLASH1_NORMAL, start: '0x40700000', size: '0x300000', type: flash, cacheable: true}
+- {name: DFLASH_NORMAL, start: '0x44000000', size: '0x80000', type: flash, cacheable: true}
+- {name: GMU_DEVICE, start: '0x82000000', size: '0x40000', type: ram, cacheable: false}
+- {name: PFLASH0_DEVICE, start: '0x90400000', size: '0x300000', type: flash, cacheable: false}
+- {name: PFLASH1_DEVICE, start: '0x90700000', size: '0x300000', type: flash, cacheable: false}
+- {name: DFLASH_DEVICE, start: '0x94000000', size: '0x80000', type: flash, cacheable: false}
+- {name: LMU1_DEVICE, start: '0xb0020000', size: '0x4000', type: ram, cacheable: false}
+- {name: LMU2_DEVICE, start: '0xc00d0000', size: '0x4000', type: ram, cacheable: false}
+- {name: LMU3_DEVICE, start: '0xd0040000', size: '0x4000', type: ram, cacheable: false}
 ecu_resources:
   Resource:
     NumOfCores: 2
@@ -1806,4 +1834,4 @@ ecu_resources:
     AppModeDefaultName: [OSDEFAULTAPPMODE, OSALLRUNNINGMODE]
     IocPrimitiveDataType: [uint8, uint16, uint32, uint64, boolean, AppModeType, ApplicationType, CoreIdType, IdleModeType, TickType, Os_TickDiffType, AlarmType, CounterType, sint8, sint16, sint32, sint64, float32, float64, ISRType, ResourceType, SpinlockIdType, TaskType]
     IocPrimitiveDataTypeNum: 23
-checksum: sha256:87aa0c207fee4fc86091034e4106b17ead6cfff3334024968d7f8c72e55b848f
+checksum: sha256:c9aa0a60889a5d91718595da59b59148d2cc33f822fc36ea1be520d291f29f72
