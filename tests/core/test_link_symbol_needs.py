@@ -261,7 +261,7 @@ def test_needs_read_with_a_non_ads_linker_file(tmp_path):
     ld.write_text("SECTIONS {}", encoding="utf-8")
     result = check.run_check([src], [], ld, base=tmp_path)
     assert result.needs and not result.by_category(check.SYMBOL) and not result.scatter_read
-    assert result.notes[0].startswith("目前只支持 ADS")
+    assert any(n.startswith("目前只支持 ADS") for n in result.notes)
 
 
 def test_template_files_are_not_read_for_needs(tmp_path):

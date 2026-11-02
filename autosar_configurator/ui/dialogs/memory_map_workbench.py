@@ -425,11 +425,10 @@ class LayoutTab(QWidget):
         self.only_findings.blockSignals(False)
         self.refill()
 
-    @staticmethod
-    def _row_item(row) -> QTreeWidgetItem:
+    def _row_item(self, row) -> QTreeWidgetItem:
         problems = _row_text(row.findings)
         item = QTreeWidgetItem([row.output, layout.row_attributes(row), "、".join(row.modules),
-                                layout.placement_text(row), problems])
+                                layout.placement_text(row, self.result), problems])
         item.setData(0, Qt.UserRole, row)
         item.setToolTip(4, problems)
         if row.findings:
@@ -496,7 +495,7 @@ class LayoutTab(QWidget):
         if row is None:
             return
         for text in (f"输出段：{row.output}（{layout.row_attributes(row)}）",
-                     f"放置：{layout.placement_text(row)}",
+                     f"放置：{layout.placement_text(row, self.result)}",
                      f"映射自：{', '.join(row.names)}"):
             self.detail.addTopLevelItem(QTreeWidgetItem([text]))
         for path, line in row.uses[:10]:

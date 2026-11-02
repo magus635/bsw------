@@ -56,6 +56,10 @@ CATEGORY_LABELS = {
 }
 NO_REGIONS_NOTE = "芯片没有内存区域数据（memory_regions），核心、缓存和 flash 类型检查已跳过"
 DATA_KINDS = ("DATA", "BSS")
+# why the placement was not looked up (shown where a section's placement would be)
+NO_LINKER_FILE = "没有链接文件"
+NOT_ADS_FILE = "链接文件不是 ADS 格式"
+UNREADABLE_FILE = "链接文件无法读取"
 
 ERROR = "error"
 WARNING = "warning"
@@ -159,6 +163,8 @@ class CheckResult:
     scatter_regions: List[str] = field(default_factory=list)    # execution regions of the linker file
     scatter_addresses: Dict[str, Optional[int]] = field(default_factory=dict)   # their resolved bases
     scatter_read: bool = False                              # an ADS linker file was read
+    placement_checked: bool = False         # the sections were looked up in an ADS linker file
+    unchecked_reason: str = ""              # why not: no linker file, or a format not supported
 
     def by_category(self, category: str) -> List[Finding]:
         return [f for f in self.findings if f.category == category]
@@ -325,27 +331,33 @@ def run_check(source_dirs: Iterable[Path], header_dirs: Iterable[Path] = (),
     result.sections_used = len({u.name for u in uses})
 
     # --- placement -------------------------------------------------------------
+    # The notes about the chip's memory regions do not depend on the linker file: they say
+    # what the core, cache and flash checks can rest on, and are wanted before one is set.
+    if not regions:
+        result.notes.append(NO_REGIONS_NOTE)
+    elif regions_unconfirmed:
+        result.notes.append("芯片的内存区域数据标记为待确认，核心、缓存和 flash 类型检查的结论需人工核对")
     if linker_file is None:
+        result.unchecked_reason = NO_LINKER_FILE
         result.notes.append("没有设置链接文件，放置检查已跳过")
         return _finish(result, progress, len(ordered))
     result.linker_file = display_path(linker_file, base)
     if linker_file.suffix.lower() not in SCATTER_SUFFIXES:
+        result.unchecked_reason = NOT_ADS_FILE
         result.notes.append(f"目前只支持 ADS 分散加载文件（.scat、.sct），"
                             f"{linker_file.name} 的放置检查已跳过")
         return _finish(result, progress, len(ordered))
     text = _read(linker_file)
     if text is None:
+        result.unchecked_reason = UNREADABLE_FILE
         result.notes.append(f"链接文件无法读取，放置检查已跳过：{result.linker_file}")
         return _finish(result, progress, len(ordered))
     scatter = parse_scatter(text, result.linker_file)
     result.scatter_regions = [r.name for r in scatter.regions]
     result.scatter_addresses = {r.name: r.address for r in scatter.regions}
     result.scatter_read = True
+    result.placement_checked = True
     _check_symbols(result, scatter)
-    if not regions:
-        result.notes.append(NO_REGIONS_NOTE)
-    elif regions_unconfirmed:
-        result.notes.append("芯片的内存区域数据标记为待确认，核心、缓存和 flash 类型检查的结论需人工核对")
     _check_placement(result, scatter, outputs, regions or [])
     return _finish(result, progress, len(ordered))
 

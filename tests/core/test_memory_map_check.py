@@ -394,7 +394,7 @@ def test_check_template_skipped_and_unsupported_linker(tmp_path):
     ld.write_text("SECTIONS {}", encoding="utf-8")
     result = check.run_check([sources], [headers], ld, base=tmp_path)
     assert result.templates_skipped == 1
-    assert result.notes[0] == "目前只支持 ADS 分散加载文件（.scat、.sct），Linker.ld 的放置检查已跳过"
+    assert "目前只支持 ADS 分散加载文件（.scat、.sct），Linker.ld 的放置检查已跳过" in result.notes
     assert not result.by_category(check.WILDCARD)
 
 

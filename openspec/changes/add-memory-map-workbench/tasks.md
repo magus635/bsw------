@@ -16,16 +16,16 @@
 
 ## 3. 替换旧窗口
 
-- [x] 3.1 `davinci_main_window.py`：两个菜单项和动作合并为“内存映射…”；未打开工程时提示（已改，尚未运行验证）
-- [ ] 3.2 删除 `memory_map_check_dialog.py` 和 `memory_layout_dialog.py`，确认没有残留引用（`git rm` 被自动模式分类器暂时拦住，未执行；这两个文件和五个旧测试文件仍在）
+- [x] 3.1 `davinci_main_window.py`：两个菜单项和动作合并为“内存映射…”；未打开工程时提示（主窗口能导入，`davinci_main.py` 能启动；菜单点开后的行为未在界面里验证）
+- [x] 3.2 删除 `memory_map_check_dialog.py` 和 `memory_layout_dialog.py`，确认没有残留引用（连同五个旧测试文件一起 `git rm`，产品代码与测试里已无引用）
 - [x] 3.3 迁移 `tests/ui/test_memory_map_check_dialog.py`、`test_memory_layout_dialog.py`、`test_memory_layout_dialog_symbols.py` 到工作台；迁移后用例数不少于迁移前（迁移前 13 个，迁移后工作台共 27 个，其中前 13 个与旧用例一一对应，断言保留）；旧测试文件待 3.2 一并删除
 
 ## 4. 测试
 
 - [x] 4.1 UI 测试（offscreen）：一次扫描两个页签都有结果；扫描只启动一次；取消后两个页签都没有结果；设置变化后出现过时提示；汇总行在过滤开着时仍然显示；诊断到布局和布局到诊断的定位，包括没有对应段时按钮置灰；严重程度过滤；导出（27 个通过）
-- [ ] 4.2 现有核心层测试保持通过（工作台合并前已通过；合并并删除旧文件后需再跑）
+- [x] 4.2 现有核心层测试保持通过（合并并删除旧文件后：核心与工作台相关 133 个通过）
 
 ## 5. 验证
 
-- [ ] 5.1 全量测试（SC300 的两个已知失败除外）；`openspec validate add-memory-map-workbench --strict`
+- [x] 5.1 全量测试（SC300 的两个已知失败除外：1457 通过、2 失败，失败的是 `test_chip_completeness` 与 `test_chip_ecu_resources` 的 SC300，干净 HEAD 上同样失败）；`openspec validate add-memory-map-workbench --strict` 通过
 - [ ] 5.2 在 T1 上打开工作台，核对分级的合理性，特别是“段声明写法问题”的误报率，给用户确认（读厂商文件或 T1 生成物，运行前先征得用户同意）

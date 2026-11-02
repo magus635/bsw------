@@ -18,6 +18,7 @@ BY_REGION = "region"
 BY_MODULE = "module"
 UNKNOWN_CHIP_REGION = "未识别的芯片区域"
 UNPLACED_GROUP = "没有区域接收"
+NOT_CHECKED_GROUP = "未检查放置"
 NO_MODULE = "（未知模块）"
 UNREFERENCED = "无代码引用"
 MISSING_GROUP = "链接文件缺少的区域"
@@ -133,7 +134,9 @@ def by_region(result: CheckResult, flt: Optional[LayoutFilter] = None) -> List[R
     for row in filter_rows(result, flt):
         place = row.placement
         if place is None:
-            key, start, attrs = UNPLACED_GROUP, None, ""
+            # without a checked linker file nothing was placed because nothing was looked up
+            key = UNPLACED_GROUP if result.placement_checked else NOT_CHECKED_GROUP
+            start, attrs = None, ""
         elif place.chip_region is None:
             key, start, attrs = UNKNOWN_CHIP_REGION, None, ""
         else:
@@ -160,7 +163,7 @@ def by_region(result: CheckResult, flt: Optional[LayoutFilter] = None) -> List[R
     def order(group: RegionGroup):
         if group.name == MISSING_GROUP:
             return (3, 0, group.name)
-        if group.name == UNPLACED_GROUP:
+        if group.name in (UNPLACED_GROUP, NOT_CHECKED_GROUP):
             return (2, 0, group.name)
         if group.start is None:
             return (1, 0, group.name)
@@ -189,10 +192,13 @@ def by_module(result: CheckResult, flt: Optional[LayoutFilter] = None) -> List[M
     return ordered
 
 
-def placement_text(row: SectionRow) -> str:
-    """Where the row lands, in one line."""
+def placement_text(row: SectionRow, result: Optional[CheckResult] = None) -> str:
+    """Where the row lands, in one line.  Given the result, a section that was never looked
+    up (no linker file, or one that is not ADS) says so instead of "no region receives it"."""
     place = row.placement
     if place is None:
+        if result is not None and not result.placement_checked and result.unchecked_reason:
+            return f"未检查放置（{result.unchecked_reason}）"
         return "没有区域接收"
     how = "显式" if place.explicit else f"通配 {place.selector}"
     chip = place.chip_region or "芯片区域未知"
@@ -234,7 +240,7 @@ def to_markdown(result: CheckResult, mode: str = BY_REGION, flt: Optional[Layout
         for row in rows:
             problems = "；".join(f.text + ("（可能）" if f.possible else "") for f in row.findings)
             out.append(f"| {_cell(row.output)} | {_cell(row_attributes(row))} | "
-                       f"{_cell('、'.join(row.modules))} | {_cell(placement_text(row))} | {_cell(problems)} |")
+                       f"{_cell('、'.join(row.modules))} | {_cell(placement_text(row, result))} | {_cell(problems)} |")
         return out + [""]
 
     if mode == BY_MODULE:

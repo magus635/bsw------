@@ -432,3 +432,19 @@ def test_a_new_result_replaces_the_selection(qtbot, tmp_path):
     workbench.show_result(_check_result())
     assert workbench.layout_tab.detail.topLevelItemCount() == 0
     assert workbench.diagnostics.selected_finding() is None
+
+
+def test_unchecked_layout_in_the_window(qtbot, tmp_path):
+    """The T1 case: only generateCode was added, no linker file. The sections say that
+    their placement was not checked, not that no region receives them."""
+    result = _layout_result()
+    result.rows[0].placement = None
+    result.unchecked_reason = check.NO_LINKER_FILE
+    tab = _open(qtbot, tmp_path, result).layout_tab
+    groups = _top(tab.tree)
+    assert any(g.startswith("未检查放置") for g in groups) and not any(g.startswith("没有区域接收") for g in groups)
+    unchecked = next(i for i in _all_items(tab.tree) if i.text(0) == ".mcal_bss_asil_d_unspecified")
+    assert unchecked.text(3) == "未检查放置（没有链接文件）"
+    tab.tree.setCurrentItem(unchecked)
+    text = "\n".join(tab.detail.topLevelItem(i).text(0) for i in range(tab.detail.topLevelItemCount()))
+    assert "放置：未检查放置（没有链接文件）" in text
