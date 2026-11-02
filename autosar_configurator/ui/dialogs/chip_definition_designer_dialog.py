@@ -42,6 +42,7 @@ from ...core.hardware.ecu_resource_diagnostics import (
     typed_field_differences, typed_fields_from_ecu,
 )
 from .ecu_resource_editor import EcuResourceEditor
+from .memory_region_editor import MemoryRegionEditor
 from .peripheral_editor import PeripheralEditor
 from ...core.hardware.mapping_rule import rule_resource_requirements
 
@@ -338,6 +339,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._setup_pinout_tab()
         self._setup_ecu_tab()
         self._setup_preview_tab()
+        self._setup_memory_tab()
 
         # Bottom Button Bar
         bottom_bar = QHBoxLayout()
@@ -633,6 +635,24 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._refresh_typed_differences()
         self._refresh_pin_warning()
 
+    def _setup_memory_tab(self):
+        """Tab 6: physical memory (the chip's memory_regions)"""
+        self.memory_editor = MemoryRegionEditor()
+        self.memory_editor.changed.connect(self._on_memory_edited)
+        self.tabs.addTab(self.memory_editor, "6. 物理存储 (Memory)")
+        self._memory_regions: List = []
+        self._memory_note = ""
+
+    def _on_memory_edited(self):
+        self._memory_regions = self.memory_editor.regions()
+        self._memory_note = self.memory_editor.import_note() or self._memory_note
+
+    def _set_memory_regions(self, regions):
+        """Replace the chip's memory regions everywhere they are shown."""
+        self._memory_regions = copy.deepcopy(list(regions or []))
+        self._memory_note = ""
+        self.memory_editor.set_regions(self._memory_regions)
+
     def _set_ecu_resources(self, resources: EcuResources):
         """Replace the chip's ECU resources everywhere they are shown."""
         self._ecu_resources = resources
@@ -727,6 +747,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._base_chip = copy.deepcopy(chip)
         self._editing_name = chip.name
         self._set_ecu_resources(copy.deepcopy(chip.ecu_resources))
+        self._set_memory_regions(chip.memory_regions)
         self._resource_version = chip.resource_version
         self._set_selectors(chip.selectors)
 
@@ -875,6 +896,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._base_chip = None
         self._editing_name = None
         self._set_ecu_resources({})
+        self._set_memory_regions([])
         self._resource_version = ""
         self._set_selectors({})
         self.peripheral_editor.set_resources({})
@@ -1065,9 +1087,8 @@ class ChipDefinitionDesignerDialog(QDialog):
             metadata=initial_metadata,
             ecu_resources=copy.deepcopy(self._ecu_resources),
             resource_version=self._resource_version,
-            # the designer has no editor for the address map yet: carry the loaded one over,
-            # or saving any edit would drop it (and with it the core, cache and flash checks)
-            memory_regions=copy.deepcopy(base.memory_regions) if base is not None else [],
+            # the page "6. 物理存储" owns the address map; a chip never loaded into the page has none
+            memory_regions=copy.deepcopy(self._memory_regions),
         )
         try:
             chip.selectors = self._selectors_from_table()
@@ -1080,9 +1101,23 @@ class ChipDefinitionDesignerDialog(QDialog):
             'master': self.master_core_edit.text().strip() or "CORE0",
         }
         self._apply_basic_fields(chip, base)
+        self._apply_memory_mark(chip)
 
         # Entries the needed-keys guide added stay marked 待填写 until they get a value
         return drop_filled_marks(mark_to_fill_in(chip, self.ecu_editor.added_placeholders()))
+
+    def _apply_memory_mark(self, chip: ChipDefinition):
+        """Imported regions are marked to be confirmed; an edit never confirms anything.
+
+        The mark of ``memory_regions`` that the chip already has is kept as it is; an import
+        sets it (or replaces its note) so the user sees where the data came from and what the
+        source left unsaid.  Nothing here removes a mark.
+        """
+        if not self._memory_note:
+            return
+        marks = unconfirmed_marks(chip)
+        marks["memory_regions"] = self._memory_note
+        chip.metadata["unconfirmed"] = marks
 
     def _on_tab_changed(self, index: int):
         """Update preview when tab 4 is selected"""
@@ -1212,6 +1247,12 @@ class ChipDefinitionDesignerDialog(QDialog):
         except ValueError as e:
             QMessageBox.warning(self, "外设实例无效", str(e))
             self.tabs.setCurrentIndex(1)
+            return
+
+        memory_errors = self.memory_editor.blocking_problems()
+        if memory_errors:
+            QMessageBox.warning(self, "物理存储无效", "\n".join(memory_errors))
+            self.tabs.setCurrentIndex(5)
             return
 
         basic_problems = self._basic_field_problems()

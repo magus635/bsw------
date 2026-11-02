@@ -30,3 +30,18 @@ entries:
   marked:
   - {field: memory_regions, note: 按 MCAL LinkFiles/Ads/LinkerAdsPf.scat 与 T1 scatter.scat 的 Memory 注释表填写；TCM 视为不可缓存、CPUX* 视为核心本地别名、Flash 本地访问的缓存属性和 LMU 所属核心均未确认}
   checksum: sha256:c9aa0a60889a5d91718595da59b59148d2cc33f822fc36ea1be520d291f29f72
+- date: '2026-11-02'
+  author: Your Name
+  source: add-chip-memory-editor
+  note: memory_regions 补充 memory、window、source，数值不变；归组按名称推断，全部待确认
+  resource_version: {old: 1.0.2, new: 1.0.3}
+  base_modified_outside: false
+  ecu_resources:
+    added: []
+    changed: []
+    removed: []
+  metadata: []
+  views: {}
+  confirmed: []
+  marked: []
+  checksum: sha256:aff7b517eeecdf72f8d9d0c6a3d2208eb0cbf7b355ac44f228988de625a503cd

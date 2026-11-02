@@ -38,10 +38,10 @@ A required region named after a core the chip does not have (a core number not b
 - **THEN** the configuration has no region `PRIVATE_DATA_CORE0_LIMIT`
 
 ### Requirement: Sections Placed By Rules And Manual Exceptions
-Each scanned section SHALL have exactly one status: placed by a rule, placed by hand, not placed, or to be placed again. A manual placement SHALL take precedence over user rules, and user rules over the chip's default rules; within one level the first matching rule SHALL win. A rule matches by section name pattern, kind, core, cacheability and module, all given conditions having to hold. Removing a manual placement SHALL return the section to the result of the rules.
+Each scanned section SHALL have exactly one status: placed by a rule, placed by hand, not placed, or to be placed again. A manual placement SHALL take precedence over the rules; among the rules the first matching one in the list SHALL win. A rule matches by section name pattern, kind, core, cacheability and module, all given conditions having to hold. Removing a manual placement SHALL return the section to the result of the rules.
 
 #### Scenario: Manual placement beats a rule
-- **WHEN** a user rule places `.mcal_bss_asil_d_unspecified_core0` in `PRIVATE_BSS_CORE0` and the user places it by hand in `UNDEFINE_RAM_BSS`
+- **WHEN** a rule places `.mcal_bss_asil_d_unspecified_core0` in `PRIVATE_BSS_CORE0` and the user places it by hand in `UNDEFINE_RAM_BSS`
 - **THEN** its status is manual and its target is `UNDEFINE_RAM_BSS`
 
 #### Scenario: Removing the manual placement
@@ -49,7 +49,7 @@ Each scanned section SHALL have exactly one status: placed by a rule, placed by 
 - **THEN** the section is placed in `PRIVATE_BSS_CORE0` by the rule
 
 #### Scenario: First matching rule wins
-- **WHEN** two user rules both match a section
+- **WHEN** two rules both match a section
 - **THEN** the first in the list places it, and the rule editor marks the second as shadowed
 
 #### Scenario: No rule matches
@@ -60,16 +60,42 @@ Each scanned section SHALL have exactly one status: placed by a rule, placed by 
 - **WHEN** a rule names an execution region that does not exist
 - **THEN** the rule is marked invalid and places nothing
 
-### Requirement: Default Rules For THA6206 From Its Vendor Script
-For the chip THA6206 the system SHALL supply default rules and a default layout taken from the vendor's linker script, each rule stating where it comes from. A chip without such data SHALL have no default rules, every section SHALL show as not placed, and the window SHALL say why.
+### Requirement: Rules Are Open To Change
+The user SHALL be able to change, add, remove and reorder the rules of a project, and each rule SHALL say whether it is a factory rule or the user's own and MAY carry a note. A factory rule that the user changed SHALL be marked as changed with its original kept for comparison.
+
+#### Scenario: Change a factory rule
+- **WHEN** the user changes the target of a factory rule
+- **THEN** the rule is marked as changed, its original target stays visible for comparison, and sections follow the new target
+
+#### Scenario: Add and reorder
+- **WHEN** the user adds a rule and moves it above a factory rule
+- **THEN** it is tried first, and the factory rule is marked as shadowed for the sections the new rule matches
+
+### Requirement: Factory Rules For THA6206 Copied Into The Project
+For the chip THA6206 the system SHALL supply factory rules and a default layout taken from the vendor's linker script, each rule carrying a note on where it comes from. When the configuration page of a project is first opened, the factory rules SHALL be copied into the project's own configuration, and later changes SHALL only touch that copy. A chip without factory rules SHALL start with no rules, every section SHALL show as not placed, and the window SHALL say why.
 
 #### Scenario: Core data goes to the core's private region
 - **WHEN** the chip is THA6206 and a BSS section is named for core 0 and is cacheable
-- **THEN** the default rules place it in `PRIVATE_BSS_CORE0`
+- **THEN** the factory rules place it in `PRIVATE_BSS_CORE0`
 
-#### Scenario: Chip without default rules
+#### Scenario: Copy is the project's own
+- **WHEN** the user changes a rule and the software later ships other factory rules
+- **THEN** the project's rules are unchanged and the rule editor says that newer factory rules exist
+
+#### Scenario: Chip without factory rules
 - **WHEN** the project's chip is THA6412
-- **THEN** every section is not placed and the window says that this chip has no default rules
+- **THEN** every section is not placed and the window says that this chip has no factory rules
+
+### Requirement: Factory Rules Can Be Restored
+The user SHALL be able to restore the factory rules, which replaces the project's rule list by the factory one. The system SHALL first show which user changes would be lost and SHALL restore only after the user confirms. Manual placements SHALL NOT be affected.
+
+#### Scenario: Preview before restoring
+- **WHEN** the user has changed one factory rule and added one rule, and asks to restore
+- **THEN** the preview lists the changed rule and the added rule as lost, and nothing changes until the user confirms
+
+#### Scenario: Manual placements stay
+- **WHEN** the user restores the factory rules
+- **THEN** the manual placements are unchanged
 
 ### Requirement: Layout Configuration Saved As Text In The Integration Project
 The layout configuration SHALL be saved as a text file `memorymap.json` in the `linkedFile` directory of the integration project directory `IntegrationProject` of the project, ordered by name so that versions compare cleanly, with a schema version and the chip's name. A project without the file SHALL load with an empty configuration, and an unreadable file SHALL be reported without stopping the project from opening.

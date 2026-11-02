@@ -1,17 +1,17 @@
 ## 1. 数据模型
 
-- [ ] 1.1 `MemoryRegionDef` 新增可选字段 `memory`、`window`、`source`；缺省时 `memory` 等于 `name`；`parse_memory_regions` 读新字段，旧格式不变
-- [ ] 1.2 `memory_region_dict` 只写有值的字段，`memory` 等于 `name` 时不写；旧芯片往返后字节级一致
-- [ ] 1.3 分组函数：按 `memory` 归并窗口，保持文件顺序；对外给出"存储 → 窗口列表"
-- [ ] 1.4 校验函数：阻止保存的错误（数字、大小、名称重复、类型）与只提示的问题（重叠、同存储大小不一致、同存储类型混用）分开返回
-- [ ] 1.5 测试：新字段往返；旧 YAML 往返与 `chip_checksum` 不变（库内全部芯片）；分组；各条校验
+- [x] 1.1 `MemoryRegionDef` 新增可选字段 `memory`、`window`、`source`；缺省时 `memory` 等于 `name`（`memory_name` 属性）；`parse_memory_regions` 读新字段，旧格式不变，新字段必须是文本
+- [x] 1.2 `memory_region_dict` 只写有值的字段，`memory` 等于 `name` 时不写；旧芯片往返后与以前完全一致
+- [x] 1.3 分组函数 `group_memories`：按 `memory` 归并窗口，保持文件顺序，组的位置在其第一个窗口处；`rename_memory`：改存储名，改所有窗口，重名被拒
+- [x] 1.4 校验函数 `region_problems`：阻止保存的错误（名称重复）与只提示的问题（重叠、同存储大小不一致、同存储类型混用）分开返回；数字、大小、类型的错误本来就在读取时抛 `ValueError`
+- [x] 1.5 测试：`test_memory_regions_grouping.py`（新字段往返、旧格式不变、分组、重命名、各条校验）；`test_chip_memory_yaml.py`（YAML 往返；库内全部芯片的 stored checksum 等于重新计算的值）
 
 ## 2. 导入
 
-- [ ] 2.1 新增 `core/hardware/memory_regions_import.py`：从 ADS `.scat` 头部注释表解析区域，识别 `起始 终止 - 长度` 与 `起始 起始 + 长度` 两种行
-- [ ] 2.2 从行尾说明读类型、可缓存、核心；读不出的字段留缺省，不猜；全部带 `source`
-- [ ] 2.3 合并：同名不覆盖，只报告；返回新增、跳过两份清单供预览
-- [ ] 2.4 用 `LinkerAdsPf.scat` 与 OS 模板 `scatter.scat` 的注释表各做一组测试（合成文本，不依赖 `doc/` 目录）
+- [x] 2.1 新增 `core/hardware/memory_regions_import.py`：从 ADS `.scat` 头部注释表解析区域，识别 `起始 终止 - 长度` 与 `起始 起始 + 长度` 两种行，只读注释表里的行
+- [x] 2.2 类型、可缓存、核心从名称和行尾说明读；说明里没有的字段不猜，记入 `unstated_cache`、`unstated_type`；全部带 `source`
+- [x] 2.3 合并 `merge_import`：同名不覆盖，只报告；文件里重名只取第一行；不改入参
+- [x] 2.4 用 `LinkerAdsPf.scat` 与 OS 模板 `scatter.scat` 的注释表各做一组测试（合成文本，不依赖 `doc/` 目录）：`test_memory_regions_import.py`
 
 ## 3. 设计器
 
