@@ -130,6 +130,7 @@ def collect_referenced_keys_in_dirs(directories: Iterable[Path]) -> Dict[str, Se
     for directory in directories:
         directory = Path(directory)
         if not directory.is_dir():
+            logger.warning("Plugin scan directory not found, skipped: %s", directory)
             continue
         for xdm in sorted(directory.rglob("*.xdm")):
             if xdm.parent.name.lower() != "config":

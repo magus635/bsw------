@@ -48,6 +48,11 @@ def cmd_diff(args: argparse.Namespace) -> int:
     print(f"  Generated : {gen}")
     print()
 
+    for label, path in (("Reference", ref), ("Generated", gen)):
+        if not Path(path).is_dir():
+            print(f"[ERROR] {label} directory not found: {path}", file=sys.stderr)
+            return 2
+
     report = DiffAnalyzer(
         module=args.module,
         reference_root=ref,

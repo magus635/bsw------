@@ -124,6 +124,9 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     if not args.properties and not args.scan_dir and not getattr(args, "confirm", None):
         parser.error("give .properties files, --scan-dir or --confirm")
+    for d in args.scan_dir or []:
+        if not Path(d).is_dir():
+            parser.error(f"--scan-dir directory not found: {d}")
 
     database = ChipDatabase(Path(args.chips_dir) if args.chips_dir else default_chips_dir())
     if database.get_chip(args.chip) is None:
