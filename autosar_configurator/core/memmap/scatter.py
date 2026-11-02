@@ -85,7 +85,11 @@ def _strip_comments(text: str) -> str:
 
 
 def _split_header(header: str) -> Tuple[str, str]:
-    """(name, base expression) of a region header ``NAME base [attributes] [size]``."""
+    """(name, base expression) of a region header ``NAME base [attributes] [size]``.
+
+    The expression ends at the first space outside parentheses, unless a ``+`` sits
+    next to that space: ``RAM + OFFSET`` and ``RAM +0x10`` are one expression.
+    """
     header = header.strip()
     m = re.match(r"(\S+)\s+", header)
     if not m:
@@ -98,6 +102,10 @@ def _split_header(header: str) -> Tuple[str, str]:
         elif char == ")":
             depth -= 1
         elif char.isspace() and depth == 0:
+            before = rest[:index].rstrip()
+            after = rest[index:].lstrip()
+            if before.endswith("+") or after.startswith("+"):
+                continue
             return m.group(1), rest[:index]
     return m.group(1), rest
 
@@ -162,23 +170,60 @@ def _define_value(defines: Dict[str, str], name: str, seen=()) -> Optional[int]:
     return _define_value(defines, term.group(0), seen + (name,))
 
 
+def _term_value(scatter: ScatterFile, term: str) -> Optional[int]:
+    return int(term, 0) if _NUMBER.match(term) else _define_value(scatter.defines, term)
+
+
+def _base_terms(expr: str) -> Optional[List[str]]:
+    """The terms of ``A + B + ...`` once the wrapping function calls are peeled off:
+    ``AlignExpr(RAM + ImageLength(X), 64)`` gives ``[RAM]`` plus nothing the check can
+    use; ``RAM+0x1000`` gives ``[RAM, 0x1000]``.  Region-relative parts (``ImageLimit``,
+    ``ImageLength``) end the list: their size is only known after linking."""
+    inner = expr.strip()
+    while True:
+        m = re.match(r"^AlignExpr\s*\((.*)\)\s*$", inner, re.S)
+        if not m:
+            break
+        args, depth, start = [], 0, 0
+        for index, char in enumerate(m.group(1)):
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+            elif char == "," and depth == 0:
+                args.append(m.group(1)[start:index])
+                start = index + 1
+        args.append(m.group(1)[start:])
+        inner = args[0].strip()
+    terms = []
+    for part in re.split(r"\+", inner):
+        part = part.strip()
+        if not part:
+            terms.append("")            # a leading "+" : relative to the previous region
+            continue
+        if re.match(r"^(ImageLimit|ImageBase|ImageLength|LoadLimit|LoadBase)\b", part):
+            break
+        terms.append(part)
+    return terms
+
+
 def _resolve_addresses(scatter: ScatterFile):
     previous: Optional[ExecRegion] = None
     for region in scatter.regions:
         expr = region.base.strip()
         follows = _FOLLOWS.search(expr)
+        terms = _base_terms(expr)
         if follows:
             region.follows = follows.group(1)
-        elif expr.startswith("+"):
+        elif terms and terms[0] == "":
+            # "+offset" (also "AlignExpr(+0, 8)"): after the previous region of the same load region
             if previous is not None and previous.load_region == region.load_region:
                 region.follows = previous.name
-        else:
-            for term in _TERM.findall(expr):
-                if term in _FUNCTIONS:
-                    continue
-                region.address = (int(term, 0) if _NUMBER.match(term)
-                                  else _define_value(scatter.defines, term))
-                break
+        elif terms:
+            base = _term_value(scatter, terms[0])
+            if base is not None:
+                offsets = [_term_value(scatter, t) for t in terms[1:]]
+                region.address = base + sum(o for o in offsets if o is not None)
         previous = region
 
     def address_of(region: ExecRegion, seen=()) -> Optional[int]:

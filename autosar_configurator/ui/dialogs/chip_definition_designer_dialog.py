@@ -1065,6 +1065,9 @@ class ChipDefinitionDesignerDialog(QDialog):
             metadata=initial_metadata,
             ecu_resources=copy.deepcopy(self._ecu_resources),
             resource_version=self._resource_version,
+            # the designer has no editor for the address map yet: carry the loaded one over,
+            # or saving any edit would drop it (and with it the core, cache and flash checks)
+            memory_regions=copy.deepcopy(base.memory_regions) if base is not None else [],
         )
         try:
             chip.selectors = self._selectors_from_table()

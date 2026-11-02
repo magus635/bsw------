@@ -29,4 +29,4 @@
 ## 5. 验证
 
 - [ ] 5.1 在 T1（THA6206）上打开视图，截图或导出结果给用户确认；预期 `.mcal_bss_asil_d_unspecified_core0` 显示在 GMU_NORMAL 的 `UNDEFINE_RAM_BSS`，标有"未显式放置"和"核心不符"
-- [ ] 5.2 全量测试；`openspec validate add-memory-layout-view --strict`（校验已通过；全量测试在后台运行中）
+- [x] 5.2 全量测试（SC300 的两个已知失败除外：1421 通过、2 失败，失败的是 `test_chip_completeness` 与 `test_chip_ecu_resources` 的 SC300，干净 HEAD 上同样失败）；`openspec validate add-memory-layout-view --strict` 通过
