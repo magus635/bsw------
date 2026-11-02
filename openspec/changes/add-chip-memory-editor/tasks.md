@@ -15,23 +15,23 @@
 
 ## 3. 设计器
 
-- [ ] 3.1 新增 `ui/dialogs/memory_region_editor.py`：按存储分组的表格，增删改、按存储重命名；输入时校验并列出问题；十六进制输入
-- [ ] 3.2 "导入…"按钮：选择 `.scat`、预览、确认后合并；已有同名项不覆盖
-- [ ] 3.3 在 `chip_definition_designer_dialog.py` 加第六个页签；工作副本进 `_build_current_chip`；未保存状态与预览页同步
-- [ ] 3.4 保存遵守"只标记不删除"：来源缺失的项标待确认；修改过的项不自动确认
-- [ ] 3.5 UI 测试（offscreen）：编辑、校验提示、导入预览与合并、保存后重新加载一致；原有设计器测试全部保持通过
+- [x] 3.1 新增 `ui/dialogs/memory_region_editor.py`：按存储分组的表格，增删改、按存储重命名；输入时校验并列出问题；十六进制输入（有无 `0x` 前缀都认）
+- [x] 3.2 "导入…"按钮：选择 `.scat`、预览、确认后合并；已有同名项不覆盖；取消不改任何东西
+- [x] 3.3 在 `chip_definition_designer_dialog.py` 加第六个页签（放在预览之后，预览的索引不变）；工作副本进 `_build_current_chip`；未保存状态同步
+- [x] 3.4 保存遵守"只标记不删除"：名称重复阻止保存并切到该页签；重叠、大小或类型不一致只提示不阻止；导入的项带来源并写入 `unconfirmed.memory_regions` 的说明；编辑从不自动确认
+- [x] 3.5 UI 测试（offscreen）：编辑、校验提示、导入预览与合并、保存后重新加载一致（`test_chip_designer_memory_page.py`，23 个）；原有设计器测试全部保持通过（相关 182 个）
 
 ## 4. THA6206 数据
 
-- [ ] 4.1 `THA6206_LFBGA292.yaml`：给 25 项补 `memory`、`window`、`source`，数值不变，仍全部待确认；按"修复"流程升 `resource_version`、备份、写历史
-- [ ] 4.2 测试：数值与之前逐项相同；`test_library_chips_unchanged_and_tha6206_regions` 仍通过；其他库内芯片的 checksum 不变
+- [x] 4.1 `THA6206_LFBGA292.yaml`：给 25 项补 `source`，对有多个窗口的存储补 `memory`、`window`，数值不变，仍全部待确认；经"修复保存"升到 1.0.3，旧文件备份为 `.bak`，历史已写入。**每核的 AXI 窗口（`CPU0ATCM` 等）和本地别名（`CPUX*TCM`）没有归组**：厂商表没有说它们是否同一块存储，我不替用户决定，留作各自一块存储，等用户核对
+- [x] 4.2 测试（`test_tha6206_memory_data.py`）：25 项数值与之前逐项相同；仍标待确认；窗口按存储归组；其他库内芯片没有新字段、checksum 不变
 
 ## 5. 展示
 
-- [ ] 5.1 `layout.py`：物理区域一级按存储分组显示窗口；没有 `memory` 字段的旧芯片显示与现在一致
-- [ ] 5.2 工作台布局页签随之更新；原有布局测试保持通过
+- [x] 5.1 `layout.py`：物理区域一级按存储分组显示窗口，组里列出各窗口的可缓存属性，执行区域标出落在哪个窗口；没有 `memory` 字段的旧芯片显示与以前完全一致（单窗口的存储不显示窗口名）
+- [x] 5.2 工作台布局页签随之更新（执行区域旁显示 `[窗口]`）；原有布局与工作台测试保持通过（新增 `test_memory_layout_grouped.py`，相关 154 个通过）
 
 ## 6. 验证
 
-- [ ] 6.1 全量测试（SC300 的两个已知失败除外）；`openspec validate add-chip-memory-editor --strict`
+- [x] 6.1 全量测试（SC300 的两个已知失败除外：1587 通过、2 失败，失败的是 `test_chip_completeness` 与 `test_chip_ecu_resources` 的 SC300，干净 HEAD 上同样失败）；`openspec validate add-chip-memory-editor --strict` 通过
 - [ ] 6.2 用户在设计器里打开 THA6206，核对归组是否合理（特别是 CPU 本地别名与各核 AXI 区域是否同一块存储）

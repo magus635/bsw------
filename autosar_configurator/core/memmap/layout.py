@@ -10,7 +10,7 @@ deterministic: chip regions by start address, everything else by name.
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
-from ..hardware.memory_regions import region_at
+from ..hardware.memory_regions import MemoryGroup, group_memories, region_at
 from .check import MAX_USES_SHOWN, CheckResult, SectionRow
 from .symbols import LIMIT_REGION_SUFFIX, RegionNeed
 
@@ -49,6 +49,7 @@ class ExecGroup:
     rows: List[SectionRow] = field(default_factory=list)
     need: Optional[RegionNeed] = None       # what the code needs from this region
     unreferenced: bool = False              # code refers to regions, but not to this one
+    window: str = ""                        # the chip window it lies in, when its memory has several
 
     @property
     def note(self) -> str:
@@ -88,12 +89,31 @@ def cores_of(result: CheckResult) -> List[int]:
     return sorted({row.core for row in result.rows if row.core is not None})
 
 
+def _memory_of(result: CheckResult, window_name: str) -> Optional[MemoryGroup]:
+    """The physical memory that has the window ``window_name``; None for an unknown window."""
+    for group in group_memories(result.regions):
+        if any(w.name == window_name for w in group.windows):
+            return group
+    return None
+
+
+def _group_attributes(group: MemoryGroup) -> str:
+    """One line for a memory: a single window shows its own attributes as before, several
+    show the shared ones and then each window with its cache attribute."""
+    first = group.windows[0]
+    if len(group.windows) == 1:
+        cache = "可缓存" if first.cacheable else "不可缓存"
+        return f"{first.core_text()}，{cache}，{first.type}"
+    windows = "，".join(f"{w.name} {'可缓存' if w.cacheable else '不可缓存'}" for w in group.windows)
+    return f"{first.core_text()}，{first.type}；窗口：{windows}"
+
+
 def _attributes(result: CheckResult, name: str) -> Tuple[Optional[int], str]:
-    region = next((r for r in result.regions if r.name == name), None)
-    if region is None:
+    """``(start, attributes)`` of the physical memory with the window ``name``."""
+    group = _memory_of(result, name)
+    if group is None:
         return None, ""
-    cache = "可缓存" if region.cacheable else "不可缓存"
-    return region.start, f"{region.core_text()}，{cache}，{region.type}"
+    return group.start, _group_attributes(group)
 
 
 def need_text(need: RegionNeed) -> str:
@@ -109,6 +129,13 @@ def _is_limit_region(result: CheckResult, name: str) -> bool:
     return name.endswith(LIMIT_REGION_SUFFIX) and name[:-len(LIMIT_REGION_SUFFIX)] in result.scatter_addresses
 
 
+def _show_window(result: CheckResult, memory_name: str) -> bool:
+    """Whether the window of an execution region is worth naming: only for a memory that has
+    several, so a chip without grouping is shown exactly as before."""
+    group = next((g for g in group_memories(result.regions) if g.name == memory_name), None)
+    return group is not None and len(group.windows) > 1
+
+
 def by_region(result: CheckResult, flt: Optional[LayoutFilter] = None) -> List[RegionGroup]:
     """Chip regions by start address, then regions whose chip region is unknown, then
     sections nothing receives, then regions the code needs and the linker file lacks;
@@ -121,18 +148,26 @@ def by_region(result: CheckResult, flt: Optional[LayoutFilter] = None) -> List[R
     groups = {}
     executions = {}
 
-    def execution_group(key: str, start, attrs: str, name: str, address) -> ExecGroup:
+    def execution_group(key: str, start, attrs: str, name: str, address, window: str = "") -> ExecGroup:
         group = groups.setdefault(key, RegionGroup(key, start, attrs))
         execution = executions.get((key, name))
         if execution is None:
             execution = executions[(key, name)] = ExecGroup(
-                name, address, need=needs.get(name),
+                name, address, need=needs.get(name), window=window,
                 unreferenced=bool(name) and bool(needs) and name not in needs)
             group.executions.append(execution)
         return execution
 
+    def memory_key(window_name: str) -> Tuple[str, Optional[int], str]:
+        """``(group name, start, attributes)`` of the memory a window belongs to."""
+        memory = _memory_of(result, window_name)
+        if memory is None:
+            return window_name, None, ""
+        return memory.name, memory.start, _group_attributes(memory)
+
     for row in filter_rows(result, flt):
         place = row.placement
+        window = ""
         if place is None:
             # without a checked linker file nothing was placed because nothing was looked up
             key = UNPLACED_GROUP if result.placement_checked else NOT_CHECKED_GROUP
@@ -140,21 +175,22 @@ def by_region(result: CheckResult, flt: Optional[LayoutFilter] = None) -> List[R
         elif place.chip_region is None:
             key, start, attrs = UNKNOWN_CHIP_REGION, None, ""
         else:
-            key = place.chip_region
-            start, attrs = _attributes(result, key)
+            key, start, attrs = memory_key(place.chip_region)
+            window = place.chip_region if _show_window(result, key) else ""
         execution_group(key, start, attrs, place.region if place else "",
-                        place.address if place else None).rows.append(row)
+                        place.address if place else None, window).rows.append(row)
 
     if not (flt and flt.active):
         for name, address in result.scatter_addresses.items():
             if _is_limit_region(result, name):
                 continue
-            memory = region_at(result.regions, address) if address is not None else None
-            if memory is None:
+            window_region = region_at(result.regions, address) if address is not None else None
+            if window_region is None:
                 execution_group(UNKNOWN_CHIP_REGION, None, "", name, address)
             else:
-                execution_group(memory.name, memory.start, _attributes(result, memory.name)[1],
-                                name, address)
+                key, start, attrs = memory_key(window_region.name)
+                window = window_region.name if _show_window(result, key) else ""
+                execution_group(key, start, attrs, name, address, window)
         if result.scatter_read:
             for need in result.needs:
                 if need.region not in result.scatter_addresses:
@@ -253,7 +289,8 @@ def to_markdown(result: CheckResult, mode: str = BY_REGION, flt: Optional[Layout
             for execution in group.executions:
                 if execution.name:
                     address = f" @ {execution.address:#x}" if execution.address is not None else ""
-                    lines += [f"### {execution.name}{address}", ""]
+                    window = f"（窗口 {execution.window}）" if execution.window else ""
+                    lines += [f"### {execution.name}{address}{window}", ""]
                     if execution.note:
                         lines += [f"- {execution.note}", ""]
                 if execution.rows:

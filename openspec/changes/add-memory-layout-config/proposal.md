@@ -53,7 +53,7 @@ STARTUP_GETIMAGEBASEADDR(CORE0_USER_STACK, …)       startup.c:759
   - 新增 `core/memmap/regions.py`：必需执行区域的来源与按核数裁剪
   - 新增 `ui/dialogs/memory_map_config_tab.py`，并接入 `memory_map_workbench.py`
   - `core/workspace_manager.py`：保存和读取布局配置的路径；切芯片预览接入
-  - 新增出厂规则的数据文件 `autosar_configurator/data/memmap/THA6206_default.json`
+  - 新增出厂规则的数据文件 `autosar_configurator/data/memmap/THA6206_LFBGA292_default.json`
 - **兼容性**：只读检查和布局视图不变；旧工程没有布局配置，行为与现在一致；配置只在用户保存时才写文件。
 - **依赖**：`add-chip-memory-editor`（物理存储分组，THA6206 的数据补充）、`add-link-symbol-needs`（必需区域）。
 - **不在本变更范围内**：生成链接文件（下一个变更 `add-linker-file-generation`）；容量检查（没有 `.map` 文件，段的大小不可知；数据模型里给执行区域预留可选的"实际大小"字段，不填）；THA610X 和 THA6412 的出厂规则；OS 自带 `scatter.scat` 的处理（保留，不管它）。

@@ -472,7 +472,8 @@ class LayoutTab(QWidget):
                 parent = top
                 if execution.name:
                     address = f" @ {execution.address:#x}" if execution.address is not None else ""
-                    parent = QTreeWidgetItem([f"{execution.name}{address}（{len(execution.rows)}）"])
+                    window = f" [{execution.window}]" if execution.window else ""
+                    parent = QTreeWidgetItem([f"{execution.name}{address}{window}（{len(execution.rows)}）"])
                     if execution.note:
                         parent.setText(3, execution.note)
                         parent.setToolTip(3, execution.note)
