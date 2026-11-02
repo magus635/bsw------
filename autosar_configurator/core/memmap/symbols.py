@@ -65,8 +65,9 @@ _MACRO = re.compile(r"\b(" + "|".join(sorted(MACROS, key=len, reverse=True)) + r
 # Image$$R$$Base, Image$$R_LIMIT$$Base, Image$$R_LIMIT$$ZI$$Base, Image$$R$$ZI$$Limit,
 # Load$$R$$Base, Load$$R$$Limit
 _ADS = re.compile(r"\b(Image|Load)\$\$(" + _NAME + r")\$\$((?:ZI\$\$)?(?:Base|Limit))\b")
-# __R_ADDRESS_START, __R_ADDRESS_END, __R_LOAD_ADDRESS_START
-_GHS = re.compile(r"\b__(" + _NAME + r")_(LOAD_ADDRESS_START|ADDRESS_START|ADDRESS_END)\b")
+# __R_ADDRESS_START, __R_ADDRESS_END, __R_LOAD_ADDRESS_START.  The name is lazy: greedy, it
+# would take "R_LOAD" of __R_LOAD_ADDRESS_START and read it as the base of a region R_LOAD.
+_GHS = re.compile(r"\b__([A-Za-z_]\w*?)_(LOAD_ADDRESS_START|ADDRESS_START|ADDRESS_END)\b")
 _GHS_USES = {"ADDRESS_START": BASE, "ADDRESS_END": LIMIT, "LOAD_ADDRESS_START": LOAD}
 
 
@@ -181,7 +182,12 @@ def scan_needs(text: str, path: str) -> List[Reference]:
     clean = _blank_comments(text)
     kinds, guard_line, guard_end = _directives(clean)
     inside = _conditional_lines(clean, kinds, guard_line, guard_end)
-    definitions = {n for n, kind in kinds.items() if kind == "define"}
+    definitions = set()             # every physical line of every #define, continuations included
+    logical = _logical_lines(clean)
+    for index, (number, _) in enumerate(logical):
+        if kinds.get(number) == "define":
+            end = logical[index + 1][0] if index + 1 < len(logical) else number + 1
+            definitions.update(range(number, max(end, number + 1)))
     found: List[Reference] = []
 
     def add(region: str, uses, index: int, how: str):

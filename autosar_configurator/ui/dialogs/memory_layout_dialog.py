@@ -247,6 +247,15 @@ class MemoryLayoutDialog(QDialog):
                 if execution.name:
                     address = f" @ {execution.address:#x}" if execution.address is not None else ""
                     parent = QTreeWidgetItem([f"{execution.name}{address}（{len(execution.rows)}）"])
+                    if execution.note:
+                        # the references sit in the placement column, which is wide enough
+                        parent.setText(3, execution.note)
+                        parent.setToolTip(3, execution.note)
+                        if execution.unreferenced:
+                            parent.setForeground(3, QColor("gray"))
+                    if group.name == layout.MISSING_GROUP:
+                        parent.setText(4, "链接文件里没有这个执行区域")
+                        parent.setForeground(4, PROBLEM_COLOR)
                     top.addChild(parent)
                 for row in execution.rows:
                     parent.addChild(self._row_item(row))

@@ -8,15 +8,19 @@ nothing here judges a section, the findings come from the check.  Order is
 deterministic: chip regions by start address, everything else by name.
 """
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
-from .check import CheckResult, SectionRow
+from ..hardware.memory_regions import region_at
+from .check import MAX_USES_SHOWN, CheckResult, SectionRow
+from .symbols import LIMIT_REGION_SUFFIX, RegionNeed
 
 BY_REGION = "region"
 BY_MODULE = "module"
 UNKNOWN_CHIP_REGION = "未识别的芯片区域"
 UNPLACED_GROUP = "没有区域接收"
 NO_MODULE = "（未知模块）"
+UNREFERENCED = "无代码引用"
+MISSING_GROUP = "链接文件缺少的区域"
 
 
 @dataclass(frozen=True)
@@ -32,12 +36,24 @@ class LayoutFilter:
                 and (self.kind is None or row.kind == self.kind)
                 and (not self.only_findings or bool(row.findings)))
 
+    @property
+    def active(self) -> bool:
+        return (self.module, self.core, self.kind) != (None, None, None) or self.only_findings
+
 
 @dataclass
 class ExecGroup:
     name: str                       # execution region
     address: Optional[int]
     rows: List[SectionRow] = field(default_factory=list)
+    need: Optional[RegionNeed] = None       # what the code needs from this region
+    unreferenced: bool = False              # code refers to regions, but not to this one
+
+    @property
+    def note(self) -> str:
+        if self.need is not None:
+            return need_text(self.need)
+        return UNREFERENCED if self.unreferenced else ""
 
 
 @dataclass
@@ -79,10 +95,41 @@ def _attributes(result: CheckResult, name: str) -> Tuple[Optional[int], str]:
     return region.start, f"{region.core_text()}，{cache}，{region.type}"
 
 
+def need_text(need: RegionNeed) -> str:
+    """Who refers to a region and for what, in one line."""
+    places = "、".join(f"{r.path}:{r.line}" for r in need.references[:MAX_USES_SHOWN])
+    if len(need.references) > MAX_USES_SHOWN:
+        places += f" 等 {len(need.references)} 处"
+    return f"被引用：{need.uses_text()}（{places}）"
+
+
+def _is_limit_region(result: CheckResult, name: str) -> bool:
+    """``<R>_LIMIT`` of a region ``R`` in the linker file: bookkeeping for the limit symbols."""
+    return name.endswith(LIMIT_REGION_SUFFIX) and name[:-len(LIMIT_REGION_SUFFIX)] in result.scatter_addresses
+
+
 def by_region(result: CheckResult, flt: Optional[LayoutFilter] = None) -> List[RegionGroup]:
     """Chip regions by start address, then regions whose chip region is unknown, then
-    sections nothing receives; inside, execution regions by base then name."""
+    sections nothing receives, then regions the code needs and the linker file lacks;
+    inside, execution regions by base then name.
+
+    Execution regions without sections (stacks, limit markers excepted) are listed too,
+    unless a filter is on: a filter is about sections.
+    """
+    needs: Dict[str, RegionNeed] = {n.region: n for n in result.needs}
     groups = {}
+    executions = {}
+
+    def execution_group(key: str, start, attrs: str, name: str, address) -> ExecGroup:
+        group = groups.setdefault(key, RegionGroup(key, start, attrs))
+        execution = executions.get((key, name))
+        if execution is None:
+            execution = executions[(key, name)] = ExecGroup(
+                name, address, need=needs.get(name),
+                unreferenced=bool(name) and bool(needs) and name not in needs)
+            group.executions.append(execution)
+        return execution
+
     for row in filter_rows(result, flt):
         place = row.placement
         if place is None:
@@ -92,16 +139,27 @@ def by_region(result: CheckResult, flt: Optional[LayoutFilter] = None) -> List[R
         else:
             key = place.chip_region
             start, attrs = _attributes(result, key)
-        group = groups.setdefault(key, RegionGroup(key, start, attrs))
-        exec_name = place.region if place else ""
-        address = place.address if place else None
-        execution = next((e for e in group.executions if e.name == exec_name), None)
-        if execution is None:
-            execution = ExecGroup(exec_name, address)
-            group.executions.append(execution)
-        execution.rows.append(row)
+        execution_group(key, start, attrs, place.region if place else "",
+                        place.address if place else None).rows.append(row)
+
+    if not (flt and flt.active):
+        for name, address in result.scatter_addresses.items():
+            if _is_limit_region(result, name):
+                continue
+            memory = region_at(result.regions, address) if address is not None else None
+            if memory is None:
+                execution_group(UNKNOWN_CHIP_REGION, None, "", name, address)
+            else:
+                execution_group(memory.name, memory.start, _attributes(result, memory.name)[1],
+                                name, address)
+        if result.scatter_read:
+            for need in result.needs:
+                if need.region not in result.scatter_addresses:
+                    execution_group(MISSING_GROUP, None, "", need.region, None)
 
     def order(group: RegionGroup):
+        if group.name == MISSING_GROUP:
+            return (3, 0, group.name)
         if group.name == UNPLACED_GROUP:
             return (2, 0, group.name)
         if group.start is None:
@@ -190,5 +248,8 @@ def to_markdown(result: CheckResult, mode: str = BY_REGION, flt: Optional[Layout
                 if execution.name:
                     address = f" @ {execution.address:#x}" if execution.address is not None else ""
                     lines += [f"### {execution.name}{address}", ""]
-                lines += table(execution.rows)
+                    if execution.note:
+                        lines += [f"- {execution.note}", ""]
+                if execution.rows:
+                    lines += table(execution.rows)
     return "\n".join(lines)

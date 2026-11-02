@@ -2,7 +2,9 @@
 table, and the check against an ADS scatter file."""
 import hashlib
 
-from autosar_configurator.core.memmap import check, symbols
+from autosar_configurator.core.hardware.memory_regions import MemoryRegionDef
+from autosar_configurator.core.memmap import check, layout, symbols
+from autosar_configurator.core.memmap.layout import LayoutFilter
 from autosar_configurator.core.memmap.symbols import (
     ADS,
     BASE,
@@ -62,10 +64,13 @@ LR 0x0 0x100000
     UNDEFINE_RAM_BSS_LIMIT +0 EMPTY 0x0 {}
     CORE0_USER_STACK 0x30129000 EMPTY 0x1000 {}
     CORE0_FIQ_STACK +0 EMPTY 0x1000 {}
+    CORE0_FIQ_STACK_LIMIT +0 EMPTY 0x0 {}
     CORE0_HYP_STACK +0 EMPTY 0x1000 {}
     NOBODY_USES_ME 0x20000000 0x100 { *(.x) }
 }
 """
+# CORE0_FIQ_STACK_LIMIT is there because startup.c asks for the FIQ stack's cleared limit
+# (STARTUP_GETIMAGEBSSLIMITADDR); the vendor script declares it the same way.
 
 
 def _by(needs):
@@ -77,8 +82,9 @@ def _by(needs):
 def test_startup_macros_and_uses():
     refs = scan_needs(STARTUP_C, "startup.c")
     needs = _by(merge(refs))
-    assert needs["UNDEFINE_RAM_DATA"].uses == [BASE, LIMIT, LOAD, COPY]
-    assert needs["UNDEFINE_RAM_BSS"].uses == [BASE, CLEAR]
+    # uses come in the fixed order of symbols.USES: copy, clear, base, limit, load, stack
+    assert needs["UNDEFINE_RAM_DATA"].uses == [COPY, BASE, LIMIT, LOAD]
+    assert needs["UNDEFINE_RAM_BSS"].uses == [CLEAR, BASE]
     assert needs["CORE0_USER_STACK"].uses == [BASE, STACK]
     assert needs["CORE0_FIQ_STACK"].uses == [CLEAR]
     assert needs["CORE0_HYP_STACK"].uses == [STACK]
@@ -185,16 +191,23 @@ def _symbol_findings(result):
 def test_missing_region_and_missing_limit_region(tmp_path):
     src, linker = _workspace(tmp_path)
     result = check.run_check([src], [], linker, base=tmp_path)
+    # ordered by file, then line: the OS file comes before startup.c
     assert _symbol_findings(result) == [
-        ("链接文件缺少执行区域 LMU2_CACHED_DATA", "src/startup.c", 8, True),
+        ("链接文件缺少执行区域 OS_DATA_CORE0", "src/Os_link_Lcfg.c", 1, False),
         ("链接文件缺少执行区域 OS_BSS_CORE0", "src/Os_link_Lcfg.c", 5, False),
-        ("链接文件缺少执行区域 OS_DATA_CORE0", "src/Os_link_Lcfg.c", 1, False)] or \
-        sorted(_symbol_findings(result)) == sorted([
-            ("链接文件缺少执行区域 LMU2_CACHED_DATA", "src/startup.c", 8, True),
-            ("链接文件缺少执行区域 OS_BSS_CORE0", "src/Os_link_Lcfg.c", 5, False),
-            ("链接文件缺少执行区域 OS_DATA_CORE0", "src/Os_link_Lcfg.c", 1, False)])
+        ("链接文件缺少执行区域 LMU2_CACHED_DATA", "src/startup.c", 8, True)]
     note = result.by_category(check.SYMBOL)[0].note
-    assert "用途：" in note and "引用于" in note
+    assert "用途：基址、界限、加载地址" in note and "引用于 src/Os_link_Lcfg.c:1" in note
+
+
+def test_cleared_limit_of_a_stack_region_needs_a_limit_region(tmp_path):
+    """startup.c asks for the FIQ stack's cleared limit, so the stack is not asked only
+    for its top and ADS needs CORE0_FIQ_STACK_LIMIT."""
+    scat = SCAT.replace("    CORE0_FIQ_STACK_LIMIT +0 EMPTY 0x0 {}\n", "")
+    src, linker = _workspace(tmp_path, scat=scat)
+    result = check.run_check([src], [], linker, base=tmp_path)
+    assert "链接文件缺少界限区域 CORE0_FIQ_STACK_LIMIT" in [
+        f.text for f in result.by_category(check.SYMBOL)]
 
 
 def test_limit_region_missing(tmp_path):
@@ -276,3 +289,72 @@ def test_symbol_check_is_read_only(tmp_path):
     before = {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in files}
     check.run_check([src], [], linker, base=tmp_path)
     assert {p: hashlib.sha256(p.read_bytes()).hexdigest() for p in files} == before
+
+
+# --- layout view -----------------------------------------------------------------
+
+REGIONS = [
+    MemoryRegionDef("GMU_NORMAL", 0x10000000, 0x40000, "ram", None, True),
+    MemoryRegionDef("CPU0BTCM", 0x30100000, 0x30000, "ram", 0, False),
+]
+
+
+def _groups(tmp_path, **kwargs):
+    src, linker = _workspace(tmp_path, **kwargs)
+    result = check.run_check([src], [], linker, REGIONS, base=tmp_path)
+    return result, layout.by_region(result)
+
+
+def _execution(groups, name):
+    return next(e for g in groups for e in g.executions if e.name == name)
+
+
+def test_execution_region_shows_who_refers_to_it(tmp_path):
+    _, groups = _groups(tmp_path)
+    data = _execution(groups, "UNDEFINE_RAM_DATA")
+    assert data.need is not None
+    assert data.note == "被引用：复制、基址、界限、加载地址（src/startup.c:5）"
+    assert [g.name for g in groups if data in g.executions] == ["GMU_NORMAL"]
+
+
+def test_regions_without_sections_are_listed_and_limit_markers_are_not(tmp_path):
+    result, groups = _groups(tmp_path)
+    names = {e.name for g in groups for e in g.executions}
+    assert {"UNDEFINE_RAM_DATA", "CORE0_USER_STACK", "CORE0_HYP_STACK", "NOBODY_USES_ME"} <= names
+    assert not any(n.endswith("_LIMIT") for n in names)
+
+
+def test_unreferenced_region_is_marked_not_reported(tmp_path):
+    result, groups = _groups(tmp_path)
+    region = _execution(groups, "NOBODY_USES_ME")
+    assert region.unreferenced and region.note == layout.UNREFERENCED
+    assert not any("NOBODY_USES_ME" in f.text for f in result.findings)
+
+
+def test_missing_regions_form_their_own_group_last(tmp_path):
+    _, groups = _groups(tmp_path)
+    assert groups[-1].name == layout.MISSING_GROUP
+    assert [e.name for e in groups[-1].executions] == ["LMU2_CACHED_DATA", "OS_BSS_CORE0", "OS_DATA_CORE0"]
+    assert groups[-1].executions[0].note.startswith("被引用：复制、基址、界限、加载地址")
+
+
+def test_no_linker_file_means_no_missing_group(tmp_path):
+    src, _ = _workspace(tmp_path)
+    result = check.run_check([src], [], None, base=tmp_path)
+    assert result.needs
+    assert layout.MISSING_GROUP not in [g.name for g in layout.by_region(result)]
+
+
+def test_filter_leaves_out_regions_without_sections(tmp_path):
+    result, _ = _groups(tmp_path)
+    groups = layout.by_region(result, LayoutFilter(only_findings=True))
+    assert groups == []                         # no section rows, and a filter is about sections
+
+
+def test_markdown_carries_the_references(tmp_path):
+    result, _ = _groups(tmp_path)
+    text = layout.to_markdown(result)
+    assert "### UNDEFINE_RAM_DATA @ 0x10000000" in text
+    assert "- 被引用：复制、基址、界限、加载地址（src/startup.c:5）" in text
+    assert "- 无代码引用" in text
+    assert f"## {layout.MISSING_GROUP}（0）" in text and "### OS_DATA_CORE0" in text

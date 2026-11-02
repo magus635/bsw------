@@ -124,6 +124,7 @@ class CheckResult:
     regions_unconfirmed: bool = False
     needs: List[RegionNeed] = field(default_factory=list)  # regions the code refers to
     scatter_regions: List[str] = field(default_factory=list)    # execution regions of the linker file
+    scatter_addresses: Dict[str, Optional[int]] = field(default_factory=dict)   # their resolved bases
     scatter_read: bool = False                              # an ADS linker file was read
 
     def by_category(self, category: str) -> List[Finding]:
@@ -292,6 +293,7 @@ def run_check(source_dirs: Iterable[Path], header_dirs: Iterable[Path] = (),
         return _finish(result, progress, len(ordered))
     scatter = parse_scatter(text, result.linker_file)
     result.scatter_regions = [r.name for r in scatter.regions]
+    result.scatter_addresses = {r.name: r.address for r in scatter.regions}
     result.scatter_read = True
     _check_symbols(result, scatter)
     if not regions:
