@@ -26,6 +26,7 @@ from ..hardware.chip_dependency_scan import (
 from ..hardware.memory_regions import LOCAL, MemoryRegionDef, region_at
 from .headers import SectionMapping, parse_header
 from .scatter import ScatterFile, parse_scatter, placements
+from .symbols import LIMIT_REGION_SUFFIX, Reference, RegionNeed, merge, scan_needs
 from .usage import TEMPLATE_MARK, SectionUse, is_memmap_header, scan_source
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,8 @@ CORE = "core"
 CACHE = "cache"
 FLASH = "flash"
 WILDCARD = "wildcard"
-CATEGORIES = (UNMAPPED, USAGE, DUPLICATE, UNPLACED, MULTIPLE, CORE, CACHE, FLASH, WILDCARD)
+SYMBOL = "symbol"
+CATEGORIES = (UNMAPPED, USAGE, DUPLICATE, UNPLACED, MULTIPLE, CORE, CACHE, FLASH, WILDCARD, SYMBOL)
 CATEGORY_LABELS = {
     UNMAPPED: "用到但没有映射的段",
     USAGE: "段声明写法问题",
@@ -50,6 +52,7 @@ CATEGORY_LABELS = {
     CACHE: "不可缓存的段在可缓存内存",
     FLASH: "数据段放在 flash",
     WILDCARD: "未显式放置的段",
+    SYMBOL: "链接符号缺失",
 }
 NO_REGIONS_NOTE = "芯片没有内存区域数据（memory_regions），核心、缓存和 flash 类型检查已跳过"
 DATA_KINDS = ("DATA", "BSS")
@@ -119,6 +122,9 @@ class CheckResult:
     rows: List[SectionRow] = field(default_factory=list)   # one per mapped output section
     regions: List[MemoryRegionDef] = field(default_factory=list)
     regions_unconfirmed: bool = False
+    needs: List[RegionNeed] = field(default_factory=list)  # regions the code refers to
+    scatter_regions: List[str] = field(default_factory=list)    # execution regions of the linker file
+    scatter_read: bool = False                              # an ADS linker file was read
 
     def by_category(self, category: str) -> List[Finding]:
         return [f for f in self.findings if f.category == category]
@@ -202,6 +208,7 @@ def run_check(source_dirs: Iterable[Path], header_dirs: Iterable[Path] = (),
                      key=lambda p: display_path(p, base).lower())
 
     uses: List[SectionUse] = []
+    references: List[Reference] = []
     mappings: Dict[str, List[Dict[str, SectionMapping]]] = {}     # header file name -> maps
     for index, path in enumerate(ordered):
         shown = display_path(path, base)
@@ -231,8 +238,10 @@ def run_check(source_dirs: Iterable[Path], header_dirs: Iterable[Path] = (),
             continue
         found_uses, problems = scan_source(text, shown)
         uses.extend(found_uses)
+        references.extend(scan_needs(text, shown))
         result.findings.extend(Finding(USAGE, p.path, p.line, p.text, possible=p.conditional)
                                for p in problems)
+    result.needs = merge(references)
 
     # --- mapping ---------------------------------------------------------------
     everywhere: Dict[str, SectionMapping] = {}
@@ -282,12 +291,36 @@ def run_check(source_dirs: Iterable[Path], header_dirs: Iterable[Path] = (),
         result.notes.append(f"链接文件无法读取，放置检查已跳过：{result.linker_file}")
         return _finish(result, progress, len(ordered))
     scatter = parse_scatter(text, result.linker_file)
+    result.scatter_regions = [r.name for r in scatter.regions]
+    result.scatter_read = True
+    _check_symbols(result, scatter)
     if not regions:
         result.notes.append(NO_REGIONS_NOTE)
     elif regions_unconfirmed:
         result.notes.append("芯片的内存区域数据标记为待确认，核心、缓存和 flash 类型检查的结论需人工核对")
     _check_placement(result, scatter, outputs, regions or [])
     return _finish(result, progress, len(ordered))
+
+
+def _check_symbols(result: CheckResult, scatter: ScatterFile):
+    """Regions the code refers to that the scatter file does not provide, and regions
+    needed for a limit that have no ``<R>_LIMIT`` region."""
+    have = {r.name for r in scatter.regions}
+    for need in result.needs:
+        first = need.references[0]
+        uses = need.uses_text()
+        places = "、".join(f"{r.path}:{r.line}" for r in need.references[:MAX_USES_SHOWN])
+        if len(need.references) > MAX_USES_SHOWN:
+            places += f" 等 {len(need.references)} 处"
+        if need.region not in have:
+            result.findings.append(Finding(
+                SYMBOL, first.path, first.line, f"链接文件缺少执行区域 {need.region}",
+                f"用途：{uses}；引用于 {places}", need.conditional))
+        elif need.needs_limit_region() and need.region + LIMIT_REGION_SUFFIX not in have:
+            result.findings.append(Finding(
+                SYMBOL, first.path, first.line,
+                f"链接文件缺少界限区域 {need.region}{LIMIT_REGION_SUFFIX}",
+                f"用途：{uses}；引用于 {places}", need.conditional))
 
 
 def _rows(outputs: Dict[str, Tuple[SectionMapping, List[SectionUse]]],
