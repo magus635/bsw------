@@ -56,6 +56,30 @@ CATEGORY_LABELS = {
 }
 NO_REGIONS_NOTE = "芯片没有内存区域数据（memory_regions），核心、缓存和 flash 类型检查已跳过"
 DATA_KINDS = ("DATA", "BSS")
+
+ERROR = "error"
+WARNING = "warning"
+INFO = "info"
+SEVERITIES = (ERROR, WARNING, INFO)
+SEVERITY_RANK = {ERROR: 0, WARNING: 1, INFO: 2}
+SEVERITY_LABELS = {ERROR: "错误", WARNING: "警告", INFO: "提示"}
+# One level per category (design.md of add-memory-map-workbench, D3).  The levels follow what
+# the finding means for the build: errors stop the compiler or the linker, or make the
+# program wrong at run time; warnings are probably misconfigurations; info is a static guess.
+SEVERITY = {
+    UNMAPPED: ERROR,        # MemMap.h #error at compile time
+    SYMBOL: ERROR,          # undefined symbol at link time
+    FLASH: ERROR,           # data in flash cannot be written
+    USAGE: ERROR,           # an unpaired START/STOP shifts every section after it
+    UNPLACED: WARNING,
+    MULTIPLE: WARNING,
+    CORE: WARNING,
+    CACHE: WARNING,
+    DUPLICATE: WARNING,
+    WILDCARD: INFO,
+}
+# These findings belong to no output section, so no section row can hold them.
+NO_SECTION_CATEGORIES = (UNMAPPED, USAGE, DUPLICATE, SYMBOL)
 STATIC_NOTE = ("静态检查：#if 分支一律当作会编译，其中的问题标为“可能”；"
                "通配选择器的归属按段的种类推断，与链接器的实际结果可能不同。")
 
@@ -76,6 +100,15 @@ class Finding:
     text: str
     note: str = ""
     possible: bool = False      # inside an #if branch: may not be compiled
+
+    @property
+    def severity(self) -> str:
+        """The category's level, one lower when the finding sits in an ``#if`` branch (info
+        stays info).  Derived, never stored, so it cannot disagree with the category."""
+        level = SEVERITY[self.category]
+        if self.possible and level != INFO:
+            return SEVERITIES[SEVERITIES.index(level) + 1]
+        return level
 
     def sort_key(self):
         return (CATEGORIES.index(self.category), self.path.lower(), self.line, self.text)
@@ -129,6 +162,19 @@ class CheckResult:
 
     def by_category(self, category: str) -> List[Finding]:
         return [f for f in self.findings if f.category == category]
+
+    def findings_without_section(self) -> List[Finding]:
+        """The findings no section row holds: a missing mapping has no output section, a
+        missing link symbol belongs to an execution region, a declaration problem to a file."""
+        attached = {id(f) for row in self.rows for f in row.findings}
+        return [f for f in self.findings if id(f) not in attached]
+
+    def severity_counts(self, findings: Optional[List[Finding]] = None) -> Dict[str, int]:
+        """Findings per severity (all findings of the result when none are given)."""
+        counts = {severity: 0 for severity in SEVERITIES}
+        for f in self.findings if findings is None else findings:
+            counts[f.severity] += 1
+        return counts
 
 
 def section_core(*names: str) -> Optional[int]:
@@ -480,7 +526,9 @@ def to_markdown(result: CheckResult, title: str = "内存映射检查清单",
              f"- 链接文件：{result.linker_file or '无'}",
              (f"- 扫描文件 {result.files_scanned} 个（其中 MemMap 头 {result.headers_read} 个），"
               f"跳过模板 {result.templates_skipped} 个，用到的段 {result.sections_used} 个")]
-    lines += [f"- {n}" for n in result.notes] + [""]
+    lines += [f"- {n}" for n in result.notes]
+    counts = result.severity_counts(findings)
+    lines += [f"- 发现：" + "，".join(f"{SEVERITY_LABELS[s]} {counts[s]}" for s in SEVERITIES), ""]
     for category in CATEGORIES:
         items = [f for f in findings if f.category == category]
         if not items:

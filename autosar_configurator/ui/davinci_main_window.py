@@ -334,13 +334,9 @@ class DaVinciMainWindow(QMainWindow):
         self.chip_scan_action.setStatusTip("列出依赖具体芯片的判断、默认分支、写死数值和资源覆盖，作为新增芯片的检查清单")
         self.chip_scan_action.triggered.connect(self._launch_chip_dependency_scan)
 
-        self.memmap_check_action = QAction("检查内存映射...", self)
-        self.memmap_check_action.setStatusTip("检查段声明、MemMap 头映射和链接文件放置是否一致，以及核心数据、不可缓存数据是否放对内存")
-        self.memmap_check_action.triggered.connect(self._launch_memory_map_check)
-
-        self.memory_layout_action = QAction("内存布局...", self)
-        self.memory_layout_action.setStatusTip("按物理区域或按模块查看各模块的段放在哪里，以及放置中的问题（只读）")
-        self.memory_layout_action.triggered.connect(self._launch_memory_layout)
+        self.memmap_action = QAction("内存映射...", self)
+        self.memmap_action.setStatusTip("扫描段声明、MemMap 头映射和链接文件：在“诊断”页签看问题，在“布局”页签按物理区域或模块看段放在哪里（只读）")
+        self.memmap_action.triggered.connect(self._launch_memory_map)
 
         # View actions
         self.toggle_search_action = QAction("Search...", self)
@@ -443,8 +439,7 @@ class DaVinciMainWindow(QMainWindow):
         tools_menu.addAction(self.chip_designer_action)
         tools_menu.addAction(self.chip_repair_action)
         tools_menu.addAction(self.chip_scan_action)
-        tools_menu.addAction(self.memmap_check_action)
-        tools_menu.addAction(self.memory_layout_action)
+        tools_menu.addAction(self.memmap_action)
         tools_menu.addAction(self.hardware_mapping_action)
 
         # Help menu
@@ -893,24 +888,16 @@ class DaVinciMainWindow(QMainWindow):
         dialog.settings_changed.connect(lambda: self.save_project_action.setEnabled(True))
         dialog.exec()
 
-    def _launch_memory_map_check(self):
-        """Open the memory map check (read-only)."""
+    def _launch_memory_map(self):
+        """Open the memory map workbench: the scan, its findings and the layout (read-only)."""
         if not self.current_project:
-            QMessageBox.information(self, "检查内存映射", "请先打开一个项目。")
+            QMessageBox.information(self, "内存映射", "请先打开一个项目。")
             return
-        from .dialogs.memory_map_check_dialog import MemoryMapCheckDialog
-        dialog = MemoryMapCheckDialog(self.current_project, parent=self)
+        from .dialogs.memory_map_workbench import MemoryMapWorkbench
+        dialog = MemoryMapWorkbench(self.current_project, parent=self)
         # the directories and the linker file are saved with the project
         dialog.settings_changed.connect(lambda: self.save_project_action.setEnabled(True))
         dialog.exec()
-
-    def _launch_memory_layout(self):
-        """Open the memory layout view (read-only; settings are those of the check)."""
-        if not self.current_project:
-            QMessageBox.information(self, "内存布局", "请先打开一个项目。")
-            return
-        from .dialogs.memory_layout_dialog import MemoryLayoutDialog
-        MemoryLayoutDialog(self.current_project, parent=self).exec()
 
     def _on_designer_chip_saved(self, chip_name: str):
         """Handle new chip saved from designer"""
