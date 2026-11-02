@@ -230,7 +230,7 @@ class EpcFileScanner:
 
         # Strategy 2: auto-detect from Config/*/output/
         config_dir = project_root / "Config"
-        if config_dir.exists():
+        if config_dir.is_dir():
             for chip_dir in sorted(config_dir.iterdir()):
                 output_dir = chip_dir / "output"
                 if output_dir.exists():
@@ -287,7 +287,7 @@ class EpcFileScanner:
         """Detect available chips from Config/ subdirectories"""
         chips = []
         config_dir = project_root / "Config"
-        if config_dir.exists():
+        if config_dir.is_dir():
             for chip_dir in sorted(config_dir.iterdir()):
                 if chip_dir.is_dir() and (chip_dir / "output").exists():
                     chips.append(chip_dir.name)

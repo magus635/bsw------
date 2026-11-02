@@ -147,6 +147,10 @@ class DiffAnalyzer:
             generated_root=str(self.gen_root),
         )
 
+        for label, root in (("reference", self.ref_root), ("generated", self.gen_root)):
+            if not root.is_dir():
+                raise FileNotFoundError(f"{label} directory not found: {root}")
+
         ref_files = self._collect_files(self.ref_root)
         gen_files = self._collect_files(self.gen_root)
 

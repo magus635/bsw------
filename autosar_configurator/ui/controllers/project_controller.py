@@ -298,8 +298,14 @@ class ProjectController:
 
         project_path = folder / f"{name}.dpa"
 
+        # The chosen path must be a folder (or not exist yet)
+        if folder.exists() and not folder.is_dir():
+            QMessageBox.warning(self.win, "Invalid Folder",
+                                f"The selected path is not a folder:\n{folder}")
+            return
+
         # Check if folder has existing content (warn user)
-        existing_items = list(folder.iterdir()) if folder.exists() else []
+        existing_items = list(folder.iterdir()) if folder.is_dir() else []
         visible_items = [f for f in existing_items if not f.name.startswith('.')]
 
         if visible_items:

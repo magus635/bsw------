@@ -161,6 +161,11 @@ def main():
     a = ap.parse_args()
     logging.basicConfig(level=logging.ERROR)
 
+    for option in ("project", "kernel", "reference_kernel", "sdk", "memmap", "vendor_dir"):
+        value = getattr(a, option)
+        if value and not Path(value).is_dir():
+            ap.error(f"--{option.replace('_', '-')} directory not found: {value}")
+
     work = Path(a.work)
     shutil.rmtree(work, ignore_errors=True)
     vendor = Path(a.vendor_dir).resolve() if a.vendor_dir else None

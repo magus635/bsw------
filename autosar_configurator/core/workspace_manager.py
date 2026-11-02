@@ -1249,10 +1249,10 @@ class WorkspaceManager:
 
         # Primary: Define/EbPlugins/eclipse/*/config/*.xdm (or Def/)
         eb_plugins_dir = project_root / "Define" / "EbPlugins" / "eclipse"
-        if not eb_plugins_dir.exists():
+        if not eb_plugins_dir.is_dir():
             eb_plugins_dir = project_root / "Def" / "plugins"
 
-        if eb_plugins_dir.exists():
+        if eb_plugins_dir.is_dir():
             for module_dir in sorted(eb_plugins_dir.iterdir()):
                 if not module_dir.is_dir():
                     continue
