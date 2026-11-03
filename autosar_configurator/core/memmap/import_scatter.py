@@ -299,6 +299,11 @@ def preview_import(config: MemoryMapConfig, text: str, path: str,
         if region.name.endswith(LIMIT_SUFFIX):
             preview.not_imported.append(NotImported(what, "界限区域由生成器自己产出，不导入", region.line))
             continue
+        if region.name in config.trimmed:
+            preview.not_imported.append(NotImported(
+                what, "为芯片缺少的核保留的区域，由生成器按保留选项自己产出，不导入", region.line))
+            _selectors_dropped(region, preview)
+            continue
         try:
             check_region_name(region.name)
         except ConfigError as error:
@@ -456,6 +461,7 @@ def apply_import(config: MemoryMapConfig, preview: ImportPreview) -> List[str]:
             skipped.append(f"加载区域 {load.name} 已存在，未覆盖")
             continue
         config.add_load_region(replace(load))
+    added = []
     for region in preview.regions:
         if config.region(region.name) is not None:
             skipped.append(f"区域 {region.name} 已存在，未覆盖")
@@ -464,6 +470,9 @@ def apply_import(config: MemoryMapConfig, preview: ImportPreview) -> List[str]:
         if copy.load_region and config.load_region(copy.load_region) is None:
             copy.load_region = ""
         config.add_region(copy)
+        added.append(region.name)
+    # a guessed kind stays marked in the configuration until the user sets the kind
+    config.mark_kind_unconfirmed(n for n in preview.unconfirmed if n in added)
     for section, region in preview.placements:
         if section in config.manual:
             skipped.append(f"段 {section} 已手动放在 {config.manual[section]}，未覆盖")

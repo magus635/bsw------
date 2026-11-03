@@ -458,3 +458,27 @@ def test_a_zero_length_empty_stack_is_imported_as_reserved():
     r = _region(p, "CORE2_USER_STACK")
     assert (r.kind, r.size) == ("reserved", None)
     assert any("CORE2_USER_STACK" in n for n in p.notes)
+
+
+# --- reserved regions and guessed kinds in the configuration ---------------------------------------
+
+def test_reserved_regions_of_missing_cores_are_not_imported():
+    """The generator writes them itself (reserve option); importing them would write them twice."""
+    config = MemoryMapConfig(trimmed=["PRIVATE_DATA_CORE2"])
+    p = _preview("""
+    A GMU_NORMAL_ADDRESS ALIGN 64 0x1000 { *(.a_data) }
+    PRIVATE_DATA_CORE2 AlignExpr(ImageLimit(A), 64) EMPTY 0x0 {}
+    """, config)
+    assert [r.name for r in p.regions] == ["A"]
+    assert any("PRIVATE_DATA_CORE2" in t and "保留选项" in t for t in _reasons(p))
+
+
+def test_guessed_kinds_stay_marked_in_the_configuration():
+    config = MemoryMapConfig()
+    p = _preview("""
+    R GMU_NORMAL_ADDRESS ALIGN 64 0x1000 { *(.weird) }
+    A AlignExpr(ImageLimit(R), 64) ALIGN 64 0x1000 { *(.a_data) }
+    """, config)
+    assert p.unconfirmed == ["R"]
+    apply_import(config, p)
+    assert config.kind_unconfirmed() == ["R"]

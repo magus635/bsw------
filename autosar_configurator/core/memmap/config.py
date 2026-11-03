@@ -46,6 +46,7 @@ AFTER, OFFSET, FIXED = "after", "offset", "fixed"
 START_MODES = (AFTER, OFFSET, FIXED)
 START_LABELS = {AFTER: "接在上一个区域之后", OFFSET: "窗口起点加偏移", FIXED: "固定地址"}
 DEFAULT_LIMIT_ALIGN = 64
+KIND_UNCONFIRMED_KEY = "kind_unconfirmed"    # options: regions whose kind is a guess (an import's)
 
 LIMIT_SUFFIX = "_LIMIT"
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -140,6 +141,46 @@ class MemoryMapConfig:
             raise ConfigError(f"没有加载区域 {load_region}")
         region.load_region = load_region
 
+    def set_limit_align(self, name: str, align: int) -> None:
+        """Alignment of the region's limit region: a power of two (``AlignExpr`` needs one)."""
+        region = self._existing(name)
+        if align <= 0 or align & (align - 1):
+            raise ConfigError(f"区域 {name} 的界限对齐必须是 2 的幂：{align}")
+        region.limit_align = align
+
+    def set_kind(self, name: str, kind: str) -> None:
+        """Change the kind of a region that is not required; clears its "kind to be confirmed"."""
+        region = self._existing(name)
+        if kind not in KINDS:
+            raise ConfigError(f"区域 {name} 的种类不对：{kind}（应为 {', '.join(KINDS)}）")
+        if region.required and kind != region.kind:
+            raise ConfigError(f"区域 {name} 是必需区域，种类由代码的用法决定，不能改")
+        region.kind = kind
+        self.confirm_kind(name)
+
+    # --- regions whose kind is a guess -----------------------------------------------
+
+    def kind_unconfirmed(self) -> List[str]:
+        return list(self.options.get(KIND_UNCONFIRMED_KEY, []))
+
+    def mark_kind_unconfirmed(self, names) -> None:
+        marked = sorted(set(self.kind_unconfirmed()) | set(names))
+        if marked:
+            self.options[KIND_UNCONFIRMED_KEY] = marked
+
+    def confirm_kind(self, name: str) -> None:
+        self._rename_unconfirmed(name, None)
+
+    def _rename_unconfirmed(self, old: str, new: Optional[str]) -> None:
+        marked = self.kind_unconfirmed()
+        if old not in marked:
+            return
+        marked = sorted({new if n == old else n for n in marked} - {None})
+        if marked:
+            self.options[KIND_UNCONFIRMED_KEY] = marked
+        else:
+            self.options.pop(KIND_UNCONFIRMED_KEY, None)
+
     # --- load regions ------------------------------------------------------------------
 
     def load_region(self, name: str) -> Optional[LoadRegion]:
@@ -166,6 +207,26 @@ class MemoryMapConfig:
         for region in self.regions:
             if region.load_region == old:
                 region.load_region = new
+
+    def change_load_region(self, name: str, window: str, size: int) -> None:
+        """Move load region ``name`` to ``window`` with upper bound ``size``."""
+        load = self.load_region(name)
+        if load is None:
+            raise ConfigError(f"没有加载区域 {name}")
+        if not window:
+            raise ConfigError(f"加载区域 {name} 没有选窗口")
+        if size <= 0:
+            raise ConfigError(f"加载区域 {name} 的大小必须为正数")
+        load.window, load.size = window, size
+
+    def move_load_region(self, name: str, position: int) -> None:
+        """Move load region ``name`` to ``position``; the order is the order in the linker file,
+        and the first one takes the regions that name none."""
+        load = self.load_region(name)
+        if load is None:
+            raise ConfigError(f"没有加载区域 {name}")
+        self.load_regions.remove(load)
+        self.load_regions.insert(max(0, min(position, len(self.load_regions))), load)
 
     def remove_load_region(self, name: str) -> None:
         """Remove a load region; its execution regions go back to the first one."""
@@ -196,6 +257,7 @@ class MemoryMapConfig:
         if region.required:
             raise ConfigError(f"区域 {name} 是必需区域（代码按名字引用它），不能删除")
         self.regions.remove(region)
+        self.confirm_kind(name)
 
     def rename_region(self, old: str, new: str) -> None:
         region = self._existing(old)
@@ -205,6 +267,7 @@ class MemoryMapConfig:
         if new != old and self.region(new) is not None:
             raise ConfigError(f"区域 {new} 已存在")
         region.name = new
+        self._rename_unconfirmed(old, new)
 
     def _existing(self, name: str) -> ExecRegion:
         region = self.region(name)

@@ -335,3 +335,24 @@ def test_round_trip_through_the_scatter_reader():
     assert scatter.region("DFLASH_DATA").load_region == "DFLASH_CODE"
     assert scatter.region("DFLASH_DATA_LIMIT").load_region == "DFLASH_CODE"
     assert scatter.region("CORE0_USER_STACK_LIMIT").follows == "CORE0_USER_STACK"
+
+
+def test_import_then_generate_gives_the_same_file():
+    """A generated file imported into an empty configuration of the same chip generates again
+    byte for byte: regions, starts, sizes, load regions and placements survive the import."""
+    from autosar_configurator.core.memmap.import_scatter import apply_import, preview_import
+
+    config = _stacks(_two_loads())
+    config.set_start("CORE0_USER_STACK", FIXED, address=0x30129000)
+    config.set_start("UNDEFINE_RAM_DATA", OFFSET, offset=0x20000)
+    config.set_size("CORE0_IRQ_STACK", 0x2000)
+    first = ads.generate(_plan(config, needs=[], chip=CHIP2))
+
+    fresh = MemoryMapConfig(chip=config.chip)
+    fresh.trimmed = list(config.trimmed)        # what preparing the configuration for the chip sets
+    preview = preview_import(fresh, first, "scatter.scat", CHIP2)
+    # only the generator's own regions are left out
+    assert all(n.what.endswith("_LIMIT") or n.what.endswith(tuple(config.trimmed))
+               for n in preview.not_imported)
+    assert apply_import(fresh, preview) == []
+    assert ads.generate(_plan(fresh, needs=[], chip=CHIP2)) == first

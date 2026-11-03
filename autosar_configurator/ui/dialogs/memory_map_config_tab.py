@@ -5,12 +5,20 @@ memories, their windows and the execution regions on them.  Sections are placed 
 them onto an execution region or with "+" / "−"; all three go through ``apply_placement``,
 which calls ``LayoutSession.place`` / ``unplace``.  The rules are edited in ``RuleEditorDialog``.
 
+update-linker-generator-authority adds, under the tree, the properties of the selected execution
+region (kind, start mode with offset or fixed address, size, load region, limit alignment); the
+load regions in ``LoadRegionDialog``; and "从链接文件导入…", which previews importing an ADS
+scatter file (``ImportPreviewDialog``) and adds it only when confirmed.  An imported file is a
+starting point: the configuration stays the source of the linker file.
+
 Everything works on the ``LayoutSession`` of the window: changes are kept in memory, the
 statuses follow at once, and "保存配置" writes ``memorymap.json``.  The diagnostics and layout
 tabs describe the linker file on disk and do not follow the configuration until a linker file
 is generated; the tab says so.
 """
 import logging
+from dataclasses import replace
+from pathlib import Path
 from typing import Dict, List, Optional
 
 from PySide6.QtCore import QItemSelection, QItemSelectionModel, QMimeData, Qt, Signal
@@ -20,6 +28,8 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDialog,
+    QDialogButtonBox,
+    QFileDialog,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -29,6 +39,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QMessageBox,
+    QPlainTextEdit,
     QPushButton,
     QSplitter,
     QTableWidget,
@@ -43,16 +54,28 @@ from ...core.hardware.memory_regions import group_memories
 from ...core.memmap import rules as rl
 from ...core.memmap.check import CheckResult, SectionRow
 from ...core.memmap.config import (
+    DEFAULT_LIMIT_ALIGN,
+    FIXED,
     KIND_LABELS,
+    KIND_UNCONFIRMED_KEY,
     KINDS,
+    OFFSET,
     STACK,
+    START_LABELS,
+    START_MODES,
     USER,
     ConfigError,
     ExecRegion,
+    LoadRegion,
+    MemoryMapConfig,
     Rule,
+    region_doubts,
 )
 from ...core.memmap.factory import load_factory
+from ...core.memmap.import_scatter import ImportPreview, apply_import, preview_import
+from ...core.memmap.plan import LOAD_REGION_NAME
 from ...core.memmap.regions import NO_LONGER_NEEDED
+from .memory_region_editor import parse_hex
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +91,53 @@ STATUS_COLORS = {rl.MANUAL: QColor("#1f5fbf"), rl.NOT_PLACED: QColor("#a65e00"),
                  rl.AGAIN: QColor("#b00020")}
 ERROR_COLOR = "#b00020"
 REGION, WINDOW = "region", "window"
+UNCONFIRMED_MARK = "种类待确认"
+NO_LOADS_NOTE = ("没有配置加载区域：生成时只有一个 ROM_CODE，放在第一个 flash 窗口上。"
+                 "新增第一个加载区域之后，以这里的列表为准，第一个加载区域接收没有指定加载区域的执行区域。")
+NO_CHIP_WINDOWS = "还不知道芯片的存储窗口（先在上方开始扫描）"
+
+
+def start_text(region: ExecRegion) -> str:
+    """How a region starts, short, for the tree."""
+    if region.start_mode == OFFSET:
+        return f"窗口+{region.offset:#x}"
+    if region.start_mode == FIXED and region.address is not None:
+        return f"{region.address:#010x}"
+    return "接上一个"
+
+
+def import_preview_lines(preview: ImportPreview) -> List[str]:
+    """What an import would do, as the lines of the preview."""
+    lines = [f"文件：{preview.path}", ""]
+
+    def part(title: str, items: List[str]):
+        lines.append(f"{title}（{len(items)}）")
+        lines.extend(f"  {item}" for item in items)
+        lines.append("")
+
+    part("新增加载区域", [f"{l.name}：窗口 {l.window}，大小 {l.size:#x}" for l in preview.load_regions])
+    if preview.skipped_load_regions:
+        part("配置里已有、不覆盖的加载区域", preview.skipped_load_regions)
+    part("新增执行区域", [
+        f"{r.name}：窗口 {r.window}，{KIND_LABELS.get(r.kind, r.kind)}，{START_LABELS[r.start_mode]}"
+        + (f" {r.offset:#x}" if r.start_mode == OFFSET else "")
+        + (f" {r.address:#x}" if r.start_mode == FIXED and r.address is not None else "")
+        + (f"，大小 {r.size:#x}" if r.size is not None else "")
+        + (f"，加载区域 {r.load_region}" if r.load_region else "")
+        + (f"（{UNCONFIRMED_MARK}）" if r.name in preview.unconfirmed else "")
+        for r in preview.regions])
+    if preview.skipped_regions:
+        part("配置里已有、不覆盖的执行区域", preview.skipped_regions)
+    part("新增手动放置", [f"{section} → {region}" for section, region in preview.placements])
+    if preview.skipped_placements:
+        part("不覆盖的放置", [f"{s.section}：文件放在 {s.region}，已放在 {s.existing}"
+                          for s in preview.skipped_placements])
+    if preview.not_imported:
+        part("不能导入", [n.text() for n in preview.not_imported])
+    if preview.notes:
+        part("近似导入，请核对", preview.notes)
+    lines.append("导入不改规则；导入的区域和放置之后都可以在这里继续修改，生成时以配置为准。")
+    return lines
 
 
 def window_attributes(window) -> str:
@@ -141,8 +211,8 @@ class RegionTree(QTreeWidget):
     def __init__(self, tab: "ConfigTab"):
         super().__init__()
         self.tab = tab
-        self.setHeaderLabels(["存储 / 窗口 / 执行区域", "种类", "标记", "段数"])
-        for column, width in enumerate((300, 90, 160, 50)):
+        self.setHeaderLabels(["存储 / 窗口 / 执行区域", "种类", "标记", "段数", "起点", "大小", "加载区域"])
+        for column, width in enumerate((300, 90, 160, 50, 110, 80, 100)):
             self.setColumnWidth(column, width)
         self.setAcceptDrops(True)
         self.viewport().setAcceptDrops(True)
@@ -190,6 +260,7 @@ class ConfigTab(QWidget):
         self.session = None
         self.result: Optional[CheckResult] = None
         self.rule_editor: Optional["RuleEditorDialog"] = None
+        self.load_dialog: Optional["LoadRegionDialog"] = None
         self._placements: Dict[str, rl.Placement] = {}
         self._build()
 
@@ -270,6 +341,7 @@ class ConfigTab(QWidget):
             region_row.addWidget(button)
         region_row.addStretch()
         right_layout.addLayout(region_row)
+        right_layout.addWidget(self._build_properties())
         splitter.addWidget(right)
         splitter.setStretchFactor(0, 3)
         splitter.setStretchFactor(2, 2)
@@ -287,6 +359,13 @@ class ConfigTab(QWidget):
         self.rules_button = QPushButton("规则…")
         self.rules_button.clicked.connect(self.open_rule_editor)
         row.addWidget(self.rules_button)
+        self.loads_button = QPushButton("加载区域…")
+        self.loads_button.clicked.connect(self.open_load_regions)
+        row.addWidget(self.loads_button)
+        self.import_button = QPushButton("从链接文件导入…")
+        self.import_button.setToolTip("从一个已有的 ADS 链接文件（.scat）导入区域与放置，作为配置的起点（可选）")
+        self.import_button.clicked.connect(self._import_clicked)
+        row.addWidget(self.import_button)
         row.addStretch()
         self.dirty_label = QLabel("")
         self.dirty_label.setStyleSheet("color: #a65e00;")
@@ -296,6 +375,43 @@ class ConfigTab(QWidget):
         row.addWidget(self.save_button)
         outer.addLayout(row)
         self._update_buttons()
+
+    def _build_properties(self) -> QGroupBox:
+        """The properties of the selected execution region: kind, start, size, load region and
+        limit alignment, applied together with "应用"."""
+        self.props = QGroupBox("执行区域属性")
+        form = QFormLayout(self.props)
+        self.prop_name = QLabel("")
+        self.prop_kind = QComboBox()
+        for kind in KINDS:
+            self.prop_kind.addItem(f"{KIND_LABELS[kind]}（{kind}）", kind)
+        self.prop_start = QComboBox()
+        for mode in START_MODES:
+            self.prop_start.addItem(START_LABELS[mode], mode)
+        self.prop_start.currentIndexChanged.connect(self._start_mode_changed)
+        self.prop_offset = QLineEdit()
+        self.prop_offset.setPlaceholderText("十六进制，如 20000")
+        self.prop_address = QLineEdit()
+        self.prop_address.setPlaceholderText("十六进制，如 30129000")
+        self.prop_size = QLineEdit()
+        self.prop_size.setPlaceholderText("十六进制；留空：窗口大小（栈 0x1000，保留区域 0）")
+        self.prop_load = QComboBox()
+        self.prop_limit = QLineEdit()
+        self.prop_limit.setPlaceholderText(f"2 的幂，缺省 {DEFAULT_LIMIT_ALIGN}")
+        self.prop_apply = QPushButton("应用")
+        self.prop_apply.clicked.connect(self._apply_properties_clicked)
+        form.addRow("区域：", self.prop_name)
+        form.addRow("种类：", self.prop_kind)
+        form.addRow("起点：", self.prop_start)
+        form.addRow("偏移：", self.prop_offset)
+        form.addRow("固定地址：", self.prop_address)
+        form.addRow("大小：", self.prop_size)
+        form.addRow("加载区域：", self.prop_load)
+        form.addRow("界限对齐：", self.prop_limit)
+        form.addRow("", self.prop_apply)
+        self.tree.currentItemChanged.connect(self._load_properties)
+        self._load_properties()
+        return self.props
 
     def _reset_filters(self):
         for combo in (self.module_combo, self.core_combo):
@@ -352,6 +468,7 @@ class ConfigTab(QWidget):
         self._fill_notes()
         self._fill_table()
         self._fill_tree()
+        self._load_properties()
         self._update_buttons()
 
     def _fill_notes(self):
@@ -370,6 +487,9 @@ class ConfigTab(QWidget):
             again = _again(self.session.config)
             if again:
                 notes.append("这些区域所在的窗口与当前芯片对不上，请重新选择窗口：" + "、".join(again))
+            unconfirmed = self.session.config.kind_unconfirmed()
+            if unconfirmed:
+                notes.append("这些区域的种类是导入时猜的，请选中后在属性里确认：" + "、".join(unconfirmed))
         if self.result is None:
             notes.append(NO_RESULT_NOTE)
         self.notes_label.setText("\n".join(notes))
@@ -436,14 +556,18 @@ class ConfigTab(QWidget):
             marks.append("自定义")
         if region.name in again:
             marks.append("待重新放置")
+        if region.name in self.session.config.kind_unconfirmed():
+            marks.append(UNCONFIRMED_MARK)
         if orphan_reason:
             marks.append(orphan_reason)
         item = QTreeWidgetItem([region.name, KIND_LABELS.get(region.kind, region.kind), "，".join(marks),
-                                str(counts.get(region.name, 0))])
+                                str(counts.get(region.name, 0)), start_text(region),
+                                "" if region.size is None else f"{region.size:#x}", region.load_region])
         item.setData(0, Qt.UserRole, (REGION, region.name))
         item.setToolTip(0, f"{region.name}：{KIND_LABELS.get(region.kind, region.kind)}，"
-                           f"窗口 {region.window or '（未选）'}，对齐 {region.align}")
-        if region.name in again or orphan_reason:
+                           f"窗口 {region.window or '（未选）'}，对齐 {region.align}，"
+                           f"{START_LABELS.get(region.start_mode, region.start_mode)}，界限对齐 {region.limit_align}")
+        if region.name in again or orphan_reason or UNCONFIRMED_MARK in marks:
             item.setForeground(2, QColor(ERROR_COLOR))
         return item
 
@@ -494,7 +618,8 @@ class ConfigTab(QWidget):
     def _update_buttons(self):
         has = self.session is not None
         for button in (self.place_button, self.unplace_button, self.window_button, self.add_region_button,
-                       self.rename_region_button, self.remove_region_button, self.rules_button, self.save_button):
+                       self.rename_region_button, self.remove_region_button, self.rules_button, self.save_button,
+                       self.loads_button, self.import_button):
             button.setEnabled(has)
         self.dirty_label.setText("有未保存的改动" if has and self.session.dirty else "")
 
@@ -734,6 +859,173 @@ class ConfigTab(QWidget):
             self.show_messages("请先在右边选择一个执行区域")
             return
         self.remove_region(region)
+
+    # --- region properties (update-linker-generator-authority 5.1) ----------------------------------
+
+    def _load_properties(self, *_):
+        """Fill the property form from the selected region (disabled without one)."""
+        config = self.session.config if self.session is not None else None
+        name = self.selected_region()
+        region = config.region(name) if config is not None and name else None
+        self.prop_load.clear()
+        if config is not None:
+            first = (f"（第一个：{config.load_regions[0].name}）" if config.load_regions
+                     else f"（缺省：{LOAD_REGION_NAME}）")
+            self.prop_load.addItem(first, "")
+            for load in config.load_regions:
+                self.prop_load.addItem(load.name, load.name)
+        self.props.setEnabled(region is not None)
+        if region is None:
+            self.prop_name.setText("（在上面的树里选择一个执行区域）")
+            for edit in (self.prop_offset, self.prop_address, self.prop_size, self.prop_limit):
+                edit.clear()
+            return
+        unconfirmed = region.name in config.kind_unconfirmed()
+        self.prop_name.setText(region.name + (f"（{UNCONFIRMED_MARK}：应用即确认）" if unconfirmed else ""))
+        self.prop_kind.setCurrentIndex(max(self.prop_kind.findData(region.kind), 0))
+        self.prop_kind.setEnabled(not region.required)
+        self.prop_kind.setToolTip("必需区域的种类由代码的用法决定，不能改" if region.required else "")
+        self.prop_start.setCurrentIndex(max(self.prop_start.findData(region.start_mode), 0))
+        self.prop_offset.setText(f"{region.offset:#x}" if region.start_mode == OFFSET else "")
+        self.prop_address.setText(f"{region.address:#x}" if region.address is not None else "")
+        self.prop_size.setText("" if region.size is None else f"{region.size:#x}")
+        if region.load_region and self.prop_load.findData(region.load_region) < 0:
+            self.prop_load.addItem(f"{region.load_region}（不存在）", region.load_region)
+        self.prop_load.setCurrentIndex(max(self.prop_load.findData(region.load_region), 0))
+        self.prop_limit.setText(str(region.limit_align))
+        self._start_mode_changed()
+
+    def _start_mode_changed(self, *_):
+        mode = self.prop_start.currentData()
+        self.prop_offset.setEnabled(mode == OFFSET)
+        self.prop_address.setEnabled(mode == FIXED)
+
+    def update_region(self, name: str, kind: str, start_mode: str, offset: int = 0,
+                      address: Optional[int] = None, size: Optional[int] = None, load_region: str = "",
+                      limit_align: int = DEFAULT_LIMIT_ALIGN) -> str:
+        """Set every property of region ``name`` at once: all or nothing.  Applying confirms a
+        guessed kind.  Returns the error, or ''; doubts (an address outside the window...) are
+        shown but do not stop anything."""
+        if self.session is None:
+            return self._error("没有打开内存布局配置")
+        config = self.session.config
+        region = config.region(name)
+        if region is None:
+            return self._error(f"没有区域 {name}")
+        before, marked = replace(region), config.kind_unconfirmed()
+        try:
+            if kind != region.kind or name in marked:
+                config.set_kind(name, kind)
+            config.set_start(name, start_mode, offset=offset, address=address)
+            config.set_size(name, size)
+            config.set_load_region(name, load_region)
+            config.set_limit_align(name, limit_align)
+        except ConfigError as e:
+            for key, value in vars(before).items():
+                setattr(region, key, value)
+            if marked:
+                config.options[KIND_UNCONFIRMED_KEY] = marked
+            return self._error(str(e))
+        if replace(region) == before and config.kind_unconfirmed() == marked:
+            self.show_messages(f"区域 {name} 没有改动", error=False)
+            return ""
+        self._done()
+        self.select_region(name)
+        doubts = [d for d in region_doubts(config, self.result.regions if self.result else [])
+                  if d.startswith(f"区域 {name} ")]
+        if doubts:
+            self.show_messages(f"区域 {name} 已更新，但请核对（生成前也会列出）：", doubts)
+        else:
+            self.show_messages(f"区域 {name} 已更新", error=False)
+        return ""
+
+    def apply_properties(self) -> str:
+        """Read the form and apply it to the selected region.  Returns the error, or ''."""
+        name = self.selected_region()
+        if not name:
+            return self._error("请先在右边选择一个执行区域")
+        mode = self.prop_start.currentData()
+        try:
+            offset = parse_hex(self.prop_offset.text(), "偏移") if mode == OFFSET else 0
+            address = parse_hex(self.prop_address.text(), "固定地址") if mode == FIXED else None
+            size = parse_hex(self.prop_size.text(), "大小") if self.prop_size.text().strip() else None
+            limit_text = self.prop_limit.text().strip()
+            try:
+                limit = int(limit_text, 0) if limit_text else DEFAULT_LIMIT_ALIGN
+            except ValueError:
+                raise ValueError(f"界限对齐不是数字：{limit_text}")
+        except ValueError as e:
+            return self._error(str(e))
+        return self.update_region(name, self.prop_kind.currentData(), mode, offset, address, size,
+                                  self.prop_load.currentData() or "", limit)
+
+    def _apply_properties_clicked(self):
+        self.apply_properties()
+
+    # --- load regions (5.2) ----------------------------------------------------------------------------
+
+    def chip_windows(self) -> list:
+        return list(self.result.regions) if self.result is not None else []
+
+    def open_load_regions(self) -> Optional["LoadRegionDialog"]:
+        if self.session is None:
+            return None
+        if self.load_dialog is not None:
+            self.load_dialog.close()
+        self.load_dialog = LoadRegionDialog(self.session, self.chip_windows(), self)
+        self.load_dialog.load_regions_changed.connect(self._load_regions_changed)
+        self.load_dialog.show()
+        return self.load_dialog
+
+    def _load_regions_changed(self):
+        self.refresh()
+        self.config_changed.emit()
+
+    # --- importing a linker file (5.3) -----------------------------------------------------------------
+
+    def _import_clicked(self):
+        path, _ = QFileDialog.getOpenFileName(self, "从链接文件导入", "",
+                                              "ADS 链接文件 (*.scat *.sct);;所有文件 (*)")
+        if path:
+            self.import_file(path)
+
+    def confirm_import(self, preview: ImportPreview) -> bool:
+        """Show the preview; True when the user confirms.  Tests replace this."""
+        return ImportPreviewDialog(preview, self).exec() == QDialog.Accepted
+
+    def import_file(self, path: str) -> Optional[ImportPreview]:
+        """Preview importing the ADS scatter file at ``path``; on confirmation add what the
+        preview lists.  Returns the preview (None when the file could not be read)."""
+        if self.session is None:
+            self._error("没有打开内存布局配置")
+            return None
+        if not self.chip_windows():
+            self._error("还不知道芯片的存储窗口：先在上方开始扫描，导入要按地址找窗口")
+            return None
+        try:
+            text = Path(path).read_text(encoding="utf-8", errors="replace")
+        except OSError as e:
+            self._error(f"无法读取 {path}：{e}")
+            return None
+        preview = preview_import(self.session.config, text, Path(path).name, self.chip_windows())
+        if preview.empty:
+            self.show_messages(f"{Path(path).name} 里没有可导入的区域或放置",
+                               [n.text() for n in preview.not_imported] + preview.skipped_regions)
+            return preview
+        if not self.confirm_import(preview):
+            self.show_messages("已取消导入，配置没有改动", error=False)
+            return preview
+        skipped = apply_import(self.session.config, preview)
+        self._done()
+        summary = (f"已从 {Path(path).name} 导入：加载区域 {len(preview.load_regions)} 个，"
+                   f"执行区域 {len(preview.regions)} 个，手动放置 {len(preview.placements)} 个")
+        lines = list(skipped)
+        if preview.unconfirmed:
+            lines.append("这些区域的种类是猜的，请在属性里确认：" + "、".join(preview.unconfirmed))
+        if preview.not_imported:
+            lines.append(f"不能导入的 {len(preview.not_imported)} 项见导入预览")
+        self.show_messages(summary, lines, error=False)
+        return preview
 
     # --- rules and saving --------------------------------------------------------------------------
 
@@ -1094,3 +1386,232 @@ class RuleEditorDialog(QDialog):
         self.config.options[rl.FACTORY_VERSION_KEY] = self.factory.version
         self._changed("已恢复出厂规则；手动放置没有变化")
         return True
+
+
+# --- load regions -------------------------------------------------------------------------------
+
+class LoadRegionDialog(QDialog):
+    """The configuration's load regions in their order (update-linker-generator-authority 5.2).
+
+    The order is the order in the linker file; the first load region takes the execution regions
+    that name none.  With no load region the generator writes one ``ROM_CODE`` on the first flash
+    window, as before.
+    """
+
+    load_regions_changed = Signal()
+
+    def __init__(self, session, chip_windows, parent=None):
+        super().__init__(parent)
+        self.session = session
+        self.windows = list(chip_windows)
+        self.setWindowTitle("加载区域")
+        self.resize(720, 420)
+        outer = QVBoxLayout(self)
+        hint = QLabel(NO_LOADS_NOTE)
+        hint.setWordWrap(True)
+        outer.addWidget(hint)
+
+        self.tree = QTreeWidget()
+        self.tree.setHeaderLabels(["#", "名称", "窗口", "起始", "大小上限", "执行区域"])
+        self.tree.setRootIsDecorated(False)
+        for column, width in enumerate((36, 160, 160, 100, 100, 70)):
+            self.tree.setColumnWidth(column, width)
+        self.tree.currentItemChanged.connect(self._selection_changed)
+        outer.addWidget(self.tree, 1)
+
+        form = QFormLayout()
+        self.name_edit = QLineEdit()
+        self.window_combo = QComboBox()
+        for window in sorted(self.windows, key=lambda w: (w.type != "flash", w.start, w.name)):
+            self.window_combo.addItem(f"{window.name}（{window.type}，{window.start:#010x}，{window.size:#x}）",
+                                      window.name)
+        if not self.windows:
+            self.window_combo.addItem(NO_CHIP_WINDOWS, "")
+        self.size_edit = QLineEdit()
+        self.size_edit.setPlaceholderText("十六进制；留空：窗口大小")
+        form.addRow("名称：", self.name_edit)
+        form.addRow("窗口：", self.window_combo)
+        form.addRow("大小上限：", self.size_edit)
+        outer.addLayout(form)
+
+        row = QHBoxLayout()
+        buttons = (("新增", self.add_from_fields), ("应用修改", self.apply_edit),
+                   ("上移", lambda: self.move_selected(-1)), ("下移", lambda: self.move_selected(1)),
+                   ("删除", self.remove_selected))
+        self.buttons = {}
+        for text, slot in buttons:
+            button = QPushButton(text)
+            button.clicked.connect(slot)
+            row.addWidget(button)
+            self.buttons[text] = button
+        row.addStretch()
+        close = QPushButton("关闭")
+        close.clicked.connect(self.close)
+        row.addWidget(close)
+        outer.addLayout(row)
+        self.message = QLabel("")
+        self.message.setWordWrap(True)
+        outer.addWidget(self.message)
+        self.refill()
+
+    @property
+    def config(self) -> MemoryMapConfig:
+        return self.session.config
+
+    def chip_window(self, name: str):
+        """The chip window ``name`` (not ``window``: that would hide ``QWidget.window``)."""
+        return next((w for w in self.windows if w.name == name), None)
+
+    def names(self) -> List[str]:
+        return [l.name for l in self.config.load_regions]
+
+    def refill(self, select: Optional[str] = None):
+        select = select or self.selected()
+        self.tree.clear()
+        counts: Dict[str, int] = {}
+        first = self.config.load_regions[0].name if self.config.load_regions else ""
+        for region in self.config.regions:
+            key = region.load_region or first
+            counts[key] = counts.get(key, 0) + 1
+        for index, load in enumerate(self.config.load_regions):
+            window = self.chip_window(load.window)
+            item = QTreeWidgetItem([str(index + 1), load.name,
+                                    load.window + ("" if window or not self.windows else "（不在芯片上）"),
+                                    f"{window.start:#010x}" if window else "", f"{load.size:#x}",
+                                    str(counts.get(load.name, 0))])
+            item.setData(0, Qt.UserRole, load.name)
+            self.tree.addTopLevelItem(item)
+            if load.name == select:
+                self.tree.setCurrentItem(item)
+
+    def selected(self) -> Optional[str]:
+        item = self.tree.currentItem()
+        return item.data(0, Qt.UserRole) if item is not None else None
+
+    def select(self, name: str) -> bool:
+        for index in range(self.tree.topLevelItemCount()):
+            item = self.tree.topLevelItem(index)
+            if item.data(0, Qt.UserRole) == name:
+                self.tree.setCurrentItem(item)
+                return True
+        return False
+
+    def _selection_changed(self, *_):
+        load = self.config.load_region(self.selected() or "")
+        if load is None:
+            return
+        self.name_edit.setText(load.name)
+        index = self.window_combo.findData(load.window)
+        if index >= 0:
+            self.window_combo.setCurrentIndex(index)
+        self.size_edit.setText(f"{load.size:#x}")
+
+    def set_fields(self, name: Optional[str] = None, window: Optional[str] = None, size: Optional[str] = None):
+        if name is not None:
+            self.name_edit.setText(name)
+        if window is not None:
+            self.window_combo.setCurrentIndex(max(self.window_combo.findData(window), 0))
+        if size is not None:
+            self.size_edit.setText(size)
+
+    def _show(self, text: str, error: bool = True) -> str:
+        self.message.setText(text)
+        self.message.setStyleSheet(f"color: {ERROR_COLOR};" if error else "color: #1e7e34;")
+        return text if error else ""
+
+    def _changed(self, message: str, select: Optional[str] = None) -> str:
+        self.session.changed()
+        self.refill(select)
+        self.load_regions_changed.emit()
+        return self._show(message, error=False)
+
+    def _fields(self):
+        """(name, window, size) from the form; raises ValueError with the reason."""
+        name = self.name_edit.text().strip()
+        window_name = self.window_combo.currentData() or ""
+        if not window_name:
+            raise ValueError("请选择窗口（芯片的存储窗口要先扫描才知道）")
+        text = self.size_edit.text().strip()
+        if text:
+            size = parse_hex(text, "大小上限")
+        else:
+            window = self.chip_window(window_name)
+            size = window.size if window else 0
+        return name, window_name, size
+
+    def add_from_fields(self) -> str:
+        try:
+            name, window, size = self._fields()
+            self.config.add_load_region(LoadRegion(name, window, size))
+        except (ValueError, ConfigError) as e:
+            return self._show(str(e))
+        note = "；它是第一个加载区域，没有指定加载区域的执行区域都归它" if len(self.config.load_regions) == 1 else ""
+        return self._changed(f"已新增加载区域 {name}{note}", name)
+
+    def apply_edit(self) -> str:
+        """Rename the selected load region and move it to the window and size in the form."""
+        old = self.selected()
+        if not old:
+            return self._show("请先选择一个加载区域")
+        load = self.config.load_region(old)
+        before = (load.name, load.window, load.size)
+        try:
+            name, window, size = self._fields()
+            self.config.change_load_region(old, window, size)
+            try:
+                self.config.rename_load_region(old, name)
+            except ConfigError:
+                load.window, load.size = before[1], before[2]
+                raise
+        except (ValueError, ConfigError) as e:
+            return self._show(str(e))
+        if (name, window, size) == before:
+            return self._show(f"加载区域 {old} 没有改动", error=False)
+        renamed = f"（原名 {old}，执行区域跟着改名）" if name != old else ""
+        return self._changed(f"已修改加载区域 {name}{renamed}", name)
+
+    def move_selected(self, delta: int) -> str:
+        name = self.selected()
+        if not name:
+            return self._show("请先选择一个加载区域")
+        index = self.names().index(name)
+        if not 0 <= index + delta < len(self.config.load_regions):
+            return self._show("已经到头了")
+        self.config.move_load_region(name, index + delta)
+        return self._changed(f"已移动加载区域 {name}", name)
+
+    def remove_selected(self) -> str:
+        name = self.selected()
+        if not name:
+            return self._show("请先选择一个加载区域")
+        members = [r.name for r in self.config.regions if r.load_region == name]
+        self.config.remove_load_region(name)
+        rest = self.names()
+        where = f"回到第一个加载区域 {rest[0]}" if rest else f"回到缺省的 {LOAD_REGION_NAME}"
+        moved = f"；它的 {len(members)} 个执行区域{where}" if members else ""
+        return self._changed(f"已删除加载区域 {name}{moved}")
+
+
+# --- the import preview ------------------------------------------------------------------------------
+
+class ImportPreviewDialog(QDialog):
+    """What importing a linker file would do; "导入" adds it, "取消" changes nothing."""
+
+    def __init__(self, preview: ImportPreview, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("从链接文件导入：预览")
+        self.resize(820, 560)
+        outer = QVBoxLayout(self)
+        hint = QLabel("导入只新增，不覆盖配置里已有的区域和手动放置，不改规则。"
+                      "确认后才写进配置（仍需“保存配置”）。")
+        hint.setWordWrap(True)
+        outer.addWidget(hint)
+        self.text = QPlainTextEdit("\n".join(import_preview_lines(preview)))
+        self.text.setReadOnly(True)
+        outer.addWidget(self.text, 1)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Ok).setText("导入")
+        buttons.button(QDialogButtonBox.Cancel).setText("取消")
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        outer.addWidget(buttons)

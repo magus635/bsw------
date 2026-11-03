@@ -187,3 +187,63 @@ def test_clean_regions_have_no_doubts():
 def test_the_constants_are_the_three_kinds():
     assert cfg.START_MODES == (AFTER, OFFSET, FIXED)
     assert cfg.DEFAULT_LIMIT_ALIGN == 64
+
+
+# --- editing from the configuration page (task 5) ----------------------------------------------
+
+def test_limit_alignment_must_be_a_power_of_two():
+    config = MemoryMapConfig(regions=[_region()])
+    config.set_limit_align("R", 256)
+    assert config.region("R").limit_align == 256
+    for bad in (0, -64, 48):
+        with pytest.raises(ConfigError, match="2 的幂"):
+            config.set_limit_align("R", bad)
+    assert config.region("R").limit_align == 256
+
+
+def test_kind_of_a_user_region_changes_and_a_required_one_does_not():
+    config = MemoryMapConfig(regions=[_region(), _region(name="Q", required=True)])
+    config.set_kind("R", "bss")
+    assert config.region("R").kind == "bss"
+    with pytest.raises(ConfigError, match="必需区域"):
+        config.set_kind("Q", "bss")
+    config.set_kind("Q", "data")            # its own kind: allowed (confirms it)
+    with pytest.raises(ConfigError, match="种类不对"):
+        config.set_kind("R", "heap")
+
+
+def test_kind_unconfirmed_follows_rename_and_remove_and_is_cleared_by_set_kind():
+    config = MemoryMapConfig(regions=[_region(), _region(name="Q")])
+    config.mark_kind_unconfirmed(["R", "Q"])
+    assert config.kind_unconfirmed() == ["Q", "R"]
+    config.rename_region("R", "R2")
+    assert config.kind_unconfirmed() == ["Q", "R2"]
+    config.remove_region("Q")
+    assert config.kind_unconfirmed() == ["R2"]
+    config.set_kind("R2", "data")
+    assert config.kind_unconfirmed() == [] and cfg.KIND_UNCONFIRMED_KEY not in config.options
+
+
+def test_kind_unconfirmed_is_saved(tmp_path):
+    config = MemoryMapConfig(regions=[_region()])
+    config.mark_kind_unconfirmed(["R"])
+    save_config(config, tmp_path / "m.json")
+    assert load_config(tmp_path / "m.json").kind_unconfirmed() == ["R"]
+    config.mark_kind_unconfirmed([])
+    assert config.kind_unconfirmed() == ["R"]
+
+
+def test_change_and_move_load_regions():
+    config = MemoryMapConfig(load_regions=[LoadRegion("A", "W1", 0x100), LoadRegion("B", "W2", 0x200)])
+    config.change_load_region("A", "W3", 0x300)
+    assert (config.load_region("A").window, config.load_region("A").size) == ("W3", 0x300)
+    with pytest.raises(ConfigError, match="正数"):
+        config.change_load_region("A", "W3", 0)
+    with pytest.raises(ConfigError, match="没有选窗口"):
+        config.change_load_region("A", "", 0x100)
+    with pytest.raises(ConfigError, match="没有加载区域"):
+        config.change_load_region("C", "W3", 0x100)
+    config.move_load_region("B", 0)
+    assert [l.name for l in config.load_regions] == ["B", "A"]
+    config.move_load_region("B", 99)
+    assert [l.name for l in config.load_regions] == ["A", "B"]
