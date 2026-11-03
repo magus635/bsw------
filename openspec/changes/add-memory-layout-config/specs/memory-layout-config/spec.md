@@ -113,11 +113,15 @@ The layout configuration SHALL be saved as a text file `memorymap.json` in the `
 - **THEN** the project opens, and the window says that the configuration could not be read and names the file
 
 ### Requirement: Placement Configured In The Memory Map Window
-The memory map window SHALL have a configuration page with the scanned sections on the left, each with its status and target, and the chip's physical memories, their windows and the execution regions on the right. The user SHALL be able to place sections by dragging them to an execution region or by selecting them and using the add and remove buttons, with several sections at once, and each change SHALL re-run the check so that the diagnostics and layout pages follow.
+The memory map window SHALL have a configuration page with the scanned sections on the left, each with its status and target, and the chip's physical memories, their windows and the execution regions on the right. The user SHALL be able to place sections by dragging them to an execution region or with the add and remove buttons, several at once, and the statuses SHALL follow each change at once.
+
+#### Scenario: Other pages describe the file on disk
+- **WHEN** the user changes a placement before generating a linker file
+- **THEN** the diagnostics and layout pages are unchanged and the configuration page says that they describe the linker file on disk
 
 #### Scenario: Drag a section
 - **WHEN** the user drags `.mcal_bss_asil_d_unspecified_core0` to the region `PRIVATE_BSS_CORE0`
-- **THEN** the section's status becomes manual with that target and the diagnostics page no longer lists it as caught by a wildcard
+- **THEN** the section's status on the configuration page becomes manual with that target
 
 #### Scenario: Remove with the button
 - **WHEN** the user selects a manually placed section and uses the remove button

@@ -19,9 +19,9 @@ from typing import Dict, List, Optional
 
 from ..hardware.memory_regions import MemoryRegionDef
 from .config import MemoryMapConfig
+from .rules import AGAIN_KEY
 
 KEPT, AGAIN, UNPLACED = "kept", "again", "unplaced"
-AGAIN_KEY = "to_place_again"        # in config.options: the regions to be placed again
 
 
 @dataclass(frozen=True)
@@ -101,4 +101,8 @@ def apply(config: MemoryMapConfig, chip: str, change: LayoutChange) -> None:
     """Record ``change`` on ``config`` for the new ``chip``: the regions to be placed again are
     listed, nothing is removed and no region is moved."""
     config.chip = chip
-    config.options[AGAIN_KEY] = sorted(change.again)
+    again = sorted(change.again)
+    if again:
+        config.options[AGAIN_KEY] = again
+    else:
+        config.options.pop(AGAIN_KEY, None)

@@ -131,6 +131,7 @@ class ProjectController:
         report.unavailable = self._unavailable_kinds(report.disabled, after, preview.modules)
         report.descriptions = self._container_descriptions(
             project, {(d.module, d.definition) for d in report.disabled + report.enabled})
+        self._layout_preview(project, chip_name, report)
         for title, items in (("disabled", report.disabled), ("enabled again", report.enabled)):
             if items:
                 logger.info("Chip %s: %d configured container(s) %s: %s", chip_name, len(items),
@@ -138,6 +139,62 @@ class ProjectController:
                 for item in items:
                     logger.info("  %s %s", title, item.path)
         return report
+
+    @staticmethod
+    def _layout_preview(project, chip_name, report) -> None:
+        """The "内存布局" section of the preview (add-memory-layout-config): what the change
+        does to the project's layout configuration.  Nothing is written; when the project
+        has no configuration file, or anything fails, the section is left out (logged) so
+        that the preview never blocks the change."""
+        from types import SimpleNamespace
+
+        from ...core.hardware.ecu_resource_resolver import chip_for_project
+        from ...core.memmap import chipchange
+        from ...core.memmap.session import LayoutSession
+
+        if not chip_name or chip_name == getattr(project, "selected_chip", None):
+            return
+        try:
+            session = LayoutSession.open(project)
+            if (session.path is None or not session.path.is_file() or session.load_error
+                    or not session.config.regions):
+                return
+            database = getattr(project, "chip_database", None)
+            old_chip = chip_for_project(project, database)[1]
+            new_project = SimpleNamespace(path=getattr(project, "path", None), selected_chip=chip_name,
+                                          chip_database=database)
+            new_chip = chip_for_project(new_project, database)[1]
+            change = chipchange.compare(session.config,
+                                        list(getattr(old_chip, "memory_regions", None) or []),
+                                        list(getattr(new_chip, "memory_regions", None) or []))
+        except Exception:  # noqa: BLE001 - the preview must not block the change
+            logger.exception("Could not preview the memory layout for chip %s", chip_name)
+            return
+        report.layout_change = change
+        report.layout_lines = change.summary_lines()
+
+    def apply_layout_change(self, report) -> bool:
+        """After a confirmed chip change: record the layout change of the preview on the
+        project's layout configuration and save it.  Returns whether it was written."""
+        from ...core.memmap import chipchange
+        from ...core.memmap.session import LayoutSession
+
+        project = self.win.current_project
+        change = getattr(report, "layout_change", None) if report is not None else None
+        if not project or change is None or not report.chip_name:
+            return False
+        try:
+            session = LayoutSession.open(project)
+            if session.load_error or session.path is None or not session.path.is_file():
+                return False
+            chipchange.apply(session.config, report.chip_name, change)
+            session.save()
+        except Exception:  # noqa: BLE001 - the chip is changed already; say so in the log
+            logger.exception("Could not update the memory layout for chip %s", report.chip_name)
+            return False
+        logger.info("Memory layout updated for chip %s: %s", report.chip_name,
+                    "; ".join(report.layout_lines))
+        return True
 
     @staticmethod
     def _changed_inputs(preview) -> dict:
@@ -265,6 +322,7 @@ class ProjectController:
             report = self.preview_chip_change(chip_name)
         finally:
             QApplication.restoreOverrideCursor()
+        self.last_chip_report = report
         return self._show_chip_change_preview(report, parent, title, accept_text)
 
     def _show_chip_change_preview(self, report, parent, title, accept_text) -> bool:
@@ -643,6 +701,7 @@ class ProjectController:
                 # and selectors follow only when the user confirms
                 if self.confirm_chip_change(chip):
                     self.apply_project_chip(chip, write_selectors=True)
+                    self.apply_layout_change(getattr(self, "last_chip_report", None))
                     chip_status = f"  |  已切换芯片为 {chip}"
                 else:
                     chip_status = "  |  已取消切换芯片"

@@ -38,7 +38,10 @@ class ChipChangeReport:
     or enable again.  ``unavailable`` lists the (module, definition) kinds of
     container with no enabled instance left after the change, ``descriptions`` the
     definitions' DESC text per kind.  ``error`` is set when the effect could not be
-    computed.
+    computed.  ``layout_lines`` is the "内存布局" section (what the change does to the
+    project's memory layout configuration, ``chipchange.LayoutChange.summary_lines()``),
+    empty when the project has no layout configuration; ``layout_change`` is that
+    LayoutChange, applied after the user confirms.
     """
     chip_name: Optional[str]
     current_chip: Optional[str] = None
@@ -52,6 +55,8 @@ class ChipChangeReport:
     disabled_reasons: dict = field(default_factory=dict)
     enabled_reasons: dict = field(default_factory=dict)
     error: Optional[str] = None
+    layout_lines: List[str] = field(default_factory=list)
+    layout_change: object = None
 
     def selector_lines(self) -> List[str]:
         result = self.selector_result
@@ -225,6 +230,22 @@ class ChipChangePreviewDialog(QDialog):
             box = QGroupBox(f"将恢复生效（{len(report.enabled)} 个容器）")
             QVBoxLayout(box).addWidget(self.enabled_tree)
             layout.addWidget(box, 1)
+        # What happens to the memory layout configuration (add-memory-layout-config)
+        self.layout_box = QGroupBox("内存布局")
+        layout_box_layout = QVBoxLayout(self.layout_box)
+        self.layout_label = QLabel("\n".join(report.layout_lines))
+        self.layout_label.setWordWrap(True)
+        self.layout_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        layout_box_layout.addWidget(self.layout_label)
+        if report.layout_lines:
+            layout_note = QLabel("对不上的执行区域不会被自动挪到别的窗口，放置也不会被删除；"
+                                 "切换后在“内存映射 → 配置”里重新选择窗口。")
+            layout_note.setWordWrap(True)
+            layout_note.setStyleSheet("color: gray;")
+            layout_box_layout.addWidget(layout_note)
+        self.layout_box.setVisible(bool(report.layout_lines))
+        layout.addWidget(self.layout_box)
+
         if not report.disabled and not report.enabled:
             layout.addStretch(1)
 

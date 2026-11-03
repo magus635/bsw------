@@ -4,7 +4,9 @@ The settings (source and MemMap header directories, linker file) and one backgro
 are shared; the "诊断" tab lists the findings by category, the "布局" tab lays the output
 sections out by physical region or by module.  Both only read the same ``CheckResult``.
 The scan reads; nothing in the project or in the files it reads is changed, and the
-settings are saved with the project when the window closes.
+settings are saved with the project when the window closes.  The "配置" tab edits the memory
+layout configuration (``memorymap.json``) through a ``LayoutSession``; unsaved changes are
+asked about when the window closes.
 """
 import logging
 from pathlib import Path
@@ -50,14 +52,17 @@ from ...core.memmap.check import (
     check_project,
     to_markdown,
 )
+from ...core.memmap.config import ConfigError
 from ...core.memmap.layout import BY_MODULE, BY_REGION, LayoutFilter
+from ...core.memmap.session import LayoutSession
 from .chip_dependency_scan_dialog import scan_dir_entry
+from .memory_map_config_tab import ConfigTab
 
 logger = logging.getLogger(__name__)
 
 ALL = "全部"
 KINDS = ("TEXT", "RODATA", "DATA", "BSS")
-DIAGNOSTICS, LAYOUT = 0, 1
+DIAGNOSTICS, LAYOUT, CONFIG = 0, 1, 2
 SEVERITY_COLORS = {ERROR: QColor("#b00020"), WARNING: QColor("#a65e00"), INFO: QColor("gray")}
 STALE_NOTICE = "设置已改动，结果可能过时，请重新开始扫描。"
 NO_SECTION_REASON = "该发现不对应某个输出段，只能在诊断页签查看"
@@ -564,6 +569,7 @@ class MemoryMapWorkbench(QDialog):
         path = getattr(project, "path", None)
         self.base = (Path(path).parent if path and Path(path).suffix == ".dpa" else
                      Path(path) if path else None)
+        self.session = self._open_session(project)
         self.setWindowTitle("内存映射")
         self.resize(1200, 820)
         self._build()
@@ -617,6 +623,9 @@ class MemoryMapWorkbench(QDialog):
         self.layout_tab = LayoutTab()
         self.tabs.addTab(self.diagnostics, "诊断")
         self.tabs.addTab(self.layout_tab, "布局")
+        self.config_tab = ConfigTab()
+        self.tabs.addTab(self.config_tab, "配置")
+        self.config_tab.set_session(self.session)
         outer.addWidget(self.tabs, 1)
         self.diagnostics.export_button.clicked.connect(self.export_checklist)
         self.layout_tab.export_button.clicked.connect(self.export_layout)
@@ -731,7 +740,44 @@ class MemoryMapWorkbench(QDialog):
         self.notes_label.setText("\n".join(result.notes))
         self.diagnostics.set_result(result)
         self.layout_tab.set_result(result)
+        if self.session is not None:
+            try:
+                self.session.update(result)
+            except Exception:  # noqa: BLE001 - the other tabs must still show the result
+                logger.exception("Memory layout configuration could not be prepared")
+        self.config_tab.set_result(result)
         self.settings_edited()
+
+    # --- layout configuration ----------------------------------------------------
+
+    @staticmethod
+    def _open_session(project) -> Optional[LayoutSession]:
+        try:
+            return LayoutSession.open(project)
+        except Exception:  # noqa: BLE001 - the check and layout tabs work without it
+            logger.exception("Memory layout configuration could not be opened")
+            return None
+
+    def _ask_save(self) -> int:
+        """Yes, No or Cancel; a separate method so tests can answer it."""
+        return QMessageBox.question(
+            self, "内存映射", "内存布局配置有未保存的改动，是否保存？",
+            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel, QMessageBox.Yes)
+
+    def confirm_close(self) -> bool:
+        """Whether the window may close: unsaved configuration changes are saved (Yes),
+        dropped (No) or keep the window open (Cancel, or a failed save)."""
+        if self.session is None or not self.session.dirty:
+            return True
+        answer = self._ask_save()
+        if answer == QMessageBox.Yes:
+            try:
+                self.session.save()
+            except ConfigError as e:
+                QMessageBox.warning(self, "内存映射", f"保存失败：{e}")
+                return False
+            return True
+        return answer == QMessageBox.No
 
     # --- locate ----------------------------------------------------------------
 
@@ -777,6 +823,8 @@ class MemoryMapWorkbench(QDialog):
             self._export("导出布局", "内存布局.md", self.layout_text())
 
     def reject(self):
+        if not self.confirm_close():
+            return
         self.cancel_scan()
         if self._thread is not None and self._thread.isRunning():
             self._thread.quit()

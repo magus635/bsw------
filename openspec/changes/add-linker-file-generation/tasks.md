@@ -1,35 +1,36 @@
 ## 1. 链接计划（编译器无关）
 
-- [ ] 1.1 新增 `core/memmap/plan.py`：加载区域、执行区域（名称、所在加载区域、起始、种类、对齐、收纳的输出段）、保留区域、每个必需区域需要的符号用途；起始表示为绝对地址或"接在前一个区域之后并对齐"
-- [ ] 1.2 由布局配置、芯片与链接符号需求构造计划；执行区域按存储窗口和顺序排列，区域内的输出段按名称排序
-- [ ] 1.3 被裁剪的必需区域（核数之外）在选项"为未启用的核写保留区域"开着时加入保留区域（默认开）；需要界限的区域标记需要界限区域，不在计划里写出语法
-- [ ] 1.4 生成前检查：有"待重新放置"的段、必需区域没有落到窗口、引用的窗口不在芯片里，都拒绝并列出原因；"未放置"的段与"未经代码核对"的必需区域只警告
-- [ ] 1.5 测试：构造出的计划；保留区域选项开与关各一例；拒绝与警告各条件；同样的输入得到同样的计划
+- [x] 1.1 新增 `core/memmap/plan.py`：`Plan`（加载区域、窗口、执行区域、保留区域、每段的放置状态）；`PlanRegion` 有名称、所在加载区域、窗口、种类、对齐、起始（`start_window` 窗口基址，或 `after` 前一个区域并对齐）、收纳的输出段、大小上限、是否需要界限区域、代码里的用途
+- [x] 1.2 `build_plan(config, rows, chip_regions, needs, layout)`：段用 `place_all` 放置，只收"规则"和"手动"；窗口先 flash 后按地址，窗口内按 `order`、再按名称；区域内的输出段按名称排序；一个加载区域 `ROM_CODE`，基址为第一个 flash 窗口；大小上限取出厂布局的 `size`，没有就取窗口大小，栈默认 0x1000（design.md D1）
+- [x] 1.3 选项 `options.reserve_missing_cores`（默认开，`reserve_missing_cores` / `set_reserve_missing_cores`，随 `memorymap.json` 保存）：开时 `config.trimmed` 的名字成为保留区域；需要界限的区域按 `RegionNeed.needs_limit_region()` 标记（只要栈顶的不需要），代码直接写 `<R>_LIMIT` 的也标记 R；没有扫描到任何需求时每个区域都标记并警告
+- [x] 1.4 `check_plan(plan)` → (拒绝, 警告)：拒绝"待重新放置"的段（列出段名）、没有窗口的区域、窗口不在芯片里的区域、一个可用区域都没有；警告"未放置"的段、"必需区域未经代码核对"（以"没有扫描到需求"为准，配置不保存来源）、代码引用但配置里没有的区域
+- [x] 1.5 测试 `tests/core/test_linker_plan.py`（18 例）：构造与起始、段排序、界限标记、大小、同样输入（含打乱顺序）同样计划、保留选项开/关/保存后仍关、各拒绝与警告条件
 
 ## 2. 生成器接口与登记表
 
-- [ ] 2.1 新增 `core/memmap/generators/__init__.py`：生成器接口（读计划，返回文本和建议的文件名）；登记表：每种编译器是否可用及不可用的原因
-- [ ] 2.2 登记 ADS（可用）；GHS、HighTec、IAR、Tasking 登记为"尚未支持"
-- [ ] 2.3 测试：登记表内容；请求不可用的编译器得到明确的错误而不是空文件
+- [x] 2.1 新增 `core/memmap/generators/__init__.py`：`CompilerEntry`（键、名称、`linkedFile` 下的目录、文件名、生成函数、不可用原因）、`compilers()`、`compiler(key)`、`generate(key, plan)` → `GeneratedFile`（文本、文件名、目录）；`UnsupportedCompiler` 错误
+- [x] 2.2 登记 ADS（可用，`Ads/scatter.scat`）；GHS、HighTec、IAR、Tasking 登记为"尚未支持"并写明原因（没读过格式样例，见 D2）
+- [x] 2.3 测试：登记表五项且只有 ADS 可用；GHS 等四种与未知编译器都抛 `UnsupportedCompiler`，不产生文本（`tests/core/test_ads_generator.py`）
 
 ## 3. ADS 生成器
 
-- [ ] 3.1 新增 `core/memmap/generators/ads.py`：写 `.scat`，规则见 design.md D4（首行与厂商一致、`#define` 窗口基址、`AlignExpr(ImageLimit(前一个), 对齐)`、`*(.name)` 选择器、界限区域集中放文件末尾、栈区域 `EMPTY`、保留区域 `EMPTY 0x0 {}` 并带注释、不写时间戳）
-- [ ] 3.2 同样的计划得到逐字节相同的输出（输出指纹稳定）
-- [ ] 3.3 保留区域选项：生成选项"为未启用的核写保留区域"，默认开，随工程保存；关闭后文件里没有保留区域；文件里的注释写明可在 `startup.c` 不引用时关闭
-- [ ] 3.4 测试：合成计划的输出逐行断言；界限区域、栈区域、保留区域各一例；保留区域选项关闭后没有保留区域；输出可被现有 `parse_scatter` 解析且区域、选择器与计划一致（往返）
+- [x] 3.1 新增 `core/memmap/generators/ads.py`：首行与厂商一致、`#define <窗口>_ADDRESS`、`AlignExpr(ImageLimit(前一个), 对齐)`、`*(.name)` 选择器、每窗口一行 `;窗口名`、界限区域集中放在加载区域末尾、栈区域 `EMPTY`、保留区域 `EMPTY 0x0 {}` 并带注释、不写时间戳、`
+` 行尾
+- [x] 3.2 同样的计划得到逐字节相同的输出（测试比对 SHA-256 与写盘后的字节）
+- [x] 3.3 保留区域选项关闭后文件里没有保留区域和那段注释；注释写明 `startup.c` 不引用时可关闭（选项本身见 1.3）
+- [x] 3.4 测试：合成计划的输出逐行断言（含界限、栈、保留区域）；选项关闭；没有界限需求时不写界限区域；往返：`parse_scatter` 读回的区域名与顺序、选择器、窗口基址与跟随关系与计划一致；用出厂数据和芯片库 THA6206 存储做完整计划，所有出厂区域都在、能读回、不被拒绝
 
 ## 4. 自检
 
-- [ ] 4.1 生成后把结果作为链接文件传给 `run_check`，返回自检结果
-- [ ] 4.2 验收：生成物在"链接符号缺失"和"没有区域接收的段"两类上没有发现；测试用合成工程覆盖
-- [ ] 4.3 说明：自检只证明生成器与检查器自洽，不证明链接正确；界面上如实写明
+- [x] 4.1 `core/memmap/linkfile.py`：`self_check(path, …)` 与 `self_check_text(text, …)`（未写盘时检查临时副本）把生成物交给 `run_check`，返回 `SelfCheck`（`missing_symbols`、`unplaced`、`clean`、说明文字）
+- [x] 4.2 验收测试（合成工程：Can 源码、MemMap 头、`startup.c`）：完整配置的生成物没有"链接符号缺失"和"没有区域接收的段"；关闭保留选项后自检报出 `PRIVATE_DATA_CORE2` 缺失；有未放置段时自检报出该段
+- [x] 4.3 `SELF_CHECK_NOTE` 写明自检只证明生成器与检查器一致，不证明能链接；界面显示它（第 6 节）
 
 ## 5. 写文件
 
-- [ ] 5.1 目标 `IntegrationProject/linkedFile/Ads/scatter.scat`；已有同名文件先备份为 `.bak`；先写临时文件再改名
-- [ ] 5.2 预览：将写的文件、是否覆盖、字节数；确认才写；取消不写任何东西
-- [ ] 5.3 测试：备份；原子写入（写失败不留残缺文件）；取消不留痕迹
+- [x] 5.1 `target_path(project_dir, "ads")` = `IntegrationProject/linkedFile/Ads/scatter.scat`；`write_linker_file`：同目录临时文件 → 旧文件复制为 `.bak` → 改名到位；失败抛 `LinkFileError`，旧文件不变，不留临时文件
+- [x] 5.2 `preview(path, text)`：纯函数，给出路径、是否覆盖、备份路径、UTF-8 字节数、内容是否与现有文件相同；`prepare_generation` 只计划和生成文本、不写；取消即不调用写函数
+- [x] 5.3 测试 `tests/core/test_linkfile_write.py`：新文件、备份、改名失败与临时文件创建失败时旧文件不变且无残留、取消后目录与之前完全相同、两次生成写出的字节相同
 
 ## 6. 界面
 

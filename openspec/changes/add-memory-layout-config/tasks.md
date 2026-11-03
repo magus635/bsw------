@@ -33,16 +33,16 @@
 
 - [x] 5.1 新增 `core/memmap/chipchange.py`：窗口在新芯片上存在且类型、核心、可缓存一致才保留；否则"待重新放置"并写明原因；从不自己挪到别的窗口
 - [x] 5.2 放置从不因切芯片被删除；`apply` 只记录待重新放置的区域
-- [ ] 5.3 芯片变更预览新增"内存布局"一节（`compare` 已能给出内容与文字，不改工程；接入现有预览对话框与 `ProjectController.preview_chip_change` 放到界面那一步做）
+- [x] 5.3 芯片变更预览新增"内存布局"一节：`ChipChangeReport.layout_lines`/`layout_change`（默认空）；`ProjectController._layout_preview` 在工程有非空且可读的 `memorymap.json` 时，用 `chip_for_project` 取新旧芯片的内存区域（新芯片用换了 `selected_chip` 的副本），`compare` 的 `summary_lines()` 放进报告，不写任何文件，出错只记日志、不显示该节；对话框只在有内容时显示；"工程属性"里确认切换并 `apply_project_chip` 后调用 `apply_layout_change`（`chipchange.apply` 再保存）。测试：`tests/ui/test_chip_change_layout_preview.py`（11 个）
 - [x] 5.4 测试：`test_memmap_chipchange.py`（16 个）
 
 ## 6. 界面
 
-- [ ] 6.1 新增 `ui/dialogs/memory_map_config_tab.py`，接入工作台第三个页签"配置"；左段表（状态、目标）、右树（存储→窗口→执行区域，必需标记、段数）
-- [ ] 6.2 拖拽、"+""−"、多选批量，都走同一个放置操作；放置前检查的拒绝原因显示给用户
-- [ ] 6.3 过滤（模块、核心、种类、状态）；规则编辑器（列表、顺序、增删、被遮蔽与无效的标注）
-- [ ] 6.4 每次改动后立即重跑检查，诊断与布局页签同步；保存配置；关闭时有未保存改动则询问
-- [ ] 6.5 UI 测试（offscreen）：放置、移出、批量、被拒原因、状态变化、规则编辑、保存后重新打开一致、未保存询问
+- [x] 6.1 新增 `ui/dialogs/memory_map_config_tab.py`（`ConfigTab`），接入工作台第三个页签"配置"（`CONFIG = 2`）；左段表（输出段、种类、核心、模块、状态、目标）、右树（存储→窗口→执行区域，标"必需""自定义""不再需要""待重新放置"和段数；窗口不在芯片上或未选窗口的区域另列一组）；顶部说明来自 `prepared.notes()`、`load_error`、待重新放置的区域；区域编辑：新增自定义区域（放在所选窗口）、改名（手动放置与规则目标随之改名）、删除（必需区域给出 `ConfigError` 的原因）、选择窗口（`rules.set_window`，清除"待重新放置"）
+- [x] 6.2 拖拽、"+""−"、多选批量，都走 `ConfigTab.apply_placement`（调用 `session.place`/`unplace`）；拒绝原因逐行显示在页签下方的列表里（不弹窗）
+- [x] 6.3 过滤（模块、核心含"无核"、种类、状态）；规则编辑器 `RuleEditorDialog`（非模态）：按顺序列出、来源（出厂/用户）、"已修改（原：…）"、被遮蔽、无效、段数；增、删、上移下移、修改目标与条件（名称/种类/核心/缓存/模块）；"恢复出厂规则"先列出会丢失的修改/新增/删除，确认后才恢复，手动放置不变；"出厂规则有更新"提示
+- [x] 6.4 每次改动后页签上的状态立即更新（诊断与布局页签描述的是磁盘上的链接文件，生成之前不随配置变化，页面上写明）；保存配置；关闭时有未保存改动则询问（是=保存，否=放弃，取消=不关闭；保存失败也不关闭）
+- [x] 6.5 UI 测试（offscreen）：放置、移出、批量、被拒原因、状态变化、规则编辑、保存后重新打开一致、未保存询问：`tests/ui/test_memory_map_config_tab.py`（26 个）；`test_memory_map_workbench.py` 原有 28 个仍通过
 
 ## 7. 验证
 

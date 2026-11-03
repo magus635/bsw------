@@ -26,6 +26,24 @@ from .config import FACTORY, USER, ConfigError, MemoryMapConfig, Rule, refusal
 BY_RULE, MANUAL, NOT_PLACED, AGAIN = "rule", "manual", "not-placed", "again"
 STATUS_LABELS = {BY_RULE: "规则", MANUAL: "手动", NOT_PLACED: "未放置", AGAIN: "待重新放置"}
 FACTORY_VERSION_KEY = "factory_version"
+AGAIN_KEY = "to_place_again"        # in config.options: regions whose window does not fit the chip
+
+
+def set_window(config: MemoryMapConfig, region_name: str, memory: str, window: str) -> None:
+    """Put an execution region on another window; this also clears its "to be placed again" mark.
+
+    Raises:
+        ConfigError: there is no such region
+    """
+    region = config.region(region_name)
+    if region is None:
+        raise ConfigError(f"没有区域 {region_name}")
+    region.memory, region.window = memory, window
+    again = [n for n in config.options.get(AGAIN_KEY, []) if n != region_name]
+    if again:
+        config.options[AGAIN_KEY] = again
+    else:
+        config.options.pop(AGAIN_KEY, None)
 
 
 @dataclass(frozen=True)
@@ -90,6 +108,8 @@ def _target_problem(config: MemoryMapConfig, region_name: str, row: SectionRow) 
     region = config.region(region_name)
     if region is None:
         return f"没有区域 {region_name}"
+    if region_name in config.options.get(AGAIN_KEY, []):
+        return f"区域 {region_name} 所在的窗口在当前芯片上对不上，需要重新选择窗口"
     return refusal(region.kind, row.kind)
 
 
@@ -104,7 +124,11 @@ def place(config: MemoryMapConfig, row: SectionRow) -> Placement:
             return Placement(name, AGAIN, target)
         return Placement(name, MANUAL, target)
     for rule in config.rules:
-        if matches(rule.match, row) and not _target_problem(config, rule.target, row):
+        if not matches(rule.match, row):
+            continue
+        if rule.target in config.options.get(AGAIN_KEY, []):
+            return Placement(name, AGAIN, rule.target, rule.name)     # the rule's region lost its window
+        if not _target_problem(config, rule.target, row):
             return Placement(name, BY_RULE, rule.target, rule.name)
     return Placement(name, NOT_PLACED)
 

@@ -118,8 +118,11 @@ def test_after_apply_the_placements_into_a_lost_region_show_as_again():
     config.manual[".c"] = "PRIVATE_BSS_CORE1"
     cc.apply(config, "NEW", cc.compare(config, OLD, OLD[:3]))
     row = SectionRow(output=".c", kind="BSS", names=(), modules=("X",), core=None, non_cacheable=False, uses=())
-    assert rl.place(config, row).target == "PRIVATE_BSS_CORE1"             # still there, not rewritten
+    placed = rl.place(config, row)
+    assert (placed.status, placed.target) == (rl.AGAIN, "PRIVATE_BSS_CORE1")   # kept, shown as again
     assert config.options[cc.AGAIN_KEY] == ["PRIVATE_BSS_CORE1"]
+    rl.set_window(config, "PRIVATE_BSS_CORE1", "CPU0BTCM", "CPU0BTCM")       # the user picks a window
+    assert rl.place(config, row).status == rl.MANUAL and cc.AGAIN_KEY not in config.options
 
 
 def test_a_window_back_on_the_chip_clears_the_flag():
