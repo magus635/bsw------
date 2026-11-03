@@ -40,7 +40,7 @@
   - 模型补充：`set_limit_align`（必须是 2 的幂，`AlignExpr` 的要求）、`set_kind`、`change_load_region`、`move_load_region`
 - [x] 5.2 加载区域的增删改：`LoadRegionDialog`（"加载区域…"），按顺序列出名称、窗口、起始、大小上限、执行区域数；新增（大小留空取窗口大小）、改名（执行区域跟着改）、改窗口与大小、上移下移、删除（执行区域回到第一个）
 - [x] 5.3 "从链接文件导入…"：选 `.scat`、`ImportPreviewDialog` 列出新增/跳过/不能导入/近似导入各项、确认才合并；没有扫描结果（不知道芯片窗口）时不导入并说明；猜出的种类在树和顶部说明里标"种类待确认"
-- [ ] 5.4 UI 测试（offscreen）：`tests/ui/test_memory_map_region_properties.py`（待运行）
+- [x] 5.4 UI 测试（offscreen）：`tests/ui/test_memory_map_region_properties.py`；与核心、配置页签、工作台测试一起 217 个通过（2026-11-03，用户运行）
 
 ## 6. 文档
 

@@ -21,8 +21,8 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from PySide6.QtCore import QItemSelection, QItemSelectionModel, QMimeData, Qt, Signal
-from PySide6.QtGui import QColor
+from PySide6.QtCore import QItemSelection, QItemSelectionModel, QMimeData, Qt, QUrl, Signal
+from PySide6.QtGui import QColor, QDesktopServices
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
@@ -71,10 +71,13 @@ from ...core.memmap.config import (
     Rule,
     region_doubts,
 )
+from ...core.memmap import linkfile as lf
 from ...core.memmap.factory import load_factory
+from ...core.memmap.generators import NOT_YET, UnsupportedCompiler, compilers
 from ...core.memmap.import_scatter import ImportPreview, apply_import, preview_import
-from ...core.memmap.plan import LOAD_REGION_NAME
+from ...core.memmap.plan import LOAD_REGION_NAME, reserve_missing_cores, set_reserve_missing_cores
 from ...core.memmap.regions import NO_LONGER_NEEDED
+from ...core.memmap.session import project_dir
 from .memory_region_editor import parse_hex
 
 logger = logging.getLogger(__name__)
@@ -138,6 +141,39 @@ def import_preview_lines(preview: ImportPreview) -> List[str]:
         part("近似导入，请核对", preview.notes)
     lines.append("导入不改规则；导入的区域和放置之后都可以在这里继续修改，生成时以配置为准。")
     return lines
+
+
+def generation_preview_lines(generation, shown) -> List[str]:
+    """What generating would write: the file, what it replaces, the warnings."""
+    plan = generation.plan
+    if shown.unchanged:
+        what = "文件已存在且内容相同，写入不改变它"
+    elif shown.replaces:
+        what = f"替换现有文件，原文件备份为 {shown.backup.name}"
+    else:
+        what = "新建文件"
+    lines = [f"写入：{shown.path}", f"{what}；{shown.size} 字节", "",
+             f"加载区域 {len(plan.load_regions)} 个，执行区域 {len(plan.regions)} 个，"
+             f"保留区域 {len(plan.reserved)} 个，界限区域 {len(plan.limit_regions())} 个", ""]
+    if generation.warnings:
+        lines.append(f"警告（{len(generation.warnings)}，不阻止生成）")
+        lines.extend(f"  {w}" for w in generation.warnings)
+        lines.append("")
+    lines.append("生成的文件只按这里的配置写出；不需要、也不参照厂商脚本。")
+    return lines
+
+
+def self_check_lines(path, shown, check, warnings):
+    """(heading, lines) shown after writing: the self-check, with its honest limits."""
+    status = "自检通过" if check.clean else "自检发现问题"
+    heading = f"已生成 {path}（{'内容未变' if shown.unchanged else '已写入'}）；{status}"
+    lines = [f"缺少链接符号 {len(check.missing_symbols)} 处，没有区域接收的段 {len(check.unplaced)} 个"]
+    lines += [f"  {f.text}" for f in check.missing_symbols + check.unplaced]
+    if warnings:
+        lines.append(f"生成前的警告 {len(warnings)} 条（见预览）")
+    lines.append(check.note)
+    lines.append("诊断、布局页签要对照这个文件，请把它设为上方的链接文件后重新扫描")
+    return heading, lines
 
 
 def window_attributes(window) -> str:
@@ -261,6 +297,8 @@ class ConfigTab(QWidget):
         self.result: Optional[CheckResult] = None
         self.rule_editor: Optional["RuleEditorDialog"] = None
         self.load_dialog: Optional["LoadRegionDialog"] = None
+        self.generated_path: Optional[Path] = None          # the linker file written last
+        self.last_self_check: Optional[lf.SelfCheck] = None
         self._placements: Dict[str, rl.Placement] = {}
         self._build()
 
@@ -354,6 +392,7 @@ class ConfigTab(QWidget):
         self.message_list.setMaximumHeight(90)
         self.message_list.setVisible(False)
         outer.addWidget(self.message_list)
+        outer.addLayout(self._build_generation())
 
         row = QHBoxLayout()
         self.rules_button = QPushButton("规则…")
@@ -413,6 +452,33 @@ class ConfigTab(QWidget):
         self._load_properties()
         return self.props
 
+    def _build_generation(self) -> QHBoxLayout:
+        """Compiler, the reserve option and "生成链接文件…" (add-linker-file-generation 6.1)."""
+        row = QHBoxLayout()
+        row.addWidget(QLabel("编译器："))
+        self.compiler_combo = QComboBox()
+        for entry in compilers():
+            self.compiler_combo.addItem(entry.label if entry.supported else f"{entry.label}（{NOT_YET}）", entry.key)
+            index = self.compiler_combo.count() - 1
+            if not entry.supported:
+                self.compiler_combo.model().item(index).setEnabled(False)
+                self.compiler_combo.setItemData(index, entry.reason, Qt.ToolTipRole)
+        row.addWidget(self.compiler_combo)
+        self.reserve_check = QCheckBox("为芯片没有的核写保留区域")
+        self.reserve_check.setChecked(True)
+        self.reserve_check.toggled.connect(self.set_reserve)
+        row.addWidget(self.reserve_check)
+        row.addStretch()
+        self.generate_button = QPushButton("生成链接文件…")
+        self.generate_button.setToolTip("按这里的配置生成链接文件，写入集成工程的 linkedFile 目录；写之前先预览")
+        self.generate_button.clicked.connect(self.generate_linker_file)
+        row.addWidget(self.generate_button)
+        self.open_dir_button = QPushButton("打开所在目录")
+        self.open_dir_button.setEnabled(False)
+        self.open_dir_button.clicked.connect(self.open_generated_dir)
+        row.addWidget(self.open_dir_button)
+        return row
+
     def _reset_filters(self):
         for combo in (self.module_combo, self.core_combo):
             combo.blockSignals(True)
@@ -469,6 +535,7 @@ class ConfigTab(QWidget):
         self._fill_table()
         self._fill_tree()
         self._load_properties()
+        self._fill_generation()
         self._update_buttons()
 
     def _fill_notes(self):
@@ -619,7 +686,8 @@ class ConfigTab(QWidget):
         has = self.session is not None
         for button in (self.place_button, self.unplace_button, self.window_button, self.add_region_button,
                        self.rename_region_button, self.remove_region_button, self.rules_button, self.save_button,
-                       self.loads_button, self.import_button):
+                       self.loads_button, self.import_button, self.generate_button, self.compiler_combo,
+                       self.reserve_check):
             button.setEnabled(has)
         self.dirty_label.setText("有未保存的改动" if has and self.session.dirty else "")
 
@@ -1026,6 +1094,80 @@ class ConfigTab(QWidget):
             lines.append(f"不能导入的 {len(preview.not_imported)} 项见导入预览")
         self.show_messages(summary, lines, error=False)
         return preview
+
+    # --- generating the linker file (add-linker-file-generation 6.x) ----------------------------------
+
+    def _fill_generation(self):
+        if self.session is None:
+            return
+        self.reserve_check.blockSignals(True)
+        self.reserve_check.setChecked(reserve_missing_cores(self.session.config))
+        self.reserve_check.blockSignals(False)
+        trimmed = self.session.config.trimmed
+        self.reserve_check.setToolTip(
+            ("会写成保留区域：" + "、".join(trimmed)) if trimmed else "芯片的核都在，没有要保留的区域")
+
+    def set_reserve(self, on: bool):
+        """The reserve option of the configuration (saved with it)."""
+        if self.session is None or reserve_missing_cores(self.session.config) == bool(on):
+            return
+        set_reserve_missing_cores(self.session.config, on)
+        self.session.changed()
+        self._update_buttons()
+        self.config_changed.emit()
+
+    def compiler_key(self) -> str:
+        return self.compiler_combo.currentData() or ""
+
+    def confirm_generation(self, generation: lf.Generation, shown: lf.Preview) -> bool:
+        """Show what generating would write; True when the user confirms.  Tests replace this."""
+        return GenerationPreviewDialog(generation, shown, self).exec() == QDialog.Accepted
+
+    def generate_linker_file(self) -> Optional[Path]:
+        """Plan, check, preview and, on confirmation, write the linker file; then self-check it
+        against the scan.  Returns the written path, or None (refused, cancelled or failed)."""
+        if self.session is None:
+            self._error("没有打开内存布局配置")
+            return None
+        if self.result is None:
+            self._error("还没有扫描结果：先在上方开始扫描，生成要用到段和链接符号需求")
+            return None
+        base = project_dir(self.session.project)
+        if base is None:
+            self._error("工程还没有保存位置，无法确定集成工程目录")
+            return None
+        factory = self.factory()
+        try:
+            generation = lf.prepare_generation(self.compiler_key(), self.session.config, self.rows(),
+                                               self.chip_windows(), self.result.needs,
+                                               factory.layout if factory else None)
+        except UnsupportedCompiler as e:
+            self._error(str(e))
+            return None
+        if generation.refused:
+            self.show_messages(f"无法生成：{len(generation.refusals)} 个问题，请先在配置里改正",
+                               generation.refusals)
+            return None
+        path = lf.target_path(base, generation.compiler)
+        shown = lf.preview(path, generation.file.text)
+        if not self.confirm_generation(generation, shown):
+            self.show_messages("已取消生成，没有写任何文件", error=False)
+            return None
+        try:
+            lf.write_linker_file(path, generation.file.text)
+        except lf.LinkFileError as e:
+            self._error(f"生成失败，原来的文件没有改动：{e}")
+            return None
+        self.generated_path = path
+        self.open_dir_button.setEnabled(True)
+        check = lf.self_check_result(generation.file.text, self.result, path.name)
+        self.last_self_check = check
+        self.show_messages(*self_check_lines(path, shown, check, generation.warnings), error=not check.clean)
+        return path
+
+    def open_generated_dir(self):
+        if self.generated_path is not None:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.generated_path.parent)))
 
     # --- rules and saving --------------------------------------------------------------------------
 
@@ -1611,6 +1753,33 @@ class ImportPreviewDialog(QDialog):
         outer.addWidget(self.text, 1)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.button(QDialogButtonBox.Ok).setText("导入")
+        buttons.button(QDialogButtonBox.Cancel).setText("取消")
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        outer.addWidget(buttons)
+
+
+# --- the generation preview ----------------------------------------------------------------------------
+
+class GenerationPreviewDialog(QDialog):
+    """What generating would write, the warnings, and the text itself; "写入" writes it."""
+
+    def __init__(self, generation, shown, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("生成链接文件：预览")
+        self.resize(900, 640)
+        outer = QVBoxLayout(self)
+        self.summary = QPlainTextEdit("\n".join(generation_preview_lines(generation, shown)))
+        self.summary.setReadOnly(True)
+        self.summary.setMaximumHeight(200)
+        outer.addWidget(self.summary)
+        outer.addWidget(QLabel("文件内容："))
+        self.text = QPlainTextEdit(generation.file.text)
+        self.text.setReadOnly(True)
+        self.text.setLineWrapMode(QPlainTextEdit.NoWrap)
+        outer.addWidget(self.text, 1)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Ok).setText("写入")
         buttons.button(QDialogButtonBox.Cancel).setText("取消")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)

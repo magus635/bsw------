@@ -110,6 +110,26 @@ def test_section_not_placed_warns_and_the_self_check_shows_it(tmp_path):
     assert [f.text.split("（")[0] for f in result.unplaced] == [".mcal_const_asil_d_32"]
 
 
+@pytest.mark.parametrize("with_const, reserve", [(False, True), (True, True), (False, False)])
+def test_the_quick_self_check_agrees_with_the_full_one(tmp_path, with_const, reserve):
+    """The window checks the text against the scan it has (no new scan of the sources): it
+    finds the same missing symbols and the same sections without a region as run_check."""
+    src = _project(tmp_path, with_const=with_const)
+    config = _config()
+    pl.set_reserve_missing_cores(config, reserve)
+    scan, generation = _generate(src, config)
+    full = linkfile.self_check_text(generation.file.text, [src], regions=CHIP)
+    quick = linkfile.self_check_result(generation.file.text, scan)
+
+    def texts(findings):
+        return sorted(f.text for f in findings)
+
+    assert texts(quick.missing_symbols) == texts(full.missing_symbols)
+    assert texts(quick.unplaced) == texts(full.unplaced)
+    assert quick.clean == full.clean
+    assert scan.findings == check.run_check([src], regions=CHIP).findings      # the scan is not changed
+
+
 def test_refused_generation_has_no_text(tmp_path):
     src = _project(tmp_path)
     config = _config()

@@ -22,10 +22,11 @@ from pathlib import Path
 from typing import Iterable, List, Optional, Sequence
 
 from ..hardware.memory_regions import MemoryRegionDef
-from .check import SYMBOL, UNPLACED, CheckResult, run_check
+from .check import SYMBOL, UNPLACED, CheckResult, Finding, _check_symbols, run_check
 from .config import INTEGRATION_DIR, LINKED_FILE_DIR, MemoryMapConfig
 from .generators import GeneratedFile, UnsupportedCompiler, compiler, generate
 from .plan import Plan, build_plan, check_plan
+from .scatter import parse_scatter, placements
 
 BACKUP_SUFFIX = ".bak"
 ENCODING = "utf-8"
@@ -170,3 +171,27 @@ def self_check_text(text: str, source_dirs: Iterable[Path], header_dirs: Iterabl
         path = Path(directory) / file_name
         path.write_bytes(_bytes(text))
         return self_check(path, source_dirs, header_dirs, regions, base)
+
+
+def self_check_result(text: str, scan: CheckResult, file_name: str = "scatter.scat") -> SelfCheck:
+    """The self-check against a scan already made, without reading the sources again.
+
+    ``text`` is read with the checker's own scatter reader; the link symbols are checked as
+    ``run_check`` does (``check._check_symbols`` on the scan's needs) and every scanned output
+    section is looked up with the checker's ``scatter.placements``.  The scan's own findings
+    and rows are not changed.  Quick enough to run in the window right after generating.
+    """
+    scatter = parse_scatter(text, file_name)
+    checked = CheckResult(linker_file=file_name, needs=list(scan.needs), regions=list(scan.regions),
+                          source_dirs=list(scan.source_dirs), header_dirs=list(scan.header_dirs),
+                          scatter_regions=[r.name for r in scatter.regions],
+                          scatter_addresses={r.name: r.address for r in scatter.regions},
+                          scatter_read=True, placement_checked=True)
+    _check_symbols(checked, scatter)
+    for row in scan.rows:
+        if not placements(scatter, row.output, row.kind):
+            path, line = row.uses[0] if row.uses else ("", 0)
+            checked.findings.append(Finding(UNPLACED, path, line,
+                                            f"{row.output}（{row.kind}）没有被任何执行区域接收"))
+    checked.findings.sort(key=Finding.sort_key)
+    return SelfCheck(checked)
