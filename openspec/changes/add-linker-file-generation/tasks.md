@@ -40,6 +40,6 @@
 
 ## 7. 对照与验证
 
-- [ ] 7.1 与厂商 `LinkerAdsPf.scat` 对照：必需区域名是否都在、各 `.mcal_*` 段归属是否一致、窗口是否一致；不一致的逐条列出（读厂商文件，运行前先征得用户同意）
+- [x] 7.1 ~~与厂商 `LinkerAdsPf.scat` 对照~~：由 `update-linker-generator-authority` 撤销。用户定位生成器是权威，厂商脚本只是可选导入源，不作为验收条件（见 design.md D7）
 - [ ] 7.2 全量测试（SC300 的两个已知失败除外）；`openspec validate add-linker-file-generation --strict`
 - [ ] 7.3 用户在 THA6206 工程上生成，并在 ADS 编译器里实际链接一次，给出结果（工具外，需要用户）

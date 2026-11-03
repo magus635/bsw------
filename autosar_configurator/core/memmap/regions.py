@@ -78,10 +78,14 @@ def kind_for(need: RegionNeed) -> str:
 
 
 def _region(name: str, kind: str, layout: Dict[str, dict]) -> ExecRegion:
-    entry = layout.get(name, {})
-    return ExecRegion(name, entry.get("memory", ""), entry.get("window", ""), entry.get("kind", kind),
-                      int(entry.get("order", 0)), int(entry.get("align", 8 if kind == STACK else 64)),
-                      required=True, origin=REQUIRED_ORIGIN)
+    """A required region placed as the factory layout says (window, order, start, size, load
+    region), or with no window yet when the layout does not know it."""
+    entry = layout.get(name)
+    if entry is None:
+        return ExecRegion(name, "", "", kind, 0, 8 if kind == STACK else 64,
+                          required=True, origin=REQUIRED_ORIGIN)
+    from .factory import layout_region          # the factory module imports this one
+    return layout_region({**entry, "kind": entry.get("kind", kind)})
 
 
 def required_regions(needs: Iterable[RegionNeed], cores: Optional[int],

@@ -97,9 +97,62 @@ def test_every_factory_rule_is_used_by_some_vendor_section():
 
 def test_the_factory_data_loads_with_its_notes():
     data = fy.load_factory("THA6206_LFBGA292")
-    assert data is not None and data.version == 1
+    assert data is not None and data.version == 2           # 2: corrected and completed (update-linker-generator-authority)
     assert all(r.origin == "factory" and r.note for r in data.rules)
     assert all(e.get("note") for e in data.layout)
+    assert all(e.get("note") for e in data.load_regions)
+
+
+# --- the corrections and additions of update-linker-generator-authority -------------------
+
+def _layout():
+    return {e["name"]: e for e in fy.load_factory("THA6206_LFBGA292").layout}
+
+
+def test_the_vector_table_is_at_address_zero_in_the_local_atcm():
+    region = next(r for r in fy.factory_regions(fy.load_factory("THA6206_LFBGA292")) if r.name == "INT_VECTOR_TABLE")
+    assert (region.window, region.order, region.size) == ("CPUXATCM", 1, 0x2080)
+
+
+def test_the_user_stacks_start_at_a_fixed_address_and_the_others_follow():
+    regions = {r.name: r for r in fy.factory_regions(fy.load_factory("THA6206_LFBGA292"))}
+    for core, base in ((0, 0x30129000), (1, 0x30529000)):
+        user = regions[f"CORE{core}_USER_STACK"]
+        assert (user.start_mode, user.address, user.size) == ("fixed", base, 0x1000)
+        assert (regions[f"CORE{core}_IRQ_STACK"].start_mode, regions[f"CORE{core}_IRQ_STACK"].size) == ("after", 0x1000)
+
+
+def test_undefine_ram_data_starts_at_an_offset_in_gmu_normal():
+    region = next(r for r in fy.factory_regions(fy.load_factory("THA6206_LFBGA292")) if r.name == "UNDEFINE_RAM_DATA")
+    assert (region.window, region.start_mode, region.offset) == ("GMU_NORMAL", "offset", 0x20000)
+
+
+def test_the_regions_that_were_missing_are_there():
+    assert {"CODE_CLONE", "DATA_CLONE", "BSS_CLONE", "RAM_CODE", "EX_CODE_CORE1",
+            "EX_CONST_DATA_CORE1", "DFLASH_DATA"} <= set(_layout())
+
+
+def test_dflash_data_is_in_its_own_load_region():
+    data = fy.load_factory("THA6206_LFBGA292")
+    assert [l.name for l in fy.factory_load_regions(data)] == ["ROM_CODE", "DFLASH_CODE"]
+    assert next(r for r in fy.factory_regions(data) if r.name == "DFLASH_DATA").load_region == "DFLASH_CODE"
+
+
+def test_the_fixed_addresses_and_offsets_lie_in_their_windows():
+    from autosar_configurator.core.hardware.chip_database import ChipDatabase, default_chips_dir
+    from autosar_configurator.core.memmap.config import MemoryMapConfig, region_doubts
+    chip = ChipDatabase(default_chips_dir()).get_chip("THA6206_LFBGA292")
+    config = MemoryMapConfig(regions=fy.factory_regions(fy.load_factory("THA6206_LFBGA292")))
+    assert region_doubts(config, chip.memory_regions) == []
+
+
+def test_the_first_preparation_brings_the_load_regions_and_keeps_them_after():
+    config = MemoryMapConfig()
+    fy.prepare(config, "THA6206_LFBGA292", [], cores=2)
+    assert [l.name for l in config.load_regions] == ["ROM_CODE", "DFLASH_CODE"]
+    config.remove_load_region("DFLASH_CODE")
+    fy.prepare(config, "THA6206_LFBGA292", [], cores=2)
+    assert [l.name for l in config.load_regions] == ["ROM_CODE"]            # the project's own now
 
 
 def test_the_factory_layout_has_the_regions_startup_refers_to():

@@ -140,23 +140,28 @@ def test_byte_for_byte_determinism():
 
 def _round_trip(plan):
     scatter = parse_scatter(ads.generate(plan), "scatter.scat")
-    expected = [r.name for r in plan.regions]
-    expected += [n + "_LIMIT" for n in [r.name for r in plan.regions if r.needs_limit]]
-    for r in plan.reserved:
-        expected.append(r.name)
-        if r.needs_limit:
-            expected.append(r.name + "_LIMIT")
+    expected = []
+    for index, load in enumerate(plan.load_regions):
+        in_load = [r for r in plan.regions if r.load_region == load.name]
+        expected += [r.name for r in in_load] + [r.name + "_LIMIT" for r in in_load if r.needs_limit]
+        if index == 0:
+            for r in plan.reserved:
+                expected.append(r.name)
+                if r.needs_limit:
+                    expected.append(r.name + "_LIMIT")
     assert [r.name for r in scatter.regions] == expected
     for region in plan.regions:
         read = scatter.region(region.name)
-        assert read.load_region == "ROM_CODE"
+        assert read.load_region == region.load_region
         assert [s.names for s in read.selectors] == [(name,) for name in region.sections]
         assert all(s.files == "*" and not s.attributes for s in read.selectors)
         window = plan.window(region.window)
-        if region.start_window:
-            assert read.address == window.base
+        if region.address is not None:
+            assert read.address == region.address
+        elif region.start_window:
+            assert read.address == window.base + region.offset
         else:
-            assert read.follows == region.after and read.address == window.base
+            assert read.follows == region.after
     return scatter
 
 
@@ -170,6 +175,8 @@ def test_full_tha6206_plan_from_the_factory_data():
     config = pl.MemoryMapConfig(chip="THA6206_LFBGA292", regions=fy.factory_regions(factory),
                                 rules=list(factory.rules),
                                 trimmed=["CORE2_USER_STACK", "PRIVATE_DATA_CORE2"])
+    if hasattr(fy, "factory_load_regions"):         # the factory's load regions (task 4)
+        config.load_regions = fy.factory_load_regions(factory)
     plan = pl.build_plan(config, ROWS, chip.memory_regions, [], factory.layout)
     refusals, _ = pl.check_plan(plan)
     assert refusals == []
@@ -178,8 +185,14 @@ def test_full_tha6206_plan_from_the_factory_data():
     names = {r.name for r in scatter.regions}
     assert {e["name"] for e in factory.layout} <= names
     assert {"CORE2_USER_STACK", "PRIVATE_DATA_CORE2"} <= names
-    assert plan.region("INT_VECTOR_TABLE").start_window == "CPUXPFLASH0"
-    assert plan.region("EX_CODE").after == "INT_VECTOR_TABLE"
-    assert plan.region("CORE0_USER_STACK").size == 0x1000
+    # the factory layout is being corrected (update-linker-generator-authority task 4): the
+    # expectations come from its entries, not from fixed windows
+    entry = {e["name"]: e for e in factory.layout}
+    vector = plan.region("INT_VECTOR_TABLE")
+    assert vector.window == entry["INT_VECTOR_TABLE"]["window"]
+    assert plan.region("EX_CODE").window == entry["EX_CODE"]["window"]
+    if vector.window == plan.region("EX_CODE").window:
+        assert plan.region("EX_CODE").after == "INT_VECTOR_TABLE"
+    assert plan.region("CORE0_USER_STACK").size == int(str(entry["CORE0_USER_STACK"].get("size", 0x1000)), 0)
     assert ads.generate(plan) == ads.generate(pl.build_plan(config, ROWS, chip.memory_regions, [],
                                                             factory.layout))

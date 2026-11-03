@@ -848,34 +848,34 @@ metadata:
     master: CORE0
   unconfirmed:
     memory_regions: 按 MCAL LinkFiles/Ads/LinkerAdsPf.scat 与 T1 scatter.scat 的 Memory 注释表填写；TCM 视为不可缓存、CPUX* 视为核心本地别名、Flash 本地访问的缓存属性和 LMU 所属核心均未确认
-resource_version: 1.0.2
+resource_version: 1.0.3
 selectors: {Os.OsResourceSubderivative: Os_THA6206, Resource.ResourceSubderivative: THA6206_LFBGA292}
 memory_regions:
-- {name: CPUXATCM, start: '0x0', size: '0x10000', type: ram, core: local, cacheable: false}
-- {name: CPUXBTCM, start: '0x100000', size: '0x30000', type: ram, core: local, cacheable: false}
-- {name: CPUXCTCM, start: '0x200000', size: '0x10000', type: ram, core: local, cacheable: false}
-- {name: CPUXPFLASH0, start: '0x8000000', size: '0x300000', type: flash, cacheable: true}
-- {name: CPUXPFLASH1, start: '0x8300000', size: '0x300000', type: flash, cacheable: true}
-- {name: GMU_NORMAL, start: '0x10000000', size: '0x40000', type: ram, cacheable: true}
-- {name: LMU1_NORMAL, start: '0x10054000', size: '0x4000', type: ram, cacheable: true}
-- {name: LMU2_NORMAL, start: '0x10058000', size: '0x4000', type: ram, cacheable: true}
-- {name: LMU3_NORMAL, start: '0x1005c000', size: '0x4000', type: ram, cacheable: true}
-- {name: CPU0ATCM, start: '0x30000000', size: '0x10000', type: ram, core: 0, cacheable: false}
-- {name: CPU0BTCM, start: '0x30100000', size: '0x30000', type: ram, core: 0, cacheable: false}
-- {name: CPU0CTCM, start: '0x30200000', size: '0x10000', type: ram, core: 0, cacheable: false}
-- {name: CPU1ATCM, start: '0x30400000', size: '0x10000', type: ram, core: 1, cacheable: false}
-- {name: CPU1BTCM, start: '0x30500000', size: '0x30000', type: ram, core: 1, cacheable: false}
-- {name: CPU1CTCM, start: '0x30600000', size: '0x10000', type: ram, core: 1, cacheable: false}
-- {name: PFLASH0_NORMAL, start: '0x40400000', size: '0x300000', type: flash, cacheable: true}
-- {name: PFLASH1_NORMAL, start: '0x40700000', size: '0x300000', type: flash, cacheable: true}
-- {name: DFLASH_NORMAL, start: '0x44000000', size: '0x80000', type: flash, cacheable: true}
-- {name: GMU_DEVICE, start: '0x82000000', size: '0x40000', type: ram, cacheable: false}
-- {name: PFLASH0_DEVICE, start: '0x90400000', size: '0x300000', type: flash, cacheable: false}
-- {name: PFLASH1_DEVICE, start: '0x90700000', size: '0x300000', type: flash, cacheable: false}
-- {name: DFLASH_DEVICE, start: '0x94000000', size: '0x80000', type: flash, cacheable: false}
-- {name: LMU1_DEVICE, start: '0xb0020000', size: '0x4000', type: ram, cacheable: false}
-- {name: LMU2_DEVICE, start: '0xc00d0000', size: '0x4000', type: ram, cacheable: false}
-- {name: LMU3_DEVICE, start: '0xd0040000', size: '0x4000', type: ram, cacheable: false}
+- {name: CPUXATCM, start: '0x0', size: '0x10000', type: ram, core: local, cacheable: false, memory: ATCM, window: local, source: LinkerAdsPf.scat 注释表}
+- {name: CPUXBTCM, start: '0x100000', size: '0x30000', type: ram, core: local, cacheable: false, memory: BTCM, window: local, source: LinkerAdsPf.scat 注释表}
+- {name: CPUXCTCM, start: '0x200000', size: '0x10000', type: ram, core: local, cacheable: false, memory: CTCM, window: local, source: LinkerAdsPf.scat 注释表}
+- {name: CPUXPFLASH0, start: '0x8000000', size: '0x300000', type: flash, cacheable: true, memory: PFLASH0, window: local, source: LinkerAdsPf.scat 注释表}
+- {name: CPUXPFLASH1, start: '0x8300000', size: '0x300000', type: flash, cacheable: true, memory: PFLASH1, window: local, source: LinkerAdsPf.scat 注释表}
+- {name: GMU_NORMAL, start: '0x10000000', size: '0x40000', type: ram, cacheable: true, memory: GMU, window: normal, source: LinkerAdsPf.scat 注释表}
+- {name: LMU1_NORMAL, start: '0x10054000', size: '0x4000', type: ram, cacheable: true, memory: LMU1, window: normal, source: LinkerAdsPf.scat 注释表}
+- {name: LMU2_NORMAL, start: '0x10058000', size: '0x4000', type: ram, cacheable: true, memory: LMU2, window: normal, source: LinkerAdsPf.scat 注释表}
+- {name: LMU3_NORMAL, start: '0x1005c000', size: '0x4000', type: ram, cacheable: true, memory: LMU3, window: normal, source: LinkerAdsPf.scat 注释表}
+- {name: CPU0ATCM, start: '0x30000000', size: '0x10000', type: ram, core: 0, cacheable: false, source: LinkerAdsPf.scat 注释表}
+- {name: CPU0BTCM, start: '0x30100000', size: '0x30000', type: ram, core: 0, cacheable: false, source: LinkerAdsPf.scat 注释表}
+- {name: CPU0CTCM, start: '0x30200000', size: '0x10000', type: ram, core: 0, cacheable: false, source: LinkerAdsPf.scat 注释表}
+- {name: CPU1ATCM, start: '0x30400000', size: '0x10000', type: ram, core: 1, cacheable: false, source: LinkerAdsPf.scat 注释表}
+- {name: CPU1BTCM, start: '0x30500000', size: '0x30000', type: ram, core: 1, cacheable: false, source: LinkerAdsPf.scat 注释表}
+- {name: CPU1CTCM, start: '0x30600000', size: '0x10000', type: ram, core: 1, cacheable: false, source: LinkerAdsPf.scat 注释表}
+- {name: PFLASH0_NORMAL, start: '0x40400000', size: '0x300000', type: flash, cacheable: true, memory: PFLASH0, window: normal, source: LinkerAdsPf.scat 注释表}
+- {name: PFLASH1_NORMAL, start: '0x40700000', size: '0x300000', type: flash, cacheable: true, memory: PFLASH1, window: normal, source: LinkerAdsPf.scat 注释表}
+- {name: DFLASH_NORMAL, start: '0x44000000', size: '0x80000', type: flash, cacheable: true, memory: DFLASH, window: normal, source: LinkerAdsPf.scat 注释表}
+- {name: GMU_DEVICE, start: '0x82000000', size: '0x40000', type: ram, cacheable: false, memory: GMU, window: device, source: LinkerAdsPf.scat 注释表}
+- {name: PFLASH0_DEVICE, start: '0x90400000', size: '0x300000', type: flash, cacheable: false, memory: PFLASH0, window: device, source: LinkerAdsPf.scat 注释表}
+- {name: PFLASH1_DEVICE, start: '0x90700000', size: '0x300000', type: flash, cacheable: false, memory: PFLASH1, window: device, source: LinkerAdsPf.scat 注释表}
+- {name: DFLASH_DEVICE, start: '0x94000000', size: '0x80000', type: flash, cacheable: false, memory: DFLASH, window: device, source: LinkerAdsPf.scat 注释表}
+- {name: LMU1_DEVICE, start: '0xb0020000', size: '0x4000', type: ram, cacheable: false, memory: LMU1, window: device, source: LinkerAdsPf.scat 注释表}
+- {name: LMU2_DEVICE, start: '0xc00d0000', size: '0x4000', type: ram, cacheable: false, memory: LMU2, window: device, source: LinkerAdsPf.scat 注释表}
+- {name: LMU3_DEVICE, start: '0xd0040000', size: '0x4000', type: ram, cacheable: false, memory: LMU3, window: device, source: LinkerAdsPf.scat 注释表}
 ecu_resources:
   Resource:
     NumOfCores: 2
@@ -1834,4 +1834,4 @@ ecu_resources:
     AppModeDefaultName: [OSDEFAULTAPPMODE, OSALLRUNNINGMODE]
     IocPrimitiveDataType: [uint8, uint16, uint32, uint64, boolean, AppModeType, ApplicationType, CoreIdType, IdleModeType, TickType, Os_TickDiffType, AlarmType, CounterType, sint8, sint16, sint32, sint64, float32, float64, ISRType, ResourceType, SpinlockIdType, TaskType]
     IocPrimitiveDataTypeNum: 23
-checksum: sha256:c9aa0a60889a5d91718595da59b59148d2cc33f822fc36ea1be520d291f29f72
+checksum: sha256:aff7b517eeecdf72f8d9d0c6a3d2208eb0cbf7b355ac44f228988de625a503cd

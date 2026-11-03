@@ -15,13 +15,23 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from .config import FACTORY, REQUIRED_ORIGIN, ConfigError, ExecRegion, MemoryMapConfig, Rule
+from .config import (
+    AFTER,
+    DEFAULT_LIMIT_ALIGN,
+    FACTORY,
+    REQUIRED_ORIGIN,
+    ConfigError,
+    ExecRegion,
+    LoadRegion,
+    MemoryMapConfig,
+    Rule,
+)
 from .regions import FROM_CODE, RequiredRegions, merge_required, required_regions
 from .rules import install_factory
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "memmap"
 FILE_SUFFIX = "_default.json"
-FACTORY_NOTE = "出厂初始规则，未与厂商脚本逐条核对；可以直接修改"
+FACTORY_NOTE = "出厂初始规则与布局只是起点：生成的链接文件以这里的配置为准，可以直接修改"
 
 
 @dataclass
@@ -31,6 +41,7 @@ class FactoryData:
     note: str = ""
     layout: List[dict] = field(default_factory=list)
     rules: List[Rule] = field(default_factory=list)
+    load_regions: List[dict] = field(default_factory=list)
 
 
 def factory_path(chip: str, directory: Optional[Path] = None) -> Path:
@@ -60,14 +71,37 @@ def load_factory(chip: str, directory: Optional[Path] = None) -> Optional[Factor
         rules.append(Rule(entry["name"], dict(entry["match"]), entry["target"], origin=FACTORY,
                           note=entry.get("note", "")))
     return FactoryData(chip, int(data.get("version", 1)), str(data.get("note", "")),
-                       list(data.get("layout", [])), rules)
+                       list(data.get("layout", [])), rules, list(data.get("load_regions", [])))
+
+
+def layout_region(entry: dict, origin: str = REQUIRED_ORIGIN, required: bool = True) -> ExecRegion:
+    """One entry of a factory layout as an execution region.
+
+    Besides the window, order and kind the entry may say how the region starts (``start_mode``
+    with ``offset`` or ``address``), how big it is (``size``), which load region it is in
+    (``load_region``) and the alignment of its limit region (``limit_align``); numbers may be
+    hex text.  A missing field means the default.
+    """
+    def number(key, default=None):
+        value = entry.get(key, default)
+        return int(str(value), 0) if value is not None and not isinstance(value, int) else value
+
+    kind = entry["kind"]
+    return ExecRegion(
+        entry["name"], entry.get("memory", ""), entry.get("window", ""), kind, int(entry.get("order", 0)),
+        int(entry.get("align", 8 if kind == "stack" else 64)), required=required, origin=origin,
+        start_mode=entry.get("start_mode", AFTER), offset=number("offset", 0) or 0,
+        address=number("address"), size=number("size"), load_region=entry.get("load_region", ""),
+        limit_align=int(entry.get("limit_align", DEFAULT_LIMIT_ALIGN)))
 
 
 def factory_regions(factory: FactoryData) -> List[ExecRegion]:
     """The factory layout as execution regions (all of them required: the vendor's names)."""
-    return [ExecRegion(e["name"], e.get("memory", ""), e.get("window", ""), e["kind"], int(e.get("order", 0)),
-                       int(e.get("align", 8 if e["kind"] == "stack" else 64)), required=True,
-                       origin=REQUIRED_ORIGIN) for e in factory.layout]
+    return [layout_region(e) for e in factory.layout]
+
+
+def factory_load_regions(factory: FactoryData) -> List[LoadRegion]:
+    return [LoadRegion(e["name"], e["window"], int(str(e["size"]), 0)) for e in factory.load_regions]
 
 
 def prepare(config: MemoryMapConfig, chip: str, needs, cores: Optional[int],
@@ -83,6 +117,11 @@ def prepare(config: MemoryMapConfig, chip: str, needs, cores: Optional[int],
     installed = False
     if factory:
         installed = install_factory(config, factory.rules, factory.version)
+        if not config.load_regions:
+            # the factory load regions come with the project's first copy, like the rules;
+            # afterwards they are the project's own
+            for load in factory_load_regions(factory):
+                config.load_regions.append(load)
     return Prepared(factory, result, gone, installed)
 
 

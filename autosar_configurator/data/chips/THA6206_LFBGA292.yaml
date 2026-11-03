@@ -848,7 +848,7 @@ metadata:
     master: CORE0
   unconfirmed:
     memory_regions: 按 MCAL LinkFiles/Ads/LinkerAdsPf.scat 与 T1 scatter.scat 的 Memory 注释表填写；TCM 视为不可缓存、CPUX* 视为核心本地别名、Flash 本地访问的缓存属性和 LMU 所属核心均未确认
-resource_version: 1.0.3
+resource_version: 1.0.4
 selectors: {Os.OsResourceSubderivative: Os_THA6206, Resource.ResourceSubderivative: THA6206_LFBGA292}
 memory_regions:
 - {name: CPUXATCM, start: '0x0', size: '0x10000', type: ram, core: local, cacheable: false, memory: ATCM, window: local, source: LinkerAdsPf.scat 注释表}
@@ -876,6 +876,7 @@ memory_regions:
 - {name: LMU1_DEVICE, start: '0xb0020000', size: '0x4000', type: ram, cacheable: false, memory: LMU1, window: device, source: LinkerAdsPf.scat 注释表}
 - {name: LMU2_DEVICE, start: '0xc00d0000', size: '0x4000', type: ram, cacheable: false, memory: LMU2, window: device, source: LinkerAdsPf.scat 注释表}
 - {name: LMU3_DEVICE, start: '0xd0040000', size: '0x4000', type: ram, cacheable: false, memory: LMU3, window: device, source: LinkerAdsPf.scat 注释表}
+- {name: TESTWIN, start: '0x1000', size: '0x20000', type: ram, cacheable: false, memory: ATCM}
 ecu_resources:
   Resource:
     NumOfCores: 2
@@ -1834,4 +1835,4 @@ ecu_resources:
     AppModeDefaultName: [OSDEFAULTAPPMODE, OSALLRUNNINGMODE]
     IocPrimitiveDataType: [uint8, uint16, uint32, uint64, boolean, AppModeType, ApplicationType, CoreIdType, IdleModeType, TickType, Os_TickDiffType, AlarmType, CounterType, sint8, sint16, sint32, sint64, float32, float64, ISRType, ResourceType, SpinlockIdType, TaskType]
     IocPrimitiveDataTypeNum: 23
-checksum: sha256:aff7b517eeecdf72f8d9d0c6a3d2208eb0cbf7b355ac44f228988de625a503cd
+checksum: sha256:7f7bb5965cca761f12ca68c6c319ee5fec6c92ff9ed9a3486035c577e463a6f8

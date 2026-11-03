@@ -45,3 +45,18 @@ entries:
   confirmed: []
   marked: []
   checksum: sha256:aff7b517eeecdf72f8d9d0c6a3d2208eb0cbf7b355ac44f228988de625a503cd
+- date: '2026-11-03'
+  author: Your Name
+  source: 设计器手工编辑
+  note: ''
+  resource_version: {old: 1.0.3, new: 1.0.4}
+  base_modified_outside: false
+  ecu_resources:
+    added: []
+    changed: []
+    removed: []
+  metadata: []
+  views: {}
+  confirmed: []
+  marked: []
+  checksum: sha256:7f7bb5965cca761f12ca68c6c319ee5fec6c92ff9ed9a3486035c577e463a6f8

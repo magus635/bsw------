@@ -1,11 +1,18 @@
 """
 Linker plan
 
-What a linker file has to say, without the syntax of any compiler (design.md D1): one load
-region, the execution regions in window order with their start (the window's base for the
-first region of a window, else "after the previous region, aligned"), the output sections
-each one takes, which of them need a ``<name>_LIMIT`` region, and the reserved regions for
-cores the chip does not have.  A generator reads only the plan.
+What a linker file has to say, without the syntax of any compiler (design.md D1): the load
+regions (the configured ones in their order; none configured: one ``ROM_CODE`` on the first
+flash window), the execution regions of each in window order with their start, the output
+sections each one takes, which of them need a ``<name>_LIMIT`` region, and the reserved
+regions for cores the chip does not have (in the first load region).  A generator reads only
+the plan.
+
+update-linker-generator-authority: a region starts (D1) after the previous region of its
+window, aligned (the default; the first region of a window at the window's base), at the
+window's base plus an offset, or at a fixed address.  Its size (D2) is the configured one,
+else the window's size (a stack 0x1000, a reserved region 0).  Its limit region is aligned to
+its ``limit_align`` (D4, default 64).
 
 Built from the layout configuration, the scan rows (placed with ``rules.place_all``), the
 chip's memory regions and the link symbol needs.  Same input, same plan: windows, regions
@@ -17,7 +24,8 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from ..hardware.memory_regions import MemoryRegionDef
 from .check import SectionRow
-from .config import CONFIG_FILE, RESERVED, STACK, MemoryMapConfig
+from .config import (AFTER, CONFIG_FILE, DEFAULT_LIMIT_ALIGN, FIXED, OFFSET, RESERVED, STACK, MemoryMapConfig,
+                     region_doubts)
 from .rules import AGAIN, BY_RULE, MANUAL, NOT_PLACED, Placement, place_all
 from .symbols import LIMIT_REGION_SUFFIX, USES, RegionNeed
 
@@ -63,7 +71,7 @@ class LoadRegion:
     name: str
     window: str                     # the window it starts at
     base: int
-    size: int                       # upper bound: the window's size (no capacity is known)
+    size: int                       # upper bound: the configured one, else the window's size
 
 
 @dataclass(frozen=True)
@@ -74,13 +82,18 @@ class PlanRegion:
     window: str
     kind: str
     align: int
-    start_window: Optional[str]     # starts at this window's base (first region of the window)
+    start_window: Optional[str]     # starts at this window's base (+ ``offset``): the first region
+                                    # of a window, or start mode "offset"
     after: Optional[str]            # else after this region, aligned to ``align``
     sections: Tuple[str, ...]       # output sections, sorted by name
     size: int                       # upper bound, or the EMPTY length of a stack/reserved region
     needs_limit: bool               # a <name>_LIMIT region has to follow
     uses: Tuple[str, ...]           # what code uses it for (symbols.USES), no syntax
     required: bool
+    start_mode: str = AFTER         # config.AFTER, OFFSET or FIXED
+    offset: int = 0                 # start mode "offset": added to the window's base
+    address: Optional[int] = None   # start mode "fixed": the start (start_window, after are None)
+    limit_align: int = DEFAULT_LIMIT_ALIGN      # alignment of its <name>_LIMIT region
 
     @property
     def empty(self) -> bool:
@@ -111,6 +124,11 @@ class Plan:
     missing_needed: Tuple[str, ...] = ()        # names code refers to that are not configured
     needs_scanned: bool = True                  # False: no code naming regions was scanned
     reserve_missing_cores: bool = True
+    unknown_load_regions: Tuple[Tuple[str, str], ...] = ()  # (region, load region) not configured: refused
+    unknown_load_windows: Tuple[Tuple[str, str], ...] = ()  # (load region, window) not on the chip: refused
+    empty_load_regions: Tuple[str, ...] = ()    # configured but holding nothing: left out, warned
+    forward_after: Tuple[Tuple[str, str], ...] = ()     # (region, previous) in a later load region: warned
+    doubts: Tuple[str, ...] = ()                # config.region_doubts: warned, never refused
 
     def region(self, name: str) -> Optional[PlanRegion]:
         return next((r for r in self.regions if r.name == name), None)
@@ -169,55 +187,110 @@ def build_plan(config: MemoryMapConfig, rows: Iterable[SectionRow],
     sizes = {e["name"]: int(str(e["size"]), 0) for e in (layout or []) if e.get("size") is not None}
     chip = {r.name: r for r in chip_regions}
 
-    no_window, unknown, placeable = [], [], []
+    # the load regions: the configured ones in their order, else one ROM_CODE (made below)
+    configured_loads = list(config.load_regions)
+    load_names = [l.name for l in configured_loads] or [LOAD_REGION_NAME]
+    unknown_load_windows = tuple((l.name, l.window) for l in configured_loads if l.window not in chip)
+
+    no_window, unknown, unknown_load, placeable = [], [], [], []
     for region in sorted(config.regions, key=lambda r: r.name):
         if not region.window:
             no_window.append(region.name)
         elif region.window not in chip:
             unknown.append((region.name, region.window))
+        elif region.load_region and region.load_region not in load_names:
+            unknown_load.append((region.name, region.load_region))
         else:
             placeable.append(region)
 
-    windows = sorted({chip[r.window].name: chip[r.window] for r in placeable}.values(), key=_window_key)
-    load = None
-    if windows:
+    # windows holding a region, and those a configured load region starts at (its base symbol)
+    load_windows = [chip[l.window] for l in configured_loads if l.window in chip]
+    windows = sorted({w.name: w for w in [chip[r.window] for r in placeable] + load_windows}.values(),
+                     key=_window_key)
+    loads: List[LoadRegion] = []
+    if configured_loads:
+        loads = [LoadRegion(l.name, l.window, chip[l.window].start, l.size)
+                 for l in configured_loads if l.window in chip]
+    elif windows:
         first = next((w for w in windows if w.type == FLASH), windows[0])
-        load = LoadRegion(LOAD_REGION_NAME, first.name, first.start, first.size)
+        loads = [LoadRegion(LOAD_REGION_NAME, first.name, first.start, first.size)]
+    load_of = {r.name: (r.load_region or load_names[0]) for r in placeable}
 
-    plan_regions: List[PlanRegion] = []
+    # The chain inside a window is by order, then name, whatever the load region and start
+    # mode: an "after" region follows the region before it in its window (D1).
+    previous_of: Dict[str, Optional[str]] = {}
     for window in windows:
-        members = sorted((r for r in placeable if r.window == window.name), key=lambda r: (r.order, r.name))
         previous: Optional[str] = None
-        for region in members:
-            if region.kind == STACK:
-                size = sizes.get(region.name, DEFAULT_STACK_SIZE)
-            elif region.kind == RESERVED:
-                size = sizes.get(region.name, 0)
-            else:
-                size = sizes.get(region.name, window.size)
-            plan_regions.append(PlanRegion(
-                name=region.name, load_region=load.name, window=window.name, kind=region.kind,
-                align=region.align, start_window=None if previous else window.name, after=previous,
-                sections=tuple(sorted(by_target.get(region.name, ()))),
-                size=size, needs_limit=needs_limit(region.name),
-                uses=uses_of.get(region.name, ()), required=region.required))
+        for region in sorted((r for r in placeable if r.window == window.name), key=lambda r: (r.order, r.name)):
+            previous_of[region.name] = previous
             previous = region.name
 
-    reserved: Tuple[ReservedRegion, ...] = ()
+    def size_of(region, window) -> int:
+        if region.size is not None:
+            return region.size
+        if region.kind == STACK:
+            return sizes.get(region.name, DEFAULT_STACK_SIZE)
+        if region.kind == RESERVED:
+            return sizes.get(region.name, 0)
+        return sizes.get(region.name, window.size)
+
+    plan_regions: List[PlanRegion] = []
+    for load in loads:
+        for window in windows:
+            members = sorted((r for r in placeable if r.window == window.name and load_of[r.name] == load.name),
+                             key=lambda r: (r.order, r.name))
+            for region in members:
+                previous = previous_of[region.name]
+                mode, start_window, after, offset, address = AFTER, None, None, 0, None
+                if region.start_mode == FIXED and region.address is not None:
+                    mode, address = FIXED, region.address
+                elif region.start_mode == OFFSET:
+                    mode, start_window, offset = OFFSET, window.name, region.offset
+                elif previous is None:
+                    start_window = window.name
+                else:
+                    after = previous
+                plan_regions.append(PlanRegion(
+                    name=region.name, load_region=load.name, window=window.name, kind=region.kind,
+                    align=region.align, start_window=start_window, after=after,
+                    sections=tuple(sorted(by_target.get(region.name, ()))),
+                    size=size_of(region, window), needs_limit=needs_limit(region.name),
+                    uses=uses_of.get(region.name, ()), required=region.required,
+                    start_mode=mode, offset=offset, address=address, limit_align=region.limit_align))
+
+    # A load region with no execution region in it is left out (armlink needs at least one);
+    # the first one stays when it takes the reserved regions.
     on = reserve_missing_cores(config)
+    has_reserved = on and bool(config.trimmed)
+    filled = {r.load_region for r in plan_regions}
+    empty_loads = tuple(l.name for index, l in enumerate(loads)
+                        if l.name not in filled and not (index == 0 and has_reserved))
+    loads = [l for l in loads if l.name not in empty_loads]
+
+    position = {name: index for index, name in enumerate(load_names)}
+    load_index = {r.name: position[r.load_region] for r in plan_regions}
+    forward = tuple((r.name, r.after) for r in plan_regions
+                    if r.after is not None and load_index[r.after] > load_index[r.name])
+
+    reserved: Tuple[ReservedRegion, ...] = ()
     if on:
-        last = plan_regions[-1].name if plan_regions else None
+        # in the first load region, after its last execution region (none: at its base)
+        in_first = [r.name for r in plan_regions if loads and r.load_region == loads[0].name]
+        last = in_first[-1] if in_first else None
         reserved = tuple(ReservedRegion(name, last, RESERVED_ALIGN, needs_limit(name), uses_of.get(name, ()))
                          for name in sorted(set(config.trimmed)))
 
     configured = {r.name for r in config.regions} | set(config.trimmed)
     missing = tuple(sorted(name for name in set(uses_of) | named_limits if name not in configured))
 
-    return Plan(chip=config.chip, source=source, load_regions=(load,) if load else (),
+    return Plan(chip=config.chip, source=source, load_regions=tuple(loads),
                 windows=tuple(Window(w.name, w.start, w.size, w.type) for w in windows),
                 regions=tuple(plan_regions), reserved=reserved, placements=placements,
                 no_window=tuple(no_window), unknown_windows=tuple(unknown),
-                missing_needed=missing, needs_scanned=needs_scanned, reserve_missing_cores=on)
+                missing_needed=missing, needs_scanned=needs_scanned, reserve_missing_cores=on,
+                unknown_load_regions=tuple(unknown_load), unknown_load_windows=unknown_load_windows,
+                empty_load_regions=empty_loads, forward_after=forward,
+                doubts=tuple(region_doubts(config, chip_regions)))
 
 
 def plan_from_check(config: MemoryMapConfig, result, layout: Optional[List[dict]] = None,
@@ -244,10 +317,30 @@ def check_plan(plan: Plan) -> Tuple[List[str], List[str]]:
         refusals.append(f"区域 {name} 没有落到任何存储窗口，生成不出它的起点")
     for name, window in plan.unknown_windows:
         refusals.append(f"区域 {name} 所在的窗口 {window} 不在当前芯片的存储里")
+    for name, load in plan.unknown_load_regions:
+        refusals.append(f"区域 {name} 所属的加载区域 {load} 不存在")
+    for load, window in plan.unknown_load_windows:
+        refusals.append(f"加载区域 {load} 所在的窗口 {window} 不在当前芯片的存储里")
+    window_symbols = {w.symbol: w.name for w in plan.windows}
+    for region in plan.regions:
+        symbol = fixed_symbol(region.name)
+        if region.address is not None and symbol in window_symbols:
+            refusals.append(f"区域 {region.name} 的固定地址名 {symbol} 与窗口 {window_symbols[symbol]} 的地址名相同")
     for p in plan.by_status(NOT_PLACED):
         warnings.append(f"段 {p.section} 未放置：生成的文件里没有区域按名字接收它")
     if not plan.needs_scanned:
         warnings.append(DEFAULT_LAYOUT_WARNING)
     for name in plan.missing_needed:
         warnings.append(f"代码引用了区域 {name}，但配置里没有它，生成的文件里也不会有")
+    warnings.extend(plan.doubts)
+    for name in plan.empty_load_regions:
+        warnings.append(f"加载区域 {name} 里没有执行区域，生成的文件里不写它")
+    for name, previous in plan.forward_after:
+        warnings.append(f"区域 {name} 接在 {previous} 之后，但 {previous} 属于后面的加载区域，"
+                        f"链接器可能不接受这个向后引用")
     return refusals, warnings
+
+
+def fixed_symbol(region: str) -> str:
+    """The name a fixed start address goes by in a linker file (``CORE0_USER_STACK_ADDRESS``)."""
+    return _NOT_IDENTIFIER.sub("_", region) + "_ADDRESS"

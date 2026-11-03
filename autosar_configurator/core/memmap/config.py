@@ -42,6 +42,11 @@ _ACCEPTS = {CODE: "TEXT", CONST: "RODATA", DATA: "DATA", BSS: "BSS", NOINIT: "BS
 FACTORY, USER = "factory", "user"
 REQUIRED_ORIGIN, DEFAULT_ORIGIN = "required", "default"
 
+AFTER, OFFSET, FIXED = "after", "offset", "fixed"
+START_MODES = (AFTER, OFFSET, FIXED)
+START_LABELS = {AFTER: "接在上一个区域之后", OFFSET: "窗口起点加偏移", FIXED: "固定地址"}
+DEFAULT_LIMIT_ALIGN = 64
+
 LIMIT_SUFFIX = "_LIMIT"
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -62,6 +67,20 @@ class ExecRegion:
     required: bool = False          # code refers to it by name: cannot be removed or renamed
     origin: str = USER              # required, default or user
     size_actual: Optional[int] = None       # reserved for a map file; never filled here
+    start_mode: str = "after"       # after the previous region of the window, window base + offset, or fixed
+    offset: int = 0                 # for start_mode "offset"
+    address: Optional[int] = None   # for start_mode "fixed"
+    size: Optional[int] = None      # upper bound, or the length of a stack/reserved region
+    load_region: str = ""           # the load region it belongs to; '' is the first one
+    limit_align: int = 64           # alignment of its <name>_LIMIT region
+
+
+@dataclass
+class LoadRegion:
+    """A load region of the linker file: where a group of execution regions is loaded from."""
+    name: str
+    window: str                     # the chip window it starts at
+    size: int                       # upper bound
 
 
 @dataclass
@@ -87,6 +106,76 @@ class MemoryMapConfig:
     manual: Dict[str, str] = field(default_factory=dict)        # section -> region, by hand
     trimmed: List[str] = field(default_factory=list)            # required regions of cores the chip lacks
     options: Dict[str, Any] = field(default_factory=dict)
+    load_regions: List[LoadRegion] = field(default_factory=list)    # in order; empty: one ROM_CODE
+
+    # --- where a region starts, how big, which load region -------------------------
+
+    def set_start(self, name: str, mode: str, offset: int = 0, address: Optional[int] = None) -> None:
+        """Choose how region ``name`` starts.
+
+        Raises:
+            ConfigError: unknown mode, a negative offset, or a fixed start without an address
+        """
+        region = self._existing(name)
+        if mode not in START_MODES:
+            raise ConfigError(f"起点方式不对：{mode}（应为 {', '.join(START_MODES)}）")
+        if mode == OFFSET and offset < 0:
+            raise ConfigError(f"区域 {name} 的偏移不能为负：{offset}")
+        if mode == FIXED and (address is None or address < 0):
+            raise ConfigError(f"区域 {name} 选了固定地址，但没有给出地址")
+        region.start_mode = mode
+        region.offset = offset if mode == OFFSET else 0
+        region.address = address if mode == FIXED else None
+
+    def set_size(self, name: str, size: Optional[int]) -> None:
+        """Set the region's size, or clear it with None (then the default rule applies)."""
+        region = self._existing(name)
+        if size is not None and size <= 0:
+            raise ConfigError(f"区域 {name} 的大小必须为正数")
+        region.size = size
+
+    def set_load_region(self, name: str, load_region: str) -> None:
+        region = self._existing(name)
+        if load_region and self.load_region(load_region) is None:
+            raise ConfigError(f"没有加载区域 {load_region}")
+        region.load_region = load_region
+
+    # --- load regions ------------------------------------------------------------------
+
+    def load_region(self, name: str) -> Optional[LoadRegion]:
+        return next((l for l in self.load_regions if l.name == name), None)
+
+    def add_load_region(self, load: LoadRegion) -> None:
+        if not _IDENTIFIER.match(load.name or ""):
+            raise ConfigError(f"加载区域名称不对：{load.name!r}（字母、数字、下划线，不以数字开头）")
+        if self.load_region(load.name) is not None:
+            raise ConfigError(f"加载区域 {load.name} 已存在")
+        if load.size <= 0:
+            raise ConfigError(f"加载区域 {load.name} 的大小必须为正数")
+        self.load_regions.append(load)
+
+    def rename_load_region(self, old: str, new: str) -> None:
+        load = self.load_region(old)
+        if load is None:
+            raise ConfigError(f"没有加载区域 {old}")
+        if not _IDENTIFIER.match(new or ""):
+            raise ConfigError(f"加载区域名称不对：{new!r}")
+        if new != old and self.load_region(new) is not None:
+            raise ConfigError(f"加载区域 {new} 已存在")
+        load.name = new
+        for region in self.regions:
+            if region.load_region == old:
+                region.load_region = new
+
+    def remove_load_region(self, name: str) -> None:
+        """Remove a load region; its execution regions go back to the first one."""
+        load = self.load_region(name)
+        if load is None:
+            raise ConfigError(f"没有加载区域 {name}")
+        self.load_regions.remove(load)
+        for region in self.regions:
+            if region.load_region == name:
+                region.load_region = ""
 
     # --- regions -----------------------------------------------------------------
 
@@ -122,6 +211,29 @@ class MemoryMapConfig:
         if region is None:
             raise ConfigError(f"没有区域 {name}")
         return region
+
+
+def region_doubts(config: MemoryMapConfig, chip_regions) -> List[str]:
+    """What is questionable about where the regions start and how big they are; never stops
+    anything (the user may mean it), only listed before generating.
+
+    A fixed address outside the region's window, an offset past the window's end, a size
+    larger than the window.
+    """
+    windows = {r.name: r for r in chip_regions}
+    doubts = []
+    for region in sorted(config.regions, key=lambda r: r.name):
+        window = windows.get(region.window)
+        if window is None:
+            continue
+        if region.start_mode == FIXED and region.address is not None and not window.contains(region.address):
+            doubts.append(f"区域 {region.name} 的固定地址 {region.address:#x} 不在窗口 {window.name}"
+                          f"（{window.start:#x}–{window.end:#x}）内")
+        if region.start_mode == OFFSET and region.offset >= window.size:
+            doubts.append(f"区域 {region.name} 的偏移 {region.offset:#x} 超出窗口 {window.name} 的大小 {window.size:#x}")
+        if region.size is not None and region.size > window.size:
+            doubts.append(f"区域 {region.name} 的大小 {region.size:#x} 超过窗口 {window.name} 的大小 {window.size:#x}")
+    return doubts
 
 
 def check_region_name(name: str) -> None:
@@ -163,7 +275,25 @@ def _region_dict(r: ExecRegion) -> dict:
             "align": r.align, "required": r.required, "origin": r.origin}
     if r.size_actual is not None:
         data["size_actual"] = r.size_actual
+    # the fields of the later change only when they differ from the old behaviour, so that an
+    # older configuration is written exactly as before
+    if r.start_mode != AFTER:
+        data["start_mode"] = r.start_mode
+    if r.start_mode == OFFSET:
+        data["offset"] = hex(r.offset)
+    if r.start_mode == FIXED and r.address is not None:
+        data["address"] = hex(r.address)
+    if r.size is not None:
+        data["size"] = hex(r.size)
+    if r.load_region:
+        data["load_region"] = r.load_region
+    if r.limit_align != DEFAULT_LIMIT_ALIGN:
+        data["limit_align"] = r.limit_align
     return data
+
+
+def _load_dict(l: LoadRegion) -> dict:
+    return {"name": l.name, "window": l.window, "size": hex(l.size)}
 
 
 def _rule_dict(r: Rule) -> dict:
@@ -178,7 +308,7 @@ def _rule_dict(r: Rule) -> dict:
 def config_dict(config: MemoryMapConfig) -> dict:
     """The configuration as written: regions, manual placements and the rest by name, the
     rules in their own order (it is their priority)."""
-    return {
+    data = {
         "schema": SCHEMA,
         "chip": config.chip,
         "options": dict(sorted(config.options.items())),
@@ -187,6 +317,9 @@ def config_dict(config: MemoryMapConfig) -> dict:
         "manual": dict(sorted(config.manual.items())),
         "trimmed": sorted(config.trimmed),
     }
+    if config.load_regions:
+        data["load_regions"] = [_load_dict(l) for l in config.load_regions]     # their order matters
+    return data
 
 
 def save_config(config: MemoryMapConfig, path: Path) -> None:
@@ -264,10 +397,34 @@ def _parse(data: Any) -> MemoryMapConfig:
         kind = _need(entry, "kind", where, str)
         if kind not in KINDS:
             raise ConfigError(f"{where}的 kind 不对：{kind}")
+        name = _need(entry, "name", where, str)
+        start_mode = str(entry.get("start_mode", AFTER))
+        if start_mode not in START_MODES:
+            raise ConfigError(f"{where}的 start_mode 不对：{start_mode}")
+        offset = _number(entry.get("offset", 0), where, "offset")
+        if offset < 0:
+            raise ConfigError(f"{where}的 offset 不能为负")
+        address = _number(entry["address"], where, "address") if "address" in entry else None
+        if start_mode == FIXED and address is None:
+            raise ConfigError(f"{where}选了固定地址，但没有 address")
+        size = _number(entry["size"], where, "size") if "size" in entry else None
+        if size is not None and size <= 0:
+            raise ConfigError(f"{where}的 size 必须为正数")
+        limit_align = int(entry.get("limit_align", DEFAULT_LIMIT_ALIGN))
+        if limit_align <= 0:
+            raise ConfigError(f"{where}的 limit_align 必须为正数")
         regions.append(ExecRegion(
-            _need(entry, "name", where, str), str(entry.get("memory", "")), str(entry.get("window", "")), kind,
+            name, str(entry.get("memory", "")), str(entry.get("window", "")), kind,
             int(entry.get("order", 0)), int(entry.get("align", 64)), bool(entry.get("required", False)),
-            str(entry.get("origin", USER)), entry.get("size_actual")))
+            str(entry.get("origin", USER)), entry.get("size_actual"), start_mode, offset, address, size,
+            str(entry.get("load_region", "")), limit_align))
+    load_regions = []
+    for index, entry in enumerate(data.get("load_regions", [])):
+        where = f"load_regions[{index}]"
+        if not isinstance(entry, dict):
+            raise ConfigError(f"{where}必须是对象")
+        load_regions.append(LoadRegion(_need(entry, "name", where, str), _need(entry, "window", where, str),
+                                       _number(_need(entry, "size", where), where, "size")))
     rules = []
     for index, entry in enumerate(rules_data):
         where = f"rules[{index}]"
@@ -281,4 +438,16 @@ def _parse(data: Any) -> MemoryMapConfig:
     return MemoryMapConfig(
         chip=str(data.get("chip", "")), regions=regions, rules=rules,
         manual={str(k): str(v) for k, v in manual.items()}, trimmed=[str(t) for t in data.get("trimmed", [])],
-        options=dict(data.get("options", {})))
+        options=dict(data.get("options", {})), load_regions=load_regions)
+
+
+def _number(value: Any, where: str, key: str) -> int:
+    """A number written as hex text (``"0x1000"``) or as an integer."""
+    if isinstance(value, bool):
+        raise ConfigError(f"{where}的 {key} 不是数字")
+    if isinstance(value, int):
+        return value
+    try:
+        return int(str(value).strip(), 0)
+    except ValueError:
+        raise ConfigError(f"{where}的 {key} 不是数字：{value!r}") from None
