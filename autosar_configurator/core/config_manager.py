@@ -1417,16 +1417,60 @@ class ConfigurationManager:
             tree = etree.parse(str(rec_file_path), _xml_parser)
             root = tree.getroot()
             
-            # Find ECUC-MODULE-CONFIGURATION-VALUES (same structure as _ecuc.arxml)
-            config_elem = root.find('.//{http://autosar.org/schema/r4.0}ECUC-MODULE-CONFIGURATION-VALUES')
-            if config_elem is None:
-                config_elem = root.find('.//ECUC-MODULE-CONFIGURATION-VALUES')
+            # Find all ECUC-MODULE-CONFIGURATION-VALUES (file may contain both _Pre and _Rec blocks)
+            config_elems = root.findall('.//{http://autosar.org/schema/r4.0}ECUC-MODULE-CONFIGURATION-VALUES')
+            if not config_elems:
+                config_elems = root.findall('.//ECUC-MODULE-CONFIGURATION-VALUES')
             
-            if config_elem is None:
+            if not config_elems:
                 return None
             
             parser = ArxmlParser()
-            return parser.parse_ecuc_configuration_values(config_elem)
+            parsed_configs = [parser.parse_ecuc_configuration_values(elem) for elem in config_elems]
+            parsed_configs = [c for c in parsed_configs if c is not None]
+            if not parsed_configs:
+                return None
+            
+            # Filter configs that match current module if module_def is present
+            matching_configs = []
+            module_name = self.module_def.short_name if self.module_def else None
+            for cfg in parsed_configs:
+                if module_name:
+                    def_module = cfg.definition_ref.rstrip('/').rsplit('/', 1)[-1] if cfg.definition_ref else None
+                    if (cfg.short_name == module_name or 
+                        def_module == module_name or 
+                        cfg.short_name.startswith(f"{module_name}_")):
+                        matching_configs.append(cfg)
+                else:
+                    matching_configs.append(cfg)
+            
+            if not matching_configs:
+                matching_configs = parsed_configs
+            
+            # Prioritize _Pre configs before _Rec so pre-configuration values have precedence
+            matching_configs.sort(key=lambda c: 0 if c.short_name.endswith('_Pre') else 1)
+            
+            def merge_containers(target: EcucContainerValue, src: EcucContainerValue):
+                for p_name, p_val in src.parameter_values.items():
+                    if p_name not in target.parameter_values:
+                        target.parameter_values[p_name] = p_val
+                for s_sub in src.sub_containers:
+                    t_sub = next((s for s in target.sub_containers if s.short_name == s_sub.short_name), None)
+                    if t_sub:
+                        merge_containers(t_sub, s_sub)
+                    else:
+                        target.sub_containers.append(s_sub)
+
+            merged = matching_configs[0]
+            for cfg in matching_configs[1:]:
+                for c in cfg.containers:
+                    t_c = next((tc for tc in merged.containers if tc.short_name == c.short_name), None)
+                    if t_c:
+                        merge_containers(t_c, c)
+                    else:
+                        merged.containers.append(c)
+            
+            return merged
             
         except Exception as e:
             print(f"Warning: Failed to load recommended values from {rec_file_path}: {e}")
@@ -1443,9 +1487,9 @@ class ConfigurationManager:
         """
         comparisons = []
         
-        def compare_container(current: EcucContainerValue, recommended: EcucContainerValue, path_prefix: str):
+        def compare_container(current: Optional[EcucContainerValue], recommended: EcucContainerValue, path_prefix: str):
             for param_name, rec_param_obj in recommended.parameter_values.items():
-                current_param_obj = current.parameter_values.get(param_name)
+                current_param_obj = current.parameter_values.get(param_name) if current else None
                 
                 # Extract actual values
                 current_value = current_param_obj.value if current_param_obj else None
@@ -1463,13 +1507,13 @@ class ConfigurationManager:
             
             # Recurse into sub-containers
             for rec_sub in recommended.sub_containers:
-                # Find matching current sub-container by short_name
-                current_sub = next(
-                    (c for c in current.sub_containers if c.short_name == rec_sub.short_name),
-                    None
-                )
-                if current_sub:
-                    compare_container(current_sub, rec_sub, f"{path_prefix}/{rec_sub.short_name}")
+                current_sub = None
+                if current:
+                    current_sub = next(
+                        (c for c in current.sub_containers if c.short_name == rec_sub.short_name),
+                        None
+                    )
+                compare_container(current_sub, rec_sub, f"{path_prefix}/{rec_sub.short_name}")
         
         # Compare top-level containers
         for rec_container in rec_config.containers:
@@ -1477,8 +1521,7 @@ class ConfigurationManager:
                 (c for c in self.configuration.containers if c.short_name == rec_container.short_name),
                 None
             )
-            if current_container:
-                compare_container(current_container, rec_container, rec_container.short_name)
+            compare_container(current_container, rec_container, rec_container.short_name)
         
         return comparisons
     
@@ -1507,13 +1550,6 @@ class ConfigurationManager:
                 should_apply = not only_empty or current_value is None or current_value == ""
                 
                 if should_apply and rec_value is not None:
-                    # Pass the definition ref from the recommended value if available, or just empty string
-                    # The configuration manager will ensure it's valid if we had full robust logic,
-                    # but here we rely on existing mechanisms.
-                    # Note: We need the definition_ref to create a new EcucParameterValue if one doesn't exist.
-                    # Ideally we should look it up from definition.
-                    # But for now, let's use the one from rec_value or try to find it.
-                    
                     def_ref = rec_param_obj.definition_ref
                     current.set_parameter_value(param_name, rec_value, def_ref)
                     updated_count += 1
@@ -1524,6 +1560,14 @@ class ConfigurationManager:
                     (c for c in current.sub_containers if c.short_name == rec_sub.short_name),
                     None
                 )
+                if not current_sub and self.module_def:
+                    curr_c_def = self.get_container_def(current.definition_ref)
+                    sub_c_def = curr_c_def.sub_containers.get(rec_sub.short_name) if curr_c_def else None
+                    if sub_c_def:
+                        try:
+                            current_sub = self.create_container_instance(sub_c_def, parent=current, instance_name=rec_sub.short_name)
+                        except Exception:
+                            current_sub = None
                 if current_sub:
                     apply_to_container(current_sub, rec_sub)
         
@@ -1533,6 +1577,13 @@ class ConfigurationManager:
                 (c for c in self.configuration.containers if c.short_name == rec_container.short_name),
                 None
             )
+            if not current_container and self.module_def:
+                c_def = self.module_def.containers.get(rec_container.short_name)
+                if c_def:
+                    try:
+                        current_container = self.create_container_instance(c_def, instance_name=rec_container.short_name)
+                    except Exception:
+                        current_container = None
             if current_container:
                 apply_to_container(current_container, rec_container)
         

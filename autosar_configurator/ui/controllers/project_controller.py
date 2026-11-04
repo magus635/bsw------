@@ -1178,6 +1178,14 @@ class ProjectController:
                         (c for c in current.sub_containers if c.short_name == rec_sub.short_name),
                         None
                     )
+                    if not current_sub and self.win.config_manager.module_def:
+                        curr_c_def = self.win.config_manager.get_container_def(current.definition_ref)
+                        sub_c_def = curr_c_def.sub_containers.get(rec_sub.short_name) if curr_c_def else None
+                        if sub_c_def:
+                            try:
+                                current_sub = self.win.config_manager.create_container_instance(sub_c_def, parent=current, instance_name=rec_sub.short_name)
+                            except Exception:
+                                current_sub = None
                     if current_sub:
                         collect(current_sub, rec_sub)
 
@@ -1187,6 +1195,13 @@ class ProjectController:
                      if c.short_name == rec_container.short_name),
                     None
                 )
+                if not current_container and self.win.config_manager.module_def:
+                    c_def = self.win.config_manager.module_def.containers.get(rec_container.short_name)
+                    if c_def:
+                        try:
+                            current_container = self.win.config_manager.create_container_instance(c_def, instance_name=rec_container.short_name)
+                        except Exception:
+                            current_container = None
                 if current_container:
                     collect(current_container, rec_container)
 
@@ -1200,6 +1215,7 @@ class ProjectController:
             self.win._has_unsaved_changes = True
             
             # Refresh UI
+            self.win.tree_view.refresh()
             if self.win.tree_view.currentItem():
                 self.win.tree_view._on_item_clicked(self.win.tree_view.currentItem(), 0)
             

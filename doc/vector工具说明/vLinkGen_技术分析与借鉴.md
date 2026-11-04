@@ -31,7 +31,7 @@ vBaseEnv 是让一颗芯片"能编译、能链接、能启动"的基础环境包
 1. **生成文件缺少"默认段 / 特殊段 / 固定用途区域"的表达**。vBaseEnv 为启动代码和向量表各设一个专门的区域块，并说明在部分平台上向量表的位置决定能否正确启动；本工具生成的 scatter 只写扫描到的 MemMap 段。这一点影响能否链接成功，优先级最高。
 2. **ARM 跨加载区域时的顺序**：vLinkGen 明确规定了顺序如何调整，并用空区域作标记接续；本工具目前会写出向后引用，只给一条警告。
 3. **"内容类型 + 核号"元数据，加上"超集布局 + 可用性"**，可以在换芯片或多核时自动选窗口。vBaseEnv 正是用这个机制给每个 OS 核自动生成启动栈并放好位置。
-4. **初始化表与启动代码的配合方式**是 vBaseEnv 里最有参考价值的部分：启动代码不按名字引用区域，而是遍历生成的表，启动栈也从生成的表取。本工具的 `startup.c` 目前按区域名硬引用，是否改造需要先做决定。
+4. **初始化表与启动代码的配合方式**是 vBaseEnv 里最有参考价值的部分。负责启动的是 vBRS 模块（§5.6）：它的静态启动代码不按名字引用任何区域，清零、复制和每核启动栈都来自生成的表，各初始化阶段之间留有钩子。本工具的 `startup.c` 目前按区域名硬引用，是否改造需要先做决定。
 5. **芯片存储数据还缺两项属性**：ECC 对齐，以及核本地寻址的重叠规则（核本地区域之间可以地址重叠，其余区域不能重叠）。
 
 ---
@@ -359,7 +359,16 @@ vBaseEnv 是让一颗芯片"能编译、能链接、能启动、能初始化"的
 
 这是 §4.5 元数据机制的一个完整实例：**由 OS 核配置决定"有几个栈"，由内容类型决定"每个栈放在哪"**，两者都不需要手工配置。
 
-### 5.6 启动流程与内存初始化（UM §5.1、§6.1）
+### 5.6 vBRS 的启动机制（UM §4–§7）
+
+vBaseEnv 中负责启动的是 **vBRS**（Vector Basic Runtime System）。它管从复位到 `main()`、再到 OS 和 BSW 运行起来的全过程，分两部分：
+
+- **BrsHw**：与芯片和编译器相关，包括启动代码、硬件初始化接口、核异常向量表和构建支持（UM §5）。
+- **BrsMain**：与硬件无关，包括内存初始化、`main()` 和默认任务（UM §6）。
+
+vLinkGen 本身没有初始化函数，只生成表（§4.4），由 vBRS 的启动代码读表执行。
+
+总览（以普通应用为例，细节见 §5.6.1–§5.6.10）：
 
 ```text
 brsStartupEntry                         BrsHwStartup.c（通常为汇编）
@@ -379,14 +388,67 @@ brsStartupEntry                         BrsHwStartup.c（通常为汇编）
            └ main() → BrsMainInit()（看门狗 / PLL / 引脚）→ Os_Init() → EcuM_Init() → StartOS()
 ```
 
+#### 5.6.1 文件构成（UM §4、§5）
+
+| 类别 | 文件 | 内容 |
+|---|---|---|
+| vBRS 生成 | `vBrs_Lcfg.c`、`vBrs_Lcfg.h`、`vBrsCfg.h` | 源码用到的参数，如每个核的启动栈表 `BrsMain_CoreConfig`、各种 `BRS_ENABLE_*` 开关 |
+| | `Makefile.config.generated` | 构建参数，包括本实例所用链接文件的后缀 `BRS_LINKER_COMMAND_FILE_POSTFIX` |
+| | EcuM / SchM 桩 | 没有真正的 EcuM 或 RTE 时生成，如 `EcuM.c`、`SchM_Can.h` |
+| vLinkGen 生成 | `vLinkGen_Lcfg.c` 等 | 清零表、复制表（§4.4） |
+| BrsMain（静态，与硬件无关） | `BrsMainStartup.c` | `Brs_PreMainStartup()`、`Brs_ApplicationEntry()`、内存初始化 |
+| | `BrsMain.c/.h` | `main()`、`BrsMainInit()`、默认任务 |
+| | `BrsMain_Callout_Stubs.c` | 启动过程各钩子的模板实现 |
+| | `BrsMain_Appl.c/.h`、`BrsMain_Types.h`、`Brs_MemMap.h`、`BrsMain_Cfg.h` | 应用相关实现、类型定义、内存映射头、用户配置头 |
+| BrsHw（静态，按平台和编译器） | `BrsHwStartup.c` | 启动代码，通常用汇编写 |
+| | `BrsHw.c`、`BrsHw.h`、`BrsHw_Ports.h` | 硬件初始化接口、引脚定义 |
+| | `BrsHwIntTb.c` | 核异常向量表 |
+| | `Makefile`、`Makefile.static` | 构建设置；默认链接文件为 `Source/vLinkGen_Template.lsl` |
+
+#### 5.6.2 启动代码 BrsHwStartup.c（UM §5.1）
+
+从复位入口 `brsStartupEntry` 到 `Brs_PreMainStartup()`，依次是：
+
+1. `coreRegisterInit`、`coreRegisterInit2`：按需初始化核寄存器。
+2. `brsStartupZeroInitLoop`：用 `BRS_READ_COREID` 读当前核号，清零 `vLinkGen_ZeroInit_Early_Blocks` 和 `vLinkGen_ZeroInit_Early_Groups` 中属于本核的项。这一步在设置栈指针之前，所以 ECC RAM 上的启动栈必须用 EARLY 阶段（§5.4）。
+3. `brsStartupStackSearch`：从生成的 `BrsMain_CoreConfig` 中取本核启动栈的末端标签。
+4. `stackPointerInit`：设置栈指针。
+5. `coreRegisterInit3`，然后跳到 `Brs_PreMainStartup()`。
+
+核异常向量表 `brsExcVect` 也在这段代码中初始化。
+
+#### 5.6.3 两个入口函数（UM §6.1）
+
+| 函数 | 所在段 | 由谁调用 | 做什么 |
+|---|---|---|---|
+| `Brs_PreMainStartup()` | `.brsMainStartup` | 启动代码；只存在于"第一个执行实例" | 调用 `BrsHwEarlyInitPowerOn()`（若有）；调用 `BrsHwGetResetReasonStartup()` 取复位原因，存入 `brsMain_ResetReason`（段 `.brsSharedVar`）；最后调用 `Brs_ApplicationEntry()` |
+| `Brs_ApplicationEntry()` | `.brsApplicationEntry`，经 `ApplicationEntry` 区域块放在固定地址 | 第一个执行实例里由 `Brs_PreMainStartup()` 调用；其他执行实例（如 Boot Manager 之后的 FBL 或应用）直接从这里进入 | 调用 `BrsHwApplicationInit()`（若有）和 `BrsHw_GetCore()`；按阶段初始化内存（§5.6.4）；最后调用 `main()` |
+
+`Brs_ApplicationEntry()` 的地址固定，Boot Manager 才能跳进其他执行实例。
+
+#### 5.6.4 内存初始化阶段（UM §6.1.1–6.1.3、§4.13）
+
+`Brs_ApplicationEntry()` 中，每个阶段先调用钩子，再清零（`Brs_MemoryZeroInit`，读 `vLinkGen_MemArea` 表），再复制（`Brs_MemoryInit`，读 `vLinkGen_RamMemArea` 表）：
+
+```text
+BrsMain_MemoryInit_StageZero_Hook()       → ZeroInit Init_Zero      → MemoryInit Init_Zero
+BrsMain_MemoryInit_StageHardReset_Hook()  → ZeroInit HardReset      → MemoryInit HardReset   （软件复位时跳过）
+BrsMain_MemoryInit_StageOne_Hook()        → ZeroInit Init_One       → MemoryInit Init_One
+BrsMain_MemoryInit_StageTwo_Hook()        → ZeroInit Init_Two       → MemoryInit Init_Two
+BrsMain_MemoryInit_StageThree_Hook()      → ZeroInit Init_Three     → MemoryInit Init_Three
+BrsMain_MemoryInit_StagePowerOn_Hook()    → ZeroInit Init_PowerOn   → MemoryInit Init_PowerOn
+BrsMain_PreMainHook() → （多核时）BrsHw_UnlockCores() → main()
+```
+
 要点：
 
-- **启动代码不按名字引用任何区域**。清零和复制都遍历 vLinkGen 生成的表，启动栈从 vBRS 生成的 `BrsMain_CoreConfig` 取，并且都按当前核号过滤。
-- 每个阶段前都调用 `BrsMain_Callout_Stubs.c` 里的钩子（如 `BrsMain_MemoryInit_StageHardReset_Hook()`），项目可以在其中插入操作，例如在两个阶段之间喂狗，或先初始化 PLL。
+- 钩子的模板在 `BrsMain_Callout_Stubs.c`，初始都是空的，只有 HardReset 钩子里预置了"提前初始化看门狗和 PLL"的实现（见 §5.6.8 的 Prefer PLL and Watchdog Init；这是 UM §6.2 的说法，UM §4.8 说在 One 钩子里，见 §8）。项目可以在钩子里插入操作，例如在两个阶段之间喂狗。
 - 清零默认按 4 字节对齐写入，也支持 8 字节。所用对齐取自硬件存储区的 ECC 对齐（§5.2），由 vLinkGen 写进 `vLinkGen_MemArea.Alignment`。
-- 硬件复位与软件复位的区分靠 `brsMain_ResetReason`。典型用途：应用通过软件复位跳进 Bootloader 时，用于传递信息的 RAM 区域不能被清零。
+- HardReset 阶段依据 `brsMain_ResetReason` 判断：软件复位时跳过。典型用途：应用通过软件复位跳进 Bootloader 时，用于传递信息的 RAM 区域不能被清零。
+- POWER_ON 阶段对应 AUTOSAR AR21-11 `SWS_MemoryMapping` 中的 `POWER_ON_CLEARED`。默认实现没有通用的判断条件，**总会执行**，需要项目自己补条件。
+- 在 `BrsMain_Cfg.h` 中可以配置 `BRSMAIN_MEMINIT_FUNC_PREFIX`，防止内存初始化辅助函数被内联。
 
-### 5.7 vBRSMemoryInit（UM §4.13）
+`vBRSMemoryInit` 容器的设置：
 
 | 设置 | 作用 |
 |---|---|
@@ -394,7 +456,116 @@ brsStartupEntry                         BrsHwStartup.c（通常为汇编）
 | Enable 64-Bit size of Init Pattern | 初始化填充值用 64 位 |
 | Init pattern（4 项） | 硬复位清零区域、硬复位清零块、清零区域、清零块各自的填充值，默认 0。若硬件存储区 ECC 对齐为 8 字节而未开 64 位填充，4 字节填充值会自动重复成 8 字节 |
 
-### 5.8 vLinkGen 配置要点（UM §8）
+#### 5.6.5 main() 之后（UM §4.6、§6.3、§7）
+
+```text
+main()                                    BrsMain.c
+ ├ BrsHw_GetCore()
+ ├ BrsHwDisableInterruptAtPowerOn()       关全局中断
+ ├ BrsHw_ExceptionTable_Init()            切换向量表基址：OS 的向量表，或 FBL 的 RAM 向量表
+ ├ 仅在初始化核上：BrsMainInit()           FBL 时跳过硬件初始化
+ │    ├ 未开启 "Prefer PLL and Watchdog Init" 时：
+ │    │    BrsHwPreInitPowerOn()（若有）→ BrsHwWatchdogInitPowerOn() → BrsHwPllInitPowerOn()
+ │    └ BrsHwPortInitPowerOn()
+ │      （看门狗、PLL、引脚各自只在开启对应处理时调用；有对应的 MCAL 驱动时不调用）
+ └ 按用例分支：
+      FBL，不经 EcuM      → FblMain()
+      Hypervisor          → vHyp_InitMemory() → vHyp_Init() → … → vHyp_Start()（见 §5.6.7）
+      非 FBL              → Os_InitMemory() → Os_Init()（OS 用例为 "Interrupt only" 时改为 Os_InterruptOnly()）
+      非 AUTOSAR 核        → BrsMain_NonAsrCore_Hook()
+      HSM                 → vHsm_Init()（代替 EcuM_Init()）→ StartOS()
+      其余                → EcuM_Init() → StartOS()；FBL 经 EcuM 时改为 FblMain()
+```
+
+OS 启动后的默认任务（UM §6.3.3）：
+
+| 任务 | 说明 |
+|---|---|
+| `Default_Init_Task` | 自启动。开启测试套件时先调用 `BrsTestsuiteInit()`；然后调用 `EcuM_StartupTwo()`（HSM 时为 `vHsm_StartupTwo()`）；设置 `BrsMainTask` 的报警；结束 |
+| `Default_Init_Task_Trusted` | 自启动。调用 `Os_InitialEnableInterruptSources()`；结束 |
+| 其他核上的同名任务 | 每个核各一对，主核的任务名不带后缀，其他核带物理核号后缀（UM §4.1.1） |
+| `BrsMainTask` | 每 1 ms 运行一次，调用 `BrsMainCyclic1ms()`，用于翻转指示引脚和测试套件的周期调用 |
+| `BrsMainBackgroundTask` | 主要供测试套件使用 |
+
+EcuM 桩（UM §4.6）：`EcuM_Init()` 调用初始化阶段 Zero 和 One 的模块初始化函数，`EcuM_StartupTwo()` 调用阶段 Two 和 Three 的，最后调用 `Rte_Start()`。初始化函数列表取自 `vSet/vSetBswInitialization`（旧环境为 `EcuC/BswInitialization`），可以用 `vBRSOverrideInitPhases` 改单个函数的阶段。
+
+#### 5.6.6 BrsHw 硬件初始化接口（UM §5.2）
+
+| 接口 | 调用时机 | 用途 | 说明 |
+|---|---|---|---|
+| `BrsHwEarlyInitPowerOn()` | `Brs_PreMainStartup()` 开头，栈指针刚设置好 | 第一个执行实例在内存初始化之前必须做的事，如访问存储或处理异常所需的设置 | 可选，`BRSHW_EARLYINIT_AVAILABLE` |
+| `BrsHwApplicationInit()` | `Brs_ApplicationEntry()` 开头 | 每个执行实例在内存初始化之前要做的事，如按本实例的存储布局重新编程 | 可选，`BRSHW_APPLICATIONINIT_AVAILABLE` |
+| `BrsHwPreInitPowerOn()` | `BrsMainInit()` 中 | 不属于其他初始化函数、但总要做的事（有 MCAL 和 OS 时也要做） | 可选，`BRSHW_PREINIT_AVAILABLE` |
+| `BrsHwWatchdogInitPowerOn()` | `BrsMainInit()` 中 | 关闭看门狗 | 有 MCAL Wdg 驱动时不调用 |
+| `BrsHwPllInitPowerOn()` | `BrsMainInit()` 中 | 初始化 PLL 和外设时钟 | 有 MCAL Mcu 驱动时不调用 |
+| `BrsHwPortInitPowerOn()` | `BrsMainInit()` 中 | 初始化通信用引脚，引脚定义在 `BrsHw_Ports.h` | 有 MCAL Port 驱动时不调用 |
+| `BrsHwDisableInterruptAtPowerOn()` | `main()` 开头 | 关全局中断 | |
+| `BrsHw_ExceptionTable_Init()` | `main()` 中 | 设置向量表基址，从启动时的向量表切到 OS 的向量表或 RAM 中的向量表 | |
+| `BrsHwGetResetReasonStartup()` | `Brs_PreMainStartup()` 中 | 判断是否为软件复位；是则进入 Bootloader 而不是应用 | |
+| `BrsHwSoftwareResetECU()` | 应用请求进入 Bootloader 时 | 执行软件复位 | |
+| `BrsHw_GetCore()` | 多处 | 读当前核号 | |
+| `BrsHwDisableEccErrorReporting()` | 需要时 | 关闭 Flash ECC 错误上报，部分平台访问 Flash 前需要 | |
+| `BrsHw_UnlockCores()` | `Brs_ApplicationEntry()` 末尾，仅多核 | 同步屏障：在上电后所有核自动运行的平台上，其他核在启动代码里循环等待，直到引导核执行到这里 | 仅此类平台需要实现 |
+| `BrsHw_StartCore()` | Hypervisor 多核配置 | 启动其他核 | 用于上电后只有引导核运行、且没有 OS 来启动其他核的平台 |
+| `BrsHw_EnableHwAccess()` | 需要时 | 在非信任模式下开放硬件访问 | SC3 配置下使用 |
+
+#### 5.6.7 执行实例与启动差异（UM §4.2–§4.5）
+
+- **第一个执行实例**（"First execution instance in system"）：包含复位入口 `brsStartupEntry`，负责初始化核。系统中只能有一个；其他实例都从 `Brs_ApplicationEntry()` 开始。
+- 各执行实例在启动上的差异：
+
+| 执行实例 | 启动差异 |
+|---|---|
+| Application | 普通应用，可以单独运行，也可以由 FBL 或 BM 调用 |
+| FBL、FBL_Updater、BM、BM_FBL | 没有 OS。`main()` 直接调用 `FblMain()`，或经 `EcuM_Init()` 后调用（由 "FBL/BM support with EcuMInit" 决定）。BM 和 BM_FBL 必须是第一个执行实例 |
+| HSM | `vHsm_Init()` 代替 `EcuM_Init()`，`vHsm_StartupTwo()` 代替 `EcuM_StartupTwo()` |
+| HSM_Updater | 没有 OS，总是第一个执行实例 |
+| FlashDriver | 只含 Flash 驱动的独立二进制，不包含 BrsMain 和 BrsHw |
+| Hypervisor | `vHyp_InitMemory()`、`vHyp_Init()` 代替 OS 初始化。多核时，`BrsMain_Appl_HypervisorStartCoreApi()` 调用 `BrsHw_StartCore()` 启动其他核，`BrsMain_Appl_HypervisorApi()` 调用 `vHyp_RegisterCore()` 注册它们，最后 `vHyp_Start()` 开始调度虚拟机 |
+
+- **Hypervisor 客户实例**：有 Hypervisor 时，其他实例都要开启 "Guest execution instance"。这样第一个执行实例在启动时会保留虚拟化功能（手册举的例子是 Cortex-R52），客户实例的软件复位也按另一种方式处理。
+- **RAM 向量表**：FBL 或 HSM_Updater 在擦写 Flash 期间要完全从 RAM 运行时，开启 "FBL/BM exception table in RAM"，`main()` 改用 RAM 中的第二份向量表（段 `brsExcVectRam`）。对应段组 `Brs_ExcVectRam` 的初始化策略要设为 `COPY_TO_RAM`。
+- 每个实例使用哪份链接文件，由 vLinkGen 变体决定（§5.8）。
+
+#### 5.6.8 启动相关的配置参数（UM §4.2、§4.8、§4.13）
+
+| 参数 | 所在容器 | 对启动的影响 |
+|---|---|---|
+| Execution Instance | vBRSGeneral | 决定启动后走哪条分支（§5.6.7） |
+| First execution instance in system | vBRSGeneral | 是否包含复位入口和 `Brs_PreMainStartup()` |
+| FBL/BM exception table in RAM | vBRSGeneral | 是否在 `main()` 中改用 RAM 向量表 |
+| FBL/BM support with EcuMInit | vBRSGeneral | FBL 是否经 `EcuM_Init()` 启动 |
+| Guest execution instance in hypervisor host system | vBRSGeneral | 是否为 Hypervisor 下的客户实例 |
+| Use vLinkGen Variant | vBRSGeneral | 本实例使用的链接文件和内存初始化代码 |
+| Enable OS MultiCore support | vBRSGeneral | 生成 `BRS_ENABLE_OS_MULTICORESUPPORT`，启用多核同步等 |
+| Enable OS SafeContext (SC3) support | vBRSGeneral | 生成 `BRS_ENABLE_SAFECTXSUPPORT`，例如调用 `BrsHw_EnableHwAccess()` |
+| Enable core specific vLinkGen config validation | vBRSGeneral | 为每个 OS 核生成启动栈逻辑组 `STACK_Cx`（§5.5） |
+| Generation of EcuM Stub | vBRSGeneral | 没有真正的 EcuM 时生成桩，由它调用各模块的初始化函数 |
+| Enable PLL & Clocks / Port / Watchdog Handling | vBRSHwConfig | 是否在 `BrsMainInit()` 中调用对应的 BrsHw 函数 |
+| Prefer PLL and Watchdog Init | vBRSHwConfig | 把看门狗和 PLL 初始化提前到内存初始化的钩子里，用于不先关看门狗、不先设好 PLL 就无法完成内存初始化的芯片 |
+| Disable Memory Init Globally 等 | vBRSMemoryInit | 见 §5.6.4 |
+
+#### 5.6.9 启动相关的段与区域块（UM §3.6.2、§4.3.1、§5.3、§6.1）
+
+| 段 | 内容 | 放入的区域块 |
+|---|---|---|
+| `.brsMainStartup` | `Brs_PreMainStartup()` | `StartupCode_FirstExecInst`（逻辑组 `Brs_Startup_Code`，与 `BrsHwStartup.c` 的代码在一起） |
+| `.brsApplicationEntry` | `Brs_ApplicationEntry()` | `ApplicationEntry`（固定地址，逻辑组 `Brs_ApplicationEntry`） |
+| `.brsSharedVar` | `brsMain_ResetReason` 等多个实例共享的变量 | `Variables_Shared` |
+| `brsExcVect` | 启动用的核异常向量表 | `CoreExceptions_FirstExecInst`（逻辑组 `Brs_ExcVect`） |
+| `brsExcVectRam` | FBL 等在 RAM 中使用的向量表 | 段组 `Brs_ExcVectRam`，初始化策略 `COPY_TO_RAM` |
+| `.FblPresencePatternSection` | FBL 的 4 字节存在标记，只在用调试器下载时需要 | 手册未说明 |
+| （启动栈） | 每个核一个 | `StartupStack_Shared` 等，逻辑组 `STACK_Cx`（§5.5） |
+
+#### 5.6.10 设计要点
+
+- **静态启动代码不按名字引用任何区域**。区域名只出现在生成的文件里：清零表和复制表在 `vLinkGen_Lcfg.c`，每核启动栈在 `BrsMain_CoreConfig`。增删区域或改名只需重新生成，不用改启动代码。
+- **所有初始化都按当前核过滤**，多个核共用同一份启动代码。
+- **固定的阶段加钩子**：项目在钩子里插入操作（喂狗、提前初始化 PLL 等），不必改启动代码。
+- **入口和向量表放在固定位置**：启动代码、向量表、`Brs_ApplicationEntry()` 各有专门的区域块，保证复位和跨实例跳转时地址正确。
+- **复位原因贯穿始终**：`brsMain_ResetReason` 决定 HardReset 阶段是否执行，也决定启动后进入 Bootloader 还是应用。
+
+### 5.7 vLinkGen 配置要点（UM §8）
 
 UM 第 8 章是从 TR 移过来的配置说明，对 §4 补充以下几点：
 
@@ -404,12 +575,13 @@ UM 第 8 章是从 TR 移过来的配置说明，对 §4 补充以下几点：
 - **RAM 代码**：在 CONST 段组上把策略设为 `COPY_TO_RAM`，在逻辑组上设置 RAM 副本区域块（`vLinkGenConstGroupRamRegion`）。
 - **自定义链接符号**：`vLinkGenLogicalSymbolGroup` 下的 `vLinkGenLinkerSymbol`（名字 + 值），可以按变体启用。
 
-### 5.9 多执行实例与默认变体（UM §3.6.3、§4.3）
+### 5.8 默认变体与多执行实例的链接（UM §3.6.3、§4.3.2）
 
-- 执行实例的种类有：Application、FBL、FBL_Updater、BM、BM_FBL、HSM、HSM_Updater、FlashDriver、Hypervisor。
+执行实例的种类及其启动差异见 §5.6.7。链接方面：
+
 - vBaseEnv 预置两个变体：`vLinkGenVariant_FirstExecInst`（第一个执行实例，如 Boot Manager）和 `vLinkGenVariant_DemoAppl`（其后的普通应用）。启动代码只放在前者，共享变量和启动栈放在两者。
 - 配合 `ONE_FILE_PER_VARIANT`，每个实例得到自己的链接文件和内存初始化代码，vBRS 通过 `BRS_LINKER_COMMAND_FILE_POSTFIX` 让构建自动选用对应的文件。
-- FBL 需要把第二份向量表（段 `.brsExcVectRam`）复制到 RAM，在擦写 Flash 期间使用。对应段组的策略为 `COPY_TO_RAM`。
+- 变体只在文件生成方式为 `STANDARD_WITH_VARIANTS` 或 `ONE_FILE_PER_VARIANT` 时生效。
 
 ---
 
@@ -428,7 +600,9 @@ UM 第 8 章是从 TR 移过来的配置说明，对 §4 补充以下几点：
 | Linker Section | MemMap 头文件里扫描到的输出段，由规则放置（`rules.py:77` `matches`） | 部分对应。**只能放扫描到的段，不能写属性选择器、原样选择器或文件过滤** |
 | 默认区域块：启动代码 / 向量表 / 应用入口 | 无专门位置 | 缺 |
 | 初始化策略 | 区域种类 code/const/data/bss/noinit/stack/reserved（`config.py:34`） | 部分对应。没有初始化阶段和执行核 |
-| 初始化表 + 启动代码读表 | 无。`startup.c` 通过 `STARTUP_*` 宏按区域名引用链接符号（`symbols.py`） | 缺 |
+| 初始化表 + 启动代码读表 | 无 | 缺 |
+| 启动代码（vBRS：`BrsHwStartup.c` + `BrsMainStartup.c`，静态代码不按名字引用区域，§5.6） | 厂商手写的 `startup.c` 和按编译器区分的头文件（`startup_ads.h`、`startup_ghs.h` 等，位于 `doc/THA6XXX_MC_AS440/DemoWorkspace/CodeProject/Startup/`），通过 `STARTUP_GETCOPYDATAINFO`、`STARTUP_SETSTACK` 等 8 个宏按区域名引用链接符号。本工具不生成启动代码，只扫描它得出链接符号需求（`symbols.py`） | 思路不同 |
+| 复位原因区分、阶段钩子、多核同步屏障、向量表切换（§5.6.4–§5.6.6） | `startup.c` 中有无对应机制，本文未核实 | 未核实 |
 | 启动栈：按 OS 核自动生成，按内容类型放置 | 必需区域来自扫描 `startup.c` 和 OS MPU 代码得到的"链接符号需求"，位置由出厂布局或用户决定 | 思路不同（见 §7 P2-1） |
 | 内容类型 + 核号元数据 | 规则按 kind/core/cacheable/module 匹配段；**窗口靠手选**；换芯片后标为"待重新放置"（`rules.py:29`） | 缺（窗口一侧） |
 | 编译器无关模型 + 按编译器生成 | `plan.py`（Plan）+ `generators/ads.py` | 对应 |
@@ -545,6 +719,8 @@ UM 第 8 章是从 TR 移过来的配置说明，对 §4 补充以下几点：
 5. 文档之间的不一致，实施时需要自行决定：
    - TR §4.1 说初始化表里的 `Core` 是**物理**核号，UM §8.2 说配置的执行核是**逻辑**核号。
    - TR 表 2-4 说 `POWER_ON` 在热启动时不执行，UM §6.1.3 说默认实现总会执行，需要项目自己补条件。
+   - UM §4.8 说 "Prefer PLL and Watchdog Init" 在 `BrsMain_MemoryInit_StageOne_Hook()` 中执行，UM §6.2 和 UM 第 70 页的流程图则把它放在 `BrsMain_MemoryInit_StageHardReset_Hook()` 中。
+6. 我们的 `startup.c` 是否区分硬件复位和软件复位、多核是否有同步屏障、向量表在哪里初始化？这决定 §6 对照表中"未核实"那一行，需要阅读 `startup.c`（厂商文件）。
 
 ---
 
@@ -568,3 +744,4 @@ UM 第 8 章是从 TR 移过来的配置说明，对 §4 补充以下几点：
 - Vector Informatik GmbH，*MICROSAR Classic vLinkGen Technical Reference*，Version 2.11.0，2025。
 - Vector Informatik GmbH，*vBaseEnv User Manual*，Version 2.30.0，2025。
 - 本工具源码：`autosar_configurator/core/memmap/config.py`、`rules.py`、`plan.py`、`symbols.py`、`scatter.py`、`generators/ads.py`，以及 `autosar_configurator/core/hardware/memory_regions.py`。
+- 厂商启动代码：`doc/THA6XXX_MC_AS440/DemoWorkspace/CodeProject/Startup/`（本文只列出文件，未分析其内容）。
