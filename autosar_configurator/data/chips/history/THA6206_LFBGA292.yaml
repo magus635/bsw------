@@ -60,3 +60,49 @@ entries:
   confirmed: []
   marked: []
   checksum: sha256:7f7bb5965cca761f12ca68c6c319ee5fec6c92ff9ed9a3486035c577e463a6f8
+- date: '2026-11-03'
+  author: Your Name
+  source: 设计器手工编辑
+  note: ''
+  resource_version: {old: 1.0.4, new: 1.0.5}
+  base_modified_outside: false
+  ecu_resources:
+    added: []
+    changed: []
+    removed: []
+  metadata: []
+  views: {}
+  confirmed: []
+  marked: []
+  checksum: sha256:bacde63412f61b3a7b97426175e5bf9f99a7a1b0a2f794c38f2e77521d39b1ec
+- date: '2026-11-03'
+  author: Your Name
+  source: 插件所需键扫描
+  note: ''
+  resource_version: {old: 1.0.5, new: 1.0.6}
+  base_modified_outside: false
+  ecu_resources:
+    added:
+    - {key: Port.AvailableEXTIModule, new: null}
+    - {key: Port.AvailableEXTIModuleNodeNumber, new: null}
+    - {key: Port.AvailableGTMModule, new: null}
+    - {key: Port.AvailableGTMModuleNodeNumber, new: null}
+    - {key: Port.AvailableIOMPINModule, new: null}
+    - {key: Port.AvailableIOMPINModuleNodeNumber, new: null}
+    - {key: Port.AvailablePSI5Module, new: null}
+    - {key: Port.AvailablePSI5ModuleNodeNumber, new: null}
+    changed: []
+    removed: []
+  metadata: []
+  views: {resources: unchanged, metadata.cores: unchanged, ports: unchanged}
+  confirmed: []
+  marked:
+  - {field: ecu_resources.Port.AvailableEXTIModule, note: 待填写}
+  - {field: ecu_resources.Port.AvailableEXTIModuleNodeNumber, note: 待填写}
+  - {field: ecu_resources.Port.AvailableGTMModule, note: 待填写}
+  - {field: ecu_resources.Port.AvailableGTMModuleNodeNumber, note: 待填写}
+  - {field: ecu_resources.Port.AvailableIOMPINModule, note: 待填写}
+  - {field: ecu_resources.Port.AvailableIOMPINModuleNodeNumber, note: 待填写}
+  - {field: ecu_resources.Port.AvailablePSI5Module, note: 待填写}
+  - {field: ecu_resources.Port.AvailablePSI5ModuleNodeNumber, note: 待填写}
+  checksum: sha256:56e710a6fafb838ec39e3c8b0e95ff2d016418fb9775e4ff90b04f13dd234718

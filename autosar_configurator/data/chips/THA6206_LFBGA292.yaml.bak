@@ -848,12 +848,9 @@ metadata:
     master: CORE0
   unconfirmed:
     memory_regions: 按 MCAL LinkFiles/Ads/LinkerAdsPf.scat 与 T1 scatter.scat 的 Memory 注释表填写；TCM 视为不可缓存、CPUX* 视为核心本地别名、Flash 本地访问的缓存属性和 LMU 所属核心均未确认
-resource_version: 1.0.3
+resource_version: 1.0.5
 selectors: {Os.OsResourceSubderivative: Os_THA6206, Resource.ResourceSubderivative: THA6206_LFBGA292}
 memory_regions:
-- {name: CPUXATCM, start: '0x0', size: '0x10000', type: ram, core: local, cacheable: false, memory: ATCM, window: local, source: LinkerAdsPf.scat 注释表}
-- {name: CPUXBTCM, start: '0x100000', size: '0x30000', type: ram, core: local, cacheable: false, memory: BTCM, window: local, source: LinkerAdsPf.scat 注释表}
-- {name: CPUXCTCM, start: '0x200000', size: '0x10000', type: ram, core: local, cacheable: false, memory: CTCM, window: local, source: LinkerAdsPf.scat 注释表}
 - {name: CPUXPFLASH0, start: '0x8000000', size: '0x300000', type: flash, cacheable: true, memory: PFLASH0, window: local, source: LinkerAdsPf.scat 注释表}
 - {name: CPUXPFLASH1, start: '0x8300000', size: '0x300000', type: flash, cacheable: true, memory: PFLASH1, window: local, source: LinkerAdsPf.scat 注释表}
 - {name: GMU_NORMAL, start: '0x10000000', size: '0x40000', type: ram, cacheable: true, memory: GMU, window: normal, source: LinkerAdsPf.scat 注释表}
@@ -1834,4 +1831,4 @@ ecu_resources:
     AppModeDefaultName: [OSDEFAULTAPPMODE, OSALLRUNNINGMODE]
     IocPrimitiveDataType: [uint8, uint16, uint32, uint64, boolean, AppModeType, ApplicationType, CoreIdType, IdleModeType, TickType, Os_TickDiffType, AlarmType, CounterType, sint8, sint16, sint32, sint64, float32, float64, ISRType, ResourceType, SpinlockIdType, TaskType]
     IocPrimitiveDataTypeNum: 23
-checksum: sha256:aff7b517eeecdf72f8d9d0c6a3d2208eb0cbf7b355ac44f228988de625a503cd
+checksum: sha256:bacde63412f61b3a7b97426175e5bf9f99a7a1b0a2f794c38f2e77521d39b1ec
