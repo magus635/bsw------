@@ -12,9 +12,10 @@ build/
 .venv/
 venv/
 
-# IDE
+# IDE & Assistants
 .idea/
 .vscode/
+.claude/
 *.swp
 *.swo
 
@@ -27,5 +28,3 @@ Thumbs.db
 run_*.py
 generateCode_debug/
 debug_*.txt
-
-.DS_Store
