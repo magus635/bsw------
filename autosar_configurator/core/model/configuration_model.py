@@ -504,6 +504,17 @@ STANDARD_CONFIG_VARIANTS = (
 DEFAULT_CONFIG_VARIANT = "VARIANT-PRE-COMPILE"
 _VARIANT_KEYS = {v.replace("-", "").lower(): v for v in STANDARD_CONFIG_VARIANTS}
 
+# The project variant that is the base configuration itself (not an ECUC configuration variant)
+DEFAULT_VARIANT = "Default"
+
+
+def override_layer(active_variant: Optional[str]) -> Optional[str]:
+    """The variant whose override layer is read and written, None for the base configuration.
+
+    "Default" is the base configuration, so it has no override layer.
+    """
+    return active_variant if active_variant and active_variant != DEFAULT_VARIANT else None
+
 
 def normalize_config_variant(value: Any) -> str:
     """Standard AUTOSAR spelling of a configuration variant.

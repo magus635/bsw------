@@ -8,9 +8,9 @@ from ..core.model.definition_model import EcucContainerDef
 from ..core.config_manager import ConfigurationManager
 
 class SetParameterCommand(QUndoCommand):
-    """Command to set a parameter value"""
-    
-    def __init__(self, 
+    """Command to set a parameter value; a new value of None unsets the parameter"""
+
+    def __init__(self,
                  config_manager: ConfigurationManager,
                  instance: EcucContainerValue,
                  param_name: str,
@@ -21,51 +21,33 @@ class SetParameterCommand(QUndoCommand):
         self.param_name = param_name
         self.new_value = new_value
         self.old_value = None
-        
+        self.had_value = param_name in instance.parameter_values
+
         # Capture old value
-        if param_name in instance.parameter_values:
+        if self.had_value:
             self.old_value = instance.parameter_values[param_name].value
         else:
             # If not set, try to get default from definition
             param_def = config_manager._get_parameter_def(instance, param_name)
             if param_def:
                 self.old_value = param_def.default_value
-        
+
         self.setText(f"Set {param_name}")
 
     def redo(self):
-        self.config_manager.set_parameter_value(self.instance, self.param_name, self.new_value)
+        if self.new_value is None:
+            self.instance.remove_parameter_value(self.param_name)
+        else:
+            self.config_manager.set_parameter_value(self.instance, self.param_name, self.new_value)
 
     def undo(self):
+        if self.new_value is None and not self.had_value:
+            return      # unsetting an unset parameter changed nothing
         if self.old_value is not None:
             self.config_manager.set_parameter_value(self.instance, self.param_name, self.old_value)
         # If old value was None (not set and no default), we might want to unset it?
-        # But set_parameter_value handles setting values. 
+        # But set_parameter_value handles setting values.
         # For now assuming reverting to old value (even if default) is fine.
-
-class SetVariantOverrideCommand(QUndoCommand):
-    """Command to set a parameter's value in one variant's override layer"""
-
-    def __init__(self, configuration: EcucModuleConfiguration, variant: str, param_path: str, new_value: Any):
-        super().__init__()
-        self.configuration = configuration
-        self.variant = variant
-        self.param_path = param_path
-        self.new_value = new_value
-        overrides = configuration.variant_overrides.get(variant, {})
-        self.had_old = param_path in overrides
-        self.old_value = overrides.get(param_path)
-        self.setText(f"Set {param_path} ({variant})")
-
-    def redo(self):
-        self.configuration.set_value_for_variant(self.param_path, self.new_value, self.variant)
-
-    def undo(self):
-        if self.had_old:
-            self.configuration.set_value_for_variant(self.param_path, self.old_value, self.variant)
-        else:
-            self.configuration.clear_variant_override(self.param_path, self.variant)
-
 
 class SetReferenceCommand(QUndoCommand):
     """Command to set a reference value"""

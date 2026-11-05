@@ -14,7 +14,7 @@ from PySide6.QtGui import QColor
 from typing import Optional, List, Any
 
 from ...core.model.definition_model import EcucContainerDef, EcucParameterDef, EcucParameterType
-from ...core.model.configuration_model import EcucContainerValue
+from ...core.model.configuration_model import EcucContainerValue, override_layer
 from ...core.config_manager import ConfigurationManager
 from PySide6.QtCore import QSettings
 
@@ -343,7 +343,7 @@ class DaVinciConfigPanel(QWidget):
 
         instance = self.current_instance
         module_config = instance.module_config
-        variant = getattr(self.project, 'active_variant', None) if self.project else None
+        variant = override_layer(getattr(self.project, 'active_variant', None)) if self.project else None
 
         # PRECONDITION CHECK: Instance must be applicable to all variants (variant=None)
         # to allow meaningful comparison between v1 and v2
@@ -465,9 +465,9 @@ class DaVinciConfigPanel(QWidget):
             current_value = None
             is_variant_override = False
 
-            # Check if there's an active variant with an override
-            if self.project and hasattr(self.project, 'active_variant') and self.project.active_variant:
-                variant = self.project.active_variant
+            # Check if there's an active variant with an override ("Default" is the base itself)
+            variant = override_layer(getattr(self.project, 'active_variant', None)) if self.project else None
+            if variant:
                 module_config = instance.module_config
                 if module_config:
                     # Try full path first (new format)
@@ -1196,17 +1196,16 @@ class DaVinciConfigPanel(QWidget):
         if not self.current_instance or not self.config_manager:
              return
 
-        # Handle "(未配置)" selection - remove the parameter value
+        # Handle "(未配置)" selection: the command removes the value (undoably)
         if value == "(未配置)":
-            self.current_instance.remove_parameter_value(param_name)
             if self.project:
                 self.project.is_modified = True
             self.parameter_changed.emit(self.current_instance, param_name, None)
             return
 
-        # Check if we should write to variant override instead of base config
-        if self.project and hasattr(self.project, 'active_variant') and self.project.active_variant:
-            variant = self.project.active_variant
+        # Check if we should write to variant override instead of base config ("Default" is the base)
+        variant = override_layer(getattr(self.project, 'active_variant', None)) if self.project else None
+        if variant:
             module_config = self.current_instance.module_config
 
             if module_config:
@@ -1615,8 +1614,8 @@ class DaVinciConfigPanel(QWidget):
                 
                 ref_name_base = display_name  # For single-valued, display_name == ref_name
                 
-                if self.project and hasattr(self.project, 'active_variant') and self.project.active_variant:
-                    variant = self.project.active_variant
+                variant = override_layer(getattr(self.project, 'active_variant', None)) if self.project else None
+                if variant:
                     module_config = instance.module_config
                     if module_config:
                         ref_path = f"{instance.get_path()}.ref:{ref_name_base}"
@@ -1879,7 +1878,7 @@ class DaVinciConfigPanel(QWidget):
         if not self.current_instance or not self.project:
             return
         
-        variant = getattr(self.project, 'active_variant', None)
+        variant = override_layer(getattr(self.project, 'active_variant', None))
         if not variant:
             return
         
@@ -1916,9 +1915,9 @@ class DaVinciConfigPanel(QWidget):
             return
         
         try:
-            # Check if we should write to variant override instead of base config
-            if self.project and hasattr(self.project, 'active_variant') and self.project.active_variant:
-                variant = self.project.active_variant
+            # Check if we should write to variant override instead of base config ("Default" is the base)
+            variant = override_layer(getattr(self.project, 'active_variant', None)) if self.project else None
+            if variant:
                 module_config = self.current_instance.module_config
                 
                 if module_config:

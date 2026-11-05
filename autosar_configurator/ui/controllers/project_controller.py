@@ -9,7 +9,7 @@ and Qt parenting.
 """
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
@@ -21,7 +21,7 @@ import logging
 
 from ...core.config_manager import ValidationError
 from ...core.model.configuration_model import EcucContainerValue
-from ..commands import SetParameterCommand, SetVariantOverrideCommand
+from ..commands import SetParameterCommand
 
 logger = logging.getLogger(__name__)
 
@@ -29,20 +29,16 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RecommendedApplyResult:
     updated: int = 0
-    overrides: int = 0                                                    # variant overrides changed with them
     skipped: List[Tuple[str, str]] = field(default_factory=list)          # (path, why)
     containers: List[EcucContainerValue] = field(default_factory=list)    # touched, in visiting order
 
 
-def apply_recommended_changes(manager, rec_config, only_empty: bool, undo_stack,
-                              variant: Optional[str] = None) -> RecommendedApplyResult:
+def apply_recommended_changes(manager, rec_config, only_empty: bool, undo_stack) -> RecommendedApplyResult:
     """Write the recommended values of ``rec_config`` into ``manager``'s configuration as one undo step.
 
     A container the configuration lacks is created, and then all its values are written whatever
     ``only_empty`` says (its smart defaults are not the user's).  A value its definition refuses is
-    skipped and reported; it never reaches the undo stack.  Where the active ``variant`` already
-    overrides a written parameter (the panel and the generator read the override first), the
-    override gets the value too; no override is created.
+    skipped and reported; it never reaches the undo stack.
     """
     result = RecommendedApplyResult()
     changes = []
@@ -91,15 +87,9 @@ def apply_recommended_changes(manager, rec_config, only_empty: bool, undo_stack,
             collect(current, rec_container, path, created)
 
     if changes:
-        overrides = manager.configuration.variant_overrides.get(variant, {}) if variant else {}
         undo_stack.beginMacro("Apply Recommended Values")
         for instance, name, value in changes:
             undo_stack.push(SetParameterCommand(manager, instance, name, value))
-            # the full path is what the generator and the panel read; the short one is older saved data
-            for path in dict.fromkeys((f"{instance.get_path()}.{name}", f"{instance.short_name}.{name}")):
-                if path in overrides:
-                    undo_stack.push(SetVariantOverrideCommand(manager.configuration, variant, path, value))
-                    result.overrides += 1
         undo_stack.endMacro()
     result.updated = len(changes)
     return result
@@ -671,6 +661,22 @@ class ProjectController:
                     f"Successfully loaded: {len(self.win.current_project.module_managers)} module(s)"
                 )
                 status_msg += f" ({len(failed_modules)} errors)"
+
+            # "Default" is the base configuration: old Default overrides were dropped at load
+            conflicts = getattr(self.win.current_project, "default_override_conflicts", None)
+            if conflicts:
+                shown = conflicts[:20]
+                details = "\n".join(
+                    f"• {module} {path}：覆盖值 {override}，基础值 {'未配置' if base is None else base}"
+                    for module, path, override, base in shown)
+                if len(conflicts) > len(shown):
+                    details += f"\n… 以及另外 {len(conflicts) - len(shown)} 处"
+                QMessageBox.information(
+                    self.win, "Default 变体已并入基础配置",
+                    "Default 变体就是基础配置，不再单独保存覆盖值。\n"
+                    f"以下 {len(conflicts)} 处旧覆盖值与基础值不同，已按基础值保留"
+                    "（生成的代码一直使用基础值）：\n\n"
+                    f"{details}\n\n保存工程后不再提示。")
             
             # The project's chip: the saved one, else (older projects) the one chip
             # whose declared selectors match the configuration.  Opening never
@@ -1276,9 +1282,8 @@ class ProjectController:
         layout.addWidget(buttons)
         
         if dialog.exec() == QDialog.Accepted:
-            variant = getattr(self.win.current_project, "active_variant", None)
             result = apply_recommended_changes(manager, rec_config, only_empty_cb.isChecked(),
-                                               self.win.undo_stack, variant)
+                                               self.win.undo_stack)
             self.win._has_unsaved_changes = True
 
             # Refresh UI and select updated container so right-hand config panel displays new values
@@ -1289,8 +1294,6 @@ class ProjectController:
                 self.win.tree_view._on_item_clicked(self.win.tree_view.currentItem(), 0)
 
             text = f"Updated {result.updated} parameter(s) with recommended values."
-            if result.overrides:
-                text += f"\nAlso updated {result.overrides} override(s) of variant '{variant}'."
             if result.skipped:
                 shown = result.skipped[:15]
                 text += f"\n\nSkipped {len(result.skipped)} item(s):\n" + "\n".join(

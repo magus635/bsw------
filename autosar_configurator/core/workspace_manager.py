@@ -5,10 +5,11 @@ Manages the overall project workspace, including multiple BSW module configurati
 import json
 import os
 import shutil
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
 
 from .config_manager import ConfigurationManager
+from .model.configuration_model import DEFAULT_VARIANT
 from .model.definition_model import EcucModuleDef
 from .parser.ecuc_def_parser import EcucDefParser
 
@@ -19,6 +20,30 @@ def _chip_selector_values(project):
         return selector_values(project)
     except Exception:  # noqa: BLE001 - parsing must not fail because of chip data
         return None
+
+
+def _base_values(configuration) -> Dict[str, Any]:
+    """Every parameter and reference value of ``configuration`` under the keys a variant override
+    uses: ``<container path>.<name>``, ``<container path>.ref:<name>`` and the older
+    ``<container short name>.<name>``."""
+    values: Dict[str, Any] = {}
+
+    def walk(container):
+        for prefix in (container.get_path(), container.short_name):
+            for name, param in container.parameter_values.items():
+                values.setdefault(f"{prefix}.{name}", param.value)
+            for name, ref in container.reference_values.items():
+                values.setdefault(f"{prefix}.ref:{name}", ref.value_ref)
+        for sub in container.sub_containers:
+            walk(sub)
+
+    for container in configuration.containers:
+        walk(container)
+    return values
+
+
+def _same_value(a: Any, b: Any) -> bool:
+    return a == b or str(a).strip().lower() == str(b).strip().lower()
 
 
 class WorkspaceProject:
@@ -42,6 +67,8 @@ class WorkspaceProject:
         # Variant Management
         self.variants: List[str] = ["Default"]  # Always have at least Default variant
         self.active_variant: Optional[str] = "Default"  # Currently selected variant
+        # Default overrides dropped at load that differed from the base value: (module, path, override, base)
+        self.default_override_conflicts: List[Tuple[str, str, Any, Any]] = []
         
         # Metadata
         from datetime import datetime
@@ -414,6 +441,25 @@ class WorkspaceProject:
         # Set active variant to Default if not set
         if not self.active_variant:
             self.active_variant = "Default"
+
+    def fold_default_overrides(self) -> List[Tuple[str, str, Any, Any]]:
+        """Drop the "Default" variant's override layer: Default is the base configuration.
+
+        Projects saved before this rule kept a copy of each edit made in the panel as a Default
+        override, which the panel showed instead of the base value (the generator reads the base
+        value).  The base value is kept.  Returns the overrides that differed from it, sorted, as
+        (module, path, override, base); base is None where the base has no such value.
+        """
+        conflicts = []
+        for module_name, manager in sorted(self.module_managers.items()):
+            overrides = manager.configuration.variant_overrides.pop(DEFAULT_VARIANT, None)
+            if not overrides:
+                continue
+            base = _base_values(manager.configuration)
+            for path, value in sorted(overrides.items()):
+                if path not in base or not _same_value(value, base[path]):
+                    conflicts.append((module_name, path, value, base.get(path)))
+        return conflicts
     
     def _copy_container_to_base(self, container, base_dict: dict):
         """Recursively copy container parameter values to Base dict"""
@@ -1173,7 +1219,14 @@ class WorkspaceManager:
                     error_msg = f"Failed to load stub: {str(e)}"
                     failed_modules.append((name, error_msg))
 
-        
+        project.default_override_conflicts = project.fold_default_overrides()
+        if project.default_override_conflicts:
+            import logging
+            log = logging.getLogger(__name__)
+            for module_name, path, override, base in project.default_override_conflicts:
+                log.warning("Default override dropped, base value kept: %s %s override=%r base=%r",
+                            module_name, path, override, base)
+
         # EMF-style reference resolution: resolve cross-module references
         try:
             resolved_count, error_count = project.resolve_all_references()

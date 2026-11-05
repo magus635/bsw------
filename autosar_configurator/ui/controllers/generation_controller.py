@@ -12,6 +12,8 @@ from typing import Any, Dict, Optional
 
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
+from ...core.model.configuration_model import override_layer
+
 logger = logging.getLogger(__name__)
 
 
@@ -91,8 +93,9 @@ class GenerationController:
 
             if win.current_project:
                 variant_name = win.current_project.active_variant
-                if variant_name and win.config_manager.configuration:
-                    variant_overrides = win.config_manager.configuration.variant_overrides.get(variant_name, {})
+                layer = override_layer(variant_name)
+                if layer and win.config_manager.configuration:
+                    variant_overrides = win.config_manager.configuration.variant_overrides.get(layer, {})
 
                 # Calculate project template directory (project_dir/templates)
                 if win.current_project_file:
@@ -353,7 +356,7 @@ class GenerationController:
 
             # Get variant overrides for this module
             mod_variant_overrides = {}
-            if variant_name and manager.configuration:
+            if override_layer(variant_name) and manager.configuration:
                 mod_variant_overrides = manager.configuration.variant_overrides.get(variant_name, {})
 
             worker = GenWorker(

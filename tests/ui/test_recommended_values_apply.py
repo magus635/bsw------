@@ -160,25 +160,17 @@ def test_rec_file_for_a_module_missing_from_the_project_is_refused(qtbot, tmp_pa
     assert mcu.configuration.containers == []
 
 
-def test_an_override_of_the_active_variant_follows_the_applied_value(qtbot, tmp_path, dialogs):
-    """A value edited by hand in the panel also lives in the active variant's overrides, which the
-    panel and the generator read first; Apply must change it too, in the same undo step."""
+def test_apply_writes_the_base_configuration_and_leaves_variant_overrides_alone(qtbot, tmp_path, dialogs):
+    """"Default" is the base configuration; another variant's overrides are that variant's own."""
     ecuc = ConfigurationManager(_ecuc_def())
     general = ecuc.create_container_instance(ecuc.module_def.containers["EcucGeneral"])
-    ecuc.set_parameter_value(general, "CPUType", "CPU16Bit")
-    full, short = f"{general.get_path()}.CPUType", "EcucGeneral.CPUType"
-    ecuc.configuration.variant_overrides = {"Default": {full: "CPU16Bit", short: "CPU16Bit"}}
-    dialogs.rec_file = _rec_file(tmp_path, {"CPUType": "CPU32Bit", "ByteOrder": "LITTLE_ENDIAN"})
+    path = f"{general.get_path()}.CPUType"
+    ecuc.configuration.variant_overrides = {"V2": {path: "CPU16Bit"}}
+    dialogs.rec_file = _rec_file(tmp_path, {"CPUType": "CPU32Bit"})
     win = _window(qtbot, tmp_path, ecuc, {"EcuC": ecuc}, variant="Default")
 
     ProjectController(win).load_recommended_values()
 
-    overrides = ecuc.configuration.variant_overrides["Default"]
     assert general.parameter_values["CPUType"].value == "CPU32Bit"
-    assert overrides[full] == "CPU32Bit" and overrides[short] == "CPU32Bit"
-    assert set(overrides) == {full, short}          # no override is created for ByteOrder
-    assert "Default" in dialogs.info[0]
+    assert ecuc.configuration.variant_overrides == {"V2": {path: "CPU16Bit"}}
     assert win.undo_stack.count() == 1
-    win.undo_stack.undo()
-    assert overrides[full] == "CPU16Bit" and overrides[short] == "CPU16Bit"
-    assert general.parameter_values["CPUType"].value == "CPU16Bit"
