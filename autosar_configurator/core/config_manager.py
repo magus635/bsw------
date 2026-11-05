@@ -1525,7 +1525,7 @@ class ConfigurationManager:
         
         return comparisons
     
-    def apply_recommended_values(self, rec_config: 'EcucModuleConfiguration', only_empty: bool = True) -> int:
+    def apply_recommended_values(self, rec_config: 'EcucModuleConfiguration', only_empty: bool = False) -> int:
         """Apply recommended values to current configuration
         
         Args:
@@ -1537,7 +1537,7 @@ class ConfigurationManager:
         """
         updated_count = 0
         
-        def apply_to_container(current: EcucContainerValue, recommended: EcucContainerValue):
+        def apply_to_container(current: EcucContainerValue, recommended: EcucContainerValue, is_new_container: bool = False):
             nonlocal updated_count
             
             for param_name, rec_param_obj in recommended.parameter_values.items():
@@ -1546,12 +1546,15 @@ class ConfigurationManager:
                 current_value = current_param_obj.value if current_param_obj else None
                 rec_value = rec_param_obj.value
                 
-                # Apply if: not only_empty, OR current value is None/empty
-                should_apply = not only_empty or current_value is None or current_value == ""
+                # Apply if: container was just auto-created, OR not only_empty, OR current value is None/empty
+                should_apply = is_new_container or not only_empty or current_value is None or current_value == ""
                 
                 if should_apply and rec_value is not None:
-                    def_ref = rec_param_obj.definition_ref
-                    current.set_parameter_value(param_name, rec_value, def_ref)
+                    try:
+                        self.set_parameter_value(current, param_name, rec_value)
+                    except Exception:
+                        def_ref = rec_param_obj.definition_ref
+                        current.set_parameter_value(param_name, rec_value, def_ref)
                     updated_count += 1
             
             # Recurse into sub-containers
@@ -1560,16 +1563,18 @@ class ConfigurationManager:
                     (c for c in current.sub_containers if c.short_name == rec_sub.short_name),
                     None
                 )
+                sub_is_new = False
                 if not current_sub and self.module_def:
                     curr_c_def = self.get_container_def(current.definition_ref)
                     sub_c_def = curr_c_def.sub_containers.get(rec_sub.short_name) if curr_c_def else None
                     if sub_c_def:
                         try:
                             current_sub = self.create_container_instance(sub_c_def, parent=current, instance_name=rec_sub.short_name)
+                            sub_is_new = True
                         except Exception:
                             current_sub = None
                 if current_sub:
-                    apply_to_container(current_sub, rec_sub)
+                    apply_to_container(current_sub, rec_sub, is_new_container=sub_is_new)
         
         # Apply to top-level containers
         for rec_container in rec_config.containers:
@@ -1577,14 +1582,16 @@ class ConfigurationManager:
                 (c for c in self.configuration.containers if c.short_name == rec_container.short_name),
                 None
             )
+            container_is_new = False
             if not current_container and self.module_def:
                 c_def = self.module_def.containers.get(rec_container.short_name)
                 if c_def:
                     try:
                         current_container = self.create_container_instance(c_def, instance_name=rec_container.short_name)
+                        container_is_new = True
                     except Exception:
                         current_container = None
             if current_container:
-                apply_to_container(current_container, rec_container)
+                apply_to_container(current_container, rec_container, is_new_container=container_is_new)
         
         return updated_count

@@ -88,13 +88,17 @@ def test_load_recommended_values_real_ecuc_files():
         assert comp["current_value"] is None
         assert comp["differs"] is True
 
-    applied = cm.apply_recommended_values(rec_config, only_empty=False)
+    # Even if only_empty=True is passed, a newly auto-created container must have all 15 values applied
+    # rather than being blocked by create_container_instance smart defaults.
+    applied = cm.apply_recommended_values(rec_config, only_empty=True)
     assert applied == 15
     assert len(cm.configuration.containers) == 1
     applied_container = cm.configuration.containers[0]
     assert applied_container.short_name == "EcucGeneral"
     assert applied_container.parameter_values["CPUType"].value == "CPU32Bit"
-    assert applied_container.parameter_values["DummyFunction"].value == 0
+    assert applied_container.parameter_values["ByteOrder"].value == "LITTLE_ENDIAN"
+    assert applied_container.parameter_values["DummyFunction"].value is False
+    assert applied_container.parameter_values["DummyStatement"].value is True
 
 
 def test_pre_takes_precedence_over_rec_and_ignores_other_modules(tmp_path: Path):
@@ -163,11 +167,9 @@ def test_pre_takes_precedence_over_rec_and_ignores_other_modules(tmp_path: Path)
     rec_config = cm.load_recommended_values(rec_file)
     assert rec_config is not None
 
-    # Unrelated module container should be filtered out
     container_names = [c.short_name for c in rec_config.containers]
     assert container_names == ["EcucGeneral"]
 
-    # _Pre value (CPU32Bit) must win over _Rec value (CPU16Bit)
     general = rec_config.containers[0]
     assert general.parameter_values["CPUType"].value == "CPU32Bit"
     assert general.parameter_values["DummyFunction"].value == 1
@@ -224,10 +226,8 @@ def test_sub_container_auto_creation_and_only_empty_flag(tmp_path: Path):
     module_def = _build_mock_ecuc_module_def()
     cm = ConfigurationManager(module_def)
 
-    # Pre-create EcucGeneral with a user-set CPUType="CPU64Bit", leaving ByteOrder unset
     general_inst = cm.create_container_instance(module_def.containers["EcucGeneral"])
     general_inst.set_parameter_value("CPUType", "CPU64Bit", "/MICROSAR/EcuC/EcucGeneral/CPUType")
-    # Clear smart default on ByteOrder to simulate an empty parameter
     general_inst.parameter_values.pop("ByteOrder", None)
 
     rec_config = cm.load_recommended_values(rec_file)
@@ -238,7 +238,6 @@ def test_sub_container_auto_creation_and_only_empty_flag(tmp_path: Path):
     assert "EcucGeneral/EcucBswInitialization/InitPhase" in paths
     assert paths["EcucGeneral/EcucBswInitialization/InitPhase"]["current_value"] is None
 
-    # Apply with only_empty=True: CPUType must remain "CPU64Bit", ByteOrder & sub-container InitPhase must be set
     updated = cm.apply_recommended_values(rec_config, only_empty=True)
     assert updated == 2
     assert general_inst.parameter_values["CPUType"].value == "CPU64Bit"

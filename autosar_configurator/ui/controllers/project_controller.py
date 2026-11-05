@@ -1146,9 +1146,9 @@ class ProjectController:
         table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         layout.addWidget(table)
         
-        # Checkbox for only_empty option
+        # Checkbox for only_empty option (unchecked by default so differing recommended values are applied)
         only_empty_cb = QCheckBox("Only apply to empty/unset parameters")
-        only_empty_cb.setChecked(True)
+        only_empty_cb.setChecked(False)
         layout.addWidget(only_empty_cb)
         
         # Buttons
@@ -1164,13 +1164,16 @@ class ProjectController:
             # SetParameterCommand per change inside an undo macro so the whole
             # bulk apply is a single undoable operation.
             changes = []
+            affected_containers = []
 
-            def collect(current: EcucContainerValue, recommended: EcucContainerValue):
+            def collect(current: EcucContainerValue, recommended: EcucContainerValue, is_new_container: bool = False):
+                if current not in affected_containers:
+                    affected_containers.append(current)
                 for param_name, rec_param_obj in recommended.parameter_values.items():
                     current_param_obj = current.parameter_values.get(param_name)
                     current_value = current_param_obj.value if current_param_obj else None
                     rec_value = rec_param_obj.value
-                    should_apply = not only_empty or current_value is None or current_value == ""
+                    should_apply = is_new_container or not only_empty or current_value is None or current_value == ""
                     if should_apply and rec_value is not None:
                         changes.append((current, param_name, rec_value))
                 for rec_sub in recommended.sub_containers:
@@ -1178,16 +1181,18 @@ class ProjectController:
                         (c for c in current.sub_containers if c.short_name == rec_sub.short_name),
                         None
                     )
+                    sub_is_new = False
                     if not current_sub and self.win.config_manager.module_def:
                         curr_c_def = self.win.config_manager.get_container_def(current.definition_ref)
                         sub_c_def = curr_c_def.sub_containers.get(rec_sub.short_name) if curr_c_def else None
                         if sub_c_def:
                             try:
                                 current_sub = self.win.config_manager.create_container_instance(sub_c_def, parent=current, instance_name=rec_sub.short_name)
+                                sub_is_new = True
                             except Exception:
                                 current_sub = None
                     if current_sub:
-                        collect(current_sub, rec_sub)
+                        collect(current_sub, rec_sub, is_new_container=sub_is_new)
 
             for rec_container in rec_config.containers:
                 current_container = next(
@@ -1195,15 +1200,17 @@ class ProjectController:
                      if c.short_name == rec_container.short_name),
                     None
                 )
+                container_is_new = False
                 if not current_container and self.win.config_manager.module_def:
                     c_def = self.win.config_manager.module_def.containers.get(rec_container.short_name)
                     if c_def:
                         try:
                             current_container = self.win.config_manager.create_container_instance(c_def, instance_name=rec_container.short_name)
+                            container_is_new = True
                         except Exception:
                             current_container = None
                 if current_container:
-                    collect(current_container, rec_container)
+                    collect(current_container, rec_container, is_new_container=container_is_new)
 
             self.win.undo_stack.beginMacro("Apply Recommended Values")
             for instance, param_name, value in changes:
@@ -1214,9 +1221,11 @@ class ProjectController:
             updated = len(changes)
             self.win._has_unsaved_changes = True
             
-            # Refresh UI
+            # Refresh UI and select updated container so right-hand config panel displays new values
             self.win.tree_view.refresh()
-            if self.win.tree_view.currentItem():
+            if affected_containers:
+                self.win.tree_view.select_container(affected_containers[0])
+            elif self.win.tree_view.currentItem():
                 self.win.tree_view._on_item_clicked(self.win.tree_view.currentItem(), 0)
             
             QMessageBox.information(self.win, "Applied", f"Updated {updated} parameter(s) with recommended values.")
