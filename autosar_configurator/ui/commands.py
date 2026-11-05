@@ -43,6 +43,30 @@ class SetParameterCommand(QUndoCommand):
         # But set_parameter_value handles setting values. 
         # For now assuming reverting to old value (even if default) is fine.
 
+class SetVariantOverrideCommand(QUndoCommand):
+    """Command to set a parameter's value in one variant's override layer"""
+
+    def __init__(self, configuration: EcucModuleConfiguration, variant: str, param_path: str, new_value: Any):
+        super().__init__()
+        self.configuration = configuration
+        self.variant = variant
+        self.param_path = param_path
+        self.new_value = new_value
+        overrides = configuration.variant_overrides.get(variant, {})
+        self.had_old = param_path in overrides
+        self.old_value = overrides.get(param_path)
+        self.setText(f"Set {param_path} ({variant})")
+
+    def redo(self):
+        self.configuration.set_value_for_variant(self.param_path, self.new_value, self.variant)
+
+    def undo(self):
+        if self.had_old:
+            self.configuration.set_value_for_variant(self.param_path, self.old_value, self.variant)
+        else:
+            self.configuration.clear_variant_override(self.param_path, self.variant)
+
+
 class SetReferenceCommand(QUndoCommand):
     """Command to set a reference value"""
     

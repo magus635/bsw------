@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from autosar_configurator.core.config_manager import ConfigurationManager
+from autosar_configurator.core.config_manager import ConfigurationManager, RecFileScanner, ValidationError
 from autosar_configurator.core.parser.ecuc_def_parser import EcucDefParser
 from autosar_configurator.core.model.definition_model import (
     EcucModuleDef,
@@ -245,3 +245,73 @@ def test_sub_container_auto_creation_and_only_empty_flag(tmp_path: Path):
     assert len(general_inst.sub_containers) == 1
     assert general_inst.sub_containers[0].short_name == "EcucBswInitialization"
     assert general_inst.sub_containers[0].parameter_values["InitPhase"].value == "INIT_ONE"
+
+
+ECUC_REC_ARXML = """<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>MICROSAR</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-CONFIGURATION-VALUES>
+          <SHORT-NAME>OtherModule_Rec</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/OtherModule</DEFINITION-REF>
+        </ECUC-MODULE-CONFIGURATION-VALUES>
+        <ECUC-MODULE-CONFIGURATION-VALUES>
+          <SHORT-NAME>EcuC_Rec</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/EcuC</DEFINITION-REF>
+          <CONTAINERS>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>EcucGeneral</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/EcuC/EcucGeneral</DEFINITION-REF>
+              <PARAMETER-VALUES>
+                <ECUC-TEXTUAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/MICROSAR/EcuC/EcucGeneral/CPUType</DEFINITION-REF>
+                  <VALUE>CPU32Bit</VALUE>
+                </ECUC-TEXTUAL-PARAM-VALUE>
+              </PARAMETER-VALUES>
+            </ECUC-CONTAINER-VALUE>
+          </CONTAINERS>
+        </ECUC-MODULE-CONFIGURATION-VALUES>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>
+"""
+
+
+def _build_mock_mcu_module_def() -> EcucModuleDef:
+    module_def = EcucModuleDef(short_name="Mcu", definition_ref="/AUTOSAR/Mcu")
+    general = EcucContainerDef(short_name="McuGeneral", definition_ref="/AUTOSAR/Mcu/McuGeneral",
+                               lower_multiplicity=1, upper_multiplicity=1)
+    general.add_parameter(EcucParameterDef(short_name="McuDevErrorDetect", param_type=EcucParameterType.BOOLEAN,
+                                           definition_ref="/AUTOSAR/Mcu/McuGeneral/McuDevErrorDetect"))
+    module_def.add_container(general)
+    return module_def
+
+
+def test_modules_in_rec_file(tmp_path: Path):
+    rec_file = tmp_path / "EcuC_preo.arxml"
+    rec_file.write_text(ECUC_REC_ARXML, encoding="utf-8")
+    assert RecFileScanner.modules_in_file(rec_file) == ["EcuC", "OtherModule"]
+
+
+def test_rec_file_of_another_module_is_not_loaded_for_this_module(tmp_path: Path):
+    """An EcuC rec file must not be compared or applied against the Mcu module."""
+    rec_file = tmp_path / "EcuC_preo.arxml"
+    rec_file.write_text(ECUC_REC_ARXML, encoding="utf-8")
+    cm = ConfigurationManager(_build_mock_mcu_module_def())
+    assert cm.load_recommended_values(rec_file) is None
+
+
+def test_convert_parameter_value_normalizes_and_validates_without_setting():
+    module_def = _build_mock_ecuc_module_def()
+    cm = ConfigurationManager(module_def)
+    general = cm.create_container_instance(module_def.containers["EcucGeneral"])
+    before = general.parameter_values["CPUType"].value
+
+    assert cm.convert_parameter_value(general, "DummyFunction", "1") is True
+    assert cm.convert_parameter_value(general, "CPUType", "CPU16Bit") == "CPU16Bit"
+    with pytest.raises(ValidationError):
+        cm.convert_parameter_value(general, "CPUType", "NOT_A_LITERAL")
+    assert general.parameter_values["CPUType"].value == before

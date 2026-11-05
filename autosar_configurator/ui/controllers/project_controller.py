@@ -7,7 +7,9 @@ main window (``self.win``) for shared state (current_project, workspace_manager,
 config_manager, tree_view, settings, statusbar, actions, chip_constraint_service)
 and Qt parenting.
 """
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import List, Optional, Tuple
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
@@ -17,7 +19,90 @@ from PySide6.QtWidgets import (
 
 import logging
 
+from ...core.config_manager import ValidationError
+from ...core.model.configuration_model import EcucContainerValue
+from ..commands import SetParameterCommand, SetVariantOverrideCommand
+
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class RecommendedApplyResult:
+    updated: int = 0
+    overrides: int = 0                                                    # variant overrides changed with them
+    skipped: List[Tuple[str, str]] = field(default_factory=list)          # (path, why)
+    containers: List[EcucContainerValue] = field(default_factory=list)    # touched, in visiting order
+
+
+def apply_recommended_changes(manager, rec_config, only_empty: bool, undo_stack,
+                              variant: Optional[str] = None) -> RecommendedApplyResult:
+    """Write the recommended values of ``rec_config`` into ``manager``'s configuration as one undo step.
+
+    A container the configuration lacks is created, and then all its values are written whatever
+    ``only_empty`` says (its smart defaults are not the user's).  A value its definition refuses is
+    skipped and reported; it never reaches the undo stack.  Where the active ``variant`` already
+    overrides a written parameter (the panel and the generator read the override first), the
+    override gets the value too; no override is created.
+    """
+    result = RecommendedApplyResult()
+    changes = []
+
+    def create(container_def, parent, name, path):
+        if container_def is None:
+            result.skipped.append((path, "no such container in the module definition"))
+            return None
+        try:
+            return manager.create_container_instance(container_def, parent=parent, instance_name=name)
+        except ValidationError as e:
+            result.skipped.append((path, str(e)))
+            return None
+
+    def collect(current: EcucContainerValue, recommended: EcucContainerValue, path: str, is_new: bool):
+        result.containers.append(current)
+        for name, rec_param in recommended.parameter_values.items():
+            current_param = current.parameter_values.get(name)
+            current_value = current_param.value if current_param else None
+            if rec_param.value is None:
+                continue
+            if only_empty and not is_new and current_value not in (None, ""):
+                continue
+            try:
+                changes.append((current, name, manager.convert_parameter_value(current, name, rec_param.value)))
+            except ValidationError as e:
+                result.skipped.append((f"{path}/{name}", str(e)))
+        for rec_sub in recommended.sub_containers:
+            sub_path = f"{path}/{rec_sub.short_name}"
+            sub = next((c for c in current.sub_containers if c.short_name == rec_sub.short_name), None)
+            created = sub is None
+            if created:
+                current_def = manager.get_container_def(current.definition_ref)
+                sub_def = current_def.sub_containers.get(rec_sub.short_name) if current_def else None
+                sub = create(sub_def, current, rec_sub.short_name, sub_path)
+            if sub is not None:
+                collect(sub, rec_sub, sub_path, created)
+
+    for rec_container in rec_config.containers:
+        path = rec_container.short_name
+        current = next((c for c in manager.configuration.containers if c.short_name == path), None)
+        created = current is None
+        if created:
+            current = create(manager.module_def.containers.get(path), None, path, path)
+        if current is not None:
+            collect(current, rec_container, path, created)
+
+    if changes:
+        overrides = manager.configuration.variant_overrides.get(variant, {}) if variant else {}
+        undo_stack.beginMacro("Apply Recommended Values")
+        for instance, name, value in changes:
+            undo_stack.push(SetParameterCommand(manager, instance, name, value))
+            # the full path is what the generator and the panel read; the short one is older saved data
+            for path in dict.fromkeys((f"{instance.get_path()}.{name}", f"{instance.short_name}.{name}")):
+                if path in overrides:
+                    undo_stack.push(SetVariantOverrideCommand(manager.configuration, variant, path, value))
+                    result.overrides += 1
+        undo_stack.endMacro()
+    result.updated = len(changes)
+    return result
 
 
 class ProjectController:
@@ -1079,23 +1164,52 @@ class ProjectController:
         finally:
             QApplication.restoreOverrideCursor()
 
+    def _recommended_values_target(self, rec_file: Path):
+        """The configuration manager of the module ``rec_file`` configures; None (after telling
+        the user why) when the file is for no module here.
+
+        The module selected in the tree is used when the file configures it; otherwise the
+        project's module of the file, so the values never land in an unrelated module.
+        """
+        from ...core.config_manager import RecFileScanner
+
+        modules = RecFileScanner.modules_in_file(rec_file)
+        active = self.win.config_manager
+        if active and active.module_def and (not modules or active.module_def.short_name in modules):
+            return active
+        managers = getattr(self.win.current_project, "module_managers", None) or {}
+        candidates = [name for name in modules if name in managers]
+        if len(candidates) == 1:
+            return managers[candidates[0]]
+        if len(candidates) > 1:
+            name, ok = QInputDialog.getItem(
+                self.win, "Select Module",
+                "The file holds recommended values for several modules. Apply them to:",
+                candidates, 0, False)
+            return managers[name] if ok else None
+        found = ", ".join(modules) or "none recognised"
+        QMessageBox.warning(
+            self.win, "Module Not Found",
+            f"The file holds recommended values for: {found}.\n"
+            f"None of these modules is in the current configuration.")
+        return None
+
     def load_recommended_values(self):
         """Load and apply recommended values from _rec.arxml file"""
-        from ...core.config_manager import RecFileScanner
         from PySide6.QtWidgets import (QDialog, QVBoxLayout, QTableWidget, QTableWidgetItem,
                                        QDialogButtonBox, QHeaderView, QCheckBox)
-        
-        # Need an active configuration
-        if not self.win.config_manager:
+
+        # Need an active configuration, or a project whose modules the file can belong to
+        if not self.win.config_manager and not getattr(self.win.current_project, "module_managers", None):
             QMessageBox.warning(self.win, "No Module Loaded", "Please load a module first.")
             return
-        
+
         # Find rec files
         if self.win.current_project and self.win.current_project.path:
             project_root = self.win.current_project.path.parent
         else:
             project_root = Path.home()
-        
+
         # Let user select rec file
         file_path, _ = QFileDialog.getOpenFileName(
             self.win,
@@ -1103,26 +1217,30 @@ class ProjectController:
             str(project_root),
             "Rec Files (*_rec.arxml *.xdm *.epc);;ARXML Files (*.arxml);;EB Tresos Files (*.xdm);;EPC Files (*.epc);;All Files (*)"
         )
-        
+
         if not file_path:
             return
-        
+
+        manager = self._recommended_values_target(Path(file_path))
+        if manager is None:
+            return
+
         # Load recommended values
-        rec_config = self.win.config_manager.load_recommended_values(Path(file_path))
+        rec_config = manager.load_recommended_values(Path(file_path))
         if not rec_config:
             QMessageBox.warning(self.win, "Load Failed", "Could not parse recommended values file.")
             return
-        
+
         # Get comparison
-        comparisons = self.win.config_manager.get_recommended_value_comparison(rec_config)
-        
+        comparisons = manager.get_recommended_value_comparison(rec_config)
+
         if not comparisons:
             QMessageBox.information(self.win, "No Values", "No comparable values found in rec file.")
             return
-        
+
         # Show comparison dialog
         dialog = QDialog(self.win)
-        dialog.setWindowTitle("Recommended Values Comparison")
+        dialog.setWindowTitle(f"Recommended Values Comparison — {manager.module_def.short_name}")
         dialog.setMinimumSize(700, 400)
         layout = QVBoxLayout(dialog)
         
@@ -1158,78 +1276,29 @@ class ProjectController:
         layout.addWidget(buttons)
         
         if dialog.exec() == QDialog.Accepted:
-            only_empty = only_empty_cb.isChecked()
-            # Collect the (instance, param_name, value) changes that
-            # apply_recommended_values would perform, then push one
-            # SetParameterCommand per change inside an undo macro so the whole
-            # bulk apply is a single undoable operation.
-            changes = []
-            affected_containers = []
-
-            def collect(current: EcucContainerValue, recommended: EcucContainerValue, is_new_container: bool = False):
-                if current not in affected_containers:
-                    affected_containers.append(current)
-                for param_name, rec_param_obj in recommended.parameter_values.items():
-                    current_param_obj = current.parameter_values.get(param_name)
-                    current_value = current_param_obj.value if current_param_obj else None
-                    rec_value = rec_param_obj.value
-                    should_apply = is_new_container or not only_empty or current_value is None or current_value == ""
-                    if should_apply and rec_value is not None:
-                        changes.append((current, param_name, rec_value))
-                for rec_sub in recommended.sub_containers:
-                    current_sub = next(
-                        (c for c in current.sub_containers if c.short_name == rec_sub.short_name),
-                        None
-                    )
-                    sub_is_new = False
-                    if not current_sub and self.win.config_manager.module_def:
-                        curr_c_def = self.win.config_manager.get_container_def(current.definition_ref)
-                        sub_c_def = curr_c_def.sub_containers.get(rec_sub.short_name) if curr_c_def else None
-                        if sub_c_def:
-                            try:
-                                current_sub = self.win.config_manager.create_container_instance(sub_c_def, parent=current, instance_name=rec_sub.short_name)
-                                sub_is_new = True
-                            except Exception:
-                                current_sub = None
-                    if current_sub:
-                        collect(current_sub, rec_sub, is_new_container=sub_is_new)
-
-            for rec_container in rec_config.containers:
-                current_container = next(
-                    (c for c in self.win.config_manager.configuration.containers
-                     if c.short_name == rec_container.short_name),
-                    None
-                )
-                container_is_new = False
-                if not current_container and self.win.config_manager.module_def:
-                    c_def = self.win.config_manager.module_def.containers.get(rec_container.short_name)
-                    if c_def:
-                        try:
-                            current_container = self.win.config_manager.create_container_instance(c_def, instance_name=rec_container.short_name)
-                            container_is_new = True
-                        except Exception:
-                            current_container = None
-                if current_container:
-                    collect(current_container, rec_container, is_new_container=container_is_new)
-
-            self.win.undo_stack.beginMacro("Apply Recommended Values")
-            for instance, param_name, value in changes:
-                self.win.undo_stack.push(
-                    SetParameterCommand(self.win.config_manager, instance, param_name, value)
-                )
-            self.win.undo_stack.endMacro()
-            updated = len(changes)
+            variant = getattr(self.win.current_project, "active_variant", None)
+            result = apply_recommended_changes(manager, rec_config, only_empty_cb.isChecked(),
+                                               self.win.undo_stack, variant)
             self.win._has_unsaved_changes = True
-            
+
             # Refresh UI and select updated container so right-hand config panel displays new values
             self.win.tree_view.refresh()
-            if affected_containers:
-                self.win.tree_view.select_container(affected_containers[0])
+            if result.containers:
+                self.win.tree_view.select_container(result.containers[0])
             elif self.win.tree_view.currentItem():
                 self.win.tree_view._on_item_clicked(self.win.tree_view.currentItem(), 0)
-            
-            QMessageBox.information(self.win, "Applied", f"Updated {updated} parameter(s) with recommended values.")
-            self.win.statusbar.showMessage(f"Applied {updated} recommended values", 3000)
+
+            text = f"Updated {result.updated} parameter(s) with recommended values."
+            if result.overrides:
+                text += f"\nAlso updated {result.overrides} override(s) of variant '{variant}'."
+            if result.skipped:
+                shown = result.skipped[:15]
+                text += f"\n\nSkipped {len(result.skipped)} item(s):\n" + "\n".join(
+                    f"• {path}: {why}" for path, why in shown)
+                if len(result.skipped) > len(shown):
+                    text += f"\n… and {len(result.skipped) - len(shown)} more"
+            QMessageBox.information(self.win, "Applied", text)
+            self.win.statusbar.showMessage(f"Applied {result.updated} recommended values", 3000)
     
     # File operations
     

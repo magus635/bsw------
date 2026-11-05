@@ -159,8 +159,40 @@ class RecFileScanner:
             matches = list(project_root.rglob(pattern))
             if matches:
                 return matches[0]
-        
+
         return None
+
+    @staticmethod
+    def modules_in_file(rec_file_path: Path) -> List[str]:
+        """Names of the modules a recommended-values file configures, sorted.
+
+        A module's name is the last segment of its DEFINITION-REF, else its SHORT-NAME
+        without a ``_Pre``/``_Rec`` suffix.  Empty when the file cannot be read.
+        """
+        import lxml.etree as etree
+
+        try:
+            parser = etree.XMLParser(resolve_entities=False, no_network=True)
+            root = etree.parse(str(rec_file_path), parser).getroot()
+        except (OSError, etree.XMLSyntaxError):
+            return []
+
+        def child_text(elem, tag):
+            child = next((c for c in elem if etree.QName(c).localname == tag), None)
+            return (child.text or "").strip() if child is not None else ""
+
+        names = set()
+        for elem in root.iter():
+            if not isinstance(elem.tag, str) or etree.QName(elem).localname != "ECUC-MODULE-CONFIGURATION-VALUES":
+                continue
+            def_ref = child_text(elem, "DEFINITION-REF").rstrip("/")
+            name = def_ref.rsplit("/", 1)[-1] if def_ref else child_text(elem, "SHORT-NAME")
+            for suffix in ("_Pre", "_Rec"):
+                if not def_ref and name.endswith(suffix):
+                    name = name[:-len(suffix)]
+            if name:
+                names.add(name)
+        return sorted(names)
 
 
 class DefFileScanner:
@@ -467,12 +499,34 @@ class ConfigurationManager:
                            param_name: str,
                            value: Any):
         """Set parameter value with validation and type conversion
-        
+
         Args:
             container: Container instance
             param_name: Parameter name
             value: New value (will be converted to appropriate type)
-            
+
+        Raises:
+            ValidationError if parameter not found or value invalid
+        """
+        value = self.convert_parameter_value(container, param_name, value)
+        param_def = self.get_container_def(container.definition_ref).parameters[param_name]
+
+        # Set value in container (DEFINITION-REF: absolute path, DEST: the parameter type)
+        container.set_parameter_value(param_name, value,
+                                      defrefs.absolute_ref(self.module_def, param_def.definition_ref))
+        param_value = container.parameter_values[param_name]
+        if defrefs.needs_repair(self.module_def, param_value.definition_ref):
+            param_value.definition_ref = defrefs.absolute_ref(self.module_def, param_value.definition_ref)
+        if param_value.dest_type in (None, defrefs.GENERIC_PARAM_DEST):
+            param_value.dest_type = defrefs.parameter_dest(param_def)
+
+    def convert_parameter_value(self,
+                                container: EcucContainerValue,
+                                param_name: str,
+                                value: Any) -> Any:
+        """``value`` converted to the parameter's type and checked against its definition;
+        nothing is changed.
+
         Raises:
             ValidationError if parameter not found or value invalid
         """
@@ -480,7 +534,7 @@ class ConfigurationManager:
         container_def = self.get_container_def(container.definition_ref)
         if not container_def:
             raise ValidationError(f"Container definition not found: {container.definition_ref}")
-        
+
         # Get parameter definition
         param_def = container_def.parameters.get(param_name)
         if not param_def:
@@ -538,15 +592,8 @@ class ConfigurationManager:
                 
         except (ValueError, TypeError) as e:
             raise ValidationError(f"{param_name}: Invalid value type - {e}")
-        
-        # Set value in container (DEFINITION-REF: absolute path, DEST: the parameter type)
-        container.set_parameter_value(param_name, value,
-                                      defrefs.absolute_ref(self.module_def, param_def.definition_ref))
-        param_value = container.parameter_values[param_name]
-        if defrefs.needs_repair(self.module_def, param_value.definition_ref):
-            param_value.definition_ref = defrefs.absolute_ref(self.module_def, param_value.definition_ref)
-        if param_value.dest_type in (None, defrefs.GENERIC_PARAM_DEST):
-            param_value.dest_type = defrefs.parameter_dest(param_def)
+
+        return value
 
     def get_container_def(self, definition_ref: str) -> Optional[EcucContainerDef]:
         """Get container definition by reference path
@@ -1445,7 +1492,13 @@ class ConfigurationManager:
                     matching_configs.append(cfg)
             
             if not matching_configs:
-                matching_configs = parsed_configs
+                # Names did not match: accept only blocks whose containers this module defines,
+                # never another module's values.
+                known = set(self.module_def.containers) if self.module_def else set()
+                matching_configs = [c for c in parsed_configs
+                                    if not self.module_def or any(t.short_name in known for t in c.containers)]
+            if not matching_configs:
+                return None
             
             # Prioritize _Pre configs before _Rec so pre-configuration values have precedence
             matching_configs.sort(key=lambda c: 0 if c.short_name.endswith('_Pre') else 1)
