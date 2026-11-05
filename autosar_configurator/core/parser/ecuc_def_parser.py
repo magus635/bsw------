@@ -471,8 +471,7 @@ class EcucDefParser:
                         # the list's condition covers all its values (same parent as the list)
                         if not param_def.enable_expr and lst_enable:
                             param_def.enable_expr, param_def.enable_line = lst_enable, lst_enable_line
-                        if lst_lower is not None:
-                            param_def.lower_multiplicity = lst_lower
+                        param_def.lower_multiplicity = lst_lower if lst_lower is not None else 0
                         if lst_upper is not None:
                             param_def.upper_multiplicity = lst_upper
                         elif not max_da and not max_da_elems:
@@ -487,8 +486,7 @@ class EcucDefParser:
                     if ref_def:
                         if not ref_def.enable_expr and lst_enable:
                             ref_def.enable_expr, ref_def.enable_line = lst_enable, lst_enable_line
-                        if lst_lower is not None:
-                            ref_def.lower_multiplicity = lst_lower
+                        ref_def.lower_multiplicity = lst_lower if lst_lower is not None else 0
                         if lst_upper is not None:
                             ref_def.upper_multiplicity = lst_upper
                         elif not max_da and not max_da_elems:
@@ -692,10 +690,13 @@ class EcucDefParser:
         self._parse_xdm_data_attributes(element, param_def, param_type)
         param_def.enable_expr = self._xdm_enable_expr(element)
         param_def.enable_line = self._xdm_enable_line(element) if param_def.enable_expr else None
+        xdm_lower = self._xdm_lower_multiplicity(element)
+        if xdm_lower is not None:
+            param_def.lower_multiplicity = xdm_lower
 
         # Set definition reference path
         param_def.definition_ref = f"{parent_path}/{short_name}"
-        
+
         return param_def
     
     def _parse_reference_def(self, element: etree._Element, parent_path: str = "") -> Optional[EcucReferenceDef]:
@@ -754,11 +755,30 @@ class EcucDefParser:
         # Check UPPER-MULTIPLICITY-INFINITE
         if self._is_upper_multiplicity_infinite(element):
             ref_def.upper_multiplicity = -1  # -1 means infinite
+        xdm_lower = self._xdm_lower_multiplicity(element)
+        if xdm_lower is not None:
+            ref_def.lower_multiplicity = xdm_lower
 
         # Set definition reference path
         ref_def.definition_ref = f"{parent_path}/{short_name}"
 
         return ref_def
+
+    def _xdm_lower_multiplicity(self, element) -> Optional[int]:
+        """Lower multiplicity of an XDM ``v:var``/``v:ref``: its LOWER-MULTIPLICITY attribute, else
+        0 when it is marked OPTIONAL and 1 when not (EB: mandatory unless OPTIONAL).  None for
+        an ARXML element.  A list's MIN replaces it for the values inside a ``v:lst``."""
+        if etree.QName(element).localname not in ('var', 'ref'):
+            return None
+        ns_a = self.NAMESPACES['a']
+        lower = element.xpath("a:a[@name='LOWER-MULTIPLICITY']/@value", namespaces={'a': ns_a})
+        if lower:
+            try:
+                return int(float(lower[0]))
+            except ValueError:
+                pass
+        optional = element.xpath("a:a[@name='OPTIONAL']/@value", namespaces={'a': ns_a})
+        return 0 if optional and optional[0].strip().lower() == 'true' else 1
 
     def _parse_choice_reference_def(self, element: etree._Element, parent_path: str = "") -> Optional[EcucReferenceDef]:
         """Parse ECUC-CHOICE-REFERENCE-DEF element (multi-destination reference).

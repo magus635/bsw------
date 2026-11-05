@@ -648,8 +648,9 @@ class DaVinciConfigPanel(QWidget):
             # ComboBox for enumerations
             combo = QComboBox()
 
-            # For optional parameters, add "(未配置)" option at the beginning
-            if not param_def.is_required:
+            # "(未配置)": an optional parameter can be unset; a required one shows it while it
+            # has no value, instead of looking set to its first option
+            if not param_def.is_required or current_value is None:
                 combo.addItem("(未配置)")
 
             # Get allowed literals from chip constraints
@@ -683,7 +684,7 @@ class DaVinciConfigPanel(QWidget):
             # Set current value
             elif current_value is not None:
                 combo.setCurrentText(str(current_value))
-            elif not param_def.is_required:
+            else:
                 combo.setCurrentIndex(0)  # Select "(未配置)"
 
             def current_enum_value():
@@ -767,22 +768,32 @@ class DaVinciConfigPanel(QWidget):
             # Use QLineEdit for values exceeding 32-bit signed limits (e.g. 0..4294967295)
             if min_val < -2147483648 or max_val > 2147483647:
                 lineedit = QLineEdit()
-                lineedit.setText(str(current_value) if current_value is not None else "0")
-                lineedit.setPlaceholderText(f"Range: {min_val} to {max_val}")
-                return lineedit, lineedit.text, lineedit.textChanged
-            
-            # Standard case: QSpinBox
+                lineedit.setText(str(current_value) if current_value is not None else "")
+                lineedit.setPlaceholderText(f"(未配置) Range: {min_val} to {max_val}")
+                return lineedit, lambda: lineedit.text() or "(未配置)", lineedit.textChanged
+
+            # Standard case: QSpinBox; without a value, one step below the range reads "(未配置)"
             spinbox = QSpinBox()
-            spinbox.setRange(int(min_val), int(max_val))
-            
-            try:
-                # Robust conversion and clamping
-                val = int(current_value) if current_value is not None else 0
-                val = max(int(min_val), min(int(max_val), val))
-                spinbox.setValue(val)
-            except (ValueError, TypeError):
-                spinbox.setValue(0)
-            
+            unset = current_value is None
+            low = int(min_val) - 1 if unset and min_val > -2147483648 else int(min_val)
+            spinbox.setRange(low, int(max_val))
+
+            if unset:
+                spinbox.setSpecialValueText("(未配置)")
+                spinbox.setValue(low)
+            else:
+                try:
+                    # Robust conversion and clamping
+                    val = max(int(min_val), min(int(max_val), int(current_value)))
+                    spinbox.setValue(val)
+                except (ValueError, TypeError):
+                    spinbox.setValue(0)
+
+            def int_value():
+                if unset and spinbox.value() == spinbox.minimum():
+                    return "(未配置)"
+                return spinbox.value()
+
             # Check if this is a baudrate parameter that supports calculation
             if param_name in ('CanControllerBaudRate', 'CanControllerFdBaudRate'):
                 container = QWidget()
@@ -790,7 +801,7 @@ class DaVinciConfigPanel(QWidget):
                 layout.setContentsMargins(0, 0, 0, 0)
                 layout.setSpacing(2)
                 layout.addWidget(spinbox)
-                
+
                 calc_btn = QToolButton()
                 calc_btn.setText("🔢")
                 calc_btn.setToolTip("Calculate timing parameters")
@@ -798,26 +809,34 @@ class DaVinciConfigPanel(QWidget):
                 is_fd = (param_name == 'CanControllerFdBaudRate')
                 calc_btn.clicked.connect(lambda checked, sp=spinbox, fd=is_fd: self._on_calc_baudrate_clicked(sp, fd))
                 layout.addWidget(calc_btn)
-                
-                return container, spinbox.value, spinbox.valueChanged
-            
-            return spinbox, spinbox.value, spinbox.valueChanged
-            
+
+                return container, int_value, spinbox.valueChanged
+
+            return spinbox, int_value, spinbox.valueChanged
+
         elif param_def.param_type == EcucParameterType.FLOAT:
-            # DoubleSpinBox for floats
+            # DoubleSpinBox for floats; without a value, one step below the range reads "(未配置)"
             spinbox = QDoubleSpinBox()
-            spinbox.setRange(
-                param_def.min_value if param_def.min_value is not None else -1e308,
-                param_def.max_value if param_def.max_value is not None else 1e308
-            )
+            unset = current_value is None
+            f_min = param_def.min_value if param_def.min_value is not None else -1e308
+            f_max = param_def.max_value if param_def.max_value is not None else 1e308
+            spinbox.setRange(f_min - 1 if unset and f_min > -1e308 else f_min, f_max)
             spinbox.setDecimals(4)
-            
-            try:
-                val = float(current_value) if current_value is not None else 0.0
-                spinbox.setValue(val)
-            except (ValueError, TypeError):
-                spinbox.setValue(0.0)
-                
+
+            if unset:
+                spinbox.setSpecialValueText("(未配置)")
+                spinbox.setValue(spinbox.minimum())
+            else:
+                try:
+                    spinbox.setValue(float(current_value))
+                except (ValueError, TypeError):
+                    spinbox.setValue(0.0)
+
+            def float_value():
+                if unset and spinbox.value() == spinbox.minimum():
+                    return "(未配置)"
+                return spinbox.value()
+
             # Check if this is a baudrate parameter that supports calculation
             if param_name in ('CanControllerBaudRate', 'CanControllerFdBaudRate'):
                 container = QWidget()
@@ -825,7 +844,7 @@ class DaVinciConfigPanel(QWidget):
                 layout.setContentsMargins(0, 0, 0, 0)
                 layout.setSpacing(2)
                 layout.addWidget(spinbox)
-                
+
                 calc_btn = QToolButton()
                 calc_btn.setText("🔢")
                 calc_btn.setToolTip("Calculate timing parameters")
@@ -833,10 +852,10 @@ class DaVinciConfigPanel(QWidget):
                 is_fd = (param_name == 'CanControllerFdBaudRate')
                 calc_btn.clicked.connect(lambda checked, sp=spinbox, fd=is_fd: self._on_calc_baudrate_clicked(sp, fd))
                 layout.addWidget(calc_btn)
-                
-                return container, spinbox.value, spinbox.valueChanged
-                
-            return spinbox, spinbox.value, spinbox.valueChanged
+
+                return container, float_value, spinbox.valueChanged
+
+            return spinbox, float_value, spinbox.valueChanged
             
         else:
             # Default: LineEdit for strings, functions, etc.

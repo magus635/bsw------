@@ -394,7 +394,13 @@ class ConfigurationManager:
         # Initialize with default parameter values (smart defaults)
         for param_name, param_def in container_def.parameters.items():
             value = None
-            
+
+            # A required parameter whose definition gives no default at all is the user's to
+            # set: inventing one would hide it from validation.  (A default the definition
+            # computes, EB's XPath DEFAULT, still gets a stand-in below.)
+            if param_def.is_required and param_def.default_value is None and not param_def.default_expr:
+                continue
+
             # Determine default value
             if param_def.default_value is not None:
                 # Use explicit default from DEF
