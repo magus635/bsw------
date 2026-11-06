@@ -257,6 +257,28 @@ def is_quoted_literal(expr: str) -> bool:
     return expr[0] not in expr[1:-1]
 
 
+def single_predicate(text: str) -> bool:
+    """True when text is one bracketed predicate, '[...]', whose '[' closes at the very end
+    (brackets inside quotes do not count): '[a/b + 1]' is one, '[1][2]' and '[1]/X' are not."""
+    if not text.startswith('[') or not text.endswith(']'):
+        return False
+    depth = 0
+    quote = None
+    for i, c in enumerate(text):
+        if quote:
+            if c == quote:
+                quote = None
+        elif c in ('"', "'"):
+            quote = c
+        elif c == '[':
+            depth += 1
+        elif c == ']':
+            depth -= 1
+            if depth == 0:
+                return i == len(text) - 1
+    return False
+
+
 def _top_level_arithmetic(expr: str) -> bool:
     """True when expr has an arithmetic operator outside brackets and quotes."""
     depth = 0

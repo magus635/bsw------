@@ -135,6 +135,7 @@ def test_rec_file_is_applied_to_its_own_module_not_the_selected_one(qtbot, tmp_p
 def test_a_value_that_fails_validation_is_skipped_and_reported(qtbot, tmp_path, dialogs):
     ecuc = ConfigurationManager(_ecuc_def())
     general = ecuc.create_container_instance(ecuc.module_def.containers["EcucGeneral"])
+    ecuc.set_parameter_value(general, "CPUType", "CPU8Bit")
     before = general.parameter_values["CPUType"].value
     dialogs.rec_file = _rec_file(tmp_path, {"CPUType": "NOT_A_LITERAL", "ByteOrder": "LITTLE_ENDIAN"})
     win = _window(qtbot, tmp_path, ecuc, {"EcuC": ecuc})

@@ -1,0 +1,46 @@
+{
+  "observed_date": "2026-11-05",
+  "status": "inventory_only_not_proof_of_matching_generation",
+  "files": [
+    {
+      "path": "D:/davinci/mcuapp/DemoComponents/vBRS/GeneratorMsr/vBRS.jar",
+      "size": 3924644,
+      "sha256": "63dff4a9c95e695c39464d07e26282dd3813002d4728d60f582e38653071cfbc"
+    },
+    {
+      "path": "D:/davinci/mcuapp/DemoComponents/vBRS/GeneratorDvC6/vBRS.jar",
+      "size": 6279315,
+      "sha256": "70bf1a22fbf08a57320ba65c92f961811db70656fac790fe509a73abe50e816a"
+    },
+    {
+      "path": "D:/davinci/mcuapp/DemoComponents/vBRS/BSWMD/vBRS_bswmd.arxml",
+      "size": 410481,
+      "sha256": "f5ed1b6f2ea805914bb922a595277ccb9e15f26acdfe96cd162cf34e9963b082"
+    },
+    {
+      "path": "D:/davinci/mcuapp/Applications/SipAddon/StartApplication/Config/ECUC/StartApplication_vBRS_vBRS_ecuc.arxml",
+      "size": 13993,
+      "sha256": "77c3872fe4af7ab5ec6b506bac478733df84aeadee2caeb3818d8a2bb462d3be"
+    },
+    {
+      "path": "D:/davinci/mcuapp/Applications/SipAddon/StartApplication/Appl/GenData/vBrsCfg.h",
+      "size": 14461,
+      "sha256": "4f16c36a55fde6952218a313e3098e74377ffd9b3c647ac1368771c2b7d739de"
+    },
+    {
+      "path": "D:/davinci/mcuapp/Applications/SipAddon/StartApplication/Appl/GenData/vBrs_Lcfg.c",
+      "size": 5883,
+      "sha256": "44728beb332d38142d4257f1fff0fa6651f57719a66e32ac98fb4975708a9817"
+    },
+    {
+      "path": "D:/davinci/mcuapp/Applications/SipAddon/StartApplication/Appl/GenData/vBrs_Lcfg.h",
+      "size": 4465,
+      "sha256": "8cdd1105222b70fecd8c0231bd1715ee1ba65f623e47dcc43d3a9d367e20d608"
+    },
+    {
+      "path": "D:/davinci/mcuapp/Applications/SipAddon/StartApplication/Appl/Makefile.config.generated",
+      "size": 4105,
+      "sha256": "df5b4ce5a2c3191dcda02ee54e787175f7ba8b66fdc4073b4b10ced36789df7b"
+    }
+  ]
+}

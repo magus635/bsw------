@@ -148,6 +148,18 @@ class Renderer:
         Used for definition ENABLE conditions. Raises ``UnevaluableCondition`` when
         the expression calls a function the engine does not implement.
         """
+        return bool(self._evaluate_at(node, expression, ecu_resources, self._evaluate_condition))
+
+    def evaluate_value_at(self, node, expression: str,
+                          ecu_resources: Optional[Dict[str, Any]] = None) -> Any:
+        """The value of an XPath expression (as in [!"..."!]) with ``node`` as context node.
+
+        Used for definition defaults (XDM DEFAULT type="XPath"). Raises ``UnevaluableCondition``
+        when the expression calls a function the engine does not implement.
+        """
+        return self._evaluate_at(node, expression, ecu_resources, self._evaluate_expression)
+
+    def _evaluate_at(self, node, expression: str, ecu_resources, evaluate) -> Any:
         self._context_stack = ContextStack(node)
         if self._builtins is None:
             self._builtins = BuiltinFunctions(self.symbol_table, self._context_stack, ecu_resources=ecu_resources)
@@ -167,13 +179,13 @@ class Renderer:
         earlier = getattr(self._builtins, 'unimplemented_calls', set())
         self._builtins.unimplemented_calls = set()
         try:
-            result = self._evaluate_condition(expression)
+            result = evaluate(expression)
             unsupported = set(self._builtins.unimplemented_calls)
         finally:
             self._builtins.unimplemented_calls = earlier
         if unsupported:
             raise UnevaluableCondition("unsupported function(s): " + ", ".join(sorted(unsupported)))
-        return bool(result)
+        return result
 
     def render(
         self,
@@ -1373,12 +1385,13 @@ class Renderer:
                     return self._evaluate_function_call(expr)
                 elif expr[close_paren_idx + 1] == '[':
                     # Has indexing: func(...)[index]
-                    # BUT ONLY if it's a simple index and NOTHING ELSE follows
+                    # BUT ONLY if it's one predicate and NOTHING ELSE follows
                     # If it's something like func(...)[index]/Path, let XPath engine handle it
                     if expr.endswith(']'):
                         index_part = expr[close_paren_idx + 1:]
-                        # If index_part has multiple brackets or slashes, it's a path, not a simple index
-                        if not ('/' in index_part or index_part.count('[') > 1):
+                        # One bracket pair spanning the rest: a '/' inside it (node:current()/..)
+                        # belongs to the predicate, it does not make the rest a path
+                        if ebv.single_predicate(index_part):
                             func_part = expr[:close_paren_idx + 1]
                             # Evaluate the function
                             result = self._evaluate_function_call(func_part)
@@ -1431,7 +1444,8 @@ class Renderer:
                                 if 0 <= idx_val < len(result):
                                     return result[idx_val]
                                 return None             # index past the end: empty, as in XPath
-                        return result
+                            return result
+                        # several predicates or a path after them: the XPath engine below
 
         # 5. XPath or Node Access
         res = self._evaluate_xpath(expr)

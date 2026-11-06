@@ -390,54 +390,59 @@ class ConfigurationManager:
             index=self._get_next_index(container_def.short_name)
         )
         instance.def_dest_type = defrefs.container_dest(container_def)
-        
-        # Initialize with default parameter values (smart defaults)
+
+        # Initialize with the defaults the definition gives.  A parameter without any default
+        # gets no invented value: a required one is the user's to set (validation reports it),
+        # an optional one stays unset, as EB leaves it disabled.
+        computed = []
         for param_name, param_def in container_def.parameters.items():
-            value = None
-
-            # A required parameter whose definition gives no default at all is the user's to
-            # set: inventing one would hide it from validation.  (A default the definition
-            # computes, EB's XPath DEFAULT, still gets a stand-in below.)
-            if param_def.is_required and param_def.default_value is None and not param_def.default_expr:
-                continue
-
-            # Determine default value
             if param_def.default_value is not None:
-                # Use explicit default from DEF
-                value = param_def.default_value
-            elif param_def.param_type == EcucParameterType.ENUMERATION:
-                # Use first enumeration literal
-                if param_def.literals and len(param_def.literals) > 0:
-                    value = param_def.literals[0]
-            elif param_def.param_type == EcucParameterType.INTEGER:
-                # Use min value or 0
-                value = param_def.min_value if param_def.min_value is not None else 0
-            elif param_def.param_type == EcucParameterType.FLOAT:
-                # Use min value or 0.0
-                value = param_def.min_value if param_def.min_value is not None else 0.0
-            elif param_def.param_type == EcucParameterType.BOOLEAN:
-                # Default to False
-                value = False
-            elif param_def.param_type == EcucParameterType.STRING:
-                # Default to empty string
-                value = ""
-            
-            # Set the value if determined
-            if value is not None:
                 instance.set_parameter_value(
                     param_name,
-                    value,
+                    param_def.default_value,
                     defrefs.absolute_ref(self.module_def, param_def.definition_ref)
                 )
                 instance.parameter_values[param_name].dest_type = defrefs.parameter_dest(param_def)
-        
+            elif param_def.default_expr:
+                computed.append(param_name)     # needs the instance in its place: below
+
         # Add to parent or top-level
         if parent:
             parent.add_sub_container(instance)
         else:
             self.configuration.add_container(instance)
-        
+
+        if computed:
+            self._apply_computed_defaults(instance, container_def, computed)
+
         return instance
+
+    def _apply_computed_defaults(self, instance: EcucContainerValue, container_def: EcucContainerDef,
+                                 names: List[str]):
+        """Evaluate the XPath defaults (EB XDM DEFAULT type="XPath") of a new instance in its
+        place in the configuration.  One that cannot be evaluated leaves its parameter unset
+        and is logged."""
+        # the EB XPath engine lives in the generator package
+        from ..generator.eb.computed_defaults import computed_defaults
+
+        project = self.project_context
+        managers = list(getattr(project, "module_managers", {}).values()) if project else []
+        if self not in managers:
+            managers.append(self)
+        modules = [(m.module_def, m.configuration) for m in managers
+                   if m.module_def is not None and not getattr(m, "def_missing", False)]
+        resources = getattr(project, "ecu_resources", None) or {}
+        try:
+            values, failures = computed_defaults(modules, instance, container_def, names, resources)
+        except Exception as e:  # noqa: BLE001 - computing defaults must never stop the creation
+            values, failures = {}, {name: f"{type(e).__name__}: {e}" for name in names}
+        for name, value in values.items():
+            try:
+                self.set_parameter_value(instance, name, value)
+            except ValidationError as e:
+                failures[name] = str(e)
+        for name, why in sorted(failures.items()):
+            logger.warning("Default of %s/%s not computed, left unset: %s", instance.get_path(), name, why)
     
     def delete_container_instance(self,
                                   instance: EcucContainerValue,

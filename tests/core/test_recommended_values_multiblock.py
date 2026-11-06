@@ -308,6 +308,7 @@ def test_convert_parameter_value_normalizes_and_validates_without_setting():
     module_def = _build_mock_ecuc_module_def()
     cm = ConfigurationManager(module_def)
     general = cm.create_container_instance(module_def.containers["EcucGeneral"])
+    cm.set_parameter_value(general, "CPUType", "CPU8Bit")
     before = general.parameter_values["CPUType"].value
 
     assert cm.convert_parameter_value(general, "DummyFunction", "1") is True

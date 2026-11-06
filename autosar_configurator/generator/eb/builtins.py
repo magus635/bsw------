@@ -68,6 +68,7 @@ class BuiltinFunctions:
             'node:current': self.node_current,
             'node:order': self.node_order,
             'node:fallback': self.node_fallback,
+            'node:when': self.node_when,
             
             # EcuC interface functions (per spec 4.1/4.2)
             'ecuC:getParamValue': self.ecuc_get_param_value,
@@ -112,6 +113,7 @@ class BuiltinFunctions:
             
             # Text functions (Namespace aliases)
             'text:split': self.string_split,
+            'text:concat': self.text_concat,
             'text:join': self.string_join,
             'text:tolower': self.string_lower,
             'text:toupper': self.string_upper,
@@ -878,8 +880,32 @@ class BuiltinFunctions:
         # Check if value is "empty" (None, empty string, or empty list)
         if val is None or val == '' or val == []:
             return fallback
-        
+
         return val
+
+    def node_when(self, condition: Any, when_true: Any = None, when_false: Any = None) -> Any:
+        """EB node:when(condition, a, b): ``a`` when the condition is true, else ``b``.
+
+        The condition is an XPath boolean: an empty node set, '' and 0 are false, so
+        node:when(../Param, ...) tests that the parameter exists, not its value.
+        """
+        from . import values as ebv
+        return when_true if ebv.to_boolean(condition) else when_false
+
+    def text_concat(self, *args) -> Any:
+        """EB text:concat: concatenate texts item by item.
+
+        A sequence (node set, list) takes part item by item and a single value is repeated:
+        text:concat('P_', list) prefixes every item, text:concat(list1, list2) joins them
+        pairwise (up to the shorter one).  Without a sequence the result is one text.  An empty
+        selection (None, e.g. an index past the end) is an empty sequence: the result is empty.
+        """
+        sequences = [[] if a is None else a for a in args if a is None or isinstance(a, (list, tuple))]
+        if not sequences:
+            return "".join(self.to_string(a) for a in args)
+        length = min(len(s) for s in sequences)
+        return ["".join(self.to_string(a[i] if isinstance(a, (list, tuple)) else a) for a in args)
+                for i in range(length)]
     
     def node_order(self, nodes: Any, sort_expr: Optional[str] = None) -> List['ConfigurationNode']:
         """Sort nodes by a property or expression.
