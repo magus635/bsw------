@@ -71,3 +71,32 @@ def test_concat_with_an_empty_sequence_gives_nothing(at):
     """An index past the end is an empty sequence: no half-built text such as 'SLSO_'."""
     assert at("text:concat('SLSO_', ecu:list('M.Missing')[1])") == []
     assert at("text:concat('SLSO_', ecu:list('M.Missing'))") == []
+
+
+# --- node:fallback("->expression", default): EB evaluates the expression there ---------------
+
+def test_deferred_expression_is_evaluated(at):
+    assert at("node:fallback(\"->../Mode\", 'x')") == "SUB_LVDS"
+    assert at("concat('P', node:fallback(\"->../Mode\", '?'), '.')") == "PSUB_LVDS."
+    assert int(at("num:i(node:fallback(\"->round(1.6)\", '0'))")) == 2
+
+
+def test_deferred_expression_with_an_empty_result_gives_the_default(at):
+    assert at("node:fallback(\"->../Missing\", 'x')") == "x"
+
+
+def test_deferred_expression_that_fails_gives_the_default(at):
+    assert at("node:fallback(\"->node:ref(../MissingRef)/Value\", 'x')") == "x"
+    assert int(at("num:i(node:fallback(\"->node:value(../Missing) div 2\", '7'))")) == 7
+
+
+def test_deferred_expression_may_use_node_when(at):
+    expr = "node:fallback(\"->node:when(../Mode = 'SUB_LVDS', 'sub', 'lvds')\", 'x')"
+    assert at(expr) == "sub"
+
+
+def test_deferred_expression_calling_an_unsupported_function_is_not_hidden(at):
+    """Falling back would hide that the engine could not evaluate it."""
+    from autosar_configurator.generator.eb.renderer import UnevaluableCondition
+    with pytest.raises(UnevaluableCondition):
+        at("node:fallback(\"->not:a:function(1)\", 'x')")

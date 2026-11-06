@@ -88,6 +88,12 @@ class UnevaluableCondition(EBTemplateError):
     pass
 
 
+class DeferredExpressionFailed(EBTemplateError):
+    """An error inside EB's deferred node:fallback("->expression", default): it has to reach
+    node:fallback, which then gives the default, so non-strict rendering must not swallow it"""
+    pass
+
+
 class XPathError(EBTemplateError):
     """Raised when XPath evaluation fails"""
     def __init__(self, xpath: str, reason: str):

@@ -72,12 +72,12 @@ def test_a_default_that_cannot_be_computed_stays_unset_and_is_logged(caplog):
     assert "ReqUnsupported" in caplog.text
 
 
-def test_an_unevaluated_deferred_expression_is_not_taken_as_the_value():
-    """EB's "->path" inside node:fallback is evaluated later by EB; its text is no value."""
+def test_a_deferred_expression_falls_back_to_its_default_when_it_fails():
+    """EB's node:fallback("->path", default): the path is missing, so the default applies."""
     _, manager = _project()
     values = manager.create_container_instance(manager.module_def.containers["G"]).parameter_values
 
-    assert "ReqDeferred" not in values
+    assert values["ReqDeferred"].value == "x"
 
 
 def test_without_a_project_a_default_needing_no_chip_data_is_still_computed():

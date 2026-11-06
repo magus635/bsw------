@@ -18,6 +18,8 @@ import logging
 logger = logging.getLogger(__name__)
 from typing import Any, List, Optional, Callable, Union, TYPE_CHECKING
 
+from .errors import DeferredExpressionFailed
+
 if TYPE_CHECKING:
     from .symbol_table import ConfigurationNode, SymbolTable
     from .context import ContextStack
@@ -371,6 +373,11 @@ class BuiltinFunctions:
         """
         node = node_or_path
         path = None
+        # Inside node:fallback("->...") a missing node is an error, as node:value() is in EB:
+        # that is what makes the default apply (elsewhere it gives '', which templates expect)
+        deferred = getattr(self, '_deferred', 0)
+        if deferred and (node is None or (isinstance(node, list) and not node)):
+            raise DeferredExpressionFailed("node:value() of a missing node")
 
         # Auto-resolve string paths
         if isinstance(node, str):
@@ -435,6 +442,8 @@ class BuiltinFunctions:
                     node = None
         
         if node is None:
+            if deferred:
+                raise DeferredExpressionFailed(f"node:value() of a missing node: {path}")
             # If resolution failed, log a warning and return empty string
             # Do NOT return the path string as if it were the value - this causes template output errors
             if isinstance(path, str):
@@ -449,6 +458,9 @@ class BuiltinFunctions:
             return node
 
         value = node.get_value() if hasattr(node, 'get_value') else node.value
+        if deferred and value is None:
+            raise DeferredExpressionFailed(
+                f"node:value() of a parameter without a value: {getattr(node, 'path', '')}")
 
         param_type = getattr(node, 'param_type', None)
         if param_type:
@@ -869,6 +881,22 @@ class BuiltinFunctions:
         Returns:
             value if non-empty, otherwise fallback
         """
+        # EB's deferred form node:fallback("->expression", default): the expression is evaluated
+        # here, in the current context, and an error or an empty result gives the default.  As in
+        # EB, node:value() of a missing node is an error in it (see node_value).  A call the
+        # engine does not implement still shows (unimplemented_calls), not hidden by the default.
+        if isinstance(value, str) and value.lstrip().startswith('->'):
+            renderer = getattr(self, 'renderer', None)
+            if renderer is None:
+                return fallback
+            self._deferred = getattr(self, '_deferred', 0) + 1
+            try:
+                value = renderer._evaluate_expression(value.lstrip()[2:].strip())
+            except Exception:  # noqa: BLE001 - a deferred expression that fails gives the default
+                return fallback
+            finally:
+                self._deferred -= 1
+
         # If value is a ConfigurationNode, get its value
         if hasattr(value, 'get_value'):
             val = value.get_value()

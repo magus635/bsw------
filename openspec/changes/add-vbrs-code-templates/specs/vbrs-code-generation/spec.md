@@ -46,3 +46,33 @@ Each output family SHALL have rule and rendering tests. Baseline comparisons SHA
 #### Scenario: RTE SchM sample encountered
 - **WHEN** a candidate SchM baseline identifies the RTE generator instead of the vBRS stub generator
 - **THEN** it is excluded from vBRS stub equivalence comparisons
+
+### Requirement: Complete Configurable Behavior Coverage
+The implementation SHALL cover the supplied MSR 14.09.01 and DvC6 14.09.02 JARs in separate profiles. Coverage SHALL include all 257 vBRS definition leaves, 22 container definitions, external metadata and configuration inputs, dynamic reads, setup and validation actions, output selection and reachable rendering branches. A definition-field reference alone SHALL NOT count as a recovered or tested rule.
+
+#### Scenario: Assembly preset changes driver configuration
+- **WHEN** a selected veHaaS assembly implies changes to actual vBRS or vBaseEnv values
+- **THEN** the pack provides traceable setup proposals or conflict diagnostics, requires explicit application before changing source values, and routes resolved values through the ordinary output rules
+
+#### Scenario: Branch remains unsupported
+- **WHEN** an applicable JAR branch has not been implemented or its input mapping remains unresolved
+- **THEN** affected generation is rejected and the overall implementation remains incomplete, even when current sample files pass comparison
+
+#### Scenario: Informational parameter
+- **WHEN** an audited parameter has no effect on output, such as a documentation-only field
+- **THEN** it remains represented in the inventory and input model with evidence and a no-output test rather than an invented C macro
+
+### Requirement: Exact Baseline Replay and Honest Equivalence
+For matching inputs the pack SHALL reproduce the four existing vBRS reference files byte-for-byte in a test-only mode with explicitly frozen metadata, encoding and line endings. Normal generation SHALL use truthful generator identity and report every explicitly allowed identity or timestamp difference without broad normalization. Full equivalence acceptance SHALL require applicable original vBRS reference outputs for conditional output families and each version profile.
+
+#### Scenario: Current sample replay
+- **WHEN** the matching complete input snapshot and test metadata are supplied
+- **THEN** all four generated files compare byte-for-byte with their frozen original references and any unexpected difference fails acceptance
+
+#### Scenario: No original Stub reference
+- **WHEN** only synthetic fixtures, bytecode evidence, or same-named RTE/EcuM outputs are available
+- **THEN** rule tests may pass but original vBRS Stub equivalence remains unverified and full equivalence acceptance remains incomplete
+
+#### Scenario: Source configuration is stale
+- **WHEN** the existing output and current input snapshot disagree
+- **THEN** the mismatch is reported and matching inputs are obtained instead of hardcoding old output values into templates

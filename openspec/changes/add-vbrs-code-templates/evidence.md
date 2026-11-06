@@ -31,3 +31,13 @@ The prior temporary ANALYSIS.md incorrectly said only DvC6 filters empty SchM be
 ## Tool availability
 
 Codebase-memory project D-bsw-main-bsw is available. CodeGraph is uninitialized; no index initialization performed. openspec is not on PATH and strict validation has not run. Product tests have not run because this change currently contains only a proposal/design.
+
+## 2026-11-06 全配置方案补充
+
+- 已提取定义叶项 257 个（203 Boolean / 22 Integer / 9 String / 7 Enum / 1 Multiline / 15 Reference），容器定义 22 个；详见 docs/superpowers/plans/2026-11-06-vbrs-config-inventory.md 和 .json。
+- 对 MSR 嵌套 jars/GenModel_vBRS.jar 以及 DvC6 模型的 VBRSDefRefs 做 javap 静态解析，两者均映射全部 257 项。不能只按参数名称搜索规则：veHaaS 验证器使用带下划线的 DefRefs 常量。
+- 在已扫描 vBRS 规则类中 256 项有同名访问或精确 DefRefs 字段引用；PeriphClockDescription 目前仅见说明性定义。引用存在不证明分支已完整恢复；无引用也不直接证明完全无间接影响。
+- 原 sources.json 的八份来源 SHA-256 本轮复核未变化；尚未补齐全部外部输入快照。
+- 计划覆盖两个 JAR 的独立 profile，旧版 MSR-only 建议已替代。当前没有产品模板实现，不存在新模板生成等价验证结果。
+- 已发现定义描述与生成规则可能冲突：LIN channel17 描述写 channel10；ExecutionInstance 描述的 FBL 宏与 JET 字符串不同。实施须以完整 JAR 条件及正确来源的原输出裁决，不能从描述直接生成宏。
+- 配置叶项、容器和来源元数据已写入可复查附件；外部/动态读取和完整分支台账仍为实施任务，不用调查清单冒充全规则恢复完成。

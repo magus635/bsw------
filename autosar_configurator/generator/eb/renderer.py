@@ -31,7 +31,8 @@ from .xpath_engine import XPathEngine
 from . import values as ebv
 from .errors import (
     EBTemplateError, TemplateParseError, TemplateExecutionError,
-    UndefinedVariableError, XPathError, DanglingReferenceError, UnevaluableCondition
+    UndefinedVariableError, XPathError, DanglingReferenceError, UnevaluableCondition,
+    DeferredExpressionFailed
 )
 
 def _debug_log(msg: str):
@@ -1822,6 +1823,8 @@ class Renderer:
             try:
                 res = self._builtins.call(func_name, *evaluated_args)
                 return res
+            except DeferredExpressionFailed:
+                raise       # node:fallback("->...") turns it into its default
             except Exception as e:
                 logger.error(f"Error calling function {func_name}: {e}")
                 if self.strict: raise

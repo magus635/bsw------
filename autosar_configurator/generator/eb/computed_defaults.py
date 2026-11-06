@@ -46,9 +46,6 @@ def computed_defaults(modules: Iterable[Tuple[Any, Any]], instance, container_de
         value = typed_value(_single(value), param_def.param_type)
         if value is None or value == "":
             failures[name] = f"no value from {param_def.default_expr}"
-        elif isinstance(value, str) and value.lstrip().startswith("->"):
-            # EB's deferred "->path" (node:fallback's first argument) came back as text
-            failures[name] = f"deferred expression not evaluated: {value}"
         else:
             values[name] = value
     return values, failures
