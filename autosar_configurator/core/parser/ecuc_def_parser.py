@@ -639,10 +639,12 @@ class EcucDefParser:
         scope = self._get_text_value(element, 'SCOPE')
         if scope:
             param_def.scope = scope
-        
+
         origin = self._get_text_value(element, 'ORIGIN')
         if origin:
             param_def.origin = origin
+
+        self._parse_display_metadata(element, param_def)
             
         # Parse XDM attributes and data attributes (DEFAULT, RANGE, etc.)
         self._parse_xdm_attributes(element, param_def)
@@ -661,18 +663,22 @@ class EcucDefParser:
         #         </ECUC-IMPLEMENTATION-CONFIGURATION-CLASS>
         #       </IMPLEMENTATION-CONFIG-CLASSES>
         
-        # Look for IMPLEMENTATION-CONFIG-CLASSES or VALUE-CONFIG-CLASSES
-        config_container = self._find_descendant(element, 'IMPLEMENTATION-CONFIG-CLASSES') or \
-                           self._find_descendant(element, 'VALUE-CONFIG-CLASSES')
-        
+        # Look for IMPLEMENTATION-CONFIG-CLASSES or VALUE-CONFIG-CLASSES.
+        # Do not use `element or other` here: lxml elements raise FutureWarning
+        # when used in boolean context.
+        config_container = self._find_descendant(element, 'IMPLEMENTATION-CONFIG-CLASSES')
+        if config_container is None:
+            config_container = self._find_descendant(element, 'VALUE-CONFIG-CLASSES')
+
         if config_container is not None:
             # ARXML structure
-            icc_elem = self._find_descendant(config_container, 'ECUC-IMPLEMENTATION-CONFIGURATION-CLASS') or \
-                       self._find_descendant(config_container, 'ECUC-VALUE-CONFIGURATION-CLASS')
+            icc_elem = self._find_descendant(config_container, 'ECUC-IMPLEMENTATION-CONFIGURATION-CLASS')
+            if icc_elem is None:
+                icc_elem = self._find_descendant(config_container, 'ECUC-VALUE-CONFIGURATION-CLASS')
             if icc_elem is not None:
                 config_class = self._get_text_value(icc_elem, 'CONFIG-CLASS')
                 config_variant = self._get_text_value(icc_elem, 'CONFIG-VARIANT')
-                
+
                 if config_class:
                     param_def.config_class = config_class
                 if config_variant:
@@ -699,6 +705,27 @@ class EcucDefParser:
 
         return param_def
     
+    def _parse_display_metadata(self, element: etree._Element, param_def: EcucParameterDef):
+        """Read ADMIN-DATA's DV:Display block: the format and unit the original tool
+        shows the value in (``<SDG GID="DV:Display">`` with an
+        ``<SD GID="DV:DefaultFormat">HEX</SD>`` child)."""
+        admin = self._find_child(element, 'ADMIN-DATA')
+        if admin is None:
+            return
+        for sdg in self._findall_descendants(admin, 'SDG'):
+            if sdg.get('GID') != 'DV:Display':
+                continue
+            for sd in self._findall_children(sdg, 'SD'):
+                gid, text = sd.get('GID'), (sd.text or '').strip()
+                if not gid or not text:
+                    continue
+                if gid == 'DV:DefaultFormat':
+                    param_def.display_format = text.upper()
+                elif gid == 'DV:Unit':
+                    param_def.display_unit = text
+                elif gid == 'DV:BaseUnit':
+                    param_def.display_base_unit = text
+
     def _parse_reference_def(self, element: etree._Element, parent_path: str = "") -> Optional[EcucReferenceDef]:
         """Parse ECUC-REFERENCE-DEF element"""
         short_name = self._get_short_name(element)

@@ -1,5 +1,6 @@
 """EB tresos value XDM import and EPC export: definition paths, disabled items,
 module-level parameters and the implementation configuration variant."""
+import warnings
 from pathlib import Path
 
 import pytest
@@ -117,6 +118,43 @@ def _load(tmp_path: Path, module_vars: str = SC300):
     manager = ConfigurationManager(module_def)
     manager.load_configuration(tmp_path / "val.xdm")
     return module_def, manager
+
+
+def test_implementation_config_classes_do_not_trigger_futurewarning(tmp_path):
+    path = tmp_path / "def.xdm"
+    path.write_text(f"""<?xml version='1.0'?>
+<datamodel version="7.0" {NS}>
+  <d:ctr type="AUTOSAR" factory="autosar">
+    <d:lst type="TOP-LEVEL-PACKAGES">
+      <d:ctr name="TS_X" type="AR-PACKAGE">
+        <d:lst type="ELEMENTS">
+          <d:chc name="Os" type="AR-ELEMENT" value="MODULE-DEF">
+            <v:ctr type="MODULE-DEF">
+              <v:var name="P" type="INTEGER">
+                <a:da name="DEFAULT" value="0"/>
+                <a:da name="RANGE"><a:v>0</a:v><a:v>1</a:v></a:da>
+                <IMPLEMENTATION-CONFIG-CLASSES>
+                  <ECUC-IMPLEMENTATION-CONFIGURATION-CLASS>
+                    <CONFIG-CLASS>PRE-COMPILE</CONFIG-CLASS>
+                    <CONFIG-VARIANT>VARIANT-PRE-COMPILE</CONFIG-VARIANT>
+                  </ECUC-IMPLEMENTATION-CONFIGURATION-CLASS>
+                </IMPLEMENTATION-CONFIG-CLASSES>
+              </v:var>
+            </v:ctr>
+          </d:chc>
+        </d:lst>
+      </d:ctr>
+    </d:lst>
+  </d:ctr>
+</datamodel>
+""", encoding="utf-8")
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        module_def = EcucDefParser().parse_module_def_file(path)
+
+    params = list(module_def.parameters.values())
+    assert params and any(p.config_class == "PRE-COMPILE" and p.config_variant == "VARIANT-PRE-COMPILE" for p in params)
 
 
 def _export(manager, tmp_path: Path) -> Path:

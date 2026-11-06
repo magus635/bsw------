@@ -9,6 +9,7 @@ in the tool used to copy those. These helpers turn any of the forms into the pat
 the module, compare definitions independently of the form, and give the absolute path and
 the type to write.
 """
+import re
 from typing import Any, Optional
 
 GENERIC_PARAM_DEST = 'ECUC-PARAMETER-DEF'
@@ -45,6 +46,42 @@ def same_definition(ref_a: Optional[str], ref_b: Optional[str], module_name: Opt
     if not ref_a or not ref_b:
         return False
     return module_relative(ref_a, module_name) == module_relative(ref_b, module_name)
+
+
+def _without_instance_index(rel: str) -> str:
+    """'OsOS/OsAlarm_0' -> 'OsOS/OsAlarm' (EB Tresos writes the instance index)."""
+    head, sep, last = rel.rpartition('/')
+    stripped = _INSTANCE_INDEX.sub('', last)
+    return f"{head}{sep}{stripped}"
+
+
+_INSTANCE_INDEX = re.compile(r'_\d+$')
+
+
+def matches_container_def(config_ref: Optional[str], def_ref: Optional[str],
+                         short_name: str, module_name: Optional[str] = None) -> bool:
+    """True when a configuration's DEFINITION-REF names this container definition.
+
+    Compares the module-relative paths, so a definition that shares its SHORT-NAME
+    with another definition in a different scope (vBaseEnv's
+    vBaseEnvMemLayoutHwRegion) matches only its own instances. A value file that
+    names only the last segment still matches any definition of that name, and an
+    EB Tresos instance index (_0, _1, …) is ignored.
+    """
+    if not config_ref or not def_ref:
+        return config_ref == def_ref
+    if config_ref == def_ref:
+        return True
+    for module in ([module_name] if module_name else []) + [None]:
+        cfg = module_relative(config_ref, module)
+        dfn = module_relative(def_ref, module)
+        if cfg == dfn or _without_instance_index(cfg) == dfn:
+            return True
+        # The value file names only the container: accept it for any scope
+        bare = _without_instance_index(cfg)
+        if '/' not in bare and bare == dfn.rsplit('/', 1)[-1]:
+            return True
+    return False
 
 
 def module_path(module_def: Any) -> str:

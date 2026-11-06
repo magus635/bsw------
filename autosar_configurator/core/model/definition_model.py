@@ -63,6 +63,13 @@ class EcucParameterDef:
     with_auto: bool = False
     scope: str = "LOCAL"
     origin: str = "AUTOSAR_ECUC"
+
+    # Display metadata (ARXML ADMIN-DATA / SDG GID="DV:Display"): the format the
+    # original tool shows a value in ("HEX"), and the unit a frequency or period
+    # is written in (BaseUnit "HZ" shown as Unit "MHZ")
+    display_format: Optional[str] = None
+    display_unit: Optional[str] = None
+    display_base_unit: Optional[str] = None
     
     # Full path for reference
     definition_ref: str = ""  # Will be set during parsing

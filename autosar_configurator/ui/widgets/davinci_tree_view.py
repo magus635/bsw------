@@ -11,7 +11,7 @@ from typing import Optional, Dict
 
 from ...core.model.definition_model import EcucModuleDef, EcucContainerDef
 from ...core.model.configuration_model import EcucContainerValue
-from ...core.model.definition_refs import same_definition
+from ...core.model.definition_refs import same_definition, matches_container_def
 from ...core.config_manager import ConfigurationManager, ValidationError
 from ...core.workspace_manager import WorkspaceProject
 
@@ -190,40 +190,79 @@ class DaVinciTreeView(QTreeWidget):
             def_item = self._create_def_node(container_def, config_manager)
             root_item.addChild(def_item)
     
+    def _ambiguous_short_names(self, module_def: EcucModuleDef) -> set:
+        """Container short names used by more than one definition in the module.
+
+        vBaseEnv defines vBaseEnvMemLayoutHwRegion both directly under
+        vBaseEnvGeneral and under vBaseEnvDerivativeInformation; the tree tells
+        the two nodes apart by their scope."""
+        seen, repeated = set(), set()
+
+        def walk(container_def):
+            if container_def.short_name in seen:
+                repeated.add(container_def.short_name)
+            seen.add(container_def.short_name)
+            for sub in container_def.sub_containers.values():
+                walk(sub)
+
+        for container_def in module_def.containers.values():
+            walk(container_def)
+        return repeated
+
+    def _scope_of(self, container_def: EcucContainerDef) -> str:
+        """The parent definition a container definition sits under ('vBaseEnvGeneral'
+        for vBaseEnvGeneral/vBaseEnvMemLayoutHwRegion)."""
+        parts = [p for p in (container_def.definition_ref or '').split('/') if p]
+        return parts[-2] if len(parts) >= 2 else ''
+
+    def _def_display_name(self, container_def: EcucContainerDef, ambiguous: set) -> str:
+        """The definition name, with its scope when the name is used more than once."""
+        if container_def.short_name in ambiguous:
+            scope = self._scope_of(container_def)
+            if scope:
+                return f"{container_def.short_name} · {scope}"
+        return container_def.short_name
+
     def _create_def_node(self, container_def: EcucContainerDef, config_manager: ConfigurationManager) -> QTreeWidgetItem:
         """Create a DEF node (template node, gray italic) with instance count"""
         # Get instances for this definition
         instances = self._get_instances_for_def(container_def, config_manager)
         instance_count = len(instances)
-        
+
         # Build display name with multiplicity and count
         mult_str = container_def.multiplicity_str
         count_str = f" ({instance_count})" if instance_count > 0 else ""
-        
+        name_str = self._def_display_name(container_def, self._ambiguous_short_names(config_manager.module_def))
+
         # Check if required but missing
         is_required_missing = (container_def.lower_multiplicity >= 1 and instance_count == 0)
-        
+
         if is_required_missing:
             # Required but no instances - show warning
-            display_name = f"⚠️ {container_def.short_name} [{mult_str}]{count_str} - Missing!"
+            display_name = f"⚠️ {name_str} [{mult_str}]{count_str} - Missing!"
             icon_color = QColor("#FF6B6B")  # Red for error
         else:
-            display_name = f"📋 {container_def.short_name} [{mult_str}]{count_str}"
+            display_name = f"📋 {name_str} [{mult_str}]{count_str}"
             icon_color = QColor("#888888")  # Gray for normal
-        
+
         item = QTreeWidgetItem([display_name])
-        
+
         # Style: gray + italic (or red if missing)
         item.setForeground(0, QBrush(icon_color))
         item.setFont(0, self._get_italic_font())
-        
+
         # Tooltip with more info
-        tooltip = container_def.description or "Container definition"
+        tooltip_lines = [container_def.description or "Container definition"]
+        if container_def.short_name in self._ambiguous_short_names(config_manager.module_def):
+            tooltip_lines.append(f"Definition: {container_def.definition_ref}")
+        tooltip_lines.append(
+            f"{len(container_def.parameters)} parameters, "
+            f"{len(container_def.sub_containers)} sub-container types")
         if is_required_missing:
-            tooltip += f"\n⚠️ Required: at least {container_def.lower_multiplicity} instance(s) needed"
+            tooltip_lines.append(f"⚠️ Required: at least {container_def.lower_multiplicity} instance(s) needed")
         elif instance_count > 0:
-            tooltip += f"\n✅ {instance_count} instance(s) created"
-        item.setToolTip(0, tooltip)
+            tooltip_lines.append(f"✅ {instance_count} instance(s) created")
+        item.setToolTip(0, "\n".join(tooltip_lines))
         
         # Store mapping
         self.item_to_def[item] = container_def
@@ -296,12 +335,19 @@ class DaVinciTreeView(QTreeWidget):
     
     def _create_def_node_under_instance(self, container_def: EcucContainerDef, parent_instance: EcucContainerValue, config_manager: ConfigurationManager) -> QTreeWidgetItem:
         """Create a DEF node under an instance (for sub-containers)"""
-        display_name = f"📋 {container_def.short_name} [{container_def.multiplicity_str}]"
-        
+        name_str = self._def_display_name(
+            container_def, self._ambiguous_short_names(config_manager.module_def))
+        display_name = f"📋 {name_str} [{container_def.multiplicity_str}]"
+
         item = QTreeWidgetItem([display_name])
         item.setForeground(0, QBrush(QColor("#888888")))
         item.setFont(0, self._get_italic_font())
-        item.setToolTip(0, container_def.description or "")
+        tooltip_lines = [container_def.description or ""]
+        tooltip_lines.append(f"Definition: {container_def.definition_ref}")
+        tooltip_lines.append(
+            f"{len(container_def.parameters)} parameters, "
+            f"{len(container_def.sub_containers)} sub-container types")
+        item.setToolTip(0, "\n".join(line for line in tooltip_lines if line))
         
         # Store mapping
         self.item_to_def[item] = container_def
@@ -367,27 +413,16 @@ class DaVinciTreeView(QTreeWidget):
         ]
     
     def _definition_refs_match(self, config_ref: str, def_ref: str, short_name: str) -> bool:
-        """Check if a config definition_ref matches a module definition's definition_ref.
-        
-        First tries exact match, then falls back to matching by container short_name
-        (last path segment), to handle EB Tresos projects with vendor-specific paths.
-        
-        For EB Tresos: instance definition_refs like /THA6_ASR21/Os/OsAlarm_0 have a
-        _N numeric suffix that must be stripped to match the definition name OsAlarm.
+        """True when a configuration's DEFINITION-REF names this container definition.
+
+        Compares the module-relative paths, so two definitions that share a
+        SHORT-NAME in different scopes (vBaseEnv's vBaseEnvMemLayoutHwRegion) each
+        list only their own instances. A value file naming just the last segment
+        still matches, and an EB Tresos instance index (_0, _1, …) is ignored.
         """
-        # Try exact match first
-        if config_ref == def_ref:
-            return True
-        
-        # Fall back to matching by short_name (last segment of path)
-        config_short_name = config_ref.rstrip('/').split('/')[-1] if config_ref else ""
-        if config_short_name == short_name:
-            return True
-        
-        # EB Tresos fallback: strip _N suffix (e.g., OsAlarm_0 -> OsAlarm)
-        import re
-        stripped = re.sub(r'_\d+$', '', config_short_name)
-        return stripped == short_name
+        module_def = self.module_def or getattr(self.config_manager, 'module_def', None)
+        module_name = module_def.short_name if module_def is not None else None
+        return matches_container_def(config_ref, def_ref, short_name, module_name)
 
     
     # Event handlers

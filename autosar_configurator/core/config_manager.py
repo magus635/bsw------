@@ -562,7 +562,7 @@ class ConfigurationManager:
                     if val_lower == 'true': value = 1
                     elif val_lower == 'false': value = 0
                 
-                value = int(value)
+                value = self._integer_from_input(value, param_def)
                 if param_def.min_value is not None and value < param_def.min_value:
                     raise ValidationError(f"{param_name}: value {value} < minimum {param_def.min_value}")
                 if param_def.max_value is not None and value > param_def.max_value:
@@ -605,6 +605,23 @@ class ConfigurationManager:
             raise ValidationError(f"{param_name}: Invalid value type - {e}")
 
         return value
+
+    @staticmethod
+    def _integer_from_input(value: Any, param_def: EcucParameterDef) -> int:
+        """An integer value from an int or from text typed by the user.
+
+        Text with a 0x prefix is hexadecimal, and so is every text typed into a
+        parameter the definition asks to show in hex (ADMIN-DATA DV:Display
+        DefaultFormat=HEX); any other text is decimal.
+        """
+        if isinstance(value, str):
+            text = value.strip()
+            if text[:2].lower() == '0x':
+                return int(text, 16)
+            if param_def.display_format == 'HEX':
+                return int(text, 16)
+            return int(text)
+        return int(value)
 
     def get_container_def(self, definition_ref: str) -> Optional[EcucContainerDef]:
         """Get container definition by reference path

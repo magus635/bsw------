@@ -59,6 +59,18 @@ class DaVinciConfigPanel(QWidget):
         self.empty_label = QLabel("Select a container instance to edit parameters")
         self.empty_label.setAlignment(Qt.AlignCenter)
         self.content_layout.addWidget(self.empty_label)
+
+        # Notice for a definition that carries no parameters (vBaseEnv's empty
+        # placeholder containers): says so, and names the definition that has them
+        self.definition_notice = QLabel()
+        self.definition_notice.setObjectName("definition_notice")
+        self.definition_notice.setWordWrap(True)
+        self.definition_notice.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.definition_notice.setStyleSheet(
+            "color: #8A6D3B; background: #FCF8E3; border: 1px solid #F0E0A0;"
+            " border-radius: 4px; padding: 8px;")
+        self.definition_notice.hide()
+        self.content_layout.addWidget(self.definition_notice)
         
         scroll.setWidget(content)
         layout.addWidget(scroll)
@@ -257,6 +269,8 @@ class DaVinciConfigPanel(QWidget):
             self._populate_parameters(instance, container_def)
             self.parameters_group.setTitle(f"⚙️ Parameters ({len(container_def.parameters)})")
             self.parameters_group.show()
+
+            self._show_definition_notice(container_def, config_manager)
             
             # Populate references table (sets title with error count)
             self._populate_references(instance, container_def)
@@ -271,6 +285,54 @@ class DaVinciConfigPanel(QWidget):
             self.empty_label.setText(f"Error displaying instance:\n{e}")
             self.empty_label.show()
     
+    def _show_definition_notice(self, container_def: EcucContainerDef,
+                                config_manager: Optional[ConfigurationManager]):
+        """Say when the definition carries no parameters, and name the definition
+        that does.
+
+        vBaseEnv defines vBaseEnvMemLayoutHwRegion twice: an empty placeholder
+        directly under vBaseEnvGeneral and the real one (Start Address, Size, ECC
+        alignment, …) under vBaseEnvDerivativeInformation. An instance created on
+        the placeholder can never hold a value, so the panel says which definition
+        to use instead."""
+        if container_def.parameters or container_def.sub_containers:
+            self.definition_notice.hide()
+            return
+
+        message = (f"此定义没有任何参数：{container_def.short_name}\n"
+                   f"Definition has no parameters: {container_def.definition_ref}")
+        twin = self._parameterised_twin(container_def, config_manager)
+        if twin is not None:
+            message += (f"\n\n可以配置的是：{twin.definition_ref}\n"
+                        f"（{len(twin.parameters)} 个参数，例如 "
+                        f"{', '.join(list(twin.parameters)[:3])}）")
+        self.definition_notice.setText(message)
+        self.definition_notice.show()
+
+    @staticmethod
+    def _parameterised_twin(container_def: EcucContainerDef,
+                            config_manager: Optional[ConfigurationManager]
+                            ) -> Optional[EcucContainerDef]:
+        """Another definition of a container with the same SHORT-NAME that has
+        parameters (None when there is none)."""
+        module_def = getattr(config_manager, 'module_def', None)
+        if module_def is None:
+            return None
+        found = []
+
+        def walk(candidate):
+            if (candidate is not container_def
+                    and candidate.short_name == container_def.short_name
+                    and candidate.parameters):
+                found.append(candidate)
+            for sub in candidate.sub_containers.values():
+                walk(sub)
+
+        for top in module_def.containers.values():
+            walk(top)
+        found.sort(key=lambda c: (len(c.sub_containers) == 0, c.definition_ref))
+        return found[0] if found else None
+
     def show_definition(self, container_def: EcucContainerDef):
         """Show container definition (read-only info)"""
         self.current_instance = None
@@ -765,15 +827,26 @@ class DaVinciConfigPanel(QWidget):
                     
                     return combo, get_combo_value, combo.currentIndexChanged
             
+            hex_shown = (param_def.display_format == 'HEX')
+
             # Use QLineEdit for values exceeding 32-bit signed limits (e.g. 0..4294967295)
             if min_val < -2147483648 or max_val > 2147483647:
                 lineedit = QLineEdit()
-                lineedit.setText(str(current_value) if current_value is not None else "")
-                lineedit.setPlaceholderText(f"(未配置) Range: {min_val} to {max_val}")
-                return lineedit, lambda: lineedit.text() or "(未配置)", lineedit.textChanged
+                if hex_shown:
+                    text = f"0x{int(current_value):X}" if current_value is not None else ""
+                    lineedit.setPlaceholderText(
+                        f"(未配置) 十六进制, 范围 0x{int(min_val):X} .. 0x{int(max_val):X}")
+                else:
+                    text = str(current_value) if current_value is not None else ""
+                    lineedit.setPlaceholderText(f"(未配置) Range: {min_val} to {max_val}")
+                lineedit.setText(text)
+                return lineedit, lambda: lineedit.text().strip() or "(未配置)", lineedit.textChanged
 
             # Standard case: QSpinBox; without a value, one step below the range reads "(未配置)"
             spinbox = QSpinBox()
+            if hex_shown:
+                spinbox.setDisplayIntegerBase(16)
+                spinbox.setPrefix("0x")
             unset = current_value is None
             low = int(min_val) - 1 if unset and min_val > -2147483648 else int(min_val)
             spinbox.setRange(low, int(max_val))
