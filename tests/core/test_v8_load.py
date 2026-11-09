@@ -137,3 +137,86 @@ def test_package_for_path(tmp_path):
     assert pkg.manifest.module == "Mcu"
 
     assert package_for_path(project, tmp_path / "elsewhere" / "Mcu.xdm") is None
+
+
+def _mcu_entry(**extra):
+    entry = {
+        "name": "Mcu",
+        "definition": "/THA6_AS440_FuSa/Mcu",
+        "library": 0,
+        "config_path": "config/Mcu.arxml",
+    }
+    entry.update(extra)
+    return entry
+
+
+def _saved_modules(project_file: Path):
+    return json.loads(project_file.read_text(encoding="utf-8"))["modules"]
+
+
+def test_v8_variant_overrides_round_trip(tmp_path):
+    project_file = tmp_path / "proj" / "P.dpa"
+    wm = WorkspaceManager()
+    project = wm.create_project("P", project_file, format_version=8)
+    project.selected_chip = CHIP
+    project.variants = ["Default", "V1"]
+    project.module_libraries.append(_eb_library())
+    manager = project.add_module_from_package(_package("Mcu"), 0)
+    overrides = {"V1": {"/Mcu/McuGeneralConfiguration.McuDevErrorDetect": True}}
+    manager.configuration.variant_overrides = overrides
+    wm.save_project()
+
+    loaded, failed = WorkspaceManager().load_project(project_file)
+    assert failed == []
+    assert loaded.module_managers["Mcu"].configuration.variant_overrides == overrides
+
+
+def test_v8_failed_module_keeps_variant_overrides(tmp_path):
+    project_file = tmp_path / "P.dpa"
+    overrides = {"V1": {"/Mcu/McuGeneralConfiguration.McuDevErrorDetect": True}}
+    _write_dpa(project_file, [_eb_library()],
+               [_mcu_entry(definition="/Nowhere/Mcu", variant_overrides=overrides)])
+
+    wm = WorkspaceManager()
+    project, failed = wm.load_project(project_file)
+    assert [name for name, _ in failed] == ["Mcu"]
+    wm.save_project()
+
+    (saved,) = _saved_modules(project_file)
+    assert saved["definition"] == "/Nowhere/Mcu"
+    assert saved["variant_overrides"] == overrides
+
+
+def test_v8_corrupt_config_is_not_overwritten(tmp_path):
+    project_file = tmp_path / "P.dpa"
+    _write_dpa(project_file, [_eb_library()], [_mcu_entry()])
+    config = tmp_path / "config" / "Mcu.arxml"
+    config.parent.mkdir()
+    corrupt = b"<AUTOSAR><broken"
+    config.write_bytes(corrupt)
+
+    wm = WorkspaceManager()
+    project, failed = wm.load_project(project_file)
+    assert [name for name, _ in failed] == ["Mcu"]
+    assert "Mcu" not in project.module_managers
+    assert "Mcu" in project.module_entries
+    wm.save_project()
+
+    assert config.read_bytes() == corrupt
+    assert [m["name"] for m in _saved_modules(project_file)] == ["Mcu"]
+
+
+def test_v8_save_writes_modules_sorted_by_name(tmp_path):
+    project_file = tmp_path / "P.dpa"
+    _write_dpa(project_file, [_eb_library()], [
+        _mcu_entry(name="Zeta", definition="/Nowhere/Zeta", config_path="config/Zeta.arxml"),
+        _mcu_entry(),
+        _mcu_entry(name="Adc", definition="/Nowhere/Adc", config_path="config/Adc.arxml"),
+    ])
+
+    wm = WorkspaceManager()
+    project, failed = wm.load_project(project_file)
+    assert "Mcu" in project.module_managers
+    wm.save_project()
+
+    assert [m["name"] for m in _saved_modules(project_file)] == ["Adc", "Mcu", "Zeta"]

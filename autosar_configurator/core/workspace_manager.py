@@ -211,6 +211,9 @@ class WorkspaceProject:
         self.module_libraries: List[LibraryRef] = []  # List of available module libraries
         self.module_entries: Dict[str, ModuleEntry] = {}  # Active modules keyed by name
         self.packages: Dict[str, "ModulePackage"] = {}  # Module package of each module, by name
+        # Format 8: raw variant_overrides of modules that failed to load, kept so a
+        # save writes them back unchanged
+        self.unloaded_variant_overrides: Dict[str, Any] = {}
 
     def add_module_from_package(self, pkg: "ModulePackage", lib_index: int) -> ConfigurationManager:
         """Add the module provided by ``pkg`` (from ``module_libraries[lib_index]``).
@@ -1106,19 +1109,22 @@ class WorkspaceManager:
             "modules": []
         }
 
-        # Save each module (v8 format: new module_entries structure)
-        # Prioritize module_managers (they have actual managers), then add any pure entries
-        saved_names = set()
-        for name, manager in self.current_project.module_managers.items():
-            config_path = project_paths.config_file(self.current_project, name)
+        # Save each module (v8 format: module_entries), sorted by name for a
+        # deterministic file.  Modules with a manager write their configuration;
+        # entries without one (failed to load) are written back unchanged and their
+        # configuration files are left untouched.
+        project = self.current_project
+        modules_out: Dict[str, Dict[str, Any]] = {}
+        for name, manager in sorted(project.module_managers.items()):
+            config_path = project_paths.config_file(project, name)
             config_path.parent.mkdir(parents=True, exist_ok=True)
             relative_config_path = self._to_posix_path(config_path, project_dir, inside_only=False)
 
             manager.save_configuration(config_path)
 
             # Create or use existing module entry
-            if name in self.current_project.module_entries:
-                entry = self.current_project.module_entries[name]
+            if name in project.module_entries:
+                entry = project.module_entries[name]
                 entry.config_path = relative_config_path
             else:
                 entry = ModuleEntry(
@@ -1131,14 +1137,18 @@ class WorkspaceManager:
                     base_hash=None,
                 )
 
-            data["modules"].append(entry.to_dict())
-            saved_names.add(name)
+            module_data = entry.to_dict()
+            module_data["variant_overrides"] = manager.configuration.variant_overrides
+            modules_out[name] = module_data
 
-        # Also save any module entries that don't have managers (format 8 only, no save_configuration)
-        for name, entry in self.current_project.module_entries.items():
-            if name not in saved_names:
-                data["modules"].append(entry.to_dict())
+        for name, entry in project.module_entries.items():
+            if name not in modules_out:
+                module_data = entry.to_dict()
+                if name in project.unloaded_variant_overrides:
+                    module_data["variant_overrides"] = project.unloaded_variant_overrides[name]
+                modules_out[name] = module_data
 
+        data["modules"] = [modules_out[name] for name in sorted(modules_out)]
         return data
 
     def _to_posix_path(self, path: Path, project_dir: Path, inside_only: bool = False) -> str:
@@ -1492,7 +1502,12 @@ class WorkspaceManager:
         whose definition no library provides, or whose package is inconsistent, is
         reported in ``failed_modules`` as (name, reason) instead of raising.
         """
-        entries = [ModuleEntry.from_dict(m) for m in data.get("modules", [])]
+        modules_data = data.get("modules", [])
+        entries = [ModuleEntry.from_dict(m) for m in modules_data]
+        raw_overrides = {
+            m.get("name", ""): m["variant_overrides"]
+            for m in modules_data if "variant_overrides" in m
+        }
         for entry in entries:
             project.module_entries[entry.name] = entry
             project.module_provenance[entry.name] = {
@@ -1503,13 +1518,23 @@ class WorkspaceManager:
         if not entries:
             return
 
+        def fail(name: str, reason: str) -> None:
+            # Keep the entry and its raw overrides; drop any manager so a save leaves
+            # the module's configuration file untouched
+            failed_modules.append((name, reason))
+            project.module_managers.pop(name, None)
+            project.module_defs.pop(name, None)
+            project.packages.pop(name, None)
+            if name in raw_overrides:
+                project.unloaded_variant_overrides[name] = raw_overrides[name]
+
         libraries = scan_libraries(project)
         for entry in entries:
             try:
                 index, pkg = find_package(libraries, entry.definition)
                 manager = project.add_module_from_package(pkg, index)
             except Exception as exc:  # noqa: BLE001 - PackageError and parse errors: one module must not abort the project
-                failed_modules.append((entry.name, f"Failed to load: {exc}"))
+                fail(entry.name, f"Failed to load: {exc}")
                 continue
 
             if entry.config_path:
@@ -1518,8 +1543,11 @@ class WorkspaceManager:
                     try:
                         manager.load_configuration(config_path)
                     except Exception as exc:  # noqa: BLE001
-                        failed_modules.append(
-                            (entry.name, f"Failed to load configuration {entry.config_path}: {exc}"))
+                        fail(entry.name, f"Failed to load configuration {entry.config_path}: {exc}")
+                        continue
+
+            if entry.name in raw_overrides:
+                manager.configuration.variant_overrides = raw_overrides[entry.name]
 
     def import_eb_project(self, project_root: Path, chip_name: Optional[str] = None,
                           target_dir: Optional[Path] = None,
