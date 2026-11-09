@@ -18,6 +18,7 @@ from .project_paths import ProjectDirectories
 from .packages.errors import PackageError
 from .packages.library import LibraryRef, find_package, scan_library
 from .packages.package import ModulePackage
+from .baseline.values import values_equal
 
 
 @dataclass
@@ -88,8 +89,7 @@ def _base_values(configuration) -> Dict[str, Any]:
     return values
 
 
-def _same_value(a: Any, b: Any) -> bool:
-    return a == b or str(a).strip().lower() == str(b).strip().lower()
+_same_value = values_equal  # one value-equality rule, shared with the baseline layer
 
 
 def scan_libraries(project) -> List[Tuple[int, List[ModulePackage]]]:
