@@ -188,6 +188,6 @@ class TestV6Migration:
 
     def test_future_version_rejected(self, tmp_path):
         dpa = tmp_path / "Future.dpa"
-        dpa.write_text(json.dumps({"format_version": 8, "name": "X", "modules": []}), encoding="utf-8")
+        dpa.write_text(json.dumps({"format_version": 9, "name": "X", "modules": []}), encoding="utf-8")
         with pytest.raises(ValueError, match="Unsupported project format version"):
             WorkspaceManager().load_project(dpa)

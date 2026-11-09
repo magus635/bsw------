@@ -5,6 +5,7 @@ Manages the overall project workspace, including multiple BSW module configurati
 import json
 import os
 import shutil
+from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
 
@@ -14,6 +15,47 @@ from .model.definition_model import EcucModuleDef
 from .parser.ecuc_def_parser import EcucDefParser
 from . import project_paths
 from .project_paths import ProjectDirectories
+from .packages.library import LibraryRef
+
+
+@dataclass
+class ModuleEntry:
+    """Format 8 module entry: active module with definition and configuration paths.
+
+    Attributes:
+        name: Module short name (e.g., "Adc", "Mcu").
+        definition: AUTOSAR path to the module definition (e.g., "/AUTOSAR/EcucDefs/Adc").
+        library: Index into module_libraries; the library that provides this module.
+        config_path: POSIX path to the module's configuration file (relative inside project,
+                     absolute outside).
+        pre_unlocked: List of parameter/container paths that were unlocked in the baseline.
+        package_record: Dictionary of package metadata (e.g., version, checksum).
+        base_hash: Optional SHA256 hash of the baseline values snapshot; None if not yet recorded.
+    """
+    name: str
+    definition: str
+    library: int
+    config_path: str
+    pre_unlocked: List[str] = field(default_factory=list)
+    package_record: Dict[str, Any] = field(default_factory=dict)
+    base_hash: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "ModuleEntry":
+        """Create from dictionary."""
+        return cls(
+            name=d.get("name", ""),
+            definition=d.get("definition", ""),
+            library=d.get("library", 0),
+            config_path=d.get("config_path", ""),
+            pre_unlocked=d.get("pre_unlocked", []),
+            package_record=d.get("package_record", {}),
+            base_hash=d.get("base_hash"),
+        )
 
 def _chip_selector_values(project):
     """Selector values declared by the chip library and the project's chips/ (never raises)."""
@@ -51,37 +93,38 @@ def _same_value(a: Any, b: Any) -> bool:
 class WorkspaceProject:
     """Represents a DaVinci-style project containing multiple modules"""
     
-    def __init__(self, name: str, path: Optional[Path] = None):
+    def __init__(self, name: str, path: Optional[Path] = None, format_version: int = 7):
         self.name = name
         self.path = path
+        self.format_version = format_version
         # Map module name to its manager
         self.module_managers: Dict[str, ConfigurationManager] = {}
         # Map module name to its definition file path (for reloading)
         self.module_defs: Dict[str, Path] = {}
-        
+
         # Project type (Vector or EB)
         from .config_manager import ProjectType
         self.project_type: ProjectType = ProjectType.VECTOR
-        
+
         # Definition search paths (for EB projects with external plugins)
         self.def_search_paths: List[Path] = []
-        
+
         # Variant Management
         self.variants: List[str] = ["Default"]  # Always have at least Default variant
         self.active_variant: Optional[str] = "Default"  # Currently selected variant
         # Default overrides dropped at load that differed from the base value: (module, path, override, base)
         self.default_override_conflicts: List[Tuple[str, str, Any, Any]] = []
-        
+
         # Metadata
         from datetime import datetime
         self.created_date: str = datetime.now().isoformat()
         self.author: str = ""
         self.description: str = ""
         self.version: str = "1.0.0"
-        
+
         # Cross-module dependency rules (cached results from analysis)
         self.dependency_rules: List[Dict] = []
-        
+
         # Chip/Variant Selection (for projects with multiple chip .properties files)
         self.available_chips: List[str] = []  # Discovered chip variants from .properties
         self.selected_chip: Optional[str] = None  # User's selected chip
@@ -128,6 +171,10 @@ class WorkspaceProject:
         # Directory table of a format 8 project (see project_paths); None means the
         # legacy directory names (ConfigValue/, templates/, generateCode/, Def/plugins/)
         self.directories: Optional[ProjectDirectories] = None
+
+        # Format 8 module packages integration
+        self.module_libraries: List[LibraryRef] = []  # List of available module libraries
+        self.module_entries: Dict[str, ModuleEntry] = {}  # Active modules keyed by name
     
     def discover_available_chips(self) -> List[str]:
         """Scan project for available chip .properties files.
@@ -803,9 +850,12 @@ class WorkspaceManager:
         self.current_project: Optional[WorkspaceProject] = None
         self.def_parser = EcucDefParser()
         
-    def create_project(self, name: str, path: Path) -> WorkspaceProject:
-        """Create a new empty project"""
-        self.current_project = WorkspaceProject(name, path)
+    def create_project(self, name: str, path: Path, format_version: int = 8) -> WorkspaceProject:
+        """Create a new empty project (format 8 by default; legacy projects use format 7)"""
+        self.current_project = WorkspaceProject(name, path, format_version=format_version)
+        # Format 8 projects get default directories
+        if format_version == 8:
+            self.current_project.directories = ProjectDirectories.default_v8()
         return self.current_project
         
     def close_project(self):
@@ -850,11 +900,14 @@ class WorkspaceManager:
         return written
         
     def save_project(self):
-        """Save current project to file"""
+        """Save current project to file (format 7 for legacy projects, format 8 for new)"""
         if not self.current_project or not self.current_project.path:
             return
-        
+
         from datetime import datetime
+
+        # Determine format version: use existing format or default to 8 for new projects
+        format_version = getattr(self.current_project, 'format_version', 8)
 
         # Store eb_source_root relative to the project root when it lies
         # inside it (portability); keep absolute otherwise (link mode with an
@@ -867,13 +920,36 @@ class WorkspaceManager:
             except ValueError:
                 eb_source_root_str = str(eb_root)
 
+        project_dir = self.current_project.path.parent
+        config_dir = project_paths.resolve(self.current_project, "config")
+        config_dir.mkdir(parents=True, exist_ok=True)
+
+        if format_version >= 8:
+            # Format 8: new structure with directories, module_libraries, and module_entries
+            data = self._save_project_v8(format_version, eb_source_root_str, project_dir, config_dir, datetime)
+        else:
+            # Format 7: legacy structure with def_path and provenance
+            data = self._save_project_v7(eb_source_root_str, project_dir, config_dir, datetime)
+
+        # Write project file
+        with open(self.current_project.path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
+
+        # Copy EB templates (generate_PB) to project save directory.
+        # Link mode never copies: templates/{Module} are symlinks into the
+        # original EB tree, created at import time.
+        if self.current_project.eb_source_root and self.current_project.import_mode == "copy":
+            self._copy_eb_templates(project_dir)
+
+    def _save_project_v7(self, eb_source_root_str, project_dir: Path, config_dir: Path, datetime_module) -> Dict[str, Any]:
+        """Save project in format 7 (legacy, with def_path and per-module provenance)."""
         data = {
             "format_version": 7,  # v7: import_mode + per-module provenance
             "tool_version": "1.0.0",
             "project_type": self.current_project.project_type.value,
             "name": self.current_project.name,
             "created": self.current_project.created_date,
-            "last_modified": datetime.now().isoformat(),
+            "last_modified": datetime_module.now().isoformat(),
             "author": getattr(self.current_project, 'author', ''),
             "description": getattr(self.current_project, 'description', ''),
             "version": getattr(self.current_project, 'version', '1.0.0'),
@@ -893,32 +969,21 @@ class WorkspaceManager:
             "memmap_linker_file": self.current_project.memmap_linker_file,
             "modules": []
         }
-        
-        # Save each module
-        project_dir = self.current_project.path.parent
-        config_value_dir = project_paths.resolve(self.current_project, "config")
-        config_value_dir.mkdir(exist_ok=True)
-        
+
+        # Save each module (v7 format)
         for name, manager in self.current_project.module_managers.items():
-            # Determine paths
             def_path = self.current_project.module_defs[name]
-            
-            # Module config is saved in the project's config directory
             config_path = project_paths.config_file(self.current_project, name)
-            # Same separator handling as before (str of a relative Path)
+            config_path.parent.mkdir(parents=True, exist_ok=True)
             relative_config_path = str(config_path.relative_to(project_dir))
-            
-            # Save the actual config content
+
             manager.save_configuration(config_path)
-            
-            # Try to make def_path relative to project root for better portability
+
             try:
-                # project_dir is already defined as current_project.path.parent
                 save_def_path = str(def_path.relative_to(project_dir))
             except (ValueError, AttributeError):
                 save_def_path = str(def_path)
-            
-            # Record in project file (with provenance, v7)
+
             provenance = self.current_project.module_provenance.get(name, {})
             data["modules"].append({
                 "name": name,
@@ -930,15 +995,99 @@ class WorkspaceManager:
                 "imported_at": provenance.get("imported_at"),
             })
 
-        # Write project file
-        with open(self.current_project.path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2)
+        return data
 
-        # Copy EB templates (generate_PB) to project save directory.
-        # Link mode never copies: templates/{Module} are symlinks into the
-        # original EB tree, created at import time.
-        if self.current_project.eb_source_root and self.current_project.import_mode == "copy":
-            self._copy_eb_templates(project_dir)
+    def _save_project_v8(self, format_version: int, eb_source_root_str, project_dir: Path, config_dir: Path, datetime_module) -> Dict[str, Any]:
+        """Save project in format 8 (new structure with directories, libraries, and module_entries)."""
+        # Ensure directories are set for format 8
+        if self.current_project.directories is None:
+            self.current_project.directories = ProjectDirectories.default_v8()
+
+        data = {
+            "format_version": format_version,
+            "tool_version": "1.0.0",
+            "project_type": self.current_project.project_type.value,
+            "name": self.current_project.name,
+            "created": self.current_project.created_date,
+            "last_modified": datetime_module.now().isoformat(),
+            "author": getattr(self.current_project, 'author', ''),
+            "description": getattr(self.current_project, 'description', ''),
+            "version": getattr(self.current_project, 'version', '1.0.0'),
+            "def_search_paths": [str(p) for p in self.current_project.def_search_paths],
+            "variants": self.current_project.variants,
+            "active_variant": self.current_project.active_variant,
+            "dependency_rules": self.current_project.dependency_rules,
+            "available_chips": self.current_project.available_chips,
+            "selected_chip": self.current_project.selected_chip,
+            "chip_data": self.current_project.chip_data_record or self.current_project.record_chip_data(),
+            "eb_source_root": eb_source_root_str,
+            "import_mode": self.current_project.import_mode,
+            "chip_scan_dirs": list(self.current_project.chip_scan_dirs),
+            "chip_scan_keywords": list(self.current_project.chip_scan_keywords),
+            "memmap_source_dirs": list(self.current_project.memmap_source_dirs),
+            "memmap_header_dirs": list(self.current_project.memmap_header_dirs),
+            "memmap_linker_file": self.current_project.memmap_linker_file,
+            # Format 8 fields
+            "directories": self.current_project.directories.to_dict(),
+            "module_libraries": [lib.to_dict() for lib in self.current_project.module_libraries],
+            "modules": []
+        }
+
+        # Save each module (v8 format: new module_entries structure)
+        # Prioritize module_managers (they have actual managers), then add any pure entries
+        saved_names = set()
+        for name, manager in self.current_project.module_managers.items():
+            config_path = project_paths.config_file(self.current_project, name)
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            relative_config_path = self._to_posix_path(config_path, project_dir, inside_only=False)
+
+            manager.save_configuration(config_path)
+
+            # Create or use existing module entry
+            if name in self.current_project.module_entries:
+                entry = self.current_project.module_entries[name]
+                entry.config_path = relative_config_path
+            else:
+                entry = ModuleEntry(
+                    name=name,
+                    definition=f"/AUTOSAR/EcucDefs/{name}",  # Default; caller should override
+                    library=0,  # Default; caller should set
+                    config_path=relative_config_path,
+                    pre_unlocked=[],
+                    package_record={},
+                    base_hash=None,
+                )
+
+            data["modules"].append(entry.to_dict())
+            saved_names.add(name)
+
+        # Also save any module entries that don't have managers (format 8 only, no save_configuration)
+        for name, entry in self.current_project.module_entries.items():
+            if name not in saved_names:
+                data["modules"].append(entry.to_dict())
+
+        return data
+
+    def _to_posix_path(self, path: Path, project_dir: Path, inside_only: bool = False) -> str:
+        """Convert path to POSIX string, relative if inside project, absolute if outside.
+
+        Args:
+            path: The path to convert.
+            project_dir: The project root directory.
+            inside_only: If True, always try to make relative; if False, use absolute for outside paths.
+
+        Returns:
+            POSIX-style path string with only forward slashes.
+        """
+        try:
+            rel = path.relative_to(project_dir)
+            return str(rel).replace("\\", "/")
+        except ValueError:
+            # Path is outside project directory
+            if inside_only:
+                return str(path).replace("\\", "/")
+            else:
+                return str(path.resolve()).replace("\\", "/")
 
     def _copy_eb_templates(self, project_dir: Path):
         """Copy EB Tresos generate_PB templates to project save directory
@@ -1022,49 +1171,61 @@ class WorkspaceManager:
         return project_dir / p
 
     def load_project(self, project_path: Path) -> tuple[WorkspaceProject, list]:
-        """Load project from file
-        
+        """Load project from file (format ≤8)
+
         Returns:
             tuple: (project, failed_modules list)
             failed_modules: List of tuples (module_name, error_message)
         """
         with open(project_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        
-        # Check format version (Current version is 7: import_mode + provenance)
+
+        # Check format version (Current max version is 8)
         format_version = data.get("format_version", 0)
-        if format_version > 7:
+        if format_version > 8:
             raise ValueError(
                 f"Unsupported project format version {format_version}. "
                 f"Please upgrade the tool."
             )
-        
+
         project_name = data.get("name", "Untitled")
-        project = WorkspaceProject(project_name, project_path)
+        project = WorkspaceProject(project_name, project_path, format_version=format_version)
         
         # Store metadata
         from datetime import datetime
         from .config_manager import ProjectType
-        
+
         project.created_date = data.get("created", datetime.now().isoformat())
         project.author = data.get("author", "")
         project.description = data.get("description", "")
         project.version = data.get("version", "1.0.0")
-        
+
         # Load project type (new in format v2)
         project_type_str = data.get("project_type", "Vector DaVinci")
         for pt in ProjectType:
             if pt.value == project_type_str:
                 project.project_type = pt
                 break
-        
+
         # Load def search paths
         project.def_search_paths = [Path(p) for p in data.get("def_search_paths", [])]
-        
+
+        # Load format 8 fields (directories, module_libraries)
+        if format_version >= 8:
+            dirs_data = data.get("directories")
+            if dirs_data:
+                project.directories = ProjectDirectories.from_dict(dirs_data, ProjectDirectories.default_v8())
+            else:
+                project.directories = ProjectDirectories.default_v8()
+
+            # Load module libraries
+            for lib_data in data.get("module_libraries", []):
+                project.module_libraries.append(LibraryRef.from_dict(lib_data))
+
         # Load variants with backward compatibility
         loaded_variants = data.get("variants", [])
         loaded_active = data.get("active_variant", None)
-        
+
         # Migrate old projects: ensure Default variant exists
         if not loaded_variants:
             # Old project with no variants - create Default
@@ -1077,10 +1238,10 @@ class WorkspaceManager:
         else:
             project.variants = loaded_variants if "Default" in loaded_variants else ["Default"] + loaded_variants
             project.active_variant = loaded_active or "Default"
-        
+
         # Ignore has_base from old projects (no longer used)
         # data.get("has_base", False) - deprecated
-        
+
         # Load dependency rules (new in format v4)
         project.dependency_rules = data.get("dependency_rules", [])
 
@@ -1127,99 +1288,113 @@ class WorkspaceManager:
                 import logging
                 logging.getLogger(__name__).warning(
                     "Relinked Def/plugins to TRESOS_PLUGINS_PATH: %s", tresos_path)
-        
+
         # If no available chips in file, try to discover them
         if not project.available_chips:
             project.path = project_path  # Ensure path is set before discovery
             project.discover_available_chips()
 
-        
+
         project_dir = project_path.parent
         failed_modules = []
-        
-        for module_data in data.get("modules", []):
-            name = module_data["name"]
-            def_path_str = module_data["def_path"]
-            config_path_str = module_data["config_path"]
 
-            # Provenance (v7; older projects default to native).
-            # Projects saved on Windows before the POSIX fix stored backslashes.
-            source_epc = module_data.get("source_epc")
-            if isinstance(source_epc, str):
-                source_epc = source_epc.replace("\\", "/")
-            project.module_provenance[name] = {
-                "origin": module_data.get("origin", "native"),
-                "source_epc": source_epc,
-                "imported_at": module_data.get("imported_at"),
-            }
-            
-            # Resolve paths robustly (handles cross-platform absolute paths)
-            def_path = self._resolve_path(def_path_str, project_dir)
-            config_path = self._resolve_path(config_path_str, project_dir)
-            
-            # Fallback for legacy projects (files in project root)
-            # Check for both / and \ for cross-platform compatibility
-            has_separator = "/" in config_path_str or "\\" in config_path_str
-            if not config_path.exists() and not has_separator:
-                legacy_path = project_dir / Path(config_path_str).name
-                if legacy_path.exists():
-                    config_path = legacy_path
+        # Load modules: format 8 uses module_entries, earlier formats use def_path
+        if format_version >= 8:
+            # Format 8: Load module entries (just save the entries for now; module loading in Task 6)
+            for module_data in data.get("modules", []):
+                entry = ModuleEntry.from_dict(module_data)
+                project.module_entries[entry.name] = entry
+                # For compatibility with existing load paths, create the old-style provenance
+                project.module_provenance[entry.name] = {
+                    "origin": "native",
+                    "source_epc": None,
+                    "imported_at": None,
+                }
+        else:
+            # Format ≤7: Load with def_path (existing logic)
+            for module_data in data.get("modules", []):
+                name = module_data["name"]
+                def_path_str = module_data["def_path"]
+                config_path_str = module_data["config_path"]
 
-            # Extended fallback: if ConfigValue is missing but file is in root
-            # Check for both ConfigValue/ and ConfigValue\ for cross-platform compatibility
-            elif not config_path.exists() and ("ConfigValue/" in config_path_str or "ConfigValue\\" in config_path_str):
-                legacy_path = project_dir / Path(config_path_str).name
-                if legacy_path.exists():
-                    config_path = legacy_path
+                # Provenance (v7; older projects default to native).
+                # Projects saved on Windows before the POSIX fix stored backslashes.
+                source_epc = module_data.get("source_epc")
+                if isinstance(source_epc, str):
+                    source_epc = source_epc.replace("\\", "/")
+                project.module_provenance[name] = {
+                    "origin": module_data.get("origin", "native"),
+                    "source_epc": source_epc,
+                    "imported_at": module_data.get("imported_at"),
+                }
 
-            
-            if def_path.exists():
-                try:
-                    # Load definition (selector enumerations include the project's own chips)
-                    self.def_parser.set_selector_values(_chip_selector_values(project))
-                    module_def = self.def_parser.parse_module_def_file(def_path)
-                    
-                    # Create manager
-                    manager = project.add_module(module_def, def_path)
-                    
-                    # Load configuration if exists
-                    if config_path.exists():
-                        manager.load_configuration(config_path)
-                    
-                    # Restore variant overrides if saved
-                    if "variant_overrides" in module_data:
-                        manager.configuration.variant_overrides = module_data["variant_overrides"]
-                        
-                except Exception as e:
-                    error_msg = f"Failed to load: {str(e)}"
-                    failed_modules.append((name, error_msg))
+                # Resolve paths robustly (handles cross-platform absolute paths)
+                def_path = self._resolve_path(def_path_str, project_dir)
+                config_path = self._resolve_path(config_path_str, project_dir)
 
-            else:
-                # Stub load: Create a surrogate module definition so we can still see the values
-                try:
-                    from .model.definition_model import EcucModuleDef
-                    # Try to infer correct definition_ref if possible, or use standard pattern
-                    module_def = EcucModuleDef(
-                        short_name=name, 
-                        definition_ref=f"/__STUB__/AUTOSAR/EcucDefs/{name}"
-                    )
-                    
-                    # Create manager with def_missing=True
-                    manager = project.add_module(module_def, def_path, def_missing=True)
-                    
-                    # Load configuration if exists (skip cleanup since def is a stub)
-                    if config_path.exists():
-                        manager.load_configuration(config_path, skip_cleanup=True)
-                    
-                    # Restore variant overrides if saved
-                    if "variant_overrides" in module_data:
-                        manager.configuration.variant_overrides = module_data["variant_overrides"]
-                    
+                # Fallback for legacy projects (files in project root)
+                # Check for both / and \ for cross-platform compatibility
+                has_separator = "/" in config_path_str or "\\" in config_path_str
+                if not config_path.exists() and not has_separator:
+                    legacy_path = project_dir / Path(config_path_str).name
+                    if legacy_path.exists():
+                        config_path = legacy_path
 
-                    
-                except Exception as e:
-                    error_msg = f"Failed to load stub: {str(e)}"
-                    failed_modules.append((name, error_msg))
+                # Extended fallback: if ConfigValue is missing but file is in root
+                # Check for both ConfigValue/ and ConfigValue\ for cross-platform compatibility
+                elif not config_path.exists() and ("ConfigValue/" in config_path_str or "ConfigValue\\" in config_path_str):
+                    legacy_path = project_dir / Path(config_path_str).name
+                    if legacy_path.exists():
+                        config_path = legacy_path
+
+
+                if def_path.exists():
+                    try:
+                        # Load definition (selector enumerations include the project's own chips)
+                        self.def_parser.set_selector_values(_chip_selector_values(project))
+                        module_def = self.def_parser.parse_module_def_file(def_path)
+
+                        # Create manager
+                        manager = project.add_module(module_def, def_path)
+
+                        # Load configuration if exists
+                        if config_path.exists():
+                            manager.load_configuration(config_path)
+
+                        # Restore variant overrides if saved
+                        if "variant_overrides" in module_data:
+                            manager.configuration.variant_overrides = module_data["variant_overrides"]
+
+                    except Exception as e:
+                        error_msg = f"Failed to load: {str(e)}"
+                        failed_modules.append((name, error_msg))
+
+                else:
+                    # Stub load: Create a surrogate module definition so we can still see the values
+                    try:
+                        from .model.definition_model import EcucModuleDef
+                        # Try to infer correct definition_ref if possible, or use standard pattern
+                        module_def = EcucModuleDef(
+                            short_name=name,
+                            definition_ref=f"/__STUB__/AUTOSAR/EcucDefs/{name}"
+                        )
+
+                        # Create manager with def_missing=True
+                        manager = project.add_module(module_def, def_path, def_missing=True)
+
+                        # Load configuration if exists (skip cleanup since def is a stub)
+                        if config_path.exists():
+                            manager.load_configuration(config_path, skip_cleanup=True)
+
+                        # Restore variant overrides if saved
+                        if "variant_overrides" in module_data:
+                            manager.configuration.variant_overrides = module_data["variant_overrides"]
+
+
+
+                    except Exception as e:
+                        error_msg = f"Failed to load stub: {str(e)}"
+                        failed_modules.append((name, error_msg))
 
         project.default_override_conflicts = project.fold_default_overrides()
         if project.default_override_conflicts:
