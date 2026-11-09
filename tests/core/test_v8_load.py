@@ -220,3 +220,60 @@ def test_v8_save_writes_modules_sorted_by_name(tmp_path):
     wm.save_project()
 
     assert [m["name"] for m in _saved_modules(project_file)] == ["Adc", "Mcu", "Zeta"]
+
+
+def test_v8_removed_module_stays_removed(tmp_path):
+    project_file = tmp_path / "proj" / "P.dpa"
+    wm = WorkspaceManager()
+    project = wm.create_project("P", project_file, format_version=8)
+    project.selected_chip = CHIP
+    project.module_libraries.append(_eb_library())
+    project.add_module_from_package(_package("Mcu"), 0)
+    project.add_module_from_package(_package("Dio"), 0)
+    wm.save_project()
+
+    wm = WorkspaceManager()
+    project, failed = wm.load_project(project_file)
+    assert failed == []
+    assert sorted(project.module_managers) == ["Dio", "Mcu"]
+    project.remove_module("Dio")
+    assert "Dio" not in project.module_entries
+    assert "Dio" not in project.packages
+    wm.save_project()
+
+    assert [m["name"] for m in _saved_modules(project_file)] == ["Mcu"]
+    reloaded, failed = WorkspaceManager().load_project(project_file)
+    assert failed == []
+    assert sorted(reloaded.module_managers) == ["Mcu"]
+    assert sorted(reloaded.module_entries) == ["Mcu"]
+
+
+def test_v8_removing_a_failed_module_forgets_its_entry(tmp_path):
+    project_file = tmp_path / "P.dpa"
+    overrides = {"V1": {"/Mcu/McuGeneralConfiguration.McuDevErrorDetect": True}}
+    _write_dpa(project_file, [_eb_library()],
+               [_mcu_entry(definition="/Nowhere/Mcu", variant_overrides=overrides)])
+    wm = WorkspaceManager()
+    project, _ = wm.load_project(project_file)
+
+    project.remove_module("Mcu")
+    assert "Mcu" not in project.module_entries
+    assert "Mcu" not in project.unloaded_variant_overrides
+    wm.save_project()
+    assert _saved_modules(project_file) == []
+
+
+def test_v8_readded_module_gets_stashed_overrides(tmp_path):
+    project_file = tmp_path / "P.dpa"
+    overrides = {"V1": {"/Mcu/McuGeneralConfiguration.McuDevErrorDetect": True}}
+    _write_dpa(project_file, [_eb_library()],
+               [_mcu_entry(definition="/Nowhere/Mcu", variant_overrides=overrides)])
+    project, failed = WorkspaceManager().load_project(project_file)
+    assert [name for name, _ in failed] == ["Mcu"]
+    assert project.unloaded_variant_overrides["Mcu"] == overrides
+
+    manager = project.add_module_from_package(_package("Mcu"), 0)
+
+    assert manager.configuration.variant_overrides == overrides
+    assert "Mcu" not in project.unloaded_variant_overrides
+    assert project.module_entries["Mcu"].definition == "/THA6_AS440_FuSa/Mcu"

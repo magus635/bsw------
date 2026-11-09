@@ -604,6 +604,10 @@ class WorkspaceProject:
         manager = ConfigurationManager(module_def, project_context=self, def_missing=def_missing)
         self.module_managers[module_def.short_name] = manager
         self.module_defs[module_def.short_name] = def_path
+        # Overrides kept from an earlier failed load of this module come back with it
+        stashed = self.unloaded_variant_overrides.pop(module_def.short_name, None)
+        if stashed is not None:
+            manager.configuration.variant_overrides = stashed
         return manager
         
     def remove_module(self, module_name: str):
@@ -655,6 +659,10 @@ class WorkspaceProject:
             del self.module_managers[module_name]
             del self.module_defs[module_name]
 
+        # Format 8 bookkeeping: a removed module must not come back on reload
+        self.module_entries.pop(module_name, None)
+        self.packages.pop(module_name, None)
+        self.unloaded_variant_overrides.pop(module_name, None)
     def find_references_to_module(self, module_name: str) -> List[tuple]:
         """Find all references in other modules pointing to this module."""
         references = []
