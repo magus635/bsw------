@@ -267,6 +267,7 @@ def test_key_helpers_use_container_path():
     parent.module_name = "Mcu"
     child = EcucContainerValue(short_name="Clk", definition_ref="/V/Mcu/G/Clk")
     child.parent = parent
-    assert container_key(child) == "/Mcu/McuGeneralConfiguration/Clk"
-    assert param_key(child, "McuFreq") == "/Mcu/McuGeneralConfiguration/Clk.McuFreq"
-    assert ref_key(child, "McuRef") == "/Mcu/McuGeneralConfiguration/Clk.McuRef"
+    assert container_key(child) == "C:/Mcu/McuGeneralConfiguration/Clk"
+    assert param_key(child, "McuFreq") == "P:/Mcu/McuGeneralConfiguration/Clk.McuFreq"
+    assert ref_key(child, "McuRef") == "R:/Mcu/McuGeneralConfiguration/Clk.McuRef"
+    assert param_key(child, "Same") != ref_key(child, "Same")

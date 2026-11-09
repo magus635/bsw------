@@ -17,9 +17,9 @@ def container_key(container: EcucContainerValue) -> str:
         container: Container value object
 
     Returns:
-        String key representing the container's path
+        String key "C:<container_path>"
     """
-    return container.get_path()
+    return "C:" + container.get_path()
 
 
 def param_key(container: EcucContainerValue, name: str) -> str:
@@ -30,9 +30,9 @@ def param_key(container: EcucContainerValue, name: str) -> str:
         name: Parameter name
 
     Returns:
-        String key in format "container_path.param_name"
+        String key "P:<container_path>.<param_name>"
     """
-    return f"{container.get_path()}.{name}"
+    return f"P:{container.get_path()}.{name}"
 
 
 def ref_key(container: EcucContainerValue, name: str) -> str:
@@ -43,9 +43,9 @@ def ref_key(container: EcucContainerValue, name: str) -> str:
         name: Reference name
 
     Returns:
-        String key in format "container_path.ref_name"
+        String key "R:<container_path>.<ref_name>"
     """
-    return f"{container.get_path()}.{name}"
+    return f"R:{container.get_path()}.{name}"
 
 
 def index_value_collections(file: Path) -> Dict[str, List[EcucModuleConfiguration]]:

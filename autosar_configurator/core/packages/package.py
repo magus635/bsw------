@@ -107,6 +107,15 @@ class ModulePackage:
         ]
         return sorted(selected, key=lambda p: p.as_posix())
 
+    def _check_files_exist(self) -> None:
+        """Raise if any file listed in the manifest is missing on disk (no silent miss)."""
+        missing = sorted(pf.path for pf in self.manifest.files if not (self.root / pf.path).is_file())
+        if missing:
+            raise PackageError(
+                f"{self.manifest.module}: manifest lists missing file(s) "
+                f"{', '.join(missing)} in package {self.root.as_posix()}"
+            )
+
     def definition_file(self, chip: Optional[str]) -> Path:
         """The single selected file holding the ECUC-MODULE-DEF at ``manifest.definition``.
 
@@ -114,11 +123,10 @@ class ModulePackage:
             PackageConflictError: more than one selected file holds the definition
             PackageError: no selected file holds it
         """
+        self._check_files_exist()
         definition = self.manifest.definition
         matches = []
         for path in self.selected_files(chip):
-            if not path.is_file():
-                continue
             try:
                 found = module_def_paths(path)
             except etree.XMLSyntaxError as exc:
@@ -151,9 +159,10 @@ class ModulePackage:
     def _load_collections(
         self, ar_paths: List[str], chip: Optional[str], role: str
     ) -> List[EcucModuleConfiguration]:
+        self._check_files_exist()
         files = [
             p for p in self.selected_files(chip)
-            if p.is_file() and p.suffix.lower() in (".arxml", ".xdm")
+            if p.suffix.lower() in (".arxml", ".xdm")
         ]
         result = []
         for ar_path in ar_paths:
@@ -179,7 +188,7 @@ class ModulePackage:
         holders = []
         for pf in self.manifest.files:
             path = self.root / pf.path
-            if path in selected or not path.is_file():
+            if path in selected:
                 continue
             if path.suffix.lower() not in (".arxml", ".xdm"):
                 continue

@@ -182,6 +182,17 @@ def test_eb_mcu_definition_and_pre():
     assert pkg.template_dir() is not None
 
 
+def test_missing_manifest_file_raises(tmp_path):
+    _write(tmp_path, "config/X_def.arxml", _DEF)
+    pkg = _pkg(tmp_path, [("config/X_def.arxml", []), ("config/gone_pre.arxml", ["A"])])
+    for call in (lambda: pkg.definition_file("A"), lambda: pkg.load_pre("A"),
+                 lambda: pkg.load_rec(None)):
+        with pytest.raises(PackageError) as exc:
+            call()
+        assert "config/gone_pre.arxml" in str(exc.value)
+        assert tmp_path.as_posix() in str(exc.value)
+
+
 def test_template_and_resource_dirs(tmp_path):
     (tmp_path / "generate").mkdir()
     pkg = _pkg(tmp_path, [])
