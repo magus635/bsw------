@@ -3,7 +3,7 @@ XDM Configuration Parser - Specialized parser for Tresos DataModel 7.0 XDM confi
 Parses configuration data into EcucModuleConfiguration objects
 """
 from lxml import etree
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Tuple
 from pathlib import Path
 
 from ..model.configuration_model import (
@@ -89,6 +89,82 @@ class XdmConfigParser:
             
             return config
             
+        except etree.XMLSyntaxError as e:
+            raise ValueError(f"XML parsing error in {file_path}: {e}")
+
+    def parse_all(self, file_path: Path) -> List[Tuple[str, EcucModuleConfiguration]]:
+        """Parse all MODULE-CONFIGURATION elements in the XDM file.
+
+        Returns a list of (AR_path, EcucModuleConfiguration) tuples.
+        AR path = "/" + outer AR-PACKAGE names + "/" + d:chc name.
+
+        Args:
+            file_path: Path to XDM configuration file
+
+        Returns:
+            List of (ar_path, config) tuples for each MODULE-CONFIGURATION found
+        """
+        if not file_path.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        try:
+            _parser = etree.XMLParser(resolve_entities=False, no_network=True)
+            tree = etree.parse(str(file_path), _parser)
+            root = tree.getroot()
+
+            results = []
+
+            # Find all d:chc elements with value='MODULE-CONFIGURATION'
+            for chc_elem in root.xpath(".//d:chc[@value='MODULE-CONFIGURATION']", namespaces=self.NAMESPACES):
+                # The d:chc element's name attribute is the element short name
+                element_name = chc_elem.get('name')
+                if not element_name:
+                    continue
+
+                # Build AR path by walking up AR-PACKAGE ancestors
+                ar_packages = []
+                for ancestor in chc_elem.iterancestors():
+                    if not isinstance(ancestor.tag, str):
+                        continue
+                    local = etree.QName(ancestor).localname
+                    if local == 'ctr' and ancestor.get('type') == 'AR-PACKAGE':
+                        pkg_name = ancestor.get('name')
+                        if pkg_name:
+                            ar_packages.append(pkg_name)
+
+                # Build the full AR path
+                if ar_packages:
+                    ar_path = '/' + '/'.join(reversed(ar_packages)) + '/' + element_name
+                else:
+                    ar_path = '/' + element_name
+
+                # Parse the MODULE-CONFIGURATION
+                module_config_elem = chc_elem.xpath("./d:ctr[@type='MODULE-CONFIGURATION']", namespaces=self.NAMESPACES)
+                if not module_config_elem:
+                    continue
+
+                module_config_elem = module_config_elem[0]
+
+                config = EcucModuleConfiguration(
+                    short_name=element_name,
+                    definition_ref=""
+                )
+
+                # Parse DEF attribute for definition_ref
+                def_attr = module_config_elem.xpath("./a:a[@name='DEF']/@value", namespaces=self.NAMESPACES)
+                if def_attr:
+                    def_ref_str = def_attr[0]
+                    if def_ref_str.startswith("ASPath:"):
+                        def_ref_str = def_ref_str[len("ASPath:"):]
+                    config.definition_ref = def_ref_str
+
+                # Parse child elements
+                self._parse_children(module_config_elem, config)
+
+                results.append((ar_path, config))
+
+            return results
+
         except etree.XMLSyntaxError as e:
             raise ValueError(f"XML parsing error in {file_path}: {e}")
 
