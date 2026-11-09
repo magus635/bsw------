@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Vector MICROSAR vBaseEnv / vBRS / vLinkGen 架构分析</title>
+<style>
+:root {
+  --bg: #f4f6fa;
+  --panel: #ffffff;
+  --text: #1d2433;
+  --muted: #5c6b84;
+  --accent: #0b6bcb;
+  --accent-soft: #e8f1fb;
+  --border: #d9e0ec;
+  --code-bg: #eef2f8;
+  --code-text: #0b3d6b;
+  --dark: #0b2c4e;
+  --font-main: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", Consolas, "Courier New", monospace;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-main); line-height: 1.75; font-size: 15px; }
+.wrap { max-width: 1060px; margin: 0 auto; padding: 36px 24px 80px; }
+
+/* 头部 */
+.doc-header {
+  background: linear-gradient(135deg, #082e54 0%, #0b6bcb 60%, #1894d8 100%);
+  color: #fff; border-radius: 14px; padding: 34px 40px; margin-bottom: 30px;
+  box-shadow: 0 10px 28px rgba(11, 107, 203, 0.28);
+  position: relative; overflow: hidden;
+}
+.doc-header::after {
+  content: "THA6"; position: absolute; right: -14px; bottom: -34px;
+  font-size: 120px; font-weight: 800; opacity: 0.08; letter-spacing: -4px;
+}
+.doc-header h1 { margin: 0 0 12px; font-size: 25px; letter-spacing: 0.4px; line-height: 1.4; }
+.doc-meta { font-size: 13px; opacity: 0.95; line-height: 2; position: relative; z-index: 1; }
+.doc-meta code { background: rgba(255,255,255,0.16); color: #fff; padding: 1px 6px; border-radius: 4px; font-family: var(--font-mono); font-size: 12px; }
+
+/* 目录 */
+.toc {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  padding: 18px 26px; margin-bottom: 34px; box-shadow: 0 2px 10px rgba(29, 43, 83, 0.05);
+  column-width: 300px; column-gap: 34px;
+}
+.toc-title { font-weight: 700; font-size: 15px; margin-bottom: 8px; color: var(--accent); column-span: all; }
+.toc-item { padding: 3px 0; break-inside: avoid; }
+.toc-item a { color: var(--text); text-decoration: none; }
+.toc-item a:hover { color: var(--accent); }
+.toc-item.toc-sub { padding-left: 20px; font-size: 13.5px; color: var(--muted); }
+.toc-item.toc-sub a { color: var(--muted); }
+.toc-item.toc-sub a:hover { color: var(--accent); }
+
+/* 标题 */
+h2 {
+  font-size: 20px; margin: 42px 0 16px; padding: 10px 16px 10px 14px;
+  border-left: 5px solid var(--accent); border-bottom: 1px solid var(--border);
+  background: linear-gradient(90deg, var(--accent-soft), transparent);
+  color: var(--dark); border-radius: 0 8px 0 0; scroll-margin-top: 18px;
+}
+h3 { font-size: 16.5px; margin: 28px 0 12px; color: #0b4d8f; scroll-margin-top: 18px; }
+h4 { font-size: 15px; margin: 22px 0 10px; color: var(--text); scroll-margin-top: 18px; }
+p { margin: 10px 0; }
+
+/* 代码 */
+code {
+  font-family: var(--font-mono); font-size: 0.88em; background: var(--code-bg);
+  color: var(--code-text); padding: 1px 6px; border-radius: 4px; border: 1px solid #dfe6f1;
+}
+pre.code-block {
+  background: #0d1b30; color: #d7e4f7; border-radius: 10px; padding: 16px 20px;
+  overflow-x: auto; font-size: 13px; line-height: 1.6; margin: 14px 0;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.07);
+}
+pre.code-block code { background: transparent; border: 0; color: inherit; padding: 0; font-size: inherit; }
+
+/* 引用 */
+blockquote {
+  margin: 14px 0; padding: 10px 18px; border-left: 4px solid var(--accent);
+  background: var(--accent-soft); border-radius: 0 8px 8px 0; color: #13466e;
+}
+
+/* 表格 */
+.table-wrap { overflow-x: auto; margin: 16px 0; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; background: var(--panel);
+  border-radius: 10px; overflow: hidden; box-shadow: 0 1px 8px rgba(29, 43, 83, 0.07); }
+thead th { background: #eef3fa; color: var(--dark); font-weight: 600; padding: 11px 14px;
+  border-bottom: 2px solid var(--border); white-space: nowrap; }
+tbody td { padding: 10px 14px; border-bottom: 1px solid #eef1f7; vertical-align: top; }
+tbody tr:hover { background: #f7fafd; }
+tbody tr:last-child td { border-bottom: 0; }
+
+/* 流程面板 */
+.f-figure { background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  padding: 20px 22px; margin: 18px 0; box-shadow: 0 2px 12px rgba(29, 43, 83, 0.06); }
+.f-figure figcaption { font-weight: 700; font-size: 14.5px; color: var(--accent); margin-bottom: 14px; }
+
+/* 纵向流程 */
+.f-flow-vertical { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.f-arrow { color: var(--accent); font-size: 15px; line-height: 1; }
+.f-node {
+  background: var(--accent-soft); border: 1px solid #b4d1ef; color: var(--dark);
+  border-radius: 8px; padding: 9px 18px; font-size: 13px; line-height: 1.5;
+  max-width: 320px; text-align: center; box-shadow: 0 1px 3px rgba(29, 43, 83, 0.08);
+}
+.f-diamond { background: #fdf4e2; border-color: #e2b95e; color: #6d5210; font-weight: 600; }
+.f-start { background: #e4f6ec; border-color: #7fc9a0; color: #0b5c33; font-weight: 600; }
+.f-end { background: #e3edfb; border-color: #8db2e0; color: #133c74; font-weight: 600; }
+.f-branch { display: flex; align-items: center; gap: 18px; width: 100%; justify-content: center; }
+.f-branch-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.f-branch-gap { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; }
+.f-branch-note { color: var(--muted); font-size: 12px; margin: 2px 0; }
+.f-branch-merge { margin: 4px 0; }
+
+/* 横向流程 */
+.f-flow-h { display: flex; align-items: stretch; justify-content: center; flex-wrap: wrap; gap: 8px; }
+.f-arrow-h { display: flex; align-items: center; font-size: 26px; color: var(--accent); padding: 0 4px; }
+.f-arrow-h-dashed { display: flex; align-items: center; font-size: 26px; color: #b8860b; padding: 0 4px; }
+.f-stage { flex: 1; min-width: 190px; background: #fbfcfe; border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; }
+.f-stage-tag { font-size: 10.5px; font-weight: 700; letter-spacing: 1.5px; color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 20px; padding: 1px 8px; display: inline-block; margin-bottom: 6px; }
+.f-stage-title { font-weight: 600; font-size: 13.5px; color: var(--dark); margin-bottom: 8px; }
+.f-mini { background: var(--accent-soft); border: 1px solid #c3d8ef; border-radius: 6px;
+  padding: 7px 10px; font-size: 12px; color: var(--dark); margin-bottom: 6px; line-height: 1.45; }
+.f-mini:last-child { margin-bottom: 0; }
+.f-legend { margin-top: 16px; font-size: 12.5px; color: var(--muted); border-top: 1px dashed var(--border);
+  padding-top: 10px; }
+.f-legend-item { margin-right: 18px; }
+
+/* 列表 */
+ul, ol { padding-left: 26px; margin: 10px 0; }
+li { margin: 4px 0; }
+li.sub { list-style: none; padding-left: 14px; position: relative; color: var(--muted); font-size: 14px; }
+li.sub::before { content: "↳"; position: absolute; left: 0; color: var(--accent); }
+
+/* 页脚 */
+.doc-footer { margin-top: 52px; padding-top: 16px; border-top: 1px solid var(--border);
+  color: var(--muted); font-size: 12.5px; text-align: center; }
+
+@media (max-width: 760px) {
+  .wrap { padding: 18px 12px 60px; }
+  .doc-header { padding: 24px 22px; }
+  .doc-header h1 { font-size: 19px; }
+  .f-branch { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc-header">
+  <h1>Vector MICROSAR vBaseEnv / vBRS / vLinkGen 架构分析</h1>
+  <div class="doc-meta">
+    <div>📌 适用平台：<code>Tongxin THA6206</code>（Cortex-R52 双核）/ <code>THA6412</code>（四核）</div>
+    <div>🛠️ 工具链：Vector DaVinci Configurator 5 / 6 · HighTec LLVM · Vector MICROSAR</div>
+    <div>📁 工程路径：<code>mcuapp/</code>（即 /Users/qlwang/Desktop/未命名文件夹/mcuapp/）</div>
+  </div>
+</header>
+
+<nav class="toc"><div class="toc-title">📑 目录</div>
+<div class="toc-item"><a href="#1-概述">1. 概述</a></div>
+<div class="toc-item"><a href="#2-架构定位与文件分布">2. 架构定位与文件分布</a></div>
+<div class="toc-item toc-sub"><a href="#2.1-文件存在两处位置">2.1 文件存在两处位置</a></div>
+<div class="toc-item toc-sub"><a href="#2.2-双份文件设计的四个意图">2.2 双份文件设计的四个意图</a></div>
+<div class="toc-item"><a href="#3-vbaseenv-七大核心功能">3. vBaseEnv 七大核心功能</a></div>
+<div class="toc-item"><a href="#4-启动与运行机制详解">4. 启动与运行机制详解</a></div>
+<div class="toc-item toc-sub"><a href="#4.1-芯片上电到-main-的完整启动与多核同步机制">4.1 芯片上电到 main() 的完整启动与多核同步机制</a></div>
+<div class="toc-item toc-sub"><a href="#4.2-硬件看门狗-endinit-保护机制">4.2 硬件看门狗 ENDINIT 保护机制</a></div>
+<div class="toc-item toc-sub"><a href="#4.3-时钟pll-与-pflash-时序初始化">4.3 时钟（PLL）与 PFlash 时序初始化</a></div>
+<div class="toc-item toc-sub"><a href="#4.4-gicv3-中断控制器与外设辅助接口">4.4 GICv3 中断控制器与外设辅助接口</a></div>
+<div class="toc-item"><a href="#5-模板与实例文件对照">5. 模板与实例文件对照</a></div>
+<div class="toc-item toc-sub"><a href="#5.1-全量映射表">5.1 全量映射表</a></div>
+<div class="toc-item toc-sub"><a href="#5.2-关键定制差异示例为什么必须保留两份文件">5.2 关键定制差异示例：为什么必须保留两份文件</a></div>
+<div class="toc-item toc-sub"><a href="#5.3-日常开发与维护建议">5.3 日常开发与维护建议</a></div>
+<div class="toc-item"><a href="#6-生成机制">6. 生成机制</a></div>
+<div class="toc-item toc-sub"><a href="#6.1-生成链路">6.1 生成链路</a></div>
+<div class="toc-item toc-sub"><a href="#6.2-固定源代码静态代码">6.2 固定源代码（静态代码）</a></div>
+<div class="toc-item toc-sub"><a href="#6.3-生成代码generated-code">6.3 生成代码（Generated Code）</a></div>
+<div class="toc-item toc-sub"><a href="#6.4-davinci-configurator-配置流程三步">6.4 DaVinci Configurator 配置流程（三步）</a></div>
+<div class="toc-item toc-sub"><a href="#6.5-arxml-定义文件分类">6.5 ARXML 定义文件分类</a></div>
+<div class="toc-item toc-sub"><a href="#6.6-jar-生成器包">6.6 JAR 生成器包</a></div>
+<div class="toc-item"><a href="#7-vbaseenv_tha6_prearxml-芯片预配置文件">7. vBaseEnv_THA6_pre.arxml 芯片预配置文件</a></div>
+<div class="toc-item toc-sub"><a href="#7.1-与工程-ecuc-配置的关系">7.1 与工程 ECUC 配置的关系</a></div>
+<div class="toc-item toc-sub"><a href="#7.2-内容详解">7.2 内容详解</a></div>
+<div class="toc-item toc-sub"><a href="#7.3-下游模块如何使用">7.3 下游模块如何使用</a></div>
+<div class="toc-item toc-sub"><a href="#7.4-逻辑命名空间绑定机制microsarvbaseenv_pre-如何解析">7.4 逻辑命名空间绑定机制：/MICROSAR/vBaseEnv_Pre 如何解析</a></div>
+<div class="toc-item toc-sub"><a href="#7.5-vector-制作-prearxml-的流程">7.5 Vector 制作 pre.arxml 的流程</a></div>
+<div class="toc-item"><a href="#8-变体variant-机制">8. 变体（Variant）机制</a></div>
+<div class="toc-item toc-sub"><a href="#8.1-硬件衍生型号变体derivative-variants">8.1 硬件衍生型号变体（Derivative Variants）</a></div>
+<div class="toc-item toc-sub"><a href="#8.2-多镜像执行实例链接变体vlinkgen-linker-variants">8.2 多镜像/执行实例链接变体（vLinkGen Linker Variants）</a></div>
+<div class="toc-item toc-sub"><a href="#8.3-软件配置变体ecuc-pre-compile-post-build-variants">8.3 软件配置变体（ECUC Pre-Compile / Post-Build Variants）</a></div>
+<div class="toc-item toc-sub"><a href="#8.4-总结对比">8.4 总结对比</a></div>
+</nav>
+
+<blockquote><strong>适用平台</strong>：紫光同芯 Tongxin THA6206（Cortex-R52 双核）/ THA6412（四核）<br/><strong>工具链</strong>：Vector DaVinci Configurator 5 / 6 · HighTec LLVM · Vector MICROSAR<br/><strong>工程路径</strong>：<code>mcuapp/</code>（即 <code>/Users/qlwang/Desktop/未命名文件夹/mcuapp/</code>）<br/><strong>文档来源</strong>：整理自 AI 会话记录，已去重并结构化</blockquote>
+
+<h2 id="1-概述">1. 概述</h2>
+
+<p>在 Vector MICROSAR 工具链中，广义的 <strong>Base Environment（基础运行环境）</strong> 由三个紧密耦合的模块共同构成：</p>
+
+<div class="table-wrap"><table><thead><tr><th style="text-align:left">模块</th><th style="text-align:left">定位</th><th style="text-align:left">职责</th></tr></thead><tbody>
+<tr><td style="text-align:left"><strong><code>vBaseEnv</code></strong></td><td style="text-align:left">芯片硬件属性数据库 + 底层驱动模板库</td><td style="text-align:left">负责 CPU 内核（Cortex-R52）初始化、芯片外设（THA6 时钟 / Flash / 看门狗 / GPIO / 复位）底层驱动，以及编译环境配置</td></tr>
+<tr><td style="text-align:left"><strong><code>vBRS</code></strong></td><td style="text-align:left">基础运行时系统（Basic Runtime System）</td><td style="text-align:left">硬件无关的主控层：提供 C 语言启动入口、分段内存初始化、<code>main()</code>、OS 默认任务与周期调度的通用框架，通过 <code>BrsHw*</code> 接口操作底层硬件</td></tr>
+<tr><td style="text-align:left"><strong><code>vLinkGen</code></strong></td><td style="text-align:left">链接脚本与内存初始化生成器</td><td style="text-align:left">根据 <code>vBaseEnv</code> 的硬件内存区域信息，生成链接脚本与内存清零/拷贝表</td></tr>
+</tbody></table></div>
+
+<blockquote>严格来说，<code>vBaseEnv</code> 模块本身<strong>没有独立的代码生成器</strong>，真正执行代码生成动作的是读取 <code>vBaseEnv</code> 参数的 <strong><code>vBRS</code> 生成器</strong>和 <strong><code>vLinkGen</code> 生成器</strong>。详见 <a href="#6-生成机制">第 6 节</a>。</blockquote>
+
+<p>此外还有面向 PC 端虚拟目标的 <strong><code>VttvBaseEnv</code></strong>：为 CANoe/VTT 虚拟目标环境提供的桩文件（如 <code>_BrsHw.h</code> 仅提供空宏定义 <code>#define BrsHw_EnableHwAccess()</code>）。</p>
+
+<h2 id="2-架构定位与文件分布">2. 架构定位与文件分布</h2>
+
+<h3 id="2.1-文件存在两处位置">2.1 文件存在两处位置</h3>
+
+<p><code>vBaseEnv</code> 与 <code>vBRS</code> 的源文件<strong>同时保留在两处</strong>：</p>
+
+<div class="table-wrap"><table><thead><tr><th style="text-align:left">位置</th><th style="text-align:left">目录</th><th style="text-align:left">文件名约定</th><th style="text-align:left">用途</th></tr></thead><tbody>
+<tr><td style="text-align:left">组件模板目录</td><td style="text-align:left"><code>DemoComponents/vBaseEnv/</code>、<code>DemoComponents/vBRS/</code></td><td style="text-align:left">带下划线前缀 <code>_</code>（如 <code>_BrsHw.c</code>）</td><td style="text-align:left">DaVinci / SIP 交付模板，只读基线</td></tr>
+<tr><td style="text-align:left">应用实例化目录</td><td style="text-align:left"><code>Applications/SipAddon/StartApplication/Appl/</code></td><td style="text-align:left">去下划线前缀（如 <code>BrsHw.c</code>）</td><td style="text-align:left">实际参与工程编译，包含项目定制修改</td></tr>
+</tbody></table></div>
+
+<h3 id="2.2-双份文件设计的四个意图">2.2 双份文件设计的四个意图</h3>
+
+<h4>① 隔离“只读基线模板”与“编译工作区”</h4>
+
+<ul>
+<li>下划线前缀明确标识<strong>未实例化的原始模板</strong>，防止构建脚本目录扫描将其误纳入编译；</li>
+<li>实例化时，工具（或工程师）将模板拷贝到 <code>Appl/Source/</code> 与 <code>Appl/Include/</code> 并去掉 <code>_</code> 前缀，由 <code>Makefile.project.part.defines</code> 纳入工程编译。</li>
+</ul>
+
+<h4>② 允许项目级深度定制，而不污染 SIP 官方包</h4>
+
+<p>与 <code>Components/</code> 目录下禁止修改的 AUTOSAR BSW 静态代码不同，<code>vBaseEnv</code> 属于<strong>硬件启动与集成胶水代码</strong>，必须按项目单板硬件、多核策略、MPU/TCM 规划进行修改。典型定制差异：</p>
+
+<ul>
+<li><strong>双核启动与外设权限定制</strong>（<code>BrsHwEarlyInitPowerOn()</code>）：
+<ul>
+<li class="sub">应用层 <code>Appl/Source/BrsHw.c</code>：增加 THA6206 解锁 <code>ENDINIT</code> 并置位 <code>CORE_CTRL_ADDR</code>（<code>0xC0020C5C |= 1</code>），在早期由 Core 0 唤醒 Core 1；</li>
+<li class="sub">模板 <code>_BrsHw.c</code>：保留 Vector 针对 HSM 访问关闭 SMPU（<code>0x40080080 = 0x0</code>）的标准实现。</li>
+</ul>
+</li>
+<li><strong>MPU 与 TCM 内存映射定制</strong>（<code>ARMStartup_Platform.h</code>）：
+<ul>
+<li class="sub">模板默认开启 <code>MPU_CODE_REGION</code>、<code>MPU_DATA_REGION</code>、<code>MPU_TCM_REGION</code> 开关（<code>STD_ON</code>），并将 <code>MPU_PERIPHERAL_REGION_START/END</code> 设为 <code>0xB0000000</code>~<code>0xEFFFFFFF</code>，同时包含 THA6412 / THA6206 通用分支；</li>
+<li class="sub">应用层将上述三个可选 MPU Region 改为 <code>STD_OFF</code>（外设 Region 范围设为 <code>0x0</code>），并针对 THA6206 的 ATCM/CTCM Clone 模式调整 <code>brsTcmBase</code> 基地址。</li>
+</ul>
+</li>
+<li><strong>本地编译环境定制</strong>（<code>Makefile</code>）：开发者在 <code>Appl/Makefile</code> 填写本机 HighTec 编译器路径 <code>COMPILER_BASE_WIN</code> 与 <code>LICENSE_SERVER</code>，模板保持干净状态。</li>
+</ul>
+
+<h4>③ 保障 SIP 版本升级安全与三方比对合并（Diff &amp; Merge）</h4>
+
+<p>SIP 升级工具只覆盖 <code>Components/</code> 与 <code>DemoComponents/</code>，<strong>绝不会直接覆盖 <code>Appl/</code></strong>。本工程示例：</p>
+
+<ul>
+<li>模板目录已随 SIP 升级至 <code>v01.02.00</code>（2025-04-04，新增 THA6412 支持、HSM 分支、<code>BrsHwSoftwareResetECU</code> ENDINIT 复位实现）；</li>
+<li>应用目录仍保持在 <code>v01.01.03</code>（2024-05-14）。</li>
+</ul>
+
+<p>通过 Diff 可将官方新版修复按需合并（Merge）进应用代码，同时保护项目组的双核唤醒与 TCM 定制。</p>
+
+<h4>④ 支持同一 SIP 下的多应用 / 多镜像复用</h4>
+
+<p>一套 SIP 根目录可服务于多个可执行工程（App、Bootloader/FBL、BootManager、HSM 固件等），共享底层模板库，但各自拥有独立的 <code>BrsHw.*</code> / <code>ARMStartup_*</code> 实例，互不干扰（如 FBL 开启 <code>BRS_FBL_EXCEPTIONTABLE_IN_RAM</code> 将向量表重定向到 RAM，App 由 OS 接管中断）。</p>
+
+<h2 id="3-vbaseenv-七大核心功能">3. vBaseEnv 七大核心功能</h2>
+
+<div class="table-wrap"><table><thead><tr><th style="text-align:left">功能模块</th><th style="text-align:left">涉及的核心文件</th><th style="text-align:left">主要职责</th></tr></thead><tbody>
+<tr><td style="text-align:left"><strong>1. Cortex-R52 汇编启动与核初始化</strong></td><td style="text-align:left"><code>ARMStartup_CortexR52.c</code><br/><code>ARMStartup_Platform.h</code></td><td style="text-align:left">处理 EL2(Hyp) → EL1(SVC/SYS) 模式切换、多核启动同步屏障、MPU / Cache / FPU / TCM 初始化、Early RAM 清零、各异常模式栈指针（SP）分配</td></tr>
+<tr><td style="text-align:left"><strong>2. 启动期异常向量表管理</strong></td><td style="text-align:left"><code>ARMBrsHwIntTb_CortexR52.c</code></td><td style="text-align:left">提供 OS 启动前的临时异常向量表 <code>intvect_CoreExceptions</code>（及 FBL RAM 向量表）与异常死循环捕获函数 <code>BrsHw_CoreExceptionHandler()</code></td></tr>
+<tr><td style="text-align:left"><strong>3. ARM 架构通用底层抽象</strong></td><td style="text-align:left"><code>ARMBrsHw_CortexR52.c</code> / <code>.h</code></td><td style="text-align:left">提供 HighTec LLVM 内联汇编编译器抽象宏、多核 Core ID 读取、VBAR 向量表基址配置、全局中断关断、GICv3（GICD/GICR）中断使能/禁能/软中断触发</td></tr>
+<tr><td style="text-align:left"><strong>4. THA6 芯片级早期初始化与多核唤醒</strong></td><td style="text-align:left"><code>BrsHw.c</code> / <code>BrsHw.h</code></td><td style="text-align:left"><code>BrsHwEarlyInitPowerOn()</code>（主核唤醒从核或关闭 SMPU）、多核同步解锁 <code>BrsHw_UnlockCores()</code>、64 位对齐汇编内存清零加速 <code>BrsHw_AsmMemoryZeroInitLoop()</code></td></tr>
+<tr><td style="text-align:left"><strong>5. 时钟（RCC/PLL）、PFlash 与看门狗保护</strong></td><td style="text-align:left"><code>BrsHw.c</code></td><td style="text-align:left">当不启用 MCAL <code>Mcu</code>/<code>Wdg</code> 独立初始化而由 BRS 接管时：PFlash 读写等待时序、HSE 晶振、400MHz 系统 PLL、外设 PLL，以及 CPUWDT / SAFEWDT 的 <code>ENDINIT</code> 密码保护解锁与加锁</td></tr>
+<tr><td style="text-align:left"><strong>6. 评估板 GPIO / 指示灯控制</strong></td><td style="text-align:left"><code>BrsHw_Ports.h</code><br/><code>BrsHw.c</code></td><td style="text-align:left">定义 THA6 <code>PORT_P00</code>~<code>PORT_P40</code> 寄存器结构，支持板载 Alive LED（THA6206 为 <code>P33_0</code>，THA6412 为 <code>P15_7</code>）及 Watchdog/Custom 翻转引脚初始化与电平读写</td></tr>
+<tr><td style="text-align:left"><strong>7. ECU 软复位、复位原因与 Flash ECC 控制</strong></td><td style="text-align:left"><code>BrsHw.c</code></td><td style="text-align:left">触发芯片软复位 <code>BrsHwSoftwareResetECU()</code>、读取并清除复位状态寄存器 <code>BrsHwGetResetReasonStartup()</code>、关闭 DFlash/PFlash ECC 报错 <code>BrsHwDisableEccErrorReporting()</code></td></tr>
+</tbody></table></div>
+
+<h2 id="4-启动与运行机制详解">4. 启动与运行机制详解</h2>
+
+<h3 id="4.1-芯片上电到-main-的完整启动与多核同步机制">4.1 芯片上电到 <code>main()</code> 的完整启动与多核同步机制</h3>
+
+<p>启动流程在 <code>ARMStartup_CortexR52.c</code> 与 <code>BrsMainStartup.c</code> 中严格按以下阶段执行：</p>
+
+<figure class="f-figure"><figcaption>① 上电 → main() 启动流程</figcaption><div class="f-flow-vertical">
+<div class="f-node f-start">上电复位<br/>进入 EL2 (Hyp) 模式</div>
+<div class="f-arrow">▼</div>
+<div class="f-node">brsStartupEntryHyp<br/>配置 HACTLR / SPSR_hyp<br/>写 VBAR / ELR_hyp<br/>ERET 降权到 EL1</div>
+<div class="f-arrow">▼</div>
+<div class="f-node">brsStartupEntry<br/>读 MPIDR 获取 Core ID</div>
+<div class="f-arrow">▼</div>
+<div class="f-node f-diamond">是否为 Boot Core (Core 0)?</div>
+<div class="f-arrow">▼</div>
+<div class="f-branch">
+  <div class="f-branch-col"><div class="f-branch-note">是 · 主核 (Core 0)</div><div class="f-arrow">▼</div><div class="f-node">直接进入 EL1_Startup_Entry</div></div>
+  <div class="f-branch-gap"><div class="f-branch-note">否 · 从核 (Core 1)</div><div class="f-arrow">▼</div><div class="f-node">coreWaitLoop 轮询等待<br/>BrsHw_CoreStart[CoreId] == 0xAA5555AA<br/>（待主核 BrsHw_UnlockCores 解锁后清零标志）</div></div>
+</div>
+<div class="f-arrow">▼</div>
+<div class="f-node">EL1_Startup_Entry → brsFirstCoreInit<br/>使能低延迟外设端口 · 关闭 MPU / Cache<br/>遍历清空 MPU Region · 配置 MAIR0</div>
+<div class="f-arrow">▼</div>
+<div class="f-node">brsInitialMPUconfig → coreRegisterInit<br/>配置 MPU Region · 切 MODE_SYS<br/>开启 MPU (+ EL1 Background) 与 FPU</div>
+<div class="f-arrow">▼</div>
+<div class="f-node">coreRegisterInit2<br/>按 Core ID 使能 ATCM / BTCM / CTCM</div>
+<div class="f-arrow">▼</div>
+<div class="f-node">写 VBAR 绑定临时异常向量表<br/>intvect_CoreExceptions</div>
+<div class="f-arrow">▼</div>
+<div class="f-node">brsStartupZeroInitLoop<br/>Early RAM 清零 (64-bit ECC 写)</div>
+<div class="f-arrow">▼</div>
+<div class="f-node">brsStartupStackSearch → stackPointerInit<br/>查 BrsMain_CoreConfig 初始化各异常模式 SP</div>
+<div class="f-arrow">▼</div>
+<div class="f-node">Brs_PreMainStartup()<br/>BrsHwEarlyInitPowerOn (Core 0 硬件唤醒 Core 1)<br/>Core 0 读取复位原因 brsMain_ResetReason</div>
+<div class="f-arrow">▼</div>
+<div class="f-node">Brs_ApplicationEntry()<br/>ZERO→HARD_RESET→ONE→TWO→THREE→POWER_ON<br/>本核 RAM 清零 + ROM→RAM 拷贝<br/>Core 0 调用 BrsHw_UnlockCores() 解锁从核</div>
+<div class="f-arrow">▼</div>
+<div class="f-node f-end">各核进入 main()<br/>切换 OS 向量表 (BrsHw_ExceptionTable_Init)<br/>Os_Init / EcuM_Init</div>
+<div class="f-branch-merge"><div class="f-branch-note">▼ 双核运行 AUTOSAR OS</div></div>
+</div></figure>
+
+<p><strong>阶段详解：</strong></p>
+
+<ol>
+<li><strong>EL2 (Hypervisor) 降权到 EL1</strong>
+<ul>
+<li class="sub">Cortex-R52 复位后默认进入 EL2（Hyp）模式，入口为 <code>brsStartupEntryHyp</code>；</li>
+<li class="sub">汇编配置 <code>HACTLR</code>（<code>0x0000B783</code>）允许 EL1 访问控制寄存器，构造 <code>SPSR_hyp = MODE_SVC</code>，将临时向量表 <code>EL1_VectorTable</code>（Reset 向量指向 <code>brsStartupEntry</code>）写入 <code>VBAR</code> 与 <code>ELR_hyp</code>，最后执行 <code>ERET</code> 平滑切换到 EL1。</li>
+</ul>
+</li>
+<li><strong>多核同步等待屏障（Core Wait Loop）</strong>
+<ul>
+<li class="sub">通过 <code>MRC p15, 0, r0, c0, c0, 5</code> 读取 <code>MPIDR</code> 获取当前核 ID（<code>BRS_READ_COREID</code>）；</li>
+<li class="sub">Core 0 直接向下执行初始化；从核在 <code>coreWaitLoop</code> 中轮询共享变量 <code>BrsHw_CoreStart[CoreId]</code> 是否等于启动魔数 <code>BRSHW_CORE_START_PATTERN</code>（<code>0xAA5555AA</code>），防止在主核完成全局 RAM 初始化前抢跑。</li>
+</ul>
+</li>
+<li><strong>CPU 内核硬件配置（MPU / TCM / FPU / VBAR）</strong>
+<ul>
+<li class="sub"><strong>低延迟外设端口与 MPU</strong>：使能 <code>IMP_PERIPHPREGIONR</code>，先关 MPU 和 I/D-Cache，遍历清空所有 MPU Region，配置 <code>MAIR0</code>（Normal Non-cacheable 与 Device-nGnRnE），依据 <code>ARMStartup_Platform.h</code> 设置外设/代码/数据/TCM 的 MPU 区域；随后切 <code>MODE_SYS</code>、开启 MPU 及 EL1 Background Region，通过 <code>CPACR</code> 与 <code>FPEXC</code> 开启 FPU；</li>
+<li class="sub"><strong>TCM 使能</strong>：按当前核 ID 读取 <code>brsTcmBase</code> 数组，写入 <code>IMP_ATCMREGIONR</code> / <code>BTCMREGIONR</code> / <code>CTCMREGIONR</code>（<code>c9, c1, 0~2</code>），为每核使能 ATCM (64KB)、BTCM (192KB/240KB)、CTCM (64KB)；</li>
+<li class="sub"><strong>临时异常向量表绑定</strong>：将 <code>ARMBrsHwIntTb_CortexR52.c</code> 中的 <code>intvect_CoreExceptions</code> 写入 <code>VBAR</code>。</li>
+</ul>
+</li>
+<li><strong>Early RAM 清零与各模式栈指针（SP）初始化</strong>
+<ul>
+<li class="sub">遍历 <code>vLinkGen_ZeroInit_Early_Blocks</code> / <code>vLinkGen_ZeroInit_Early_Groups</code>，对当前核内存区域清零（8 字节对齐的 ECC RAM 用 <code>STMIA R3!, {R7, R8}</code> 64-bit 原子写入以初始化 ECC 校验位）；</li>
+<li class="sub">从 <code>vBrs_Lcfg.c</code> 的 <code>BrsMain_CoreConfig</code> 取出当前核的 <code>StartupStackEndLabel</code>（<code>_STACK_C0_LIMIT</code> / <code>_STACK_C1_LIMIT</code>），依次切换 <code>CPS #MODE_ABT/IRQ/FIQ/UNDEF/SVC/SYS</code>，为各异常模式划分 64 字节栈并设置 <code>SP</code>。</li>
+</ul>
+</li>
+<li><strong>C 语言 PreMain 阶段与多核解锁</strong>
+<ul>
+<li class="sub"><code>Brs_PreMainStartup()</code>：
+<ul>
+<li class="sub"><code>BrsHwEarlyInitPowerOn()</code> 在应用层实现<strong>硬件级唤醒 Core 1</strong>（解锁 <code>ENDINIT</code> 后向 <code>CORE_CTRL_ADDR</code>（<code>0xC0020C5C</code>）置位 1）；模板目录中此处为关闭 SMPU 的实现；</li>
+<li class="sub"><code>BrsHwGetResetReasonStartup()</code> 读取 <code>RCC_RESET_RSTSTAT</code> 判断是否软复位并保存至 <code>brsMain_ResetReason</code>；</li>
+</ul>
+</li>
+<li class="sub"><code>Brs_ApplicationEntry()</code> 按 <code>StageZero → HardReset → StageOne → StageTwo → StageThree → PowerOn</code> 顺序执行 RAM 清零（<code>BrsHw_AsmMemoryZeroInitLoop()</code> 使用 <code>stm %0!, {r4, r7}</code> 批量写入并执行 <code>dmb</code>）和 ROM→RAM 数据段拷贝；</li>
+<li class="sub">主核完成后调用 <code>BrsHw_UnlockCores()</code> 将 <code>BrsHw_CoreStart[i]</code> 置为 <code>0xAA5555AA</code>，释放等待中的 Core 1，双核各自进入 <code>main()</code>；</li>
+<li class="sub"><code>main()</code> 中先屏蔽 CPSR 的 IRQ/FIQ，再由 <code>BrsHw_ExceptionTable_Init()</code> 将 <code>VBAR</code> 从 BRS 临时异常向量表切换为 AUTOSAR OS 向量表（<code>_OS_EXCVEC_CORE0_CODE_START</code> / <code>_OS_EXCVEC_CORE1_CODE_START</code>），主核执行 <code>BrsMainInit()</code> 后调用 <code>Os_Init()</code> 与 <code>EcuM_Init()</code> 启动 AUTOSAR 系统。</li>
+</ul>
+</li>
+</ol>
+
+<h3 id="4.2-硬件看门狗-endinit-保护机制">4.2 硬件看门狗 <code>ENDINIT</code> 保护机制</h3>
+
+<p>THA6 关键系统寄存器（时钟 RCC、复位、Flash ECC、引脚驱动强度等）受硬件看门狗写保护：</p>
+
+<ul>
+<li><strong>CPUWDT</strong>：每核独立，基址 <code>0xF0000000 + 0x400000 * CoreId</code>；</li>
+<li><strong>SAFEWDT</strong>：安全看门狗，基址 <code>0xD0050400</code>。</li>
+</ul>
+
+<p><code>BrsHw.c</code> 实现完整加解锁协议：</p>
+
+<div class="table-wrap"><table><thead><tr><th style="text-align:left">操作</th><th style="text-align:left">函数</th></tr></thead><tbody>
+<tr><td style="text-align:left">CPU ENDINIT 解锁 / 加锁</td><td style="text-align:left"><code>Cpuwdt_Hal_ClearEndinit()</code> / <code>Cpuwdt_Hal_SetEndinit()</code></td></tr>
+<tr><td style="text-align:left">Safety ENDINIT 解锁 / 加锁</td><td style="text-align:left"><code>Safewdt_Hal_ClearSafetyEndinit()</code> / <code>Safewdt_Hal_SetSafetyEndinit()</code></td></tr>
+</tbody></table></div>
+
+<p><strong>实现细节</strong>：读取 <code>PWMAI</code> 判断密码模式是固定密码（<code>0x3333</code>）还是动态 LFSR 密码（动态模式 1 通过多项式移位异或 <code>Cpuwdt_Hal_CalculateDynamicPassword()</code> 计算，动态模式 2 通过异或 <code>0x3F</code> 计算）；向 <code>CEPW</code>/<code>SEPW</code> 写入口令解锁权限，启动/停止 <code>CECNTC</code>/<code>SECNTC</code> 计数器以打开/关闭关键寄存器写窗口，最后置位 <code>PWLOCK</code> 锁定密码寄存器。</p>
+
+<h3 id="4.3-时钟pll-与-pflash-时序初始化">4.3 时钟（PLL）与 PFlash 时序初始化</h3>
+
+<p>定义 <code>BRS_ENABLE_PLLCLOCKS</code> 时执行 <code>BrsHwPllInitPowerOn()</code>：</p>
+
+<ol>
+<li><strong>PFlash 频率切换预配置</strong>（<code>Flash_Hal_PFlashSwitchFreq()</code> / <code>Flash_Hal_CalPFlashTiming()</code>）
+<ul>
+<li class="sub">CPU 升频至 400MHz 前必须调整 PFlash（基址 <code>0xC0100000</code>）访问等待周期，否则高速取指出错；</li>
+<li class="sub">按目标 400MHz 计算分频系数 <code>bCLKDIV</code>（Flash 时钟 ≤ 100MHz）、读等待 <code>bRDT = 9U</code> 及超时参数 <code>bSTO0/bSTO1</code>，写入 <code>NVM_COMM_CTR-&gt;PFCON</code> 与 <code>PF0_CTR</code>。</li>
+</ul>
+</li>
+<li><strong>RCC 与双 PLL 配置</strong>（<code>Rcc_Init()</code>）
+<ul>
+<li class="sub">基于默认 100MHz HSI 将 STM 分频为 25MHz（<code>Rcc_Hal_ConfigStmClk(3U)</code>），利用 64 位 STM 计数器（<code>Stm_Hal_GetValue()</code>）做硬件超时监控；</li>
+<li class="sub">使能外部高速晶振 HSE 并等待 <code>HSE_READY</code>（<code>Rcc_Hal_EnableHse()</code>）；</li>
+<li class="sub">配置 System PLL（<code>Rcc_Hal_ConfigSysPll()</code>）与 Peripheral PLL（<code>Rcc_Hal_ConfigPerPll()</code>）：HSE 为参考源，整数模式，<code>refDiv=2</code>、<code>fbDiv=80</code>、<code>postDiv1=1</code>、<code>postDiv2=1</code>，锁定后将 CPU 时钟切至 SYSPLL（400MHz），STM 重新分频（<code>15U</code>）维持 25MHz。</li>
+</ul>
+</li>
+</ol>
+
+<blockquote>注：本工程集成第三方 MCAL 后，时钟与端口交由 <code>Mcu_Init()</code> / <code>Port_Init()</code> 管理，故 <code>vBrsCfg.h</code> 未开启 <code>BRS_ENABLE_PLLCLOCKS</code> 与 <code>BRS_ENABLE_PORT</code>。</blockquote>
+
+<h3 id="4.4-gicv3-中断控制器与外设辅助接口">4.4 GICv3 中断控制器与外设辅助接口</h3>
+
+<ul>
+<li><strong>GICv3 中断管理</strong>（<code>ARMBrsHw_CortexR52.c</code>）：通过 <code>MRC p15, 1, %0, c15, c3, 0</code> 读取 <code>IMP_CBAR</code> 获取 GIC 基址；
+<ul>
+<li class="sub"><code>Source &lt; 32</code>（SGI/PPI 私有中断）：操作当前核 Redistributor 寄存器 <code>GICR_*</code>（基址偏移 <code>0x110000 + 0x20000 * CoreId</code>）；</li>
+<li class="sub"><code>Source &gt;= 32</code>（SPI 共享外设中断）：操作全局 Distributor 寄存器 <code>GICD_*</code>，并将 <code>GICD_IROUTER(Source)</code> 路由绑定到当前核。</li>
+<li class="sub">相关函数：<code>BrsHw_EnableInterrupt()</code> / <code>BrsHw_DisableInterrupt()</code> / <code>BrsHw_TriggerSoftwareInterrupt()</code>。</li>
+</ul>
+</li>
+<li><strong>ECU 软件复位</strong>（<code>BrsHwSoftwareResetECU()</code>）：先调用钩子 <code>BrsMain_SoftwareResetECU_Hook()</code> 并关中断，解锁 <code>ENDINIT</code>，向 <code>RCC_RESET_SWRSTCON</code> 写 <code>0x1u</code> 触发芯片级软复位，进入 <code>while(1)</code> 等待复位生效。</li>
+</ul>
+
+<h2 id="5-模板与实例文件对照">5. 模板与实例文件对照</h2>
+
+<h3 id="5.1-全量映射表">5.1 全量映射表</h3>
+
+<div class="table-wrap"><table><thead><tr><th style="text-align:left">所属组件</th><th style="text-align:left">模板文件（<code>DemoComponents/</code>，只读基线）</th><th style="text-align:left">实例文件（<code>Appl/</code>，实际编译）</th><th style="text-align:left">模板版本 vs 实例版本</th><th style="text-align:left">核心定制 / 差异内容</th></tr></thead><tbody>
+<tr><td style="text-align:left"><strong><code>vBaseEnv</code></strong></td><td style="text-align:left"><code>_BrsHw.c</code> / <code>_BrsHw.h</code><br/><code>_BrsHw_Ports.h</code></td><td style="text-align:left"><code>BrsHw.c</code> / <code>BrsHw.h</code><br/><code>BrsHw_Ports.h</code></td><td style="text-align:left"><code>v01.02.00</code> (2025)<br/>vs<br/><code>v01.01.03</code> (2024)</td><td style="text-align:left">实例 <code>BrsHwEarlyInitPowerOn()</code> 增加 THA6206 解锁 <code>ENDINIT</code> 并写 <code>0xC0020C5C</code> 唤醒 Core 1；模板新增 THA6412 支持（含 <code>BrsHw_Ports.h</code> 的 <code>P15_7</code> LED）、HSM 访问关闭 SMPU（<code>0x40080080</code>）及 <code>BrsHwSoftwareResetECU()</code> 软复位实现</td></tr>
+<tr><td style="text-align:left"><strong><code>vBaseEnv</code></strong></td><td style="text-align:left"><code>_ARMStartup_Platform.h</code><br/><code>_ARMStartup_CortexR52.c</code></td><td style="text-align:left"><code>ARMStartup_Platform.h</code><br/><code>ARMStartup_CortexR52.c</code></td><td style="text-align:left"><code>v02.09.01</code> (2025)<br/>vs<br/><code>v02.08.04</code> (2024)</td><td style="text-align:left">实例将 <code>MPU_CODE/DATA/TCM_REGION</code> 宏全部改为 <code>STD_OFF</code>，并定制 <code>brsTcmBase</code> 的 ATCM/CTCM Clone 基址；模板增加 64 位模式与新版编译器兼容性检查</td></tr>
+<tr><td style="text-align:left"><strong><code>vBaseEnv</code></strong></td><td style="text-align:left"><code>_ARMBrsHw_CortexR52.c</code> / <code>.h</code><br/><code>_ARMBrsHwIntTb_CortexR52.c</code></td><td style="text-align:left"><code>ARMBrsHw_CortexR52.c</code> / <code>.h</code><br/><code>ARMBrsHwIntTb_CortexR52.c</code></td><td style="text-align:left"><code>v02.09.01</code> (2025)<br/>vs<br/><code>v02.08.04</code> (2024)</td><td style="text-align:left">模板增加 HSM（Cortex-M）无需初始化 Cortex-R52 GIC/异常表的条件编译保护，统一 FBL RAM 向量表符号 <code>intvect_CoreExceptions_Ram_Vectortable</code></td></tr>
+<tr><td style="text-align:left"><strong><code>vBaseEnv</code></strong></td><td style="text-align:left"><code>_Makefile</code><br/><code>_Makefile.static</code></td><td style="text-align:left"><code>Makefile</code><br/><code>Makefile.static</code></td><td style="text-align:left"><code>v01.04.00</code> (2025)<br/>vs<br/><code>v01.02.09</code> (2024)</td><td style="text-align:left">实例配置本地 HighTec 编译器路径 <code>COMPILER_BASE_WIN</code>（v8.1.0）与 <code>LICENSE_SERVER</code>；模板升级适配 LlvmHighTec v9.0.0 与新版 FPU/库选项</td></tr>
+<tr><td style="text-align:left"><strong><code>vBRS</code></strong></td><td style="text-align:left"><code>_BrsMain.c</code><br/><code>_BrsMain.h</code></td><td style="text-align:left"><code>BrsMain.c</code><br/><code>BrsMain.h</code></td><td style="text-align:left"><code>v02.23.01</code> (2025)<br/>vs<br/><code>v02.21.01</code> (2024)</td><td style="text-align:left">实例在 <code>Default_Init_Task</code> 与 <code>Default_Init_Task_Core0</code> 的 <code>EcuM_StartupTwo()</code> 之后<strong>定制增加 <code>Rte_Start()</code></strong>；模板新增对 <code>vHyp</code>（Hypervisor）的完善支持</td></tr>
+<tr><td style="text-align:left"><strong><code>vBRS</code></strong></td><td style="text-align:left"><code>_BrsMainStartup.c</code><br/><code>_BrsMain_Appl.c</code> / <code>.h</code><br/><code>_BrsMain_Callout_Stubs.c</code><br/><code>_BrsMain_Types.h</code> / <code>_Cfg.h</code><br/><code>_Brs_MemMap.h</code></td><td style="text-align:left"><code>BrsMainStartup.c</code><br/><code>BrsMain_Appl.c</code> / <code>.h</code><br/><code>BrsMain_Callout_Stubs.c</code><br/><code>BrsMain_Types.h</code> / <code>_Cfg.h</code><br/><code>Brs_MemMap.h</code></td><td style="text-align:left"><code>v02.23.01</code><br/>vs<br/><code>v02.21.01</code></td><td style="text-align:left">模板更新 <code>VLINKGEN_CFG_64BIT_MODE_ENABLED</code>（64 位地址模式）、<code>DrvCanGen3</code> 与 <code>BRSHW_CORES_AUTOSTART</code> 宏兼容性检查</td></tr>
+</tbody></table></div>
+
+<h3 id="5.2-关键定制差异示例为什么必须保留两份文件">5.2 关键定制差异示例：为什么必须保留两份文件</h3>
+
+<p>以 <code>_BrsMain.c</code> 与 <code>BrsMain.c</code> 为例，官方模板的 <code>Default_Init_Task</code>：</p>
+
+<pre class="code-block"><code>EcuM_StartupTwo();
+(void)TerminateTask();
+</code></pre>
+
+<p>项目实例修改为：</p>
+
+<pre class="code-block"><code>EcuM_StartupTwo();
+Rte_Start();          /* 项目定制：显式启动周期性 Runnable */
+(void)TerminateTask();
+</code></pre>
+
+<ul>
+<li><strong>原因</strong>：若未配置 <code>BswM</code> 在 <code>EcuM_StartupTwo()</code> 阶段自动触发 <code>Rte_Start()</code>，就需由启动任务显式调用；</li>
+<li><strong>两份文件的价值</strong>：SIP 从 2024（v02.21）升级到 2025（v02.23）时，若只提供单份编译文件，升级覆盖将导致 <code>Rte_Start()</code> 及 <code>BrsHw.c</code> 中的双核唤醒代码直接丢失，造成系统无法启动或 Core 1 无法运行。</li>
+</ul>
+
+<h3 id="5.3-日常开发与维护建议">5.3 日常开发与维护建议</h3>
+
+<ol>
+<li><strong>修改代码时</strong>：所有针对启动流程、多核唤醒、TCM/MPU 区域、初始化任务的修改，<strong>一律在 <code>Applications/SipAddon/StartApplication/Appl/</code> 下的无下划线文件</strong>中进行（修改 <code>DemoComponents/</code> 下的 <code>_</code> 文件不生效，因其不在编译列表）。</li>
+<li><strong>SIP 升级后</strong>：当 <code>DemoComponents/</code> 版本高于 <code>Appl/</code> 时，用 Diff 对比两处文件，将新版底层补丁（如 <code>BrsHwSoftwareResetECU()</code> 软复位实现）手动合入 <code>Appl/Source/BrsHw.c</code>。</li>
+</ol>
+
+<h2 id="6-生成机制">6. 生成机制</h2>
+
+<h3 id="6.1-生成链路">6.1 生成链路</h3>
+
+<figure class="f-figure"><figcaption>② 生成链路</figcaption><div class="f-flow-h">
+<div class="f-stage"><div class="f-stage-tag">INPUT</div><div class="f-stage-title">1. 定义与配置输入 (ARXML)</div><div class="f-mini">vBaseEnv / vBRS / vLinkGen<br/>BSWMD &amp; Pre/Rec ARXML</div><div class="f-mini">工程 ECUC 配置<br/>StartApplication_vBaseEnv / vBRS / vLinkGen</div></div>
+<div class="f-arrow-h">➜</div>
+<div class="f-stage"><div class="f-stage-tag">GENERATOR</div><div class="f-stage-title">2. DaVinci Configurator 生成器 (JAR)</div><div class="f-mini">vBRS.jar</div><div class="f-mini">vLinkGen.jar</div></div>
+<div class="f-arrow-h">➜</div>
+<div class="f-stage"><div class="f-stage-tag">OUTPUT</div><div class="f-stage-title">3. 动态生成代码 (GenData &amp; Appl)</div><div class="f-mini">vBrsCfg.h<br/>vBrs_Lcfg.c / .h<br/>Makefile.config.generated</div><div class="f-mini">vLinkGen_Lcfg.c / .h / _Cfg.h<br/>vLinkGen_Template.ld</div></div>
+<div class="f-arrow-h-dashed">⤳</div>
+<div class="f-stage"><div class="f-stage-tag">STATIC</div><div class="f-stage-title">4. 固定静态代码 (Appl/Source &amp; Include)</div><div class="f-mini">vBaseEnv 静态代码<br/>BrsHw.* / ARMStartup_*</div><div class="f-mini">vBRS 静态代码<br/>BrsMain.* / BrsMainStartup.c</div></div>
+</div>
+<div class="f-legend"><span class="f-legend-item">实线：配置驱动生成</span><span class="f-legend-item">虚线 ⤳：宏与内存表供给静态代码（vBrsCfg.h / vLinkGen_Lcfg 供 BrsHw.* 与 BrsMain.* 使用）</span></div>
+</figure>
+
+<h3 id="6.2-固定源代码静态代码">6.2 固定源代码（静态代码）</h3>
+
+<p>静态代码以 <code>_</code> 前缀模板存放于 <code>DemoComponents/</code>，实例化后位于 <code>Appl/Source/</code> 与 <code>Appl/Include/</code>：</p>
+
+<p><strong><code>vBaseEnv</code> 平台相关静态代码（硬件抽象与汇编启动）：</strong></p>
+
+<div class="table-wrap"><table><thead><tr><th style="text-align:left">模板文件（<code>DemoComponents/vBaseEnv/</code>）</th><th style="text-align:left">工程实例文件（<code>Appl/</code>）</th><th style="text-align:left">作用说明</th></tr></thead><tbody>
+<tr><td style="text-align:left"><code>Implementation/_ARMStartup_CortexR52.c</code></td><td style="text-align:left"><code>Source/ARMStartup_CortexR52.c</code></td><td style="text-align:left">Cortex-R52 复位入口 <code>brsStartupEntryHyp</code> / <code>brsStartupEntry</code>、EL2→EL1 切换、TCM/MPU 初始化、Early ECC RAM 清零、各核启动栈 SP 初始化</td></tr>
+<tr><td style="text-align:left"><code>Implementation/_ARMStartup_Platform.h</code></td><td style="text-align:left"><code>Include/ARMStartup_Platform.h</code></td><td style="text-align:left">芯片平台特定 TCM 基址表 <code>brsTcmBase</code> 与 MPU 区域配置宏</td></tr>
+<tr><td style="text-align:left"><code>Implementation/_ARMBrsHw_CortexR52.c</code> / <code>.h</code></td><td style="text-align:left"><code>Source/ARMBrsHw_CortexR52.c</code><br/><code>Include/ARMBrsHw_CortexR52.h</code></td><td style="text-align:left">ARM Cortex-R52 通用内联汇编抽象、读取 CoreID <code>BrsHw_GetCore()</code>、异常向量表切换 <code>BrsHw_ExceptionTable_Init()</code>、GICv3（GICD/GICR）中断控制</td></tr>
+<tr><td style="text-align:left"><code>Implementation/_ARMBrsHwIntTb_CortexR52.c</code></td><td style="text-align:left"><code>Source/ARMBrsHwIntTb_CortexR52.c</code></td><td style="text-align:left">启动阶段默认核心异常向量表 <code>intvect_CoreExceptions</code>（<code>.brsExcVect</code>）及 FBL RAM 异常向量表（<code>.brsExcVectRam</code>）</td></tr>
+<tr><td style="text-align:left"><code>Implementation/_BrsHw.c</code> / <code>_BrsHw.h</code></td><td style="text-align:left"><code>Source/BrsHw.c</code><br/><code>Include/BrsHw.h</code></td><td style="text-align:left">THA6 芯片级外设初始化（CPUWDT/SAFEWDT <code>ENDINIT</code>、RCC/PLL、PFlash、Port、<code>BrsHwEarlyInitPowerOn</code>、多核解锁 <code>BrsHw_UnlockCores</code>、软复位等）</td></tr>
+<tr><td style="text-align:left"><code>Implementation/_BrsHw_Ports.h</code></td><td style="text-align:left"><code>Include/BrsHw_Ports.h</code></td><td style="text-align:left">评估板（THA6206/THA6412 EVB）引脚复用（PinMux）与 LED/通信端口定义</td></tr>
+<tr><td style="text-align:left"><code>MakeSupport/_Makefile</code><br/><code>MakeSupport/_Makefile.static</code><br/><code>MakeSupport/_Makefile.wrapper</code></td><td style="text-align:left"><code>Makefile</code><br/><code>Makefile.static</code><br/>（<code>_Makefile.wrapper</code> 按需选用）</td><td style="text-align:left">GNU Make 构建环境及 HighTec LLVM 静态编译选项</td></tr>
+</tbody></table></div>
+
+<p><strong><code>vBRS</code> 平台无关静态代码（C 语言启动流与任务调度，共 9 个文件）：</strong></p>
+
+<div class="table-wrap"><table><thead><tr><th style="text-align:left">文件</th><th style="text-align:left">职责</th></tr></thead><tbody>
+<tr><td style="text-align:left"><code>BrsMainStartup.c</code></td><td style="text-align:left"><code>Brs_PreMainStartup()</code> 与 <code>Brs_ApplicationEntry()</code>，按 <code>ZERO → HARD_RESET_ONLY → ONE → TWO → THREE → POWER_ON</code> 阶段执行 RAM 清零（<code>Brs_MemoryZeroInit()</code>）与 ROM→RAM 拷贝（<code>Brs_MemoryInit()</code>）</td></tr>
+<tr><td style="text-align:left"><code>BrsMain.c</code> / <code>BrsMain.h</code></td><td style="text-align:left"><code>main()</code>、<code>BrsMainInit()</code>、默认启动任务 <code>Default_Init_Task</code>、异常处理 <code>BrsMainExceptionHandler()</code></td></tr>
+<tr><td style="text-align:left"><code>BrsMain_Callout_Stubs.c</code>、<code>BrsMain_Appl.c</code> / <code>.h</code>、<code>BrsMain_Types.h</code>、<code>BrsMain_Cfg.h</code>、<code>Brs_MemMap.h</code></td><td style="text-align:left">回调钩子桩、应用定制源码与头文件、类型与配置、内存映射宏</td></tr>
+</tbody></table></div>
+
+<h3 id="6.3-生成代码generated-code">6.3 生成代码（Generated Code）</h3>
+
+<p>DaVinci Configurator 点击 Generate 后在 <code>Appl/GenData/</code>、<code>Appl/Source/</code> 与 <code>Appl/</code> 下动态生成：</p>
+
+<ol>
+<li><strong><code>Appl/GenData/vBrsCfg.h</code>（编译期宏开关与硬件常数）</strong>
+<ul>
+<li class="sub">芯片级宏：<code>BRS_DERIVATIVE_Tongxin_THA6206</code>、<code>BRS_CPU_CORE_CORTEX_R52</code>、<code>BRS_CPU_MAX_FREQUENCY 400</code>、<code>BRS_CPU_CORE_AMOUNT 2</code>；</li>
+<li class="sub">运行环境宏：<code>BRS_FIRST_EXECUTION_INSTANCE</code>、<code>BRS_ENABLE_OS_MULTICORESUPPORT</code>、时钟常数（<code>BRS_OSC_CLK 25</code>、<code>BRS_TIMEBASE_CLOCK 400</code>、<code>BRS_PERIPH_CLOCK 25</code>）、指令集与 FPU 宏（<code>BRS_INSTRUCTION_SET_ARM</code>、<code>BRS_FPU_USED</code>）、内存清零 Pattern 宏；</li>
+<li class="sub">若开启 <code>vBRS</code> 硬件驱动处理开关，还会生成 <code>BRS_ENABLE_PLLCLOCKS</code>、<code>BRS_ENABLE_PORT</code>、<code>BRS_ENABLE_WATCHDOG</code>、<code>BRS_ENABLE_CAN_SUPPORT</code> 等（本工程已集成 MCAL，这些开关均为 <code>false</code>，故未生成）。</li>
+</ul>
+</li>
+<li><strong><code>Appl/GenData/vBrs_Lcfg.c</code> / <code>vBrs_Lcfg.h</code>（多核物理/逻辑映射与启动栈表）</strong>
+<ul>
+<li class="sub">生成 <code>BrsMain_CoreConfig[2u]</code> 数组，含每核 <code>LogicalCoreId</code>、<code>PhysicalCoreId</code>、<code>StartupStackEndLabel</code>（<code>&amp;BRSHW_DEFINE_STARTUP_STACK(0/1)</code>，由 <code>ARMBrsHw_CortexR52.h</code> 展开为 <code>&amp;_STACK_C0_LIMIT</code> / <code>&amp;_STACK_C1_LIMIT</code>）、<code>StartupStackSize</code>（<code>1024u</code>）、异常表与中断表标号（<code>&amp;BRSHW_DEFINE_EXCVEC(0/1)</code> / <code>&amp;BRSHW_DEFINE_INTVEC(0/1)</code>，展开为 <code>&amp;_OS_EXCVEC_CORE0_CODE_START</code> / <code>&amp;_OS_EXCVEC_CORE1_CODE_START</code>），供汇编启动与 <code>main()</code> 查表初始化。</li>
+</ul>
+</li>
+<li><strong><code>Appl/Makefile.config.generated</code>（构建系统生成配置）</strong>
+<ul>
+<li class="sub"><code>DERIVATIVE = Tongxin_THA6206</code>、<code>CPU_CORE = CORTEX_R52</code>、<code>INSTRUCTION_SET = ARM</code>、<code>FPU_USED = 1</code>、<code>BRS_CPU_CORE_0_USED = 1</code>、<code>BRS_CPU_CORE_1_USED = 1</code>，并将 <code>$(GENDATA_DIR)\vBrs_Lcfg.c</code> 追加到 <code>APP_SOURCE_LST</code>。</li>
+</ul>
+</li>
+<li><strong>与 <code>vBaseEnv</code> 联动的 <code>vLinkGen</code> 文件</strong>
+<ul>
+<li class="sub"><code>Appl/GenData/vLinkGen_Lcfg.c</code> / <code>.h</code> / <code>_Cfg.h</code>：根据 <code>vBaseEnv</code> 定义的硬件内存区域（<code>CORE0_ATCM</code>、<code>CORE0_BTCM</code>、<code>LMU1_NORMAL</code>、<code>PFLASH0_NORMAL</code> 的起始地址、大小、ECC 对齐），生成供 <code>BrsMainStartup.c</code> 遍历清零和拷贝的结构体表（<code>vLinkGen_ZeroInit_Early_Blocks</code>、<code>vLinkGen_ZeroInit_One_Groups</code>、<code>vLinkGen_Init_One_Groups</code>）；</li>
+<li class="sub"><code>Appl/Source/vLinkGen_Template.ld</code>：生成的链接脚本（由 <code>Appl/Makefile</code> 根据 <code>BRS_LINKER_COMMAND_FILE_POSTFIX</code> 引用）。</li>
+</ul>
+</li>
+<li><strong>可选生成的 Stub 文件（无真实 EcuM/RTE 时）</strong>
+<ul>
+<li class="sub">勾选 <code>vBRSEnableEcuMStubGeneration</code> 或 <code>vBRSEnableSchmStubGeneration</code> 时生成 <code>EcuM.c/.h</code> 与 <code>SchM_&lt;Module&gt;.h</code>（本工程含完整 BSW <code>EcuM</code> 与 <code>Rte</code>，两开关均为 <code>false</code>）。</li>
+</ul>
+</li>
+</ol>
+
+<h3 id="6.4-davinci-configurator-配置流程三步">6.4 DaVinci Configurator 配置流程（三步）</h3>
+
+<ol>
+<li><strong>在 <code>vBaseEnv</code> 模块中选择目标芯片型号</strong>
+<ul>
+<li class="sub"><code>/ActiveEcuC/vBaseEnv/vBaseEnvGeneral</code> 的 <code>vBaseEnvTestedDerivativeRef</code> 指向 <code>Tongxin_THA6206</code>；</li>
+<li class="sub">该节点已由预配置文件填好全部硬件参数（<code>CORTEX_R52</code>、2 核、400MHz、6 CAN / 8 LIN / 9 SPI / 1 Ethernet，以及各核 ATCM/BTCM/CTCM、GMU、LMU、PFLASH 的首地址、大小、ECC 对齐 4/8 字节）。</li>
+</ul>
+</li>
+<li><strong>在 <code>vBRS</code> 模块中配置运行环境与硬件外设处理策略</strong>
+<ul>
+<li class="sub"><code>vBRSGeneral</code>：<code>vBRSExecutionInstance = Application</code>、<code>vBRSFirstInstance = true</code>、<code>vBRSEnableMultiCoreSupport = true</code>、<code>vBRSEnableCoreSpecificVLinkGenConfig = true</code>；</li>
+<li class="sub"><code>vBRSHwConfig</code>：<code>vBRSOscClock = 25MHz</code>、<code>vBRSTimebaseClock = 400MHz</code>、<code>vBRSPeriphClock = 25MHz</code>，关联 <code>McuClockReferencePoint_0</code>；因已有 MCAL，<code>vBRSEnablePLLClocksHandling</code>、<code>vBRSEnablePortHandling</code>、<code>vBRSEnableWatchdogHandling</code> 均设为 <code>false</code>；</li>
+<li class="sub"><code>vBRSMemoryInit</code>：RAM 清零填充值（默认 <code>0x0</code>）及 64-bit 初始化模式。</li>
+</ul>
+</li>
+<li><strong>执行 Solving Actions（一键联动配置 <code>Os</code> 与 <code>vLinkGen</code>）</strong>
+<ul>
+<li class="sub">在 <code>Os</code> 中自动创建每核 <code>Default_Init_Task</code> / <code>Default_Init_Task_Trusted</code>，按 <code>vBRSPeriphClock</code> 计算 <code>OsCounterTicksPerBase</code>；</li>
+<li class="sub">在 <code>vLinkGen</code> 中按 <code>Tongxin_THA6206</code> 激活存在的内存区域，并按核创建启动栈段组 <code>STACK_C0</code>、<code>STACK_C1</code>；</li>
+<li class="sub">检查工程中是否存在 <code>Mcu</code>/<code>Port</code>/<code>Wdg</code>/<code>EcuM</code>/<code>Rte</code>，自动开关 <code>BrsHw</code> 硬件初始化与 <code>EcuM</code>/<code>SchM</code> Stub 开关。</li>
+</ul>
+</li>
+</ol>
+
+<h3 id="6.5-arxml-定义文件分类">6.5 ARXML 定义文件分类</h3>
+
+<p><strong>① 参数定义文件（BSWMD，定义容器与参数）：</strong></p>
+
+<div class="table-wrap"><table><thead><tr><th style="text-align:left">文件</th><th style="text-align:left">定义内容</th></tr></thead><tbody>
+<tr><td style="text-align:left"><code>DemoComponents/vBaseEnv/BSWMD/vBaseEnv_bswmd.arxml</code></td><td style="text-align:left"><code>vBaseEnv</code> 模块定义（<code>/MICROSAR/vBaseEnv</code>）：<code>vBaseEnvGeneral</code>、<code>vBaseEnvDerivativeInformation</code>、<code>vBaseEnvMemLayoutHwRegion</code>、<code>vBaseEnvInterruptHandling</code>、<code>vBaseEnvPeripheralClocks</code>、<code>vBaseEnvStartupStackSettings</code></td></tr>
+<tr><td style="text-align:left"><code>DemoComponents/vBRS/BSWMD/vBRS_bswmd.arxml</code></td><td style="text-align:left"><code>vBRS</code> 模块定义（<code>/MICROSAR/vBRS</code>）</td></tr>
+<tr><td style="text-align:left"><code>DemoComponents/vLinkGen/BSWMD/vLinkGen_bswmd.arxml</code></td><td style="text-align:left"><code>vLinkGen</code> 模块定义（<code>/MICROSAR/vLinkGen</code>）</td></tr>
+</tbody></table></div>
+
+<p><strong>② 芯片平台与工具链预配置/推荐配置文件（Pre / Rec ARXML，位于 <code>DemoComponents/vBaseEnv/BSWMD/</code> 与 <code>DemoComponents/vLinkGen/BSWMD/</code> 下）：</strong></p>
+
+<div class="table-wrap"><table><thead><tr><th style="text-align:left">文件</th><th style="text-align:left">内容</th></tr></thead><tbody>
+<tr><td style="text-align:left"><code>vBaseEnv/BSWMD/vBaseEnv/Tongxin_THA6/vBaseEnv_THA6_pre.arxml</code></td><td style="text-align:left">THA6 平台硬件预配置（<code>/MICROSAR/vBaseEnv_Pre</code>）：THA6206 / THA6412 的核数、主频、外设通道数及全部物理内存块地址与 ECC 对齐。详见 <a href="#7-vbaseenv_tha6_prearxml-芯片预配置文件">第 7 节</a></td></tr>
+<tr><td style="text-align:left"><code>vBaseEnv/BSWMD/vBaseEnv/Tongxin_THA6/vBRS_THA6_pre.arxml</code></td><td style="text-align:left">THA6 平台的 <code>vBRS</code> 预配置/推荐配置（<code>ARM</code> 指令集、400MHz Timebase、25MHz 晶振与外设时钟、EVB 信息）</td></tr>
+<tr><td style="text-align:left"><code>vBaseEnv/BSWMD/vBRS_General_pre.arxml</code></td><td style="text-align:left">通用 <code>vBRS</code> 推荐配置（默认启用 <code>vBRSEnableCoreSpecificVLinkGenConfig = 1</code>）</td></tr>
+<tr><td style="text-align:left"><code>vBaseEnv/BSWMD/vLinkGen_BaseEnv_rec.arxml</code><br/><code>vLinkGen_BaseEnv_Compiler_KEEP_rec.arxml</code><br/><code>vLinkGen_BaseEnv_Variants_rec.arxml</code></td><td style="text-align:left"><code>vBaseEnv</code> 提供的 <code>vLinkGen</code> 推荐段映射：<code>brsExcVect</code>、<code>brsStartup</code>、<code>brsMainStartup</code>、<code>brsApplicationEntry</code>、<code>brsSharedVar</code>、<code>brsSharedConst</code> 等关键段及 <code>KEEP</code> 防裁剪属性、默认执行实例变体定义</td></tr>
+<tr><td style="text-align:left"><code>vLinkGen/BSWMD/vLinkGen_bswmd_pre.arxml</code><br/><code>vLinkGen_ContentTypes_pre.arxml</code> / <code>_rec.arxml</code><br/><code>vLinkGen_LLVMHIGHTEC_pre.arxml</code> / <code>_rec.arxml</code></td><td style="text-align:left"><code>vLinkGen</code> 自身的基础预配置、标准段内容类型（ContentTypes）定义，以及 HighTec LLVM 编译器专属链接脚本语法规则预配置/推荐配置</td></tr>
+</tbody></table></div>
+
+<p><strong>③ 工程实例化配置文件（ActiveEcuC ARXML，位于 <code>Applications/.../Config/ECUC/</code> 下）：</strong></p>
+
+<div class="table-wrap"><table><thead><tr><th style="text-align:left">文件</th><th style="text-align:left">内容</th></tr></thead><tbody>
+<tr><td style="text-align:left"><code>StartApplication_vBaseEnv_vBaseEnv_ecuc.arxml</code></td><td style="text-align:left">工程 <code>vBaseEnv</code> 实际配置值</td></tr>
+<tr><td style="text-align:left"><code>StartApplication_vBRS_vBRS_ecuc.arxml</code></td><td style="text-align:left">工程 <code>vBRS</code> 实际配置值</td></tr>
+<tr><td style="text-align:left"><code>StartApplication_vLinkGen_vLinkGen_ecuc.arxml</code></td><td style="text-align:left">工程 <code>vLinkGen</code> 实际配置值</td></tr>
+</tbody></table></div>
+
+<h3 id="6.6-jar-生成器包">6.6 JAR 生成器包</h3>
+
+<p>DaVinci Configurator 底层基于 Eclipse/Java，参数校验（Validation）、自动求解（Solving Actions）与代码生成全部由 Java <code>.jar</code> 插件驱动：</p>
+
+<div class="table-wrap"><table><thead><tr><th style="text-align:left">生成器</th><th style="text-align:left">位置</th><th style="text-align:left">职责</th></tr></thead><tbody>
+<tr><td style="text-align:left"><code>vBaseEnv</code> 自身</td><td style="text-align:left"><code>GeneratorMsr/InitFunctions_Settings.xml</code><br/><code>GeneratorDvC6/InitFunctions_Settings.xml</code></td><td style="text-align:left">仅含初始化阶段声明 XML（<code>NO_INIT</code>，无需 EcuM 调用），<strong>无独立 <code>.jar</code></strong></td></tr>
+<tr><td style="text-align:left"><strong><code>vBRS.jar</code></strong></td><td style="text-align:left"><code>DemoComponents/vBRS/GeneratorMsr/vBRS.jar</code>（DVC5 Classic，约 3.9 MB）<br/><code>GeneratorDvC6/vBRS.jar</code>（DVC6，约 6.2 MB）</td><td style="text-align:left">同时读取 <code>vBaseEnv</code>、<code>vBRS</code>、<code>Os</code>、<code>EcuC</code>/<code>vSet</code> 的 ARXML 配置，提供 Solving Actions，生成 <code>vBrsCfg.h</code>、<code>vBrs_Lcfg.c/.h</code>、<code>Makefile.config.generated</code> 及可选 <code>EcuM</code>/<code>SchM</code> Stub</td></tr>
+<tr><td style="text-align:left"><strong><code>vLinkGen.jar</code></strong></td><td style="text-align:left"><code>DemoComponents/vLinkGen/GeneratorMsr/vLinkGen.jar</code><br/><code>GeneratorDvC6/vLinkGen.jar</code></td><td style="text-align:left">读取 <code>vBaseEnv</code> 内存布局与 <code>vLinkGen</code> 逻辑段映射，生成 <code>vLinkGen_Lcfg.c/.h</code>、<code>vLinkGen_Cfg.h</code> 和链接脚本 <code>vLinkGen_Template.ld</code></td></tr>
+</tbody></table></div>
+
+<h2 id="7-vbaseenv_tha6_prearxml-芯片预配置文件">7. vBaseEnv_THA6_pre.arxml 芯片预配置文件</h2>
+
+<p><code>vBaseEnv_THA6_pre.arxml</code>（共 1162 行，定义节点 <code>/MICROSAR/vBaseEnv_Pre</code>）是 Vector 针对<strong>紫光同芯（Tongxin）THA6 系列</strong>提供的<strong>硬件预配置文件</strong>。</p>
+
+<p><strong>类比</strong>：若 <code>vBaseEnv_bswmd.arxml</code> 是“空白的芯片参数表格模板（Schema）”，则 <code>vBaseEnv_THA6_pre.arxml</code> 是 Vector 官方已填好 THA6206/THA6412 芯片手册硬件参数的只读数据库。</p>
+
+<h3 id="7.1-与工程-ecuc-配置的关系">7.1 与工程 ECUC 配置的关系</h3>
+
+<ol>
+<li><strong>只读基线继承</strong>：<code>vBaseEnv_bswmd.arxml</code> 通过 <code>&lt;PRECONFIGURED-CONFIGURATION-REF&gt;</code> 引用 <code>/MICROSAR/vBaseEnv_Pre</code>；</li>
+<li><strong>动态加载与持久化</strong>：每次加载工程（Project Load）、执行 Project Update 或添加 <code>vBaseEnv</code> 模块时，DaVinci Configurator 都会将预配置内容动态应用到内存模型并设为只读锁定（GUI 中呈灰色不可改），保存工程时同步固化到 <code>StartApplication_vBaseEnv_vBaseEnv_ecuc.arxml</code>；</li>
+<li><strong>用户只需“二选一”引用</strong>：在 <code>vBaseEnvTestedDerivativeRef</code> 中选择 <code>Tongxin_THA6206</code>（或 <code>Tongxin_THA6412</code>）。</li>
+</ol>
+
+<blockquote><strong>直观证据</strong>：对比两文件的容器 <code>UUID</code>（如 <code>vBaseEnvGeneral</code> 的 <code>f547b67a-…</code>、<code>Tongxin_THA6206</code> 的 <code>fb13c10d-…</code>）<strong>100% 一致</strong>，证明工程 ECUC 配置正是从该预配置派生。</blockquote>
+
+<h3 id="7.2-内容详解">7.2 内容详解</h3>
+
+<p><strong>① 芯片型号 1：<code>Tongxin_THA6206</code>（第 15–423 行）</strong></p>
+
+<p>CPU 与外设资源参数：</p>
+
+<ul>
+<li><code>vBaseEnvCpuCore = CORTEX_R52</code>（生成 <code>BRS_CPU_CORE_CORTEX_R52</code>）</li>
+<li><code>vBaseEnvCpuCoreAmount = 2</code>（双核，生成 <code>BRS_CPU_CORE_AMOUNT 2</code>）</li>
+<li><code>vBaseEnvCpuMaxFrequency = 400000000</code>（400 MHz，生成 <code>BRS_CPU_MAX_FREQUENCY 400</code>）</li>
+<li>外设通道数上限：CAN = 6、LIN = 8、SPI = 9、Ethernet = 1、I2C = 1、FlexRay = 0</li>
+</ul>
+
+<p>THA6206 物理内存分布（<code>vBaseEnvMemLayoutHwRegion</code>）：</p>
+
+<div class="table-wrap"><table><thead><tr><th style="text-align:left">内存区域</th><th style="text-align:left">起始地址</th><th style="text-align:left">大小</th><th style="text-align:left">类型</th><th style="text-align:left">ECC 对齐</th></tr></thead><tbody>
+<tr><td style="text-align:left"><code>CORE0_ATCM</code></td><td style="text-align:left"><code>0x30000000</code></td><td style="text-align:left">64 KB</td><td style="text-align:left">RAM</td><td style="text-align:left"><strong>8 Byte</strong>（64-bit ECC）</td></tr>
+<tr><td style="text-align:left"><code>CORE0_BTCM</code></td><td style="text-align:left"><code>0x30100000</code></td><td style="text-align:left">192 KB</td><td style="text-align:left">RAM</td><td style="text-align:left">4 Byte</td></tr>
+<tr><td style="text-align:left"><code>CORE0_CTCM</code></td><td style="text-align:left"><code>0x30200000</code></td><td style="text-align:left">64 KB</td><td style="text-align:left">RAM</td><td style="text-align:left">4 Byte</td></tr>
+<tr><td style="text-align:left"><code>CORE1_ATCM</code></td><td style="text-align:left"><code>0x30400000</code></td><td style="text-align:left">64 KB</td><td style="text-align:left">RAM</td><td style="text-align:left"><strong>8 Byte</strong>（64-bit ECC）</td></tr>
+<tr><td style="text-align:left"><code>CORE1_BTCM</code></td><td style="text-align:left"><code>0x30500000</code></td><td style="text-align:left">192 KB</td><td style="text-align:left">RAM</td><td style="text-align:left">4 Byte</td></tr>
+<tr><td style="text-align:left"><code>CORE1_CTCM</code></td><td style="text-align:left"><code>0x30600000</code></td><td style="text-align:left">64 KB</td><td style="text-align:left">RAM</td><td style="text-align:left">4 Byte</td></tr>
+<tr><td style="text-align:left"><code>GMU_NORMAL</code> / <code>GMU_DEVICE</code></td><td style="text-align:left"><code>0x10000000</code> / <code>0x82000000</code></td><td style="text-align:left">256 KB</td><td style="text-align:left">RAM</td><td style="text-align:left">4 Byte</td></tr>
+<tr><td style="text-align:left"><code>LMU1</code>~<code>LMU3</code>（NORMAL/DEVICE）</td><td style="text-align:left"><code>0x10054000</code>~<code>0x1005C000</code> 等</td><td style="text-align:left">各 16 KB</td><td style="text-align:left">RAM</td><td style="text-align:left">4 Byte</td></tr>
+<tr><td style="text-align:left"><code>PFLASH0_NORMAL</code></td><td style="text-align:left"><code>0x08000000</code></td><td style="text-align:left">3 MB</td><td style="text-align:left">ROM</td><td style="text-align:left">-</td></tr>
+<tr><td style="text-align:left"><code>PFLASH1_NORMAL</code></td><td style="text-align:left"><code>0x08300000</code></td><td style="text-align:left">3 MB</td><td style="text-align:left">ROM</td><td style="text-align:left">-</td></tr>
+</tbody></table></div>
+
+<p><strong>② 芯片型号 2：<code>Tongxin_THA6412</code>（第 424–1050 行）</strong></p>
+
+<ul>
+<li>4 核 Cortex-R52、12 路 CAN、24 路 LIN、240KB BTCM、含 <code>CORE0</code>~<code>CORE3</code> 的 TCM、<code>GMU</code>/<code>GMU1</code>、<code>PFLASH0</code>~<code>PFLASH3</code> 共 12MB Flash；</li>
+<li>切到 THA6412 只需把 <code>vBaseEnvTestedDerivativeRef</code> 改指向 <code>Tongxin_THA6412</code>。</li>
+</ul>
+
+<p><strong>③ 平台级全集内存区域名录（第 1051–1155 行）</strong></p>
+
+<ul>
+<li>在 <code>vBaseEnvGeneral</code> 下列出不带地址的同名空容器（<code>CORE0_ATCM</code> ~ <code>PFLASH3_NORMAL</code>），代表 THA6 平台所有衍生芯片可能出现的硬件内存区域<strong>全集（Superset）</strong>，供 <code>vLinkGen</code> 建立统一引用关联。</li>
+</ul>
+
+<h3 id="7.3-下游模块如何使用">7.3 下游模块如何使用</h3>
+
+<ol>
+<li><strong><code>vLinkGen.jar</code></strong>：选中 <code>THA6206</code> 后自动识别 <code>CORE2/3_*</code>、<code>PFLASH2/3</code> 不可用，只启用 THA6206 拥有的内存块；因 <code>CORE0/1_ATCM</code> 标记 <code>EccAlignment = 8</code>，生成的 <code>vLinkGen_Lcfg.c</code> 将 ATCM 对齐属性设为 8，指导启动代码用 64-bit 写入指令初始化 ECC RAM，防止触发 ECC 硬件异常。</li>
+<li><strong><code>vBRS.jar</code></strong>：校验 PLL 时钟不超过 400MHz；限制可勾选的 CAN/LIN/SPI 通道数不超过硬件上限；输出芯片宏、核数、核架构到 <code>vBrsCfg.h</code> 与 <code>Makefile.config.generated</code>。</li>
+</ol>
+
+<h3 id="7.4-逻辑命名空间绑定机制microsarvbaseenv_pre-如何解析">7.4 逻辑命名空间绑定机制：<code>/MICROSAR/vBaseEnv_Pre</code> 如何解析</h3>
+
+<p><code>vBaseEnv_bswmd.arxml</code> 中<strong>没有写物理文件名</strong> <code>vBaseEnv_THA6_pre.arxml</code>，只写 <code>/MICROSAR/vBaseEnv_Pre</code>。因为 <strong>AUTOSAR ARXML 不采用 C 语言 <code>#include "文件名"</code> 的物理引用方式，而是采用“目录自动扫描 + 逻辑命名空间（ARPath）合并”机制</strong>：</p>
+
+<ol>
+<li><strong>ARPath 拼接</strong>：元素全路径由外层 <code>&lt;AR-PACKAGE&gt;</code> 的 <code>&lt;SHORT-NAME&gt;</code>（<code>MICROSAR</code>）与该元素 <code>&lt;SHORT-NAME&gt;</code>（<code>vBaseEnv_Pre</code>）拼接为 <code>/MICROSAR/vBaseEnv_Pre</code>；</li>
+<li><strong>DaVinci 定位物理文件</strong>：
+<ul>
+<li class="sub"><code>.dpa</code> 工程文件第 37 行 <code>&lt;SIP&gt;.\..\..&lt;/SIP&gt;</code> 定位到 <code>mcuapp/</code> 根目录；</li>
+<li class="sub">启动时递归扫描 <code>&lt;SIP&gt;/Components/*/BSWMD/</code> 与 <code>&lt;SIP&gt;/DemoComponents/*/BSWMD/</code> 下所有 <code>.arxml</code>（含 <code>Tongxin_THA6/vBaseEnv_THA6_pre.arxml</code>），将同属 <code>&lt;SHORT-NAME&gt;MICROSAR&lt;/SHORT-NAME&gt;</code>（包 UUID 均为 <code>ff55d029-386d-43a2-b3c2-dfef4c7a5e36</code>）的节点合并到同一内存模型树 <code>/MICROSAR</code>；</li>
+<li class="sub">合并后，<code>/MICROSAR/vBaseEnv_Pre</code> 引用即可绑定到 <code>vBaseEnv_THA6_pre.arxml</code> 定义的节点。</li>
+</ul>
+</li>
+<li><strong>设计目的</strong>：解耦通用模型与芯片专属数据，实现<strong>跨芯片平台的插件化复用</strong> —— <code>vBaseEnv_bswmd.arxml</code> 对 TC3xx、RH850、S32K、THA6 完全通用，只需在不同芯片子目录放入同名 <code>/MICROSAR/vBaseEnv_Pre</code> 节点文件。</li>
+</ol>
+
+<h3 id="7.5-vector-制作-prearxml-的流程">7.5 Vector 制作 pre.arxml 的流程</h3>
+
+<p>站在 Vector 平台研发团队（PES）角度，制作该文件不是手工敲写 XML，而是基于 BSWMD 模型通过 DaVinci Configurator 可视化建模并导出：</p>
+
+<ol>
+<li><strong>第一步：提取平台硬件规格</strong>——从芯片手册梳理 CPU/外设规格与物理内存映射表、每块 RAM 的 ECC 对齐要求（ATCM 为 64 位 ECC → <code>EccAlignment = 8</code>，其余为 32 位 ECC → <code>4</code>）；</li>
+<li><strong>第二步：可视化录入（利用 Clone 机制）</strong>——创建基准型号 <code>Tongxin_THA6206</code>，GUI 填核数/主频/通道数及 16 个内存块；右键 <strong>Duplicate</strong> 生成 <code>Tongxin_THA6412</code>，改核数为 4、BTCM 240KB、补 <code>CORE2/3_*</code>、<code>GMU1_*</code>、<code>PFLASH2/3</code>；建立平台级内存区域全集列表；<strong>故意留空 <code>vBaseEnvTestedDerivativeRef</code></strong> 供客户选择；</li>
+<li><strong>第三步：导出 Preconfiguration</strong>——将顶层包从 <code>/ActiveEcuC/vBaseEnv</code> 重定向为 <code>/MICROSAR/vBaseEnv_Pre</code>，剔除工程级标签，保存为 <code>_pre.arxml</code>（与工程 ECUC 结构除头部包装外几乎一致）；</li>
+<li><strong>第四步：配套制作 <code>vBRS_THA6_pre.arxml</code></strong>——导出 <code>ARM</code> 指令集、400MHz、25MHz 外设时钟、FPU 至 <code>/MICROSAR/vBRS_Rec</code>，评估板晶振参数至 <code>/MICROSAR/vBRS_Pre</code>，随 SIP 发布。</li>
+</ol>
+
+<h2 id="8-变体variant-机制">8. 变体（Variant）机制</h2>
+
+<p>在 Vector MICROSAR 体系中，“变体”从底向上分为<strong>三个层次</strong>。</p>
+
+<h3 id="8.1-硬件衍生型号变体derivative-variants">8.1 硬件衍生型号变体（Derivative Variants）</h3>
+
+<p>解决同系列不同芯片型号（双核 vs 四核、Flash/RAM 容量差异）的切换，机制为<strong>“超集预配置 + 单点引用切换 + 宏条件编译”</strong>：</p>
+
+<ol>
+<li>在 <code>vBaseEnv_THA6_pre.arxml</code> 的 <code>vBaseEnvDerivativeInformation</code> 下列出 <code>Tongxin_THA6206</code>、<code>Tongxin_THA6412</code>，并在 <code>vBaseEnvGeneral</code> 列出全家族内存区域超集；</li>
+<li>工程中只需修改 <code>vBaseEnvTestedDerivativeRef</code> 指向具体型号；</li>
+<li>联动生成：
+<ul>
+<li class="sub"><strong>链接器层面</strong>：<code>vLinkGen</code> 自动计算每个硬件内存区的 Calculated Availability（选中 THA6206 时，<code>CORE2_ATCM/BTCM/CTCM</code>、<code>CORE3_ATCM/BTCM/CTCM</code>、<code>GMU1_NORMAL/DEVICE</code>、<code>PFLASH2_NORMAL/PFLASH3_NORMAL</code> 自动变为不可用）；</li>
+<li class="sub"><strong>配置宏</strong>：<code>vBrsCfg.h</code> 生成 <code>#define BRS_DERIVATIVE_Tongxin_THA6206</code>，<code>Makefile.config.generated</code> 生成 <code>BRS_CPU_CORE_AMOUNT = 2</code>；</li>
+<li class="sub"><strong>静态源码</strong>：通过 <code>#if defined (BRS_DERIVATIVE_Tongxin_THA6206)</code> / <code>#elif defined (BRS_DERIVATIVE_Tongxin_THA6412)</code> 切换寄存器地址、外设时钟或 TCM 初始化范围。</li>
+</ul>
+</li>
+</ol>
+
+<h3 id="8.2-多镜像执行实例链接变体vlinkgen-linker-variants">8.2 多镜像/执行实例链接变体（vLinkGen Linker Variants）</h3>
+
+<p>解决同一颗芯片上多个可执行程序（BootManager、Bootloader/FBL、Application、FlashDriver）的内存布局与启动代码变体：</p>
+
+<ol>
+<li><strong>定义执行实例变体</strong>：<code>vLinkGenVariant_FirstExecInst</code>（<code>isFirstExec = true</code>，上电复位后第一个执行，如 BootManager 或无 BM 时的独立 App）与 <code>vLinkGenVariant_DemoAppl</code>（<code>isStandardAppl = true</code>，由前序实例跳转进入的后续实例，如带 BM 的 App 或 FBL）；</li>
+<li><strong>按变体裁剪或共用段</strong>：
+<ul>
+<li class="sub">仅限首个实例：<code>Brs_Startup_Code</code>（上电汇编启动 + RAM 清零逻辑）只引用 <code>FirstExecInst</code>，后续实例无需重复硬件复位向量；</li>
+<li class="sub">多实例共用：<code>Brs_ApplicationEntry</code>（应用入口跳转点）、<code>Brs_Shared_Var</code>（跨实例复位原因 <code>brsMain_ResetReason</code>）、各核启动栈 <code>STACK_Cx</code> 同时引用两个变体；</li>
+</ul>
+</li>
+<li><strong>变体专属地址覆写与多文件生成</strong>：同段在不同变体可映射到不同 Flash 扇区；<code>vLinkGenFileGeneration = ONE_FILE_PER_VARIANT</code> 时为每个变体生成独立链接脚本（如 <code>vLinkGen_Template_FirstExecInst.ld</code>）；<code>vBRSVariantUsageOfvLinkGen</code> 选择当前工程使用的链接变体，<code>Makefile.config.generated</code> 输出对应 <code>BRS_LINKER_COMMAND_FILE_POSTFIX</code>。</li>
+</ol>
+
+<h3 id="8.3-软件配置变体ecuc-pre-compile-post-build-variants">8.3 软件配置变体（ECUC Pre-Compile / Post-Build Variants）</h3>
+
+<p>解决同一份软件适配不同车型/高低配的参数变体：</p>
+
+<ol>
+<li><strong>BSWMD 元模型声明</strong>：<code>&lt;SUPPORTED-CONFIG-VARIANTS&gt;</code> 声明模块支持的配置阶段（基础设施模块 <code>vBaseEnv</code> 仅支持 <code>VARIANT-PRE-COMPILE</code>，通信/诊断/EcuM 等支持 <code>VARIANT-POST-BUILD</code>）；每个参数通过 <code>&lt;SD GID="DV:postBuildSelectableChangeable"&gt;</code> 标记是否允许跨变体设不同值；</li>
+<li><strong>DPA 工程级开关</strong>：<code>StartApplication.dpa</code> 中 <code>&lt;PostBuildLoadableSupport&gt;</code> / <code>&lt;PostBuildSelectableSupport&gt;</code> 控制是否开启 Post-Build 变体；开启后可定义多个变体（如 <code>Variant_High</code>、<code>Variant_Low</code>），ECUC 通过 <code>&lt;VARIATION-POINT&gt;</code> 记录参数差异，生成多套后缀配置结构体（如 <code>EcuM_Config_Variant_High</code>）；</li>
+<li><strong>启动阶段运行时变体选择</strong>（<code>EcuM</code> + <code>vBRS</code> 协同）：配置多个 Post-Build Selectable 变体时，<code>main()</code> 调用 <code>EcuM_Init()</code> 后，<code>EcuM</code> 调用钩子 <code>EcuM_DeterminePbConfiguration()</code>（读硬件编码引脚或 NVM 车型配置字），动态返回当前车型的 <code>EcuM_GlobalConfigRootType</code>，在同一镜像中动态激活对应 BSW 配置。</li>
+</ol>
+
+<h3 id="8.4-总结对比">8.4 总结对比</h3>
+
+<div class="table-wrap"><table><thead><tr><th style="text-align:left">变体层级</th><th style="text-align:left">核心模块</th><th style="text-align:left">解决什么问题</th><th style="text-align:left">工程中的关键配置文件</th></tr></thead><tbody>
+<tr><td style="text-align:left"><strong>1. 硬件衍生型号变体</strong></td><td style="text-align:left"><code>vBaseEnv</code> + <code>vBRS</code></td><td style="text-align:left">同系列不同 MCU 子型号（核数、Flash/RAM 容量差异）</td><td style="text-align:left"><code>vBaseEnv_THA6_pre.arxml</code>、<code>StartApplication_vBaseEnv_vBaseEnv_ecuc.arxml</code></td></tr>
+<tr><td style="text-align:left"><strong>2. 多镜像链接变体</strong></td><td style="text-align:left"><code>vLinkGen</code> + <code>vBRS</code></td><td style="text-align:left">同一芯片上 BM / FBL / Appl 多实例的段裁剪与内存重映射</td><td style="text-align:left"><code>vLinkGen_BaseEnv_Variants_rec.arxml</code>、<code>vLinkGen_BaseEnv_rec.arxml</code></td></tr>
+<tr><td style="text-align:left"><strong>3. 软件配置变体</strong></td><td style="text-align:left">DaVinci + <code>EcuM</code></td><td style="text-align:left">同一软件镜像适配高低配车型（Post-Build Selectable/Loadable）</td><td style="text-align:left"><code>StartApplication.dpa</code>、各模块 <code>*_bswmd.arxml</code></td></tr>
+</tbody></table></div>
+
+<p><em>文档整理完毕。原始会话记录见 <code>未命名.md</code>。</em></p>
+
+<footer class="doc-footer">文档整理完毕 · 原始会话记录见「未命名.md」</footer>
+
+</div>
+</body>
+</html>

@@ -1,5 +1,10 @@
 # Gotchas
 
+## 2026-11-03
+
+- AUTOSAR memory mapping explanations must distinguish module START/STOP macros, compiler input sections, linker output sections, and physical regions. Show MemMap-level many-to-one mapping before linker grouping; do not imply module-specific input section names are required.
+- Linker grouping examples must preserve core, protection-domain, hardware-access, and initialization constraints. Avoid module-wide wildcard examples without explicit assumptions. Alignment suffixes do not by themselves select small-data addressing.
+
 ## 2026-06-06
 
 - Running focused pytest node ids from memory is error-prone. Confirm class names with `rg -n "^class|def test_name"` before using fully-qualified pytest ids, otherwise pytest can report "not found" and no verification actually runs.
