@@ -202,9 +202,9 @@ def apply_chip_expressions(module_def, resources: Dict[str, Any]) -> int:
             resolved = resolver.resolve_expression(param.default_expr)
             value = typed_value(resolved, param.param_type) if resolved is not None else param.static_default
             # The default now follows the selected chip; a baseline keeps static defaults only
-            param.default_is_computed = True
-            if value != param.default_value:
-                param.default_value = value
+            previous = param.default_value
+            param.set_computed_default(value)
+            if value != previous:
                 changed += 1
         if param.range_expr and param.param_type == EcucParameterType.ENUMERATION:
             resolved = resolver.resolve_expression(param.range_expr)

@@ -88,10 +88,26 @@ class EcucParameterDef:
     static_default: Any = None
     static_literals: Optional[List[str]] = None
     # True once a chip expression has been evaluated into default_value
-    # (xdm_expression_resolver.apply_chip_expressions). Such a default depends on the
-    # selected chip, so it is not part of the baseline (design §6.5: the DEFAULT layer
-    # takes static default_value only). Serialization ignores this field.
+    # (xdm_expression_resolver.apply_chip_expressions, ecuc_def_parser with constraints).
+    # Such a default depends on the selected chip, so it is not part of the baseline
+    # (design §6.5: the DEFAULT layer takes static default_value only).
+    # Serialization ignores this field.
     default_is_computed: bool = False
+    # The default_value before the first chip expression replaced it (None when the
+    # definition never had a static default). Kept for debugging and regeneration;
+    # static_default holds the fallback of default_expr, which is the same value.
+    static_default_value: Any = field(default=None, repr=False)
+
+    def set_computed_default(self, value: Any) -> None:
+        """Record the value a chip expression produced, keeping the static default.
+
+        The first call keeps the current ``default_value`` as ``static_default_value``;
+        later calls only replace the computed value.
+        """
+        if not self.default_is_computed:
+            self.static_default_value = self.default_value
+            self.default_is_computed = True
+        self.default_value = value
 
     # XDM ENABLE condition (XPath, context: this parameter); false -> not part of the
     # configuration. For a v:lst of values it is the list's condition.

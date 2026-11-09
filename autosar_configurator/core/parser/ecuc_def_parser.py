@@ -926,7 +926,8 @@ class EcucDefParser:
                 param_def.static_default = param_def.default_value
                 resolved = self._resolver.resolve_expression(expr)
                 if resolved is not None:
-                    param_def.default_value = typed_value(resolved, param_type)
+                    # Follows the chip constraints the parser was given: not a static default
+                    param_def.set_computed_default(typed_value(resolved, param_type))
         elif da_value and param_def.default_value is None:
             # Static default - only set if not already set by ARXML path
             param_def.default_value = self._convert_value(da_value, param_type)

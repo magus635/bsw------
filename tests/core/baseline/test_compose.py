@@ -267,9 +267,9 @@ MCU_XDM = "test_import_project/Def/plugins/Mcu_THA6_AS440/config/Mcu.xdm"
 
 def _mcu_def_with_chip():
     """The vendor Mcu definition after the project applies the THA610X chip expressions."""
-    from pathlib import Path
-
     import pytest
+
+    from pathlib import Path
 
     from autosar_configurator.core.hardware.chip_database import ChipDatabase, default_chips_dir
     from autosar_configurator.core.hardware.ecu_resource_data import flatten_ecu_resources
@@ -283,6 +283,31 @@ def _mcu_def_with_chip():
     mdef = EcucDefParser().parse_module_def_file(xdm)
     apply_chip_expressions(mdef, flatten_ecu_resources(chip.ecu_resources))
     return mdef
+
+
+def _mcu_def_parsed_with_chip():
+    """The same definition, parsed with the chip constraints the UI puts on the parser."""
+    import pytest
+
+    from pathlib import Path
+
+    from autosar_configurator.core.hardware.chip_database import ChipDatabase, default_chips_dir
+    from autosar_configurator.core.hardware.ecu_resource_data import flatten_ecu_resources
+    from autosar_configurator.core.parser.ecuc_def_parser import EcucDefParser
+
+    xdm = Path(MCU_XDM)
+    chip = ChipDatabase(default_chips_dir()).get_chip("THA610X_LFBGA180")
+    if not xdm.exists() or chip is None:
+        pytest.skip("vendor Mcu definition or chip data not available")
+    parser = EcucDefParser()
+    parser._resolver.set_constraints(flatten_ecu_resources(chip.ecu_resources))
+    return parser.parse_module_def_file(xdm)
+
+
+def _expr_params(mdef):
+    from autosar_configurator.core.parser.xdm_expression_resolver import _walk_containers
+    return [p for c in _walk_containers(mdef.containers.values())
+            for p in c.parameters.values() if p.default_expr]
 
 
 def _def_chain(mdef, short_name):
@@ -312,13 +337,10 @@ def _instance_chain(mdef, short_name):
 
 def test_chip_expression_defaults_stay_out_of_the_baseline():
     """Expression-only defaults follow the chip and never enter the baseline."""
-    from autosar_configurator.core.parser.xdm_expression_resolver import _walk_containers
-
     mdef = _mcu_def_with_chip()
-    expr_only = [p for c in _walk_containers(mdef.containers.values())
-                 for p in c.parameters.values() if p.default_expr and p.static_default is None]
-    assert COMPUTED_PARAMS <= {p.short_name for p in expr_only}
-    assert all(p.default_is_computed for p in expr_only)
+    expr = _expr_params(mdef)
+    assert COMPUTED_PARAMS <= {p.short_name for p in expr}
+    assert all(p.default_is_computed for p in expr)
 
     rec = EcucModuleConfiguration(short_name="Mcu_Rec", definition_ref="/X/Mcu")
     rec.add_container(_instance_chain(mdef, "McuSysPllClk_Configuration"))
@@ -357,3 +379,51 @@ def test_chip_expression_flag_is_what_excludes_the_default():
 
     computed.default_is_computed = False         # as if the chip had never run
     assert flatten(compose_base(mdef, "Mcu", {Layer.REC: [rec]})[0])[key] == 60
+
+
+def test_parsing_with_chip_constraints_also_marks_computed_defaults():
+    """The parser resolves default_expr too, so it must mark the result as computed."""
+    mdef = _mcu_def_parsed_with_chip()
+    expr = _expr_params(mdef)
+    assert COMPUTED_PARAMS <= {p.short_name for p in expr}
+    # every expression the parser could evaluate is marked; an unevaluable one keeps
+    # its static fallback and never becomes a DEFAULT-layer value either
+    assert all(p.default_is_computed for p in expr if p.default_value is not None
+               and p.default_value != p.static_default)
+
+    rec = EcucModuleConfiguration(short_name="Mcu_Rec", definition_ref="/X/Mcu")
+    rec.add_container(_instance_chain(mdef, "McuSysPllClk_Configuration"))
+    rec.add_container(_instance_chain(mdef, "McuSysClkDiv_Configuration"))
+    base, origins = compose_base(mdef, "Mcu", {Layer.REC: [rec]})
+    flat = flatten(base)
+    for name in COMPUTED_PARAMS:
+        assert not any(key.endswith("." + name) for key in flat), name
+        assert not any(key.endswith("." + name) for key in origins), name
+    # a static default of the same container is still there
+    cdef = _def_chain(mdef, "McuSysPllClk_Configuration")[-1]
+    name, pdef = next((n, p) for n, p in cdef.parameters.items()
+                      if p.default_value is not None and not p.default_expr and p.upper_multiplicity == 1)
+    key = f"P:/Mcu/McuModuleConfiguration/McuClockSettingConfig/McuSysPllClk_Configuration.{name}"
+    assert flat[key] == pdef.default_value
+
+
+def test_computed_default_keeps_the_static_one():
+    """The static default stays on the definition after a chip expression replaces it."""
+    mdef = _mcu_def_parsed_with_chip()            # no static fallback for these: static_default is None
+    cdef = _def_chain(mdef, "McuSysPllClk_Configuration")[-1]
+    computed = cdef.parameters["McuSysPllFBDiv"]
+    assert computed.default_is_computed and computed.default_value == 60
+
+    # a parameter that does have a static default keeps it in static_default and
+    # in static_default_value, whichever order parsing and the chip run in
+    from autosar_configurator.core.model.definition_model import EcucParameterDef, EcucParameterType
+    pdef = EcucParameterDef("X", EcucParameterType.INTEGER, default_value=1)
+    pdef.default_expr = "ecu:get('Mcu.X')"
+    pdef.set_computed_default(7)
+    assert (pdef.default_value, pdef.static_default_value, pdef.default_is_computed) == (7, 1, True)
+    pdef.set_computed_default(9)                  # a later chip: the original stays the record
+    assert (pdef.default_value, pdef.static_default_value) == (9, 1)
+
+    # the vendor Mcu parameters have no static default of their own: nothing to keep
+    assert all(p.static_default_value is None for p in _expr_params(mdef)
+               if p.short_name in COMPUTED_PARAMS)
