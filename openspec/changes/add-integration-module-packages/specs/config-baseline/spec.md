@@ -4,7 +4,12 @@
 
 ### Requirement: Layered Baseline Composition
 
-对 format 8 工程中来自模块包的每个模块，工具 SHALL 按层合成基线 Base'，优先级从低到高为 DEFAULT（定义默认值）< REC < DERIVED < PRE。DERIVED 层在本阶段为空，但合成接口和三方合并 SHALL 支持插入该层，不需要改动接口。
+对 format 8 工程中来自模块包的每个模块，工具 SHALL 按层合成基线 Base'，优先级从低到高为 DEFAULT（定义默认值）< REC < DERIVED < PRE。DERIVED 层在本阶段为空，但合成接口和三方合并 SHALL 支持插入该层，不需要改动接口。DEFAULT 层 SHALL 只取定义中的静态 `default_value`；`default_expr` 等 XPath 表达式默认值 SHALL NOT 在合成基线时求值，以保证同一个包和芯片总是合成出相同的基线。
+
+#### Scenario: 表达式默认值不进入基线
+
+- **WHEN** 一个参数只有 `default_expr`、没有静态 `default_value`，且 REC 和 PRE 中都没有该参数
+- **THEN** Base' 中没有该参数的值，合成结果不依赖表达式求值的上下文
 
 #### Scenario: Pre 优先于 Rec
 
@@ -27,7 +32,7 @@
 
 ### Requirement: Three-Way Merge On Load
 
-加载 format 8 工程时，工具 SHALL 对每个路径比较 Base（快照）、Base'（新基线）和 Active（活配置）：Base = Base' 时不动；用户没改过的值（Active = Base）采用 Base'；用户改过的非 Pre 值保留并在报告中标为“基线变化但已被用户覆盖”；属于 PRE 且未解锁的值不等于 Base' 时改为 Base' 并标为“预设强制”；Base' 中新增的容器实例被创建。合并 SHALL NOT 自动删除任何容器或值；Base 中有而 Base' 中没有的容器只在报告中列出。
+加载 format 8 工程时，工具 SHALL 对每个路径比较 Base（快照）、Base'（新基线）和 Active（活配置）。“预设强制”规则优先于其他所有规则：属于 PRE 且未解锁的值，只要 Active 不等于 Base'，即使 Base = Base' 也 SHALL 改为 Base'（标为 `PRE_FORCED`）。其余情形：Base = Base' 时不动；用户没改过的值（Active = Base）采用 Base'；用户改过的非 Pre 值保留并在报告中标为“基线变化但已被用户覆盖”；Base' 中新增的容器实例被创建。合并 SHALL NOT 自动删除任何容器或值；Base 中有而 Base' 中没有的容器只在报告中列出。
 
 #### Scenario: 包中的 Rec 值和 Pre 值升级
 
@@ -36,6 +41,11 @@
 - **AND** 用户改过的 Rec 值保留，并出现在报告中
 - **AND** Pre 值被强制改变，并出现在报告中
 
+#### Scenario: 基线未变但 Active 偏离了 Pre
+
+- **WHEN** Base = Base'，但 Active 中某个未解锁的 PRE 参数与 Base' 不同（例如被导入的值文件改过）
+- **THEN** 该参数被改回 Base' 的值，报告中标为 `PRE_FORCED`
+
 #### Scenario: Pre 删除了容器
 
 - **WHEN** Base 中有某个 Pre 容器而 Base' 中没有
@@ -43,7 +53,13 @@
 
 ### Requirement: Preview And Confirm Before Change
 
-当合并报告中有改动类条目（采用新基线、预设强制、创建）时，工具 SHALL 先预演并展示报告，用户确认后才写入 Active，并把 Base' 写回快照。用户拒绝时 Active 和 Base SHALL 都不变，下次打开工程时继续提示。
+当合并报告中有改动类条目（采用新基线、预设强制、创建）时，工具 SHALL 先预演并展示报告，用户确认后才写入 Active，并把 Base' 写回快照。用户拒绝时 Active 和 Base SHALL 都不变，下次打开工程时继续提示。调用方没有提供确认回调（`confirm=None`）时 SHALL 按拒绝处理：改动不写入，但合并结果（报告）仍然返回给调用方。
+
+#### Scenario: 没有确认回调
+
+- **WHEN** 以 `confirm=None` 加载一个有改动类合并条目的工程
+- **THEN** Active 和 Base 都不变
+- **AND** 调用方仍得到包含这些条目的合并结果
 
 #### Scenario: 用户拒绝合并
 
@@ -63,12 +79,18 @@
 
 ### Requirement: Pre Read-Only Lock
 
-来源为 PRE 的参数、引用和容器 SHALL 只读：拦截 SHALL 在命令层执行，覆盖配置面板、批量编辑、导入和 AI 助手等所有编辑入口；界面灰显并说明来源和 pre 文件。Pre 创建的容器不能删除或改名，但可以在其下添加 Pre 中没有的子容器和参数。用户 MAY 对单个参数解除锁定，解锁记录写入 `.dpa` 的 `pre_unlocked`，解锁的参数不再被“预设强制”改回。
+来源为 PRE 且未解锁的参数、引用和容器 SHALL 只读：拦截 SHALL 在命令层执行，配置面板、批量编辑、粘贴、改名、引用编辑和 AI 助手对这些值的编辑 SHALL 抛出 `PreLockedError`；界面灰显并说明来源和 pre 文件。导入值文件（例如 EPC/arxml）SHALL NOT 被锁定拦截：导入照常写入，下一次三方合并把 PRE 值强制改回（`PRE_FORCED`）并写入报告。Pre 创建的容器不能删除或改名，但可以在其下添加 Pre 中没有的子容器和参数。用户 MAY 对单个参数解除锁定，解锁记录写入 `.dpa` 的 `pre_unlocked`，解锁的参数不再被“预设强制”改回。
 
 #### Scenario: 编辑 Pre 参数被拒绝
 
 - **WHEN** 用户试图修改 Mcu 复位原因表中来源为 PRE 的参数
-- **THEN** 命令被拒绝，状态栏给出提示，撤销栈不变
+- **THEN** 命令抛出 `PreLockedError` 被拒绝，状态栏给出提示，撤销栈不变
+
+#### Scenario: 导入值文件不被锁定拦截
+
+- **WHEN** 用户导入一个值文件，其中把某个 PRE 参数改成了其他值
+- **THEN** 导入成功完成，不抛出 `PreLockedError`
+- **AND** 下一次合并时该参数被改回 PRE 值，报告中标为 `PRE_FORCED`
 
 #### Scenario: 解除锁定后可编辑
 

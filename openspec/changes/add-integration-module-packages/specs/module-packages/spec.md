@@ -4,7 +4,12 @@
 
 ### Requirement: Module Package Layout And Manifest
 
-工具 SHALL 支持“模块包”：一个以模块名命名的目录，含清单 `module.json` 和 `config/` 目录，模块的定义（ECUC-MODULE-DEF）、预设值（PRE）和推荐值（REC）放在同一个 `config/` 目录中；模板和资源目录由清单的 `templates`、`resources` 字段指明。清单的 `files` 只列出来源文件，不标角色；角色 SHALL 按 AUTOSAR 路径判定：`definition` 指向定义，`implementation_path` 指向 `BSW-IMPLEMENTATION`，`pre`、`rec` 列出值集合路径。
+工具 SHALL 支持“模块包”：一个以模块名命名的目录，含清单 `module.json` 和 `config/` 目录，模块的定义（ECUC-MODULE-DEF）、预设值（PRE）和推荐值（REC）放在同一个 `config/` 目录中；模板和资源目录由清单的 `templates`、`resources` 字段指明。清单的 `files` 只列出来源文件，不标角色；角色 SHALL 按 AUTOSAR 路径判定：`definition` 指向定义，`implementation_path` 指向 `BSW-IMPLEMENTATION`，`pre`、`rec` 列出值集合路径。在当前芯片选中的文件中，同一定义路径出现两份且内容不同，或某个 pre/rec 路径下同一单值字段取值冲突时，SHALL 报错；清单声明的 pre/rec 路径在任何选中文件里都找不到时，SHALL 只给警告，加载继续。
+
+#### Scenario: 同一定义路径出现两份
+
+- **WHEN** 两个选中文件都含 `definition` 指向的 `ECUC-MODULE-DEF`，且内容不同
+- **THEN** 加载报错，指出定义路径和两个文件
 
 #### Scenario: 同一文件同时含 Pre 和 Rec
 
@@ -19,13 +24,13 @@
 
 ### Requirement: EB Plugin Inferred As Module Package
 
-没有 `module.json` 的 EB 插件目录 SHALL 不经改造即可作为模块包使用，清单从 `plugin.xml` 推断：`schema` 登记的资源是定义来源，`preconfig` 的 `path` 是 PRE，`generate_PB/` 是模板，`resource/` 是资源。`autosar/<模块>_<芯片>.arxml` SHALL NOT 被加载，而是作为定义的交换副本在来源信息中列出；只有 arxml、没有 xdm 的插件按文件名中的芯片名生成芯片条件。推断得出的结果 SHALL 标记为“推断”。
+没有 `module.json` 的 EB 插件目录 SHALL 不经改造即可作为模块包使用，清单从 `plugin.xml` 推断：`schema` 登记的资源是定义来源，`preconfig` 的 `path` 是 PRE，`generate_PB/` 是模板，`resource/` 是资源。`autosar/<模块>_<芯片>.arxml` SHALL NOT 被加载，而是作为定义的交换副本记录在包的 `exchange_copies` 字段中，并在来源信息中列出；只有 arxml、没有 xdm 的插件按文件名中的芯片名生成芯片条件。推断得出的结果 SHALL 标记为“推断”。
 
 #### Scenario: 未改造的 EB 插件目录加载 Mcu 预设
 
 - **WHEN** 一个未做任何修改的 EB 插件目录作为 `eb-plugins` 库加入 format 8 新工程，并添加 Mcu 模块
 - **THEN** `McuPreConfiguration` 中的复位原因表出现在配置树中，来源为 PRE
-- **AND** `autosar/Mcu_<芯片>.arxml` 没有被加载，并在来源信息中列为“交换副本”
+- **AND** `autosar/Mcu_<芯片>.arxml` 没有被加载，出现在包的 `exchange_copies` 中，并在来源信息中列为“交换副本”
 
 ### Requirement: Chip-Conditional Package Files
 

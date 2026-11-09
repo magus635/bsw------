@@ -4,17 +4,27 @@
 
 ### Requirement: Format 8 Directory Table
 
-`.dpa` format 8 SHALL 含 `directories` 目录表（`config`、`base`、`templates`、`gen`、`gen_layout`、`chips`、`integration`、`system`、`history`），所有代码 SHALL 通过目录表解析工程目录，不得写死目录名；旧格式的默认值表（`ConfigValue`、`templates`、`generateCode`、`Def/plugins`）集中在一处。新工程的默认目录名为 `config/`、`config/base/`、`templates/`、`gen/`（平铺）、`chips/`、`integration/`、`system/`、`.history/`。
+`.dpa` format 8 SHALL 含 `directories` 目录表，所有代码 SHALL 通过目录表解析工程目录，不得写死目录名；旧格式的默认值表（`ConfigValue`、`templates`、`generateCode`、`Def/plugins`）集中在一处。新工程的默认值 SHALL 为：`config`=`config`、`base`=`config/base`、`templates`=`templates`、`gen`=`gen`、`gen_layout`=`flat`、`chips`=`chips`、`integration`=`integration`、`system`=`system`、`history`=`.history`、`modules`=`modules`。
 
 #### Scenario: 新建 format 8 工程
 
 - **WHEN** 用户新建工程
-- **THEN** `.dpa` 写入 `format_version: 8` 和完整的 `directories` 表，活配置保存在 `config/<Module>.arxml`
+- **THEN** `.dpa` 写入 `format_version: 8` 和包含上述 10 项默认值（含 `modules`=`modules`）的 `directories` 表，活配置保存在 `config/<Module>.arxml`
 
 #### Scenario: 代码中没有写死的旧目录名
 
 - **WHEN** 在仓库源码中搜索 `"ConfigValue"`、`"generateCode"`、`"Def/plugins"`
 - **THEN** 只在旧格式默认值表中出现
+
+### Requirement: Portable Paths In Dpa
+
+format 8 `.dpa` 中保存的所有路径（`directories`、`module_libraries[].path`、`modules[].config_path`、`package_record` 中的文件键等）SHALL 使用 POSIX 风格分隔符 `/`；位于工程目录内的路径 SHALL 保存为相对 `.dpa` 所在目录的相对路径，位于工程目录外的路径 SHALL 保存为绝对路径。读取时 SHALL 接受含空格和非 ASCII 字符的路径。
+
+#### Scenario: 工程内外路径的保存形式
+
+- **WHEN** 在 Windows 上，工程位于 `D:/工程 A/demo/`，一个 `package` 库位于 `D:/工程 A/demo/modules`，另一个 `eb-plugins` 库位于外部目录 `E:/EB Tresos/plugins`，保存工程
+- **THEN** `.dpa` 中第一个库的 `path` 为 `modules`，第二个为 `E:/EB Tresos/plugins`，两者都不含反斜杠
+- **AND** 把工程目录整体移到 `C:/新目录/demo/` 后重新打开，内部库和配置文件仍能解析，外部库按绝对路径解析
 
 ### Requirement: Project Root Is The Dpa Directory
 
@@ -40,8 +50,9 @@ format ≤7 的工程 SHALL 按原逻辑打开（`def_path`、`ConfigValue/`、`
 
 #### Scenario: 旧工程生成结果不变
 
-- **WHEN** 打开现有旧工程（含 EB copy/link 导入的工程，例如 `test_project_relocation`、用户的 T1/T2 工程）并生成代码
-- **THEN** 生成结果与改造前逐字节一致，生成器指纹不变
+- **WHEN** 打开仓库内的旧格式工程 `test_project_relocation/test.davinci`（format 3）并生成代码
+- **THEN** 生成结果与改造前提交上生成的结果逐字节一致（忽略文件头时间戳行），生成器指纹不变
+- **AND** 用户的 T1/T2 工程（含 EB copy/link 导入）按同样方法做补充的人工验收，不作为自动化测试的前提
 
 #### Scenario: 旧工程保存后格式不变
 
