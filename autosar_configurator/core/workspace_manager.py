@@ -15,7 +15,9 @@ from .model.definition_model import EcucModuleDef
 from .parser.ecuc_def_parser import EcucDefParser
 from . import project_paths
 from .project_paths import ProjectDirectories
-from .packages.library import LibraryRef
+from .packages.errors import PackageError
+from .packages.library import LibraryRef, find_package, scan_library
+from .packages.package import ModulePackage
 
 
 @dataclass
@@ -88,6 +90,39 @@ def _base_values(configuration) -> Dict[str, Any]:
 
 def _same_value(a: Any, b: Any) -> bool:
     return a == b or str(a).strip().lower() == str(b).strip().lower()
+
+
+def scan_libraries(project) -> List[Tuple[int, List[ModulePackage]]]:
+    """(library index, packages) of every library in ``project.module_libraries``.
+
+    Relative library paths resolve against the project root.  A library that cannot
+    be scanned (e.g. unknown kind) contributes no packages and is logged.
+    """
+    import logging
+    base = project_paths.project_root(project) if getattr(project, "path", None) else Path(".")
+    result = []
+    for index, ref in enumerate(getattr(project, "module_libraries", [])):
+        try:
+            packages = scan_library(ref, base)
+        except PackageError as exc:
+            logging.getLogger(__name__).warning("Cannot scan module library %s: %s", ref.path, exc)
+            packages = []
+        result.append((index, packages))
+    return result
+
+
+def package_for_path(project, file: Path) -> Optional[Tuple[int, ModulePackage]]:
+    """The (library index, package) whose package directory contains ``file``, or None."""
+    try:
+        target = Path(file).resolve()
+    except OSError:
+        return None
+    for index, packages in scan_libraries(project):
+        for pkg in packages:
+            root = pkg.root.resolve()
+            if target == root or root in target.parents:
+                return index, pkg
+    return None
 
 
 class WorkspaceProject:
@@ -175,7 +210,45 @@ class WorkspaceProject:
         # Format 8 module packages integration
         self.module_libraries: List[LibraryRef] = []  # List of available module libraries
         self.module_entries: Dict[str, ModuleEntry] = {}  # Active modules keyed by name
-    
+        self.packages: Dict[str, "ModulePackage"] = {}  # Module package of each module, by name
+
+    def add_module_from_package(self, pkg: "ModulePackage", lib_index: int) -> ConfigurationManager:
+        """Add the module provided by ``pkg`` (from ``module_libraries[lib_index]``).
+
+        Parses the package's definition file for ``selected_chip``, adds the module and
+        registers it in ``module_entries`` and ``packages``.  An entry already present
+        (a project being loaded) keeps its configuration path and baseline fields.
+
+        Raises:
+            PackageError / PackageConflictError: the package has no unique definition file
+        """
+        def_file = pkg.definition_file(self.selected_chip)
+        parser = EcucDefParser()
+        parser.set_selector_values(_chip_selector_values(self))
+        module_def = parser.parse_module_def_file(def_file)
+        manager = self.add_module(module_def, def_file)
+        name = module_def.short_name
+
+        entry = self.module_entries.get(name)
+        if entry is None:
+            config_rel = project_paths.config_file(self, name)
+            try:
+                config_rel = config_rel.relative_to(project_paths.project_root(self))
+            except ValueError:
+                pass
+            entry = ModuleEntry(
+                name=name,
+                definition=pkg.manifest.definition,
+                library=lib_index,
+                config_path=config_rel.as_posix(),
+            )
+            self.module_entries[name] = entry
+        else:
+            entry.definition = pkg.manifest.definition
+            entry.library = lib_index
+        self.packages[name] = pkg
+        return manager
+
     def discover_available_chips(self) -> List[str]:
         """Scan project for available chip .properties files.
         
@@ -1300,16 +1373,7 @@ class WorkspaceManager:
 
         # Load modules: format 8 uses module_entries, earlier formats use def_path
         if format_version >= 8:
-            # Format 8: Load module entries (just save the entries for now; module loading in Task 6)
-            for module_data in data.get("modules", []):
-                entry = ModuleEntry.from_dict(module_data)
-                project.module_entries[entry.name] = entry
-                # For compatibility with existing load paths, create the old-style provenance
-                project.module_provenance[entry.name] = {
-                    "origin": "native",
-                    "source_epc": None,
-                    "imported_at": None,
-                }
+            self._load_v8_modules(project, data, project_dir, failed_modules)
         else:
             # Format ≤7: Load with def_path (existing logic)
             for module_data in data.get("modules", []):
@@ -1419,6 +1483,43 @@ class WorkspaceManager:
 
         self.current_project = project
         return project, failed_modules
+
+    def _load_v8_modules(self, project: WorkspaceProject, data: Dict[str, Any],
+                         project_dir: Path, failed_modules: list) -> None:
+        """Load the ``modules`` of a format 8 project through its module libraries.
+
+        Every entry is kept in ``module_entries`` (so saving does not drop it).  A module
+        whose definition no library provides, or whose package is inconsistent, is
+        reported in ``failed_modules`` as (name, reason) instead of raising.
+        """
+        entries = [ModuleEntry.from_dict(m) for m in data.get("modules", [])]
+        for entry in entries:
+            project.module_entries[entry.name] = entry
+            project.module_provenance[entry.name] = {
+                "origin": "native",
+                "source_epc": None,
+                "imported_at": None,
+            }
+        if not entries:
+            return
+
+        libraries = scan_libraries(project)
+        for entry in entries:
+            try:
+                index, pkg = find_package(libraries, entry.definition)
+                manager = project.add_module_from_package(pkg, index)
+            except Exception as exc:  # noqa: BLE001 - PackageError and parse errors: one module must not abort the project
+                failed_modules.append((entry.name, f"Failed to load: {exc}"))
+                continue
+
+            if entry.config_path:
+                config_path = self._resolve_path(entry.config_path, project_dir)
+                if config_path.exists():
+                    try:
+                        manager.load_configuration(config_path)
+                    except Exception as exc:  # noqa: BLE001
+                        failed_modules.append(
+                            (entry.name, f"Failed to load configuration {entry.config_path}: {exc}"))
 
     def import_eb_project(self, project_root: Path, chip_name: Optional[str] = None,
                           target_dir: Optional[Path] = None,

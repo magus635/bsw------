@@ -55,6 +55,11 @@ def _search_dirs(project, project_dir: Path) -> List[Path]:
     for def_path in getattr(project, "module_defs", {}).values():
         if def_path:
             add(Path(def_path).parent.parent)
+    # Resource directories of the module packages (format 8 projects)
+    for _, pkg in sorted(getattr(project, "packages", {}).items()):
+        resource_dir = pkg.resource_dir()
+        if resource_dir is not None:
+            add(resource_dir)
     add(project_dir / project_paths.dirs(project).templates)
     return dirs
 

@@ -849,14 +849,22 @@ class ProjectController:
             return
             
         try:
-            # Ensure parser has latest chip constraints before parsing
-            constraints = self.win.chip_constraint_service.get_all_constraints()
-            if constraints:
-                self.win.def_parser._resolver.set_constraints(constraints)
-            from ...core.hardware.ecu_resource_resolver import selector_values
-            self.win.def_parser.set_selector_values(selector_values(self.win.current_project))
-            module_def = self.win.def_parser.parse_module_def_file(Path(file_path))
-            self.win.current_project.add_module(module_def, Path(file_path))
+            project = self.win.current_project
+            from ...core.workspace_manager import package_for_path
+            hit = package_for_path(project, Path(file_path)) if project.module_libraries else None
+            if hit is not None:
+                # The file lies inside a package of a registered library: add through it
+                lib_index, pkg = hit
+                module_def = project.add_module_from_package(pkg, lib_index).module_def
+            else:
+                # Ensure parser has latest chip constraints before parsing
+                constraints = self.win.chip_constraint_service.get_all_constraints()
+                if constraints:
+                    self.win.def_parser._resolver.set_constraints(constraints)
+                from ...core.hardware.ecu_resource_resolver import selector_values
+                self.win.def_parser.set_selector_values(selector_values(project))
+                module_def = self.win.def_parser.parse_module_def_file(Path(file_path))
+                project.add_module(module_def, Path(file_path))
             # The new module may ship its own .properties resources
             self.win.current_project.load_ecu_resources()
             # Its chip selector parameters follow the project's chip
