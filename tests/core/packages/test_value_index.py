@@ -257,3 +257,16 @@ def test_nested_package_path(tmp_path: Path):
     assert "/MICROSAR/VTT/X_Pre" in index
     assert len(index["/MICROSAR/VTT/X_Pre"]) == 1
     assert index["/MICROSAR/VTT/X_Pre"][0].short_name == "X_Pre"
+
+
+def test_key_helpers_use_container_path():
+    from autosar_configurator.core.model.configuration_model import EcucContainerValue
+    from autosar_configurator.core.packages.value_index import container_key, param_key, ref_key
+
+    parent = EcucContainerValue(short_name="McuGeneralConfiguration", definition_ref="/V/Mcu/G")
+    parent.module_name = "Mcu"
+    child = EcucContainerValue(short_name="Clk", definition_ref="/V/Mcu/G/Clk")
+    child.parent = parent
+    assert container_key(child) == "/Mcu/McuGeneralConfiguration/Clk"
+    assert param_key(child, "McuFreq") == "/Mcu/McuGeneralConfiguration/Clk.McuFreq"
+    assert ref_key(child, "McuRef") == "/Mcu/McuGeneralConfiguration/Clk.McuRef"

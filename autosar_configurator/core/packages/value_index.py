@@ -10,6 +10,44 @@ from ..model.configuration_model import EcucModuleConfiguration, EcucContainerVa
 from .errors import PackageConflictError
 
 
+def container_key(container: EcucContainerValue) -> str:
+    """Generate a unique key for a container based on its path.
+
+    Args:
+        container: Container value object
+
+    Returns:
+        String key representing the container's path
+    """
+    return container.get_path()
+
+
+def param_key(container: EcucContainerValue, name: str) -> str:
+    """Generate a unique key for a parameter within a container.
+
+    Args:
+        container: Parent container
+        name: Parameter name
+
+    Returns:
+        String key in format "container_path.param_name"
+    """
+    return f"{container.get_path()}.{name}"
+
+
+def ref_key(container: EcucContainerValue, name: str) -> str:
+    """Generate a unique key for a reference within a container.
+
+    Args:
+        container: Parent container
+        name: Reference name
+
+    Returns:
+        String key in format "container_path.ref_name"
+    """
+    return f"{container.get_path()}.{name}"
+
+
 def index_value_collections(file: Path) -> Dict[str, List[EcucModuleConfiguration]]:
     """Index all value collections in a file by their AUTOSAR path.
 
