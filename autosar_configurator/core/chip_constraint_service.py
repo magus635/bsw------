@@ -17,6 +17,8 @@ from typing import Any, Dict, List, Optional
 
 from PySide6.QtCore import QObject, Signal
 
+from .project_paths import legacy_plugins_dir
+
 from .hardware.tresos_properties_parser import (
     TresosPropertiesParser,
 )
@@ -163,7 +165,7 @@ class ChipConstraintService(QObject):
             return
         
         # Find .properties files in Def/plugins/*/resource/
-        def_path = self._project_path / "Def" / "plugins"
+        def_path = legacy_plugins_dir(self._project_path)
         if not def_path.exists():
             return
         
@@ -188,7 +190,7 @@ class ChipConstraintService(QObject):
         """Chip names in the file names of Def/plugins/*/resource/*.properties."""
         if not self._project_path:
             return []
-        def_path = Path(self._project_path) / "Def" / "plugins"
+        def_path = legacy_plugins_dir(self._project_path)
         if not def_path.exists():
             return []
         names = {self._extract_chip_name(f.stem) for f in def_path.rglob("resource/*.properties")}
@@ -233,7 +235,7 @@ class ChipConstraintService(QObject):
             return
         
         # Find matching .properties files for this chip
-        def_path = self._project_path / "Def" / "plugins"
+        def_path = legacy_plugins_dir(self._project_path)
         if not def_path.exists():
             self._constraints_cache[chip_name] = constraints
             return

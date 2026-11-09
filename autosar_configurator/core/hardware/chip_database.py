@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 
+from ..project_paths import legacy_plugins_dir
 from .ecu_resource_data import (
     EcuResources,
     flatten_ecu_resources,
@@ -664,9 +665,9 @@ class ChipDatabase:
         """
         # Common locations for properties files in EB Tresos projects
         search_paths = [
-            project_path / "Def" / "plugins",
+            legacy_plugins_dir(project_path),
             project_path / "plugins",
-            project_path.parent / "Def" / "plugins",
+            legacy_plugins_dir(project_path.parent),
         ]
 
         # Also check TRESOS_PLUGINS_PATH environment variable

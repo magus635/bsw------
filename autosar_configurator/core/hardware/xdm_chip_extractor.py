@@ -14,6 +14,7 @@ from typing import Dict, List, Any, Optional, Set
 import re
 import xml.etree.ElementTree as ET
 
+from ..project_paths import legacy_def_dir
 from .chip_database import (
     ChipDefinition, PortPinDef, CanResourceDef,
     AdcResourceDef, SpiResourceDef, IntcSourceDef
@@ -335,7 +336,7 @@ def extract_chip_from_project(project_path: Path) -> Optional[ChipDefinition]:
 
     # Common locations for XDM files in EB Tresos projects
     search_paths = [
-        project_path / "Def",
+        legacy_def_dir(project_path),
         project_path / "define",
         project_path / "xdm",
         project_path,

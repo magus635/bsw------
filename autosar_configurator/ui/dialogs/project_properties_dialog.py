@@ -291,9 +291,13 @@ class ProjectPropertiesDialog(QDialog):
         # --- Populate Templates Table ---
         from ...generator.generator import CodeGenerator
         
+        from ...core import project_paths
+
         project_template_dir = None
+        project_root = None
         if self.project.path:
-            project_template_dir = self.project.path.parent / "templates"
+            project_root = project_paths.project_root(self.project)
+            project_template_dir = project_paths.resolve(self.project, "templates")
             
         self.templates_table.setRowCount(0)
         
@@ -305,7 +309,8 @@ class ProjectPropertiesDialog(QDialog):
                 manager.module_def,
                 manager.configuration,
                 project_template_dir=project_template_dir if project_template_dir and project_template_dir.exists() else None,
-                ecu_resources=self.project.ecu_resources or None
+                ecu_resources=self.project.ecu_resources or None,
+                project_root=project_root
             )
             
             infos = generator.get_template_info(module_name)

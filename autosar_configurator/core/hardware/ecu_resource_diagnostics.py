@@ -20,6 +20,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple
 
+from .. import project_paths
+
 logger = logging.getLogger(__name__)
 
 DYNAMIC_KEYS_NOTE = ("Keys built by string concatenation in templates are not scanned, "
@@ -91,7 +93,7 @@ def _module_sources(project, module: str, def_path: Path) -> List[Path]:
     if project_path:
         project_path = Path(project_path)
         project_dir = project_path.parent if project_path.suffix == ".dpa" else project_path
-        files.extend(_files_under(project_dir / "templates" / module))
+        files.extend(_files_under(project_dir / project_paths.dirs(project).templates / module))
     return files
 
 

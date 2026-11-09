@@ -16,6 +16,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from .. import project_paths
 from .chip_database import ChipDatabase, get_default_chip_database
 from .ecu_resource_data import flatten_ecu_resources
 from .project_chip_store import (
@@ -46,15 +47,15 @@ def _search_dirs(project, project_dir: Path) -> List[Path]:
         if d.exists() and d not in dirs:
             dirs.append(d)
 
-    add(project_dir / "Def" / "plugins")        # project-local EB plugins
-    add(project_dir / "Def")
+    add(project_paths.legacy_plugins_dir(project_dir))  # project-local EB plugins
+    add(project_paths.legacy_def_dir(project_dir))
     add(project_dir / "Define")
     # Plugin roots of the loaded modules (handles external plugins such as Os):
     # typical EB layout is plugin_dir/config/module.xdm
     for def_path in getattr(project, "module_defs", {}).values():
         if def_path:
             add(Path(def_path).parent.parent)
-    add(project_dir / "templates")
+    add(project_dir / project_paths.dirs(project).templates)
     return dirs
 
 

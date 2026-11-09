@@ -12,6 +12,8 @@ from .config_manager import ConfigurationManager
 from .model.configuration_model import DEFAULT_VARIANT
 from .model.definition_model import EcucModuleDef
 from .parser.ecuc_def_parser import EcucDefParser
+from . import project_paths
+from .project_paths import ProjectDirectories
 
 def _chip_selector_values(project):
     """Selector values declared by the chip library and the project's chips/ (never raises)."""
@@ -122,6 +124,10 @@ class WorkspaceProject:
         # saved in the project file; set when the chip is saved into or updated
         # in the project (see record_chip_data)
         self.chip_data_record = None
+
+        # Directory table of a format 8 project (see project_paths); None means the
+        # legacy directory names (ConfigValue/, templates/, generateCode/, Def/plugins/)
+        self.directories: Optional[ProjectDirectories] = None
     
     def discover_available_chips(self) -> List[str]:
         """Scan project for available chip .properties files.
@@ -132,11 +138,8 @@ class WorkspaceProject:
         if not self.path:
             return []
         
-        # self.path is the .dpa file path, so project_dir is its parent
-        project_dir = self.path.parent if self.path.is_file() else self.path
-        
         chips = []
-        def_dir = project_dir / "Def" / "plugins"
+        def_dir = project_paths.resolve(self, "legacy_plugins")
         if def_dir.exists():
             # Look for resource/*.properties files
             for props_file in def_dir.rglob("resource/*.properties"):
@@ -893,18 +896,17 @@ class WorkspaceManager:
         
         # Save each module
         project_dir = self.current_project.path.parent
-        config_value_dir = project_dir / "ConfigValue"
+        config_value_dir = project_paths.resolve(self.current_project, "config")
         config_value_dir.mkdir(exist_ok=True)
         
         for name, manager in self.current_project.module_managers.items():
             # Determine paths
             def_path = self.current_project.module_defs[name]
             
-            # Module config is saved in ConfigValue folder
-            config_filename = f"{name}_Config.arxml"
-            # Use Path for cross-platform compatibility (converts to correct separator)
-            relative_config_path = str(Path("ConfigValue") / config_filename)
-            config_path = project_dir / "ConfigValue" / config_filename
+            # Module config is saved in the project's config directory
+            config_path = project_paths.config_file(self.current_project, name)
+            # Same separator handling as before (str of a relative Path)
+            relative_config_path = str(config_path.relative_to(project_dir))
             
             # Save the actual config content
             manager.save_configuration(config_path)
@@ -948,7 +950,7 @@ class WorkspaceManager:
         The generator searches project_template_dir/{ModuleName}/ for templates,
         so this makes the EB templates available for code generation.
         """
-        templates_dir = project_dir / "templates"
+        templates_dir = project_dir / project_paths.dirs(self.current_project).templates
         copied_count = 0
 
         for name, def_path in self.current_project.module_defs.items():
@@ -1118,7 +1120,7 @@ class WorkspaceManager:
                     f"TRESOS_PLUGINS_PATH to the plugins directory."
                 )
             # Repair the Def/plugins symlink to point at TRESOS_PLUGINS_PATH
-            plugins_link = project_path.parent / "Def" / "plugins"
+            plugins_link = project_paths.legacy_plugins_dir(project_path.parent)
             if plugins_link.is_symlink() and not plugins_link.exists():
                 plugins_link.unlink()
                 os.symlink(Path(tresos_path), plugins_link, target_is_directory=True)
@@ -1303,7 +1305,7 @@ class WorkspaceManager:
         # Primary: Define/EbPlugins/eclipse/*/config/*.xdm (or Def/)
         eb_plugins_dir = project_root / "Define" / "EbPlugins" / "eclipse"
         if not eb_plugins_dir.is_dir():
-            eb_plugins_dir = project_root / "Def" / "plugins"
+            eb_plugins_dir = project_paths.legacy_plugins_dir(project_root)  # EB source tree
 
         if eb_plugins_dir.is_dir():
             for module_dir in sorted(eb_plugins_dir.iterdir()):
@@ -1357,7 +1359,7 @@ class WorkspaceManager:
         #              downstream code (def loading, resource scan, template
         #              lookup) works unchanged through the link
         # ------------------------------------------------------------------
-        plugins_target = project_dir / "Def" / "plugins"
+        plugins_target = project_paths.resolve(project, "legacy_plugins")
 
         # Common source root of all plugins (define_map paths sit at
         # {plugins_root}/{PluginName}/(config|autosar)/File)
@@ -1534,7 +1536,7 @@ class WorkspaceManager:
         # Link mode: templates/{Module} -> plugin generate_PB symlinks
         # (copy mode copies them at save time via _copy_eb_templates)
         if mode == "link":
-            templates_dir = project_dir / "templates"
+            templates_dir = project_paths.resolve(project, "templates")
             templates_dir.mkdir(parents=True, exist_ok=True)
             linked = 0
             for name, def_path in project.module_defs.items():

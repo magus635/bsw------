@@ -55,7 +55,8 @@ class CodeGenerator:
                  variant_name: Optional[str] = None,
                  all_configurations: Optional[Dict[str, Any]] = None,
                  selected_chip: Optional[str] = None,
-                 ecu_resources: Optional[Dict[str, Any]] = None):
+                 ecu_resources: Optional[Dict[str, Any]] = None,
+                 project_root: Optional[Path] = None):
         """Initialize generator
         
         Args:
@@ -68,8 +69,12 @@ class CodeGenerator:
             all_configurations: Optional dict of module_name -> (module_def, configuration)
             selected_chip: Optional name of the selected chip variant (filters .properties files)
             ecu_resources: Optional pre-loaded ECU resources (overrides automatic scan)
+            project_root: Optional project directory (where the .dpa lives). When given,
+                the .properties scan uses it directly; when None the root is guessed by
+                searching upwards from project_template_dir (legacy behaviour).
         """
         self.module_def = module_def
+        self.project_root = Path(project_root) if project_root is not None else None
         self.configuration = configuration
         self.project_template_dir = project_template_dir
         self.user_template_dir = user_template_dir
@@ -113,49 +118,32 @@ class CodeGenerator:
         """
         ecu_resources = {}
         if not self.project_template_dir:
+            # No templates: nothing to render, so nothing to scan for
             return ecu_resources
-
-        # Robust Project Root Detection:
-        # Search upwards from project_template_dir until we find a directory 
-        # containing 'Def' or 'Define', or we hit the filesystem root.
-        project_root = None
-        current = self.project_template_dir.resolve()
-        # Max search depth 5 to avoid traversing too far up
-        for _ in range(5):
-            if (current / "Def").exists() or (current / "Define").exists():
-                project_root = current
-                break
-            if current.parent == current: # Root
-                break
-            current = current.parent
-            
-        if not project_root:
-            # Fallback to parent of templates if templates dir exists in path
-            if "templates" in str(self.project_template_dir).lower():
-                curr = self.project_template_dir
-                while curr.name.lower() != "templates" and curr.parent != curr:
-                    curr = curr.parent
-                project_root = curr.parent
-            else:
-                project_root = self.project_template_dir.parent
+        project_root = getattr(self, "project_root", None)
+        if project_root is not None:
+            # The caller knows the project directory: no guessing
+            project_root = Path(project_root)
+        else:
+            project_root = self._guess_project_root()
 
         logger.info(f"Scanning for ECU resources in project root: {project_root}")
-        
+
         parser = TresosPropertiesParser()
         props_files = []
-        
+
         # Search recursively for .properties files in Def and Define
         try:
             search_dirs = [project_root / "Def", project_root / "Define"]
-            
+
             for def_dir in search_dirs:
                 if not def_dir.exists():
                     continue
-                
+
                 logger.info(f"Searching for .properties in: {def_dir}")
                 # Recursively find all properties files
                 all_props = list(def_dir.rglob("*.properties"))
-                
+
                 # Filter by selected chip if specified
                 if self.selected_chip:
                     # Keep only files that match the selected chip name pattern
@@ -173,7 +161,7 @@ class CodeGenerator:
                     props_files.extend(filtered)
                 else:
                     props_files.extend(all_props)
-            
+
             # also check templates for any embedded properties
             props_files.extend(list(self.project_template_dir.glob("**/*.properties")))
         except Exception as e:
@@ -196,6 +184,35 @@ class CodeGenerator:
             logger.info(f"Loaded {len(ecu_resources)} ECU resources from {len(props_files)} files.")
 
         return ecu_resources
+
+    def _guess_project_root(self) -> Path:
+        """Legacy project root detection, used only when no project_root was given.
+
+        Search upwards from project_template_dir until we find a directory
+        containing 'Def' or 'Define', or we hit the filesystem root.
+        """
+        project_root = None
+        current = self.project_template_dir.resolve()
+        # Max search depth 5 to avoid traversing too far up
+        for _ in range(5):
+            if (current / "Def").exists() or (current / "Define").exists():
+                project_root = current
+                break
+            if current.parent == current: # Root
+                break
+            current = current.parent
+
+        if not project_root:
+            # Fallback to parent of templates if templates dir exists in path
+            if "templates" in str(self.project_template_dir).lower():
+                curr = self.project_template_dir
+                while curr.name.lower() != "templates" and curr.parent != curr:
+                    curr = curr.parent
+                project_root = curr.parent
+            else:
+                project_root = self.project_template_dir.parent
+
+        return project_root
 
     def _get_template_module_names(self) -> List[str]:
         """Get names of modules that should appear as MODULE-DEF in XDM enumeration

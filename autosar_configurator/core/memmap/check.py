@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, Optional, Tuple
 
+from .. import project_paths
 from ..hardware.chip_dependency_scan import (
     MAX_SCAN_BYTES,
     SKIPPED_DIRS,
@@ -89,7 +90,8 @@ STATIC_NOTE = ("静态检查：#if 分支一律当作会编译，其中的问题
 
 SOURCE_SUFFIXES = {".c", ".h"}
 SCATTER_SUFFIXES = {".scat", ".sct"}
-GENERATION_DIR = "generateCode"
+# Generation output directory name of legacy projects (shown in the UI)
+GENERATION_DIR = project_paths.ProjectDirectories.legacy().gen
 MAX_USES_SHOWN = 3
 
 _CORE = re.compile(r"(?:^|_)CORE(\d+)(?:_|$)", re.I)
@@ -514,8 +516,9 @@ def check_project(project, progress=None) -> CheckResult:
     (``generateCode``) is always scanned as a source directory."""
     base = _project_dir(project)
     dirs = [resolve_scan_dir(d, base) for d in getattr(project, "memmap_source_dirs", []) or []]
-    if base is not None and (base / GENERATION_DIR).is_dir():
-        dirs.append(base / GENERATION_DIR)
+    gen = base / project_paths.dirs(project).gen if base is not None else None
+    if gen is not None and gen.is_dir():
+        dirs.append(gen)
     header_dirs = [resolve_scan_dir(d, base) for d in getattr(project, "memmap_header_dirs", []) or []]
     linker = getattr(project, "memmap_linker_file", None)
     regions, unconfirmed, note = project_regions(project)

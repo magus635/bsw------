@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional
 
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
+from ...core import project_paths
 from ...core.model.configuration_model import override_layer
 
 logger = logging.getLogger(__name__)
@@ -90,6 +91,7 @@ class GenerationController:
             variant_overrides = {}
             variant_name = None
             project_template_dir = None
+            project_dir = None
 
             if win.current_project:
                 variant_name = win.current_project.active_variant
@@ -104,7 +106,7 @@ class GenerationController:
                         project_dir = win.current_project_file
                     else:
                         project_dir = win.current_project_file.parent
-                    project_template_dir = project_dir / "templates"
+                    project_template_dir = project_dir / project_paths.dirs(win.current_project).templates
                     if not project_template_dir.exists():
                         logger.info(f"Project template directory not found at: {project_template_dir}")
                         project_template_dir = None
@@ -118,7 +120,8 @@ class GenerationController:
                 variant_overrides=variant_overrides,
                 all_configurations=self._get_all_project_configurations(),
                 selected_chip=win.current_project.selected_chip if win.current_project else None,
-                ecu_resources=self._project_ecu_resources()
+                ecu_resources=self._project_ecu_resources(),
+                project_root=project_dir
             )
 
             # Pass parent output directory; generator.generate_all() handles the ModuleName/ subdir
@@ -159,7 +162,7 @@ class GenerationController:
 
         # Default output directory is project_path/generateCode (no dialog needed)
         project_dir = win.current_project.path.parent if win.current_project.path else Path.home()
-        output_dir = str(project_dir / "generateCode")
+        output_dir = str(project_dir / project_paths.dirs(win.current_project).gen)
 
         from ...generator.generator import CodeGenerator
         from PySide6.QtWidgets import QProgressDialog
@@ -184,7 +187,7 @@ class GenerationController:
             finished = Signal(str, str, str)  # module_name, status (GEN/SKIP/FAIL), message
 
         class GenWorker(QRunnable):
-            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None, project_template_dir=None, all_configs=None, selected_chip=None, ecu_resources=None):
+            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None, project_template_dir=None, all_configs=None, selected_chip=None, ecu_resources=None, project_root=None):
                 super().__init__()
                 self.name = name
                 self.manager = manager
@@ -195,6 +198,7 @@ class GenerationController:
                 self.all_configs = all_configs
                 self.selected_chip = selected_chip
                 self.ecu_resources = ecu_resources
+                self.project_root = project_root
                 self.signals = GenSignals()
 
             @Slot()
@@ -213,7 +217,8 @@ class GenerationController:
                         variant_name=self.variant_name,
                         all_configurations=self.all_configs,
                         selected_chip=self.selected_chip,
-                        ecu_resources=self.ecu_resources
+                        ecu_resources=self.ecu_resources,
+                        project_root=self.project_root
                     )
                     # Pass parent output path; generator.generate_all() handles the ModuleName/ subdir
                     variant_to_use = self.variant_name if self.variant_name else "Default"
@@ -333,9 +338,10 @@ class GenerationController:
 
         # Calculate project template directory (project_dir/templates)
         project_template_dir = None
+        project_root = None
         if win.current_project and win.current_project.path:
-            project_dir = win.current_project.path.parent
-            project_template_dir = project_dir / "templates"
+            project_root = project_paths.project_root(win.current_project)
+            project_template_dir = project_paths.resolve(win.current_project, "templates")
             if not project_template_dir.exists():
                 logger.info(f"Project template directory not found at: {project_template_dir}")
                 project_template_dir = None
@@ -366,7 +372,8 @@ class GenerationController:
                 project_template_dir=project_template_dir,
                 all_configs=all_configs,
                 selected_chip=win.current_project.selected_chip if win.current_project else None,
-                ecu_resources=ecu_resources
+                ecu_resources=ecu_resources,
+                project_root=project_root
             )
             worker.setAutoDelete(False)  # Prevent automatic deletion
             # Use QueuedConnection for cross-thread signal delivery
