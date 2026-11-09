@@ -277,3 +277,144 @@ def test_v8_readded_module_gets_stashed_overrides(tmp_path):
     assert manager.configuration.variant_overrides == overrides
     assert "Mcu" not in project.unloaded_variant_overrides
     assert project.module_entries["Mcu"].definition == "/THA6_AS440_FuSa/Mcu"
+
+
+def _mcu_config_with_value(tmp_path) -> bytes:
+    """Write config/Mcu.arxml holding one McuGeneralConfiguration with a set value."""
+    wm = WorkspaceManager()
+    project = wm.create_project("Src", tmp_path / "src" / "Src.dpa", format_version=8)
+    project.selected_chip = CHIP
+    project.module_libraries.append(_eb_library())
+    manager = project.add_module_from_package(_package("Mcu"), 0)
+    general = manager.create_container_instance(manager.module_def.containers["McuGeneralConfiguration"])
+    manager.set_parameter_value(general, "McuDevErrorDetect", True)
+    wm.save_project()
+    return (tmp_path / "src" / "config" / "Mcu.arxml").read_bytes()
+
+
+def _dev_error_detect(manager):
+    (general,) = [c for c in manager.configuration.containers
+                  if c.short_name == "McuGeneralConfiguration"]
+    return str(general.parameter_values["McuDevErrorDetect"].value).lower()
+
+
+def test_v8_readd_loads_existing_config(tmp_path):
+    content = _mcu_config_with_value(tmp_path)
+    project_file = tmp_path / "P.dpa"
+    _write_dpa(project_file, [_eb_library()], [_mcu_entry(definition="/Nowhere/Mcu")])
+    config = tmp_path / "config" / "Mcu.arxml"
+    config.parent.mkdir()
+    config.write_bytes(content)
+
+    wm = WorkspaceManager()
+    project, failed = wm.load_project(project_file)
+    assert [name for name, _ in failed] == ["Mcu"]
+
+    manager = project.add_module_from_package(_package("Mcu"), 0)
+    assert _dev_error_detect(manager) == "true"
+    wm.save_project()
+
+    reloaded, failed = WorkspaceManager().load_project(project_file)
+    assert failed == []
+    assert _dev_error_detect(reloaded.module_managers["Mcu"]) == "true"
+
+
+def test_v8_new_module_picks_up_config_file_in_place(tmp_path):
+    content = _mcu_config_with_value(tmp_path)
+    project_file = tmp_path / "P.dpa"
+    wm = WorkspaceManager()
+    project = wm.create_project("P", project_file, format_version=8)
+    project.selected_chip = CHIP
+    project.module_libraries.append(_eb_library())
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "Mcu.arxml").write_bytes(content)
+
+    manager = project.add_module_from_package(_package("Mcu"), 0)
+    assert _dev_error_detect(manager) == "true"
+
+
+def test_v8_readd_with_corrupt_config_leaves_project_unchanged(tmp_path):
+    project_file = tmp_path / "P.dpa"
+    overrides = {"V1": {"/Mcu/McuGeneralConfiguration.McuDevErrorDetect": True}}
+    _write_dpa(project_file, [_eb_library()], [_mcu_entry(variant_overrides=overrides)])
+    config = tmp_path / "config" / "Mcu.arxml"
+    config.parent.mkdir()
+    config.write_bytes(b"<AUTOSAR><broken")
+    project, failed = WorkspaceManager().load_project(project_file)
+    assert [name for name, _ in failed] == ["Mcu"]
+
+    with pytest.raises(ValueError):
+        project.add_module_from_package(_package("Mcu"), 0)
+    assert "Mcu" not in project.module_managers
+    assert project.unloaded_variant_overrides["Mcu"] == overrides
+    assert config.read_bytes() == b"<AUTOSAR><broken"
+
+
+def test_v8_snapshot_restore_of_loaded_module(tmp_path):
+    project_file = tmp_path / "P.dpa"
+    wm = WorkspaceManager()
+    project = wm.create_project("P", project_file, format_version=8)
+    project.selected_chip = CHIP
+    project.module_libraries.append(_eb_library())
+    manager = project.add_module_from_package(_package("Mcu"), 0)
+    entry = project.module_entries["Mcu"]
+
+    snapshot = project.snapshot_module("Mcu")
+    project.remove_module("Mcu")
+    project.restore_module(snapshot)
+
+    assert project.module_managers["Mcu"] is manager
+    assert project.module_entries["Mcu"] is entry
+    assert project.packages["Mcu"].manifest.module == "Mcu"
+    assert "Mcu" not in project.unloaded_variant_overrides
+    wm.save_project()
+    (saved,) = _saved_modules(project_file)
+    assert saved["definition"] == "/THA6_AS440_FuSa/Mcu"
+
+
+def test_v8_snapshot_restore_of_failed_module(tmp_path):
+    project_file = tmp_path / "P.dpa"
+    overrides = {"V1": {"/Mcu/McuGeneralConfiguration.McuDevErrorDetect": True}}
+    _write_dpa(project_file, [_eb_library()],
+               [_mcu_entry(definition="/Nowhere/Mcu", variant_overrides=overrides)])
+    wm = WorkspaceManager()
+    project, _ = wm.load_project(project_file)
+
+    snapshot = project.snapshot_module("Mcu")
+    project.remove_module("Mcu")
+    project.restore_module(snapshot)
+
+    assert "Mcu" not in project.module_managers
+    assert project.module_entries["Mcu"].definition == "/Nowhere/Mcu"
+    assert project.unloaded_variant_overrides["Mcu"] == overrides
+    wm.save_project()
+    (saved,) = _saved_modules(project_file)
+    assert saved["variant_overrides"] == overrides
+
+
+def test_delete_module_command_undo_restores_v8_bookkeeping(tmp_path):
+    pytest.importorskip("PySide6")
+    from autosar_configurator.ui.commands import DeleteModuleCommand
+
+    project_file = tmp_path / "P.dpa"
+    _write_dpa(project_file, [_eb_library()], [
+        _mcu_entry(),
+        _mcu_entry(name="Gone", definition="/Nowhere/Gone", config_path="config/Gone.arxml",
+                   variant_overrides={"V1": {}}),
+    ])
+    wm = WorkspaceManager()
+    project, _ = wm.load_project(project_file)
+
+    for name in ("Mcu", "Gone"):
+        command = DeleteModuleCommand(project, name)
+        command.redo()
+        assert name not in project.module_entries
+        command.undo()
+        assert name in project.module_entries
+
+    assert "Mcu" in project.module_managers and "Mcu" in project.packages
+    assert project.unloaded_variant_overrides["Gone"] == {"V1": {}}
+    wm.save_project()
+    saved = {m["name"]: m for m in _saved_modules(project_file)}
+    assert saved["Mcu"]["definition"] == "/THA6_AS440_FuSa/Mcu"
+    assert saved["Gone"]["definition"] == "/Nowhere/Gone"

@@ -220,20 +220,27 @@ class WorkspaceProject:
 
         Parses the package's definition file for ``selected_chip``, adds the module and
         registers it in ``module_entries`` and ``packages``.  An entry already present
-        (a project being loaded) keeps its configuration path and baseline fields.
+        (a project being loaded, or a module re-added after a failed load) keeps its
+        configuration path and baseline fields.  An existing configuration file of the
+        module is loaded into the new manager, so a later save never replaces it with
+        an empty configuration.
 
         Raises:
             PackageError / PackageConflictError: the package has no unique definition file
+            ValueError: the existing configuration file cannot be loaded; the project is
+                left as it was before the call
         """
         def_file = pkg.definition_file(self.selected_chip)
         parser = EcucDefParser()
         parser.set_selector_values(_chip_selector_values(self))
         module_def = parser.parse_module_def_file(def_file)
-        manager = self.add_module(module_def, def_file)
         name = module_def.short_name
+        stashed = self.unloaded_variant_overrides.get(name)
+        manager = self.add_module(module_def, def_file)
 
         entry = self.module_entries.get(name)
-        if entry is None:
+        new_entry = entry is None
+        if new_entry:
             config_rel = project_paths.config_file(self, name)
             try:
                 config_rel = config_rel.relative_to(project_paths.project_root(self))
@@ -245,12 +252,60 @@ class WorkspaceProject:
                 library=lib_index,
                 config_path=config_rel.as_posix(),
             )
+
+        if entry.config_path and self.path:
+            config_path = Path(entry.config_path)
+            if not config_path.is_absolute():
+                config_path = project_paths.project_root(self) / config_path
+            if config_path.is_file():
+                try:
+                    manager.load_configuration(config_path)
+                except Exception as exc:  # noqa: BLE001 - roll back, then report
+                    del self.module_managers[name]
+                    del self.module_defs[name]
+                    if stashed is not None:
+                        self.unloaded_variant_overrides[name] = stashed
+                    raise ValueError(
+                        f"Failed to load configuration {entry.config_path}: {exc}") from exc
+                if stashed is not None:
+                    # load_configuration replaces the configuration object
+                    manager.configuration.variant_overrides = stashed
+
+        if new_entry:
             self.module_entries[name] = entry
         else:
             entry.definition = pkg.manifest.definition
             entry.library = lib_index
         self.packages[name] = pkg
         return manager
+
+    _MISSING = object()
+
+    def snapshot_module(self, name: str) -> Dict[str, Any]:
+        """Everything the project keeps for module ``name`` (any part may be absent),
+        for restoring it with restore_module() after remove_module()."""
+        return {
+            "name": name,
+            "manager": self.module_managers.get(name),
+            "def_path": self.module_defs.get(name),
+            "entry": self.module_entries.get(name),
+            "package": self.packages.get(name),
+            "overrides": self.unloaded_variant_overrides.get(name, self._MISSING),
+        }
+
+    def restore_module(self, snapshot: Dict[str, Any]) -> None:
+        """Put back what snapshot_module() captured (parts that were absent stay absent)."""
+        name = snapshot["name"]
+        if snapshot["manager"] is not None:
+            self.module_managers[name] = snapshot["manager"]
+        if snapshot["def_path"] is not None:
+            self.module_defs[name] = snapshot["def_path"]
+        if snapshot["entry"] is not None:
+            self.module_entries[name] = snapshot["entry"]
+        if snapshot["package"] is not None:
+            self.packages[name] = snapshot["package"]
+        if snapshot["overrides"] is not self._MISSING:
+            self.unloaded_variant_overrides[name] = snapshot["overrides"]
 
     def discover_available_chips(self) -> List[str]:
         """Scan project for available chip .properties files.
@@ -1540,19 +1595,11 @@ class WorkspaceManager:
         for entry in entries:
             try:
                 index, pkg = find_package(libraries, entry.definition)
+                # Also loads the entry's configuration file when it exists
                 manager = project.add_module_from_package(pkg, index)
-            except Exception as exc:  # noqa: BLE001 - PackageError and parse errors: one module must not abort the project
+            except Exception as exc:  # noqa: BLE001 - package, definition and configuration errors: one module must not abort the project
                 fail(entry.name, f"Failed to load: {exc}")
                 continue
-
-            if entry.config_path:
-                config_path = self._resolve_path(entry.config_path, project_dir)
-                if config_path.exists():
-                    try:
-                        manager.load_configuration(config_path)
-                    except Exception as exc:  # noqa: BLE001
-                        fail(entry.name, f"Failed to load configuration {entry.config_path}: {exc}")
-                        continue
 
             if entry.name in raw_overrides:
                 manager.configuration.variant_overrides = raw_overrides[entry.name]

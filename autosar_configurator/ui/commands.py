@@ -376,9 +376,9 @@ class DeleteModuleCommand(QUndoCommand):
         super().__init__()
         self.project = project
         self.module_name = module_name
-        # Snapshot the manager and its definition path so we can restore them
-        self.manager = project.module_managers.get(module_name)
-        self.def_path = project.module_defs.get(module_name)
+        # Snapshot the manager, its definition path and the format 8 bookkeeping
+        # (module entry, package, stashed overrides) so undo can restore them
+        self.snapshot = project.snapshot_module(module_name)
         self.setText(f"Delete Module {module_name}")
 
     def redo(self):
@@ -386,11 +386,8 @@ class DeleteModuleCommand(QUndoCommand):
         self.project.remove_module(self.module_name)
 
     def undo(self):
-        if self.manager is None:
-            return
-        # Re-register the previously removed manager and its definition path
-        self.project.module_managers[self.module_name] = self.manager
-        if self.def_path is not None:
-            self.project.module_defs[self.module_name] = self.def_path
-        # Re-resolve references so cleared cross-module pointers are restored
-        self.project.resolve_all_references()
+        # Also restores a failed module (no manager) of a format 8 project
+        self.project.restore_module(self.snapshot)
+        if self.snapshot["manager"] is not None:
+            # Re-resolve references so cleared cross-module pointers are restored
+            self.project.resolve_all_references()
