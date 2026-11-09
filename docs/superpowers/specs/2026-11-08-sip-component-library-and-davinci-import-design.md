@@ -16,17 +16,26 @@ DaVinci 的做法是：按目录约定扫描 SIP 下所有 `Components/*/BSWMD/*
 
 ## 2. 总体路线（供定位，本文只覆盖第 1 项）
 
-| 顺序 | 子项目 |
-|---|---|
-| **1** | **组件库加载 + 工程目录管理 + DaVinci 工程导入（本文）** |
-| 2 | MemMap 汇总生成：收集所有模块的内存段，生成各 `<Msn>_MemMap.h` |
-| 3 | 链接文件、Makefile、文件清单 |
-| 4 | 各模块配置代码模板（EcuM/BswM 模式联动属于这一项） |
-| 5 | SchM：BSW 调度、MainFunction→Task、独占区 |
-| 6 | RTE |
-| 7 | 系统描述导入（SystemExtract/DBC→Com/PduR/CanIf） |
+不用 Vector 的 jar，意味着要补的不只是模板。2026-11-09 的调查（见 5.1 末尾）表明，组件 jar 中模板/输出类只占 4%～43%，其余是校验、修复动作（solving action，会直接改写 ECUC）、生成前的中间计算，以及向 Configurator 登记的集成信息；RTE 核心是外部程序；系统描述推导在 Configurator 本体里。路线据此扩充为：
 
-这个顺序是助手的建议，用户还没有明确确认。
+| 顺序 | 子项目 | 取代 DaVinci 的哪部分 |
+|---|---|---|
+| **1** | **组件库加载 + 工程目录管理 + DaVinci 工程导入（本文）** | 本体的 SIP 扫描、BSWMD 合并、工程加载 |
+| 2 | MemMap 汇总生成：收集所有模块的内存段，生成各 `<Msn>_MemMap.h`（含 MCAL 段的来源，见第 10 节） | `Common_MemMap.jar` |
+| 3 | 链接文件、Makefile、文件清单 | `vLinkGen.jar`、`vBRS.jar` 的构建输出 |
+| 4 | 各模块配置代码模板 + **生成前预计算**（句柄 ID、缓冲区大小、排序、哈希等；放在模板内还是公共函数库，由该子项目定） | 各组件 jar 的 generation 与中间模型部分 |
+| 5 | **校验框架 + 规则**：先建框架，规则随模块逐步补；缺规则不应阻止生成，但必须让用户知道哪些模块没有规则覆盖 | 各组件 jar 的 validation 部分（Dem 一个 jar 就有 422 个规则类） |
+| 6 | **跨模块自动补全**（修复动作的等价物）：如 Os 的空闲任务、栈、自旋锁、内存区，BswM/EcuM 的引用，EcuC 初始化函数列表；每次补全要可预览、可追溯、可撤销 | 各组件 jar 的 solving action；本体 `workflow.ecucupdater` |
+| 7 | **BSW Internal Behavior + SchM**：各模块的独占区、MainFunction 周期与 TimingEvent，与 ECUC 保持同步；BSW 调度、MainFunction→Task 映射 | 各 jar 登记的 `addExclusiveArea`、`addTimingEventUpdater`；本体 `bswintbehavior` 服务 |
+| 8 | **Service SWC 生成**（Dem、Dcm、BswM、EcuM 等的 `*_swc.arxml`） | 各 jar 的 `registerSwcTemplate` / `*SwcTemplateProducer` |
+| 9 | **RTE 生成，以及由 RTE 反推的 OS 配置**（报警、调度表、任务映射、事件）。OS 是自研内核，接口要按该内核重新设计 | `MicrosarRteGen64.exe` + `Rte.jar` 的 `RteEcucUpdater` |
+| 10 | 系统描述导入与推导（SystemExtract/DBC→Com/PduR/CanIf 等） | 本体 `workflow.baseecuc.mapping`（约 60 个模块的推导规则） |
+| 11 | BSWMD 版本迁移（可选：固定 SIP 版本时可不做） | 各 jar 的 `registerBswmdMigrationRules` |
+
+说明：
+- 这个顺序是助手的建议，用户还没有明确确认。
+- 导入的 DaVinci 工程里，上述 jar 和本体产出的结果（RTE 回写的 Os 报警、修复动作补全的容器、推导出的通信配置等）已经固化在 ECUC 中，所以第 1 项"导入后接着用"不依赖第 5～11 项。缺这些子项目的影响，出现在导入之后修改配置时：原来由 DaVinci 自动完成的联动，要由新工具或人来完成。
+- 第 5～11 项的实际次序，应按"导入后最常做的修改"来定，例如经常改通信就提前第 10 项，经常加 Runnable 就提前第 7～9 项。
 
 ## 3. 用户已定的事项
 
@@ -78,6 +87,12 @@ DaVinci 的做法是：按目录约定扫描 SIP 下所有 `Components/*/BSWMD/*
 - **合并**：同一路径的元素分在多个文件里。例：`/MICROSAR/Arti_Impl` 在 `Arti_bswmd.arxml` 第 9220 行（版本、Pre/Rec 引用、模块定义引用）和 `Arti_MemMap.arxml` 第 26 行（内存段 `ARTI_CODE`、`ARTI_VAR_NO_INIT_32`、依赖 `Arti_MemMap.h`）各有一部分。前者带 UUID，后者不带。
 - **合并结果只在内存里**，不落盘。生成器 jar 只调用模型 API（`com/vector/cfg/model/{mdf,query,access}`），不读文件。
 - **引用的 Pre/Rec 不一定存在**：`Arti_Impl` 引用 `/MICROSAR/Arti_Pre` 和 `/MICROSAR/Arti_Rec`，但 `Components/Arti/BSWMD/` 里没有它们。
+- **组件 jar 的职责远不止模板**（2026-11-09 调查，提取 jar 内类名与字符串，未反编译整个 jar）：
+  - 抽样 9 个 jar 的顶层类，模板/输出类占比：CanIf、BswM、Dcm 4%，Com 9%，Dem 6%，EcuM 21%，Rte 25%，PduR、Os 43%。校验类在 Com、CanIf、Dem、Dcm 中占 45%～62%。
+  - 修复动作直接写 ECUC：引用 `ISolvingAction` 的类 Dem 425、Dcm 176、Os 115、BswM 78；Os 有 `OsSaCreateTaskIdle`、`OsSaCreateStacks`、`OsSaCreateSpinlockIoc`、`OsSaCreateMemoryRegion` 等。
+  - 各 jar 的 `GeneratorPackage` 向本体登记独占区（`addExclusiveArea`）、MainFunction 周期/TimingEvent（`addTimingEventUpdater`）、MemMap 段（`registerMemMapSections`）、Service SWC 模板（`registerSwcTemplate`）、BSWMD 迁移规则（`registerBswmdMigrationRules`）。
+  - RTE 核心是外部程序 `Components/Rte/Generator/MicrosarRteGen64.exe`；`Rte.jar` 的 `RteEcucUpdater` 把结果回写 ECUC。样例 Os 配置中有 32 处 `DV:RTE` 标记，如报警 `Rte_Al_TE_CanTp_CanTp_MainFunction`。
+  - 系统描述→ECUC 的推导在本体插件 `com.vector.cfg.workflow.baseecuc.mapping`（912 个类），组件 jar 不参与；EcuC 初始化函数列表（`DV:EcucBswInitFunction`）也由本体的 `workflow.ecucupdater` 处理。
 
 ### 5.2 样例 SIP 的规模和文件形态
 
@@ -85,6 +100,12 @@ DaVinci 的做法是：按目录约定扫描 SIP 下所有 `Components/*/BSWMD/*
 - 文件名形态统计：`*_bswmd.arxml` 96 个，`*_MemMap.arxml` 69 个，`*_bswmd_rec.arxml` 17 个，另有 `*_pre*.arxml`、芯片相关文件等。含 `ECUC-MODULE-CONFIGURATION-VALUES`（Pre/Rec）的文件 155 个。**文件名不可作为语义依据**，必须按内容中的元素类型和路径识别。
 - 一个目录不一定只含一个模块：`Components/Mcal_Tha62x/BSWMD/` 有 81 个文件，涵盖全部 MCAL 模块；`Components/MemMap/BSWMD/` 有定义、SwAddrMethods、多份 Rec/Pre。
 - 包路径不止 `/MICROSAR`：如 `/MICROSAR/CanTrcv_Tja1040/CanTrcv`、`/MICROSAR/VTT/VTTOs`、`/THA6_AS440_FuSa/Adc`。
+- **`BSWMD/` 下有子目录**（2026-11-09 补查，第一层扫描时漏掉）：共 115 个 arxml 位于子目录中，涉及 3 个组件：
+  - `Components/Os/BSWMD/Os/<衍生芯片目录>/`：42 个子目录（`Generic_CortexR52`、`Generic_CortexR52_ASIMD`、`S32Gxx`、`TMS570LC43x` 等），每个含 `Os_<名>_bswmd_pre.arxml`、`_rec.arxml`。**每个子目录都声明同一个 `/MICROSAR/Os_Pre`**，只是 `OsPublishedInformation` 下的容器不同。
+  - `DemoComponents/vBaseEnv/BSWMD/vBaseEnv/Tongxin_THA6/`：`vBaseEnv_THA6_pre.arxml`、`vBRS_THA6_pre.arxml`、`vLinkGen_THA6_rec.arxml`。
+  - `Components/vMem_30_Fls/BSWMD/vMem_30_Fls/vMem_30_Fls.arxml`。
+- **DaVinci 只加载与工程衍生芯片对应的子目录**：样例工程的 Os 配置（`StartApplication_Os_Os_ecuc.arxml`）里只出现 `Generic_CortexR52_ASIMD`，其余 41 个子目录的内容都没有进入。对应关系来自 `Components/Os/GeneratorMsr/DerivativeMapping_Os.xml`：以衍生芯片 UUID `B632B9EE-F23D-43CD-9C54-542178A058D9`（与 DaVinci `.dpa` 中 `<Derivative UUID=…>Tongxin_THA6206` 相同）映射到 `SIP_Folder = Generic_CortexR52_ASIMD`。**子目录名与衍生芯片名不同**，不能按名字匹配。整个 SIP 中只有 Os 有这种映射文件；vBaseEnv、vMem_30_Fls 的子目录没有映射文件，样例中 vBaseEnv 子目录的内容进入了配置（推断：无映射文件的子目录总是加载，未反编译确认）。
+- **组件目录不等于模块**：`DemoComponents/vBaseEnv/BSWMD/` 里有 vLinkGen 的 4 个 rec（`vLinkGen_BaseEnv_rec.arxml`、`vLinkGen_BaseEnv_Variants_rec.arxml`、`vLinkGen_BaseEnv_Compiler_KEEP_rec.arxml`、`Tongxin_THA6/vLinkGen_THA6_rec.arxml`），加上 vLinkGen 自己目录里的 5 个 pre/rec，vLinkGen 共 9 个 pre/rec 文件，分布在两个组件目录里。
 
 ### 5.3 样例 DaVinci 工程
 
@@ -124,14 +145,21 @@ DaVinci 的做法是：按目录约定扫描 SIP 下所有 `Components/*/BSWMD/*
 ### R2 组件库声明与扫描
 
 - `.dpa` 可声明多个组件库，每项包含：根目录、布局类型（`vector` | `eb`）。另可声明单独补充的模块目录（相当于 DaVinci 的 AdditionalComponents），以及**要排除的组件目录**（如 `Components/Mcal_Tha62x`，见第 10 节）。被排除的目录不扫描、不参与合并，但在"来源"界面中可见其被排除。
-- `vector` 布局：扫描 `<根>/Components/*/BSWMD/` 和 `<根>/DemoComponents/*/BSWMD/` 下的全部 `*.arxml`。每个组件目录同时识别 `Implementation/`、`Templates/`、`Make/`（存在即记录，不存在不报错）。
+- `vector` 布局：扫描 `<根>/Components/*/BSWMD/` 和 `<根>/DemoComponents/*/BSWMD/` 下的 `*.arxml`，**包括子目录**，子目录按下面的衍生芯片规则取舍。每个组件目录同时识别 `Implementation/`、`Templates/`、`Make/`（存在即记录，不存在不报错）。
+- **衍生芯片子目录的选择**：
+  - 工程记录衍生芯片的名字和 UUID（DaVinci 导入时取自 `<Derivative UUID=…>`）。
+  - 组件提供 `GeneratorMsr/DerivativeMapping_<模块>.xml` 时，按衍生芯片 UUID 查出 `SIP_Folder`，只加载 `BSWMD/` 下对应子目录；该组件的其他衍生芯片子目录一律不加载。这是 GeneratorMsr 中唯一被读取的内容，作为数据文件解析，不执行 jar。
+  - 有映射文件但查不到当前衍生芯片时报错，不得退回"全部加载"或"任选一个"。
+  - 没有映射文件的子目录全部加载（与样例行为一致，见 5.2）。
+  - `.dpa` 允许对单个组件显式指定子目录，覆盖上面的规则；覆盖要在来源界面中标出。
+  - 选择结果写入 R4 的来源记录。
 - `eb` 布局：沿用现有 EB 插件识别规则（`<插件>/config/*.xdm`、`generate_PB/`）。
 - 工具自带的公共定义（AUTOSAR 标准定义、SwAddrMethods、PlatformTypes）也要能加载，因为 Vector BSWMD 引用它们（如 `REFINED-MODULE-DEF-REF /AUTOSAR/EcucDefs/Arti`、`SW-ADDRMETHOD-REF /MICROSAR_MemMap/SwAddrMethods/CODE`）。来源可以是 DaVinci 安装目录，也可以是本工具自带副本，由 `.dpa` 指定。
 - 扫描结果是"可用模块"列表，即使工程还没配置这些模块，也能在"添加模块"时选到。
 
 ### R3 BSWMD 加载与合并
 
-- 按文件内容识别元素，不按文件名。至少识别：`ECUC-MODULE-DEF`、`BSW-IMPLEMENTATION`（含 `RESOURCE-CONSUMPTION/MEMORY-SECTIONS`、`REQUIRED-ARTIFACTS`、`PRECONFIGURED-CONFIGURATION-REFS`、`RECOMMENDED-CONFIGURATION-REFS`、`VENDOR-SPECIFIC-MODULE-DEF-REFS`、版本字段）、`ECUC-MODULE-CONFIGURATION-VALUES`（Pre/Rec）、`SW-ADDR-METHOD`。
+- 按文件内容识别元素，不按文件名，也不按所在组件目录（vLinkGen 的 rec 有一部分在 vBaseEnv 目录里，见 5.2）。至少识别：`ECUC-MODULE-DEF`、`BSW-IMPLEMENTATION`（含 `RESOURCE-CONSUMPTION/MEMORY-SECTIONS`、`REQUIRED-ARTIFACTS`、`PRECONFIGURED-CONFIGURATION-REFS`、`RECOMMENDED-CONFIGURATION-REFS`、`VENDOR-SPECIFIC-MODULE-DEF-REFS`、版本字段）、`ECUC-MODULE-CONFIGURATION-VALUES`（Pre/Rec）、`SW-ADDR-METHOD`。
 - 同一 AUTOSAR 路径出现在多个文件时，合并为一个元素，以路径而非 UUID 为准。
 - **冲突必须报错**，至少包括：同一路径元素类型不同；同一单值字段取值不同；同一路径的 `ECUC-MODULE-DEF` 在两个组件里各有一份（不允许合并模块定义）。报错要指出路径和涉及的文件。
 - 引用目标不存在（如 `Arti_Pre`、`Arti_Rec`）记为警告，不阻止加载。
@@ -157,7 +185,7 @@ DaVinci 的做法是：按目录约定扫描 SIP 下所有 `Components/*/BSWMD/*
 - 映射：
   - `<SIP>` → 一个 `vector` 布局组件库；
   - `<Folders>`、`<Input>`、`<References>` 中的路径 → 新 `.dpa` 的对应字段（本子项目不解析的文件只记录路径）；
-  - `<Derivative>`、`<Compiler>`、`<SipIds>` → 工程属性；
+  - `<Derivative>`（名字和 UUID 都要，UUID 用于 R2 的子目录选择）、`<Compiler>`、`<SipIds>` → 工程属性；
   - `<ECUC><Active>` 的 `ECUC-VALUE-COLLECTION` 和 `<EcucSplitter>` 列出的各模块文件 → 读出全部模块配置值，复制进新工程的配置值目录；
   - DaVinci 的 `BswImplSwVersion` → 与 R4 的版本记录比对，不一致时在导入报告中列出。
 - MCAL 部分走 EB 插件布局；`Components/Mcal_Tha62x` 自动列入排除项（见第 10 节）。
@@ -181,6 +209,7 @@ DaVinci 的做法是：按目录约定扫描 SIP 下所有 `Components/*/BSWMD/*
 2. 导入报告中：每个已配置模块都有定义；未解析引用为 0（或每一条都有明确原因并经用户认可）；无未报告的丢失。
 3. 抽查：`/MICROSAR/Arti_Impl` 合并后同时含 SW-VERSION 1.02.00 和两个内存段；`/MICROSAR/MemMap` 定义能找到 `MemMap_SwAddrMethods.arxml` 中的 SwAddrMethod。
 4. 导入的配置值与来源逐参数一致：BSW 模块对照 DaVinci 原 `*_ecuc.arxml`，MCAL 模块对照用户指定的 EB 配置值目录（比较方法由实现者定，但必须是自动比较）。
+   另抽查衍生芯片子目录：`/MICROSAR/Os_Pre` 的 `OsPublishedInformation` 下只有 `Generic_CortexR52_ASIMD`，没有其他 41 个衍生芯片的容器；vLinkGen 的 9 个 pre/rec 文件都被加载，并在来源界面中列出（含位于 vBaseEnv 目录的 4 个）。
 5. 保存、关闭、重新打开：配置不变，来源记录不变，不出现版本变化提示。
 6. 在组件库里改一个 BSWMD 文件的 SW-VERSION 后重新打开：出现提示，指出模块和变化。
 7. 构造一个冲突（两个文件对同一路径给出不同的单值字段）：加载报错，指出路径和两个文件。
@@ -197,6 +226,7 @@ DaVinci 的做法是：按目录约定扫描 SIP 下所有 `Components/*/BSWMD/*
 - **用户拒绝更新来源记录时**（R4）：仍用组件库的新内容打开工程，保留旧记录，下次打开继续提示，直到用户接受。不缓存旧定义快照。配置值与新定义不兼容的地方按现有校验报出问题。
 - **模块身份以定义路径为准**：不同组件库提供同名但定义路径不同的模块（如 `/MICROSAR/EcuC` 与 EB 的 EcuC）时，两者都出现在"可用模块"列表里，工程中每个模块配置通过 `DEFINITION-REF` 明确绑定其中一个。DaVinci 导入时按原配置的 `DEFINITION-REF` 绑定。同一定义路径出现在两个库里则按 R3 报错。
 - **导入范围以 `<ECUC><Active>` 集合为准**（样例 28 个模块）。`<ModuleDefinitionMappings>` 只是名字到定义的映射，不代表已配置，不导入。
+- **衍生芯片子目录规则**（R2）：有 `DerivativeMapping_*.xml` 的按 UUID 选一个子目录，查不到就报错；没有映射文件的子目录全部加载；`.dpa` 可逐组件覆盖。"无映射文件即全部加载"是根据样例推断的 DaVinci 行为，未反编译确认。
 - **子项目顺序**（第 2 节）。
 
 ## 9. 留给实现者
