@@ -67,3 +67,41 @@ def test_values_equal_reuses_workspace_semantics():
     assert not values_equal("1", "2")
     assert values_equal(("a", "b"), ("a", "b"))
     assert workspace_manager._same_value is values_equal
+
+
+def test_flatten_re_roots_on_the_module():
+    """A Pre fragment saved as its own value collection flattens onto the module's keys."""
+    from autosar_configurator.core.model.configuration_model import EcucContainerValue
+
+    fragment = EcucModuleConfiguration(short_name="McuPreConfiguration", definition_ref="/X/Mcu")
+    general = EcucContainerValue(short_name="McuGeneral", definition_ref="/X/Mcu/McuGeneral")
+    general.parameter_values["Speed"] = EcucParameterValue("/X/Mcu/McuGeneral/Speed", 2)
+    fragment.add_container(general)                      # containers carry the fragment's name
+    module = EcucModuleConfiguration(short_name="Mcu", definition_ref="/X/Mcu")
+    own = EcucContainerValue(short_name="McuGeneral", definition_ref="/X/Mcu/McuGeneral")
+    own.parameter_values["Speed"] = EcucParameterValue("/X/Mcu/McuGeneral/Speed", 1)
+    module.add_container(own)                            # here the containers carry "Mcu"
+
+    assert "C:/McuPreConfiguration/McuGeneral" in flatten(fragment)
+    assert set(flatten(fragment, "Mcu")) == set(flatten(module))
+    assert flatten(fragment, "Mcu")["P:/Mcu/McuGeneral.Speed"] == 2
+    # the source configuration is untouched
+    assert "C:/McuPreConfiguration/McuGeneral" in flatten(fragment)
+
+
+def test_flatten_module_name_re_roots_whatever_containers_carry():
+    fragment = EcucModuleConfiguration(short_name="McuPreConfiguration", definition_ref="/X/Mcu")
+    general = EcucContainerValue(short_name="McuGeneral", definition_ref="/X/Mcu/McuGeneral")
+    general.parameter_values["Speed"] = EcucParameterValue("/X/Mcu/McuGeneral/Speed", 2)
+    sub = EcucContainerValue(short_name="McuSub", definition_ref="/X/Mcu/McuGeneral/McuSub",
+                             parent=general)
+    general.sub_containers.append(sub)
+    fragment.add_container(general)
+    fragment.set_parameter_value("ModFlag", True, "/X/Mcu/ModFlag")
+
+    flat = flatten(fragment, "Mcu")
+    assert list(flat) == sorted(flat)
+    assert flat["C:/Mcu/McuGeneral"] is True
+    assert flat["C:/Mcu/McuGeneral/McuSub"] is True
+    assert flat["P:/Mcu/McuGeneral.Speed"] == 2
+    assert flat["P:/Mcu.ModFlag"] is True

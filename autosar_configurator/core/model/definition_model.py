@@ -87,6 +87,11 @@ class EcucParameterDef:
     # What applies when those expressions cannot be evaluated for the project's chip
     static_default: Any = None
     static_literals: Optional[List[str]] = None
+    # True once a chip expression has been evaluated into default_value
+    # (xdm_expression_resolver.apply_chip_expressions). Such a default depends on the
+    # selected chip, so it is not part of the baseline (design §6.5: the DEFAULT layer
+    # takes static default_value only). Serialization ignores this field.
+    default_is_computed: bool = False
 
     # XDM ENABLE condition (XPath, context: this parameter); false -> not part of the
     # configuration. For a v:lst of values it is the list's condition.

@@ -201,6 +201,8 @@ def apply_chip_expressions(module_def, resources: Dict[str, Any]) -> int:
         if param.default_expr:
             resolved = resolver.resolve_expression(param.default_expr)
             value = typed_value(resolved, param.param_type) if resolved is not None else param.static_default
+            # The default now follows the selected chip; a baseline keeps static defaults only
+            param.default_is_computed = True
             if value != param.default_value:
                 param.default_value = value
                 changed += 1
