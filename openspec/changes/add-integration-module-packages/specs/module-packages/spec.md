@@ -4,7 +4,10 @@
 
 ### Requirement: Module Package Layout And Manifest
 
-工具 SHALL 支持“模块包”：一个以模块名命名的目录，含清单 `module.json` 和 `config/` 目录，模块的定义（ECUC-MODULE-DEF）、预设值（PRE）和推荐值（REC）放在同一个 `config/` 目录中；模板和资源目录由清单的 `templates`、`resources` 字段指明。清单的 `files` 只列出来源文件，不标角色；角色 SHALL 按 AUTOSAR 路径判定：`definition` 指向定义，`implementation_path` 指向 `BSW-IMPLEMENTATION`，`pre`、`rec` 列出值集合路径。在当前芯片选中的文件中，同一定义路径出现两份且内容不同，或某个 pre/rec 路径下同一单值字段取值冲突时，SHALL 报错；清单声明的 pre/rec 路径在任何选中文件里都找不到时，SHALL 只给警告，加载继续。
+工具 SHALL 支持“模块包”：一个以模块名命名的目录，含清单 `module.json` 和 `config/` 目录，模块的定义（ECUC-MODULE-DEF）、预设值（PRE）和推荐值（REC）放在同一个 `config/` 目录中；模板和资源目录由清单的 `templates`、`resources` 字段指明。清单的 `files` 只列出来源文件，不标角色；角色 SHALL 按 AUTOSAR 路径判定：`definition` 指向定义，`implementation_path` 指向 `BSW-IMPLEMENTATION`，`pre`、`rec` 列出值集合路径。缺失和冲突 SHALL 按以下规则处理：
+- 清单声明的 pre/rec 路径在包内**所有文件**中都不存在（例如 Vector 的 `Arti_Pre`）时，SHALL 只给警告，加载继续；
+- pre/rec 路径在包内某些文件中存在，但当前芯片选中的文件里一个元素都没有时，SHALL 报错；
+- 在当前芯片选中的文件中，同一定义路径出现两份且内容不同，或同一参数取值冲突时，SHALL 报错。
 
 #### Scenario: 同一定义路径出现两份
 
@@ -17,10 +20,15 @@
 - **THEN** `X_Pre` 按 PRE 处理，`X_Rec` 按 REC 处理
 - **AND** 不会因为文件名带 `_pre` 而把 `X_Rec` 也当作 PRE
 
-#### Scenario: 清单引用的 Pre 路径不存在
+#### Scenario: 清单引用的 Pre 路径在包内不存在
 
-- **WHEN** 清单 `pre` 列出的路径在任何选中的文件里都不存在
+- **WHEN** 清单 `pre` 列出的路径（例如 `/MICROSAR/Arti_Pre`）在包内所有文件中都不存在
 - **THEN** 加载给出警告，指出该路径，不中断加载
+
+#### Scenario: Pre 路径在包内存在但当前芯片没有
+
+- **WHEN** 清单 `pre` 列出的路径只出现在 `chips` 为 `["THA6412_BGA516"]` 的文件中，而工程 `selected_chip` 为 `THA6206_LFBGA292`
+- **THEN** 加载报错，指出该路径、当前芯片以及包含该路径但未被选中的文件
 
 ### Requirement: EB Plugin Inferred As Module Package
 
