@@ -15,9 +15,9 @@ parsing, so a snapshot someone edited by hand, and a snapshot that is gone, both
 change the configuration. Refusing the file here, rather than trusting it, is what keeps a
 half-written snapshot from silently becoming the merge base.
 
-Where the snapshot lives is the caller's business: this module takes a path and does no
-directory logic. It does create the parent directory when it is missing, so the first
-``write_base`` after ``add module`` cannot fail on a project that never had ``config/base``.
+Where the snapshot lives is the caller's business: this module takes a path, does no
+directory logic and does not create the directory — the caller creates ``config/base`` and
+passes a path inside it.
 """
 import hashlib
 import logging
@@ -46,8 +46,8 @@ def write_base(path: Path, config: EcucModuleConfiguration) -> str:
     """Write ``config`` to ``path`` as arxml and return the hash of the file written.
 
     Args:
-        path: The snapshot file (``config/base/<Module>.arxml``); its directory is created
-            when missing.
+        path: The snapshot file (``config/base/<Module>.arxml``); its directory must exist —
+            this function does no directory logic.
         config: The baseline to store (``compose_base``'s result, after the merge is
             accepted).
 
@@ -57,7 +57,6 @@ def write_base(path: Path, config: EcucModuleConfiguration) -> str:
         exactly the bytes the project will load.
     """
     path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
     EcucValueSerializer().serialize_to_file(config, path)
     return hash_file(path)
 

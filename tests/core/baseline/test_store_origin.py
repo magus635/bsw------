@@ -10,6 +10,8 @@ would test the parser against itself and hide a serializer/parser disagreement.
 """
 import hashlib
 
+import pytest
+
 from autosar_configurator.core.baseline.compose import Layer
 from autosar_configurator.core.baseline.merge import MergeKind, three_way_merge
 from autosar_configurator.core.baseline.origin import Origin, classify, origins_for
@@ -105,7 +107,17 @@ def test_read_base_missing_file_returns_none(tmp_path, caplog):
     """No snapshot file: None and a warning, never an exception."""
     with caplog.at_level("WARNING"):
         assert read_base(tmp_path / "Mcu.arxml", "sha256:00") is None
-    assert any("Mcu.arxml" in record.getMessage() for record in caplog.records)
+    assert any("不存在" in record.getMessage() and "Mcu.arxml" in record.getMessage()
+               for record in caplog.records)
+
+
+def test_write_base_leaves_directories_to_the_caller(tmp_path):
+    """No directory logic here: an absent parent fails, it is not created."""
+    cfg = _config()
+    _set(cfg, "Speed", 5)
+    with pytest.raises(OSError):
+        write_base(tmp_path / "base" / "Mcu.arxml", cfg)
+    assert not (tmp_path / "base").exists()
 
 
 def test_read_base_hash_mismatch_returns_none(tmp_path, caplog):
@@ -138,6 +150,10 @@ def test_base_missing_or_tampered_treated_as_migration(tmp_path):
     End to end through ``read_base`` → ``three_way_merge``: the snapshot the user accepted
     is gone (deleted, or one byte changed), so no value can be shown to be untouched, and
     every non-Pre difference is KEPT_USER. Pre still merges as Pre.
+
+    The merge input is *exactly* what ``read_base`` returned — never a literal ``None``. If
+    ``read_base`` ever returned the tampered configuration, the merge would ADOPT ``Speed``
+    and this test would fail; passing ``None`` by hand would hide that.
     """
     base_cfg = _config()
     _set(base_cfg, "Speed", 5)
@@ -154,19 +170,20 @@ def test_base_missing_or_tampered_treated_as_migration(tmp_path):
     _set(active, "Speed", 5)
     _set(active, "Mode", "A")
 
-    def merge_with(snapshot):
+    def merge_after_read():
+        """Merge what ``read_base`` actually returned for the snapshot on disk."""
+        snapshot = read_base(path, digest)
         return three_way_merge(flatten(snapshot) if snapshot is not None else None,
                                flatten(new), flatten(active), new_layers, set())
 
     # A healthy snapshot adopts the untouched value: the contrast that proves the test.
-    healthy = merge_with(read_base(path, digest))
+    healthy = merge_after_read()
     assert {(i.key, i.kind) for i in healthy.items} == {
         (GEN + "Speed", MergeKind.ADOPT), (GEN + "Mode", MergeKind.PRE_FORCED)}
 
     # Deleted snapshot.
     path.unlink()
-    assert read_base(path, digest) is None
-    deleted = merge_with(None)
+    deleted = merge_after_read()
     non_pre = [i for i in deleted.items if i.key != GEN + "Mode"]
     assert non_pre and all(i.kind is MergeKind.KEPT_USER for i in non_pre)
 
@@ -176,8 +193,7 @@ def test_base_missing_or_tampered_treated_as_migration(tmp_path):
     marker = b">5<"
     assert original.count(marker) == 1
     path.write_bytes(original.replace(marker, b">6<"))
-    assert read_base(path, digest) is None
-    tampered = merge_with(None)
+    tampered = merge_after_read()
     assert {(i.key, i.kind) for i in tampered.items} == {
         (GEN + "Speed", MergeKind.KEPT_USER), (GEN + "Mode", MergeKind.PRE_FORCED)}
 
@@ -194,8 +210,8 @@ def test_classify_rec_vs_user():
     _set(base, "Mode", "A")
     base_layers = {GEN + "Speed": Layer.REC, GEN + "Mode": Layer.REC}
 
-    assert classify(GEN + "Speed", flatten(active), flatten(base), base_layers, set()) is Origin.REC
-    assert classify(GEN + "Mode", flatten(active), flatten(base), base_layers, set()) is Origin.USER
+    assert classify(GEN + "Speed", flatten(active), flatten(base), base_layers, set(), set()) is Origin.REC
+    assert classify(GEN + "Mode", flatten(active), flatten(base), base_layers, set(), set()) is Origin.USER
 
 
 def test_classify_layer_maps_to_origin():
@@ -212,16 +228,16 @@ def test_classify_layer_maps_to_origin():
     layers = {GEN + "Speed": Layer.REC, GEN + "Mode": Layer.DEFAULT,
               GEN + "Depth": Layer.DERIVED}
 
-    assert classify(GEN + "Speed", active_flat, base_flat, layers, set()) is Origin.REC
-    assert classify(GEN + "Mode", active_flat, base_flat, layers, set()) is Origin.DEFAULT
-    assert classify(GEN + "Depth", active_flat, base_flat, layers, set()) is Origin.DERIVED
+    assert classify(GEN + "Speed", active_flat, base_flat, layers, set(), set()) is Origin.REC
+    assert classify(GEN + "Mode", active_flat, base_flat, layers, set(), set()) is Origin.DEFAULT
+    assert classify(GEN + "Depth", active_flat, base_flat, layers, set(), set()) is Origin.DERIVED
 
     # A key Base does not have, or Base has but the layer map does not, is USER
     _set(active, "Flag", True)
-    assert classify(GEN + "Flag", flatten(active), base_flat, layers, set()) is Origin.USER
-    assert classify(GEN + "Speed", active_flat, base_flat, {}, set()) is Origin.USER
+    assert classify(GEN + "Flag", flatten(active), base_flat, layers, set(), set()) is Origin.USER
+    assert classify(GEN + "Speed", active_flat, base_flat, {}, set(), set()) is Origin.USER
     # No snapshot at all: everything is USER
-    assert classify(GEN + "Speed", active_flat, None, layers, set()) is Origin.USER
+    assert classify(GEN + "Speed", active_flat, None, layers, set(), set()) is Origin.USER
 
 
 def test_classify_pre_unlocked_is_not_pre():
@@ -232,16 +248,45 @@ def test_classify_pre_unlocked_is_not_pre():
     _set(base, "Mode", "A")
     active_flat, base_flat = flatten(active), flatten(base)
     layers = {GEN + "Mode": Layer.PRE}
+    pre_keys = {GEN + "Mode"}
 
-    assert classify(GEN + "Mode", active_flat, base_flat, layers, set()) is Origin.PRE
+    assert classify(GEN + "Mode", active_flat, base_flat, layers, set(), pre_keys) is Origin.PRE
     unlocked = {GEN + "Mode"}
-    origin = classify(GEN + "Mode", active_flat, base_flat, layers, unlocked)
+    origin = classify(GEN + "Mode", active_flat, base_flat, layers, unlocked, pre_keys)
     assert origin is not Origin.PRE
     assert origin is Origin.REC          # a baseline value the user may now edit
 
     # An unlocked Pre value the user changed is a plain user value
     _set(active, "Mode", "C")
-    assert classify(GEN + "Mode", flatten(active), base_flat, layers, unlocked) is Origin.USER
+    assert classify(GEN + "Mode", flatten(active), base_flat, layers, unlocked,
+                    pre_keys) is Origin.USER
+
+
+def test_classify_pre_key_absent_from_base_and_active_is_still_pre():
+    """Pre owns a key whether or not the baseline or the live config still has it.
+
+    Ownership, not presence: the merge restores a Pre value the user deleted
+    (``merge._forced_by_pre``), so the lock must report PRE for exactly those keys or the UI
+    would offer an edit the next merge silently reverts.
+    """
+    active = _config()                   # the user deleted the Pre container
+    base = _config(containers=[])
+    pre_keys = {"C:/Mcu/McuPreset", "P:/Mcu/McuPreset.Mode"}
+    layers = {GEN + "Speed": Layer.REC}  # the snapshot's layer map no longer mentions Pre
+
+    assert classify("P:/Mcu/McuPreset.Mode", flatten(active), flatten(base),
+                    layers, set(), pre_keys) is Origin.PRE
+    assert classify("C:/Mcu/McuPreset", flatten(active), flatten(base),
+                    layers, set(), pre_keys) is Origin.PRE
+
+    # Unlocking still wins: the key is no longer PRE even though Pre owns it
+    unlocked = {"P:/Mcu/McuPreset.Mode"}
+    assert classify("P:/Mcu/McuPreset.Mode", flatten(active), flatten(base),
+                    layers, unlocked, pre_keys) is Origin.USER
+
+    # A key Pre does not own, absent from Base and Active, is USER
+    assert classify("P:/Mcu/Other.X", flatten(active), flatten(base),
+                    layers, set(), pre_keys) is Origin.USER
 
 
 def test_origins_for_covers_container_reference_and_module_keys():
@@ -256,6 +301,7 @@ def test_origins_for_covers_container_reference_and_module_keys():
     layers["C:/Mcu/McuOther"] = Layer.PRE
     layers[SUB + "Depth"] = Layer.DEFAULT
     layers[MOD + "ModInt"] = Layer.DERIVED
+    pre_keys = {"C:/Mcu/McuOther"}
 
     active = _config(containers=["McuGeneral", "McuOther"])
     _set(active, "Speed", 5)
@@ -263,7 +309,7 @@ def test_origins_for_covers_container_reference_and_module_keys():
     _module_param(active, "ModInt", 3)
     _sub(active, depth=4)
 
-    origins = origins_for(active, base, layers, set())
+    origins = origins_for(active, base, layers, set(), pre_keys)
 
     assert list(origins) == sorted(origins)                 # deterministic order
     assert set(origins) == set(flatten(active))             # every live key covered
@@ -277,25 +323,35 @@ def test_origins_for_covers_container_reference_and_module_keys():
 
     # A key Active has and Base lacks (added by the user) is USER
     _set(active, "Mode", "B")
-    assert origins_for(active, base, layers, set())[GEN + "Mode"] is Origin.USER
+    assert origins_for(active, base, layers, set(), pre_keys)[GEN + "Mode"] is Origin.USER
 
-    # No snapshot: everything is USER
-    assert set(origins_for(active, None, {}, set()).values()) == {Origin.USER}
+    # No snapshot: everything is USER — except what Pre still owns
+    no_snapshot = origins_for(active, None, {}, set(), pre_keys)
+    assert no_snapshot["C:/Mcu/McuOther"] is Origin.PRE
+    assert all(origin is Origin.USER
+               for key, origin in no_snapshot.items() if key != "C:/Mcu/McuOther")
 
 
 def test_origins_for_module_name_re_roots_every_key():
     """``module_name`` re-roots keys the same way ``flatten`` does, so they still match.
 
     A Pre fragment saved as its own value collection (``McuPreConfiguration``) must
-    classify under the module's keys, not under its own short name.
+    classify under the module's keys, not under its own short name — in the snapshot, in
+    the layer map and in the Pre ownership set alike.
     """
     base = _config(name="McuPreConfiguration")
     _set(base, "Speed", 5)
     layers = {GEN + "Speed": Layer.PRE}
+    pre_keys = set(flatten(base, "Mcu"))
 
     active = _config()
     _set(active, "Speed", 5)
 
-    origins = origins_for(active, base, layers, set(), module_name="Mcu")
+    origins = origins_for(active, base, layers, set(), pre_keys, module_name="Mcu")
     assert origins[GEN + "Speed"] is Origin.PRE
     assert not any(key.startswith("McuPreConfiguration") for key in origins)
+
+    # Re-rooted by the caller: without ``module_name`` the fragment's own keys do not match
+    # the live configuration's, which is why both sides take the same root.
+    unrooted = origins_for(active, base, layers, set(), set(flatten(base)))
+    assert unrooted[GEN + "Speed"] is Origin.USER
