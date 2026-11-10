@@ -1374,7 +1374,13 @@ class WorkspaceManager:
             if entry is None or name not in modules_out:
                 _log_warning("基线没有对应的模块条目，跳过快照写入：%s", name)
                 continue
-            digest = baseline_session.write_baseline(project, name, baseline)
+            try:
+                digest = baseline_session.write_baseline(project, name, baseline)
+            except OSError as exc:
+                # One unwritable snapshot must not cost the project file: the module keeps
+                # the hash it had, its baseline stays dirty for the next save.
+                _log_warning("基线快照写入失败，保留原记录：%s（%s）", name, exc)
+                continue
             entry.base_hash = digest
             modules_out[name]["base_hash"] = digest
         return data

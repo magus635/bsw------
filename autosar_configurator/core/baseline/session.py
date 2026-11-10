@@ -243,7 +243,8 @@ def write_baseline(project, module: str, baseline: ModuleBaseline) -> Optional[s
     layers file that names it is replaced; then the layers are renamed into place and only
     then the snapshot. Every interruption point therefore leaves either the old pair or a
     layers file naming a hash the snapshot does not have — which :func:`load_baseline`
-    rejects (migration semantics), never a snapshot read against the wrong layers.
+    detects and answers by keeping the verified snapshot and dropping those layers, never
+    by reading a snapshot against layers that describe another one.
 
     Returns:
         ``"sha256:<hex>"``, which belongs in ``ModuleEntry.base_hash``. ``dirty`` is cleared.
@@ -258,8 +259,13 @@ def write_baseline(project, module: str, baseline: ModuleBaseline) -> Optional[s
         write_layers(base_layers_path(project, module), baseline, snapshot_hash=digest)
         os.replace(pending, path)
     finally:
-        if pending.exists():
-            pending.unlink()
+        # Best effort: a leftover .tmp is harmless, and a failure to remove it must not
+        # mask the error that brought us here (or fail a save that otherwise succeeded).
+        try:
+            if pending.exists():
+                pending.unlink()
+        except OSError as exc:
+            _log.warning("临时基线快照无法删除：%s（%s）", pending, exc)
     baseline.dirty = False
     return digest
 
@@ -339,27 +345,45 @@ def read_layers(path: Path) -> ModuleBaseline:
 def load_baseline(project, module: str, expected_hash: Optional[str]) -> ModuleBaseline:
     """Load the accepted Base of ``module``: its snapshot and the layers beside it.
 
-    The snapshot and the layers are one unit, and two checks keep them from being read apart:
+    The snapshot and the layers are one unit. ``expected_hash`` (``.dpa``) must match the
+    snapshot — ``store.read_base``'s check — and the layers must prove they describe *that*
+    snapshot by naming it in ``snapshot_hash``. Layers that cannot prove it are not used:
+    a layers file naming another snapshot is the remains of an interrupted write, and one
+    without a ``snapshot_hash`` predates the pairing and may be stale. Trusting either
+    would mark values as Pre, or as Rec, according to a baseline that is not on disk.
 
-    - ``expected_hash`` (``.dpa``) must match the snapshot — ``store.read_base``'s check;
-    - the layers file must name that same snapshot in ``snapshot_hash``. A layers file that
-      names another one is the remains of an interrupted write, and using it would mark
-      values as Pre, or as Rec, according to a baseline that is no longer on disk.
+    What happens then is deliberately asymmetric, and it is the safe direction in both
+    crash windows (after the layers write, before the snapshot rename):
 
-    Either mismatch, a missing file or a damaged one gives ``base_config=None`` — the merge
-    then treats the module as first enable (§6.5, "旧工程迁移") — and is logged. A layers
-    file written by an older tool has no ``snapshot_hash`` and is trusted as before.
+    - the **snapshot** is kept whenever ``read_base`` verified it — it is the accepted
+      Base, and a layers disagreement says nothing against it;
+    - the **layers** are emptied, so no key is known to be Pre or REC. Every value is then
+      USER, which is exactly the migrated-project rule (§6.5): only Pre may change Active,
+      and only behind the confirm (the merge still forces the Pre values of Base', which it
+      computes itself).
+
+    A missing or damaged snapshot gives ``base_config=None`` (first enable), as before.
     """
     from .store import hash_file, read_base
 
     layers = read_layers(base_layers_path(project, module))
     snapshot = base_snapshot_path(project, module)
-    if layers.snapshot_hash is not None and snapshot.is_file():
+    base_config = read_base(snapshot, expected_hash)
+
+    trusted = layers.snapshot_hash is not None
+    if trusted and base_config is not None:
         actual = hash_file(snapshot)
-        if actual.lower() != layers.snapshot_hash.strip().lower():
-            _log.warning("基线快照与层文件不匹配，按旧工程迁移处理：%s（层文件记录 %s，快照 %s）",
+        trusted = actual.lower() == layers.snapshot_hash.strip().lower()
+        if not trusted:
+            _log.warning("基线快照与层文件不匹配，保留快照、丢弃层文件：%s（层文件记录 %s，快照 %s）",
                          snapshot, layers.snapshot_hash, actual)
-            return ModuleBaseline()
-    layers.base_config = read_base(snapshot, expected_hash)
+    elif not trusted:
+        _log.warning("基线层文件没有快照哈希，无法确认对应的基线，保留快照、丢弃层文件：%s",
+                     snapshot)
+
+    if not trusted:
+        return ModuleBaseline(base_config=base_config, layers={}, pre_keys=set(),
+                              module_name=module, has_layers=False)
+    layers.base_config = base_config
     layers.module_name = layers.module_name or module
     return layers

@@ -123,10 +123,20 @@ def new_project(tmp_path):
     return wm
 
 
+def add_module(project, module):
+    [pkg] = [p for p in scan_library(project.module_libraries[0], Path(project.path).parent)
+             if p.manifest.module == module]
+    return project.add_module_from_package(pkg, 0)
+
+
 def add_trk(project, confirm=None, persist=True):
     [pkg] = [p for p in scan_library(project.module_libraries[0], Path(project.path).parent)
              if p.manifest.module == "Trk"]
     return project.add_module_from_package(pkg, 0, persist=persist, confirm=confirm)
+
+
+def add_arg(project):
+    return add_module(project, "Arg")
 
 
 def flat(project, module="Trk"):
@@ -375,24 +385,40 @@ def test_orphan_baseline_is_not_written(tmp_path):
 
 
 def test_layers_file_is_tied_to_its_snapshot(tmp_path):
+    """Crash window A (layers written, snapshot not renamed) and a legacy layers file."""
     make_package(tmp_path / "lib", rec={"Mode": "Fast"}, pre={"Level": "3"})
     wm = new_project(tmp_path)
     add_trk(wm.current_project)
     project = wm.current_project
     baseline = project.baselines["Trk"]
     digest = project.module_entries["Trk"].base_hash
+    layers_file = session.base_layers_path(project, "Trk")
 
-    # A matching pair loads
+    # A matching pair loads, layers included
     loaded = session.load_baseline(project, "Trk", digest)
     assert loaded.base_config is not None
     assert loaded.snapshot_hash == digest
+    assert loaded.layers == baseline.layers
+    assert loaded.pre_keys == baseline.pre_keys
 
-    # A layers file naming another snapshot is a half-written update: refuse the pair
-    session.write_layers(session.base_layers_path(project, "Trk"), baseline,
-                         snapshot_hash="sha256:" + "0" * 64)
+    # Window A: the layers name a snapshot that is not the one on disk. The snapshot was
+    # verified, so it stays Base; the layers are dropped (every value USER, only Pre forced)
+    session.write_layers(layers_file, baseline, snapshot_hash="sha256:" + "0" * 64)
     stale = session.load_baseline(project, "Trk", digest)
-    assert stale.base_config is None
+    assert stale.base_config is not None
+    assert flatten(stale.base_config, "Trk") == flatten(baseline.base_config, "Trk")
     assert stale.layers == {}
+    assert stale.pre_keys == set()
+    assert not stale.has_layers
+
+    # A legacy layers file (no snapshot_hash) cannot prove which snapshot it describes
+    data = json.loads(layers_file.read_text(encoding="utf-8"))
+    data.pop("snapshot_hash")
+    layers_file.write_text(json.dumps(data), encoding="utf-8")
+    legacy = session.load_baseline(project, "Trk", digest)
+    assert legacy.base_config is not None
+    assert legacy.layers == {}
+    assert legacy.pre_keys == set()
 
 
 def test_one_reconcile_per_module_per_open(tmp_path, monkeypatch):
@@ -440,6 +466,36 @@ def test_missing_base_hash_stays_a_migrated_project(tmp_path):
     assert failed == []
     assert flat(loaded)[GEN + "Mode"] == "Fast"            # USER, kept
     assert all(not r.has_changes for r in seen)
+
+
+def test_save_survives_an_unwritable_snapshot(tmp_path, monkeypatch):
+    """One module's snapshot failure must not cost the project file or the other modules."""
+    make_package(tmp_path / "lib", rec={"Mode": "Fast"}, pre={"Level": "3"})
+    make_package(tmp_path / "lib", rec={"Mode": "Fast"}, module="Arg")
+    wm = new_project(tmp_path)
+    add_trk(wm.current_project)
+    add_arg(wm.current_project)
+    wm.save_project()
+    trk_hash = wm.current_project.module_entries["Trk"].base_hash
+
+    # A merge is applied for Trk, so its baseline is dirty and would be written
+    make_package(tmp_path / "lib", rec={"Mode": "Faster"}, pre={"Level": "3"})
+    loaded, failed = WorkspaceManager().load_project(project_file(tmp_path),
+                                                    confirm=lambda text, r: True)
+    assert failed == []
+
+    def boom(project, module, baseline):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(session, "write_baseline", boom)
+    wm2 = WorkspaceManager()
+    wm2.current_project = loaded
+    wm2.save_project()
+
+    saved = {m["name"]: m for m in
+             json.loads(project_file(tmp_path).read_text(encoding="utf-8"))["modules"]}
+    assert sorted(saved) == ["Arg", "Trk"]          # the project file was written
+    assert saved["Trk"]["base_hash"] == trk_hash    # the old hash is kept, not None
 
 
 def test_v7_project_never_reconciles(tmp_path):
@@ -490,7 +546,7 @@ def test_layers_file_round_trips(tmp_path):
     baseline = project.baselines["Trk"]
     path = session.base_layers_path(project, "Trk")
 
-    session.write_layers(path, baseline)
+    session.write_layers(path, baseline, snapshot_hash=project.module_entries["Trk"].base_hash)
     read_back = session.read_layers(path)
 
     assert read_back.layers == baseline.layers
