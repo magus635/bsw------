@@ -101,6 +101,26 @@ class ProjectController:
     def __init__(self, win):
         self.win = win
 
+    def _confirm_merge(self, preview: str, result) -> bool:
+        """Ask the user to accept a baseline merge (design §6.5, preview and confirm).
+
+        The preview is ``MergeResult.to_markdown`` — what would be adopted, forced or
+        created. Rejecting the dialog leaves the configuration and the snapshot as they
+        are; the next open asks again. A caller that must not raise dialogs (an automatic
+        session restore) passes ``confirm=None`` instead of this method, which makes the
+        merge reject by itself.
+        """
+        box = QMessageBox(self.win)
+        box.setWindowTitle("Baseline Changed")
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setText("The module package changed the baseline of this module.\n"
+                    "Apply the merge to the configuration?")
+        box.setDetailedText(preview)
+        confirm_button = box.addButton("Apply Merge", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton("Keep Current (reject)", QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        return box.clickedButton() is confirm_button
+
     def _ecu_resource_status(self) -> str:
         """Run the ECU resource diagnosis for the current project.
 
@@ -563,7 +583,8 @@ class ProjectController:
                 # Saved .dpa project file — load directly (works for both Vector and EB-typed saves)
                 # Use existing .dpa loading logic
                 load_path = Path(file_path) if file_path else path
-                self.win.current_project, failed_modules = self.win.workspace_manager.load_project(load_path)
+                self.win.current_project, failed_modules = self.win.workspace_manager.load_project(
+                    load_path, confirm=self._confirm_merge)
                 self.win.current_project_file = load_path
             else:
                 # EB project: auto-import all defines + EPC configs

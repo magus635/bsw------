@@ -65,7 +65,10 @@ def test_v8_loads_definition_from_package(tmp_path):
     assert failed == []
     mcu = loaded.module_managers["Mcu"]
     assert mcu.module_def.ar_path == "/THA6_AS440_FuSa/Mcu"
-    assert [c.short_name for c in mcu.configuration.containers] == ["McuGeneralConfiguration"]
+    # The Pre container is in Active by initialisation (baseline, D8), not only the one
+    # the test created
+    assert [c.short_name for c in mcu.configuration.containers] == [
+        "McuPublishedInformation", "McuGeneralConfiguration"]
     assert loaded.packages["Mcu"].manifest.definition == "/THA6_AS440_FuSa/Mcu"
     assert loaded.module_entries["Mcu"].config_path == "config/Mcu.arxml"
 

@@ -19,6 +19,9 @@ from .packages.errors import PackageError
 from .packages.library import LibraryRef, find_package, scan_library
 from .packages.package import ModulePackage
 from .baseline.values import values_equal
+from .baseline import session as baseline_session
+from .baseline.merge import MergeResult
+from .baseline.session import ModuleBaseline
 
 
 @dataclass
@@ -215,7 +218,14 @@ class WorkspaceProject:
         # save writes them back unchanged
         self.unloaded_variant_overrides: Dict[str, Any] = {}
 
-    def add_module_from_package(self, pkg: "ModulePackage", lib_index: int) -> ConfigurationManager:
+        # Format 8 baseline layer: the accepted baseline of each module this session knows
+        # (Base' after an accepted merge, the base of an add-module), by module name. This
+        # is what the value origins and the Pre lock read; a module without an entry has no
+        # baseline of its own (format ≤7, or an entry that never loaded).
+        self.baselines: Dict[str, ModuleBaseline] = {}
+
+    def add_module_from_package(self, pkg: "ModulePackage", lib_index: int,
+                                persist: bool = True) -> ConfigurationManager:
         """Add the module provided by ``pkg`` (from ``module_libraries[lib_index]``).
 
         Parses the package's definition file for ``selected_chip``, adds the module and
@@ -225,10 +235,16 @@ class WorkspaceProject:
         module is loaded into the new manager, so a later save never replaces it with
         an empty configuration.
 
+        For a format 8 project, Base' is composed from the package and becomes the initial
+        value of an Active the project does not have yet (D8: Rec included). ``persist``
+        writes that Base' to the snapshot immediately — the add-module case. A load passes
+        ``persist=False``: the saved snapshot must stay what the merge compares against, so
+        the reconciled Base' waits for the next :meth:`WorkspaceManager.save_project`.
+
         Raises:
             PackageError / PackageConflictError: the package has no unique definition file
-            ValueError: the existing configuration file cannot be loaded; the project is
-                left as it was before the call
+            ValueError: the existing configuration file cannot be loaded, or its baseline
+                cannot be composed; the project is left as it was before the call
         """
         def_file = pkg.definition_file(self.selected_chip)
         parser = EcucDefParser()
@@ -253,6 +269,7 @@ class WorkspaceProject:
                 config_path=config_rel.as_posix(),
             )
 
+        config_loaded = False
         if entry.config_path and self.path:
             config_path = Path(entry.config_path)
             if not config_path.is_absolute():
@@ -261,15 +278,32 @@ class WorkspaceProject:
                 try:
                     manager.load_configuration(config_path)
                 except Exception as exc:  # noqa: BLE001 - roll back, then report
-                    del self.module_managers[name]
-                    del self.module_defs[name]
-                    if stashed is not None:
-                        self.unloaded_variant_overrides[name] = stashed
+                    self._rollback_added_module(name, stashed)
                     raise ValueError(
                         f"Failed to load configuration {entry.config_path}: {exc}") from exc
+                config_loaded = True
                 if stashed is not None:
                     # load_configuration replaces the configuration object
                     manager.configuration.variant_overrides = stashed
+
+        # Baseline (design §6.5, step ④ / D8): Base' is composed from the package's Rec and
+        # Pre layers and is the initial value of a module Active does not have yet. A
+        # package contributing no value layer leaves the module exactly as before.
+        if self.format_version >= 8:
+            try:
+                baseline = baseline_session.compute_new_base(
+                    pkg, self.selected_chip, manager.module_def, name)
+                if baseline.has_layers:
+                    if not config_loaded:
+                        baseline_session.adopt_base(manager, baseline.base_config)
+                    if persist:
+                        entry.base_hash = baseline_session.write_baseline(self, name, baseline)
+                        baseline.dirty = False
+                    self.baselines[name] = baseline
+            except Exception as exc:  # noqa: BLE001 - same rollback as a failed config load
+                self._rollback_added_module(name, stashed)
+                raise ValueError(
+                    f"Failed to initialise the baseline of {name}: {exc}") from exc
 
         if new_entry:
             self.module_entries[name] = entry
@@ -279,7 +313,59 @@ class WorkspaceProject:
         self.packages[name] = pkg
         return manager
 
+    def _rollback_added_module(self, name: str, stashed: Any) -> None:
+        """Undo the parts of ``add_module_from_package`` done before it failed."""
+        self.module_managers.pop(name, None)
+        self.module_defs.pop(name, None)
+        self.baselines.pop(name, None)
+        if stashed is not None:
+            self.unloaded_variant_overrides[name] = stashed
+
     _MISSING = object()
+
+    def reconcile_baseline(self, manager: ConfigurationManager, entry: "ModuleEntry",
+                           pkg: "ModulePackage", confirm=None) -> Optional["MergeResult"]:
+        """Recompute Base' of ``entry``'s module and merge it into Active (design §6.5 ④).
+
+        The saved Base comes from the snapshot and its layers file; ``entry.base_hash``
+        decides whether the snapshot is still the one the project recorded. The merge is
+        applied only when ``confirm`` accepts it (``None`` rejects), and Base' then becomes
+        the module's baseline for this session — ``dirty`` asks :meth:`save_project` to write
+        it out. A rejected merge leaves Active, the snapshot and the remembered baseline as
+        they were, so the next open prompts again.
+
+        A package that contributes no Rec or Pre layer has no baseline to reconcile: the
+        module keeps the one it was loaded with (if any) and nothing is prompted.
+
+        Returns:
+            The merge result, or ``None`` when the module has no baseline at all.
+        """
+        if self.format_version < 8:
+            return None
+        name = entry.name
+        new = baseline_session.compute_new_base(pkg, self.selected_chip, manager.module_def, name)
+        if not new.has_layers:
+            return None
+
+        old = baseline_session.load_baseline(self, name, entry.base_hash)
+        unlocked = set(entry.pre_unlocked)
+        result, applied = baseline_session.reconcile(manager, old.base_config, new, unlocked, confirm)
+        if applied:
+            new.dirty = True                       # written by the next save
+            self.baselines[name] = new
+        elif old.base_config is None and not result.has_changes:
+            # A project with no snapshot whose active values already agree with Base' (a
+            # migrated project, a first open): Base' becomes the snapshot on the next save,
+            # so the values Active holds get a base to be compared with from then on. A
+            # merge that had something to change and was rejected writes nothing.
+            new.dirty = True
+            self.baselines[name] = new
+        else:
+            # Unchanged, rejected or no confirm: Base, its layers and the snapshot stay as
+            # they are. ``old`` still carries Base's layers (and Base' when it has no
+            # snapshot), which is what the origins and the Pre lock read.
+            self.baselines[name] = old
+        return result
 
     def snapshot_module(self, name: str) -> Dict[str, Any]:
         """Everything the project keeps for module ``name`` (any part may be absent),
@@ -1212,6 +1298,25 @@ class WorkspaceManager:
                 modules_out[name] = module_data
 
         data["modules"] = [modules_out[name] for name in sorted(modules_out)]
+
+        # Baseline snapshots the session accepted (a merge applied on load, a module added)
+        # are written after the configuration files, so both describe the same state. A
+        # clean baseline is already on disk and is left untouched.
+        for name in sorted(project.baselines):
+            baseline = project.baselines[name]
+            if not baseline.dirty or baseline.base_config is None:
+                continue
+            entry = project.module_entries.get(name)
+            digest = baseline_session.write_baseline(project, name, baseline)
+            if entry is not None:
+                entry.base_hash = digest
+                for module_data in data["modules"]:
+                    if module_data.get("name") == name:
+                        module_data["base_hash"] = digest
+                        break
+            # The snapshot just written is as current as Active; a later save of this
+            # session leaves it alone.
+            baseline.dirty = False
         return data
 
     def _to_posix_path(self, path: Path, project_dir: Path, inside_only: bool = False) -> str:
@@ -1316,8 +1421,19 @@ class WorkspaceManager:
             return p
         return project_dir / p
 
-    def load_project(self, project_path: Path) -> tuple[WorkspaceProject, list]:
+    def load_project(self, project_path: Path, confirm=None) -> tuple[WorkspaceProject, list]:
         """Load project from file (format ≤8)
+
+        A format 8 project reconciles every module's baseline while loading (design §6.5,
+        step ④): Base' is composed from the module package and merged into the saved
+        configuration, and the merge is applied only when ``confirm(markdown, result)``
+        returns True. Format ≤7 projects never reconcile. With ``confirm=None`` every merge
+        is treated as rejected — nothing is written, and the results are only computed.
+
+        Args:
+            project_path: The ``.dpa`` file.
+            confirm: Optional ``(preview_text, MergeResult) -> bool`` shown before a merge
+                that changes Active.
 
         Returns:
             tuple: (project, failed_modules list)
@@ -1446,7 +1562,7 @@ class WorkspaceManager:
 
         # Load modules: format 8 uses module_entries, earlier formats use def_path
         if format_version >= 8:
-            self._load_v8_modules(project, data, project_dir, failed_modules)
+            self._load_v8_modules(project, data, project_dir, failed_modules, confirm)
         else:
             # Format ≤7: Load with def_path (existing logic)
             for module_data in data.get("modules", []):
@@ -1558,7 +1674,8 @@ class WorkspaceManager:
         return project, failed_modules
 
     def _load_v8_modules(self, project: WorkspaceProject, data: Dict[str, Any],
-                         project_dir: Path, failed_modules: list) -> None:
+                         project_dir: Path, failed_modules: list,
+                         confirm=None) -> None:
         """Load the ``modules`` of a format 8 project through its module libraries.
 
         Every entry is kept in ``module_entries`` (so saving does not drop it).  A module
@@ -1595,14 +1712,22 @@ class WorkspaceManager:
         for entry in entries:
             try:
                 index, pkg = find_package(libraries, entry.definition)
-                # Also loads the entry's configuration file when it exists
-                manager = project.add_module_from_package(pkg, index)
+                # Also loads the entry's configuration file when it exists. The snapshot is
+                # not written here: the saved Base must survive until the merge has seen it.
+                manager = project.add_module_from_package(pkg, index, persist=False)
             except Exception as exc:  # noqa: BLE001 - package, definition and configuration errors: one module must not abort the project
                 fail(entry.name, f"Failed to load: {exc}")
                 continue
 
             if entry.name in raw_overrides:
                 manager.configuration.variant_overrides = raw_overrides[entry.name]
+
+            try:
+                project.reconcile_baseline(manager, entry, pkg, confirm)
+            except baseline_session.MergeApplyError as exc:
+                # A merge that cannot be applied consistently is a defect, not a user
+                # condition: report the module as failed instead of half-merging it.
+                fail(entry.name, f"Baseline merge failed: {exc}")
 
     def import_eb_project(self, project_root: Path, chip_name: Optional[str] = None,
                           target_dir: Optional[Path] = None,
