@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 
 import logging
 
-from ...core.config_manager import ValidationError
+from ...core.config_manager import PreLockedError, ValidationError
 from ...core.model.configuration_model import EcucContainerValue
 from ..commands import SetParameterCommand
 
@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 class RecommendedApplyResult:
     updated: int = 0
     skipped: List[Tuple[str, str]] = field(default_factory=list)          # (path, why)
+    locked: List[str] = field(default_factory=list)                       # Pre keys skipped
     containers: List[EcucContainerValue] = field(default_factory=list)    # touched, in visiting order
 
 
@@ -39,6 +40,12 @@ def apply_recommended_changes(manager, rec_config, only_empty: bool, undo_stack)
     A container the configuration lacks is created, and then all its values are written whatever
     ``only_empty`` says (its smart defaults are not the user's).  A value its definition refuses is
     skipped and reported; it never reaches the undo stack.
+
+    A value of a locked Pre key is skipped the same way and listed in ``result.locked``: the
+    merge owns it, so writing it would only be forced back on the next open. The check runs
+    before the command is built (the command constructor would raise, and raising from inside
+    the macro would leave ``endMacro`` unrun), and the push loop is guarded a second time so a
+    ``PreLockedError`` can never escape into a Qt slot.
     """
     result = RecommendedApplyResult()
     changes = []
@@ -61,6 +68,13 @@ def apply_recommended_changes(manager, rec_config, only_empty: bool, undo_stack)
             if rec_param.value is None:
                 continue
             if only_empty and not is_new and current_value not in (None, ""):
+                continue
+            # Pre owns this value and the user has not unlocked it: neither this path nor the
+            # merge may set it, so it is reported rather than turned into a command.
+            try:
+                manager.check_editable(current, name)
+            except PreLockedError as exc:
+                result.locked.append(exc.key)
                 continue
             try:
                 changes.append((current, name, manager.convert_parameter_value(current, name, rec_param.value)))
@@ -86,12 +100,24 @@ def apply_recommended_changes(manager, rec_config, only_empty: bool, undo_stack)
         if current is not None:
             collect(current, rec_container, path, created)
 
+    pushed = 0
     if changes:
         undo_stack.beginMacro("Apply Recommended Values")
-        for instance, name, value in changes:
-            undo_stack.push(SetParameterCommand(manager, instance, name, value))
-        undo_stack.endMacro()
-    result.updated = len(changes)
+        try:
+            for instance, name, value in changes:
+                try:
+                    undo_stack.push(SetParameterCommand(manager, instance, name, value))
+                except PreLockedError as exc:
+                    # The pre-check above already skipped these; this is the second line of
+                    # defence, so a change in the lock between the check and the push can
+                    # never escape the macro half-open.
+                    result.locked.append(exc.key)
+                    continue
+                pushed += 1
+        finally:
+            undo_stack.endMacro()
+    result.updated = pushed
+    result.locked.sort()
     return result
 
 
@@ -1340,8 +1366,17 @@ class ProjectController:
                     f"• {path}: {why}" for path, why in shown)
                 if len(result.skipped) > len(shown):
                     text += f"\n… and {len(result.skipped) - len(shown)} more"
+            if result.locked:
+                shown = result.locked[:15]
+                text += (f"\n\n未修改 {len(result.locked)} 个预配置（PRE）值，它们已锁定：\n"
+                         + "\n".join(f"• {key}" for key in shown)
+                         + ("\n… 及其他" if len(result.locked) > len(shown) else "")
+                         + "\n\n如需修改，请在参数面板中右键选择“解锁此参数”。")
             QMessageBox.information(self.win, "Applied", text)
-            self.win.statusbar.showMessage(f"Applied {result.updated} recommended values", 3000)
+            status = f"Applied {result.updated} recommended values"
+            if result.locked:
+                status += f", {len(result.locked)} locked PRE value(s) skipped"
+            self.win.statusbar.showMessage(status, 3000)
     
     # File operations
     

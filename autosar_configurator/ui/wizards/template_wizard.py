@@ -16,7 +16,7 @@ from PySide6.QtCore import Qt, Signal
 from .wizard_base import ConfigWizard, WizardPage
 from ...core.model.definition_model import EcucModuleDef, EcucContainerDef
 from ...core.model.configuration_model import EcucContainerValue
-from ...core.config_manager import ConfigurationManager
+from ...core.config_manager import ConfigurationManager, PreLockedError
 from ...core.template_manager import TemplateManager, ConfigTemplate, TemplateParameter
 
 
@@ -525,6 +525,27 @@ class TemplateWizard(ConfigWizard):
             # Get all parameters
             all_params = template.get_all_params(param_values)
 
+            # All-or-nothing: an existing instance is pre-checked in full before a single
+            # value is written, so a locked Pre key cannot leave the template half applied.
+            # (A new instance holds no Pre keys: the keys belong to an existing container.)
+            existing = target_data.get("existing_instance")
+            if not target_data.get("create_new") and existing is not None:
+                locked = []
+                for param_name in all_params:
+                    try:
+                        self.config_manager.check_editable(existing, param_name)
+                    except PreLockedError as exc:
+                        locked.append(exc.key)
+                if locked:
+                    from PySide6.QtWidgets import QMessageBox
+                    QMessageBox.warning(
+                        self, "模板未应用",
+                        "该模板包含预配置（PRE）且已锁定的参数，为避免只应用一部分，"
+                        "本次没有写入任何值：\n\n"
+                        + "\n".join(f"  • {key}" for key in sorted(locked))
+                        + "\n\n如需修改，请在参数面板中右键选择“解锁此参数”。")
+                    return
+
             if target_data.get("create_new"):
                 # Create new instance
                 # For now, we'll use a simplified approach - find the container def
@@ -547,12 +568,13 @@ class TemplateWizard(ConfigWizard):
                         instance_name=instance_name
                     )
 
-                    # Set parameters
+                    # Set parameters. A fresh instance holds no Pre key, so this cannot be
+                    # refused; anything else is reported rather than silently dropped.
                     for param_name, value in all_params.items():
                         try:
                             self.config_manager.set_parameter_value(instance, param_name, value)
-                        except Exception as e:
-                            print(f"Warning: Failed to set {param_name}: {e}")
+                        except PreLockedError as exc:
+                            print(f"Warning: {exc}")
 
                     self.created_instance = instance
                 else:
@@ -560,14 +582,12 @@ class TemplateWizard(ConfigWizard):
                     self.created_instance = None
 
             else:
-                # Update existing instance
+                # Update existing instance (pre-checked in full above: all or nothing)
                 existing = target_data.get("existing_instance")
                 if existing:
                     for param_name, value in all_params.items():
-                        try:
-                            self.config_manager.set_parameter_value(existing, param_name, value)
-                        except Exception as e:
-                            print(f"Warning: Failed to set {param_name}: {e}")
+                        self.config_manager.set_parameter_value(
+                            existing, param_name, value, enforce_lock=False)
 
                     self.created_instance = existing
 

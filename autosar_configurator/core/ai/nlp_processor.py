@@ -6,7 +6,7 @@ import re
 from typing import Optional
 from PySide6.QtGui import QUndoStack
 
-from ..config_manager import ConfigurationManager
+from ..config_manager import ConfigurationManager, PreLockedError
 from ..model.definition_model import EcucContainerDef
 from ...ui.commands import CreateContainerCommand, SetParameterCommand
 from .gemini_client import GeminiClient
@@ -402,6 +402,11 @@ class NaturalLanguageProcessor:
             self.undo_stack.push(command)
             return f"✅ 已设置 **{param_name}** 为 **{typed_value}**。"
             
+        except PreLockedError as e:
+            # A locked Pre value is not a format problem: say what it is and how to change it
+            return (f"🔒 **{param_name}** 是预配置（PRE），已锁定，不能直接修改。" + "\n"
+                    f"如需修改，请在参数面板中右键选择“解锁此参数”。" + "\n"
+                    f"(`{e.key}`)")
         except ValueError as e:
             return f"❌ Invalid format for {param_def.param_type.name}: {str(e)}"
         except Exception as e:

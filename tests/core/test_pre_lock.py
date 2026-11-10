@@ -495,3 +495,98 @@ def test_partition_locked_splits_and_sorts(project):
         manager, [(instance, "Level"), (instance, "Mode"), (instance, "Ratio")])
     assert [name for _, name in editable] == ["Mode", "Ratio"]
     assert skipped == [LEVEL]
+
+
+def test_no_snapshot_but_no_layers_reports_unavailable():
+    """A snapshot with no layers beside it cannot say where any value came from (§6.5)."""
+    assert module_note(ModuleBaseline(base_config=object(), layers={},
+                                      module_name="Trk")) == UNAVAILABLE_TEXT
+    assert module_note(ModuleBaseline(pre_keys={"P:/Trk/TrkGeneral.Level"})) == UNAVAILABLE_TEXT
+
+
+# --- the lock never blocks a replay -------------------------------------------
+
+def test_undo_redo_survive_a_relock(unlocked_project):
+    """解锁 → 编辑 → 恢复锁定 → Ctrl+Z must still undo (the lock gates new edits only)."""
+    pytest.importorskip("PySide6")
+    from PySide6.QtGui import QUndoStack
+
+    from autosar_configurator.ui.commands import SetParameterCommand
+
+    wm, manager = unlocked_project
+    instance = general(manager)
+    stack = QUndoStack()
+    stack.push(SetParameterCommand(manager, instance, "Level", "9"))
+    assert level(manager) == "9"
+
+    # Re-lock: the value is Pre-owned and locked again
+    assert manager.set_pre_unlocked(instance, "Level", False)
+    assert manager.pre_unlock_state(instance, "Level") == "locked"
+    with pytest.raises(PreLockedError):
+        manager.set_parameter_value(instance, "Level", "42")      # a new edit is refused
+
+    stack.undo()                                                 # a replay is not
+    assert level(manager) == "3"
+    stack.redo()
+    assert level(manager) == "9"
+    stack.undo()
+    assert level(manager) == "3"
+
+
+# --- apply recommended values (UI path) ---------------------------------------
+
+def test_apply_recommended_changes_skips_locked_and_keeps_the_macro_closed(project):
+    """The UI apply must skip Pre keys and never leave the undo macro half-open."""
+    pytest.importorskip("PySide6")
+    from PySide6.QtGui import QUndoStack
+
+    from autosar_configurator.core.model.configuration_model import (
+        EcucContainerValue, EcucModuleConfiguration, EcucParameterValue)
+    from autosar_configurator.ui.controllers.project_controller import \
+        apply_recommended_changes
+
+    _, manager = project
+    rec = EcucModuleConfiguration(short_name="Trk", definition_ref="/Vendor/Trk")
+    container = EcucContainerValue(short_name="TrkGeneral", definition_ref="/Vendor/Trk/TrkGeneral")
+    for name, value in (("Mode", "Silent"), ("Level", "42")):
+        container.parameter_values[name] = EcucParameterValue(
+            definition_ref=f"/Vendor/Trk/TrkGeneral/{name}", value=value)
+    rec.add_container(container)
+
+    stack = QUndoStack()
+    result = apply_recommended_changes(manager, rec, only_empty=False, undo_stack=stack)
+
+    assert result.locked == [LEVEL]
+    assert result.updated == 1
+    assert general(manager).parameter_values["Mode"].value == "Silent"
+    assert level(manager) == "3"
+    assert stack.count() == 1                     # one macro, closed and undoable
+    stack.undo()
+    assert general(manager).parameter_values["Mode"].value == "Fast"
+
+
+# --- chip selectors -----------------------------------------------------------
+
+def test_chip_selector_on_a_pre_value_is_skipped_and_reported(project):
+    """Selectors are a derived project-wide write, but a locked Pre value still wins."""
+    wm, manager = project
+
+    class _Chip:
+        name = "TestChip"
+        selectors = {"Trk.Level": "42", "Trk.Mode": "Silent"}
+
+    from autosar_configurator.core.hardware.chip_selectors import apply_selectors
+    result = apply_selectors(wm.current_project, _Chip(), log=False)
+
+    written = {key for key, _old, _new in result.changed}
+    skipped = dict(result.skipped)
+    assert "Trk.Mode" in written                       # not Pre: written
+    assert "Trk.Level" not in written
+    assert "Trk.Level" in skipped and "锁定" in skipped["Trk.Level"]
+    assert level(manager) == "3"
+
+    # Unlocking makes the same selector write again
+    manager.set_pre_unlocked(general(manager), "Level", True)
+    again = apply_selectors(wm.current_project, _Chip(), log=False)
+    assert "Trk.Level" in {key for key, _o, _n in again.changed}
+    assert level(manager) == "42"

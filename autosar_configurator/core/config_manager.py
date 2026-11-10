@@ -401,23 +401,34 @@ class ConfigurationManager:
         # for a name other than the module's own would otherwise never match.
         return baseline, unlocked, baseline.module_name or name
 
-    def _edit_key(self, instance, name: Optional[str]) -> str:
+    def _edit_key(self, instance, name: Optional[str]) -> Optional[str]:
         """The ``ValueKey`` of the value an edit would write, rooted like the baseline's.
 
         ``name`` is a parameter, a reference, or ``None`` for the container itself. Keys are
         built by the ``value_index`` helpers and then re-rooted, never formatted by hand:
         the lock compares them as strings with the baseline's ``pre_keys``.
+
+        Returns:
+            The key, or ``None`` when the name cannot be keyed: no container definition
+            resolves, so nothing says whether an unrecognised name is a parameter (``P:``)
+            or a reference (``R:``). Keying it as a parameter would invent a key the value
+            file never wrote and could unlock or badge the wrong value — and with a locked
+            Pre key a wrong ``P:`` guess would also let the edit through, since no ``P:``
+            key is in ``pre_keys``. A caller that must not care (``check_editable``, where
+            the module def is the one the whole lock is built on) keeps working.
         """
         from .baseline.values import (
             container_key, module_param_key, param_key, ref_key)
 
         if isinstance(instance, EcucModuleConfiguration):
-            # rooted on the configuration's own name; check_editable re-roots it
+            # rooted on the configuration's own name; the caller re-roots the key
             return module_param_key(instance.short_name, name or "")
         if name is None:
             return container_key(instance)
         container_def = self.get_container_def(instance.definition_ref)
-        if container_def is not None and name in container_def.references:
+        if container_def is None:
+            return None
+        if name in container_def.references:
             return ref_key(instance, name)
         return param_key(instance, name)
 
@@ -445,7 +456,7 @@ class ConfigurationManager:
         if key in baseline.pre_keys and key not in unlocked:
             raise PreLockedError(key)
 
-    def _reroot_key(self, key: str, root: str) -> str:
+    def _reroot_key(self, key: Optional[str], root: str) -> Optional[str]:
         """``key`` with its module segment replaced by ``root`` (a no-op when equal)."""
         from .baseline.values import re_root_key
 
@@ -460,12 +471,28 @@ class ConfigurationManager:
         re-lock again — or ``None`` when the key is not in the module's Pre ownership set,
         there is no baseline, or the baseline's layers were dropped.
         """
+        key = self.value_key(instance, name)
+        if key is None:
+            return None
+        baseline, _, _ = self._baseline_lock_info()
+        return key if key in baseline.pre_keys else None
+
+    def value_key(self, instance, name: Optional[str] = None) -> Optional[str]:
+        """The baseline key space key of a value, or ``None`` without a baseline.
+
+        This is the one place a live value becomes a ``ValueKey``: built with the
+        ``value_index`` helpers and re-rooted on the name the baseline used, so it compares
+        as a string with ``pre_keys`` and the layer map.
+
+        ``None`` when the name cannot be keyed at all — no baseline, or a container whose
+        definition does not resolve, so nothing says whether the name is a parameter (``P:``)
+        or a reference (``R:``). Guessing ``P:`` would invent a key no value file wrote and
+        could badge or unlock the wrong value; a caller that gets ``None`` shows nothing.
+        """
         info = self._baseline_lock_info()
         if info is None:
             return None
-        baseline, _, root = info
-        key = self._reroot_key(self._edit_key(instance, name), root)
-        return key if key in baseline.pre_keys else None
+        return self._reroot_key(self._edit_key(instance, name), info[2])
 
     def pre_unlock_state(self, instance,
                          name: Optional[str] = None) -> Optional[str]:
@@ -509,31 +536,50 @@ class ConfigurationManager:
         project.is_modified = True
         return True
 
-    def value_origin(self, instance, name: Optional[str] = None):
+    def value_origin(self, instance, name: Optional[str] = None, origins=None):
         """The :class:`~core.baseline.origin.Origin` of one value, for the panel to show.
+
+        Args:
+            instance: The container (or module configuration) the value lives in.
+            name: The parameter or reference; ``None`` for the container itself.
+            origins: An optional ``{ValueKey: Origin}`` map for the whole module, from
+                :meth:`origins`. The panel passes one per populate: computing it per value
+                would flatten the module twice for every row.
 
         Returns:
             The origin, or ``None`` when there is no baseline to compare with, when the
             baseline's layers were dropped (``基线不可用``: every value would be ``USER``,
             which is not an origin the user can act on), or when the value is not set.
         """
+        if origins is not None:
+            key = self.value_key(instance, name)
+        else:
+            info = self._baseline_lock_info()
+            if info is None:
+                return None
+            key = self._reroot_key(self._edit_key(instance, name), info[2])
+            if key is not None:
+                origins = self.origins()
+        return None if key is None else origins.get(key)
+
+    def origins(self) -> Dict[str, Any]:
+        """``{ValueKey: Origin}`` for every value of this module, computed once.
+
+        Two flattens (Active and Base) and the layer map, as :func:`origins_for` does it;
+        an empty dict when there is no baseline or its layers were dropped. Meant to be
+        called once per panel populate and looked up per row.
+        """
         from .baseline.display import module_note
-        from .baseline.origin import classify
-        from .baseline.values import flatten
+        from .baseline.origin import origins_for
 
         info = self._baseline_lock_info()
         if info is None:
-            return None
+            return {}
         baseline, unlocked, root = info
         if module_note(baseline) is not None:
-            return None
-        key = self._reroot_key(self._edit_key(instance, name), root)
-        active = flatten(self.configuration, root)
-        if key not in active:
-            return None
-        base = (None if baseline.base_config is None
-                else flatten(baseline.base_config, root))
-        return classify(key, active, base, baseline.layers, unlocked, baseline.pre_keys)
+            return {}
+        return origins_for(self.configuration, baseline.base_config, baseline.layers,
+                           unlocked, baseline.pre_keys, root)
 
     def locked_keys(self, instances) -> List[str]:
         """The locked keys among ``(instance, name)`` pairs, sorted (batch edit report)."""
@@ -698,19 +744,24 @@ class ConfigurationManager:
     def set_parameter_value(self,
                            container: EcucContainerValue,
                            param_name: str,
-                           value: Any):
+                           value: Any,
+                           enforce_lock: bool = True):
         """Set parameter value with validation and type conversion
 
         Args:
             container: Container instance
             param_name: Parameter name
             value: New value (will be converted to appropriate type)
+            enforce_lock: Check the Pre lock first (the default). Undo/redo passes False:
+                the lock gates *new* edits only — replaying an edit that was legal when it
+                was made must not fail because the user has since re-locked the value.
 
         Raises:
             ValidationError if parameter not found or value invalid
-            PreLockedError if the parameter is a locked Pre value
+            PreLockedError if the parameter is a locked Pre value and ``enforce_lock``
         """
-        self.check_editable(container, param_name)
+        if enforce_lock:
+            self.check_editable(container, param_name)
         value = self.convert_parameter_value(container, param_name, value)
         param_def = self.get_container_def(container.definition_ref).parameters[param_name]
 

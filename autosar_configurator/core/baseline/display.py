@@ -6,18 +6,19 @@ computed in :mod:`origin`; nothing here decides whether a value is editable — 
 ``ConfigurationManager.check_editable``.
 
 One predicate governs both the badge and the lock: :func:`module_note` returns a note when
-the baseline cannot speak for the module. Until Task 10's ``USER`` rule is read that way,
-two situations are easy to present wrongly:
+the baseline cannot speak for the module. Reading Task 10's ``USER`` rule any other way
+presents two situations wrongly:
 
-- **layers dropped** (``layers_untrusted``): the snapshot is Base, but nothing is known to
-  be Pre or REC, so every value reports ``USER`` and the lock is off. Showing
-  ``USER``-but-unlocked per value would look like a lock the user had opened; the module
-  says ``基线不可用`` instead, once, and the per-value badges are suppressed.
-- **no snapshot but layers** (``base_config is None`` with layers): Pre keys are still known
+- **layers dropped** (``layers_untrusted``), **or a snapshot with no layers** beside it: the
+  snapshot is Base, but nothing is known to be Pre or REC, so every value reports ``USER``
+  and the lock is off. Showing ``USER``-but-unlocked per value would look like a lock the
+  user had opened; the module says ``基线不可用`` instead, once, and the per-value badges are
+  suppressed. This is the module-level rule, and it is authoritative.
+- **layers but no snapshot** (``base_config is None`` with layers): Pre keys are still known
   from the layers file, so the lock and the ``PRE`` badge still work; only comparison
   origins fall back to ``USER``. That is *not* an unavailable baseline.
 """
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from .origin import Origin
 from .session import ModuleBaseline
@@ -34,7 +35,7 @@ ORIGIN_LABELS: Dict[Origin, str] = {
     Origin.REC: "REC（模块包推荐值）",
     Origin.DERIVED: "DERIVED（派生值）",
     Origin.PRE: "PRE（预配置）",
-    Origin.USER: "USER（用户值或基线不可用）",
+    Origin.USER: "USER（用户值）",
 }
 
 
@@ -46,19 +47,25 @@ def module_note(baseline: Optional[ModuleBaseline]) -> Optional[str]:
 
     Returns:
         ``"基线不可用"`` when the layers of the snapshot were dropped (they named another
-        snapshot, or none), or when there are neither layers nor a snapshot — no key can be
-        told apart from a user value in either case. ``None`` for a project with no baseline
-        at all: a format ≤7 module, or a package that contributes no value layer, has nothing
-        to explain (and no lock either).
+        snapshot, or none), or when there are no layers at all while a snapshot or recorded
+        Pre keys exist: no key can be told apart from a user value in either case, so the
+        module says it once instead of badging values. ``None`` for a project with no
+        baseline at all — a format ≤7 module, or a package that contributes no value layer
+        has nothing to explain (and no lock either).
+
+        This is the authoritative rule: a caller that shows per-value origins must not do so
+        while this returns a note, and the ``USER`` label of
+        :data:`ORIGIN_LABELS` is about a *user edit*, not about a missing baseline.
     """
     if baseline is None:
         return None
     if baseline.layers_untrusted:
         return UNAVAILABLE_TEXT
-    if baseline.base_config is None and not baseline.layers and baseline.pre_keys:
-        # A snapshot with no layers beside it: Base exists, nothing says where a value came
-        # from. A baseline that never had a package layer (a module the package gave nothing
-        # to) has no pre_keys either, and gets no note.
+    if not baseline.layers and (baseline.base_config is not None or baseline.pre_keys):
+        # A snapshot with no layers beside it (or Pre keys recorded without them): Base
+        # exists, but nothing says which value came from where, so every value would report
+        # USER and no key would be known to be Pre. A baseline the package never gave a
+        # value layer to is not this case: it has no snapshot, no pre keys and no note.
         return UNAVAILABLE_TEXT
     return None
 

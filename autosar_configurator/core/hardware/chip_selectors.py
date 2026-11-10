@@ -9,7 +9,10 @@ the selector parameters follow it:
 
 * ``apply_selectors`` writes the declared values into the loaded modules.  Only
   called when the user explicitly selects a chip; opening or importing a project
-  only checks (``ecu_resource_diagnostics.check_selectors``).
+  only checks (``ecu_resource_diagnostics.check_selectors``).  A selector that is a
+  locked Pre value is skipped and reported (``SelectorResult.skipped``), not written:
+  the Pre lock outranks a project-wide derived write, and the merge would force the
+  value back on the next open anyway.
 * ``chip_from_selectors`` finds the chip of an older project that has no
   ``selected_chip`` from its configured selector values.
 * ``is_selector`` tells the configuration panel which parameters are read-only.
@@ -54,6 +57,8 @@ def _not_allowed(param_def, value: str) -> Optional[str]:
 
 
 def _apply_module_level(manager, key: str, param: str, declared: str, result: SelectorResult):
+    from ..config_manager import PreLockedError
+
     configuration = manager.configuration
     param_def = manager.module_def.parameters[param]
     reason = _not_allowed(param_def, declared)
@@ -66,6 +71,11 @@ def _apply_module_level(manager, key: str, param: str, declared: str, result: Se
         return
     definition_ref = (current.definition_ref if current is not None
                       else defrefs.absolute_ref(manager.module_def, param_def.definition_ref))
+    try:
+        manager.check_editable(configuration, param)
+    except PreLockedError as exc:       # a locked Pre selector: reported, not written
+        result.skipped.append((key, f"预配置（PRE）已锁定，未写入 {exc.key}"))
+        return
     configuration.set_parameter_value(param, declared, definition_ref)
     configuration.is_modified = True
     result.changed.append((key, old, declared))
@@ -112,7 +122,7 @@ def _create_holder(manager, param: str):
 
 
 def _apply_container_level(manager, key: str, param: str, declared: str, result: SelectorResult):
-    from ..config_manager import ValidationError
+    from ..config_manager import PreLockedError, ValidationError
 
     targets = [c for c in _walk(manager.configuration.containers) if param in c.parameter_values]
     created = None
@@ -138,6 +148,9 @@ def _apply_container_level(manager, key: str, param: str, declared: str, result:
             continue
         try:
             manager.set_parameter_value(container, param, declared)
+        except PreLockedError as e:      # a locked Pre selector: reported, not written
+            result.skipped.append((key, f"预配置（PRE）已锁定，未写入 {e.key}"))
+            continue
         except ValidationError as e:     # value or definition not usable
             result.skipped.append((key, str(e)))
             continue

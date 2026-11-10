@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ...core.config_manager import ConfigurationManager
+from ...core.config_manager import ConfigurationManager, PreLockedError
 from ...core.hardware import (
     # Legacy types (for backward compatibility with properties files)
     ChipDatabase,
@@ -1028,6 +1028,14 @@ class HardwareMappingWizard(ConfigWizard):
                 else:
                     mapping_result = mapper.apply_actions(actions, self.config_manager)
 
+            if getattr(mapping_result, "locked", None):
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.information(
+                    self, "已跳过锁定的预配置值",
+                    "映射中的以下参数是预配置（PRE），已锁定，未写入：" + "\n\n"
+                    + "\n".join(f"  • {key}" for key in sorted(set(mapping_result.locked)))
+                    + "\n\n如需修改，请在参数面板中右键选择“解锁此参数”。")
+
             # Emit completion signal
             self.wizard_completed.emit({
                 "chip": chip.name,
@@ -1114,6 +1122,10 @@ class HardwareMappingWizard(ConfigWizard):
                             action.parameter_name, action.value))
                         result.applied += 1
 
+                except PreLockedError as e:
+                    # A locked Pre value: the mapping keeps every other action and says so
+                    result.locked.append(e.key)
+                    result.skipped += 1
                 except Exception as e:
                     print(f"Warning: Failed to apply action {action}: {e}")
                     result.failed += 1

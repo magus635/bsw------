@@ -26,6 +26,12 @@ class _Manager:
         self._locked = {"Level"}
         self.prototype = None
 
+    def check_editable(self, instance, name=None):
+        from autosar_configurator.core.config_manager import PreLockedError
+
+        if name in self._locked:
+            raise PreLockedError(f"P:/Trk/TrkGeneral.{name}")
+
     def value_origin(self, instance, name):
         if name in self._locked:
             return Origin.PRE
@@ -200,3 +206,125 @@ def test_batch_edit_skips_locked_values_and_lists_them(qtbot, monkeypatch):
     names = [c.parameter.short_name for c in manager.executed[0].commands]
     assert names == ["Free"]
     assert any("P:/Trk/TrkGeneral.Locked" in text for text in messages)
+
+
+def test_variant_override_is_not_written_for_a_locked_value(qtbot):
+    """A variant change on a locked value writes nothing — the override is persisted."""
+    panel = DaVinciConfigPanel()
+    qtbot.addWidget(panel)
+    manager = _Manager()
+    instance = _instance()
+
+    class _ModuleConfig:
+        def __init__(self):
+            self.written = []
+
+        def get_value_for_variant(self, path, variant):
+            return None, False
+
+        def set_value_for_variant(self, path, value, variant):
+            self.written.append((path, value, variant))
+
+    instance.module_config = _ModuleConfig()
+
+    class _Project:
+        active_variant = "V2"
+        is_modified = False
+
+    panel.show_instance(instance, _container_def(), manager, _Project())
+    panel._on_value_changed("Level", "9")
+
+    assert instance.module_config.written == []       # nothing landed in variant_overrides
+    assert instance.module_config is not None
+
+
+def test_unlocked_value_may_be_overridden_per_variant(qtbot):
+    panel = DaVinciConfigPanel()
+    qtbot.addWidget(panel)
+    manager = _Manager()
+    manager._locked.clear()
+    instance = _instance()
+
+    class _ModuleConfig:
+        def __init__(self):
+            self.written = []
+
+        def get_value_for_variant(self, path, variant):
+            return None, False
+
+        def set_value_for_variant(self, path, value, variant):
+            self.written.append((path, value, variant))
+
+    instance.module_config = _ModuleConfig()
+
+    class _Project:
+        active_variant = "V2"
+        is_modified = False
+
+    panel.show_instance(instance, _container_def(), manager, _Project())
+    panel._on_value_changed("Level", "9")
+
+    # The panel keys the override on the instance path; the instance has no module name here
+    assert instance.module_config.written == [("/Config/TrkGeneral.Level", "9", "V2")]
+
+
+def test_comparison_highlight_keeps_the_lock_marker(qtbot):
+    panel = DaVinciConfigPanel()
+    qtbot.addWidget(panel)
+    instance = _instance()
+    panel.show_instance(instance, _container_def(), _Manager())
+    panel.compare_btn.setChecked(True)       # the highlight mode refresh() preserves
+    panel.comparison_results = {"Level": {"current": "3", "reference": "4"}}
+    panel.refresh()
+
+    row = _row(panel, "Level")
+    text = panel.params_table.item(row, 0).text()
+    assert text.startswith("🔒 ") and "⚡" in text
+
+
+def test_template_apply_is_all_or_nothing_on_a_locked_value(monkeypatch):
+    """A template naming a locked Pre key writes nothing at all (no half-applied instance)."""
+    from autosar_configurator.core.config_manager import PreLockedError
+    from autosar_configurator.ui.wizards import template_wizard
+    from autosar_configurator.ui.wizards.template_wizard import TemplateWizard
+
+    written = []
+
+    class _Manager:
+        def check_editable(self, instance, name):
+            if name == "Level":
+                raise PreLockedError("P:/Trk/TrkGeneral.Level")
+
+        def set_parameter_value(self, instance, name, value, enforce_lock=True):
+            written.append(name)
+
+    class _Template:
+        container_def = "TrkGeneral"
+
+        def get_all_params(self, values):
+            return {"Mode": "Fast", "Level": "9"}
+
+    class _Page:
+        def __init__(self, data):
+            self._data = data
+
+        def get_data(self):
+            return self._data
+
+    wizard = TemplateWizard.__new__(TemplateWizard)
+    wizard.category_page = _Page({"template": _Template()})
+    wizard.param_page = _Page({"parameter_values": {}})
+    wizard.target_page = _Page({"create_new": False, "existing_instance": object()})
+    wizard.config_manager = _Manager()
+    wizard.parent_instance = None
+    wizard.created_instance = None
+
+    from PySide6 import QtWidgets
+    messages = []
+    monkeypatch.setattr(QtWidgets.QMessageBox, "warning",
+                        staticmethod(lambda *args, **kwargs: messages.append(args[2])))
+
+    wizard.accept()
+
+    assert written == []                                   # nothing was applied
+    assert any("Level" in text for text in messages)        # and the user was told why

@@ -52,19 +52,20 @@ class SetParameterCommand(QUndoCommand):
         self.setText(f"Set {param_name}")
 
     def redo(self):
+        """Apply the new value. The lock gated the constructor, not the replay: a value the
+        user edited while unlocked and then re-locked must still be undoable/redoable."""
         if self.new_value is None:
             self.instance.remove_parameter_value(self.param_name)
         else:
-            self.config_manager.set_parameter_value(self.instance, self.param_name, self.new_value)
+            self.config_manager.set_parameter_value(
+                self.instance, self.param_name, self.new_value, enforce_lock=False)
 
     def undo(self):
         if self.new_value is None and not self.had_value:
             return      # unsetting an unset parameter changed nothing
         if self.old_value is not None:
-            self.config_manager.set_parameter_value(self.instance, self.param_name, self.old_value)
-        # If old value was None (not set and no default), we might want to unset it?
-        # But set_parameter_value handles setting values.
-        # For now assuming reverting to old value (even if default) is fine.
+            self.config_manager.set_parameter_value(
+                self.instance, self.param_name, self.old_value, enforce_lock=False)
 
 class SetReferenceCommand(QUndoCommand):
     """Command to set a reference value"""
@@ -75,6 +76,10 @@ class SetReferenceCommand(QUndoCommand):
                  ref_name: str,
                  new_target: str):
         super().__init__()
+        # The lock gates the new edit; undo()/redo() replay it without asking again (the
+        # reference write goes through set_reference_value, which has no lock of its own,
+        # and a value that was editable when it was changed must stay undoable after the
+        # user re-locks it).
         _check_editable(config_manager, instance, ref_name)
         self.config_manager = config_manager
         self.instance = instance

@@ -40,6 +40,7 @@ class DaVinciConfigPanel(QWidget):
         self.chip_constraint_service = None  # Will be set from main window
         self.ai_help_cache: dict = {}  # Cache AI help responses
         self.reference_variant: Optional[str] = None  # Reference variant for comparison (None = Base)
+        self._origins = None      # {ValueKey: Origin} for the whole module, one per populate
         
         self._setup_ui()
     
@@ -280,6 +281,7 @@ class DaVinciConfigPanel(QWidget):
             self.general_group.show()
 
             self._show_baseline_notice(config_manager, project)
+            self._load_origins()     # one flatten pair for the whole table, below
 
             # Populate parameters table
             self._populate_parameters(instance, container_def)
@@ -565,13 +567,45 @@ class DaVinciConfigPanel(QWidget):
             return None
         return state(self.current_instance, name)
 
+    def _editable(self, name: str) -> bool:
+        """Whether the panel may write this value; says so in the status bar when not.
+
+        The check happens before the write, not after it failed, so nothing — a variant
+        override included — has been written by the time the lock refuses the edit.
+        """
+        check = getattr(self.config_manager, 'check_editable', None)
+        if check is None:
+            return True
+        try:
+            check(self.current_instance, name)
+        except PreLockedError as exc:
+            window = self.window()
+            statusbar = getattr(window, 'statusbar', None)
+            if statusbar is not None:
+                statusbar.showMessage(
+                    f"该参数是预配置（PRE），已锁定：{exc.key}。如需修改请右键选择“解锁此参数”。",
+                    5000)
+            return False
+        return True
+
     def _origin_of(self, name: str) -> Optional[Origin]:
         """The stored origin of a value, or ``None`` when there is no baseline to say."""
         if self.current_instance is None or self.config_manager is None:
             return None
         if not hasattr(self.config_manager, 'value_origin'):
             return None
-        return self.config_manager.value_origin(self.current_instance, name)
+        origins = getattr(self, '_origins', None)
+        if origins is None:
+            return self.config_manager.value_origin(self.current_instance, name)
+        try:
+            return self.config_manager.value_origin(self.current_instance, name, origins=origins)
+        except TypeError:       # a manager of the older signature: compute it its own way
+            return self.config_manager.value_origin(self.current_instance, name)
+
+    def _load_origins(self) -> None:
+        """Compute every value's origin once per populate (two flattens, not two per row)."""
+        origins_fn = getattr(self.config_manager, 'origins', None) if self.config_manager else None
+        self._origins = origins_fn() if origins_fn is not None else None
 
     def _apply_pre_lock(self, row: int, param_name: str, name_item,
                         editor, tooltip: str) -> bool:
@@ -755,8 +789,10 @@ class DaVinciConfigPanel(QWidget):
                 self._override_rows.add(row)
                 diff_info = self.comparison_results[param_name]
 
-                # Update name with indicator
-                new_name = f"⚡ {param_def.short_name}"
+                # Update name with indicator, keeping the lock marker a locked Pre value
+                # already carries (the comparison highlight must not hide it)
+                prefix = "🔒 " if name_item.text().startswith("🔒 ") else ""
+                new_name = f"{prefix}⚡ {param_def.short_name}"
                 name_item.setText(new_name)
 
                 # Build detailed tooltip showing actual values
@@ -1424,6 +1460,12 @@ class DaVinciConfigPanel(QWidget):
         if not self.current_instance or not self.config_manager:
              return
 
+        # The Pre lock gates every write this panel makes, the variant overrides included:
+        # a variant override is persisted, so writing one for a locked key would put the
+        # value where the merge cannot force it back — before the command below ever raised.
+        if not self._editable(param_name):
+            return
+
         # Handle "(未配置)" selection: the command removes the value (undoably)
         if value == "(未配置)":
             if self.project:
@@ -1457,6 +1499,7 @@ class DaVinciConfigPanel(QWidget):
     
     def clear(self):
         """Clear panel"""
+        self._origins = None
         self.current_instance = None
         self.current_def = None
         self.general_group.hide()
@@ -2188,7 +2231,14 @@ class DaVinciConfigPanel(QWidget):
         """Handle reference value change"""
         if not self.current_instance or not self.config_manager:
             return
-        
+
+        # Same rule as a parameter: the lock is checked before the variant override is
+        # written, and the combo is put back so it cannot show a value that was refused.
+        if not self._editable(ref_name):
+            if self.current_instance and self.current_def:
+                self._populate_references(self.current_instance, self.current_def)
+            return
+
         try:
             # Check if we should write to variant override instead of base config ("Default" is the base)
             variant = override_layer(getattr(self.project, 'active_variant', None)) if self.project else None

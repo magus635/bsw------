@@ -17,7 +17,7 @@ from PySide6.QtCore import Qt
 from .wizard_base import ConfigWizard, WizardPage
 from ...core.model.definition_model import EcucModuleDef, EcucContainerDef, EcucParameterType
 from ...core.model.configuration_model import EcucContainerValue
-from ...core.config_manager import ConfigurationManager
+from ...core.config_manager import ConfigurationManager, PreLockedError
 
 
 class ParameterRule(Enum):
@@ -508,6 +508,7 @@ class BatchCreateWizard(ConfigWizard):
                 return
 
             self.created_instances = []
+            locked_keys: List[str] = []
 
             for instance_info in preview_data:
                 # Create instance
@@ -517,14 +518,25 @@ class BatchCreateWizard(ConfigWizard):
                     instance_name=instance_info["name"]
                 )
 
-                # Set parameter values
+                # Set parameter values. A locked Pre value is not written (the merge owns
+                # it) and is reported with the rest at the end, never swallowed into print.
                 for param_name, value in instance_info.get("parameters", {}).items():
                     try:
                         self.config_manager.set_parameter_value(instance, param_name, value)
+                    except PreLockedError as exc:
+                        locked_keys.append(exc.key)
                     except Exception as e:
                         print(f"Warning: Failed to set {param_name}: {e}")
 
                 self.created_instances.append(instance)
+
+            if locked_keys:
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.information(
+                    self, "已跳过锁定的预配置值",
+                    "以下参数是预配置（PRE），已锁定，未写入：\n\n"
+                    + "\n".join(f"  • {key}" for key in sorted(set(locked_keys)))
+                    + "\n\n如需修改，请在参数面板中右键选择“解锁此参数”。")
 
             # Emit completion signal
             self.wizard_completed.emit({

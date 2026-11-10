@@ -9,6 +9,7 @@ import re
 import ast
 import operator as _op
 
+from ..config_manager import PreLockedError
 from .generic_resource import ChipDefinition, GenericResourceDef
 from .mapping_rule import (
     MappingRule, ContainerRule, ParameterMapping,
@@ -128,6 +129,9 @@ class MappingResult:
     applied: int = 0
     skipped: int = 0
     failed: int = 0
+    locked: List[str] = field(default_factory=list)
+    """Pre keys a locked value refused (design §6.5). Counted as skipped, and named so
+    the wizard can say which values the user would have to unlock."""
     errors: List[Dict[str, str]] = field(default_factory=list)
 
     def add_error(self, action: Any, error: Exception) -> None:
@@ -566,6 +570,9 @@ class GenericResourceMapper:
                         action.parameter_name, action.value, ref_def_ref)
                     result.applied += 1
 
+            except PreLockedError as e:      # a locked Pre value: skipped, not failed
+                result.locked.append(e.key)
+                result.skipped += 1
             except Exception as e:
                 import logging
                 logging.getLogger(__name__).warning(

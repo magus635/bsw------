@@ -12,7 +12,7 @@ from .wizard_base import ConfigWizard, WizardPage
 from ...core.model.definition_model import EcucModuleDef, EcucContainerDef, EcucParameterType
 from ...core.model.configuration_model import EcucContainerValue
 from ...core.model.definition_refs import same_definition
-from ...core.config_manager import ConfigurationManager
+from ...core.config_manager import ConfigurationManager, PreLockedError
 
 
 class ContainerSelectionPage(WizardPage):
@@ -323,13 +323,25 @@ class QuickConfigWizard(ConfigWizard):
                 instance_name=self.instance_name
             )
             
-            # Set parameter values
+            # Set parameter values. A locked Pre value is not written and is reported below,
+            # never swallowed: the user asked for these values and must know which stuck.
+            locked_keys = []
             for param_name, value in self.parameters.items():
                 try:
                     self.config_manager.set_parameter_value(instance, param_name, value)
+                except PreLockedError as exc:
+                    locked_keys.append(exc.key)
                 except Exception as e:
                     print(f"Warning: Failed to set {param_name}: {e}")
-            
+
+            if locked_keys:
+                from PySide6.QtWidgets import QMessageBox
+                QMessageBox.information(
+                    self, "已跳过锁定的预配置值",
+                    "以下参数是预配置（PRE），已锁定，未写入：\n\n"
+                    + "\n".join(f"  • {key}" for key in sorted(set(locked_keys)))
+                    + "\n\n如需修改，请在参数面板中右键选择“解锁此参数”。")
+
             # Emit completion signal
             self.wizard_completed.emit({
                 "instance": instance,

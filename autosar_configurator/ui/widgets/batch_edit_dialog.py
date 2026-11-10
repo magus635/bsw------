@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from typing import List, Optional, Any
 
+from ...core.config_manager import PreLockedError
 from ...core.model.container import Container, Parameter
 from ...core.command import CommandManager, ModifyParameterCommand, ModifyContainerCommand, BatchCommand
 
@@ -178,11 +179,17 @@ class BatchEditDialog(QDialog):
         """
         if self.check_locked is None or prop_name != "value":
             return None
+        # A legacy Parameter/Poynting-style element may carry neither attribute; naming it
+        # then says nothing about a Pre key, so there is nothing to lock.
         name = getattr(element, "name", None) or getattr(element, "short_name", None)
-        if not name:
+        if not name or not isinstance(name, str):
             return None
         try:
             self.check_locked(element, name)
-        except ValueError as exc:            # PreLockedError is a ValueError
-            return getattr(exc, "key", name)
+        except PreLockedError as exc:
+            return exc.key
+        except ValueError:
+            # The check refused it without saying which key (another ValueError): the value
+            # is not writable, so it is skipped under the element's own name.
+            return name
         return None
