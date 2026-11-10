@@ -664,9 +664,6 @@ class ConfigurationManager:
         """Evaluate the XPath defaults (EB XDM DEFAULT type="XPath") of a new instance in its
         place in the configuration.  One that cannot be evaluated leaves its parameter unset
         and is logged."""
-        # the EB XPath engine lives in the generator package
-        from ..generator.eb.computed_defaults import computed_defaults
-
         project = self.project_context
         managers = list(getattr(project, "module_managers", {}).values()) if project else []
         if self not in managers:
@@ -675,6 +672,11 @@ class ConfigurationManager:
                    if m.module_def is not None and not getattr(m, "def_missing", False)]
         resources = getattr(project, "ecu_resources", None) or {}
         try:
+            # The EB XPath engine lives in the generator package; importing it inside the
+            # guard keeps a broken generator (or a missing optional import) from stopping
+            # the container creation, exactly like a failed evaluation.
+            from ..generator.eb.computed_defaults import computed_defaults
+
             values, failures = computed_defaults(modules, instance, container_def, names, resources)
         except Exception as e:  # noqa: BLE001 - computing defaults must never stop the creation
             values, failures = {}, {name: f"{type(e).__name__}: {e}" for name in names}

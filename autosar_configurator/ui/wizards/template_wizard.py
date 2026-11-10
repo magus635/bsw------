@@ -508,7 +508,7 @@ class TemplateWizard(ConfigWizard):
         self.preview_page = TemplatePreviewPage()
         self.addPage(self.preview_page)
 
-    def _apply_all_or_nothing(self, instance, params: dict) -> None:
+    def _apply_all_or_nothing(self, instance, params: dict, enforce_lock: bool = False) -> None:
         """Write every value, or none: a refusal restores what this run already changed.
 
         The lock was checked before this call, so a refused value here is a definition or
@@ -516,15 +516,16 @@ class TemplateWizard(ConfigWizard):
         state is captured first and put back on failure (a value that was not set is removed
         again), and the error is re-raised for the caller's dialog.
 
-        The rollback writes with ``enforce_lock=True``: it restores values this instance
-        already held — the ones the user accepted — so the lock must not be bypassed. No
-        sequence reaches a locked key here today (the pre-check in :meth:`accept` refuses the
-        whole template first), and if one ever does, the rollback failing loudly is the
-        correct outcome: a lock that silently lets a rollback through is not a lock.
+        ``enforce_lock`` is False only where the values were legal when they were read: on
+        the existing-instance path :meth:`accept` has already refused every locked key. The
+        create path passes True, so its real writes are checked again once the container
+        exists. The rollback always writes with the lock on: it restores values this
+        instance already held, so there is no reason to bypass it.
 
         Args:
-            instance: The existing container instance the template targets.
+            instance: The container the template targets (existing, or just created).
             params: ``{parameter name: value}`` from ``template.get_all_params``.
+            enforce_lock: Re-check the lock on the writes themselves.
         """
         previous = {}
         for param_name in params:
@@ -535,7 +536,7 @@ class TemplateWizard(ConfigWizard):
         try:
             for param_name, value in params.items():
                 self.config_manager.set_parameter_value(
-                    instance, param_name, value, enforce_lock=False)
+                    instance, param_name, value, enforce_lock=enforce_lock)
                 written.append(param_name)
         except Exception:
             for param_name in reversed(written):
@@ -545,6 +546,45 @@ class TemplateWizard(ConfigWizard):
                 else:
                     instance.remove_parameter_value(param_name)
             raise
+
+    def _probe(self, container_def, instance_name):
+        """A detached instance with the path the real one will have, for the lock probe.
+
+        It carries the same absolute DEFINITION-REF ``create_container_instance`` gives the
+        real instance, and — when a name is known — the same short name and module, so its
+        ``get_path()`` is the path the values will live under. The lock resolves the key
+        from that path, so a template targeting a Pre-owned container path is caught before
+        the container exists.
+        """
+        from ...core.model import definition_refs
+        from ...core.model.configuration_model import EcucContainerValue
+
+        module_def = getattr(self.config_manager, "module_def", None)
+        return EcucContainerValue(
+            short_name=instance_name or "_probe",
+            definition_ref=definition_refs.absolute_ref(module_def, container_def.definition_ref),
+            parent=self.parent_instance,
+            module_name=getattr(module_def, "short_name", ""))
+
+    def _pre_locked_keys(self, instance, params: dict) -> list:
+        """The keys among ``params`` a locked Pre value refuses, sorted (the wizard's report)."""
+        locked = []
+        for param_name in params:
+            try:
+                self.config_manager.check_editable(instance, param_name)
+            except PreLockedError as exc:
+                locked.append(exc.key)
+        return sorted(set(locked))
+
+    def _refuse_locked(self, locked: list) -> None:
+        """Say the template was not applied because of these locked keys."""
+        from PySide6.QtWidgets import QMessageBox
+        QMessageBox.warning(
+            self, "模板未应用",
+            "该模板包含预配置（PRE）且已锁定的参数，为避免只应用一部分，"
+            "本次没有写入任何值：\n\n"
+            + "\n".join(f"  • {key}" for key in sorted(locked))
+            + "\n\n如需修改，请在参数面板中右键选择“解锁此参数”。")
 
     def _create_all_or_nothing(self, container_def, instance_name, params: dict):
         """Create an instance and fill it, or leave the configuration exactly as it was.
@@ -561,31 +601,43 @@ class TemplateWizard(ConfigWizard):
             params: ``{parameter name: value}`` from ``template.get_all_params``.
 
         Returns:
-            The created instance.
-        """
-        from ...core.model import definition_refs
-        from ...core.model.configuration_model import EcucContainerValue
+            The created instance, or ``None`` when a locked Pre key refused the template
+            (the wizard then shows :meth:`_refuse_locked`).
 
-        # The same absolute DEFINITION-REF create_container_instance would give the real
-        # instance, so convert_parameter_value resolves the very definition it will use
-        probe = EcucContainerValue(
-            short_name="_probe",
-            definition_ref=definition_refs.absolute_ref(
-                self.config_manager.module_def, container_def.definition_ref))
+        The Pre lock is checked on the probe's path as well: a container whose short name is
+        a Pre-owned path may not be recreated with the user's values, so its keys go to the
+        same report as the existing-instance path. Once that check has passed, the real
+        writes run with the default lock — nothing bypasses it.
+        """
+        probe = self._probe(container_def, instance_name)
         for param_name, value in params.items():
             self.config_manager.convert_parameter_value(probe, param_name, value)
+        locked = self._pre_locked_keys(probe, params)
+        if locked:
+            self._refuse_locked(locked)
+            return None
         instance = self.config_manager.create_container_instance(
             container_def, parent=self.parent_instance, instance_name=instance_name)
         try:
-            self._apply_all_or_nothing(instance, params)
+            self._apply_all_or_nothing(instance, params, enforce_lock=True)
         except Exception:
             try:
                 self.config_manager.delete_container_instance(
                     instance, parent=self.parent_instance)
             except Exception as cleanup:      # a Pre container cannot be deleted: keep the real error
-                print(f"Warning: could not remove the template instance: {cleanup}")
+                # Through the wizard's own message, never a bare print
+                self._report_warning(f"未能删除模板创建的容器：{cleanup}")
             raise
         return instance
+
+    def _report_warning(self, text: str) -> None:
+        """Show a non-fatal warning in the wizard's message area, or in a dialog if it has none."""
+        area = getattr(self, "result_text", None) or getattr(self, "message_label", None)
+        if area is not None and hasattr(area, "setText"):
+            area.setText(text)
+            return
+        from PySide6.QtWidgets import QMessageBox
+        QMessageBox.warning(self, "模板", text)
 
     def accept(self):
         """Apply template when wizard finishes"""
@@ -604,25 +656,15 @@ class TemplateWizard(ConfigWizard):
             # Get all parameters
             all_params = template.get_all_params(param_values)
 
-            # All-or-nothing: an existing instance is pre-checked in full before a single
-            # value is written, so a locked Pre key cannot leave the template half applied.
-            # (A new instance holds no Pre keys: the keys belong to an existing container.)
+            # All-or-nothing: the target is pre-checked in full before a single value is
+            # written, so a locked Pre key cannot leave the template half applied. The create
+            # path checks its own probe in _create_all_or_nothing (its instance does not
+            # exist yet); this one is for the existing instance.
             existing = target_data.get("existing_instance")
             if not target_data.get("create_new") and existing is not None:
-                locked = []
-                for param_name in all_params:
-                    try:
-                        self.config_manager.check_editable(existing, param_name)
-                    except PreLockedError as exc:
-                        locked.append(exc.key)
+                locked = self._pre_locked_keys(existing, all_params)
                 if locked:
-                    from PySide6.QtWidgets import QMessageBox
-                    QMessageBox.warning(
-                        self, "模板未应用",
-                        "该模板包含预配置（PRE）且已锁定的参数，为避免只应用一部分，"
-                        "本次没有写入任何值：\n\n"
-                        + "\n".join(f"  • {key}" for key in sorted(locked))
-                        + "\n\n如需修改，请在参数面板中右键选择“解锁此参数”。")
+                    self._refuse_locked(locked)
                     return
 
             if target_data.get("create_new"):
@@ -654,7 +696,9 @@ class TemplateWizard(ConfigWizard):
                 # wrote before re-raising — the same all-or-nothing rule as the create path.
                 existing = target_data.get("existing_instance")
                 if existing:
-                    self._apply_all_or_nothing(existing, all_params)
+                    # enforce_lock=False: every locked key was already refused above, so the
+                    # writes that remain are the values the user may set.
+                    self._apply_all_or_nothing(existing, all_params, enforce_lock=False)
                     self.created_instance = existing
 
             # Emit completion signal

@@ -664,3 +664,106 @@ def test_lock_and_badge_agree_when_a_snapshot_has_no_layers(project):
     assert manager.value_origin(general(manager), "Level") is None
     assert manager.pre_unlock_state(general(manager), "Level") is None
     manager.set_parameter_value(general(manager), "Level", "9")      # nothing to lock
+
+
+def test_template_create_new_refuses_a_pre_owned_container_path(project, monkeypatch):
+    """A template recreating a Pre-owned container path is refused, not silently written.
+
+    The values would land under ``/Trk/TrkGeneral`` — a path Pre owns — so the wizard must
+    stop before creating anything, exactly as the existing-instance path does; otherwise the
+    lock would leak and only the next merge (PRE_FORCED) would heal it.
+    """
+    pytest.importorskip("PySide6")
+    from autosar_configurator.ui.wizards.template_wizard import TemplateWizard
+
+    _, manager = project
+    container_def = manager.module_def.containers["TrkGeneral"]
+
+    class _Template:
+        container_def = "TrkGeneral"
+
+        def get_all_params(self, values):
+            return {"Level": "9", "Mode": "Silent"}
+
+    class _Page:
+        def __init__(self, data):
+            self._data = data
+
+        def get_data(self):
+            return self._data
+
+    wizard = TemplateWizard.__new__(TemplateWizard)
+    wizard.category_page = _Page({"template": _Template()})
+    wizard.param_page = _Page({"parameter_values": {}})
+    wizard.target_page = _Page({"create_new": True, "instance_name": "TrkGeneral"})
+    wizard.config_manager = manager
+    wizard.parent_instance = None
+    wizard.created_instance = None
+
+    from PySide6 import QtWidgets
+    messages = []
+    monkeypatch.setattr(QtWidgets.QMessageBox, "warning",
+                        staticmethod(lambda *args, **kwargs: messages.append(args[2])))
+    monkeypatch.setattr(QtWidgets.QMessageBox, "critical",
+                        staticmethod(lambda *args, **kwargs: messages.append(args[2])))
+
+    wizard.accept()
+
+    assert wizard.created_instance is None
+    assert len(manager.configuration.containers) == 1          # nothing new was created
+    assert manager.configuration.containers[0] is general(manager)
+    assert level(manager) == "3"                               # no value was written
+    assert any(LEVEL in text for text in messages)              # and the key was named
+
+
+def test_template_create_new_probe_rejects_a_bad_value(project, monkeypatch):
+    """The probe runs the real conversion: a value the definition refuses never gets written.
+
+    This covers the pre-check branch itself — the container is not created either, because
+    the probe fails before ``create_container_instance``.
+    """
+    pytest.importorskip("PySide6")
+    from autosar_configurator.ui.wizards.template_wizard import TemplateWizard
+
+    _, manager = project
+    container_def = manager.module_def.containers["TrkGeneral"]
+
+    class _Template:
+        container_def = "TrkGeneral"
+
+        def get_all_params(self, values):
+            return {"Level": "not-a-valid-value"}
+
+    class _Page:
+        def __init__(self, data):
+            self._data = data
+
+        def get_data(self):
+            return self._data
+
+    wizard = TemplateWizard.__new__(TemplateWizard)
+    wizard.category_page = _Page({"template": _Template()})
+    wizard.param_page = _Page({"parameter_values": {}})
+    wizard.target_page = _Page({"create_new": True, "instance_name": "TrkGeneral_1"})
+    wizard.config_manager = manager
+    wizard.parent_instance = None
+    wizard.created_instance = None
+
+    from PySide6 import QtWidgets
+    errors = []
+    monkeypatch.setattr(QtWidgets.QMessageBox, "critical",
+                        staticmethod(lambda *args, **kwargs: errors.append(args[2])))
+
+    # Level is a STRING parameter, so make the probe reject it the way the definition would
+    def refuse(container, name, value):
+        if value == "not-a-valid-value":
+            from autosar_configurator.core.config_manager import ValidationError
+            raise ValidationError(f"{name}: not allowed")
+        return value
+    monkeypatch.setattr(manager, "convert_parameter_value", refuse)
+
+    wizard.accept()
+
+    assert wizard.created_instance is None
+    assert len(manager.configuration.containers) == 1          # nothing created
+    assert errors                                               # the refusal was reported
