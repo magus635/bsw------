@@ -85,6 +85,17 @@ _DEF = """<?xml version="1.0" encoding="UTF-8"?>
                 </ECUC-PARAM-CONF-CONTAINER-DEF>
               </SUB-CONTAINERS>
             </ECUC-PARAM-CONF-CONTAINER-DEF>
+            <ECUC-PARAM-CONF-CONTAINER-DEF>
+              <SHORT-NAME>TrkLog</SHORT-NAME>
+              <UPPER-MULTIPLICITY>-1</UPPER-MULTIPLICITY>
+              <PARAMETERS>
+                <ECUC-STRING-PARAM-DEF>
+                  <SHORT-NAME>Mode</SHORT-NAME>
+                  <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY>
+                  <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+                </ECUC-STRING-PARAM-DEF>
+              </PARAMETERS>
+            </ECUC-PARAM-CONF-CONTAINER-DEF>
           </CONTAINERS>
         </ECUC-MODULE-DEF>
       </ELEMENTS>
@@ -666,24 +677,14 @@ def test_lock_and_badge_agree_when_a_snapshot_has_no_layers(project):
     manager.set_parameter_value(general(manager), "Level", "9")      # nothing to lock
 
 
-def test_template_create_new_refuses_a_pre_owned_container_path(project, monkeypatch):
-    """A template recreating a Pre-owned container path is refused, not silently written.
+def _template_wizard(manager, template, target, parent=None):
+    """A TemplateWizard wired to ``manager`` with the four pages ``accept()`` reads.
 
-    The values would land under ``/Trk/TrkGeneral`` — a path Pre owns — so the wizard must
-    stop before creating anything, exactly as the existing-instance path does; otherwise the
-    lock would leak and only the next merge (PRE_FORCED) would heal it.
+    Built with ``__new__``: the template work under test happens before anything a real
+    QWizard provides, so the base ``accept`` and the completion signal are stubbed.
     """
-    pytest.importorskip("PySide6")
+    from autosar_configurator.ui.wizards import template_wizard
     from autosar_configurator.ui.wizards.template_wizard import TemplateWizard
-
-    _, manager = project
-    container_def = manager.module_def.containers["TrkGeneral"]
-
-    class _Template:
-        container_def = "TrkGeneral"
-
-        def get_all_params(self, values):
-            return {"Level": "9", "Mode": "Silent"}
 
     class _Page:
         def __init__(self, data):
@@ -693,19 +694,51 @@ def test_template_create_new_refuses_a_pre_owned_container_path(project, monkeyp
             return self._data
 
     wizard = TemplateWizard.__new__(TemplateWizard)
-    wizard.category_page = _Page({"template": _Template()})
+    wizard.category_page = _Page({"template": template})
     wizard.param_page = _Page({"parameter_values": {}})
-    wizard.target_page = _Page({"create_new": True, "instance_name": "TrkGeneral"})
+    wizard.target_page = _Page(dict(target))
     wizard.config_manager = manager
-    wizard.parent_instance = None
+    wizard.parent_instance = parent
     wizard.created_instance = None
+    wizard.wizard_completed = type("Signal", (), {"emit": lambda self, data: None})()
+    template_wizard.ConfigWizard.accept = lambda self: None
+    return wizard
 
+
+class _Template:
+    """A template that writes ``params`` onto ``container_def``."""
+
+    def __init__(self, container_def, params):
+        self.container_def = container_def
+        self._params = params
+
+    def get_all_params(self, values):
+        return dict(self._params)
+
+
+def _quiet_dialogs(monkeypatch):
+    """Collect every dialog instead of showing it; returns the list of messages."""
     from PySide6 import QtWidgets
     messages = []
-    monkeypatch.setattr(QtWidgets.QMessageBox, "warning",
-                        staticmethod(lambda *args, **kwargs: messages.append(args[2])))
-    monkeypatch.setattr(QtWidgets.QMessageBox, "critical",
-                        staticmethod(lambda *args, **kwargs: messages.append(args[2])))
+    for name in ("warning", "critical", "information"):
+        monkeypatch.setattr(QtWidgets.QMessageBox, name,
+                            staticmethod(lambda *a, **k: messages.append(a[2])))
+    return messages
+
+
+def test_template_create_new_refuses_a_pre_owned_container_path(project, monkeypatch):
+    """A template recreating a Pre-owned container path is refused, not silently written.
+
+    The values would land under ``/Trk/TrkGeneral`` — a path Pre owns — so the wizard must
+    stop before creating anything; otherwise the lock would leak and only the next merge
+    (PRE_FORCED) would heal it.
+    """
+    pytest.importorskip("PySide6")
+    _, manager = project
+    wizard = _template_wizard(
+        manager, _Template("TrkGeneral", {"Level": "9", "Mode": "Silent"}),
+        {"create_new": True, "instance_name": "TrkGeneral"})
+    messages = _quiet_dialogs(monkeypatch)
 
     wizard.accept()
 
@@ -713,51 +746,98 @@ def test_template_create_new_refuses_a_pre_owned_container_path(project, monkeyp
     assert len(manager.configuration.containers) == 1          # nothing new was created
     assert manager.configuration.containers[0] is general(manager)
     assert level(manager) == "3"                               # no value was written
-    assert any(LEVEL in text for text in messages)              # and the key was named
+    assert len(messages) == 1                                  # one report, not two
+    assert GENERAL in messages[0] and LEVEL in messages[0]
+
+
+def test_template_create_new_checks_the_container_key_with_rec_only_values(project, monkeypatch):
+    """A Pre-owned target path is refused even when only Rec-owned values are written.
+
+    ``TrkChild`` is Pre-created and Pre owns its container key; ``Note`` is not a Pre
+    parameter. A value-only pre-check would create the container silently.
+    """
+    pytest.importorskip("PySide6")
+    _, manager = project
+    # The pre-check itself, on a probe placed exactly on the Pre-owned path: the container
+    # key is refused although "Note" alone is not in the Pre set.
+    wizard = _template_wizard(manager, _Template("TrkChild", {"Note": "mine"}), {},
+                              parent=general(manager))
+    probe = wizard._probe(
+        manager.module_def.containers["TrkGeneral"].sub_containers["TrkChild"], "TrkChild")
+
+    locked = wizard._pre_locked_keys(probe, {"Note": "mine"})
+
+    # Both refused: Pre owns the container key *and* the Note value under it. The container
+    # key is the one a value-only pre-check would miss.
+    assert locked == ["C:/Trk/TrkGeneral/TrkChild", "P:/Trk/TrkGeneral/TrkChild.Note"]
+
+
+def test_template_create_new_auto_name_is_probed_with_the_real_name(project, monkeypatch):
+    """An auto-named target is probed under the name the manager will generate.
+
+    With ``TrkChild_0`` already there, the generator returns ``TrkChild_1``; when the
+    baseline owns *that* path, the probe must find it — a ``_probe`` placeholder would make
+    the whole check fictional and let the create through.
+    """
+    pytest.importorskip("PySide6")
+    wm, manager = project
+    general_instance = general(manager)
+    child_def = manager.module_def.containers["TrkGeneral"].sub_containers["TrkChild"]
+    manager.create_container_instance(child_def, parent=general_instance,
+                                      instance_name="TrkChild_0")
+    wm.current_project.baselines["Trk"].pre_keys.add("C:/Trk/TrkGeneral/TrkChild_1")
+    assert manager._generate_instance_name(child_def, general_instance) == "TrkChild_1"
+
+    # The wizard finds the definition by name among the module's top-level containers, so
+    # the template targets a top-level one that is auto-named the same way.
+    log_def = manager.module_def.containers["TrkLog"]
+    wm.current_project.baselines["Trk"].pre_keys.add("C:/Trk/TrkLog_0")
+    wizard = _template_wizard(manager, _Template("TrkLog", {"Mode": "Silent"}),
+                              {"create_new": True, "instance_name": None})
+    messages = _quiet_dialogs(monkeypatch)
+
+    wizard.accept()
+
+    assert wizard.created_instance is None
+    assert not [c for c in manager.configuration.containers if c.short_name.startswith("TrkLog")]
+    assert len(messages) == 1
+    assert "C:/Trk/TrkLog_0" in messages[0]          # the *generated* name, not a placeholder
+
+
+def test_template_create_new_creates_an_ordinary_auto_named_target(project, monkeypatch):
+    """The other side: a non-Pre target with a generated name is created and filled.
+
+    The real ``check_editable`` runs here, so a key the pre-check builds differently from
+    the one the write touches would fail this test.
+    """
+    pytest.importorskip("PySide6")
+    _, manager = project
+    wizard = _template_wizard(
+        manager, _Template("TrkLog", {"Mode": "Silent"}),
+        {"create_new": True, "instance_name": None})
+    messages = _quiet_dialogs(monkeypatch)
+
+    wizard.accept()
+
+    assert messages == []
+    created = wizard.created_instance
+    assert created is not None and created.short_name == "TrkLog_0"
+    assert created in manager.configuration.containers
+    assert created.parameter_values["Mode"].value == "Silent"
 
 
 def test_template_create_new_probe_rejects_a_bad_value(project, monkeypatch):
-    """The probe runs the real conversion: a value the definition refuses never gets written.
-
-    This covers the pre-check branch itself — the container is not created either, because
-    the probe fails before ``create_container_instance``.
-    """
+    """The probe runs the real conversion: a value the definition refuses never gets written."""
     pytest.importorskip("PySide6")
-    from autosar_configurator.ui.wizards.template_wizard import TemplateWizard
-
     _, manager = project
-    container_def = manager.module_def.containers["TrkGeneral"]
+    wizard = _template_wizard(
+        manager, _Template("TrkLog", {"Mode": "not-a-valid-value"}),
+        {"create_new": True, "instance_name": "TrkLog_1"})
+    messages = _quiet_dialogs(monkeypatch)
 
-    class _Template:
-        container_def = "TrkGeneral"
-
-        def get_all_params(self, values):
-            return {"Level": "not-a-valid-value"}
-
-    class _Page:
-        def __init__(self, data):
-            self._data = data
-
-        def get_data(self):
-            return self._data
-
-    wizard = TemplateWizard.__new__(TemplateWizard)
-    wizard.category_page = _Page({"template": _Template()})
-    wizard.param_page = _Page({"parameter_values": {}})
-    wizard.target_page = _Page({"create_new": True, "instance_name": "TrkGeneral_1"})
-    wizard.config_manager = manager
-    wizard.parent_instance = None
-    wizard.created_instance = None
-
-    from PySide6 import QtWidgets
-    errors = []
-    monkeypatch.setattr(QtWidgets.QMessageBox, "critical",
-                        staticmethod(lambda *args, **kwargs: errors.append(args[2])))
-
-    # Level is a STRING parameter, so make the probe reject it the way the definition would
     def refuse(container, name, value):
+        from autosar_configurator.core.config_manager import ValidationError
         if value == "not-a-valid-value":
-            from autosar_configurator.core.config_manager import ValidationError
             raise ValidationError(f"{name}: not allowed")
         return value
     monkeypatch.setattr(manager, "convert_parameter_value", refuse)
@@ -765,5 +845,5 @@ def test_template_create_new_probe_rejects_a_bad_value(project, monkeypatch):
     wizard.accept()
 
     assert wizard.created_instance is None
-    assert len(manager.configuration.containers) == 1          # nothing created
-    assert errors                                               # the refusal was reported
+    assert not [c for c in manager.configuration.containers if c.short_name.startswith("TrkLog")]
+    assert messages                                                   # the refusal was reported

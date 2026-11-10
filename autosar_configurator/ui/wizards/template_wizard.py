@@ -547,28 +547,55 @@ class TemplateWizard(ConfigWizard):
                     instance.remove_parameter_value(param_name)
             raise
 
-    def _probe(self, container_def, instance_name):
-        """A detached instance with the path the real one will have, for the lock probe.
+    def _target_name(self, container_def, instance_name):
+        """The short name ``create_container_instance`` will give the new instance.
 
-        It carries the same absolute DEFINITION-REF ``create_container_instance`` gives the
-        real instance, and — when a name is known — the same short name and module, so its
-        ``get_path()`` is the path the values will live under. The lock resolves the key
-        from that path, so a template targeting a Pre-owned container path is caught before
-        the container exists.
+        Args:
+            container_def: The container definition to instantiate.
+            instance_name: The name the user asked for, or None.
+
+        Returns:
+            ``instance_name`` when given; otherwise the manager's own generator result, so
+            the probe below names the path the real instance will actually occupy (a
+            generated name changes with the instances already there — guessing one would
+            make the whole pre-check fictional).
+        """
+        if instance_name:
+            return instance_name
+        return self.config_manager._generate_instance_name(
+            container_def, self.parent_instance)
+
+    def _probe(self, container_def, name):
+        """A detached instance standing exactly where the real one will be created.
+
+        It carries the same absolute DEFINITION-REF and the same short name, parent and
+        module name ``create_container_instance`` will apply, so ``get_path()`` — and with
+        it every key the lock builds — is the path the values will live under. It is not a
+        real container: it is registered nowhere and holds no values.
         """
         from ...core.model import definition_refs
         from ...core.model.configuration_model import EcucContainerValue
 
         module_def = getattr(self.config_manager, "module_def", None)
         return EcucContainerValue(
-            short_name=instance_name or "_probe",
+            short_name=name,
             definition_ref=definition_refs.absolute_ref(module_def, container_def.definition_ref),
             parent=self.parent_instance,
             module_name=getattr(module_def, "short_name", ""))
 
     def _pre_locked_keys(self, instance, params: dict) -> list:
-        """The keys among ``params`` a locked Pre value refuses, sorted (the wizard's report)."""
+        """The keys a locked Pre value refuses: the container itself, then each value.
+
+        The container's own key is checked first (``check_editable(instance)``): a target
+        path Pre created is refused even when every value the template writes is a
+        Rec-owned parameter, which is exactly the case a value-only check would let
+        through. Keys are sorted and de-duplicated for the report.
+        """
         locked = []
+        try:
+            self.config_manager.check_editable(instance)
+        except PreLockedError as exc:
+            locked.append(exc.key)
         for param_name in params:
             try:
                 self.config_manager.check_editable(instance, param_name)
@@ -604,12 +631,16 @@ class TemplateWizard(ConfigWizard):
             The created instance, or ``None`` when a locked Pre key refused the template
             (the wizard then shows :meth:`_refuse_locked`).
 
-        The Pre lock is checked on the probe's path as well: a container whose short name is
-        a Pre-owned path may not be recreated with the user's values, so its keys go to the
-        same report as the existing-instance path. Once that check has passed, the real
-        writes run with the default lock — nothing bypasses it.
+        The Pre lock is checked on the probe first, for the container's own key and for
+        every value, using the name ``create_container_instance`` will really use. A refusal
+        happens *before* anything is created, so nothing has to be cleaned up. Once that
+        check has passed, the real writes run with the default lock — nothing bypasses it.
+        Should a write-time refusal still slip through (the lock changed in between), the
+        container this run created is deleted with ``enforce_lock=False``: that delete undoes
+        this run's own cleanup, not a user edit, and one report is shown.
         """
-        probe = self._probe(container_def, instance_name)
+        name = self._target_name(container_def, instance_name)
+        probe = self._probe(container_def, name)
         for param_name, value in params.items():
             self.config_manager.convert_parameter_value(probe, param_name, value)
         locked = self._pre_locked_keys(probe, params)
@@ -617,18 +648,21 @@ class TemplateWizard(ConfigWizard):
             self._refuse_locked(locked)
             return None
         instance = self.config_manager.create_container_instance(
-            container_def, parent=self.parent_instance, instance_name=instance_name)
+            container_def, parent=self.parent_instance, instance_name=name)
         try:
             self._apply_all_or_nothing(instance, params, enforce_lock=True)
         except Exception:
-            try:
-                self.config_manager.delete_container_instance(
-                    instance, parent=self.parent_instance)
-            except Exception as cleanup:      # a Pre container cannot be deleted: keep the real error
-                # Through the wizard's own message, never a bare print
-                self._report_warning(f"未能删除模板创建的容器：{cleanup}")
+            self._discard(instance)
             raise
         return instance
+
+    def _discard(self, instance) -> None:
+        """Delete a container this run created, with the lock bypassed (it is cleanup)."""
+        try:
+            self.config_manager.delete_container_instance(
+                instance, parent=self.parent_instance, enforce_lock=False)
+        except Exception as cleanup:      # keep the real error; report through the wizard
+            self._report_warning(f"未能删除模板创建的容器：{cleanup}")
 
     def _report_warning(self, text: str) -> None:
         """Show a non-fatal warning in the wizard's message area, or in a dialog if it has none."""

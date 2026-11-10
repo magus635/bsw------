@@ -291,7 +291,7 @@ def test_template_apply_is_all_or_nothing_on_a_locked_value(monkeypatch):
     written = []
 
     class _Manager:
-        def check_editable(self, instance, name):
+        def check_editable(self, instance, name=None):
             if name == "Level":
                 raise PreLockedError("P:/Trk/TrkGeneral.Level")
 
@@ -353,7 +353,7 @@ def test_template_apply_rolls_back_a_validation_failure(monkeypatch):
     instance = _Instance()
 
     class _Manager:
-        def check_editable(self, instance, name):
+        def check_editable(self, instance, name=None):
             return None                                  # nothing locked
 
         def set_parameter_value(self, container, name, value, enforce_lock=True):
@@ -440,8 +440,14 @@ def test_template_create_new_is_atomic(monkeypatch):
             configuration.containers.append(instance)
             return instance
 
-        def delete_container_instance(self, container, parent=None):
+        def delete_container_instance(self, container, parent=None, enforce_lock=True):
             configuration.containers.remove(container)
+
+        def _generate_instance_name(self, cdef, parent=None):
+            return "TrkGeneral_1"
+
+        def check_editable(self, instance, name=None):
+            return None                       # nothing is Pre-owned in this stub
 
         def set_parameter_value(self, container, name, value, enforce_lock=True):
             if name == "Level":
@@ -476,6 +482,7 @@ def test_template_create_new_is_atomic(monkeypatch):
     errors = []
     monkeypatch.setattr(QtWidgets.QMessageBox, "critical",
                         staticmethod(lambda *args, **kwargs: errors.append(args[2])))
+    wizard.wizard_completed = type("Signal", (), {"emit": lambda self, data: None})()
 
     wizard.accept()
 
@@ -489,90 +496,3 @@ def test_template_create_new_is_atomic(monkeypatch):
     assert errors                                        # the failure was reported
 
 
-def test_template_create_new_still_creates_when_not_pre_owned(monkeypatch):
-    """The other side of the pre-check: an ordinary container is created and filled."""
-    from autosar_configurator.core.model.definition_model import (
-        EcucContainerDef, EcucParameterDef, EcucParameterType)
-    from autosar_configurator.ui.wizards import template_wizard
-    from autosar_configurator.ui.wizards.template_wizard import TemplateWizard
-
-    container_def = EcucContainerDef(short_name="TrkLog", definition_ref="/Vendor/Trk/TrkLog")
-    container_def.parameters["Mode"] = EcucParameterDef(
-        short_name="Mode", param_type=EcucParameterType.STRING,
-        definition_ref="/Vendor/Trk/TrkLog/Mode",
-        lower_multiplicity=0, upper_multiplicity=1)
-
-    class _Container:
-        short_name = "TrkLog_1"
-        definition_ref = "/Vendor/Trk/TrkLog"
-        parameter_values = {}
-        parent = None
-        sub_containers = []
-
-    instance = _Container()
-    configuration = type("Config", (), {"containers": []})()
-
-    class _Manager:
-        module_def = type("Def", (), {
-            "short_name": "Trk",
-            "containers": {"TrkLog": container_def},
-            "get_container_def": lambda self, ref: container_def})()
-
-        def __init__(self):
-            self.configuration = configuration
-
-        def convert_parameter_value(self, container, name, value):
-            return value
-
-        def check_editable(self, container, name=None):
-            return None                        # TrkLog is not Pre-owned
-
-        def create_container_instance(self, cdef, parent=None, instance_name=None):
-            configuration.containers.append(instance)
-            return instance
-
-        def delete_container_instance(self, container, parent=None):
-            configuration.containers.remove(container)
-
-        def set_parameter_value(self, container, name, value, enforce_lock=True):
-            container.parameter_values[name] = value
-
-    class _Template:
-        container_def = "TrkLog"
-
-        def get_all_params(self, values):
-            return {"Mode": "Silent"}
-
-    class _Page:
-        def __init__(self, data):
-            self._data = data
-
-        def get_data(self):
-            return self._data
-
-    wizard = TemplateWizard.__new__(TemplateWizard)
-    wizard.category_page = _Page({"template": _Template()})
-    wizard.param_page = _Page({"parameter_values": {}})
-    wizard.target_page = _Page({"create_new": True, "instance_name": "TrkLog_1"})
-    wizard.config_manager = _Manager()
-    wizard.parent_instance = None
-    wizard.created_instance = None
-    # accept() ends with ConfigWizard.accept(), which needs a real QWizard; the template
-    # work under test happens before it, so the base call is stubbed out.
-    monkeypatch.setattr(template_wizard.ConfigWizard, "accept", lambda self: None)
-
-    from PySide6 import QtWidgets
-    sent = []
-    monkeypatch.setattr(QtWidgets.QMessageBox, "warning",
-                        staticmethod(lambda *args, **kwargs: sent.append("warning")))
-    monkeypatch.setattr(QtWidgets.QMessageBox, "critical",
-                        staticmethod(lambda *args, **kwargs: sent.append(args[2])))
-    # Built with __new__ (no QObject.__init__), so the completion signal cannot emit
-    wizard.wizard_completed = type("Signal", (), {"emit": lambda self, data: None})()
-
-    wizard.accept()
-
-    assert wizard.created_instance is instance
-    assert configuration.containers == [instance]
-    assert instance.parameter_values == {"Mode": "Silent"}
-    assert sent == []                                   # nothing was reported as refused

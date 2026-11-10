@@ -694,18 +694,24 @@ class ConfigurationManager:
     
     def delete_container_instance(self,
                                   instance: EcucContainerValue,
-                                  parent: Optional[EcucContainerValue] = None):
+                                  parent: Optional[EcucContainerValue] = None,
+                                  enforce_lock: bool = True):
         """Delete a container instance
-        
+
         Args:
             instance: Instance to delete
             parent: Parent container (None for top-level)
-            
+            enforce_lock: Check the Pre lock first (the default). The one caller that
+                passes False undoes a container *this run* created for an edit the lock
+                then refused — that is cleanup, not a user deleting a Pre container, and
+                refusing it would leave an empty container behind.
+
         Raises:
             ValidationError if constraints are violated
-            PreLockedError if the container is a locked Pre container
+            PreLockedError if the container is a locked Pre container and ``enforce_lock``
         """
-        self.check_editable(instance)          # a Pre container is not the user's to delete
+        if enforce_lock:
+            self.check_editable(instance)      # a Pre container is not the user's to delete
         # Get container definition
         container_def = self.get_container_def(instance.definition_ref)
         if not container_def:
