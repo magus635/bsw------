@@ -386,10 +386,12 @@ def test_parsing_with_chip_constraints_also_marks_computed_defaults():
     mdef = _mcu_def_parsed_with_chip()
     expr = _expr_params(mdef)
     assert COMPUTED_PARAMS <= {p.short_name for p in expr}
-    # every expression the parser could evaluate is marked; an unevaluable one keeps
-    # its static fallback and never becomes a DEFAULT-layer value either
-    assert all(p.default_is_computed for p in expr if p.default_value is not None
-               and p.default_value != p.static_default)
+    # every expression the parser could evaluate is marked; one it could not evaluate
+    # (a node:fallback(...) form) is not, and has no value to leak either
+    evaluated = [p for p in expr if p.short_name in COMPUTED_PARAMS]
+    assert all(p.default_is_computed for p in evaluated)
+    assert all(p.default_value is not None for p in evaluated)
+    assert all(p.default_value is None for p in expr if not p.default_is_computed)
 
     rec = EcucModuleConfiguration(short_name="Mcu_Rec", definition_ref="/X/Mcu")
     rec.add_container(_instance_chain(mdef, "McuSysPllClk_Configuration"))
@@ -405,6 +407,35 @@ def test_parsing_with_chip_constraints_also_marks_computed_defaults():
                       if p.default_value is not None and not p.default_expr and p.upper_multiplicity == 1)
     key = f"P:/Mcu/McuModuleConfiguration/McuClockSettingConfig/McuSysPllClk_Configuration.{name}"
     assert flat[key] == pdef.default_value
+
+
+def test_two_pass_parse_keeps_the_true_static_default():
+    """The a:da elements are read twice; the second pass must not overwrite static_default."""
+    from lxml import etree
+
+    from autosar_configurator.core.parser.ecuc_def_parser import EcucDefParser
+
+    parser = EcucDefParser(constraints={"Mcu.X": 7})
+    da_elem = etree.fromstring(
+        '<a:da xmlns:a="http://www.tresos.de/_projects/DataModel2/16/attribute.xsd" '
+        'name="DEFAULT" type="XPath" expr="ecu:get(\'Mcu.X\')"/>')
+    pdef = EcucParameterDef("X", EcucParameterType.INTEGER, default_value=3)
+    pdef.static_default = 3
+    for _ in range(2):                            # _parse_xdm_attributes + _parse_xdm_data_attributes
+        parser._parse_xdm_default(da_elem, pdef, EcucParameterType.INTEGER, "XPath", "", da_elem.get("expr"))
+    assert (pdef.default_value, pdef.default_is_computed) == (7, True)
+    assert pdef.static_default == 3               # not the 7 the first pass computed
+    assert pdef.static_default_value == 3
+
+    # and on the real Mcu definition, parsed with the chip constraints: no parameter
+    # records the computed value as its static default
+    mdef = _mcu_def_parsed_with_chip()
+    computed = _def_chain(mdef, "McuSysPllClk_Configuration")[-1].parameters["McuSysPllFBDiv"]
+    assert computed.default_value == 60 and computed.default_is_computed
+    assert computed.static_default is None        # its XDM default is an expression only
+    assert computed.static_default_value is None
+    assert not [p for p in _expr_params(mdef)
+                if p.default_is_computed and p.static_default == p.default_value]
 
 
 def test_computed_default_keeps_the_static_one():

@@ -923,7 +923,11 @@ class EcucDefParser:
                     expr = tst[0]
             if expr:
                 param_def.default_expr = expr
-                param_def.static_default = param_def.default_value
+                # The a:da elements are parsed twice (XDM attributes, then data
+                # attributes); read from the second pass must not take the computed
+                # value for the static default.
+                if not param_def.default_is_computed:
+                    param_def.static_default = param_def.default_value
                 resolved = self._resolver.resolve_expression(expr)
                 if resolved is not None:
                     # Follows the chip constraints the parser was given: not a static default
