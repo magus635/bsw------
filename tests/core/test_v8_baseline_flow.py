@@ -498,6 +498,39 @@ def test_save_survives_an_unwritable_snapshot(tmp_path, monkeypatch):
     assert saved["Trk"]["base_hash"] == trk_hash    # the old hash is kept, not None
 
 
+def test_untrusted_layers_heal_on_the_next_save(tmp_path):
+    """A dropped layers file is rewritten by a plain save — no merge to confirm."""
+    make_package(tmp_path / "lib", rec={"Mode": "Fast"}, pre={"Level": "3"})
+    wm = new_project(tmp_path)
+    add_trk(wm.current_project)
+    wm.save_project()
+    project = wm.current_project
+    baseline = project.baselines["Trk"]
+
+    # Half-written update: the layers name a snapshot the file on disk is not
+    session.write_layers(session.base_layers_path(project, "Trk"), baseline,
+                         snapshot_hash="sha256:" + "0" * 64)
+
+    def confirm(text, result):
+        raise AssertionError("healing the layers is not a change the user confirms")
+
+    opened, failed = WorkspaceManager().load_project(project_file(tmp_path), confirm=confirm)
+    assert failed == []
+    # The pair is flagged untrusted; Base' is what this session works with, and it is
+    # marked dirty so the next save rewrites the pair — no merge to confirm.
+    assert opened.baselines["Trk"].dirty
+    assert opened.baselines["Trk"].pre_keys == {"C:/Trk/TrkGeneral", GEN + "Level"}
+
+    saver = WorkspaceManager()
+    saver.current_project = opened
+    saver.save_project()                                   # no change at all, just a save
+
+    healed, failed = WorkspaceManager().load_project(project_file(tmp_path), confirm=confirm)
+    assert failed == []
+    assert healed.baselines["Trk"].pre_keys == {"C:/Trk/TrkGeneral", GEN + "Level"}
+    assert healed.baselines["Trk"].layers == baseline.layers
+
+
 def test_v7_project_never_reconciles(tmp_path):
     legacy = tmp_path / "legacy" / "L.dpa"
     legacy.parent.mkdir(parents=True)

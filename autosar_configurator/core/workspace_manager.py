@@ -417,6 +417,14 @@ class WorkspaceProject:
             # merge that had something to change and was rejected writes nothing.
             new.dirty = True
             self.baselines[name] = new
+        elif old.layers_untrusted and not result.has_changes:
+            # The snapshot verified but its layers could not be trusted (a half-written
+            # update, a legacy file), so nothing is marked Pre and the lock is off. Healing
+            # that is not a change the user has to confirm — Active is not touched — so the
+            # freshly composed baseline replaces the pair on the next save. A merge that
+            # did have changes and was rejected keeps waiting for an accepted one.
+            new.dirty = True
+            self.baselines[name] = new
         else:
             # Unchanged, rejected or no confirm: Base, its layers and the snapshot stay as
             # they are. ``old`` still carries Base's layers (and Base' when it has no

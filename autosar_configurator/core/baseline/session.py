@@ -73,6 +73,15 @@ class ModuleBaseline:
             package with none has no baseline: the module keeps its Active untouched,
             exactly as a format ≤7 project does. It is not ``bool(layers)``: a module def
             with static defaults fills DEFAULT keys even when the package gave nothing.
+            ``has_layers=False`` on a baseline that *has* a snapshot means one of two
+            things, told apart by ``layers_untrusted``: either the snapshot was recorded
+            without layers (written before the layers file existed), or the layers were
+            dropped because they could not prove they describe this snapshot.
+        layers_untrusted: ``load_baseline`` dropped the layers of this snapshot: they named
+            another snapshot, or none at all. The snapshot is still Base (``base_config``),
+            but nothing is known to be Pre or REC — every value is USER until the layers are
+            rewritten from a freshly composed baseline. ``reconcile_baseline`` treats the
+            baseline as dirty even when the merge changes nothing, so the next save heals it.
     """
     base_config: Optional[EcucModuleConfiguration] = None
     layers: Dict[ValueKey, Layer] = field(default_factory=dict)
@@ -80,12 +89,14 @@ class ModuleBaseline:
     module_name: str = ""
     dirty: bool = False
     has_layers: bool = False
+    layers_untrusted: bool = False
     snapshot_hash: Optional[str] = None
     """``"sha256:<hex>"`` of the snapshot this layers file belongs to (read side only).
 
     The pair snapshot + layers is only meaningful together: the layers say where each value
     of that snapshot came from. A layers file that names a different snapshot than the one
-    on disk is a half-written update and is refused (``load_baseline`` returns no baseline).
+    on disk, or that names none, is not used: ``load_baseline`` keeps the verified snapshot
+    and returns it with empty layers and ``layers_untrusted=True``.
     """
 
 
@@ -383,7 +394,7 @@ def load_baseline(project, module: str, expected_hash: Optional[str]) -> ModuleB
 
     if not trusted:
         return ModuleBaseline(base_config=base_config, layers={}, pre_keys=set(),
-                              module_name=module, has_layers=False)
+                              module_name=module, has_layers=False, layers_untrusted=True)
     layers.base_config = base_config
     layers.module_name = layers.module_name or module
     return layers
