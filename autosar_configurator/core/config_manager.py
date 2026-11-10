@@ -29,6 +29,23 @@ class ValidationError(Exception):
     pass
 
 
+class PreLockedError(ValueError):
+    """A Pre (preconfigured) value the user may not edit, per design §6.5 (D1: locked).
+
+    Raised by :meth:`ConfigurationManager.check_editable` and by every undo command
+    constructor in ``ui/commands.py``: a blocked edit never reaches the model, so the undo
+    stack never learns about it. ``key`` is the ``ValueKey`` the lock refused
+    (``"C:/<M>/…"``, ``"P:/<M>/…"`` or ``"R:/<M>/…"``); the UI names it in the status bar.
+
+    A ``ValueError``, so a caller that already catches ``ValueError`` around an edit keeps
+    working, and one that must tell the two apart can.
+    """
+
+    def __init__(self, key: str, message: Optional[str] = None):
+        self.key = key
+        super().__init__(message or f"该值是预配置（PRE），已锁定：{key}")
+
+
 class ProjectType(Enum):
     VECTOR = "Vector DaVinci"
     EB_TRESOS = "EB Tresos"
@@ -352,6 +369,177 @@ class ConfigurationManager:
         
         # Custom rules
         self.custom_rule_files: List[Path] = []
+
+    # --- Pre read-only lock (design §6.5 D1, §6.8) ------------------------------
+
+    def _baseline_lock_info(self):
+        """``(baseline, unlocked, root)`` for the Pre lock, or ``None`` when there is no
+        baseline to enforce.
+
+        The baseline and the unlock list come from the project context — the same objects
+        the merge and the origin computation read, so the lock cannot disagree with them:
+        a key the merge forces back is exactly a key this rejects.
+
+        Returns:
+            ``(baseline, set(entry.pre_unlocked), root)``, or ``None`` when there is no
+            ``project_context``, no module entry, no baseline for this module, or the
+            layers of the baseline could not be trusted (then nothing is known to be Pre
+            and the lock stays off, as §6.5's migrated-project rule requires).
+        """
+        project = self.project_context
+        if project is None:
+            return None
+        name = self.module_def.short_name if self.module_def is not None else None
+        if not name:
+            return None
+        baseline = getattr(project, "baselines", {}).get(name)
+        if baseline is None or baseline.layers_untrusted:
+            return None
+        entry = getattr(project, "module_entries", {}).get(name)
+        unlocked = set(getattr(entry, "pre_unlocked", None) or ())
+        # Every key is built re-rooted on the name the baseline used; a baseline composed
+        # for a name other than the module's own would otherwise never match.
+        return baseline, unlocked, baseline.module_name or name
+
+    def _edit_key(self, instance, name: Optional[str]) -> str:
+        """The ``ValueKey`` of the value an edit would write, rooted like the baseline's.
+
+        ``name`` is a parameter, a reference, or ``None`` for the container itself. Keys are
+        built by the ``value_index`` helpers and then re-rooted, never formatted by hand:
+        the lock compares them as strings with the baseline's ``pre_keys``.
+        """
+        from .baseline.values import (
+            container_key, module_param_key, param_key, ref_key)
+
+        if isinstance(instance, EcucModuleConfiguration):
+            # rooted on the configuration's own name; check_editable re-roots it
+            return module_param_key(instance.short_name, name or "")
+        if name is None:
+            return container_key(instance)
+        container_def = self.get_container_def(instance.definition_ref)
+        if container_def is not None and name in container_def.references:
+            return ref_key(instance, name)
+        return param_key(instance, name)
+
+    def check_editable(self, instance, name: Optional[str] = None) -> None:
+        """Raise :class:`PreLockedError` when this edit touches a locked Pre value.
+
+        Args:
+            instance: The container the edit writes (or deletes, renames, moves), or an
+                :class:`EcucModuleConfiguration` for a module-level parameter.
+            name: The parameter or reference name; ``None`` checks the container itself.
+
+        Raises:
+            PreLockedError: the key is in the baseline's Pre ownership set
+                (``baseline.pre_keys``) and not in the module's ``pre_unlocked`` list.
+
+        No ``project_context``, no baseline for the module, or a baseline whose layers were
+        dropped ⇒ nothing is locked (a format ≤7 module edits exactly as before, and a
+        dropped layer set means nothing is known to be Pre).
+        """
+        info = self._baseline_lock_info()
+        if info is None:
+            return
+        baseline, unlocked, root = info
+        key = self._reroot_key(self._edit_key(instance, name), root)
+        if key in baseline.pre_keys and key not in unlocked:
+            raise PreLockedError(key)
+
+    def _reroot_key(self, key: str, root: str) -> str:
+        """``key`` with its module segment replaced by ``root`` (a no-op when equal)."""
+        from .baseline.values import re_root_key
+
+        if isinstance(key, str) and len(key) > 1 and key[1] == ":":
+            return re_root_key(key, root)
+        return key
+
+    def pre_lock_key(self, instance, name: Optional[str] = None) -> Optional[str]:
+        """The Pre ``ValueKey`` a value is stored under, when Pre owns it at all.
+
+        Returns the key whether or not it is locked — the panel needs it to unlock and to
+        re-lock again — or ``None`` when the key is not in the module's Pre ownership set,
+        there is no baseline, or the baseline's layers were dropped.
+        """
+        info = self._baseline_lock_info()
+        if info is None:
+            return None
+        baseline, _, root = info
+        key = self._reroot_key(self._edit_key(instance, name), root)
+        return key if key in baseline.pre_keys else None
+
+    def pre_unlock_state(self, instance,
+                         name: Optional[str] = None) -> Optional[str]:
+        """``"locked"``, ``"unlocked"``, or ``None`` (Pre does not own this value).
+
+        The panel greys a value for ``"locked"`` only: an unlocked Pre value is the user's to
+        edit even though ``origin`` still has no unlocked-Pre member (see :mod:`origin`).
+        """
+        key = self.pre_lock_key(instance, name)
+        if key is None:
+            return None
+        baseline, unlocked, _ = self._baseline_lock_info()
+        return "unlocked" if key in unlocked else "locked"
+
+    def set_pre_unlocked(self, instance, name: Optional[str] = None,
+                         unlocked: bool = True) -> bool:
+        """Record (or clear) the unlock of one Pre key in ``.dpa``; False when Pre owns none.
+
+        The list is kept sorted and free of duplicates, so the project file is stable. The
+        project is marked modified: the unlock is a decision the user made and has to save.
+
+        Returns:
+            Whether the value is Pre-owned and now in the requested state.
+        """
+        key = self.pre_lock_key(instance, name)
+        project = self.project_context
+        if key is None or project is None:
+            return False
+        module = self.module_def.short_name
+        entry = getattr(project, "module_entries", {}).get(module)
+        if entry is None:
+            return False
+        keys = set(getattr(entry, "pre_unlocked", None) or ())
+        if unlocked:
+            if key in keys:
+                return True
+            keys.add(key)
+        else:
+            keys.discard(key)
+        entry.pre_unlocked = sorted(keys)
+        project.is_modified = True
+        return True
+
+    def value_origin(self, instance, name: Optional[str] = None):
+        """The :class:`~core.baseline.origin.Origin` of one value, for the panel to show.
+
+        Returns:
+            The origin, or ``None`` when there is no baseline to compare with, when the
+            baseline's layers were dropped (``基线不可用``: every value would be ``USER``,
+            which is not an origin the user can act on), or when the value is not set.
+        """
+        from .baseline.display import module_note
+        from .baseline.origin import classify
+        from .baseline.values import flatten
+
+        info = self._baseline_lock_info()
+        if info is None:
+            return None
+        baseline, unlocked, root = info
+        if module_note(baseline) is not None:
+            return None
+        key = self._reroot_key(self._edit_key(instance, name), root)
+        active = flatten(self.configuration, root)
+        if key not in active:
+            return None
+        base = (None if baseline.base_config is None
+                else flatten(baseline.base_config, root))
+        return classify(key, active, base, baseline.layers, unlocked, baseline.pre_keys)
+
+    def locked_keys(self, instances) -> List[str]:
+        """The locked keys among ``(instance, name)`` pairs, sorted (batch edit report)."""
+        from .baseline.display import partition_locked
+
+        return partition_locked(self, instances)[1]
     
     def create_container_instance(self,
                                   container_def: EcucContainerDef,
@@ -455,7 +643,9 @@ class ConfigurationManager:
             
         Raises:
             ValidationError if constraints are violated
+            PreLockedError if the container is a locked Pre container
         """
+        self.check_editable(instance)          # a Pre container is not the user's to delete
         # Get container definition
         container_def = self.get_container_def(instance.definition_ref)
         if not container_def:
@@ -518,7 +708,9 @@ class ConfigurationManager:
 
         Raises:
             ValidationError if parameter not found or value invalid
+            PreLockedError if the parameter is a locked Pre value
         """
+        self.check_editable(container, param_name)
         value = self.convert_parameter_value(container, param_name, value)
         param_def = self.get_container_def(container.definition_ref).parameters[param_name]
 
@@ -1614,13 +1806,16 @@ class ConfigurationManager:
             only_empty: If True, only apply to parameters with no current value
             
         Returns:
-            Number of parameters updated
+            Number of parameters updated. A locked Pre value is skipped, not written: the
+            merge owns it, and reporting it as "applied" would be wrong.
         """
         updated_count = 0
-        
+        # A locked Pre value is not applied by this path: the merge forces it back anyway,
+        # and the count must not claim it was written (see the except below).
+
         def apply_to_container(current: EcucContainerValue, recommended: EcucContainerValue, is_new_container: bool = False):
             nonlocal updated_count
-            
+
             for param_name, rec_param_obj in recommended.parameter_values.items():
                 current_param_obj = current.parameter_values.get(param_name)
                 
@@ -1633,6 +1828,8 @@ class ConfigurationManager:
                 if should_apply and rec_value is not None:
                     try:
                         self.set_parameter_value(current, param_name, rec_value)
+                    except PreLockedError:
+                        continue                     # a Pre value: only the merge may set it
                     except Exception:
                         def_ref = rec_param_obj.definition_ref
                         current.set_parameter_value(param_name, rec_value, def_ref)

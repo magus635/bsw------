@@ -8,6 +8,7 @@ state (config_manager, current_project, undo_stack, tree_view, config_panel,
 dep_graph_controller) and Qt parenting.
 """
 from typing import Any, List, Optional
+import logging
 
 from PySide6.QtWidgets import QMessageBox
 
@@ -16,8 +17,20 @@ from ..commands import (
     CreateContainerCommand, DeleteContainerCommand,
     MoveContainerCommand, PasteContainerCommand,
 )
+from ...core.config_manager import PreLockedError, ValidationError
 from ...core.model.configuration_model import EcucContainerValue
 from ...core.model.definition_model import EcucContainerDef
+
+logger = logging.getLogger(__name__)
+
+def _report_pre_locked(win, error: PreLockedError) -> None:
+    """Say in the status bar that a Pre value is locked — no undo entry, no dialog.
+
+    The command constructor raised before ``push``, so the stack never saw the edit; the
+    user only needs to know why nothing happened and how to change that.
+    """
+    win.statusbar.showMessage(
+        f"该参数是预配置（PRE），已锁定：{error.key}。如需修改请右键选择“解锁此参数”。", 5000)
 
 
 class EditController:
@@ -40,10 +53,18 @@ class EditController:
         if param_name.startswith('ref:'):
             # Reference change
             ref_name = param_name[4:]
-            command = SetReferenceCommand(self.win.config_manager, instance, ref_name, value)
+            try:
+                command = SetReferenceCommand(self.win.config_manager, instance, ref_name, value)
+            except PreLockedError as exc:
+                _report_pre_locked(self.win, exc)
+                return
         else:
             # Parameter change
-            command = SetParameterCommand(self.win.config_manager, instance, param_name, value)
+            try:
+                command = SetParameterCommand(self.win.config_manager, instance, param_name, value)
+            except PreLockedError as exc:
+                _report_pre_locked(self.win, exc)
+                return
         
         try:
             self.win.undo_stack.push(command)
@@ -135,7 +156,11 @@ class EditController:
             )
             return
             
-        command = DeleteContainerCommand(config_manager, instance, parent_instance)
+        try:
+            command = DeleteContainerCommand(config_manager, instance, parent_instance)
+        except PreLockedError as exc:
+            _report_pre_locked(self.win, exc)
+            return
         self.win.undo_stack.push(command)
         
         self.win._has_unsaved_changes = True
@@ -183,7 +208,14 @@ class EditController:
                 ref_names = [f"{src.short_name}.{ref_name}" for src, ref_name in refs]
                 blocked_instances.append((instance, f"被引用: {', '.join(ref_names[:3])}"))
                 continue
-            
+
+            # A locked Pre container is not the user's to delete either
+            try:
+                config_manager.check_editable(instance)
+            except PreLockedError as exc:
+                blocked_instances.append((instance, f"预配置，已锁定: {exc.key}"))
+                continue
+
             # Note: lower_multiplicity check is skipped for batch delete to give users more flexibility
             # Users can delete instances even if it would violate lower_multiplicity
             
@@ -321,7 +353,11 @@ class EditController:
             self.win.statusbar.showMessage("无法移动：未找到配置管理器", 3000)
             return
 
-        command = MoveContainerCommand(config_manager, instance, new_parent, new_index)
+        try:
+            command = MoveContainerCommand(config_manager, instance, new_parent, new_index)
+        except PreLockedError as exc:
+            _report_pre_locked(self.win, exc)
+            return
         self.win.undo_stack.push(command)
         
         self.win._has_unsaved_changes = True
@@ -354,7 +390,11 @@ class EditController:
             return
 
         from ..commands import RenameContainerCommand
-        cmd = RenameContainerCommand(config_manager, instance, new_name)
+        try:
+            cmd = RenameContainerCommand(config_manager, instance, new_name)
+        except PreLockedError as exc:
+            _report_pre_locked(self.win, exc)
+            return
         self.win.undo_stack.push(cmd)
 
         self.win.statusbar.showMessage(f"已重命名: {instance.short_name}", 2000)
@@ -457,18 +497,23 @@ class EditController:
             # Use auto-generated name directly (no dialog)
             new_instance.short_name = candidate_name
              
-            # Command
-            command = PasteContainerCommand(self.win.config_manager, target_parent, new_instance)
+            # Command. The constructor raises if the target parent is a locked Pre
+            # container: the edit stays off the undo stack and only the status bar says so.
+            try:
+                command = PasteContainerCommand(self.win.config_manager, target_parent, new_instance)
+            except PreLockedError as exc:
+                _report_pre_locked(self.win, exc)
+                return
             self.win.undo_stack.push(command)
-            
+
             self.win._has_unsaved_changes = True
             self.win.statusbar.showMessage(f"已粘贴 {new_instance.short_name}", 2000)
-            
+
             # Refresh and select
             self.win.tree_view.refresh()
             self.win.tree_view._select_instance(new_instance)
-            
+
             self.win.dep_graph_controller._update_dependency_graph_if_open()
-            
+
         except Exception as e:
             QMessageBox.critical(self.win, "Paste Error", f"Failed to paste:\n{str(e)}")

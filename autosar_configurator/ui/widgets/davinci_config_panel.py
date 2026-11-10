@@ -15,7 +15,9 @@ from typing import Optional, List, Any
 
 from ...core.model.definition_model import EcucContainerDef, EcucParameterDef, EcucParameterType
 from ...core.model.configuration_model import EcucContainerValue, override_layer
-from ...core.config_manager import ConfigurationManager
+from ...core.config_manager import ConfigurationManager, PreLockedError
+from ...core.baseline.display import module_note, origin_text, pre_file_names
+from ...core.baseline.origin import Origin
 from PySide6.QtCore import QSettings
 
 
@@ -71,6 +73,19 @@ class DaVinciConfigPanel(QWidget):
             " border-radius: 4px; padding: 8px;")
         self.definition_notice.hide()
         self.content_layout.addWidget(self.definition_notice)
+
+        # Notice for a baseline that cannot speak for the module (design §6.5): the layers
+        # of the accepted snapshot were dropped, so no value can be told from a user value
+        # and the Pre lock is off. Shown instead of per-value origin badges.
+        self.baseline_notice = QLabel()
+        self.baseline_notice.setObjectName("baseline_notice")
+        self.baseline_notice.setWordWrap(True)
+        self.baseline_notice.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.baseline_notice.setStyleSheet(
+            "color: #8A6D3B; background: #FCF8E3; border: 1px solid #F0E0A0;"
+            " border-radius: 4px; padding: 8px;")
+        self.baseline_notice.hide()
+        self.content_layout.addWidget(self.baseline_notice)
         
         scroll.setWidget(content)
         layout.addWidget(scroll)
@@ -264,7 +279,8 @@ class DaVinciConfigPanel(QWidget):
             
             self.general_group.show()
 
-            
+            self._show_baseline_notice(config_manager, project)
+
             # Populate parameters table
             self._populate_parameters(instance, container_def)
             self.parameters_group.setTitle(f"⚙️ Parameters ({len(container_def.parameters)})")
@@ -503,6 +519,117 @@ class DaVinciConfigPanel(QWidget):
         return {key[len(prefix):] for key in (getattr(chip, 'selectors', None) or {})
                 if key.startswith(prefix)}
 
+    def _show_baseline_notice(self, config_manager: Optional[ConfigurationManager],
+                              project=None) -> None:
+        """Say "基线不可用" once for the module instead of badging every value.
+
+        The baseline's layers can be dropped (they named another snapshot, or none) while the
+        snapshot itself stays Base. Every value then reports ``USER`` and the Pre lock is
+        off — per-value badges would suggest a lock the user had opened, and the module note
+        is the truth. ``project.baselines`` holds the module's baseline; a module without one
+        (format ≤7, or a package with no value layer) has nothing to explain.
+        """
+        module = getattr(getattr(config_manager, 'module_def', None), 'short_name', None)
+        baseline = None
+        if project is not None and module:
+            baseline = getattr(project, 'baselines', {}).get(module)
+        note = module_note(baseline)
+        if not note:
+            self.baseline_notice.hide()
+            return
+        self.baseline_notice.setText(
+            f"{note}：模块 {module} 的基线层文件与其快照不匹配，已丢弃。\n"
+            "所有值暂按用户值处理，预配置锁定暂停；保存后会自动重建基线层。")
+        self.baseline_notice.show()
+
+    def _pre_files(self) -> list:
+        """File names of the module package's Pre collections, for the tooltip (cached)."""
+        project = self.project
+        module = getattr(getattr(self.config_manager, 'module_def', None), 'short_name', None)
+        package = getattr(project, 'packages', {}).get(module) if project and module else None
+        chip = getattr(project, 'selected_chip', None) if project else None
+        cached = getattr(self, '_pre_files_cache', None)
+        cache_key = (id(package), chip)
+        if cached is not None and cached[0] == cache_key:
+            return cached[1]
+        names = pre_file_names(package, chip)
+        self._pre_files_cache = (cache_key, names)
+        return names
+
+    def _lock_state(self, name: str) -> Optional[str]:
+        """``"locked"`` / ``"unlocked"`` / ``None`` for the value of the selected instance."""
+        if self.current_instance is None or self.config_manager is None:
+            return None
+        state = getattr(self.config_manager, 'pre_unlock_state', None)
+        if state is None:
+            return None
+        return state(self.current_instance, name)
+
+    def _origin_of(self, name: str) -> Optional[Origin]:
+        """The stored origin of a value, or ``None`` when there is no baseline to say."""
+        if self.current_instance is None or self.config_manager is None:
+            return None
+        if not hasattr(self.config_manager, 'value_origin'):
+            return None
+        return self.config_manager.value_origin(self.current_instance, name)
+
+    def _apply_pre_lock(self, row: int, param_name: str, name_item,
+                        editor, tooltip: str) -> bool:
+        """Grey a locked Pre value and say where it comes from; True when it is locked.
+
+        Args:
+            row: Table row (all its cells are greyed, like a deprecated parameter).
+            param_name: The parameter the row edits.
+            name_item: The name cell, whose tooltip and text carry the origin.
+            editor: The value widget; disabled when the value is locked.
+            tooltip: The tooltip built so far, appended to.
+
+        Returns:
+            Whether the value is locked (no origin badge is then needed: "PRE" is the badge).
+        """
+        if name_item is None:
+            return False
+        state = self._lock_state(param_name)
+        origin = self._origin_of(param_name)
+        locked = state == "locked"
+        if state == "locked":
+            origin = Origin.PRE
+        if origin is not None and not self._baseline_unavailable():
+            text = origin_text(origin, self._pre_files(), locked=locked)
+            if state == "unlocked":
+                # Not locked, so the origin text is one line; the state is what the badge
+                # alone cannot say (an unlocked Pre value reports REC while it equals Base).
+                text += "\n（已解锁，可编辑）"
+            name_item.setToolTip(text + "\n\n" + tooltip)
+        elif state == "unlocked":
+            # An unlocked Pre value keeps the origin its comparison gives it (REC while it
+            # still equals Base, USER once the user changed it); the state is what the badge
+            # alone cannot say, so the tooltip says it.
+            name_item.setToolTip("来源：PRE（预配置，已解锁）\n\n" + tooltip)
+        if not locked:
+            return False
+        name_item.setText("🔒 " + name_item.text())
+        if editor is not None:
+            editor.setEnabled(False)
+            editor.setToolTip(name_item.toolTip())
+        gray_color = QColor("#EEEEEE")
+        gray_text = QColor("#777777")
+        for col in range(self.params_table.columnCount()):
+            item = self.params_table.item(row, col)
+            if item:
+                item.setBackground(gray_color)
+                item.setForeground(gray_text)
+        return True
+
+    def _baseline_unavailable(self) -> bool:
+        """Whether the module's baseline cannot say where a value came from (§6.5)."""
+        project = self.project
+        module = getattr(getattr(self.config_manager, 'module_def', None), 'short_name', None)
+        if not project or not module:
+            return False
+        baseline = getattr(project, 'baselines', {}).get(module)
+        return module_note(baseline) is not None
+
     def _populate_parameters(self, instance: EcucContainerValue, container_def: EcucContainerDef):
         """Populate parameters table with editable widgets"""
         self.params_table.setRowCount(len(container_def.parameters))
@@ -520,6 +647,7 @@ class DaVinciConfigPanel(QWidget):
             if is_deprecated:
                 tooltip = "⚠️ 此参数已废弃，请勿使用\n\n" + tooltip
             name_item.setToolTip(tooltip)
+            name_item.setData(Qt.UserRole, param_name)   # context menu reads the real name
             self.params_table.setItem(row, 0, name_item)
 
             # Column 1: Editable value widget
@@ -613,6 +741,14 @@ class DaVinciConfigPanel(QWidget):
                     if item:
                         item.setBackground(gray_color)
                         item.setForeground(gray_text)
+
+            # Pre lock and origin (design §6.5): a locked Pre value is greyed, disabled and
+            # says where its value comes from; an unlocked one still says "PRE, unlocked".
+            # Skipped while the baseline's layers are dropped: every value would report USER,
+            # and the module note (above the table) already says the baseline is unavailable.
+            if not self._baseline_unavailable():
+                self._apply_pre_lock(row, param_name, name_item,
+                                     self.params_table.cellWidget(row, 1), tooltip)
 
             # Apply comparison highlighting
             if param_name in self.comparison_results:
@@ -1723,6 +1859,17 @@ class DaVinciConfigPanel(QWidget):
                 selector = self._create_reference_selector(ref_name_base, ref_def, current_value)
                 self.refs_table.setCellWidget(row, 1, selector)
             
+            # Pre lock for a reference: a Pre-owned reference is not editable either, and
+            # SetReferenceCommand refuses it (the constructor checks the same key).
+            ref_state = self._lock_state(display_name)
+            if ref_state == "locked":
+                name_item.setText("🔒 " + name_item.text())
+                name_item.setForeground(QColor("#777777"))
+                if not is_multi:
+                    widget = self.refs_table.cellWidget(row, 1)
+                    if widget is not None:
+                        widget.setEnabled(False)
+
             # Column 2: Destination type
             dest_parts = ref_def.destination_ref.split('/')
             dest_type = dest_parts[-1] if dest_parts else ref_def.destination_ref
@@ -1935,12 +2082,31 @@ class DaVinciConfigPanel(QWidget):
         if not name_item:
             return
 
-        param_name = name_item.text().replace("⚡ ", "")  # Strip override indicator if present
+        # The real parameter name is kept on the item: the visible text carries the
+        # override and lock indicators, which must not leak into a lock key.
+        param_name = (name_item.data(Qt.UserRole)
+                      or name_item.text().replace("⚡ ", "").replace("🔒 ", ""))
 
         from PySide6.QtWidgets import QMenu
         from PySide6.QtGui import QAction
 
         menu = QMenu(self)
+
+        # Pre lock (design §6.5 D1): the unlock is recorded per key in .dpa and applies from
+        # the next merge on; "恢复锁定" puts the value back under Pre's control.
+        lock_state = self._lock_state(param_name)
+        if lock_state is not None and self.current_instance is not None:
+            if lock_state == "locked":
+                unlock_action = QAction("🔓 解锁此参数", self)
+                unlock_action.triggered.connect(
+                    lambda _=False, n=param_name: self._set_pre_unlocked(n, True))
+                menu.addAction(unlock_action)
+            else:
+                relock_action = QAction("🔒 恢复锁定", self)
+                relock_action.triggered.connect(
+                    lambda _=False, n=param_name: self._set_pre_unlocked(n, False))
+                menu.addAction(relock_action)
+            menu.addSeparator()
 
         # Check if this row is a variant override
         is_override = hasattr(self, '_override_rows') and row in self._override_rows
@@ -1956,6 +2122,23 @@ class DaVinciConfigPanel(QWidget):
         menu.addAction(impact_action)
 
         menu.exec(self.params_table.viewport().mapToGlobal(pos))
+
+    def _set_pre_unlocked(self, param_name: str, unlocked: bool) -> None:
+        """Record the unlock / re-lock of one Pre value and refresh the panel.
+
+        Nothing is written to the configuration: ``pre_unlocked`` in ``.dpa`` only says
+        whether the merge may let the user's value stand, which is the same state
+        ``check_editable`` reads. The project is marked modified so the decision is saved.
+        """
+        manager = self.config_manager
+        if manager is None or self.current_instance is None:
+            return
+        setter = getattr(manager, 'set_pre_unlocked', None)
+        if setter is None or not setter(self.current_instance, param_name, unlocked):
+            return
+        if self.project is not None:
+            self.project.is_modified = True
+        self.refresh()
         
     def _emit_check_impact(self, param_name: str):
         """Emit signal for impact analysis"""

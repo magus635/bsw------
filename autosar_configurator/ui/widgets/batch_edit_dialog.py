@@ -13,13 +13,22 @@ from ...core.command import CommandManager, ModifyParameterCommand, ModifyContai
 
 
 class BatchEditDialog(QDialog):
-    """Dialog for batch editing configuration elements"""
-    
-    def __init__(self, elements: List[Any], command_manager: CommandManager, parent=None):
+    """Dialog for batch editing configuration elements
+
+    A locked Pre value (design §6.5 D1) is skipped, never written: the merge would force it
+    back on the next open. The skipped items are listed once, sorted, after the batch has run.
+    ``check_locked`` is the lock check (``ConfigurationManager.check_editable``, or one of the
+    same shape); without it nothing is skipped, which is what the legacy model needs.
+    """
+
+    def __init__(self, elements: List[Any], command_manager: CommandManager, parent=None,
+                 check_locked=None):
         super().__init__(parent)
-        
+
         self.elements = elements
         self.command_manager = command_manager
+        self.check_locked = check_locked
+        self.skipped_locked: List[str] = []
         self.target_type = self._determine_target_type()
         
         self._setup_ui()
@@ -116,13 +125,19 @@ class BatchEditDialog(QDialog):
             pass
             
         commands = []
+        self.skipped_locked = []
         for element in self.elements:
             old_value = getattr(element, prop_name, None)
-            
+
             # Skip if value hasn't changed
             if str(old_value) == new_value:
                 continue
-                
+
+            key = self._locked_key(element, prop_name)
+            if key is not None:
+                self.skipped_locked.append(key)
+                continue
+
             if self.target_type == Parameter:
                 # Simple type conversion
                 final_value = new_value
@@ -141,9 +156,33 @@ class BatchEditDialog(QDialog):
                 cmd = ModifyContainerCommand(element, prop_name, old_value, new_value)
                 commands.append(cmd)
                 
+        if self.skipped_locked:
+            listed = "\n".join(f"  • {key}" for key in sorted(self.skipped_locked))
+            QMessageBox.information(
+                self, "已跳过锁定的预配置值",
+                f"以下 {len(self.skipped_locked)} 项是预配置（PRE），已锁定，未修改：\n\n"
+                f"{listed}\n\n如需修改，请在参数面板中右键选择“解锁此参数”。")
+
         if commands:
             batch_cmd = BatchCommand(commands, description=f"Batch modify {prop_name} for {len(commands)} items")
             self.command_manager.execute_command(batch_cmd)
             self.accept()
         else:
             QMessageBox.information(self, "No Changes", "No changes were made.")
+
+    def _locked_key(self, element: Any, prop_name: str) -> Optional[str]:
+        """The locked Pre key of ``element``, or ``None`` when it may be written.
+
+        Only the value itself is locked, not the description: an editor that renames or
+        annotates a container is not changing the Pre value the merge owns.
+        """
+        if self.check_locked is None or prop_name != "value":
+            return None
+        name = getattr(element, "name", None) or getattr(element, "short_name", None)
+        if not name:
+            return None
+        try:
+            self.check_locked(element, name)
+        except ValueError as exc:            # PreLockedError is a ValueError
+            return getattr(exc, "key", name)
+        return None

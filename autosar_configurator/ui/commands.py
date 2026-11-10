@@ -5,7 +5,21 @@ from PySide6.QtGui import QUndoCommand
 from typing import Optional, Any
 from ..core.model.configuration_model import EcucContainerValue, EcucModuleConfiguration
 from ..core.model.definition_model import EcucContainerDef
-from ..core.config_manager import ConfigurationManager
+from ..core.config_manager import ConfigurationManager, PreLockedError
+
+# The Pre lock (design §6.5 D1) is checked in the constructors below, not in redo(), on
+# purpose: a command that raises there never reaches the undo stack, so a blocked edit leaves
+# no entry the user could redo. See ConfigurationManager.check_editable.
+#
+# A command built without a manager is a UI-layer defect the callers guard against; it is not
+# the lock's business, so those commands are still constructed and fail on first use, exactly
+# as they did before (tests/ui/test_undo_commands.py documents that contract).
+
+def _check_editable(config_manager, instance, name=None) -> None:
+    """``config_manager.check_editable(instance, name)`` when there is a manager to ask."""
+    if config_manager is None:
+        return
+    config_manager.check_editable(instance, name)
 
 class SetParameterCommand(QUndoCommand):
     """Command to set a parameter value; a new value of None unsets the parameter"""
@@ -16,6 +30,9 @@ class SetParameterCommand(QUndoCommand):
                  param_name: str,
                  new_value: Any):
         super().__init__()
+        # Unsetting (new_value None) never reaches set_parameter_value, so the lock is
+        # checked here as well; redo() of a set value would check it a second time.
+        _check_editable(config_manager, instance, param_name)
         self.config_manager = config_manager
         self.instance = instance
         self.param_name = param_name
@@ -58,6 +75,7 @@ class SetReferenceCommand(QUndoCommand):
                  ref_name: str,
                  new_target: str):
         super().__init__()
+        _check_editable(config_manager, instance, ref_name)
         self.config_manager = config_manager
         self.instance = instance
         self.ref_name = ref_name
@@ -219,6 +237,7 @@ class DeleteContainerCommand(QUndoCommand):
                  instance: EcucContainerValue,
                  parent_instance: Optional[EcucContainerValue]):
         super().__init__()
+        _check_editable(config_manager, instance)
         self.config_manager = config_manager
         self.instance = instance
         self.parent_instance = parent_instance
@@ -252,6 +271,7 @@ class MoveContainerCommand(QUndoCommand):
                  new_parent: Optional[EcucContainerValue],
                  new_index: int):
         super().__init__()
+        _check_editable(config_manager, instance)
         self.config_manager = config_manager
         self.instance = instance
         self.new_parent = new_parent
@@ -323,6 +343,12 @@ class PasteContainerCommand(QUndoCommand):
     
     def __init__(self, config_manager, parent_instance, new_instance):
         super().__init__()
+        # The pasted copy is a new container the merge has never seen: adding sub-containers
+        # under a Pre container is allowed (design §6.5), so the parent is not locked. The
+        # command checks the pasted container's own key, which catches a copy that Pre owns
+        # under the very path it is going back to. A Pre key nested deeper inside the copy is
+        # caught by set_parameter_value / the next merge, never silently accepted.
+        _check_editable(config_manager, new_instance)
         self.config_manager = config_manager
         self.parent_instance = parent_instance
         self.new_instance = new_instance
@@ -348,6 +374,8 @@ class RenameContainerCommand(QUndoCommand):
 
     def __init__(self, config_manager: ConfigurationManager, instance: EcucContainerValue, new_name: str):
         super().__init__()
+        # name=None: the container itself (a rename changes the key the merge compares)
+        _check_editable(config_manager, instance)
         self.config_manager = config_manager
         self.instance = instance
         self.old_name = instance.short_name

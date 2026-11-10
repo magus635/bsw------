@@ -26,7 +26,7 @@ from ..packages.value_index import container_key, param_key, ref_key
 ValueKey = str
 
 __all__ = [
-    "ValueKey", "container_key", "param_key", "ref_key", "module_param_key",
+    "ValueKey", "container_key", "param_key", "ref_key", "module_param_key", "re_root_key",
     "flatten", "values_equal",
 ]
 
@@ -34,6 +34,34 @@ __all__ = [
 def module_param_key(module_name: str, name: str) -> ValueKey:
     """Key of a module-level parameter: ``"P:/<module>.<name>"``."""
     return f"P:/{module_name}.{name}"
+
+
+def re_root_key(key: ValueKey, module_name: str) -> ValueKey:
+    """``key`` re-rooted on ``module_name``: what ``flatten(config, module_name)`` says.
+
+    Three shapes are handled, one per :data:`ValueKey` prefix:
+
+    - ``"C:/<root>/..."`` → ``"C:/<module_name>/..."``;
+    - ``"P:/<root>.<name>"`` (module-level parameter) → ``"P:/<module_name>.<name>"``;
+    - ``"P:/<root>/..."`` / ``"R:/<root>/..."`` (a container's value) → the same path under
+      ``module_name``.
+
+    The lock and the panel build a key from a live container — whose own ``module_name`` is
+    whatever the configuration's short name is — and compare it with the baseline's keys,
+    which were flattened re-rooted on the module name the baseline used. A project whose
+    value collection is named differently from the module (``McuPreConfiguration``) needs
+    exactly this step, or no Pre key would ever match.
+    """
+    if not isinstance(key, str) or len(key) < 3 or key[1] != ":":
+        return key
+    prefix, path = key[0], key[2:]
+    rest = path[1:] if path.startswith("/") else path
+    old_root, _, tail = rest.partition("/")
+    if not tail:
+        # Module-level parameter: "P:/<root>.<name>" (a container key always has a tail)
+        old_root, _, tail = rest.partition(".")
+        return module_param_key(module_name, tail) if tail else key
+    return f"{prefix}:/{module_name}/{tail}"
 
 
 def values_equal(a: Any, b: Any) -> bool:
