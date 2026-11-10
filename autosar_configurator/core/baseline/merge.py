@@ -54,7 +54,8 @@ from ..model.definition_model import EcucModuleDef
 from .compose import Layer
 from .values import ValueKey, values_equal
 
-__all__ = ["MergeKind", "MergeItem", "MergeResult", "three_way_merge", "apply_merge"]
+__all__ = ["MergeKind", "MergeItem", "MergeResult", "MergeApplyError",
+           "three_way_merge", "apply_merge"]
 
 
 class MergeKind(Enum):
@@ -119,7 +120,8 @@ class MergeResult:
                 lines += ["基线中已不存在，但**不会自动删除**，请自行决定是否删除：", ""]
             for item in items:
                 if kind is MergeKind.REMOVED_IN_BASE:
-                    lines.append(f"- `{item.key}`（基线值 {_show(item.base_value)}）")
+                    lines.append(f"- `{item.key}`（基线值 {_show(item.base_value)}，"
+                                 f"当前值 {_show(item.active_value)}）")
                 elif kind is MergeKind.CREATE:
                     lines.append(f"- `{item.key}` → {_show(item.new_value)}")
                 else:
@@ -275,14 +277,16 @@ def three_way_merge(base: Optional[Dict[ValueKey, Any]], new_base: Dict[ValueKey
             # other direction, and a value Base' merely repeats is not news.
             continue
 
-        # 4. Without a snapshot every Active value is USER, so equal values need no
-        #    report; a value Active already holds as Base' needs none either.
-        if values_equal(active_value, new_value) and (base is None or key not in base):
-            continue
-
-        # 5. Everything inside a container this merge creates comes with it.
+        # 4. A value inside a container this merge creates: it comes over with the whole
+        #    CREATE, so it is reported as one even when no snapshot had it either.
         if inside_created(key):
             items.append(MergeItem(key, MergeKind.CREATE, None, new_value, None))
+            continue
+
+        # 5. A value Active already holds equal to Base' needs no report — but only when
+        #    Base does not know it: with a snapshot, an equal Active value that differs
+        #    from Base still has to be reported (KEPT_USER), and the rules below do that.
+        if values_equal(active_value, new_value) and (base is None or key not in base):
             continue
 
         # 6. A value whose container Active does not have cannot be adopted or forced:
@@ -331,6 +335,11 @@ def _clone_subtree(src: EcucContainerValue, parent: Optional[EcucContainerValue]
     a later edit of Active cannot reach back into Base', and the same identity fields. The
     parent goes to the constructor, not a later assignment, so a nested ``get_path()``
     already sees its final place.
+
+    ``unknown_parameters`` is an index into ``parameter_values`` / ``multi_parameter_values``
+    (the values themselves stay there), so it is rebuilt to point at the clones — as
+    ``compose._merge_container`` does — instead of being dropped, which would lose the
+    "imported but not in the definition" flags of a Pre-created container.
     """
     clone = EcucContainerValue(
         short_name=src.short_name, definition_ref=src.definition_ref,
@@ -344,27 +353,46 @@ def _clone_subtree(src: EcucContainerValue, parent: Optional[EcucContainerValue]
         clone.reference_values[name] = _clone_ref(ref)
     for name, refs in src.multi_reference_values.items():
         clone.multi_reference_values[name] = [_clone_ref(r) for r in refs]
+    for name in src.unknown_parameters:
+        if name in clone.parameter_values:
+            clone.unknown_parameters[name] = clone.parameter_values[name]
+        elif name in clone.multi_parameter_values:
+            clone.unknown_parameters[name] = clone.multi_parameter_values[name]
     for sub in src.sub_containers:
         clone.sub_containers.append(_clone_subtree(sub, clone, module_name))
     return clone
 
 
+class MergeApplyError(RuntimeError):
+    """A merge change cannot be applied without corrupting the configuration."""
+
+
 def _create_container(active_config: EcucModuleConfiguration,
-                      new_base_config: EcucModuleConfiguration, key: ValueKey) -> Optional[EcucContainerValue]:
+                      new_base_config: EcucModuleConfiguration, key: ValueKey) -> EcucContainerValue:
     """Copy the container ``key`` names, with its subtree, from Base' into Active.
 
     Keys are applied in order, and ``"C:" + parent`` sorts before ``"C:" + parent + "/child"``,
-    so the parent of a nested container already exists when its turn comes. The copy is
-    re-rooted on Active's own name, not the name the key happens to carry.
+    so the parent of a nested container already exists when its turn comes.
+
+    Both lookups use the *same* path, re-rooted on Active's name: a ``C:`` key carries
+    whichever module prefix it was flattened with, while ``get_instance_by_path`` only knows
+    Active's. Every failure raises instead of returning quietly — a Pre-created container
+    that cannot be attached would be a silent loss of configuration.
     """
-    existing = active_config.get_instance_by_path(_container_path(key, active_config.short_name))
+    path = _container_path(key, active_config.short_name)
+    existing = active_config.get_instance_by_path(path)
     if existing is not None:
         return existing
-    source = new_base_config.get_instance_by_path(key.split(":", 1)[1])
+    source = new_base_config.get_instance_by_path(path)
     if source is None:
-        return None                       # Base' does not have it: nothing to copy
-    parent_path = _container_path(key, active_config.short_name).rpartition("/")[0]
+        raise MergeApplyError(
+            f"CREATE {key!r}: Base' has no container at {path!r} (active module "
+            f"{active_config.short_name!r})")
+    parent_path = path.rpartition("/")[0]
     parent = active_config.get_instance_by_path(parent_path)
+    if parent is None and parent_path != "/" + active_config.short_name:
+        raise MergeApplyError(
+            f"CREATE {key!r}: Active has no container at {parent_path!r} to attach it to")
     clone = _clone_subtree(source, parent, active_config.short_name)
     if parent is None:
         active_config.add_container(clone)
@@ -408,7 +436,7 @@ def apply_merge(active_config: EcucModuleConfiguration,
     for item in changing:
         if _is_container(item.key):
             continue
-        path = _path_of(item.key)
+        path = _value_path(item.key, active_config.short_name)
         name = _name_of(item.key)
         if path == root:                                 # a module-level parameter
             active_config.set_parameter_value(name, item.new_value,
@@ -416,12 +444,27 @@ def apply_merge(active_config: EcucModuleConfiguration,
             active_config.parameter_values[name].is_modified = True
             continue
         container = active_config.get_instance_by_path(path)
-        if container is None:                            # not reachable for a CREATE; never overwrite
+        if container is None:                            # a CREATE always made one; anything
+            raise MergeApplyError(                       # else would be a silent loss
+                f"{item.kind.value} {item.key!r}: Active has no container at {path!r}")
+        if item.kind is MergeKind.CREATE:
+            # The container was just copied whole, values and unknown flags together; a
+            # second write would only replace those objects and break the flag links.
             continue
         source = new_base_config.get_instance_by_path(path)
         _set_value(container, name, item.new_value, source)
 
     active_config.is_modified = True
+
+
+def _value_path(key: ValueKey, module_name: str) -> str:
+    """The path of the container a ``P:``/``R:`` key names, re-rooted on ``module_name``.
+
+    Re-rooted the same way as :func:`_container_path`, so a key flattened with another
+    module prefix resolves to the same container Active knows.
+    """
+    parts = _path_of(key).lstrip("/").split("/")
+    return "/" + "/".join([module_name] + parts[1:])
 
 
 def _module_param_ref(module_def: Optional[EcucModuleDef],
@@ -440,42 +483,67 @@ def _set_value(container: EcucContainerValue, name: str, value: Any,
 
     A tuple is a multi-value parameter or multi-reference and replaces the whole list;
     which of the two it is comes from the Base' object, never from the value's shape.
+
+    Every write first clears the *other three* forms of the same name, so a shape flip
+    (single ⇄ multi, parameter ⇄ reference) never leaves the old form behind: the flat view
+    would still match Base', but the model and the ARXML would carry the name twice.
     """
     if isinstance(value, tuple):
         if source is not None and name in source.multi_reference_values:
-            container.multi_parameter_values.pop(name, None)
+            _clear_other_forms(container, name, keep="multi_reference_values")
             container.multi_reference_values[name] = [
                 _clone_ref(r) for r in source.multi_reference_values[name]]
         elif source is not None and name in source.multi_parameter_values:
-            container.reference_values.pop(name, None)
+            _clear_other_forms(container, name, keep="multi_parameter_values")
             container.multi_parameter_values[name] = [
                 _clone_param(p) for p in source.multi_parameter_values[name]]
-        else:                                            # no Base' object: keep Active's shape
-            if name in container.reference_values or name in container.multi_reference_values:
-                container.multi_parameter_values.pop(name, None)
-                container.multi_reference_values[name] = [
-                    EcucReferenceValue(definition_ref="", value_ref=v, index=i)
-                    for i, v in enumerate(value)]
-            else:
-                container.reference_values.pop(name, None)
-                container.multi_parameter_values[name] = [
-                    EcucParameterValue(definition_ref="", value=value, index=i)
-                    for i, value in enumerate(value)]
+        elif name in container.reference_values or name in container.multi_reference_values:
+            _clear_other_forms(container, name, keep="multi_reference_values")
+            container.multi_reference_values[name] = [
+                EcucReferenceValue(definition_ref="", value_ref=item, index=i)
+                for i, item in enumerate(value)]
+        else:
+            _clear_other_forms(container, name, keep="multi_parameter_values")
+            container.multi_parameter_values[name] = [
+                EcucParameterValue(definition_ref="", value=item, index=i)
+                for i, item in enumerate(value)]
         return
 
     if source is not None and name in source.reference_values:
-        container.multi_reference_values.pop(name, None)
+        _clear_other_forms(container, name, keep="reference_values")
         container.reference_values[name] = _clone_ref(source.reference_values[name])
         return
     if source is not None and name in source.parameter_values:
-        container.multi_parameter_values.pop(name, None)
+        flagged = _clear_other_forms(container, name, keep="parameter_values")
         container.parameter_values[name] = _clone_param(source.parameter_values[name])
+        if flagged:                                  # keep the imported-but-unknown flag
+            container.unknown_parameters[name] = container.parameter_values[name]
         return
     # No Base' object for this value (a fragment re-rooted elsewhere): keep the shape
     # Active had, and fall back to a plain parameter.
     if name in container.reference_values or name in container.multi_reference_values:
-        container.multi_reference_values.pop(name, None)
+        _clear_other_forms(container, name, keep="reference_values")
         container.reference_values[name] = EcucReferenceValue(definition_ref="", value_ref=value)
     else:
-        container.multi_parameter_values.pop(name, None)
+        flagged = _clear_other_forms(container, name, keep="parameter_values")
         container.parameter_values[name] = EcucParameterValue(definition_ref="", value=value)
+        if flagged:
+            container.unknown_parameters[name] = container.parameter_values[name]
+
+
+_FORMS = ("parameter_values", "multi_parameter_values", "reference_values", "multi_reference_values")
+
+
+def _clear_other_forms(container: EcucContainerValue, name: str, keep: str) -> bool:
+    """Remove every form of ``name`` except ``keep`` (a dict attribute of the container).
+
+    Returns whether ``name`` was flagged as an imported-but-unknown parameter, so the caller
+    can point the flag at the object it writes into ``keep`` (``unknown_parameters`` is an
+    index into the value dicts, not a form of its own).
+    """
+    flagged = name in container.unknown_parameters
+    container.unknown_parameters.pop(name, None)     # re-pointed by the caller
+    for form in _FORMS:
+        if form != keep:
+            getattr(container, form).pop(name, None)
+    return flagged

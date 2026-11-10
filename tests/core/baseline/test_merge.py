@@ -3,8 +3,11 @@
 Every case of design §6.5's merge table has one test. The fixtures are small in-code
 ``EcucModuleConfiguration`` trees; no vendor files are needed.
 """
+import pytest
+
 from autosar_configurator.core.baseline.compose import Layer
 from autosar_configurator.core.baseline.merge import (
+    MergeApplyError,
     MergeItem,
     MergeKind,
     MergeResult,
@@ -101,7 +104,11 @@ def _kinds(result):
 # --- the merge table ------------------------------------------------------------
 
 def test_unchanged_base_no_items():
-    """Base = Base' → nothing at all, not even a KEPT_USER for an untouched value."""
+    """Base = Base' → nothing at all, and no reason to confirm.
+
+    The second half is the one that can fail: with a key the user changed, a merge that
+    wrongly ADOPTED Base' over it would show up here as an item and as ``has_changes``.
+    """
     base = _config()
     _set(base, "Speed", 1)
     new = _config()
@@ -114,6 +121,14 @@ def test_unchanged_base_no_items():
     assert result.has_changes is False
     assert merged == flatten(active)
     assert merged[GEN + "Speed"] == 1
+
+    # Base = Base' = 1, Active = 9: still nothing to do, and still nothing to confirm
+    moved = _config()
+    _set(moved, "Speed", 9)
+    result, merged = _apply(base, moved, new)
+    assert result.items == []
+    assert result.has_changes is False
+    assert merged[GEN + "Speed"] == 9
 
 
 def test_unchanged_base_but_active_deviates_is_not_a_change():
@@ -589,6 +604,97 @@ def test_the_task_10_scenario():
     assert merged[GEN + "L"] == (1, 3)                   # untouched values follow
     report = result.to_markdown("Mcu")
     assert "预设强制" in report and "用户覆盖" in report
+
+
+def test_shape_flip_leaves_exactly_one_form():
+    """A single→multi and multi→single flip must not leave the name in both collections."""
+    # single → multi
+    base = _config()
+    _set(base, "L", 7)
+    new = _config()
+    _set(new, "L", [4, 5])
+    active = _config()
+    _set(active, "L", 7)
+
+    result, merged = _apply(base, active, new)
+    assert _kinds(result) == {(GEN + "L", MergeKind.ADOPT)}
+    assert merged[GEN + "L"] == (4, 5)
+    general = _top(active)
+    assert "L" in general.multi_parameter_values
+    assert "L" not in general.parameter_values
+
+    # multi → single
+    base = _config()
+    _set(base, "L", [1, 2])
+    new = _config()
+    _set(new, "L", 7)
+    active = _config()
+    _set(active, "L", [1, 2])
+
+    result, merged = _apply(base, active, new)
+    assert _kinds(result) == {(GEN + "L", MergeKind.ADOPT)}
+    assert merged[GEN + "L"] == 7
+    general = _top(active)
+    assert "L" in general.parameter_values
+    assert "L" not in general.multi_parameter_values
+
+    # and a reference flipped the same way keeps only its multi form
+    base = _config()
+    _top(base).reference_values["Ref"] = EcucReferenceValue("/X/Ref", "/Os/C0")
+    new = _config()
+    _top(new).multi_reference_values["Ref"] = [EcucReferenceValue("/X/Ref", "/Os/C1", index=0)]
+    active = _config()
+    _top(active).reference_values["Ref"] = EcucReferenceValue("/X/Ref", "/Os/C0")
+
+    result, merged = _apply(base, active, new)
+    assert merged["R:/Mcu/McuGeneral.Ref"] == ("/Os/C1",)
+    general = _top(active)
+    assert "Ref" in general.multi_reference_values
+    assert "Ref" not in general.reference_values
+
+
+def test_created_container_keeps_unknown_parameter_flags():
+    """A Pre-created container's imported-but-unknown values keep their flags."""
+    new = _config()
+    general = _top(new)
+    general.parameter_values["Legacy"] = EcucParameterValue("/X/Legacy", 9)
+    general.unknown_parameters["Legacy"] = general.parameter_values["Legacy"]
+    sub = EcucContainerValue(short_name="McuSub", definition_ref="/X/Mcu/McuGeneral/McuSub")
+    sub.parameter_values["Deeper"] = EcucParameterValue("/X/Deeper", 1)
+    sub.unknown_parameters["Deeper"] = sub.parameter_values["Deeper"]
+    general.add_sub_container(sub)
+    active = _config(container=None)
+
+    # First enable (no snapshot): Pre introduces the container, so it is created whole.
+    result, _ = _apply(None, active, new, {"C:/Mcu/McuGeneral": Layer.PRE,
+                                           "C:/Mcu/McuGeneral/McuSub": Layer.PRE})
+    assert _kinds(result) >= {("C:/Mcu/McuGeneral", MergeKind.CREATE)}
+    created = _top(active)
+    assert created.unknown_parameters["Legacy"] is created.parameter_values["Legacy"]
+    assert created.unknown_parameters["Legacy"].value == 9
+    cloned_sub = created.sub_containers[0]
+    assert cloned_sub.unknown_parameters["Deeper"] is cloned_sub.parameter_values["Deeper"]
+
+
+def test_create_that_cannot_be_attached_raises():
+    """A Pre container Base' does not hold must not pass silently."""
+    active = _config()
+    result = MergeResult([MergeItem("C:/Mcu/McuOther", MergeKind.CREATE, None, True, None)])
+    with pytest.raises(MergeApplyError) as err:
+        apply_merge(active, _module_def(), _config(), result)
+    assert "McuOther" in str(err.value)
+
+    # a nested create whose parent Active lacks is just as loud
+    nested = _config(container=None)
+    result = MergeResult([MergeItem("C:/Mcu/McuGeneral/McuSub", MergeKind.CREATE, None, True, None)])
+    with pytest.raises(MergeApplyError):
+        apply_merge(nested, _module_def(), _config(), result)
+
+
+def test_removed_in_base_report_shows_the_current_value():
+    result = MergeResult([MergeItem(GEN + "Mode", MergeKind.REMOVED_IN_BASE, "B", None, "Z")])
+    report = result.to_markdown("Mcu")
+    assert "B" in report and "Z" in report
 
 
 # --- result shape ---------------------------------------------------------------
