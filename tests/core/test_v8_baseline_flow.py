@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 from autosar_configurator.core.baseline import session
+from autosar_configurator.core.baseline import store
 from autosar_configurator.core.baseline.values import flatten
 from autosar_configurator.core.packages.library import LibraryRef, scan_library
 from autosar_configurator.core.workspace_manager import WorkspaceManager
@@ -516,9 +517,10 @@ def test_untrusted_layers_heal_on_the_next_save(tmp_path):
 
     opened, failed = WorkspaceManager().load_project(project_file(tmp_path), confirm=confirm)
     assert failed == []
-    # The pair is flagged untrusted; Base' is what this session works with, and it is
-    # marked dirty so the next save rewrites the pair — no merge to confirm.
-    assert opened.baselines["Trk"].dirty
+    # The pair is flagged untrusted; this session works from Base' (so the lock is already
+    # right), and the layers file alone is marked for rewriting — no merge to confirm.
+    assert opened.baselines["Trk"].layers_dirty
+    assert not opened.baselines["Trk"].dirty
     assert opened.baselines["Trk"].pre_keys == {"C:/Trk/TrkGeneral", GEN + "Level"}
 
     saver = WorkspaceManager()
@@ -527,8 +529,50 @@ def test_untrusted_layers_heal_on_the_next_save(tmp_path):
 
     healed, failed = WorkspaceManager().load_project(project_file(tmp_path), confirm=confirm)
     assert failed == []
+    assert not healed.baselines["Trk"].layers_untrusted
     assert healed.baselines["Trk"].pre_keys == {"C:/Trk/TrkGeneral", GEN + "Level"}
     assert healed.baselines["Trk"].layers == baseline.layers
+
+
+def test_removal_only_merge_keeps_the_pair_and_the_warning(tmp_path):
+    """A report-only merge does not heal: Base keeps its key, the pair stays flagged."""
+    make_package(tmp_path / "lib", rec={"Mode": "Fast"}, pre={"Level": "3"})
+    wm = new_project(tmp_path)
+    add_trk(wm.current_project)
+    wm.save_project()
+    snapshot_path = tmp_path / "proj" / "config" / "base" / "Trk.arxml"
+    layers_file = session.base_layers_path(wm.current_project, "Trk")
+
+    # The package dropped its Pre collection but kept the same Rec value: Level is the only
+    # difference — a REMOVED_IN_BASE report and nothing to adopt.
+    make_package(tmp_path / "lib", rec={"Mode": "Fast"})
+    # Untrusted layers on top of it: the merge is not empty, so the heal must not fire
+    session.write_layers(layers_file, session.read_layers(layers_file),
+                         snapshot_hash="sha256:" + "0" * 64)
+
+    def confirm(text, result):
+        raise AssertionError("nothing is adopted, so nothing is confirmed")
+
+    wm2 = WorkspaceManager()
+    reopened, failed = wm2.load_project(project_file(tmp_path), confirm=confirm)
+    assert failed == []
+    baseline = reopened.baselines["Trk"]
+    assert baseline.layers_untrusted                    # kept, flagged
+    assert not baseline.layers_dirty                    # not healed
+    assert not baseline.dirty
+    wm2.save_project()
+    assert "Level" in snapshot_path.read_text(encoding="utf-8")     # Base still has the key
+    assert json.loads(layers_file.read_text(encoding="utf-8"))["snapshot_hash"]         == "sha256:" + "0" * 64                                     # and was not rewritten
+
+    # Base still has the key, so it is not dropped and the removal stays visible: the
+    # snapshot is what a later report is derived from, untrusted or not.
+    trace = store.read_base(session.base_snapshot_path(reopened, "Trk"),
+                            reopened.module_entries["Trk"].base_hash)
+    assert "P:/Trk/TrkGeneral.Level" in flatten(trace, "Trk")
+    assert "P:/Trk/TrkGeneral.Level" in flatten(reopened.baselines["Trk"].base_config, "Trk")
+    assert "Level" in [name for container in
+                       reopened.module_managers["Trk"].configuration.containers
+                       for name in container.parameter_values]
 
 
 def test_v7_project_never_reconciles(tmp_path):

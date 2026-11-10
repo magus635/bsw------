@@ -417,13 +417,20 @@ class WorkspaceProject:
             # merge that had something to change and was rejected writes nothing.
             new.dirty = True
             self.baselines[name] = new
-        elif old.layers_untrusted and not result.has_changes:
+        elif old.layers_untrusted and not result.items:
             # The snapshot verified but its layers could not be trusted (a half-written
-            # update, a legacy file), so nothing is marked Pre and the lock is off. Healing
-            # that is not a change the user has to confirm — Active is not touched — so the
-            # freshly composed baseline replaces the pair on the next save. A merge that
-            # did have changes and was rejected keeps waiting for an accepted one.
-            new.dirty = True
+            # update, a legacy file) and the merge is completely empty: nothing to adopt,
+            # nothing to report, so healing is not a change the user has to confirm. Only
+            # the layers are rewritten, against the snapshot already on disk — rewriting the
+            # snapshot as Base' would delete every key only Base has, and with it the
+            # REMOVED_IN_BASE warning the user still has to act on.
+            #
+            # A merge with report-only items (REMOVED_IN_BASE, KEPT_USER) therefore keeps
+            # the pair untrusted and the Pre lock off until the user acts on that report:
+            # the warning recurs on every open, so the state is visible, not lost. Healing
+            # it silently would trade the warning for a quiet snapshot rewrite.
+            new.dirty = False
+            new = baseline_session.heal_layers(new)
             self.baselines[name] = new
         else:
             # Unchanged, rejected or no confirm: Base, its layers and the snapshot stay as
@@ -1377,10 +1384,21 @@ class WorkspaceManager:
         for name in sorted(project.baselines):
             baseline = project.baselines[name]
             entry = project.module_entries.get(name)
-            if not baseline.dirty or baseline.base_config is None:
-                continue
             if entry is None or name not in modules_out:
                 _log_warning("基线没有对应的模块条目，跳过快照写入：%s", name)
+                continue
+            if baseline.layers_dirty and entry.base_hash is not None:
+                # Heal an untrusted layers file against the snapshot already on disk: the
+                # snapshot is not rewritten, so neither is ``base_hash``.
+                try:
+                    baseline_session.write_layers(
+                        baseline_session.base_layers_path(project, name), baseline,
+                        snapshot_hash=entry.base_hash)
+                except OSError as exc:
+                    _log_warning("基线层文件写入失败，保留原记录：%s（%s）", name, exc)
+                    continue
+                baseline.layers_dirty = False
+            if not baseline.dirty or baseline.base_config is None:
                 continue
             try:
                 digest = baseline_session.write_baseline(project, name, baseline)

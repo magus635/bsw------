@@ -90,6 +90,19 @@ class ModuleBaseline:
     dirty: bool = False
     has_layers: bool = False
     layers_untrusted: bool = False
+    layers_dirty: bool = False
+    """The layers file — and only it — must be rewritten, against the snapshot on disk.
+
+    Set when a baseline's layers were dropped (``layers_untrusted``) and the merge had
+    nothing to adopt *and* nothing to report. The snapshot stays what it is: rewriting it as
+    Base' would delete the keys only Base has, and those are exactly the ``REMOVED_IN_BASE``
+    warnings the user still has to act on. The rewritten layers describe Base' — the same
+    baseline for every key the snapshot holds — and are silent about a key only Base has, so
+    that key reports ``USER`` rather than a removal that cannot recur.
+
+    A merge with report-only items does not heal: the pair stays ``layers_untrusted`` and
+    the Pre lock stays off, and the report recurs on every open until the user acts on it.
+    """
     snapshot_hash: Optional[str] = None
     """``"sha256:<hex>"`` of the snapshot this layers file belongs to (read side only).
 
@@ -351,6 +364,21 @@ def read_layers(path: Path) -> ModuleBaseline:
     return ModuleBaseline(base_config=None, layers=layers, pre_keys=pre_keys,
                           module_name=data.get("module") or "", has_layers=has_layers,
                           snapshot_hash=stored if isinstance(stored, str) else None)
+
+
+def heal_layers(new: ModuleBaseline) -> ModuleBaseline:
+    """Mark ``new`` as the baseline whose layers only have to be rewritten on the next save.
+
+    Called when a snapshot survived but its layers could not be trusted, and the merge had
+    nothing to adopt and nothing to report. Only the layers are rewritten, against the
+    snapshot on disk; rewriting the snapshot as Base' would delete every key only Base has —
+    the keys a ``REMOVED_IN_BASE`` warning is about — which is exactly what must not happen.
+
+    Returns:
+        ``new`` itself, with ``layers_dirty`` set.
+    """
+    new.layers_dirty = True
+    return new
 
 
 def load_baseline(project, module: str, expected_hash: Optional[str]) -> ModuleBaseline:
