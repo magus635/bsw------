@@ -96,20 +96,22 @@ def _write(root, rel, text):
     path.write_text(text, encoding="utf-8")
 
 
-def make_package(lib, rec, pre=None):
-    """(Re)write the package under ``lib/Trk`` with the given Rec and Pre values."""
-    collections = [_collection("Trk_Rec", rec)]
-    if pre:
-        collections.append(_collection("Trk_Pre", pre))
-    _write(lib, "Trk/def/Trk.arxml", _DEF)
-    _write(lib, "Trk/config/Trk_values.arxml", _VALUES.format(collections="\n".join(collections)))
-    (lib / "Trk" / "module.json").write_text(json.dumps({
+def make_package(lib, rec, pre=None, module="Trk"):
+    """(Re)write the package under ``lib/<module>`` with the given Rec and Pre values."""
+    path = lib / module
+    _write(path, f"def/{module}.arxml", _DEF.replace("Trk", module))
+    _write(path, f"config/{module}_values.arxml",
+           _VALUES.format(collections="\n".join(
+               [_collection(f"{module}_Rec", rec)]
+               + ([_collection(f"{module}_Pre", pre)] if pre else []))
+           ).replace("Trk", module))
+    (path / "module.json").write_text(json.dumps({
         "schema": 1,
-        "module": "Trk",
-        "definition": "/Vendor/Trk",
-        "files": ["def/Trk.arxml", "config/Trk_values.arxml"],
-        "rec": ["/Vendor/Trk_Rec"],
-        "pre": ["/Vendor/Trk_Pre"] if pre else [],
+        "module": module,
+        "definition": f"/Vendor/{module}",
+        "files": [f"def/{module}.arxml", f"config/{module}_values.arxml"],
+        "rec": [f"/Vendor/{module}_Rec"],
+        "pre": [f"/Vendor/{module}_Pre"] if pre else [],
     }), encoding="utf-8")
 
 
@@ -121,9 +123,10 @@ def new_project(tmp_path):
     return wm
 
 
-def add_trk(project):
-    [pkg] = scan_library(project.module_libraries[0], Path(project.path).parent)
-    project.add_module_from_package(pkg, 0)
+def add_trk(project, confirm=None, persist=True):
+    [pkg] = [p for p in scan_library(project.module_libraries[0], Path(project.path).parent)
+             if p.manifest.module == "Trk"]
+    return project.add_module_from_package(pkg, 0, persist=persist, confirm=confirm)
 
 
 def flat(project, module="Trk"):
@@ -266,6 +269,109 @@ def test_no_snapshot_keeps_user_values_and_records_base(tmp_path):
     wm2.save_project()
     assert (tmp_path / "proj" / "config" / "base" / "Trk.arxml").is_file()
     assert loaded.module_entries["Trk"].base_hash is not None
+
+
+def test_baseline_failure_never_aborts_the_project(tmp_path, monkeypatch):
+    """One module's baseline error is reported; the rest of the project still opens."""
+    make_package(tmp_path / "lib", rec={"Mode": "Fast"})
+    make_package(tmp_path / "lib", rec={"Mode": "Fast"}, module="Arg")
+    wm = new_project(tmp_path)
+    add_trk(wm.current_project)
+    [arg] = [p for p in scan_library(wm.current_project.module_libraries[0],
+                                     Path(wm.current_project.path).parent)
+             if p.manifest.module == "Arg"]
+    wm.current_project.add_module_from_package(arg, 0)
+    wm.save_project()
+
+    real = session.compute_new_base
+
+    def boom(pkg, *args, **kwargs):
+        if pkg.manifest.module == "Trk":
+            raise RuntimeError("package exploded")
+        return real(pkg, *args, **kwargs)
+
+    monkeypatch.setattr(session, "compute_new_base", boom)
+    loaded, failed = WorkspaceManager().load_project(project_file(tmp_path))
+
+    assert [name for name, _ in failed] == ["Trk"]
+    assert "package exploded" in failed[0][1]
+    assert "Trk" not in loaded.module_managers       # reported, not half-merged
+    assert "Arg" in loaded.module_managers           # the rest of the project loaded
+    assert "Trk" in loaded.module_entries            # kept so a save does not drop it
+    assert "Trk" not in loaded.baselines
+
+
+def test_readd_with_existing_config_reconciles_and_keeps_base(tmp_path):
+    make_package(tmp_path / "lib", rec={"Mode": "Fast"}, pre={"Level": "3"})
+    wm = new_project(tmp_path)
+    add_trk(wm.current_project)
+    wm.save_project()
+    base_hash = wm.current_project.module_entries["Trk"].base_hash
+    before_base = snapshot(wm.current_project).read_bytes()
+
+    # remove_module drops the entry but leaves config/Trk.arxml on disk
+    wm.current_project.remove_module("Trk")
+    make_package(tmp_path / "lib", rec={"Mode": "Fast"}, pre={"Level": "9"})
+    [pkg] = scan_library(wm.current_project.module_libraries[0],
+                         Path(wm.current_project.path).parent)
+
+    seen = []
+
+    def confirm(text, result):
+        seen.append(result)
+        return True
+
+    manager = wm.current_project.add_module_from_package(pkg, 0, confirm=confirm)
+
+    assert len(seen) == 1 and seen[0].has_changes       # the change is reported, not silent
+    (general,) = manager.configuration.containers
+    assert general.parameter_values["Level"].value == "9"
+    # Base is still the accepted one until the next save
+    assert snapshot(wm.current_project).read_bytes() == before_base
+    assert wm.current_project.module_entries["Trk"].base_hash == base_hash
+    wm.save_project()
+    assert snapshot(wm.current_project).read_bytes() != before_base
+
+
+def test_readd_reject_keeps_the_accepted_base(tmp_path):
+    make_package(tmp_path / "lib", rec={"Mode": "Fast"}, pre={"Level": "3"})
+    wm = new_project(tmp_path)
+    add_trk(wm.current_project)
+    wm.save_project()
+    before_base = snapshot(wm.current_project).read_bytes()
+
+    wm.current_project.remove_module("Trk")
+    make_package(tmp_path / "lib", rec={"Mode": "Fast"}, pre={"Level": "9"})
+    [pkg] = scan_library(wm.current_project.module_libraries[0],
+                         Path(wm.current_project.path).parent)
+
+    manager = wm.current_project.add_module_from_package(pkg, 0, confirm=lambda text, r: False)
+
+    (general,) = manager.configuration.containers
+    assert general.parameter_values["Level"].value == "3"    # nothing written
+    assert snapshot(wm.current_project).read_bytes() == before_base
+    wm.save_project()
+    assert snapshot(wm.current_project).read_bytes() == before_base
+
+
+def test_orphan_baseline_is_not_written(tmp_path):
+    make_package(tmp_path / "lib", rec={"Mode": "Fast"}, pre={"Level": "3"})
+    wm = new_project(tmp_path)
+    add_trk(wm.current_project)
+    wm.save_project()
+
+    # A baseline whose module entry is gone must not become a snapshot nobody records
+    project = wm.current_project
+    stale = project.baselines["Trk"]
+    stale.dirty = True
+    project.module_entries.pop("Trk")
+    project.module_managers.pop("Trk")
+    project.module_defs.pop("Trk")
+    wm.save_project()
+
+    assert snapshot(project).is_file()              # the old one is still there
+    saved = json.loads(project_file(tmp_path).read_text(encoding="utf-8"))["modules"]
+    assert [m["name"] for m in saved] == []
 
 
 def test_v7_project_never_reconciles(tmp_path):

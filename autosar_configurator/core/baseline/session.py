@@ -23,6 +23,7 @@ caller can report what would have changed.
 """
 import json
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -94,9 +95,19 @@ def base_layers_path(project, module: str) -> Path:
 
 
 def report_path(project, module: str, now: Optional[datetime] = None) -> Path:
-    """``<history>/reports/<YYYYmmdd-HHMMSS>_merge_<Module>.md`` for one merge report."""
+    """``<history>/reports/<YYYYmmdd-HHMMSS>_merge_<Module>.md`` for one merge report.
+
+    Two merges of the same module in the same second get ``-2``, ``-3``, … appended, so a
+    report written a moment later never replaces the one before it.
+    """
     stamp = (now or datetime.now()).strftime("%Y%m%d-%H%M%S")
-    return project_paths.resolve(project, "history") / "reports" / f"{stamp}_merge_{module}.md"
+    directory = project_paths.resolve(project, "history") / "reports"
+    path = directory / f"{stamp}_merge_{module}.md"
+    counter = 2
+    while path.exists():
+        path = directory / f"{stamp}_merge_{module}-{counter}.md"
+        counter += 1
+    return path
 
 
 # --- composing Base' ------------------------------------------------------------
@@ -141,7 +152,8 @@ def compute_new_base(pkg: ModulePackage, chip: Optional[str], module_def: Option
 # --- reconciling ----------------------------------------------------------------
 
 def reconcile(manager, old_base: Optional[EcucModuleConfiguration], new: ModuleBaseline,
-              unlocked: Set[ValueKey], confirm: Optional[Confirm]) -> Tuple[MergeResult, bool]:
+              unlocked: Set[ValueKey], confirm: Optional[Confirm],
+              module_name: Optional[str] = None) -> Tuple[MergeResult, bool]:
     """Merge Base, Base' and Active; apply the result only when the caller confirms.
 
     Args:
@@ -153,6 +165,10 @@ def reconcile(manager, old_base: Optional[EcucModuleConfiguration], new: ModuleB
             ``ModuleEntry.pre_unlocked``); they merge like ordinary keys.
         confirm: Shown the markdown preview and the result; True applies the merge. ``None``
             rejects: nothing is written, and the result is still returned.
+        module_name: Root for every flattened key and the name the report is filed under.
+            Defaults to ``new.module_name``, else the definition's short name — the three
+            views must share one root (``ValueKey`` strings are compared), so the caller
+            that composed Base' knows it best.
 
     Returns:
         ``(result, applied)``. ``applied`` is False when the merge changes nothing (the
@@ -163,7 +179,7 @@ def reconcile(manager, old_base: Optional[EcucModuleConfiguration], new: ModuleB
             user condition, so it propagates: the caller reports the module as failed
             rather than leaving a half-merged Active behind.
     """
-    module_name = manager.module_def.short_name
+    module_name = module_name or new.module_name or manager.module_def.short_name
     old = None if old_base is None else flatten(old_base, module_name)
     result = three_way_merge(old, flatten(new.base_config, module_name),
                              flatten(manager.configuration, module_name),
@@ -215,15 +231,21 @@ def adopt_base(manager, base_config: EcucModuleConfiguration) -> None:
 def write_baseline(project, module: str, baseline: ModuleBaseline) -> Optional[str]:
     """Write ``baseline`` as the module's accepted Base; return its hash.
 
-    The snapshot goes to :func:`base_snapshot_path`, the layers to :func:`base_layers_path`;
-    the returned hash belongs in ``ModuleEntry.base_hash``. ``dirty`` is cleared.
+    The snapshot goes to :func:`base_snapshot_path`, the layers to :func:`base_layers_path`.
+    The layers are written first: they are small and replaced atomically, so a process that
+    dies between the two files leaves a new layers file and the previous snapshot, whose
+    hash no longer matches and which ``read_base`` therefore refuses — never a snapshot
+    that silently becomes a merge base with the wrong layers.
+
+    Returns:
+        ``"sha256:<hex>"``, which belongs in ``ModuleEntry.base_hash``. ``dirty`` is cleared.
     """
+    write_layers(base_layers_path(project, module), baseline)
     from .store import write_base
 
     path = base_snapshot_path(project, module)
     path.parent.mkdir(parents=True, exist_ok=True)
     digest = write_base(path, baseline.base_config)
-    write_layers(base_layers_path(project, module), baseline)
     baseline.dirty = False
     return digest
 
@@ -233,7 +255,12 @@ def write_layers(path: Path, baseline: ModuleBaseline) -> None:
 
     The values live in the snapshot; this file only says where each came from, so a later
     session can classify origins and lock Pre without recomputing Base' (which would
-    relabel whatever Base' now says). Keys are sorted for a stable file.
+    relabel whatever Base' now says). Keys are sorted for a stable file. Written to a
+    temporary file and renamed, so a reader never sees half a JSON document.
+
+    Raises:
+        OSError: the file cannot be written (the caller reports it; the snapshot is not
+            written after a failed layers write).
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -244,7 +271,9 @@ def write_layers(path: Path, baseline: ModuleBaseline) -> None:
         "pre_keys": sorted(baseline.pre_keys),
         "has_layers": baseline.has_layers,
     }
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    temp = path.with_name(path.name + ".tmp")
+    temp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.replace(temp, path)
 
 
 def read_layers(path: Path) -> ModuleBaseline:

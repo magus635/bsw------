@@ -111,13 +111,13 @@ class ProjectController:
         merge reject by itself.
         """
         box = QMessageBox(self.win)
-        box.setWindowTitle("Baseline Changed")
+        box.setWindowTitle("基线已变化")
         box.setIcon(QMessageBox.Icon.Question)
-        box.setText("The module package changed the baseline of this module.\n"
-                    "Apply the merge to the configuration?")
+        box.setText("模块包改变了该模块的基线。\n要把合并结果写入配置吗？\n"
+                    "（“保留当前”不改配置，下次打开会再次询问。）")
         box.setDetailedText(preview)
-        confirm_button = box.addButton("Apply Merge", QMessageBox.ButtonRole.AcceptRole)
-        box.addButton("Keep Current (reject)", QMessageBox.ButtonRole.RejectRole)
+        confirm_button = box.addButton("应用合并", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton("保留当前（拒绝）", QMessageBox.ButtonRole.RejectRole)
         box.exec()
         return box.clickedButton() is confirm_button
 

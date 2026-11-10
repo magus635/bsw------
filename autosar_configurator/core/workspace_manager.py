@@ -95,6 +95,27 @@ def _base_values(configuration) -> Dict[str, Any]:
 _same_value = values_equal  # one value-equality rule, shared with the baseline layer
 
 
+def _log_warning(message: str, *args) -> None:
+    """Module-level logger (this file imports ``logging`` inside its methods by convention)."""
+    import logging
+    logging.getLogger(__name__).warning(message, *args)
+
+
+def _snapshot_hash(path: Path) -> Optional[str]:
+    """``"sha256:<hex>"`` of a baseline snapshot on disk, or None when there is none.
+
+    Used when a module entry is re-created (re-add after a removal): the snapshot the user
+    accepted is still the Base to merge against, and its hash is what records that.
+    """
+    try:
+        if not Path(path).is_file():
+            return None
+        from .baseline.store import hash_file
+        return hash_file(Path(path))
+    except OSError:
+        return None
+
+
 def scan_libraries(project) -> List[Tuple[int, List[ModulePackage]]]:
     """(library index, packages) of every library in ``project.module_libraries``.
 
@@ -225,26 +246,39 @@ class WorkspaceProject:
         self.baselines: Dict[str, ModuleBaseline] = {}
 
     def add_module_from_package(self, pkg: "ModulePackage", lib_index: int,
-                                persist: bool = True) -> ConfigurationManager:
+                                persist: bool = True, confirm=None) -> ConfigurationManager:
         """Add the module provided by ``pkg`` (from ``module_libraries[lib_index]``).
 
         Parses the package's definition file for ``selected_chip``, adds the module and
         registers it in ``module_entries`` and ``packages``.  An entry already present
         (a project being loaded, or a module re-added after a failed load) keeps its
-        configuration path and baseline fields.  An existing configuration file of the
-        module is loaded into the new manager, so a later save never replaces it with
-        an empty configuration.
+        configuration path and baseline fields.
 
-        For a format 8 project, Base' is composed from the package and becomes the initial
-        value of an Active the project does not have yet (D8: Rec included). ``persist``
-        writes that Base' to the snapshot immediately — the add-module case. A load passes
-        ``persist=False``: the saved snapshot must stay what the merge compares against, so
-        the reconciled Base' waits for the next :meth:`WorkspaceManager.save_project`.
+        Two cases, because the module may already have values:
+
+        - **A new module** (no ``config/<M>.arxml``): Base' is composed from the package and
+          becomes Active (D8: Rec included), and — with ``persist`` — the snapshot is
+          written immediately.
+        - **A configuration file exists** (re-add after ``remove_module``, a project being
+          loaded): the file is Active, and Base' is reconciled into it exactly as on load —
+          Base is the snapshot on disk when there still is one, the merge needs ``confirm``
+          (``None`` rejects), and nothing is written until the next save. Writing Base'
+          directly here would destroy the Base the user accepted and only force the Pre
+          deviations on the next open.
+
+        Args:
+            pkg: The module package.
+            lib_index: Index of the library that provided ``pkg``.
+            persist: Write a new module's baseline snapshot at once (the add-module case).
+                A load passes False so the saved Base survives until the merge has seen it.
+            confirm: ``(preview_text, MergeResult) -> bool`` for the merge of an existing
+                configuration; ``None`` rejects.
 
         Raises:
             PackageError / PackageConflictError: the package has no unique definition file
-            ValueError: the existing configuration file cannot be loaded, or its baseline
-                cannot be composed; the project is left as it was before the call
+            ValueError: the existing configuration file cannot be loaded; the project is
+                left as it was before the call. A baseline failure is reported separately:
+                the module stays loaded, without a baseline, and the project continues.
         """
         def_file = pkg.definition_file(self.selected_chip)
         parser = EcucDefParser()
@@ -286,31 +320,45 @@ class WorkspaceProject:
                     # load_configuration replaces the configuration object
                     manager.configuration.variant_overrides = stashed
 
-        # Baseline (design §6.5, step ④ / D8): Base' is composed from the package's Rec and
-        # Pre layers and is the initial value of a module Active does not have yet. A
-        # package contributing no value layer leaves the module exactly as before.
-        if self.format_version >= 8:
-            try:
-                baseline = baseline_session.compute_new_base(
-                    pkg, self.selected_chip, manager.module_def, name)
-                if baseline.has_layers:
-                    if not config_loaded:
-                        baseline_session.adopt_base(manager, baseline.base_config)
-                    if persist:
-                        entry.base_hash = baseline_session.write_baseline(self, name, baseline)
-                        baseline.dirty = False
-                    self.baselines[name] = baseline
-            except Exception as exc:  # noqa: BLE001 - same rollback as a failed config load
-                self._rollback_added_module(name, stashed)
-                raise ValueError(
-                    f"Failed to initialise the baseline of {name}: {exc}") from exc
-
         if new_entry:
             self.module_entries[name] = entry
         else:
             entry.definition = pkg.manifest.definition
             entry.library = lib_index
         self.packages[name] = pkg
+
+        if self.format_version < 8:
+            return manager
+
+        if config_loaded:
+            # An existing Active: merge Base' into it, never replace its Base
+            if entry.base_hash is None:
+                # The entry was removed; the snapshot on disk is still the Base the user
+                # accepted, if it is intact
+                entry.base_hash = _snapshot_hash(baseline_session.base_snapshot_path(self, name))
+            try:
+                self.reconcile_baseline(manager, entry, pkg, confirm)
+            except Exception as exc:  # noqa: BLE001 - one module's baseline must not abort the project
+                self.baselines.pop(name, None)
+                manager.baseline_error = str(exc)
+                _log_warning("基线合并失败，模块按无基线处理：%s（%s）", name, exc)
+            return manager
+
+        # A new module: Active = Base' (D8), snapshot written at once
+        try:
+            baseline = baseline_session.compute_new_base(
+                pkg, self.selected_chip, manager.module_def, name)
+            if baseline.has_layers:
+                baseline_session.adopt_base(manager, baseline.base_config)
+                if persist:
+                    entry.base_hash = baseline_session.write_baseline(self, name, baseline)
+                else:
+                    baseline.dirty = True
+                self.baselines[name] = baseline
+        except Exception as exc:  # noqa: BLE001 - same rollback as a failed config load
+            self._rollback_added_module(name, stashed)
+            raise ValueError(
+                f"Failed to initialise the baseline of {name}: {exc}") from exc
         return manager
 
     def _rollback_added_module(self, name: str, stashed: Any) -> None:
@@ -349,7 +397,8 @@ class WorkspaceProject:
 
         old = baseline_session.load_baseline(self, name, entry.base_hash)
         unlocked = set(entry.pre_unlocked)
-        result, applied = baseline_session.reconcile(manager, old.base_config, new, unlocked, confirm)
+        result, applied = baseline_session.reconcile(
+            manager, old.base_config, new, unlocked, confirm, module_name=name)
         if applied:
             new.dirty = True                       # written by the next save
             self.baselines[name] = new
@@ -377,6 +426,7 @@ class WorkspaceProject:
             "entry": self.module_entries.get(name),
             "package": self.packages.get(name),
             "overrides": self.unloaded_variant_overrides.get(name, self._MISSING),
+            "baseline": self.baselines.get(name, self._MISSING),
         }
 
     def restore_module(self, snapshot: Dict[str, Any]) -> None:
@@ -392,6 +442,8 @@ class WorkspaceProject:
             self.packages[name] = snapshot["package"]
         if snapshot["overrides"] is not self._MISSING:
             self.unloaded_variant_overrides[name] = snapshot["overrides"]
+        if snapshot.get("baseline", self._MISSING) is not self._MISSING:
+            self.baselines[name] = snapshot["baseline"]
 
     def discover_available_chips(self) -> List[str]:
         """Scan project for available chip .properties files.
@@ -800,9 +852,11 @@ class WorkspaceProject:
             del self.module_managers[module_name]
             del self.module_defs[module_name]
 
-        # Format 8 bookkeeping: a removed module must not come back on reload
+        # Format 8 bookkeeping: a removed module must not come back on reload, and its
+        # baseline must not be written back as an orphan snapshot on save
         self.module_entries.pop(module_name, None)
         self.packages.pop(module_name, None)
+        self.baselines.pop(module_name, None)
         self.unloaded_variant_overrides.pop(module_name, None)
     def find_references_to_module(self, module_name: str) -> List[tuple]:
         """Find all references in other modules pointing to this module."""
@@ -1301,19 +1355,20 @@ class WorkspaceManager:
 
         # Baseline snapshots the session accepted (a merge applied on load, a module added)
         # are written after the configuration files, so both describe the same state. A
-        # clean baseline is already on disk and is left untouched.
+        # clean baseline is already on disk and is left untouched. A baseline whose module
+        # has no entry in the project file is skipped: writing it would leave a snapshot
+        # whose hash nobody records.
         for name in sorted(project.baselines):
             baseline = project.baselines[name]
+            entry = project.module_entries.get(name)
             if not baseline.dirty or baseline.base_config is None:
                 continue
-            entry = project.module_entries.get(name)
+            if entry is None or name not in modules_out:
+                _log_warning("基线没有对应的模块条目，跳过快照写入：%s", name)
+                continue
             digest = baseline_session.write_baseline(project, name, baseline)
-            if entry is not None:
-                entry.base_hash = digest
-                for module_data in data["modules"]:
-                    if module_data.get("name") == name:
-                        module_data["base_hash"] = digest
-                        break
+            entry.base_hash = digest
+            modules_out[name]["base_hash"] = digest
             # The snapshot just written is as current as Active; a later save of this
             # session leaves it alone.
             baseline.dirty = False
@@ -1724,9 +1779,10 @@ class WorkspaceManager:
 
             try:
                 project.reconcile_baseline(manager, entry, pkg, confirm)
-            except baseline_session.MergeApplyError as exc:
-                # A merge that cannot be applied consistently is a defect, not a user
-                # condition: report the module as failed instead of half-merging it.
+            except Exception as exc:  # noqa: BLE001 - a failed baseline must never abort the project
+                # MergeApplyError means Active would be left half-merged; a package, parse
+                # or serialiser error means the baseline cannot be computed at all. Either
+                # way one module is reported and the rest of the project loads.
                 fail(entry.name, f"Baseline merge failed: {exc}")
 
     def import_eb_project(self, project_root: Path, chip_name: Optional[str] = None,
