@@ -691,6 +691,103 @@ def test_create_that_cannot_be_attached_raises():
         apply_merge(nested, _module_def(), _config(), result)
 
 
+def test_create_raises_when_the_parent_is_missing():
+    """The parent-missing branch on its own: the child's parent is not in Active or the plan."""
+    new = _config(container=None)
+    holder = EcucContainerValue(short_name="Holder", definition_ref="/X/Mcu/Holder")
+    holder.add_sub_container(EcucContainerValue(short_name="Child", definition_ref="/X/Mcu/Child"))
+    new.add_container(holder)                           # Base' has Holder/Child ...
+    active = _config(container=None)                    # ... Active has nothing
+
+    # a plan that copies only the child: Active lacks its parent and nothing creates it
+    result = MergeResult([MergeItem("C:/Mcu/Holder/Child", MergeKind.CREATE, None, True, None)])
+    with pytest.raises(MergeApplyError) as err:
+        apply_merge(active, _module_def(), new, result)
+    assert "to attach it to" in str(err.value)
+    assert flatten(active) == {}
+
+    # the same child with its parent in the plan applies fine
+    result = MergeResult([MergeItem("C:/Mcu/Holder", MergeKind.CREATE, None, True, None),
+                          MergeItem("C:/Mcu/Holder/Child", MergeKind.CREATE, None, True, None)])
+    apply_merge(active, _module_def(), new, result)
+    assert active.get_instance_by_path("/Mcu/Holder/Child") is not None
+
+
+def test_failed_apply_leaves_active_untouched():
+    """One attachable CREATE and one impossible one: raise, and change nothing."""
+    base = _config()
+    new = _config()
+    _set(new, "Never", 5, container="McuOther")
+    active = _config()
+    before = flatten(active)
+    was_modified = active.is_modified
+
+    result = MergeResult([
+        MergeItem("C:/Mcu/McuOther", MergeKind.CREATE, None, True, None),
+        MergeItem(OTHER + "Never", MergeKind.CREATE, None, 5, None),
+        MergeItem("C:/Mcu/Ghost", MergeKind.CREATE, None, True, None),      # no Base' source
+    ])
+    with pytest.raises(MergeApplyError):
+        apply_merge(active, _module_def(), new, result)
+
+    assert flatten(active) == before
+    assert active.is_modified is was_modified
+    assert active.get_instance_by_path("/Mcu/McuOther") is None
+
+
+def test_create_for_a_pre_existing_container_still_writes_its_values():
+    """A CREATE item for a container Active already has must not lose Base' values.
+
+    That is the module-prefix-mismatch shape: the keys carry another prefix, so the merge
+    says CREATE, while apply resolves them onto the container Active already has.
+    """
+    new = _config()
+    _set(new, "Speed", 5)                               # Base' has Speed, Active does not
+    active = _config()                                  # McuGeneral exists (from _config), no Speed
+    result = MergeResult([MergeItem("C:/Mcu/McuGeneral", MergeKind.CREATE, None, True, None),
+                          MergeItem(GEN + "Speed", MergeKind.CREATE, None, 5, None)])
+
+    apply_merge(active, _module_def(), new, result)
+    assert flatten(active)[GEN + "Speed"] == 5          # the value was not lost
+    assert [c.short_name for c in active.containers] == ["McuGeneral"]   # not duplicated
+
+    # a value the user already has with another value is not overwritten
+    other = _config()
+    _set(other, "Speed", 9)
+    apply_merge(other, _module_def(), new,
+                MergeResult([MergeItem("C:/Mcu/McuGeneral", MergeKind.CREATE, None, True, None),
+                             MergeItem(GEN + "Speed", MergeKind.CREATE, None, 5, None)]))
+    assert flatten(other)[GEN + "Speed"] == 9
+
+    # Pre still wins there: a forced item is always written, whatever Active had
+    forced = _config()
+    _set(forced, "Speed", 9)
+    apply_merge(forced, _module_def(), new,
+                MergeResult([MergeItem("C:/Mcu/McuGeneral", MergeKind.CREATE, None, True, None),
+                             MergeItem(GEN + "Speed", MergeKind.PRE_FORCED, 1, 5, 9)]))
+    assert flatten(forced)[GEN + "Speed"] == 5
+
+
+def test_shape_flip_from_flag_survives_into_the_multi_form():
+    """A flagged single value that becomes multi keeps pointing at the live objects."""
+    base = _config()
+    general = _top(base)
+    general.parameter_values["L"] = EcucParameterValue("/X/L", 1)
+    general.unknown_parameters["L"] = general.parameter_values["L"]
+    new = _config()
+    _set(new, "L", [4, 5])
+    active = _config()
+    general = _top(active)
+    general.parameter_values["L"] = EcucParameterValue("/X/L", 1)
+    general.unknown_parameters["L"] = general.parameter_values["L"]
+
+    result, merged = _apply(base, active, new)
+    assert merged[GEN + "L"] == (4, 5)
+    general = _top(active)
+    assert "L" not in general.parameter_values
+    assert general.unknown_parameters["L"] is general.multi_parameter_values["L"]
+
+
 def test_removed_in_base_report_shows_the_current_value():
     result = MergeResult([MergeItem(GEN + "Mode", MergeKind.REMOVED_IN_BASE, "B", None, "Z")])
     report = result.to_markdown("Mcu")

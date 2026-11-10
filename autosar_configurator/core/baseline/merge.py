@@ -367,32 +367,115 @@ class MergeApplyError(RuntimeError):
     """A merge change cannot be applied without corrupting the configuration."""
 
 
-def _create_container(active_config: EcucModuleConfiguration,
-                      new_base_config: EcucModuleConfiguration, key: ValueKey) -> EcucContainerValue:
-    """Copy the container ``key`` names, with its subtree, from Base' into Active.
+@dataclass
+class _Step:
+    """One planned write: a container to copy, or a value to set. Decided before any edit."""
+    item: MergeItem
+    path: str                    # container path (also the parent of a value key), re-rooted
+    copy: bool = False           # copy this container (and its subtree) from Base'
+    write: bool = False          # for a value key: whether to write it into Active
 
-    Keys are applied in order, and ``"C:" + parent`` sorts before ``"C:" + parent + "/child"``,
-    so the parent of a nested container already exists when its turn comes.
 
-    Both lookups use the *same* path, re-rooted on Active's name: a ``C:`` key carries
-    whichever module prefix it was flattened with, while ``get_instance_by_path`` only knows
-    Active's. Every failure raises instead of returning quietly — a Pre-created container
-    that cannot be attached would be a silent loss of configuration.
+def _plan(active_config: EcucModuleConfiguration, new_base_config: EcucModuleConfiguration,
+          changing: List[MergeItem]) -> List[_Step]:
+    """Resolve every target of ``changing`` first; raise before Active is touched.
+
+    Applying a merge in place cannot be undone, so a plan that would fail half-way must
+    fail here, while Active is still untouched.
+
+    A container is copied unless Active already has it. A value's container counts as
+    present when Active has it, when the plan copies it, or when the plan copies an
+    ancestor whose subtree includes it (a subtree copy brings descendants along).
     """
-    path = _container_path(key, active_config.short_name)
+    steps: List[_Step] = []
+    copied: List[str] = []       # container paths the plan creates, subtrees included
+
+    def will_exist(path: str) -> bool:
+        if active_config.get_instance_by_path(path) is not None:
+            return True
+        return any(path == root or path.startswith(root + "/") for root in copied)
+
+    root_path = "/" + active_config.short_name
+    for item in changing:
+        if not _is_container(item.key):
+            continue
+        path = _container_path(item.key, active_config.short_name)
+        if will_exist(path):
+            steps.append(_Step(item, path))            # pre-existing: its values still apply
+            continue
+        if new_base_config.get_instance_by_path(path) is None:
+            raise MergeApplyError(
+                f"CREATE {item.key!r}: Base' has no container at {path!r} "
+                f"(active module {active_config.short_name!r})")
+        parent_path = path.rpartition("/")[0]
+        if parent_path != root_path and not will_exist(parent_path):
+            raise MergeApplyError(
+                f"CREATE {item.key!r}: Active has no container at {parent_path!r} to attach it to")
+        steps.append(_Step(item, path, copy=True))
+        copied.append(path)
+
+    for item in changing:
+        if _is_container(item.key):
+            continue
+        path = _value_path(item.key, active_config.short_name)
+        if path == root_path:                          # a module-level parameter
+            steps.append(_Step(item, path, write=True))
+            continue
+        if not will_exist(path):
+            raise MergeApplyError(
+                f"{item.kind.value} {item.key!r}: Active has no container at {path!r}")
+        steps.append(_Step(item, path, write=_value_write_needed(item, path, copied,
+                                                                 active_config)))
+    return steps
+
+
+def _value_write_needed(item: MergeItem, path: str, copied: List[str],
+                        active_config: EcucModuleConfiguration) -> bool:
+    """Whether a value item needs a write of its own on top of a possible container copy.
+
+    A value inside a container this merge copies comes over with the copy (values and
+    unknown flags together), so writing it again would only replace those objects and
+    break the flag links. In a container Active already had, the values do have to be
+    written: that is the case where the merge saw the container as new only because the
+    keys carried another module prefix.
+    """
+    if any(path == root or path.startswith(root + "/") for root in copied):
+        return False
+    if item.kind is not MergeKind.CREATE:
+        return True
+    container = active_config.get_instance_by_path(path)
+    current = _container_value(container, _name_of(item.key))
+    return current is None or values_equal(current, item.new_value)
+
+
+def _container_value(container: EcucContainerValue, name: str):
+    """The value of ``name`` in any of its forms, or ``None`` (also for an absent value)."""
+    for form in _FORMS:
+        values = getattr(container, form)
+        if name in values:
+            entry = values[name]
+            if isinstance(entry, list):
+                return tuple(getattr(v, _VALUE_ATTR[form], None) for v in entry)
+            return getattr(entry, _VALUE_ATTR[form], None)
+    return None
+
+
+_VALUE_ATTR = {"parameter_values": "value", "multi_parameter_values": "value",
+               "reference_values": "value_ref", "multi_reference_values": "value_ref"}
+
+
+def _copy_container(active_config: EcucModuleConfiguration,
+                    new_base_config: EcucModuleConfiguration, path: str) -> EcucContainerValue:
+    """Copy the container at ``path`` (with its subtree) from Base' into Active.
+
+    Called only for a path :func:`_plan` accepted, so the source and the parent exist.
+    """
     existing = active_config.get_instance_by_path(path)
-    if existing is not None:
+    if existing is not None:                          # a subtree copy already brought it
         return existing
     source = new_base_config.get_instance_by_path(path)
-    if source is None:
-        raise MergeApplyError(
-            f"CREATE {key!r}: Base' has no container at {path!r} (active module "
-            f"{active_config.short_name!r})")
     parent_path = path.rpartition("/")[0]
     parent = active_config.get_instance_by_path(parent_path)
-    if parent is None and parent_path != "/" + active_config.short_name:
-        raise MergeApplyError(
-            f"CREATE {key!r}: Active has no container at {parent_path!r} to attach it to")
     clone = _clone_subtree(source, parent, active_config.short_name)
     if parent is None:
         active_config.add_container(clone)
@@ -417,6 +500,9 @@ def apply_merge(active_config: EcucModuleConfiguration,
     ``REMOVED_IN_BASE`` leave Active alone. Afterwards Active equals
     ``flatten(new_base_config)`` for exactly those keys.
 
+    The whole plan is resolved before the first write: when it cannot be applied,
+    :class:`MergeApplyError` is raised with Active untouched, never half-changed.
+
     Args:
         active_config: The live configuration, modified in place.
         module_def: The module definition, source of the DEFINITION-REF a module-level
@@ -425,34 +511,25 @@ def apply_merge(active_config: EcucModuleConfiguration,
         result: The merge result to apply.
     """
     changing = [item for item in result.items if item.kind in _CHANGING]
-
-    # Containers first, in key order: "C:/Mcu/A" before "C:/Mcu/A/B", so a nested
-    # container always finds its parent. Every value then has somewhere to go.
-    for item in changing:
-        if _is_container(item.key):
-            _create_container(active_config, new_base_config, item.key)
+    plan = _plan(active_config, new_base_config, changing)   # raises before any write
 
     root = "/" + active_config.short_name
-    for item in changing:
-        if _is_container(item.key):
+    for step in plan:
+        if step.copy:
+            _copy_container(active_config, new_base_config, step.path)
+
+    for step in plan:
+        if not step.write or _is_container(step.item.key):
             continue
-        path = _value_path(item.key, active_config.short_name)
-        name = _name_of(item.key)
-        if path == root:                                 # a module-level parameter
-            active_config.set_parameter_value(name, item.new_value,
+        name = _name_of(step.item.key)
+        if step.path == root:                          # a module-level parameter
+            active_config.set_parameter_value(name, step.item.new_value,
                                               _module_param_ref(module_def, new_base_config, name))
             active_config.parameter_values[name].is_modified = True
             continue
-        container = active_config.get_instance_by_path(path)
-        if container is None:                            # a CREATE always made one; anything
-            raise MergeApplyError(                       # else would be a silent loss
-                f"{item.kind.value} {item.key!r}: Active has no container at {path!r}")
-        if item.kind is MergeKind.CREATE:
-            # The container was just copied whole, values and unknown flags together; a
-            # second write would only replace those objects and break the flag links.
-            continue
-        source = new_base_config.get_instance_by_path(path)
-        _set_value(container, name, item.new_value, source)
+        container = active_config.get_instance_by_path(step.path)
+        _set_value(container, name, step.item.new_value,
+                   new_base_config.get_instance_by_path(step.path))
 
     active_config.is_modified = True
 
@@ -494,19 +571,23 @@ def _set_value(container: EcucContainerValue, name: str, value: Any,
             container.multi_reference_values[name] = [
                 _clone_ref(r) for r in source.multi_reference_values[name]]
         elif source is not None and name in source.multi_parameter_values:
-            _clear_other_forms(container, name, keep="multi_parameter_values")
+            flagged = _clear_other_forms(container, name, keep="multi_parameter_values")
             container.multi_parameter_values[name] = [
                 _clone_param(p) for p in source.multi_parameter_values[name]]
+            if flagged:
+                container.unknown_parameters[name] = container.multi_parameter_values[name]
         elif name in container.reference_values or name in container.multi_reference_values:
             _clear_other_forms(container, name, keep="multi_reference_values")
             container.multi_reference_values[name] = [
                 EcucReferenceValue(definition_ref="", value_ref=item, index=i)
                 for i, item in enumerate(value)]
         else:
-            _clear_other_forms(container, name, keep="multi_parameter_values")
+            flagged = _clear_other_forms(container, name, keep="multi_parameter_values")
             container.multi_parameter_values[name] = [
                 EcucParameterValue(definition_ref="", value=item, index=i)
                 for i, item in enumerate(value)]
+            if flagged:
+                container.unknown_parameters[name] = container.multi_parameter_values[name]
         return
 
     if source is not None and name in source.reference_values:
