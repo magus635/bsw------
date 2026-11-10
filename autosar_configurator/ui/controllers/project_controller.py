@@ -873,10 +873,15 @@ class ProjectController:
             project = self.win.current_project
             from ...core.workspace_manager import package_for_path
             hit = package_for_path(project, Path(file_path)) if project.module_libraries else None
+            manager = None
             if hit is not None:
-                # The file lies inside a package of a registered library: add through it
+                # The file lies inside a package of a registered library: add through it.
+                # A configuration file already on disk is merged with the package's
+                # baseline, so the user is asked to confirm it, exactly as on open.
                 lib_index, pkg = hit
-                module_def = project.add_module_from_package(pkg, lib_index).module_def
+                manager = project.add_module_from_package(
+                    pkg, lib_index, confirm=self._confirm_merge)
+                module_def = manager.module_def
             else:
                 # Ensure parser has latest chip constraints before parsing
                 constraints = self.win.chip_constraint_service.get_all_constraints()
@@ -894,6 +899,12 @@ class ProjectController:
                 self.win._has_unsaved_changes = True
             self.win.tree_view.set_project(self.win.current_project)
             selectors = f"  |  Chip selectors: {', '.join(result.messages())}" if result.changed else ""
+            baseline_error = getattr(manager, "baseline_error", None)
+            if baseline_error:
+                QMessageBox.warning(
+                    self.win, "Baseline Not Applied",
+                    f"模块 {module_def.short_name} 的基线合并未完成，配置保持不变：\n"
+                    f"{baseline_error}")
             self.win.statusbar.showMessage(
                 f"Added module: {module_def.short_name}{selectors}{self._ecu_resource_status()}", 3000)
         except Exception as e:

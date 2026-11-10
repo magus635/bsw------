@@ -80,6 +80,13 @@ class ModuleBaseline:
     module_name: str = ""
     dirty: bool = False
     has_layers: bool = False
+    snapshot_hash: Optional[str] = None
+    """``"sha256:<hex>"`` of the snapshot this layers file belongs to (read side only).
+
+    The pair snapshot + layers is only meaningful together: the layers say where each value
+    of that snapshot came from. A layers file that names a different snapshot than the one
+    on disk is a half-written update and is refused (``load_baseline`` returns no baseline).
+    """
 
 
 # --- paths ----------------------------------------------------------------------
@@ -232,25 +239,32 @@ def write_baseline(project, module: str, baseline: ModuleBaseline) -> Optional[s
     """Write ``baseline`` as the module's accepted Base; return its hash.
 
     The snapshot goes to :func:`base_snapshot_path`, the layers to :func:`base_layers_path`.
-    The layers are written first: they are small and replaced atomically, so a process that
-    dies between the two files leaves a new layers file and the previous snapshot, whose
-    hash no longer matches and which ``read_base`` therefore refuses — never a snapshot
-    that silently becomes a merge base with the wrong layers.
+    The snapshot is first written beside its final name, so its hash is known before the
+    layers file that names it is replaced; then the layers are renamed into place and only
+    then the snapshot. Every interruption point therefore leaves either the old pair or a
+    layers file naming a hash the snapshot does not have — which :func:`load_baseline`
+    rejects (migration semantics), never a snapshot read against the wrong layers.
 
     Returns:
         ``"sha256:<hex>"``, which belongs in ``ModuleEntry.base_hash``. ``dirty`` is cleared.
     """
-    write_layers(base_layers_path(project, module), baseline)
     from .store import write_base
 
     path = base_snapshot_path(project, module)
     path.parent.mkdir(parents=True, exist_ok=True)
-    digest = write_base(path, baseline.base_config)
+    pending = path.with_name(path.name + ".tmp")
+    digest = write_base(pending, baseline.base_config)
+    try:
+        write_layers(base_layers_path(project, module), baseline, snapshot_hash=digest)
+        os.replace(pending, path)
+    finally:
+        if pending.exists():
+            pending.unlink()
     baseline.dirty = False
     return digest
 
 
-def write_layers(path: Path, baseline: ModuleBaseline) -> None:
+def write_layers(path: Path, baseline: ModuleBaseline, snapshot_hash: Optional[str] = None) -> None:
     """Store the layers and the Pre ownership set of ``baseline`` as JSON.
 
     The values live in the snapshot; this file only says where each came from, so a later
@@ -258,9 +272,16 @@ def write_layers(path: Path, baseline: ModuleBaseline) -> None:
     relabel whatever Base' now says). Keys are sorted for a stable file. Written to a
     temporary file and renamed, so a reader never sees half a JSON document.
 
+    Args:
+        path: ``<base>/<Module>.layers.json``.
+        baseline: The baseline whose layers to store.
+        snapshot_hash: The ``"sha256:<hex>"`` of the snapshot these layers describe. A
+            reader that sees a different snapshot on disk refuses the pair. ``None`` stores
+            ``baseline.snapshot_hash`` (round-tripping a file that already carries one).
+
     Raises:
-        OSError: the file cannot be written (the caller reports it; the snapshot is not
-            written after a failed layers write).
+        OSError: the file cannot be written (the caller reports it; the snapshot is then
+            not put in place either).
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -271,6 +292,9 @@ def write_layers(path: Path, baseline: ModuleBaseline) -> None:
         "pre_keys": sorted(baseline.pre_keys),
         "has_layers": baseline.has_layers,
     }
+    digest = snapshot_hash if snapshot_hash is not None else baseline.snapshot_hash
+    if digest is not None:
+        data["snapshot_hash"] = digest
     temp = path.with_name(path.name + ".tmp")
     temp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     os.replace(temp, path)
@@ -306,21 +330,36 @@ def read_layers(path: Path) -> ModuleBaseline:
     has_layers = data.get("has_layers")
     if not isinstance(has_layers, bool):
         has_layers = any(layer is not Layer.DEFAULT for layer in layers.values())
+    stored = data.get("snapshot_hash")
     return ModuleBaseline(base_config=None, layers=layers, pre_keys=pre_keys,
-                          module_name=data.get("module") or "", has_layers=has_layers)
+                          module_name=data.get("module") or "", has_layers=has_layers,
+                          snapshot_hash=stored if isinstance(stored, str) else None)
 
 
 def load_baseline(project, module: str, expected_hash: Optional[str]) -> ModuleBaseline:
     """Load the accepted Base of ``module``: its snapshot and the layers beside it.
 
-    A missing snapshot, or one whose hash no longer matches ``expected_hash``, gives
-    ``base_config=None`` (``store.read_base`` logs why) — the merge then treats the module
-    as first enable. The layers file is read either way: it is what the Pre lock needs, and
-    a snapshot restored from version control without it still locks the keys it names.
+    The snapshot and the layers are one unit, and two checks keep them from being read apart:
+
+    - ``expected_hash`` (``.dpa``) must match the snapshot — ``store.read_base``'s check;
+    - the layers file must name that same snapshot in ``snapshot_hash``. A layers file that
+      names another one is the remains of an interrupted write, and using it would mark
+      values as Pre, or as Rec, according to a baseline that is no longer on disk.
+
+    Either mismatch, a missing file or a damaged one gives ``base_config=None`` — the merge
+    then treats the module as first enable (§6.5, "旧工程迁移") — and is logged. A layers
+    file written by an older tool has no ``snapshot_hash`` and is trusted as before.
     """
-    from .store import read_base
+    from .store import hash_file, read_base
 
     layers = read_layers(base_layers_path(project, module))
-    layers.base_config = read_base(base_snapshot_path(project, module), expected_hash)
+    snapshot = base_snapshot_path(project, module)
+    if layers.snapshot_hash is not None and snapshot.is_file():
+        actual = hash_file(snapshot)
+        if actual.lower() != layers.snapshot_hash.strip().lower():
+            _log.warning("基线快照与层文件不匹配，按旧工程迁移处理：%s（层文件记录 %s，快照 %s）",
+                         snapshot, layers.snapshot_hash, actual)
+            return ModuleBaseline()
+    layers.base_config = read_base(snapshot, expected_hash)
     layers.module_name = layers.module_name or module
     return layers

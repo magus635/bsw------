@@ -374,6 +374,74 @@ def test_orphan_baseline_is_not_written(tmp_path):
     assert [m["name"] for m in saved] == []
 
 
+def test_layers_file_is_tied_to_its_snapshot(tmp_path):
+    make_package(tmp_path / "lib", rec={"Mode": "Fast"}, pre={"Level": "3"})
+    wm = new_project(tmp_path)
+    add_trk(wm.current_project)
+    project = wm.current_project
+    baseline = project.baselines["Trk"]
+    digest = project.module_entries["Trk"].base_hash
+
+    # A matching pair loads
+    loaded = session.load_baseline(project, "Trk", digest)
+    assert loaded.base_config is not None
+    assert loaded.snapshot_hash == digest
+
+    # A layers file naming another snapshot is a half-written update: refuse the pair
+    session.write_layers(session.base_layers_path(project, "Trk"), baseline,
+                         snapshot_hash="sha256:" + "0" * 64)
+    stale = session.load_baseline(project, "Trk", digest)
+    assert stale.base_config is None
+    assert stale.layers == {}
+
+
+def test_one_reconcile_per_module_per_open(tmp_path, monkeypatch):
+    make_package(tmp_path / "lib", rec={"Mode": "Fast"}, pre={"Level": "3"})
+    wm = new_project(tmp_path)
+    add_trk(wm.current_project)
+    wm.save_project()
+
+    real = session.compute_new_base
+    calls = []
+
+    def counting(pkg, *args, **kwargs):
+        calls.append(pkg.manifest.module)
+        return real(pkg, *args, **kwargs)
+
+    monkeypatch.setattr(session, "compute_new_base", counting)
+    loaded, failed = WorkspaceManager().load_project(project_file(tmp_path))
+
+    assert failed == []
+    assert "Trk" in loaded.module_managers
+    assert calls == ["Trk"]                      # composed once, merged once
+
+
+def test_missing_base_hash_stays_a_migrated_project(tmp_path):
+    make_package(tmp_path / "lib", rec={"Mode": "Fast"}, pre={"Level": "3"})
+    wm = new_project(tmp_path)
+    add_trk(wm.current_project)
+    wm.save_project()
+    data = json.loads(project_file(tmp_path).read_text(encoding="utf-8"))
+    data["modules"][0].pop("base_hash")
+    project_file(tmp_path).write_text(json.dumps(data), encoding="utf-8")
+    assert snapshot(wm.current_project).is_file()          # the snapshot is still on disk
+
+    seen = []
+
+    def confirm(text, result):
+        seen.append(result)
+        return True
+
+    # A Rec change would be ADOPT for a project whose Base is known; without the hash the
+    # project is migrated, every value is USER, and nothing may be adopted silently.
+    make_package(tmp_path / "lib", rec={"Mode": "Faster"}, pre={"Level": "3"})
+    loaded, failed = WorkspaceManager().load_project(project_file(tmp_path), confirm=confirm)
+
+    assert failed == []
+    assert flat(loaded)[GEN + "Mode"] == "Fast"            # USER, kept
+    assert all(not r.has_changes for r in seen)
+
+
 def test_v7_project_never_reconciles(tmp_path):
     legacy = tmp_path / "legacy" / "L.dpa"
     legacy.parent.mkdir(parents=True)

@@ -246,7 +246,8 @@ class WorkspaceProject:
         self.baselines: Dict[str, ModuleBaseline] = {}
 
     def add_module_from_package(self, pkg: "ModulePackage", lib_index: int,
-                                persist: bool = True, confirm=None) -> ConfigurationManager:
+                                persist: bool = True, confirm=None,
+                                reconcile: bool = True) -> ConfigurationManager:
         """Add the module provided by ``pkg`` (from ``module_libraries[lib_index]``).
 
         Parses the package's definition file for ``selected_chip``, adds the module and
@@ -273,6 +274,9 @@ class WorkspaceProject:
                 A load passes False so the saved Base survives until the merge has seen it.
             confirm: ``(preview_text, MergeResult) -> bool`` for the merge of an existing
                 configuration; ``None`` rejects.
+            reconcile: Whether an existing configuration is merged with Base' here. The
+                project load passes False: it reconciles every module itself, once, in
+                :meth:`reconcile_baseline` — so the add path must not do it a second time.
 
         Raises:
             PackageError / PackageConflictError: the package has no unique definition file
@@ -331,10 +335,14 @@ class WorkspaceProject:
             return manager
 
         if config_loaded:
+            if not reconcile:
+                return manager          # the project load reconciles, once, after this call
             # An existing Active: merge Base' into it, never replace its Base
-            if entry.base_hash is None:
-                # The entry was removed; the snapshot on disk is still the Base the user
-                # accepted, if it is intact
+            if new_entry:
+                # The entry was created by this call (re-add after a removal): the snapshot
+                # on disk is still the Base the user accepted, if it is intact. Adoption is
+                # limited to a genuinely new entry — an entry that merely lacks a hash in
+                # .dpa must stay a migrated project (every value USER).
                 entry.base_hash = _snapshot_hash(baseline_session.base_snapshot_path(self, name))
             try:
                 self.reconcile_baseline(manager, entry, pkg, confirm)
@@ -1369,9 +1377,6 @@ class WorkspaceManager:
             digest = baseline_session.write_baseline(project, name, baseline)
             entry.base_hash = digest
             modules_out[name]["base_hash"] = digest
-            # The snapshot just written is as current as Active; a later save of this
-            # session leaves it alone.
-            baseline.dirty = False
         return data
 
     def _to_posix_path(self, path: Path, project_dir: Path, inside_only: bool = False) -> str:
@@ -1768,8 +1773,10 @@ class WorkspaceManager:
             try:
                 index, pkg = find_package(libraries, entry.definition)
                 # Also loads the entry's configuration file when it exists. The snapshot is
-                # not written here: the saved Base must survive until the merge has seen it.
-                manager = project.add_module_from_package(pkg, index, persist=False)
+                # not written here, and no merge happens here either: the entry-driven
+                # reconcile below is the one that sees the saved Base and the confirm.
+                manager = project.add_module_from_package(pkg, index, persist=False,
+                                                          reconcile=False)
             except Exception as exc:  # noqa: BLE001 - package, definition and configuration errors: one module must not abort the project
                 fail(entry.name, f"Failed to load: {exc}")
                 continue
