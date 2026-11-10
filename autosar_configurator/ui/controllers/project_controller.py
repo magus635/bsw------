@@ -188,9 +188,9 @@ class ProjectController:
             result = project.apply_chip_selectors()
             if result.changed:
                 self.win._has_unsaved_changes = True
-            status = self._selector_result_status(result)
-            if status:
-                self.win.statusbar.showMessage(status.lstrip("  |"), 5000)
+            segments = self._selector_result_lines(result)
+            if segments:
+                self.win.statusbar.showMessage("; ".join(segments), 5000)
 
         service = getattr(self.win, 'chip_constraint_service', None)
         if service is None:
@@ -213,23 +213,31 @@ class ProjectController:
         return check_selectors(project, chip_for_project(project, project.chip_database)[1])
 
     @staticmethod
-    def _selector_result_status(result) -> str:
-        """Status suffix for an applied selector pass: what changed, what a lock refused.
+    def _selector_result_lines(result) -> list:
+        """Status-bar segments for an applied selector pass: what changed, what a lock refused.
 
         A skipped selector is logged by core at ``info``; the user only sees it if the UI
         says so, and a locked Pre selector changes nothing else, so it would otherwise be
-        dropped entirely (``add_module_to_project`` shows the suffix only when values
-        changed). Sorted keys, so the message is stable.
+        dropped entirely (``add_module_to_project`` used to show a suffix only when values
+        changed). ``result.locked`` is the explicit collection — never a word matched in the
+        reason text. Keys are sorted, so the message is stable.
         """
         if result is None:
-            return ""
-        parts = []
+            return []
+        segments = []
         if result.changed:
-            parts.append(f"Chip selectors: {len(result.changed)} written")
-        locked = sorted(key for key, why in result.skipped if "锁定" in why)
+            segments.append(f"Chip selectors: {len(result.changed)} written")
+        locked = sorted(getattr(result, "locked", None) or [])
         if locked:
-            parts.append(f"{len(locked)} 预配置（PRE）选择器已锁定，未写入: {', '.join(locked)}")
-        return ("  |  " + "; ".join(parts)) if parts else ""
+            segments.append(
+                f"{len(locked)} 预配置（PRE）选择器已锁定，未写入: {', '.join(locked)}")
+        return segments
+
+    @classmethod
+    def _selector_result_status(cls, result) -> str:
+        """``_selector_result_lines`` joined as a status suffix (``""`` when nothing to say)."""
+        segments = cls._selector_result_lines(result)
+        return ("  |  " + "; ".join(segments)) if segments else ""
 
     def _selector_status(self) -> str:
         """Status bar suffix when the configuration's chip selectors differ from the chip."""

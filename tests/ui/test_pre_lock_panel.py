@@ -392,3 +392,89 @@ def test_template_apply_rolls_back_a_validation_failure(monkeypatch):
     assert instance.parameter_values["Mode"].value == "Fast"   # rolled back
     assert "Level" not in instance.parameter_values
     assert errors and "maximum 5" in errors[0]                  # and reported
+
+
+def test_template_create_new_is_atomic(monkeypatch):
+    """A validation failure on the second value leaves no registered, half-filled container."""
+    from autosar_configurator.core.config_manager import ValidationError
+    from autosar_configurator.core.model.definition_model import (
+        EcucContainerDef, EcucParameterDef, EcucParameterType)
+    from autosar_configurator.ui.wizards import template_wizard
+    from autosar_configurator.ui.wizards.template_wizard import TemplateWizard
+
+    container_def = EcucContainerDef(short_name="TrkGeneral", definition_ref="/Vendor/Trk/TrkGeneral")
+    for name in ("Mode", "Level"):
+        container_def.parameters[name] = EcucParameterDef(
+            short_name=name, param_type=EcucParameterType.STRING,
+            definition_ref=f"/Vendor/Trk/TrkGeneral/{name}",
+            lower_multiplicity=0, upper_multiplicity=1)
+
+    class _Container:
+        short_name = "TrkGeneral_1"
+        definition_ref = "/Vendor/Trk/TrkGeneral"
+        parameter_values = {}
+        parent = None
+        sub_containers = []
+
+    instance = _Container()
+    configuration = type("Config", (), {"containers": []})()
+    module_configuration = {"containers": configuration.containers, "parameter_values": {}}
+
+    class _Manager:
+        module_def = type("Def", (), {"short_name": "Trk", "containers": {"TrkGeneral": container_def},
+                                      "get_container_def": lambda self, ref: container_def})()
+
+        def __init__(self):
+            self.configuration = configuration
+
+        def convert_parameter_value(self, container, name, value):
+            return value                      # the pre-check passes; the write will not
+
+        def create_container_instance(self, cdef, parent=None, instance_name=None):
+            configuration.containers.append(instance)
+            return instance
+
+        def delete_container_instance(self, container, parent=None):
+            configuration.containers.remove(container)
+
+        def set_parameter_value(self, container, name, value, enforce_lock=True):
+            if name == "Level":
+                raise ValidationError("Level: value 9 > maximum 5")
+            container.parameter_values[name] = value
+
+    class _Template:
+        container_def = "TrkGeneral"
+
+        def get_all_params(self, values):
+            return {"Mode": "Silent", "Level": "9"}
+
+    class _Page:
+        def __init__(self, data):
+            self._data = data
+
+        def get_data(self):
+            return self._data
+
+    wizard = TemplateWizard.__new__(TemplateWizard)
+    wizard.category_page = _Page({"template": _Template()})
+    wizard.param_page = _Page({"parameter_values": {}})
+    wizard.target_page = _Page({"create_new": True, "instance_name": "TrkGeneral_1"})
+    wizard.config_manager = _Manager()
+    wizard.parent_instance = None
+    wizard.created_instance = None
+
+    from PySide6 import QtWidgets
+    errors = []
+    monkeypatch.setattr(QtWidgets.QMessageBox, "critical",
+                        staticmethod(lambda *args, **kwargs: errors.append(args[2])))
+
+    wizard.accept()
+
+    # Nothing half-built stays registered: the container this run created is gone, and the
+    # module configuration is exactly what it was before the template was applied.
+    assert configuration.containers == []
+    assert instance not in configuration.containers
+    assert wizard.created_instance is None
+    assert module_configuration["containers"] == []       # the model is unchanged
+    assert module_configuration["parameter_values"] == {}
+    assert errors                                        # the failure was reported

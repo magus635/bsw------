@@ -31,11 +31,20 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SelectorResult:
-    """What ``apply_selectors`` did: ``changed`` holds ``(key, old, new)`` for every
-    value written (``old`` is None for a value that did not exist), ``skipped``
-    holds ``(key, reason)`` for every declared selector that was not written."""
+    """What ``apply_selectors`` did.
+
+    Attributes:
+        changed: ``(key, old, new)`` for every value written (``old`` is None for a value
+            that did not exist).
+        skipped: ``(key, reason)`` for every declared selector that was not written.
+        locked: The ``ValueKey`` of every selector a locked Pre value refused. Listed
+            separately as well as in ``skipped``: a caller that must report the lock (the
+            status bar, the Project Properties dialog) asks this collection instead of
+            matching a word of the reason text.
+    """
     changed: List[Tuple[str, Any, str]] = field(default_factory=list)
     skipped: List[Tuple[str, str]] = field(default_factory=list)
+    locked: List[str] = field(default_factory=list)
 
     def messages(self) -> List[str]:
         lines = [f"{key}: {'(unset)' if old is None else old} -> {new}" for key, old, new in self.changed]
@@ -75,6 +84,7 @@ def _apply_module_level(manager, key: str, param: str, declared: str, result: Se
         manager.check_editable(configuration, param)
     except PreLockedError as exc:       # a locked Pre selector: reported, not written
         result.skipped.append((key, f"预配置（PRE）已锁定，未写入 {exc.key}"))
+        result.locked.append(exc.key)
         return
     configuration.set_parameter_value(param, declared, definition_ref)
     configuration.is_modified = True
@@ -150,6 +160,7 @@ def _apply_container_level(manager, key: str, param: str, declared: str, result:
             manager.set_parameter_value(container, param, declared)
         except PreLockedError as e:      # a locked Pre selector: reported, not written
             result.skipped.append((key, f"预配置（PRE）已锁定，未写入 {e.key}"))
+            result.locked.append(e.key)
             continue
         except ValidationError as e:     # value or definition not usable
             result.skipped.append((key, str(e)))

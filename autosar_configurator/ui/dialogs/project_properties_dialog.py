@@ -466,7 +466,7 @@ class ProjectPropertiesDialog(QDialog):
             lines = [f"{key}：{'（未设置）' if old is None else old} → {new}"
                      for key, old, new in result.changed]
             lines += [f"{key} 未写入：{reason}" for key, reason in result.skipped]
-            locked = sorted(key for key, reason in result.skipped if "锁定" in reason)
+            locked = sorted(getattr(result, "locked", None) or [])
             if locked:
                 lines.append("预配置（PRE）已锁定，如需修改请先在参数面板中右键“解锁此参数”："
                              + ", ".join(locked))

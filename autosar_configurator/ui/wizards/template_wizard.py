@@ -516,6 +516,12 @@ class TemplateWizard(ConfigWizard):
         state is captured first and put back on failure (a value that was not set is removed
         again), and the error is re-raised for the caller's dialog.
 
+        The rollback writes with ``enforce_lock=True``: it restores values this instance
+        already held — the ones the user accepted — so the lock must not be bypassed. No
+        sequence reaches a locked key here today (the pre-check in :meth:`accept` refuses the
+        whole template first), and if one ever does, the rollback failing loudly is the
+        correct outcome: a lock that silently lets a rollback through is not a lock.
+
         Args:
             instance: The existing container instance the template targets.
             params: ``{parameter name: value}`` from ``template.get_all_params``.
@@ -535,11 +541,51 @@ class TemplateWizard(ConfigWizard):
             for param_name in reversed(written):
                 had, old_value = previous[param_name]
                 if had:
-                    self.config_manager.set_parameter_value(
-                        instance, param_name, old_value, enforce_lock=False)
+                    self.config_manager.set_parameter_value(instance, param_name, old_value)
                 else:
                     instance.remove_parameter_value(param_name)
             raise
+
+    def _create_all_or_nothing(self, container_def, instance_name, params: dict):
+        """Create an instance and fill it, or leave the configuration exactly as it was.
+
+        Every value is validated against the definition *before* the instance exists
+        (``convert_parameter_value`` — the same conversion ``set_parameter_value`` would
+        do, so a value it rejects can no longer reach the model), and if anything still
+        fails while writing, the container this run created is deleted again before the
+        error is re-raised for the dialog. Nothing half-populated stays registered.
+
+        Args:
+            container_def: The container definition to instantiate.
+            instance_name: The requested name (None lets the manager generate one).
+            params: ``{parameter name: value}`` from ``template.get_all_params``.
+
+        Returns:
+            The created instance.
+        """
+        from ...core.model import definition_refs
+        from ...core.model.configuration_model import EcucContainerValue
+
+        # The same absolute DEFINITION-REF create_container_instance would give the real
+        # instance, so convert_parameter_value resolves the very definition it will use
+        probe = EcucContainerValue(
+            short_name="_probe",
+            definition_ref=definition_refs.absolute_ref(
+                self.config_manager.module_def, container_def.definition_ref))
+        for param_name, value in params.items():
+            self.config_manager.convert_parameter_value(probe, param_name, value)
+        instance = self.config_manager.create_container_instance(
+            container_def, parent=self.parent_instance, instance_name=instance_name)
+        try:
+            self._apply_all_or_nothing(instance, params)
+        except Exception:
+            try:
+                self.config_manager.delete_container_instance(
+                    instance, parent=self.parent_instance)
+            except Exception as cleanup:      # a Pre container cannot be deleted: keep the real error
+                print(f"Warning: could not remove the template instance: {cleanup}")
+            raise
+        return instance
 
     def accept(self):
         """Apply template when wizard finishes"""
@@ -580,9 +626,9 @@ class TemplateWizard(ConfigWizard):
                     return
 
             if target_data.get("create_new"):
-                # Create new instance
-                # For now, we'll use a simplified approach - find the container def
-                # In a full implementation, this would use the template.container_def path
+                # Create a new instance. The container definition is looked up by the
+                # template's target name (a simplified approach; a full implementation would
+                # use template.container_def as a path).
 
                 # Try to find matching container def in module
                 container_def = None
@@ -595,30 +641,17 @@ class TemplateWizard(ConfigWizard):
 
                 if container_def:
                     instance_name = target_data.get("instance_name")
-                    instance = self.config_manager.create_container_instance(
-                        container_def,
-                        parent=self.parent_instance,
-                        instance_name=instance_name
-                    )
-
-                    # Set parameters. A fresh instance holds no Pre key, so this cannot be
-                    # refused; anything else is reported rather than silently dropped.
-                    for param_name, value in all_params.items():
-                        try:
-                            self.config_manager.set_parameter_value(instance, param_name, value)
-                        except PreLockedError as exc:
-                            print(f"Warning: {exc}")
-
-                    self.created_instance = instance
+                    self.created_instance = self._create_all_or_nothing(
+                        container_def, instance_name, all_params)
                 else:
                     # Fallback: just emit the data
                     self.created_instance = None
 
             else:
-                # Update existing instance (pre-checked in full above: all or nothing).
-                # The pre-check covers the lock; every other refusal (a value the
-                # definition does not allow, a type error) is caught here and the values
-                # written this run are put back, so a template either applies or does not.
+                # Update existing instance. The lock was pre-checked in full above; every
+                # other refusal (a value the definition does not allow, a type error) is
+                # caught by _apply_all_or_nothing, which puts back every value this run
+                # wrote before re-raising — the same all-or-nothing rule as the create path.
                 existing = target_data.get("existing_instance")
                 if existing:
                     self._apply_all_or_nothing(existing, all_params)

@@ -632,8 +632,9 @@ def test_selector_skip_is_a_status_line(project):
 
     result = apply_selectors(wm.current_project, _Chip(), log=False)
     assert result.changed == [] and result.skipped
+    assert result.locked == [LEVEL]                  # the explicit collection, not a word match
     status = ProjectController._selector_result_status(result)
-    assert "锁定" in status and "Trk.Level" in status
+    assert "锁定" in status and LEVEL in status
 
 
 def test_lock_and_badge_agree_when_the_baseline_is_unusable(project):
@@ -646,5 +647,20 @@ def test_lock_and_badge_agree_when_the_baseline_is_unusable(project):
 
     assert module_note(wm.current_project.baselines["Trk"]) == UNAVAILABLE_TEXT
     assert manager._baseline_lock_info() is None
+    assert manager.pre_unlock_state(general(manager), "Level") is None
+    manager.set_parameter_value(general(manager), "Level", "9")      # nothing to lock
+
+
+def test_lock_and_badge_agree_when_a_snapshot_has_no_layers(project):
+    """The other 基线不可用 trigger: a snapshot whose layers file was never read."""
+    wm, manager = project
+    baseline = wm.current_project.baselines["Trk"]
+    wm.current_project.baselines["Trk"] = ModuleBaseline(
+        base_config=baseline.base_config, layers={}, pre_keys=set(),
+        module_name="Trk", has_layers=False)          # not layers_untrusted: simply absent
+
+    assert module_note(wm.current_project.baselines["Trk"]) == UNAVAILABLE_TEXT
+    assert manager._baseline_lock_info() is None
+    assert manager.value_origin(general(manager), "Level") is None
     assert manager.pre_unlock_state(general(manager), "Level") is None
     manager.set_parameter_value(general(manager), "Level", "9")      # nothing to lock
