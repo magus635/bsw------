@@ -508,6 +508,39 @@ class TemplateWizard(ConfigWizard):
         self.preview_page = TemplatePreviewPage()
         self.addPage(self.preview_page)
 
+    def _apply_all_or_nothing(self, instance, params: dict) -> None:
+        """Write every value, or none: a refusal restores what this run already changed.
+
+        The lock was checked before this call, so a refused value here is a definition or
+        type error — but the user asked for a template, not half of it. Each value's previous
+        state is captured first and put back on failure (a value that was not set is removed
+        again), and the error is re-raised for the caller's dialog.
+
+        Args:
+            instance: The existing container instance the template targets.
+            params: ``{parameter name: value}`` from ``template.get_all_params``.
+        """
+        previous = {}
+        for param_name in params:
+            current = instance.parameter_values.get(param_name)
+            previous[param_name] = (current is not None,
+                                    None if current is None else current.value)
+        written = []
+        try:
+            for param_name, value in params.items():
+                self.config_manager.set_parameter_value(
+                    instance, param_name, value, enforce_lock=False)
+                written.append(param_name)
+        except Exception:
+            for param_name in reversed(written):
+                had, old_value = previous[param_name]
+                if had:
+                    self.config_manager.set_parameter_value(
+                        instance, param_name, old_value, enforce_lock=False)
+                else:
+                    instance.remove_parameter_value(param_name)
+            raise
+
     def accept(self):
         """Apply template when wizard finishes"""
         try:
@@ -582,13 +615,13 @@ class TemplateWizard(ConfigWizard):
                     self.created_instance = None
 
             else:
-                # Update existing instance (pre-checked in full above: all or nothing)
+                # Update existing instance (pre-checked in full above: all or nothing).
+                # The pre-check covers the lock; every other refusal (a value the
+                # definition does not allow, a type error) is caught here and the values
+                # written this run are put back, so a template either applies or does not.
                 existing = target_data.get("existing_instance")
                 if existing:
-                    for param_name, value in all_params.items():
-                        self.config_manager.set_parameter_value(
-                            existing, param_name, value, enforce_lock=False)
-
+                    self._apply_all_or_nothing(existing, all_params)
                     self.created_instance = existing
 
             # Emit completion signal

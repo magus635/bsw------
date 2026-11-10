@@ -328,3 +328,67 @@ def test_template_apply_is_all_or_nothing_on_a_locked_value(monkeypatch):
 
     assert written == []                                   # nothing was applied
     assert any("Level" in text for text in messages)        # and the user was told why
+
+
+def test_template_apply_rolls_back_a_validation_failure(monkeypatch):
+    """A definition/type error mid-write restores the instance: no half-applied template."""
+    from autosar_configurator.core.config_manager import ValidationError
+    from autosar_configurator.ui.wizards import template_wizard
+    from autosar_configurator.ui.wizards.template_wizard import TemplateWizard
+
+    class _Param:
+        def __init__(self, value):
+            self.value = value
+
+    class _Instance:
+        def __init__(self):
+            self.parameter_values = {"Mode": _Param("Fast"), "Ratio": _Param("10")}
+
+        def remove_parameter_value(self, name):
+            self.parameter_values.pop(name, None)
+
+    instance = _Instance()
+
+    class _Manager:
+        def check_editable(self, instance, name):
+            return None                                  # nothing locked
+
+        def set_parameter_value(self, container, name, value, enforce_lock=True):
+            if name == "Level":
+                raise ValidationError("Level: value 9 > maximum 5")
+            if name in container.parameter_values:
+                container.parameter_values[name].value = value
+            else:
+                container.parameter_values[name] = _Param(value)
+
+    class _Template:
+        container_def = "TrkGeneral"
+
+        def get_all_params(self, values):
+            return {"Mode": "Silent", "Level": "9"}
+
+    class _Page:
+        def __init__(self, data):
+            self._data = data
+
+        def get_data(self):
+            return self._data
+
+    wizard = TemplateWizard.__new__(TemplateWizard)
+    wizard.category_page = _Page({"template": _Template()})
+    wizard.param_page = _Page({"parameter_values": {}})
+    wizard.target_page = _Page({"create_new": False, "existing_instance": instance})
+    wizard.config_manager = _Manager()
+    wizard.parent_instance = None
+    wizard.created_instance = None
+
+    from PySide6 import QtWidgets
+    errors = []
+    monkeypatch.setattr(QtWidgets.QMessageBox, "critical",
+                        staticmethod(lambda *args, **kwargs: errors.append(args[2])))
+
+    wizard.accept()
+
+    assert instance.parameter_values["Mode"].value == "Fast"   # rolled back
+    assert "Level" not in instance.parameter_values
+    assert errors and "maximum 5" in errors[0]                  # and reported

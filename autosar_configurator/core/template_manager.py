@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 import yaml
 
+from .config_manager import PreLockedError
+
 
 @dataclass
 class TemplateParameter:
@@ -417,13 +419,21 @@ class TemplateManager:
             instance_name=instance_name
         )
 
-        # Apply all parameters
+        # Apply all parameters. The instance is new, so nothing in it can be a locked Pre
+        # key, but the values are still written through the one lock-aware entry point: a
+        # key the baseline owns is reported, never silently dropped into a print().
         all_params = template.get_all_params(user_values)
+        locked: List[str] = []
         for param_name, value in all_params.items():
             try:
                 config_manager.set_parameter_value(instance, param_name, value)
+            except PreLockedError as exc:
+                locked.append(exc.key)
             except Exception as e:
                 print(f"Warning: Failed to set {param_name}: {e}")
+        if locked:
+            for key in sorted(set(locked)):
+                print(f"Warning: 预配置（PRE）已锁定，未写入 {key}")
 
         return instance
 

@@ -380,12 +380,20 @@ class ConfigurationManager:
         the merge and the origin computation read, so the lock cannot disagree with them:
         a key the merge forces back is exactly a key this rejects.
 
+        The one predicate that also decides the UI badge is :func:`baseline.display.module_note`:
+        when it has something to say about the module (``基线不可用``), nothing is known to be
+        Pre and this answers ``None``. The panel therefore cannot enforce a lock while it
+        suppresses the lock marker, or the other way round.
+
         Returns:
             ``(baseline, set(entry.pre_unlocked), root)``, or ``None`` when there is no
             ``project_context``, no module entry, no baseline for this module, or the
-            layers of the baseline could not be trusted (then nothing is known to be Pre
-            and the lock stays off, as §6.5's migrated-project rule requires).
+            baseline cannot speak for its values (layers dropped, or a snapshot without
+            layers): then nothing is known to be Pre and the lock stays off, as §6.5's
+            migrated-project rule requires.
         """
+        from .baseline.display import module_note
+
         project = self.project_context
         if project is None:
             return None
@@ -393,7 +401,7 @@ class ConfigurationManager:
         if not name:
             return None
         baseline = getattr(project, "baselines", {}).get(name)
-        if baseline is None or baseline.layers_untrusted:
+        if baseline is None or module_note(baseline) is not None:
             return None
         entry = getattr(project, "module_entries", {}).get(name)
         unlocked = set(getattr(entry, "pre_unlocked", None) or ())
@@ -672,7 +680,11 @@ class ConfigurationManager:
             values, failures = {}, {name: f"{type(e).__name__}: {e}" for name in names}
         for name, value in values.items():
             try:
-                self.set_parameter_value(instance, name, value)
+                # A computed default is DERIVED, not a user edit: it is computed for a new
+                # instance and the merge treats it as the baseline's. Without the bypass a
+                # Pre-owned key would raise out of create_container_instance — and thus out
+                # of PasteContainerCommand.redo — for a value the user never touched.
+                self.set_parameter_value(instance, name, value, enforce_lock=False)
             except ValidationError as e:
                 failures[name] = str(e)
         for name, why in sorted(failures.items()):

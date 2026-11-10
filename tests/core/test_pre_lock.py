@@ -590,3 +590,61 @@ def test_chip_selector_on_a_pre_value_is_skipped_and_reported(project):
     again = apply_selectors(wm.current_project, _Chip(), log=False)
     assert "Trk.Level" in {key for key, _o, _n in again.changed}
     assert level(manager) == "42"
+
+
+def test_a_computed_default_on_a_pre_key_is_derived_not_a_user_edit(project, monkeypatch):
+    """create_container_instance must not raise for a value the user never touched.
+
+    A computed (XPath) default is DERIVED: it is computed for a new instance and the merge
+    owns it like any other baseline value. Without the bypass the lock would raise out of
+    create_container_instance — and so out of PasteContainerCommand.redo.
+    """
+    from autosar_configurator.generator.eb import computed_defaults as module
+
+    _, manager = project
+    monkeypatch.setattr(
+        module, "computed_defaults",
+        lambda modules, instance, container_def, names, resources=None:
+            ({name: "9" for name in names}, {}))
+
+    # The very container Pre created, and the Pre-owned parameter: the worst case
+    instance = general(manager)
+    container_def = manager.module_def.containers["TrkGeneral"]
+    with pytest.raises(PreLockedError):
+        manager.set_parameter_value(instance, "Level", "7")     # a user edit is refused
+
+    manager._apply_computed_defaults(instance, container_def, ["Level"])
+
+    assert instance.parameter_values["Level"].value == "9"       # the derived default is not
+
+
+def test_selector_skip_is_a_status_line(project):
+    """A locked selector that changes nothing else still reaches the user as a status line."""
+    from autosar_configurator.core.hardware.chip_selectors import apply_selectors
+    from autosar_configurator.ui.controllers.project_controller import \
+        ProjectController
+
+    wm, manager = project
+
+    class _Chip:
+        name = "TestChip"
+        selectors = {"Trk.Level": "42"}          # the only selector, and it is locked
+
+    result = apply_selectors(wm.current_project, _Chip(), log=False)
+    assert result.changed == [] and result.skipped
+    status = ProjectController._selector_result_status(result)
+    assert "锁定" in status and "Trk.Level" in status
+
+
+def test_lock_and_badge_agree_when_the_baseline_is_unusable(project):
+    """One predicate decides both: no lock may be enforced while the badge is suppressed."""
+    wm, manager = project
+    baseline = wm.current_project.baselines["Trk"]
+    wm.current_project.baselines["Trk"] = ModuleBaseline(
+        base_config=baseline.base_config, layers={}, pre_keys=set(),
+        module_name="Trk", layers_untrusted=True)
+
+    assert module_note(wm.current_project.baselines["Trk"]) == UNAVAILABLE_TEXT
+    assert manager._baseline_lock_info() is None
+    assert manager.pre_unlock_state(general(manager), "Level") is None
+    manager.set_parameter_value(general(manager), "Level", "9")      # nothing to lock

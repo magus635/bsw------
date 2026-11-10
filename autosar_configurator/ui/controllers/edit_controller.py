@@ -497,8 +497,8 @@ class EditController:
             # Use auto-generated name directly (no dialog)
             new_instance.short_name = candidate_name
              
-            # Command. The constructor raises if the target parent is a locked Pre
-            # container: the edit stays off the undo stack and only the status bar says so.
+            # Command. The constructor checks the pasted container's own key against the Pre
+            # set; a refusal keeps the edit off the undo stack and says so in the status bar.
             try:
                 command = PasteContainerCommand(self.win.config_manager, target_parent, new_instance)
             except PreLockedError as exc:

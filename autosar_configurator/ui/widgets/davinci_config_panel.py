@@ -18,7 +18,24 @@ from ...core.model.configuration_model import EcucContainerValue, override_layer
 from ...core.config_manager import ConfigurationManager, PreLockedError
 from ...core.baseline.display import module_note, origin_text, pre_file_names
 from ...core.baseline.origin import Origin
+import inspect
+import logging
 from PySide6.QtCore import QSettings
+
+_log = logging.getLogger(__name__)
+
+
+def _accepts_origins(fn) -> bool:
+    """Whether ``fn`` takes an ``origins`` argument (the whole-module origin map).
+
+    Asked once per call by signature, so an older manager is handled without catching a
+    ``TypeError`` that could equally come from a bug inside the function.
+    """
+    try:
+        parameters = inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        return False
+    return "origins" in parameters
 
 
 class DaVinciConfigPanel(QWidget):
@@ -597,10 +614,14 @@ class DaVinciConfigPanel(QWidget):
         origins = getattr(self, '_origins', None)
         if origins is None:
             return self.config_manager.value_origin(self.current_instance, name)
-        try:
+        # Decided by introspection, not by catching TypeError: a programming error inside
+        # value_origin must not hide behind the slow per-row path (two whole-module
+        # flattens per value — ~0.9 s for a 500-row container).
+        if _accepts_origins(self.config_manager.value_origin):
             return self.config_manager.value_origin(self.current_instance, name, origins=origins)
-        except TypeError:       # a manager of the older signature: compute it its own way
-            return self.config_manager.value_origin(self.current_instance, name)
+        _log.debug("value_origin() takes no origins map; falling back to a per-row "
+                   "computation for %s", type(self.config_manager).__name__)
+        return self.config_manager.value_origin(self.current_instance, name)
 
     def _load_origins(self) -> None:
         """Compute every value's origin once per populate (two flattens, not two per row)."""

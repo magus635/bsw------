@@ -188,6 +188,9 @@ class ProjectController:
             result = project.apply_chip_selectors()
             if result.changed:
                 self.win._has_unsaved_changes = True
+            status = self._selector_result_status(result)
+            if status:
+                self.win.statusbar.showMessage(status.lstrip("  |"), 5000)
 
         service = getattr(self.win, 'chip_constraint_service', None)
         if service is None:
@@ -208,6 +211,25 @@ class ProjectController:
         if not project:
             return []
         return check_selectors(project, chip_for_project(project, project.chip_database)[1])
+
+    @staticmethod
+    def _selector_result_status(result) -> str:
+        """Status suffix for an applied selector pass: what changed, what a lock refused.
+
+        A skipped selector is logged by core at ``info``; the user only sees it if the UI
+        says so, and a locked Pre selector changes nothing else, so it would otherwise be
+        dropped entirely (``add_module_to_project`` shows the suffix only when values
+        changed). Sorted keys, so the message is stable.
+        """
+        if result is None:
+            return ""
+        parts = []
+        if result.changed:
+            parts.append(f"Chip selectors: {len(result.changed)} written")
+        locked = sorted(key for key, why in result.skipped if "锁定" in why)
+        if locked:
+            parts.append(f"{len(locked)} 预配置（PRE）选择器已锁定，未写入: {', '.join(locked)}")
+        return ("  |  " + "; ".join(parts)) if parts else ""
 
     def _selector_status(self) -> str:
         """Status bar suffix when the configuration's chip selectors differ from the chip."""
@@ -924,7 +946,7 @@ class ProjectController:
             if result.changed:
                 self.win._has_unsaved_changes = True
             self.win.tree_view.set_project(self.win.current_project)
-            selectors = f"  |  Chip selectors: {', '.join(result.messages())}" if result.changed else ""
+            selectors = self._selector_result_status(result)
             baseline_error = getattr(manager, "baseline_error", None)
             if baseline_error:
                 QMessageBox.warning(

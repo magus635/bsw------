@@ -17,7 +17,7 @@ from PySide6.QtCore import Qt, Signal, QThread
 from .wizard_base import ConfigWizard, WizardPage
 from ...core.model.definition_model import EcucModuleDef, EcucContainerDef
 from ...core.model.configuration_model import EcucContainerValue
-from ...core.config_manager import ConfigurationManager
+from ...core.config_manager import ConfigurationManager, PreLockedError
 from ...core.importers import BaseImporter, ImportResult, CsvImporter, ExcelImporter, DbcImporter
 
 
@@ -482,6 +482,7 @@ class ImportProgressPage(WizardPage):
 
             # Create container instances
             created_count = 0
+            locked_keys: List[str] = []
             if container_def and self.import_result.success:
                 for record in self.import_result.imported_data:
                     try:
@@ -497,6 +498,13 @@ class ImportProgressPage(WizardPage):
                                 self.config_manager.set_parameter_value(
                                     instance, param_name, value
                                 )
+                            except PreLockedError as exc:
+                                # The file is imported (imports are never blocked), but this
+                                # value may not be written: name the key with the warnings,
+                                # never a bare "Failed to set".
+                                locked_keys.append(exc.key)
+                                self.import_result.warnings.append(
+                                    f"预配置（PRE）已锁定，未写入 {exc.key}")
                             except Exception as e:
                                 self.import_result.warnings.append(
                                     f"Failed to set {param_name}: {e}"
@@ -516,6 +524,11 @@ class ImportProgressPage(WizardPage):
             result_text += f"Records imported: {self.import_result.records_imported}\n"
             result_text += f"Records skipped: {self.import_result.records_skipped}\n"
             result_text += f"Instances created: {created_count}\n\n"
+
+            if locked_keys:
+                result_text += (f"预配置（PRE）已锁定，未写入 {len(locked_keys)} 个值：\n"
+                                + "".join(f"  - {key}\n" for key in sorted(set(locked_keys)))
+                                + "如需修改，请在参数面板中右键选择“解锁此参数”。\n\n")
 
             if self.import_result.errors:
                 result_text += f"Errors ({len(self.import_result.errors)}):\n"
