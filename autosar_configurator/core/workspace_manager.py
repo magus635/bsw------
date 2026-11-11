@@ -1240,7 +1240,11 @@ class WorkspaceManager:
         # Copy EB templates (generate_PB) to project save directory.
         # Link mode never copies: templates/{Module} are symlinks into the
         # original EB tree, created at import time.
-        if self.current_project.eb_source_root and self.current_project.import_mode == "copy":
+        # Format 8 never copies either: templates/<Module>/ is the user's overlay
+        # and the package's own template dir is the fallback (design §6.6, P5) —
+        # copying would silently overwrite the user's edits on every save.
+        if (format_version < 8 and self.current_project.eb_source_root
+                and self.current_project.import_mode == "copy"):
             self._copy_eb_templates(project_dir)
 
     def _save_project_v7(self, eb_source_root_str, project_dir: Path, config_dir: Path, datetime_module) -> Dict[str, Any]:

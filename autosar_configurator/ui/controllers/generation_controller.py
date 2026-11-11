@@ -18,6 +18,36 @@ from ...core.model.configuration_model import override_layer
 logger = logging.getLogger(__name__)
 
 
+def _template_sources(win, module_name: str):
+    """``(overlay root, package template dir)`` for ``module_name`` of the open project.
+
+    The overlay root only counts when the directory exists (the generator then
+    searches ``<overlay>/<Module>/``).  An EB-style project whose ``path`` is the
+    project directory itself has no ``.dpa``; the overlay is still derived from
+    ``current_project_file`` as before.
+    """
+    project = win.current_project
+    if project is None:
+        return None, None
+    if not getattr(project, "path", None) and getattr(win, "current_project_file", None):
+        project_file = Path(win.current_project_file)
+        project_dir = project_file if project_file.is_dir() else project_file.parent
+        overlay_root = project_dir / project_paths.dirs(project).templates
+        package_dir = None
+        if getattr(project, "format_version", 0) >= 8:
+            pkg = (getattr(project, "packages", None) or {}).get(module_name)
+            package_dir = pkg.template_dir() if pkg is not None else None
+    else:
+        overlay_root, package_dir = project_paths.template_sources(project, module_name)
+
+    if overlay_root is not None and not overlay_root.exists():
+        logger.info(f"Project template directory not found at: {overlay_root}")
+        overlay_root = None
+    elif overlay_root is not None:
+        logger.info(f"Using project template directory: {overlay_root}")
+    return overlay_root, package_dir
+
+
 class GenerationController:
     """C/C++ code generation for a single module or an entire project."""
 
@@ -91,6 +121,7 @@ class GenerationController:
             variant_overrides = {}
             variant_name = None
             project_template_dir = None
+            package_template_dir = None
             project_dir = None
 
             if win.current_project:
@@ -99,24 +130,21 @@ class GenerationController:
                 if layer and win.config_manager.configuration:
                     variant_overrides = win.config_manager.configuration.variant_overrides.get(layer, {})
 
-                # Calculate project template directory (project_dir/templates)
-                if win.current_project_file:
-                    # Handle both file paths (.dpa) and directory paths (EB projects)
-                    if win.current_project_file.is_dir():
-                        project_dir = win.current_project_file
-                    else:
-                        project_dir = win.current_project_file.parent
-                    project_template_dir = project_dir / project_paths.dirs(win.current_project).templates
-                    if not project_template_dir.exists():
-                        logger.info(f"Project template directory not found at: {project_template_dir}")
-                        project_template_dir = None
-                    else:
-                        logger.info(f"Using project template directory: {project_template_dir}")
+                # Overlay root: templates/<Module>/ (user-editable, highest priority);
+                # the module package's template dir is the fallback (design §6.6).
+                module_name = win.config_manager.configuration.short_name
+                project_template_dir, package_template_dir = _template_sources(
+                    win, module_name)
+                if package_template_dir:
+                    logger.info(f"Using package template directory: {package_template_dir}")
+                if getattr(win.current_project, "path", None):
+                    project_dir = project_paths.project_root(win.current_project)
 
             generator = CodeGenerator(
                 win.module_def,
                 win.config_manager.configuration,
                 project_template_dir=project_template_dir,
+                package_template_dir=package_template_dir,
                 variant_overrides=variant_overrides,
                 all_configurations=self._get_all_project_configurations(),
                 selected_chip=win.current_project.selected_chip if win.current_project else None,
@@ -128,7 +156,9 @@ class GenerationController:
             ok = generator.generate_all(Path(output_dir), variant=variant_name)
 
             if not ok and generator.last_status == 'skipped':
-                searched = [str(d) for d in (generator.project_template_dir, generator.user_template_dir) if d]
+                searched = [str(d) for d in (generator.project_template_dir,
+                                             generator.package_template_dir,
+                                             generator.user_template_dir) if d]
                 QMessageBox.warning(
                     win,
                     "Code Generation Skipped",
@@ -187,7 +217,7 @@ class GenerationController:
             finished = Signal(str, str, str)  # module_name, status (GEN/SKIP/FAIL), message
 
         class GenWorker(QRunnable):
-            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None, project_template_dir=None, all_configs=None, selected_chip=None, ecu_resources=None, project_root=None):
+            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None, project_template_dir=None, package_template_dir=None, all_configs=None, selected_chip=None, ecu_resources=None, project_root=None):
                 super().__init__()
                 self.name = name
                 self.manager = manager
@@ -195,6 +225,7 @@ class GenerationController:
                 self.variant_name = variant_name
                 self.variant_overrides = variant_overrides or {}
                 self.project_template_dir = project_template_dir
+                self.package_template_dir = package_template_dir
                 self.all_configs = all_configs
                 self.selected_chip = selected_chip
                 self.ecu_resources = ecu_resources
@@ -213,6 +244,7 @@ class GenerationController:
                         self.manager.module_def,
                         self.manager.configuration,
                         project_template_dir=self.project_template_dir,
+                        package_template_dir=self.package_template_dir,
                         variant_overrides=self.variant_overrides,
                         variant_name=self.variant_name,
                         all_configurations=self.all_configs,
@@ -336,17 +368,18 @@ class GenerationController:
         # Get current variant info
         variant_name = win.current_project.active_variant if win.current_project else None
 
-        # Calculate project template directory (project_dir/templates)
-        project_template_dir = None
+        # Template sources are per module: overlay root templates/<Module>/ (the
+        # user's, highest priority) plus the module package's template dir.
+        overlay_root = None
         project_root = None
         if win.current_project and win.current_project.path:
             project_root = project_paths.project_root(win.current_project)
-            project_template_dir = project_paths.resolve(win.current_project, "templates")
-            if not project_template_dir.exists():
-                logger.info(f"Project template directory not found at: {project_template_dir}")
-                project_template_dir = None
+            overlay_root = project_paths.resolve(win.current_project, "templates")
+            if not overlay_root.exists():
+                logger.info(f"Project template directory not found at: {overlay_root}")
+                overlay_root = None
             else:
-                logger.info(f"Using project template directory: {project_template_dir}")
+                logger.info(f"Using project template directory: {overlay_root}")
 
         # Keep references to prevent garbage collection
         self._gen_workers = []
@@ -365,11 +398,15 @@ class GenerationController:
             if override_layer(variant_name) and manager.configuration:
                 mod_variant_overrides = manager.configuration.variant_overrides.get(variant_name, {})
 
+            _overlay, _package_dir = project_paths.template_sources(
+                win.current_project, name)
+
             worker = GenWorker(
                 name, manager, output_path,
                 variant_name=variant_name,
                 variant_overrides=mod_variant_overrides,
-                project_template_dir=project_template_dir,
+                project_template_dir=overlay_root,
+                package_template_dir=_package_dir,
                 all_configs=all_configs,
                 selected_chip=win.current_project.selected_chip if win.current_project else None,
                 ecu_resources=ecu_resources,

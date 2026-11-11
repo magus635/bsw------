@@ -31,10 +31,10 @@ logger = logging.getLogger(__name__)
 class CodeGenerator:
     """Main code generator for AUTOSAR BSW modules
 
-    Templates are resolved ONLY from project_template_dir and user_template_dir.
-    There are no built-in default templates: silently generating from a
-    template that doesn't match the user's vendor/chip/define version is worse
-    than reporting the module as skipped.
+    Templates are resolved ONLY from the project overlay, the module package and
+    user_template_dir.  There are no built-in default templates: silently
+    generating from a template that doesn't match the user's vendor/chip/define
+    version is worse than reporting the module as skipped.
     """
 
     # Non-C outputs that EB's TemplateBasedCodeGenerator also renders under the
@@ -50,7 +50,8 @@ class CodeGenerator:
 
     def __init__(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration,
                  project_template_dir: Optional[Path] = None,
-                 user_template_dir: Optional[Path] = None, 
+                 package_template_dir: Optional[Path] = None,
+                 user_template_dir: Optional[Path] = None,
                  variant_overrides: Optional[Dict[str, Any]] = None,
                  variant_name: Optional[str] = None,
                  all_configurations: Optional[Dict[str, Any]] = None,
@@ -58,11 +59,15 @@ class CodeGenerator:
                  ecu_resources: Optional[Dict[str, Any]] = None,
                  project_root: Optional[Path] = None):
         """Initialize generator
-        
+
         Args:
             module_def: Module definition
             configuration: Configuration instance
-            project_template_dir: Optional project-specific template directory (highest priority)
+            project_template_dir: Optional project-specific template root; the module's
+                templates live in its ``<Module>/`` subdirectory (highest priority)
+            package_template_dir: Optional module package template directory.  This IS
+                the module's template dir (no ``<Module>/`` subdirectory inside it);
+                searched after the project overlay and before the user directory.
             user_template_dir: Optional user-defined template directory (searched after project)
             variant_overrides: Optional dict of param_path -> value for variant-specific values
             variant_name: Optional name of the active variant
@@ -77,6 +82,7 @@ class CodeGenerator:
         self.project_root = Path(project_root) if project_root is not None else None
         self.configuration = configuration
         self.project_template_dir = project_template_dir
+        self.package_template_dir = package_template_dir
         self.user_template_dir = user_template_dir
         self.variant_overrides = variant_overrides or {}
         self.variant_name = variant_name
@@ -106,6 +112,8 @@ class CodeGenerator:
             logger.debug(f"Project template directory: {project_template_dir}")
         else:
             logger.debug("Project template directory not set")
+        if package_template_dir:
+            logger.info(f"Package template directory: {package_template_dir}")
         if user_template_dir:
             logger.info(f"User template directory: {user_template_dir}")
         if variant_overrides:
@@ -117,7 +125,7 @@ class CodeGenerator:
         If selected_chip is set, only load the matching chip's .properties file.
         """
         ecu_resources = {}
-        if not self.project_template_dir:
+        if not self.project_template_dir and not self.package_template_dir:
             # No templates: nothing to render, so nothing to scan for
             return ecu_resources
         project_root = getattr(self, "project_root", None)
@@ -188,11 +196,15 @@ class CodeGenerator:
     def _guess_project_root(self) -> Path:
         """Legacy project root detection, used only when no project_root was given.
 
-        Search upwards from project_template_dir until we find a directory
-        containing 'Def' or 'Define', or we hit the filesystem root.
+        Search upwards from project_template_dir (or, without one, from
+        package_template_dir) until we find a directory containing 'Def' or
+        'Define', or we hit the filesystem root.
         """
+        start = self.project_template_dir or self.package_template_dir
+        if not start:
+            return Path.cwd()
         project_root = None
-        current = self.project_template_dir.resolve()
+        current = Path(start).resolve()
         # Max search depth 5 to avoid traversing too far up
         for _ in range(5):
             if (current / "Def").exists() or (current / "Define").exists():
@@ -204,13 +216,14 @@ class CodeGenerator:
 
         if not project_root:
             # Fallback to parent of templates if templates dir exists in path
-            if "templates" in str(self.project_template_dir).lower():
-                curr = self.project_template_dir
+            start = Path(start)
+            if "templates" in str(start).lower():
+                curr = start
                 while curr.name.lower() != "templates" and curr.parent != curr:
                     curr = curr.parent
                 project_root = curr.parent
             else:
-                project_root = self.project_template_dir.parent
+                project_root = start.parent
 
         return project_root
 
@@ -266,7 +279,8 @@ class CodeGenerator:
         template_types = self._discover_template_types(module_name)
 
         if not template_types:
-            searched = [str(d) for d in (self.project_template_dir, self.user_template_dir) if d]
+            searched = [str(d) for d in (self.project_template_dir, self.package_template_dir,
+                                         self.user_template_dir) if d]
             logger.warning(
                 "No templates found for module %s — skipped (searched: %s)",
                 module_name, ", ".join(searched) if searched else "no template directories configured")
@@ -324,117 +338,131 @@ class CodeGenerator:
         """
         template_dict = {} # Key: relative path + type
 
+        def find_module_dir(base_dir: Path) -> Optional[Path]:
+            """``<base_dir>/<Module>`` (exact, then case-insensitive)."""
+            try:
+                mod_dir = base_dir / module_name
+                if mod_dir.exists():
+                    return mod_dir
+                for item in base_dir.iterdir():
+                    if item.name == '.DS_Store' or item.name.startswith('._'):
+                        continue
+                    try:
+                        if item.is_dir() and item.name.lower() == module_name.lower():
+                            return item
+                    except PermissionError:
+                        continue
+            except PermissionError:
+                pass
+            return None
+
+        def find_variant_dir(mod_dir: Path) -> Optional[Path]:
+            """``<mod_dir>/<variant>`` (exact, then case-insensitive)."""
+            var_dir = mod_dir / self.variant_name
+            if var_dir.exists():
+                return var_dir
+            try:
+                for item in mod_dir.iterdir():
+                    if item.name == '.DS_Store' or item.name.startswith('._'):
+                        continue
+                    try:
+                        if item.is_dir() and item.name.lower() == self.variant_name.lower():
+                            return item
+                    except PermissionError:
+                        continue
+            except PermissionError:
+                pass
+            return None
+
+        def scan_module_dir(md: Path):
+            """Scan one module template dir (``md`` itself is the module dir)."""
+            try:
+                for f in md.rglob("*"):
+                    try:
+                        if not f.is_file():
+                            continue
+                    except PermissionError:
+                        continue
+
+                    if f.name == '.DS_Store' or f.name.startswith('._'):
+                        continue
+
+                    if f.suffix.lower() == '.m':
+                        continue
+
+                    name_lower = f.name.lower()
+                    prefix_lower = f"{module_name}_".lower()
+
+                    if (not name_lower.startswith((prefix_lower, "module_"))
+                            and name_lower.endswith(self.UNPREFIXED_TEMPLATE_SUFFIXES)):
+                        # Linker / scatter scripts (Os "scatter.scat"): generated
+                        # under their own name, as EB does
+                        rel_dir = str(f.parent.relative_to(md)).replace('\\', '/')
+                        dedup_key = f"{rel_dir}/{f.name}"
+                        if dedup_key not in template_dict:
+                            template_dict[dedup_key] = {
+                                'type': f.name,
+                                'rel_dir': rel_dir,
+                                'template_name': f.name,
+                                'output_name': f.name,
+                                'original_path': str(f.resolve()),
+                                'source_dir': str(md.resolve())
+                            }
+                    elif name_lower.startswith(prefix_lower) or name_lower.startswith("module_"):
+                        try:
+                            rel_path = f.parent.relative_to(md)
+                        except ValueError:
+                            rel_path = Path('.')
+
+                        rel_dir = str(rel_path).replace('\\', '/')
+
+                        if name_lower.startswith(prefix_lower):
+                            suffix = f.name[len(module_name)+1:]
+                        else:
+                            suffix = f.name[7:] # remove Module_
+
+                        if suffix.endswith('.tpl'):
+                            t_type = suffix[:-4]
+                        elif suffix.endswith(('.c', '.h')) or suffix.lower().endswith(self.NON_C_TEMPLATE_SUFFIXES):
+                            t_type = suffix
+                        else:
+                            continue
+
+                        dedup_key = f"{rel_dir}/{t_type}"
+                        if dedup_key not in template_dict:
+                            template_dict[dedup_key] = {
+                                'type': t_type,
+                                'rel_dir': rel_dir,
+                                'template_name': f.name,
+                                'original_path': str(f.resolve()),
+                                'source_dir': str(md.resolve())
+                            }
+            except PermissionError:
+                pass
+
         def scan_directory_recursively(base_dir: Path):
+            """Scan ``<base_dir>/<Module>/`` plus its variant directory."""
             if not base_dir or not base_dir.exists() or not base_dir.is_dir():
                 return
-                
-            dirs_to_scan = []
-            
-            # 1. Exact or case insensitive module dir
-            mod_dir = base_dir / module_name
-            if mod_dir.exists():
-                dirs_to_scan.append(mod_dir)
-            else:
-                try:
-                    for item in base_dir.iterdir():
-                        if item.name == '.DS_Store' or item.name.startswith('._'):
-                            continue
-                        try:
-                            if item.is_dir() and item.name.lower() == module_name.lower():
-                                dirs_to_scan.append(item)
-                                break
-                        except PermissionError:
-                            continue
-                except PermissionError:
-                    pass
-                        
+
+            mod_dir = find_module_dir(base_dir)
+            if mod_dir is None:
+                return
+            scan_module_dir(mod_dir)
+
             # 2. Variant dir
             if self.variant_name:
-                for md in list(dirs_to_scan):
-                    var_dir = md / self.variant_name
-                    if var_dir.exists():
-                        dirs_to_scan.append(var_dir)
-                    else:
-                        try:
-                            for item in md.iterdir():
-                                if item.name == '.DS_Store' or item.name.startswith('._'):
-                                    continue
-                                try:
-                                    if item.is_dir() and item.name.lower() == self.variant_name.lower():
-                                        dirs_to_scan.append(item)
-                                        break
-                                except PermissionError:
-                                    continue
-                        except PermissionError:
-                            pass
-                                
-            for md in dirs_to_scan:
-                try:
-                    for f in md.rglob("*"):
-                        try:
-                            if not f.is_file():
-                                continue
-                        except PermissionError:
-                            continue
-                            
-                        if f.name == '.DS_Store' or f.name.startswith('._'):
-                            continue
-
-                        if f.suffix.lower() == '.m':
-                            continue
-
-                        name_lower = f.name.lower()
-                        prefix_lower = f"{module_name}_".lower()
-
-                        if (not name_lower.startswith((prefix_lower, "module_"))
-                                and name_lower.endswith(self.UNPREFIXED_TEMPLATE_SUFFIXES)):
-                            # Linker / scatter scripts (Os "scatter.scat"): generated
-                            # under their own name, as EB does
-                            rel_dir = str(f.parent.relative_to(md)).replace('\\', '/')
-                            dedup_key = f"{rel_dir}/{f.name}"
-                            if dedup_key not in template_dict:
-                                template_dict[dedup_key] = {
-                                    'type': f.name,
-                                    'rel_dir': rel_dir,
-                                    'template_name': f.name,
-                                    'output_name': f.name,
-                                    'original_path': str(f.resolve()),
-                                    'source_dir': str(md.resolve())
-                                }
-                        elif name_lower.startswith(prefix_lower) or name_lower.startswith("module_"):
-                            try:
-                                rel_path = f.parent.relative_to(md)
-                            except ValueError:
-                                rel_path = Path('.')
-
-                            rel_dir = str(rel_path).replace('\\', '/')
-
-                            if name_lower.startswith(prefix_lower):
-                                suffix = f.name[len(module_name)+1:]
-                            else:
-                                suffix = f.name[7:] # remove Module_
-
-                            if suffix.endswith('.tpl'):
-                                t_type = suffix[:-4]
-                            elif suffix.endswith(('.c', '.h')) or suffix.lower().endswith(self.NON_C_TEMPLATE_SUFFIXES):
-                                t_type = suffix
-                            else:
-                                continue
-
-                            dedup_key = f"{rel_dir}/{t_type}"
-                            if dedup_key not in template_dict:
-                                template_dict[dedup_key] = {
-                                    'type': t_type,
-                                    'rel_dir': rel_dir,
-                                    'template_name': f.name,
-                                    'original_path': str(f.resolve()),
-                                    'source_dir': str(md.resolve())
-                                }
-                except PermissionError:
-                    pass
+                var_dir = find_variant_dir(mod_dir)
+                if var_dir is not None:
+                    scan_module_dir(var_dir)
 
         if self.project_template_dir:
             scan_directory_recursively(self.project_template_dir)
+
+        # The package's template dir IS the module dir (a module package points at
+        # e.g. an EB plugin's generate_PB): scan it directly, no <Module>/ inside.
+        if self.package_template_dir:
+            scan_module_dir(Path(self.package_template_dir))
 
         if self.user_template_dir:
             scan_directory_recursively(self.user_template_dir)

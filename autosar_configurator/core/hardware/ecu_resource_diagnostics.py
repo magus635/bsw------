@@ -89,11 +89,15 @@ def _module_sources(project, module: str, def_path: Path) -> List[Path]:
     plugin_dir = def_path.parent.parent
     files.extend(_files_under(plugin_dir / "generate_PB"))
     files.extend(_files_under(plugin_dir / "generate_PC"))
-    project_path = getattr(project, "path", None)
-    if project_path:
-        project_path = Path(project_path)
-        project_dir = project_path.parent if project_path.suffix == ".dpa" else project_path
-        files.extend(_files_under(project_dir / project_paths.dirs(project).templates / module))
+    # Templates: project overlay (<templates>/<Module>/) then the package's dir
+    template_files: List[Path] = []
+    if getattr(project, "path", None):
+        overlay_root, package_dir = project_paths.template_sources(project, module)
+        if overlay_root is not None:
+            template_files.extend(_files_under(overlay_root / module))
+        if package_dir is not None:
+            template_files.extend(_files_under(package_dir))
+    files.extend(sorted(set(template_files), key=lambda p: p.as_posix()))
     return files
 
 

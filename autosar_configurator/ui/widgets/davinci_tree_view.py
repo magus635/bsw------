@@ -130,16 +130,19 @@ class DaVinciTreeView(QTreeWidget):
         
         from ...core import project_paths
 
-        project_template_dir = None
+        overlay_root = None
+        package_template_dir = None
         project_root = None
         if self.project and self.project.path:
             project_root = project_paths.project_root(self.project)
-            project_template_dir = project_paths.resolve(self.project, "templates")
-        
+            overlay_root, package_template_dir = project_paths.template_sources(
+                self.project, module_def.short_name)
+
         generator = CodeGenerator(
             module_def,
             config_manager.configuration,
-            project_template_dir=project_template_dir if project_template_dir and project_template_dir.exists() else None,
+            project_template_dir=overlay_root if overlay_root and overlay_root.exists() else None,
+            package_template_dir=package_template_dir,
             ecu_resources=(self.project.ecu_resources or None) if self.project else None,
             project_root=project_root
         )

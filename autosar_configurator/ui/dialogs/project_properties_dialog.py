@@ -293,22 +293,23 @@ class ProjectPropertiesDialog(QDialog):
         
         from ...core import project_paths
 
-        project_template_dir = None
         project_root = None
         if self.project.path:
             project_root = project_paths.project_root(self.project)
-            project_template_dir = project_paths.resolve(self.project, "templates")
-            
+
         self.templates_table.setRowCount(0)
         
         for module_name, manager in module_managers.items():
             if not manager or not getattr(manager, 'configuration', None):
                 continue
                 
+            overlay_root, package_template_dir = project_paths.template_sources(
+                self.project, module_name)
             generator = CodeGenerator(
                 manager.module_def,
                 manager.configuration,
-                project_template_dir=project_template_dir if project_template_dir and project_template_dir.exists() else None,
+                project_template_dir=overlay_root if overlay_root and overlay_root.exists() else None,
+                package_template_dir=package_template_dir,
                 ecu_resources=self.project.ecu_resources or None,
                 project_root=project_root
             )

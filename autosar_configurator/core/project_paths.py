@@ -10,7 +10,7 @@ directory holding the ``.dpa`` file).  This module must not import PySide6.
 """
 from dataclasses import dataclass, fields
 from pathlib import Path, PurePosixPath
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 GEN_LAYOUT_FLAT = "flat"
 GEN_LAYOUT_PER_MODULE = "per-module"
@@ -109,6 +109,22 @@ def gen_dir(project, module: str) -> Path:
     """Directory that receives ``module``'s generated code."""
     gen = resolve(project, "gen")
     return gen if dirs(project).gen_layout == GEN_LAYOUT_FLAT else gen / module
+
+
+def template_sources(project, module: str) -> Tuple[Optional[Path], Optional[Path]]:
+    """Where ``module``'s templates come from: ``(overlay root, package template dir)``.
+
+    Format 8 projects search ``templates/<Module>/`` (the project overlay, which the
+    user edits) first and the module package's own template directory second; saving
+    never copies one into the other.  A module without a package has no package
+    directory.  Format <= 7 projects have no packages: ``(<root>/templates, None)``,
+    exactly the directories they used before.
+    """
+    overlay_root = resolve(project, "templates")
+    if getattr(project, "format_version", 0) < 8:
+        return overlay_root, None
+    pkg = (getattr(project, "packages", None) or {}).get(module)
+    return overlay_root, (pkg.template_dir() if pkg is not None else None)
 
 
 # --- helpers for callers that only have a directory, not a project object ----------
