@@ -111,6 +111,19 @@ def gen_dir(project, module: str) -> Path:
     return gen if dirs(project).gen_layout == GEN_LAYOUT_FLAT else gen / module
 
 
+def package_template_dir(project, module: str) -> Optional[Path]:
+    """The module package's own template directory, or None.
+
+    Format 8 only (older projects have no packages); None when the module has no
+    package or its manifest names no existing template directory.  This directory
+    IS the module's template dir (no ``<Module>/`` subdirectory inside it).
+    """
+    if getattr(project, "format_version", 0) < 8:
+        return None
+    pkg = (getattr(project, "packages", None) or {}).get(module)
+    return pkg.template_dir() if pkg is not None else None
+
+
 def template_sources(project, module: str) -> Tuple[Optional[Path], Optional[Path]]:
     """Where ``module``'s templates come from: ``(overlay root, package template dir)``.
 
@@ -120,11 +133,7 @@ def template_sources(project, module: str) -> Tuple[Optional[Path], Optional[Pat
     directory.  Format <= 7 projects have no packages: ``(<root>/templates, None)``,
     exactly the directories they used before.
     """
-    overlay_root = resolve(project, "templates")
-    if getattr(project, "format_version", 0) < 8:
-        return overlay_root, None
-    pkg = (getattr(project, "packages", None) or {}).get(module)
-    return overlay_root, (pkg.template_dir() if pkg is not None else None)
+    return resolve(project, "templates"), package_template_dir(project, module)
 
 
 # --- helpers for callers that only have a directory, not a project object ----------

@@ -170,8 +170,12 @@ class CodeGenerator:
                 else:
                     props_files.extend(all_props)
 
-            # also check templates for any embedded properties
-            props_files.extend(list(self.project_template_dir.glob("**/*.properties")))
+            # also check templates for any embedded properties (a source without
+            # a template dir only skips itself; a package-only project still scans)
+            for template_root in (self.project_template_dir, self.package_template_dir,
+                                  self.user_template_dir):
+                if template_root and Path(template_root).is_dir():
+                    props_files.extend(list(Path(template_root).glob("**/*.properties")))
         except Exception as e:
             logger.warning(f"Error scanning for properties files: {e}")
 
@@ -215,9 +219,13 @@ class CodeGenerator:
             current = current.parent
 
         if not project_root:
-            # Fallback to parent of templates if templates dir exists in path
+            # Fallback: the parent of a "templates" directory. No string guessing
+            # otherwise - a package dir such as an EB plugin's generate_PB has no
+            # project root above it that a name heuristic could find honestly.
             start = Path(start)
-            if "templates" in str(start).lower():
+            if start.name.lower() == "templates":
+                project_root = start.parent
+            elif "templates" in str(start).lower() and self.project_template_dir:
                 curr = start
                 while curr.name.lower() != "templates" and curr.parent != curr:
                     curr = curr.parent
@@ -329,14 +337,25 @@ class CodeGenerator:
         return True
 
     def _discover_template_types(self, module_name: str) -> List[Dict[str, Any]]:
-        """Find all templates and their relative paths
+        """Find all templates and their relative paths.
+
+        Source precedence dominates: every template the project overlay provides
+        wins outright, then the module package contributes the types the overlay
+        does not have, then ``user_template_dir``.  Within ONE source the original
+        rules hold: a ``rel_dir/type`` key is taken by the first match, and a type
+        found more than once prefers the non-root ``rel_dir``.
+
+        This matters because an EB plugin package nests its templates
+        (``generate_PB/Dio/Dio_Cfg.h`` → rel_dir ``Dio``) while the project overlay
+        is flat (``templates/Dio/Dio_Cfg.h`` → rel_dir ``.``): keyed together, both
+        survive the first pass and a global type pass would pick the package.
+
         Returns list of dicts: [
            {'type': 'Cfg.h', 'rel_dir': '.', 'template_name': 'Os_Cfg.h.tpl', 'original_path': '/.../Os_Cfg.h.tpl'},
            {'type': 'alarm_Lcfg.c', 'rel_dir': 'alarm', 'template_name': 'Os_alarm_Lcfg.c', 'original_path': '/.../alarm/Os_alarm_Lcfg.c'},
            ...
         ]
         """
-        template_dict = {} # Key: relative path + type
 
         def find_module_dir(base_dir: Path) -> Optional[Path]:
             """``<base_dir>/<Module>`` (exact, then case-insensitive)."""
@@ -374,8 +393,8 @@ class CodeGenerator:
                 pass
             return None
 
-        def scan_module_dir(md: Path):
-            """Scan one module template dir (``md`` itself is the module dir)."""
+        def scan_module_dir(md: Path, found: Dict[str, Dict[str, Any]]):
+            """Scan one module template dir into ``found`` (key ``rel_dir/type``)."""
             try:
                 for f in md.rglob("*"):
                     try:
@@ -399,8 +418,8 @@ class CodeGenerator:
                         # under their own name, as EB does
                         rel_dir = str(f.parent.relative_to(md)).replace('\\', '/')
                         dedup_key = f"{rel_dir}/{f.name}"
-                        if dedup_key not in template_dict:
-                            template_dict[dedup_key] = {
+                        if dedup_key not in found:
+                            found[dedup_key] = {
                                 'type': f.name,
                                 'rel_dir': rel_dir,
                                 'template_name': f.name,
@@ -429,8 +448,8 @@ class CodeGenerator:
                             continue
 
                         dedup_key = f"{rel_dir}/{t_type}"
-                        if dedup_key not in template_dict:
-                            template_dict[dedup_key] = {
+                        if dedup_key not in found:
+                            found[dedup_key] = {
                                 'type': t_type,
                                 'rel_dir': rel_dir,
                                 'template_name': f.name,
@@ -440,43 +459,61 @@ class CodeGenerator:
             except PermissionError:
                 pass
 
-        def scan_directory_recursively(base_dir: Path):
-            """Scan ``<base_dir>/<Module>/`` plus its variant directory."""
-            if not base_dir or not base_dir.exists() or not base_dir.is_dir():
-                return
+        def finalize(found: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+            """The one-source result: same ordering and type dedup as before."""
+            unique_templates = {}
+            for t in sorted(found.values(),
+                            key=lambda x: (x['type'], 0 if x['rel_dir'] != '.' else 1)):
+                if t['type'] not in unique_templates:
+                    unique_templates[t['type']] = t
+            return sorted(list(unique_templates.values()), key=lambda x: x['type'])
 
+        def scan_source(dirs_to_scan: List[Path]) -> List[Dict[str, Any]]:
+            """Scan the module dir (+ variant dir) of one source, first match wins."""
+            found: Dict[str, Dict[str, Any]] = {}
+            for md in dirs_to_scan:
+                scan_module_dir(md, found)
+            return finalize(found)
+
+        def module_dirs_unless_root(base_dir: Path) -> List[Path]:
+            """``<base_dir>/<Module>`` (+ variant) of an overlay/user source."""
+            if not base_dir or not base_dir.exists() or not base_dir.is_dir():
+                return []
             mod_dir = find_module_dir(base_dir)
             if mod_dir is None:
-                return
-            scan_module_dir(mod_dir)
-
+                return []
+            dirs_to_scan = [mod_dir]
             # 2. Variant dir
             if self.variant_name:
                 var_dir = find_variant_dir(mod_dir)
                 if var_dir is not None:
-                    scan_module_dir(var_dir)
+                    dirs_to_scan.append(var_dir)
+            return dirs_to_scan
 
+        # Source precedence, highest first.  A package's template dir IS the module
+        # dir (an EB plugin points at e.g. generate_PB): no <Module>/ inside it.
+        sources: List[List[Path]] = []
         if self.project_template_dir:
-            scan_directory_recursively(self.project_template_dir)
-
-        # The package's template dir IS the module dir (a module package points at
-        # e.g. an EB plugin's generate_PB): scan it directly, no <Module>/ inside.
+            sources.append(module_dirs_unless_root(self.project_template_dir))
         if self.package_template_dir:
-            scan_module_dir(Path(self.package_template_dir))
-
+            package_dir = Path(self.package_template_dir)
+            if package_dir.is_dir():
+                dirs_to_scan = [package_dir]
+                if self.variant_name:
+                    var_dir = find_variant_dir(package_dir)
+                    if var_dir is not None:
+                        dirs_to_scan.append(var_dir)
+                sources.append(dirs_to_scan)
         if self.user_template_dir:
-            scan_directory_recursively(self.user_template_dir)
+            sources.append(module_dirs_unless_root(self.user_template_dir))
 
         # No built-in default templates and no string fallbacks: a module
         # without templates generates nothing and is reported as skipped.
-
-        # Return uniquely sorted list of actually discovered templates
-        unique_templates = {}
-        for t in sorted(template_dict.values(), key=lambda x: (x['type'], 0 if x['rel_dir'] != '.' else 1)):
-            if t['type'] not in unique_templates:
-                unique_templates[t['type']] = t
-                
-        return sorted(list(unique_templates.values()), key=lambda x: x['type'])
+        result: Dict[str, Dict[str, Any]] = {}
+        for dirs_to_scan in sources:
+            for t in scan_source(dirs_to_scan):
+                result.setdefault(t['type'], t)
+        return sorted(result.values(), key=lambda x: x['type'])
 
     def get_template_info(self, module_name: str) -> List[Dict[str, str]]:
         """

@@ -19,33 +19,33 @@ logger = logging.getLogger(__name__)
 
 
 def _template_sources(win, module_name: str):
-    """``(overlay root, package template dir)`` for ``module_name`` of the open project.
+    """``(overlay root, package template dir, project root)`` for ``module_name``.
 
     The overlay root only counts when the directory exists (the generator then
     searches ``<overlay>/<Module>/``).  An EB-style project whose ``path`` is the
     project directory itself has no ``.dpa``; the overlay is still derived from
-    ``current_project_file`` as before.
+    ``current_project_file`` as before, and the project root from the same place
+    so the generator never has to guess it.
     """
     project = win.current_project
-    if project is None:
-        return None, None
-    if not getattr(project, "path", None) and getattr(win, "current_project_file", None):
+    if project is None or not (getattr(project, "path", None)
+                               or getattr(win, "current_project_file", None)):
+        return None, None, None
+    if not getattr(project, "path", None):
         project_file = Path(win.current_project_file)
-        project_dir = project_file if project_file.is_dir() else project_file.parent
-        overlay_root = project_dir / project_paths.dirs(project).templates
-        package_dir = None
-        if getattr(project, "format_version", 0) >= 8:
-            pkg = (getattr(project, "packages", None) or {}).get(module_name)
-            package_dir = pkg.template_dir() if pkg is not None else None
+        project_root = project_file if project_file.is_dir() else project_file.parent
+        overlay_root = project_root / project_paths.dirs(project).templates
+        package_dir = project_paths.package_template_dir(project, module_name)
     else:
         overlay_root, package_dir = project_paths.template_sources(project, module_name)
+        project_root = project_paths.project_root(project)
 
-    if overlay_root is not None and not overlay_root.exists():
+    if not overlay_root.exists():
         logger.info(f"Project template directory not found at: {overlay_root}")
         overlay_root = None
-    elif overlay_root is not None:
+    else:
         logger.info(f"Using project template directory: {overlay_root}")
-    return overlay_root, package_dir
+    return overlay_root, package_dir, project_root
 
 
 class GenerationController:
@@ -133,12 +133,10 @@ class GenerationController:
                 # Overlay root: templates/<Module>/ (user-editable, highest priority);
                 # the module package's template dir is the fallback (design §6.6).
                 module_name = win.config_manager.configuration.short_name
-                project_template_dir, package_template_dir = _template_sources(
+                project_template_dir, package_template_dir, project_dir = _template_sources(
                     win, module_name)
                 if package_template_dir:
                     logger.info(f"Using package template directory: {package_template_dir}")
-                if getattr(win.current_project, "path", None):
-                    project_dir = project_paths.project_root(win.current_project)
 
             generator = CodeGenerator(
                 win.module_def,
@@ -369,17 +367,9 @@ class GenerationController:
         variant_name = win.current_project.active_variant if win.current_project else None
 
         # Template sources are per module: overlay root templates/<Module>/ (the
-        # user's, highest priority) plus the module package's template dir.
-        overlay_root = None
-        project_root = None
-        if win.current_project and win.current_project.path:
-            project_root = project_paths.project_root(win.current_project)
-            overlay_root = project_paths.resolve(win.current_project, "templates")
-            if not overlay_root.exists():
-                logger.info(f"Project template directory not found at: {overlay_root}")
-                overlay_root = None
-            else:
-                logger.info(f"Using project template directory: {overlay_root}")
+        # user's, highest priority) plus the module package's template dir — same
+        # adapter as the single-module path, so an EB directory project (no .dpa)
+        # passes its overlay through and a project without any path stays safe.
 
         # Keep references to prevent garbage collection
         self._gen_workers = []
@@ -398,15 +388,14 @@ class GenerationController:
             if override_layer(variant_name) and manager.configuration:
                 mod_variant_overrides = manager.configuration.variant_overrides.get(variant_name, {})
 
-            _overlay, _package_dir = project_paths.template_sources(
-                win.current_project, name)
+            overlay_root, package_dir, project_root = _template_sources(win, name)
 
             worker = GenWorker(
                 name, manager, output_path,
                 variant_name=variant_name,
                 variant_overrides=mod_variant_overrides,
                 project_template_dir=overlay_root,
-                package_template_dir=_package_dir,
+                package_template_dir=package_dir,
                 all_configs=all_configs,
                 selected_chip=win.current_project.selected_chip if win.current_project else None,
                 ecu_resources=ecu_resources,

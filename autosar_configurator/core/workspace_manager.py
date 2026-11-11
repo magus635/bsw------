@@ -1243,6 +1243,8 @@ class WorkspaceManager:
         # Format 8 never copies either: templates/<Module>/ is the user's overlay
         # and the package's own template dir is the fallback (design §6.6, P5) —
         # copying would silently overwrite the user's edits on every save.
+        # Format <= 7 KEEPS copying (and so keeps overwriting edits): that is the
+        # byte-identical legacy behaviour, deliberately left as it was.
         if (format_version < 8 and self.current_project.eb_source_root
                 and self.current_project.import_mode == "copy"):
             self._copy_eb_templates(project_dir)

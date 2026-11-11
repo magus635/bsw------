@@ -62,23 +62,35 @@ def _module_def():
 # --- CodeGenerator: overlay wins over package -----------------------------------
 
 def test_overlay_wins_over_package(tmp_path):
+    """Flat overlay vs a NESTED package (EB generate_PB/Dio/...): overlay wins outright.
+
+    Source precedence must dominate the old ``rel_dir/type`` key: the package copy
+    has rel_dir ``Dio`` and the overlay copy rel_dir ``.``, so keying both together
+    would leave two entries and the type pass would pick the package.
+    """
     overlay_root = tmp_path / "templates"
     _write(overlay_root / "Dio" / "Dio_Cfg.h", "/* overlay */\n")
-    package_dir = tmp_path / "pkg" / "templates"
-    _write(package_dir / "Dio_Cfg.h", "/* package */\n")
+    package_dir = tmp_path / "pkg" / "generate_PB"
+    _write(package_dir / "Dio" / "Dio_Cfg.h", "/* package */\n")
 
     generator = CodeGenerator(_module_def(), _config(),
                               project_template_dir=overlay_root,
                               package_template_dir=package_dir)
+    [entry] = [t for t in generator._discover_template_types("Dio") if t['type'] == "Cfg.h"]
+    assert entry['original_path'] == str((overlay_root / "Dio" / "Dio_Cfg.h").resolve())
+
     assert generator.generate_all(tmp_path / "out") is True
 
+    # Root-level overlay template: promoted into include/ (the package's nested
+    # rel_dir would have placed it under out/Dio/Dio/)
     out = tmp_path / "out" / "Dio" / "include" / "Dio_Cfg.h"
     assert out.read_text(encoding="utf-8") == "/* overlay */\n"
+    assert not (tmp_path / "out" / "Dio" / "Dio").exists()
 
 
 def test_package_used_when_no_overlay(tmp_path):
-    package_dir = tmp_path / "pkg" / "templates"
-    _write(package_dir / "Dio_Cfg.h", "/* package */\n")
+    package_dir = tmp_path / "pkg" / "generate_PB"
+    _write(package_dir / "Dio" / "Dio_Cfg.h", "/* package */\n")
     (tmp_path / "templates").mkdir()
 
     generator = CodeGenerator(_module_def(), _config(),
@@ -86,8 +98,23 @@ def test_package_used_when_no_overlay(tmp_path):
                               package_template_dir=package_dir)
     assert generator.generate_all(tmp_path / "out") is True
 
-    out = tmp_path / "out" / "Dio" / "include" / "Dio_Cfg.h"
+    out = tmp_path / "out" / "Dio" / "Dio" / "Dio_Cfg.h"
     assert out.read_text(encoding="utf-8") == "/* package */\n"
+
+
+def test_package_only_module_still_scans_ecu_resources(tmp_path):
+    """I2: no overlay dir at all — the package is still scanned, .properties too"""
+    package_dir = tmp_path / "pkg" / "generate_PB"
+    _write(package_dir / "Dio" / "Dio_Cfg.h", "/* package */\n")
+    _write(package_dir / "params.properties", "DioBase=7\n")
+    project_root = tmp_path / "Project"
+    _write(project_root / "Def" / "chip.properties", "ChipName=THA6206\n")
+
+    generator = CodeGenerator(_module_def(), _config(),
+                              package_template_dir=package_dir,
+                              project_root=project_root)
+    assert generator.ecu_resources["ChipName"] == "THA6206"
+    assert generator.generate_all(tmp_path / "out") is True
 
 
 def test_package_dir_is_not_an_overlay_root(tmp_path):
@@ -214,3 +241,24 @@ def test_v7_save_still_copies_templates(eb_source_tree, tmp_path):
     copied = target / "templates" / "Dio" / "Dio" / "Dio_Cfg.h.tpl"
     assert copied.is_file()
     assert copied.read_text(encoding="utf-8") == "/* tpl */"
+
+
+def test_v8_import_then_save_does_not_copy_templates(eb_source_tree, tmp_path):
+    """M5: the real save path — a v8 project LOADED from disk, saved, copies nothing.
+
+    ``import_eb_project`` still writes format 7 (it has no packages), so the v8
+    project is loaded the way the UI loads one: from its ``.dpa``.  Dio fails to
+    load (no library provides its definition) but its template overlay is still the
+    user's, and the save must leave it alone.
+    """
+    manager, project, target = _import_eb_project(eb_source_tree, tmp_path, "copy", 8)
+    overlay = _write(target / "templates" / "Dio" / "Dio_Cfg.h", "/* user edit */\n")
+    manager.save_project()
+
+    manager2 = WorkspaceManager()
+    loaded, _failed = manager2.load_project(project.path)
+    assert loaded.format_version == 8
+    manager2.save_project()
+
+    assert overlay.read_text(encoding="utf-8") == "/* user edit */\n"
+    assert not (target / "templates" / "Dio" / "Dio").exists()
