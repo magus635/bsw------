@@ -90,3 +90,64 @@ def test_import_eb_project_asks_before_pre_changes_imported_values(tmp_path, mon
     assert kwargs["mode"] == "link"
     assert kwargs["confirm"] == ctrl._confirm_import_merge
     assert "r_import.md" in shown[0]
+
+
+def _run_import(tmp_path, monkeypatch, chosen):
+    """Run the Import EB menu action with ``chosen`` as the destination folder."""
+    from PySide6.QtWidgets import QApplication
+
+    from autosar_configurator.ui.controllers import project_controller
+
+    source = tmp_path / "EbSource"
+    source.mkdir(exist_ok=True)
+    folders = iter([str(source), str(chosen)])
+    monkeypatch.setattr(project_controller.QFileDialog, "getExistingDirectory",
+                        lambda *a, **k: next(folders))
+    monkeypatch.setattr(project_controller.QInputDialog, "getItem",
+                        lambda parent, title, label, items, *a: (items[0], True))
+    warnings = []
+    monkeypatch.setattr(project_controller.QMessageBox, "warning", lambda *a: warnings.append(a[2]))
+    monkeypatch.setattr(project_controller.QMessageBox, "information", lambda *a: None)
+    for name in ("setOverrideCursor", "restoreOverrideCursor", "processEvents"):
+        monkeypatch.setattr(QApplication, name, staticmethod(lambda *a: None))
+    win = MagicMock()
+    win.workspace_manager.import_eb_project.return_value = (MagicMock(), [], [])
+    ctrl = ProjectController(win)
+    with patch.object(ctrl, "apply_project_chip"), \
+            patch.object(ctrl, "selector_mismatches", return_value=[]), \
+            patch.object(ctrl, "_ecu_resource_status", return_value=""), \
+            patch.object(ctrl, "_update_recent_files_menu"):
+        ctrl.import_eb_project()
+    return source, win, warnings
+
+
+def test_import_eb_project_never_targets_the_eb_tree(tmp_path, monkeypatch):
+    source, win, warnings = _run_import(tmp_path, monkeypatch, tmp_path / "EbSource")
+    win.workspace_manager.import_eb_project.assert_not_called()
+    assert warnings and "EB" in warnings[0]
+
+
+def test_import_eb_project_next_to_the_eb_tree_gets_a_sibling(tmp_path, monkeypatch):
+    source, win, warnings = _run_import(tmp_path, monkeypatch, tmp_path)
+    assert warnings == []
+    kwargs = win.workspace_manager.import_eb_project.call_args.kwargs
+    assert kwargs["target_dir"] == tmp_path / "EbSource_imported"
+
+
+def test_save_as_relocates_a_project_living_in_the_eb_tree(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from autosar_configurator.ui.controllers import project_controller
+
+    eb_root = tmp_path / "Eb"
+    project = SimpleNamespace(eb_source_root=eb_root, path=eb_root / "P.dpa", name="P",
+                              module_managers={})
+    monkeypatch.setattr(project_controller.QFileDialog, "getExistingDirectory",
+                        lambda *a, **k: str(tmp_path / "Out"))
+    win = MagicMock()
+    win.current_project = project
+    ProjectController(win).save_project()
+
+    win.workspace_manager.relocate_project.assert_called_once_with(tmp_path / "Out" / "P.dpa")
+    win.workspace_manager.save_project.assert_called_once()
+    assert win.current_project_file == tmp_path / "Out" / "P.dpa"

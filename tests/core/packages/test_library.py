@@ -58,6 +58,19 @@ def test_package_library_scan_skips_invalid_and_excluded(tmp_path):
     assert [p.root.name for p in packages] == ["Alpha", "Zeta"]
 
 
+def test_exclude_names_directories_not_modules(tmp_path):
+    """An excluded wrapper directory named after its module must not hide the real package."""
+    lib = tmp_path / "lib"
+    _write_pkg(lib, "Alpha", "/V/Alpha")
+    (lib / "Alpha_Real").mkdir()
+    (lib / "Alpha_Real" / "module.json").write_text(json.dumps(
+        {"schema": 1, "module": "Alpha", "definition": "/W/Alpha", "files": []}), encoding="utf-8")
+
+    for exclude in (["Alpha"], ["./Alpha/"]):
+        packages = scan_library(LibraryRef(path="lib", kind="package", exclude=exclude), base=tmp_path)
+        assert [p.root.name for p in packages] == ["Alpha_Real"], exclude
+
+
 def test_scan_missing_library_returns_empty(tmp_path):
     assert scan_library(LibraryRef(path="nope", kind="package"), base=tmp_path) == []
 

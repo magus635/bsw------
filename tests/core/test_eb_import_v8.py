@@ -363,6 +363,178 @@ def test_import_refuses_to_overwrite_a_project(dio_tree, tmp_path):
     assert len(list((target / ".history" / "reports").glob("*_import.md"))) == 1
 
 
+# --- where the project goes (never into the EB tree) -----------------------------------------
+
+def _tree(root: Path):
+    return sorted(p.relative_to(root).as_posix() for p in root.rglob("*"))
+
+
+@pytest.mark.parametrize("target", ["none", "eb_root"])
+def test_import_into_the_eb_tree_goes_to_a_sibling(dio_tree, target):
+    before = _tree(dio_tree)
+
+    project, loaded, failed = WorkspaceManager().import_eb_project(
+        dio_tree, target_dir=None if target == "none" else dio_tree, mode="copy")
+
+    sibling = dio_tree.parent / "EbDio_imported"
+    assert loaded == ["Dio"], failed
+    assert project.path == sibling / "EbDio_imported.dpa"
+    assert project.path.is_file()
+    assert (sibling / "modules" / "Dio_TS_T40D11M7I0R0" / "plugin.xml").is_file()
+    assert list((sibling / ".history" / "reports").glob("*_import.md"))
+    # The EB tree is only read (its own Config/ is the only config-like entry in it)
+    assert _tree(dio_tree) == before
+    for written in ("modules", ".history", "EbDio.dpa", "EbDio_imported.dpa"):
+        assert not (dio_tree / written).exists(), written
+
+
+def test_import_target_inside_the_eb_tree_is_refused(dio_tree):
+    before = _tree(dio_tree)
+    with pytest.raises(ValueError, match="EB"):
+        WorkspaceManager().import_eb_project(dio_tree, target_dir=dio_tree / "Imported")
+    assert _tree(dio_tree) == before
+
+
+def test_import_target_for_a_chosen_folder(tmp_path):
+    from autosar_configurator.core.eb_import import import_target
+
+    root = tmp_path / "Eb"
+    root.mkdir()
+    assert import_target(root, tmp_path / "out") == tmp_path / "out" / "Eb"
+    assert import_target(root, None) == tmp_path / "Eb_imported"
+    # Choosing the folder that holds the EB tree would name the tree itself
+    assert import_target(root, tmp_path) == tmp_path / "Eb_imported"
+    for inside in (root, root / "sub"):
+        with pytest.raises(ValueError, match="EB"):
+            import_target(root, inside)
+
+
+# --- an EPC binds only to the plugin of its definition -------------------------------------
+
+def test_epc_for_another_definition_is_not_bound(dio_tree, tmp_path):
+    epc = dio_tree / "Config" / "THA6206" / "output" / "Dio.epc"
+    epc.write_text(DIO_EPC.replace("/THA6_AS440_FuSa/Dio", "/Vendor/Dio"), encoding="utf-8")
+
+    manager, project, loaded, failed, target = _import(dio_tree, tmp_path, "link")
+
+    assert loaded == []
+    ((name, reason),) = failed
+    assert name == "Dio" and "/Vendor/Dio" in reason and "/THA6_AS440_FuSa/Dio" in reason
+    assert "Dio" not in project.module_managers        # not filled with another module's values
+    # The values are kept, under the definition the EPC names
+    assert project.module_entries["Dio"].definition == "/Vendor/Dio"
+    assert "/Vendor/Dio" in (target / "config" / "Dio.arxml").read_text(encoding="utf-8")
+    (report,) = sorted((target / ".history" / "reports").glob("*_import.md"))
+    text = report.read_text(encoding="utf-8")
+    assert "/Vendor/Dio" in text and "/THA6_AS440_FuSa/Dio" in text
+
+
+def test_epc_binds_to_the_plugin_of_its_definition(dio_tree, tmp_path):
+    plugins = dio_tree / "Define" / "EbPlugins" / "eclipse"
+    write_dio_plugin(plugins / "Dio_Vendor", package="Vendor")       # same module name, other path
+    epc = dio_tree / "Config" / "THA6206" / "output" / "Dio.epc"
+    epc.write_text(DIO_EPC.replace("/THA6_AS440_FuSa/Dio", "/Vendor/Dio"), encoding="utf-8")
+
+    manager, project, loaded, failed, target = _import(dio_tree, tmp_path, "link")
+
+    assert loaded == ["Dio"]
+    assert project.module_entries["Dio"].definition == "/Vendor/Dio"
+    assert "Dio_Vendor" in project.module_defs["Dio"].parts
+    assert [c.short_name for c in project.module_managers["Dio"].configuration.containers] == ["DioConfig"]
+    ((name, reason),) = failed                                    # the other Dio plugin is reported
+    assert name == "Dio" and "/THA6_AS440_FuSa/Dio" in reason
+
+
+def test_epc_naming_the_standard_definition_still_binds(dio_tree, tmp_path):
+    epc = dio_tree / "Config" / "THA6206" / "output" / "Dio.epc"
+    epc.write_text(DIO_EPC.replace(">/THA6_AS440_FuSa/Dio<", ">/AUTOSAR/EcucDefs/Dio<"),
+                   encoding="utf-8")
+
+    manager, project, loaded, failed, target = _import(dio_tree, tmp_path, "link")
+    assert loaded == ["Dio"], failed
+
+
+# --- plugin layouts ---------------------------------------------------------------------
+
+def test_nested_eclipse_plugins_layout(tmp_path):
+    src = tmp_path / "EbNested"
+    write_dio_plugin(src / "Define" / "EbPlugins" / "eclipse" / "plugins" / "Dio_TS")
+    output = src / "Config" / "THA6206" / "output"
+    output.mkdir(parents=True)
+    (output / "Dio.epc").write_text(DIO_EPC, encoding="utf-8")
+
+    manager, project, loaded, failed, target = _import(src, tmp_path, "link")
+    assert loaded == ["Dio"], failed
+    assert project.module_libraries[0].path.endswith("/eclipse/plugins")
+
+
+def test_wrapper_named_after_its_module_does_not_hide_the_eb_plugin(dio_tree, tmp_path):
+    bswmd = dio_tree / "Define" / "EbPlugins" / "eclipse" / "Dio" / "BSWMD"
+    bswmd.mkdir(parents=True)
+    shutil.copy(DIO_DEF_SAMPLE, bswmd / "Copy_Dio_THA6206_LFBGA292.arxml")
+
+    manager, project, loaded, failed, target = _import(dio_tree, tmp_path, "link")
+    assert project.module_libraries[0].exclude == ["Dio"]
+    assert loaded == ["Dio"], failed
+    assert "Dio_TS_T40D11M7I0R0" in project.module_defs["Dio"].parts
+
+
+def test_copy_mode_keeps_symlinks_as_links(dio_tree, tmp_path):
+    plugin = dio_tree / "Define" / "EbPlugins" / "eclipse" / "Dio_TS_T40D11M7I0R0"
+    try:
+        os.symlink(plugin / "generate_PB" / "Dio" / "Dio_Cfg.h.tpl", plugin / "linked.tpl")
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks cannot be created here")
+
+    manager, project, loaded, failed, target = _import(dio_tree, tmp_path, "copy")
+    assert loaded == ["Dio"], failed
+    assert (target / "modules" / "Dio_TS_T40D11M7I0R0" / "linked.tpl").is_symlink()
+
+
+# --- save-as keeps a format 8 project whole ------------------------------------------------
+
+@requires_eb_fixture
+def test_relocated_project_keeps_modules_baseline_and_values(mcu_tree, tmp_path):
+    (mcu_tree / "Config" / CHIP / "output" / "Foo.epc").write_text(
+        DIO_EPC.replace("<SHORT-NAME>Dio</SHORT-NAME>", "<SHORT-NAME>Foo</SHORT-NAME>")
+               .replace("/THA6_AS440_FuSa/Dio", "/Vendor/Foo"), encoding="utf-8")
+    manager, project, loaded, failed, target = _import(
+        mcu_tree, tmp_path, "copy", confirm=lambda preview, result: True)
+    assert loaded == ["Mcu"] and [n for n, _ in failed] == ["Foo"]
+
+    new_dpa = tmp_path / "SavedAs" / "Imported.dpa"
+    manager.relocate_project(new_dpa)
+    manager.save_project()
+
+    moved = new_dpa.parent
+    assert (moved / "modules" / "Mcu_THA6_AS440" / "plugin.xml").is_file()
+    assert (moved / "config" / "base" / "Mcu.arxml").is_file()        # the accepted Base
+    assert (moved / "config" / "Foo.arxml").is_file()                 # values of a failed module
+    assert list((moved / ".history" / "reports").glob("*_import.md"))  # the import report
+    data = json.loads(new_dpa.read_text(encoding="utf-8"))
+    assert data["module_libraries"] == [{"path": "modules", "kind": "eb-plugins", "exclude": []}]
+
+    reopen = _Recorder(True)
+    loaded_project, failed = WorkspaceManager().load_project(new_dpa, confirm=reopen)
+    assert [n for n, _ in failed] == ["Foo"]
+    assert reopen.calls == []                                         # Base came along
+    assert moved in loaded_project.module_defs["Mcu"].parents
+
+
+def test_relocated_project_makes_an_outside_library_absolute(dio_tree, tmp_path):
+    manager, project, loaded, failed, target = _import(dio_tree, tmp_path, "link")
+    plugins = dio_tree / "Define" / "EbPlugins" / "eclipse"
+    project.module_libraries[0].path = Path(os.path.relpath(plugins, target)).as_posix()
+    assert project.module_libraries[0].path.startswith("../")
+
+    new_dpa = tmp_path / "Elsewhere" / "deep" / "Imported.dpa"
+    manager.relocate_project(new_dpa)
+    assert project.module_libraries[0].path == plugins.resolve().as_posix()
+    manager.save_project()
+    loaded_project, failed = WorkspaceManager().load_project(new_dpa)
+    assert failed == [] and "Dio" in loaded_project.module_managers
+
+
 # --- old projects ---------------------------------------------------------------------
 
 def test_old_v7_imported_project_still_opens(tmp_path):

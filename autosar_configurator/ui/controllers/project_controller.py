@@ -160,6 +160,17 @@ class ProjectController:
             if busy:
                 QApplication.setOverrideCursor(Qt.WaitCursor)
 
+    def _import_target_dir(self, project_root: Path, chosen: Path):
+        """The project directory for the destination folder the user chose, or None (with a
+        warning) when it is the EB tree or inside it: the import only reads the EB tree.
+        A folder that holds the EB tree gives the sibling ``<EB tree>_imported``."""
+        from ...core.eb_import import import_target
+        try:
+            return import_target(project_root, chosen)
+        except ValueError as exc:
+            QMessageBox.warning(self.win, "目标目录不可用", str(exc))
+            return None
+
     def _ask_merge(self, preview: str, title: str, text: str) -> bool:
         box = QMessageBox(self.win)
         box.setWindowTitle(title)
@@ -695,7 +706,9 @@ class ProjectController:
                 )
                 if not target_dir_str:
                     return
-                target_dir = Path(target_dir_str) / project_root.name
+                target_dir = self._import_target_dir(project_root, Path(target_dir_str))
+                if target_dir is None:
+                    return
                 target_dir.mkdir(parents=True, exist_ok=True)
 
                 # Batch import with progress
@@ -844,8 +857,9 @@ class ProjectController:
                     save_dir = Path(save_dir)
                     new_dpa_path = save_dir / f"{self.win.current_project.name}.dpa"
 
-                    # Update project path to the new location
-                    self.win.current_project.path = new_dpa_path
+                    # Move the project to the new location; a format 8 project takes its
+                    # module library, baseline and unloaded values along
+                    self.win.workspace_manager.relocate_project(new_dpa_path)
                     self.win.current_project_file = new_dpa_path
 
                     # Update window title
@@ -1198,8 +1212,10 @@ class ProjectController:
         if not target_dir_str:
             return
 
-        # Create a project subdirectory inside the chosen target
-        target_dir = Path(target_dir_str) / project_root.name
+        # A project subdirectory inside the chosen target — never the EB tree itself
+        target_dir = self._import_target_dir(project_root, Path(target_dir_str))
+        if target_dir is None:
+            return
         target_dir.mkdir(parents=True, exist_ok=True)
 
         # Show wait cursor and perform import

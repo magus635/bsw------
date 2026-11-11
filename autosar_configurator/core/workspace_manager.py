@@ -1425,6 +1425,112 @@ class WorkspaceManager:
             modules_out[name]["base_hash"] = digest
         return data
 
+    def relocate_project(self, new_path: Path) -> None:
+        """Move the current project's ``.dpa`` to ``new_path`` (the UI's first save of an
+        imported project); the next :meth:`save_project` writes it there.
+
+        Format ≤7 only changes the path, as before. A format 8 project also needs what the
+        ``.dpa`` refers to relative to its directory, and those are *copied* (the old place
+        is left as it was — it may be the EB tree):
+
+        - a module library inside the project directory (``modules/``) is copied with its
+          relative path unchanged; one outside it is rewritten as an absolute path, so it
+          resolves from the new place;
+        - the configuration files of entries that have no manager (failed modules: the
+          save writes only loaded modules) and the baseline directory (snapshots and
+          layers; their hashes are in ``.dpa``) are copied, so neither the values of a
+          module that did not load nor the accepted Base are lost;
+        - the project-owned directories that exist (``.history`` with the import report,
+          the ``templates/`` overlay, ``chips/``, ``integration/``, ``system/``) are copied.
+
+        Loaded modules' definition paths are re-pointed into the copied libraries.
+
+        Raises:
+            ValueError: no current project, or ``new_path`` lies inside a library
+                directory that would be copied into itself.
+            OSError: a copy failed (the project path is then left unchanged).
+        """
+        project = self.current_project
+        if project is None or project.path is None:
+            raise ValueError("No project loaded")
+        new_path = Path(new_path)
+        old_dir = project_paths.project_root(project)
+        new_dir = new_path.parent
+        if project.format_version < 8 or old_dir.resolve() == new_dir.resolve():
+            project.path = new_path
+            return
+
+        copies: List[Tuple[Path, Path]] = []        # (source, destination) directories / files
+        new_libraries: List[LibraryRef] = []
+        for ref in project.module_libraries:
+            src = Path(ref.path)
+            if src.is_absolute():
+                new_libraries.append(ref)
+                continue
+            src = (old_dir / src).resolve()
+            try:
+                src.relative_to(old_dir.resolve())
+            except ValueError:
+                # outside the project (``../EbPlugins``): keep pointing at it, absolutely
+                new_libraries.append(LibraryRef(src.as_posix(), ref.kind, list(ref.exclude)))
+                continue
+            dst = new_dir / ref.path
+            if src.is_dir():
+                if new_dir.resolve() == src or src in new_dir.resolve().parents:
+                    raise ValueError(f"新位置在模块库 {src.as_posix()} 之内，无法复制")
+                copies.append((src, dst))
+            new_libraries.append(LibraryRef(ref.path, ref.kind, list(ref.exclude)))
+
+        base_dir = project_paths.resolve(project, "base")
+        if base_dir.is_dir():
+            copies.append((base_dir, new_dir / project_paths.dirs(project).base))
+        # The other directories the project owns (reports, template overlay, chip and
+        # integration data) come along too; gen/ is regenerated, config/ is written by
+        # the save (and the base snapshots above).
+        for key in ("history", "templates", "chips", "integration", "system"):
+            src = project_paths.resolve(project, key)
+            if src.is_dir():
+                copies.append((src, new_dir / getattr(project_paths.dirs(project), key)))
+        for name, entry in sorted(project.module_entries.items()):
+            if name in project.module_managers or not entry.config_path:
+                continue
+            src = Path(entry.config_path)
+            if not src.is_absolute():
+                src = old_dir / src
+                if src.is_file():
+                    copies.append((src, new_dir / entry.config_path))
+
+        for src, dst in copies:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            if src.is_dir():
+                shutil.copytree(src, dst, dirs_exist_ok=True, symlinks=True)
+            else:
+                shutil.copy2(src, dst)
+
+        old_libs = [Path(r.path) if Path(r.path).is_absolute() else (old_dir / r.path)
+                    for r in project.module_libraries]
+        project.module_libraries = new_libraries
+        project.path = new_path
+        # Definition files that were inside a copied library now come from the copy
+        for name, def_path in list(project.module_defs.items()):
+            for old_lib, ref in zip(old_libs, new_libraries):
+                try:
+                    rel = Path(def_path).resolve().relative_to(old_lib.resolve())
+                except (ValueError, OSError):
+                    continue
+                new_lib = Path(ref.path) if Path(ref.path).is_absolute() else new_dir / ref.path
+                project.module_defs[name] = new_lib / rel
+                break
+        for name, pkg in list(project.packages.items()):
+            for old_lib, ref in zip(old_libs, new_libraries):
+                try:
+                    rel = pkg.root.resolve().relative_to(old_lib.resolve())
+                except (ValueError, OSError):
+                    continue
+                new_lib = Path(ref.path) if Path(ref.path).is_absolute() else new_dir / ref.path
+                project.packages[name] = ModulePackage(new_lib / rel, pkg.manifest)
+                break
+
     def _to_posix_path(self, path: Path, project_dir: Path, inside_only: bool = False) -> str:
         """Convert path to POSIX string, relative if inside project, absolute if outside.
 
@@ -1879,8 +1985,9 @@ class WorkspaceManager:
         Args:
             project_root: Root directory of the source EB project
             chip_name: Optional chip name to select Config/{chip}/output/*.epc
-            target_dir: Optional target directory for the new project.
-                        If None, the project is created inside *project_root*.
+            target_dir: Optional target directory for the new project. None, or the EB
+                        root itself, puts the project in the sibling directory
+                        ``<project_root>_imported``: the EB tree is only read.
             progress_callback: Optional callable(message: str) for progress updates
             mode: "copy" (self-contained) or "link" (reference original tree)
             confirm: ``(preview_markdown, MergeResult) -> bool`` asked once per module
@@ -1892,9 +1999,12 @@ class WorkspaceManager:
             failed_modules: List of tuples (module_name, error_message)
 
         Raises:
-            ValueError: unknown mode, or the target directory already holds this
-                project's files (the import never overwrites a project).
+            ValueError: unknown mode, a target inside the EB tree, or a target directory
+                that already holds this project's files (the import never overwrites a
+                project).
         """
+        from . import eb_import
+
         if mode not in ("copy", "link"):
             raise ValueError(f"Unknown import mode: {mode!r} (expected 'copy' or 'link')")
 
@@ -1902,9 +2012,9 @@ class WorkspaceManager:
             if progress_callback:
                 progress_callback(msg)
 
-        # Determine where the project will live
+        # Determine where the project will live: never inside the EB tree
         project_root = Path(project_root)
-        project_dir = Path(target_dir) if target_dir else project_root
+        project_dir = eb_import.import_project_dir(project_root, target_dir)
         project_name = project_dir.name
         dpa = project_dir / f"{project_name}.dpa"
 
@@ -2018,8 +2128,8 @@ class WorkspaceManager:
                     if pkg.root.resolve() == target.resolve():
                         continue
                     try:
-                        # symlinks=False: a linked file in the plugin is copied as a file
-                        shutil.copytree(pkg.root, target, dirs_exist_ok=True)
+                        # symlinks=True: copy a symlink as a link, not as its target
+                        shutil.copytree(pkg.root, target, dirs_exist_ok=True, symlinks=True)
                         copied += 1
                         _progress(f"  Copied {pkg.root.name}")
                     except (OSError, shutil.Error) as exc:
@@ -2039,12 +2149,28 @@ class WorkspaceManager:
         for _, packages in libraries:
             for pkg in packages:
                 modules.setdefault(pkg.manifest.definition, pkg.manifest.module)
-        ordered = sorted(modules.items(), key=lambda item: (item[1], item[0]))
+
+        def binding_order(item):
+            # Of two definitions with one module name, the one the module's EPC names
+            # goes first — its exact path before the standard /AUTOSAR/EcucDefs/<M> one
+            # it refines: the module name, config/<M>.arxml and the values are its.
+            definition, module = item
+            epc = values.get(module)
+            if epc is None or epc.definition_ref is None:
+                rank = 1
+            elif epc.definition_ref.rstrip("/") == definition.rstrip("/"):
+                rank = 0
+            else:
+                rank = 1 if eb_import.epc_names_definition(epc.definition_ref, definition) else 2
+            return (module, rank, definition)
+
+        ordered = sorted(modules.items(), key=binding_order)
 
         loaded_modules: List[str] = []
         failed_modules: List[Tuple[str, str]] = []
         records: Dict[str, "eb_import.ModuleImport"] = {}
         taken: Dict[str, str] = {}               # module name -> definition that took it
+        unbound: Dict[str, List[str]] = {}       # module name -> plugins its EPC does not name
         imported_at = datetime.now().isoformat()
 
         def write_values(name: str, epc: "eb_import.EpcValues") -> str:
@@ -2070,12 +2196,23 @@ class WorkspaceManager:
             epc = values.get(module)
             _progress(f"({position}/{len(ordered)}) Loading {module}..." + (" + EPC" if epc else ""))
             record = eb_import.ModuleImport(name=module, definition=definition)
-            report.modules.append(record)
 
             if module in taken:
+                report.modules.append(record)
                 record.error = f"模块名 {module} 已由定义 {taken[module]} 使用，未导入 {definition}"
                 failed_modules.append((module, record.error))
                 continue
+
+            if epc is not None and not eb_import.epc_names_definition(epc.definition_ref, definition):
+                # The EPC configures another definition with the same module name. Binding it
+                # here would rewrite its DEFINITION-REF to this plugin's path, and a module
+                # name has one config/<M>.arxml: the values win, this plugin is not imported.
+                # The EPC stays in ``values`` (a plugin for its definition may still come;
+                # otherwise it is kept as a module no plugin provides), and the failure is
+                # reported once, from there, naming this plugin.
+                unbound.setdefault(module, []).append(definition)
+                continue
+            report.modules.append(record)
             taken[module] = definition
             values.pop(module, None)
             records[module] = record
@@ -2147,12 +2284,28 @@ class WorkspaceManager:
                 project.baselines.get(name))
             loaded_modules.append(name)
 
+        # A plugin skipped because the module's EPC names another definition: when that
+        # EPC bound to the plugin of its own definition, the skipped one is reported
+        # here; otherwise the EPC-only entry below names it.
+        for module in sorted(unbound):
+            if module in values:
+                continue
+            for definition in unbound[module]:
+                reason = (f"模块名 {module} 已由 EPC 所配置的定义 {taken[module]} 使用，"
+                          f"未导入插件 {definition}")
+                report.modules.append(eb_import.ModuleImport(
+                    name=module, definition=definition, error=reason))
+                failed_modules.append((module, reason))
+
         # EPC values no plugin provides a definition for: kept, reported, failing
         for module in sorted(values):
             epc = values[module]
             config_rel = write_values(module, epc)
             reason = (f"没有插件提供定义 {epc.definition_ref or '（EPC 未写明定义）'}；"
                       f"EPC 值已保存到 {config_rel}，插件库提供该定义后重新打开工程即可加载")
+            if module in unbound:
+                reason += ("。同名插件的定义与 EPC 的 DEFINITION-REF 不符，未绑定、未导入："
+                           + "、".join(unbound[module]))
             project.module_entries[module] = ModuleEntry(
                 name=module, definition=epc.definition_ref or "", library=0,
                 config_path=config_rel)

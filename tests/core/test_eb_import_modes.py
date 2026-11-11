@@ -61,14 +61,17 @@ DIO_PLUGIN_XML = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 
-def write_dio_plugin(plugin: Path) -> Path:
+def write_dio_plugin(plugin: Path, package: str = "THA6_AS440_FuSa") -> Path:
     """An EB plugin directory for Dio: plugin.xml, its definition under config/, an
-    autosar/ exchange copy (never loaded) and a generate_PB template."""
+    autosar/ exchange copy (never loaded) and a generate_PB template. ``package`` is the
+    AR package of the definition (``/<package>/Dio``)."""
+    definition = DIO_DEF_SAMPLE.read_text(encoding="utf-8").replace("THA6_AS440_FuSa", package)
     (plugin / "config").mkdir(parents=True)
-    (plugin / "plugin.xml").write_text(DIO_PLUGIN_XML, encoding="utf-8")
-    shutil.copy(DIO_DEF_SAMPLE, plugin / "config" / "Dio.arxml")
+    (plugin / "plugin.xml").write_text(DIO_PLUGIN_XML.replace("THA6_AS440_FuSa", package),
+                                       encoding="utf-8")
+    (plugin / "config" / "Dio.arxml").write_text(definition, encoding="utf-8")
     (plugin / "autosar").mkdir()
-    shutil.copy(DIO_DEF_SAMPLE, plugin / "autosar" / "Dio_THA6206_LFBGA292.arxml")
+    (plugin / "autosar" / "Dio_THA6206_LFBGA292.arxml").write_text(definition, encoding="utf-8")
     (plugin / "generate_PB" / "Dio").mkdir(parents=True)
     (plugin / "generate_PB" / "Dio" / "Dio_Cfg.h.tpl").write_text("/* tpl */", encoding="utf-8")
     return plugin

@@ -1,5 +1,6 @@
 import sys
 import logging
+import tempfile
 from pathlib import Path
 
 # Add project root to path
@@ -21,7 +22,11 @@ def main():
         return
         
     logging.info(f"Importing project from {project_path} ...")
-    project, loaded, failed = workspace.import_eb_project(project_path, chip_name="THA6206_LFBGA292")
+    # Import into a fresh temporary directory: never into the EB tree or the repository
+    target = Path(tempfile.mkdtemp(prefix="eb_import_")) / project_path.name
+    project, loaded, failed = workspace.import_eb_project(
+        project_path, chip_name="THA6206_LFBGA292", target_dir=target)
+    logging.info(f"Imported project: {project.path}")
     if not project:
         logging.error("Failed to import EB project.")
         return

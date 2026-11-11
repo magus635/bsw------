@@ -31,10 +31,11 @@ from .packages.manifest import infer_package
 from .packages.package import ModulePackage, module_def_paths
 
 __all__ = [
-    "EB_PLUGIN_MARKER", "SkippedDir", "WrappedMcal", "PluginSurvey", "EpcValues",
-    "ModuleImport", "ImportReport",
-    "find_plugins_dir", "survey_plugins", "module_configs_in", "count_values",
-    "package_record", "report_path", "write_report",
+    "EB_PLUGIN_MARKER", "IMPORTED_SUFFIX", "SkippedDir", "WrappedMcal", "PluginSurvey",
+    "EpcValues", "ModuleImport", "ImportReport",
+    "import_project_dir", "import_target", "find_plugins_dir", "survey_plugins",
+    "module_configs_in",
+    "epc_names_definition", "count_values", "package_record", "report_path", "write_report",
 ]
 
 _log = logging.getLogger(__name__)
@@ -58,16 +59,80 @@ def _child_text(elem, name: str) -> Optional[str]:
     return None
 
 
+# --- where the project goes -------------------------------------------------------------
+
+IMPORTED_SUFFIX = "_imported"
+
+
+def _is_within(path: Path, root: Path) -> bool:
+    path, root = Path(path).resolve(), Path(root).resolve()
+    return path == root or root in path.parents
+
+
+def _inside_message(target: Path, project_root: Path) -> str:
+    return (f"不能把导入的工程放进 EB 工程目录本身：{Path(target).as_posix()} 在 "
+            f"{Path(project_root).as_posix()} 之内。请选择 EB 工程目录之外的文件夹。")
+
+
+def import_project_dir(project_root: Path, target_dir: Optional[Path]) -> Path:
+    """The directory :meth:`WorkspaceManager.import_eb_project` writes the project to.
+
+    ``None``, or the EB tree itself, gives the sibling ``<EB tree>_imported``; any other
+    directory is used as it is.
+
+    Raises:
+        ValueError: ``target_dir`` lies inside the EB tree — the import only reads it.
+    """
+    project_root = Path(project_root)
+    if target_dir is None or Path(target_dir).resolve() == project_root.resolve():
+        return project_root.parent / f"{project_root.name}{IMPORTED_SUFFIX}"
+    if _is_within(target_dir, project_root):
+        raise ValueError(_inside_message(target_dir, project_root))
+    return Path(target_dir)
+
+
+def import_target(project_root: Path, parent: Optional[Path]) -> Path:
+    """The project directory for a destination folder the user chose (the UI dialogs).
+
+    The project gets a subfolder of ``parent`` named after the EB tree; ``None`` means
+    "next to the EB tree". When that subfolder would be the EB tree itself (``parent``
+    holds it), the project goes to the sibling ``<EB tree>_imported`` instead.
+
+    Raises:
+        ValueError: ``parent`` is the EB tree or inside it.
+    """
+    project_root = Path(project_root)
+    if parent is None:
+        return import_project_dir(project_root, None)
+    if _is_within(parent, project_root):
+        raise ValueError(_inside_message(parent, project_root))
+    return import_project_dir(project_root, Path(parent) / project_root.name)
+
+
 # --- the plugin directory ---------------------------------------------------------------
 
+def _holds_plugins(directory: Path) -> bool:
+    try:
+        return any((sub / EB_PLUGIN_MARKER).is_file() for sub in directory.iterdir() if sub.is_dir())
+    except OSError:
+        return False
+
+
 def find_plugins_dir(project_root: Path) -> Optional[Path]:
-    """The EB plugins directory of a source tree: ``Define/EbPlugins/eclipse``, else the
-    legacy plugins directory (``Def/plugins``); ``None`` when the tree has neither."""
-    for candidate in (Path(project_root) / "Define" / "EbPlugins" / "eclipse",
-                      project_paths.legacy_plugins_dir(project_root)):
-        if candidate.is_dir():
+    """The EB plugins directory of a source tree, or ``None`` when it has none.
+
+    Looked for in ``Define/EbPlugins/eclipse`` and the legacy plugins directory
+    (``Def/plugins``), each also one level down in ``plugins/`` (an Eclipse installation
+    keeps its plugins in ``eclipse/plugins/<Plugin>``). The first candidate whose
+    subdirectories hold a ``plugin.xml`` wins; failing that, the first that exists.
+    """
+    roots = (Path(project_root) / "Define" / "EbPlugins" / "eclipse",
+             project_paths.legacy_plugins_dir(project_root))
+    existing = [c for root in roots for c in (root, root / "plugins") if c.is_dir()]
+    for candidate in existing:
+        if _holds_plugins(candidate):
             return candidate
-    return None
+    return existing[0] if existing else None
 
 
 @dataclass
@@ -182,6 +247,30 @@ class EpcValues:
     file: Path
     short_name: str
     definition_ref: Optional[str]
+
+
+_STANDARD_DEFS = "/AUTOSAR/EcucDefs/"
+
+
+def epc_names_definition(epc_ref: Optional[str], definition: str) -> bool:
+    """Whether an EPC whose module DEFINITION-REF is ``epc_ref`` configures ``definition``.
+
+    The module path must be the same, or the EPC names the standard AUTOSAR module
+    (``/AUTOSAR/EcucDefs/<M>``) that every vendor definition of ``<M>`` refines. An EPC
+    without a DEFINITION-REF is bound by its name alone, as before.
+
+    ``definition_refs.same_definition`` cannot decide this: it compares module-relative
+    paths, which are empty for any module path, so ``/A/Mcu`` and ``/B/Mcu`` compare equal.
+    The check also has to happen before the values are loaded — ``load_configuration``
+    repairs the module's DEFINITION-REF to the plugin's own path.
+    """
+    if not epc_ref:
+        return True
+    ref, own = epc_ref.rstrip("/"), definition.rstrip("/")
+    if ref == own:
+        return True
+    module = own.rsplit("/", 1)[-1]
+    return ref == f"{_STANDARD_DEFS}{module}"
 
 
 def module_configs_in(value_file: Path) -> List[Tuple[str, Optional[str]]]:
