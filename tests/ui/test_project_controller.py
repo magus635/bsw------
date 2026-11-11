@@ -54,3 +54,39 @@ def test_remove_missing_is_noop():
         ctrl._remove_from_recent_files("zzz")
     assert store["recent_files"] == ["a", "b"]
     upd.assert_not_called()
+
+
+def test_import_eb_project_asks_before_pre_changes_imported_values(tmp_path, monkeypatch):
+    """The EB import passes a confirm: Pre changes EPC values only behind the dialog."""
+    from PySide6.QtWidgets import QApplication
+
+    from autosar_configurator.ui.controllers import project_controller
+
+    source, parent = tmp_path / "EbSource", tmp_path / "out"
+    source.mkdir()
+    parent.mkdir()
+    folders = iter([str(source), str(parent)])
+    monkeypatch.setattr(project_controller.QFileDialog, "getExistingDirectory",
+                        lambda *a, **k: next(folders))
+    monkeypatch.setattr(project_controller.QInputDialog, "getItem",
+                        lambda parent, title, label, items, *a: (items[1], True))   # link
+    shown = []
+    monkeypatch.setattr(project_controller.QMessageBox, "information",
+                        lambda *a: shown.append(a[2]))
+    for name in ("setOverrideCursor", "restoreOverrideCursor", "processEvents"):
+        monkeypatch.setattr(QApplication, name, staticmethod(lambda *a: None))
+
+    win = MagicMock()
+    win.workspace_manager.import_eb_project.return_value = (MagicMock(), ["Mcu"], [])
+    win.workspace_manager.last_import_report = tmp_path / "out" / "r_import.md"
+    ctrl = ProjectController(win)
+    with patch.object(ctrl, "apply_project_chip"), \
+            patch.object(ctrl, "selector_mismatches", return_value=[]), \
+            patch.object(ctrl, "_ecu_resource_status", return_value=""), \
+            patch.object(ctrl, "_update_recent_files_menu"):
+        ctrl.import_eb_project()
+
+    kwargs = win.workspace_manager.import_eb_project.call_args.kwargs
+    assert kwargs["mode"] == "link"
+    assert kwargs["confirm"] == ctrl._confirm_import_merge
+    assert "r_import.md" in shown[0]

@@ -3,7 +3,6 @@ with a message; it never yields an empty result that looks like success, and nev
 crashes with NotADirectoryError."""
 import argparse
 import logging
-import shutil
 import sys
 
 import pytest
@@ -11,7 +10,7 @@ import pytest
 from autosar_configurator.core.config_manager import EpcFileScanner
 from autosar_configurator.core.hardware.ecu_resource_diagnostics import collect_referenced_keys_in_dirs
 from autosar_configurator.core.workspace_manager import WorkspaceManager
-from tests.core.test_eb_import_modes import DIO_DEF_SAMPLE, DIO_EPC
+from tests.core.test_eb_import_modes import DIO_EPC, write_dio_plugin
 from tools.arti import build_kernel_matrix
 from tools.chip_repair import main as chip_repair_main
 from tools.diff.analyzer import DiffAnalyzer
@@ -94,9 +93,7 @@ def test_eb_import_falls_back_when_plugin_path_is_a_file(tmp_path):
     src = tmp_path / "EbSource"
     (src / "Define" / "EbPlugins").mkdir(parents=True)
     (src / "Define" / "EbPlugins" / "eclipse").write_text("not a directory", encoding="utf-8")
-    plugin = src / "Def" / "plugins" / "Dio_TS_T40D11M7I0R0"
-    (plugin / "autosar").mkdir(parents=True)
-    shutil.copy(DIO_DEF_SAMPLE, plugin / "autosar" / "Dio_THA6206_LFBGA292.arxml")
+    write_dio_plugin(src / "Def" / "plugins" / "Dio_TS_T40D11M7I0R0")
     output = src / "Config" / "THA6206" / "output"
     output.mkdir(parents=True)
     (output / "Dio.epc").write_text(DIO_EPC, encoding="utf-8")

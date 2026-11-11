@@ -136,11 +136,35 @@ class ProjectController:
         session restore) passes ``confirm=None`` instead of this method, which makes the
         merge reject by itself.
         """
+        return self._ask_merge(
+            preview, "基线已变化",
+            "模块包改变了该模块的基线。\n要把合并结果写入配置吗？\n"
+            "（“保留当前”不改配置，下次打开会再次询问。）")
+
+    def _confirm_import_merge(self, preview: str, result) -> bool:
+        """The same question for an EB import (design §6.10): the plugin's Pre values would
+        change the imported EPC values. Rejecting keeps the EPC values as imported; the
+        next open of the project asks again."""
+        from PySide6.QtWidgets import QApplication
+        # The import runs under a wait cursor; the question must not look busy
+        busy = QApplication.overrideCursor() is not None
+        if busy:
+            QApplication.restoreOverrideCursor()
+        try:
+            return self._ask_merge(
+                preview, "导入：预设值与 EPC 值不同",
+                "插件的预设（Pre）值与导入的 EPC 值不同，或 EPC 中缺少预设容器。\n"
+                "要按预设修改导入的配置吗？\n"
+                "（“保留当前”保留 EPC 值不变，下次打开工程会再次询问。）")
+        finally:
+            if busy:
+                QApplication.setOverrideCursor(Qt.WaitCursor)
+
+    def _ask_merge(self, preview: str, title: str, text: str) -> bool:
         box = QMessageBox(self.win)
-        box.setWindowTitle("基线已变化")
+        box.setWindowTitle(title)
         box.setIcon(QMessageBox.Icon.Question)
-        box.setText("模块包改变了该模块的基线。\n要把合并结果写入配置吗？\n"
-                    "（“保留当前”不改配置，下次打开会再次询问。）")
+        box.setText(text)
         box.setDetailedText(preview)
         confirm_button = box.addButton("应用合并", QMessageBox.ButtonRole.AcceptRole)
         box.addButton("保留当前（拒绝）", QMessageBox.ButtonRole.RejectRole)
@@ -683,7 +707,8 @@ class ProjectController:
                     self.win.workspace_manager.import_eb_project(
                         project_root, chip_name=chip_name,
                         target_dir=target_dir,
-                        progress_callback=lambda msg: self.win.statusbar.showMessage(msg)
+                        progress_callback=lambda msg: self.win.statusbar.showMessage(msg),
+                        confirm=self._confirm_import_merge,
                     )
                 self.win.current_project_file = self.win.current_project.path
 
@@ -702,6 +727,9 @@ class ProjectController:
                     summary += f"\nChip: {chip_name}"
                 if loaded_modules:
                     summary += f"\n\nModules: {', '.join(sorted(loaded_modules))}"
+                report = self.win.workspace_manager.last_import_report
+                if report is not None:
+                    summary += f"\n\n导入报告：{report}"
 
                 QMessageBox.information(self.win, "EB Project Imported", summary)
             
@@ -1189,7 +1217,8 @@ class ProjectController:
                         self.win.statusbar.showMessage(msg),
                         QApplication.processEvents()
                     ),
-                    mode=import_mode
+                    mode=import_mode,
+                    confirm=self._confirm_import_merge,
                 )
 
             self.win.current_project = project
@@ -1254,6 +1283,9 @@ class ProjectController:
                     summary += f"\n  {name}: {error}"
                 if len(failed_modules) > 10:
                     summary += f"\n  ... and {len(failed_modules) - 10} more"
+            report = self.win.workspace_manager.last_import_report
+            if report is not None:
+                summary += f"\n\n导入报告：{report}"
 
             QMessageBox.information(self.win, "EB Project Imported", summary)
             self.win.statusbar.showMessage(

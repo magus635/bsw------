@@ -202,9 +202,11 @@ class WorkspaceProject:
         # EB project import: original source root (kept read-only, separate from save location)
         self.eb_source_root: Optional[Path] = None
 
-        # EB import mode: 'copy' (self-contained, plugins copied into Def/plugins/)
-        # or 'link' (Def/plugins and templates/{Module} are symlinks into the
-        # original EB tree at eb_source_root)
+        # EB import mode: 'copy' (self-contained) or 'link' (depends on the original EB
+        # tree at eb_source_root). Format 8: the plugins are copied into modules/ or the
+        # EB plugins dir is the eb-plugins library itself; no symlinks. Format <= 7
+        # projects: plugins copied into Def/plugins/, or Def/plugins and
+        # templates/{Module} symlinked into the EB tree.
         self.import_mode: str = "copy"
 
         # Per-module provenance: name -> {"origin": "native"|"eb-import",
@@ -1151,6 +1153,9 @@ class WorkspaceManager:
     def __init__(self):
         self.current_project: Optional[WorkspaceProject] = None
         self.def_parser = EcucDefParser()
+        # The report the last import_eb_project wrote (None before one, or when it
+        # could not be written)
+        self.last_import_report: Optional[Path] = None
         
     def create_project(self, name: str, path: Path, format_version: int = 8) -> WorkspaceProject:
         """Create a new empty project (format 8 by default; legacy projects use format 7)"""
@@ -1221,6 +1226,9 @@ class WorkspaceManager:
                 eb_source_root_str = str(eb_root.relative_to(self.current_project.path.parent))
             except ValueError:
                 eb_source_root_str = str(eb_root)
+            if format_version >= 8:
+                # Format 8 stores every path POSIX-style (format 7 is left as it was)
+                eb_source_root_str = eb_source_root_str.replace("\\", "/")
 
         project_dir = self.current_project.path.parent
         config_dir = project_paths.resolve(self.current_project, "config")
@@ -1833,17 +1841,40 @@ class WorkspaceManager:
     def import_eb_project(self, project_root: Path, chip_name: Optional[str] = None,
                           target_dir: Optional[Path] = None,
                           progress_callback=None,
-                          mode: str = "copy") -> tuple:
-        """Batch import an EB Tresos project: auto-discover defines + EPC configs
+                          mode: str = "copy", confirm=None) -> tuple:
+        """Import an EB Tresos project as a format 8 project (design §6.10).
 
-        Import modes:
-        - "copy" (default): the plugin directory tree (including
-          ``resource/*.properties``) and ``generate_PB`` templates are copied
-          into the project, making it fully self-contained.
-        - "link": nothing is copied — ``Def/plugins`` and ``templates/{Module}``
-          are created as symlinks into the original EB tree, so definitions,
-          resources and templates always reflect the source. The project then
-          depends on the EB tree remaining available.
+        The source tree is only read (unless ``target_dir`` is None: the project is then
+        created inside it). Its EB plugins directory
+        (``Define/EbPlugins/eclipse``, else the legacy plugins directory) becomes the
+        project's one ``eb-plugins`` module library:
+
+        - ``"copy"`` (default): each plugin directory is copied into
+          ``modules/<plugin dir>/`` and the library is ``modules`` — a self-contained
+          project.
+        - ``"link"``: nothing is copied; the library is the plugins directory itself,
+          relative to the project root when inside it, absolute otherwise. The project
+          then depends on the EB tree staying where it is.
+
+        Neither mode creates a symlink or copies a template: ``templates/<Module>/`` stays
+        the user's overlay, the plugin's ``generate_PB/`` is the package template dir.
+
+        Every module a plugin provides becomes a ``modules`` entry (``definition``,
+        ``library``, ``config_path``, ``package_record``). The EPC values of a module are
+        written to ``config/<M>.arxml`` and are its Active; the module is a migrated one
+        (no Base, every value USER), so a plugin's Pre (``McuPreConfiguration``) changes
+        an EPC value only when ``confirm(preview, result)`` accepts the merge —
+        ``None`` rejects, and nothing EPC-derived is rewritten. A plugin without EPC
+        values is a new module: Active = Base' (Rec and Pre included, D8). The
+        ``autosar/*.arxml`` exchange copies are never loaded.
+
+        EPC values no plugin provides a definition for are written to ``config/<M>.arxml``
+        too and kept as a module entry that fails to load until a library provides it. A
+        Vector-wrapped MCAL directory that duplicates an EB plugin's definition is put in
+        the library's ``exclude``. All of it — per module counts, unresolved references,
+        Pre applied or rejected, everything left out — goes to
+        ``<history>/reports/<YYYYmmdd-HHMMSS>_import.md`` and through
+        ``progress_callback``. The project is saved at the end.
 
         Args:
             project_root: Root directory of the source EB project
@@ -1852,15 +1883,18 @@ class WorkspaceManager:
                         If None, the project is created inside *project_root*.
             progress_callback: Optional callable(message: str) for progress updates
             mode: "copy" (self-contained) or "link" (reference original tree)
+            confirm: ``(preview_markdown, MergeResult) -> bool`` asked once per module
+                whose Pre values would change the imported values; ``None`` rejects.
 
         Returns:
             tuple: (project, loaded_modules, failed_modules)
             loaded_modules: List of successfully loaded module names
             failed_modules: List of tuples (module_name, error_message)
-        """
-        from datetime import datetime
-        from .config_manager import EpcFileScanner, ProjectType
 
+        Raises:
+            ValueError: unknown mode, or the target directory already holds this
+                project's files (the import never overwrites a project).
+        """
         if mode not in ("copy", "link"):
             raise ValueError(f"Unknown import mode: {mode!r} (expected 'copy' or 'link')")
 
@@ -1868,279 +1902,334 @@ class WorkspaceManager:
             if progress_callback:
                 progress_callback(msg)
 
-
         # Determine where the project will live
-        project_dir = target_dir if target_dir else project_root
+        project_root = Path(project_root)
+        project_dir = Path(target_dir) if target_dir else project_root
         project_name = project_dir.name
-        project = WorkspaceProject(project_name, project_dir / f"{project_name}.dpa")
-        project.project_type = ProjectType.EB_TRESOS
-        project.import_mode = mode
-
-        loaded_modules = []
-        failed_modules = []
+        dpa = project_dir / f"{project_name}.dpa"
 
         # If the user selected a chip (or passed a subfolder), we should append it to project_root
         if chip_name and (project_root / chip_name).exists():
             project_root = project_root / chip_name
 
-        # Step 1: Scan for define files (.xdm and .arxml) in EB plugin structure
-        _progress("Scanning for module definitions...")
-        define_map = {}  # module_name -> def_path
+        previous = self.current_project
+        project = self.create_project(project_name, dpa, format_version=8)
+        try:
+            return self._import_eb_into(project, project_root, chip_name, mode, confirm,
+                                        _progress)
+        except BaseException:
+            self.current_project = previous
+            raise
 
-        # Primary: Define/EbPlugins/eclipse/*/config/*.xdm (or Def/)
-        eb_plugins_dir = project_root / "Define" / "EbPlugins" / "eclipse"
-        if not eb_plugins_dir.is_dir():
-            eb_plugins_dir = project_paths.legacy_plugins_dir(project_root)  # EB source tree
+    def _import_eb_into(self, project: WorkspaceProject, project_root: Path,
+                        chip_name: Optional[str], mode: str, confirm, _progress) -> tuple:
+        """The body of :meth:`import_eb_project` for a freshly created ``project``."""
+        from datetime import datetime
+        from .config_manager import EpcFileScanner, ProjectType
+        from . import eb_import
 
-        if eb_plugins_dir.is_dir():
-            for module_dir in sorted(eb_plugins_dir.iterdir()):
-                if not module_dir.is_dir():
-                    continue
-                # Search config/ for .xdm files (primary define format)
-                config_dir = module_dir / "config"
-                if config_dir.exists():
-                    for def_file in config_dir.glob("*.xdm"):
-                        module_name = def_file.stem
-                        # Skip supplementary config files (not real module definitions)
-                        if module_name.endswith("PreConfiguration") or module_name.endswith("_Pre"):
-                            continue
-                        if module_name not in define_map:
-                            define_map[module_name] = def_file
-                # Also search autosar/ for .arxml define files (chip-specific defines)
-                autosar_dir = module_dir / "autosar"
-                if autosar_dir.exists():
-                    for def_file in autosar_dir.glob("*.arxml"):
-                        # arxml defines often have chip suffix, extract base module name
-                        # e.g., Can_THA6206_LFBGA292.arxml → base "Can"
-                        module_name = def_file.stem
-                        base_name = module_name.split('_')[0] if '_' in module_name else module_name
-                        # Only use arxml as fallback if no xdm for this module (case-insensitive)
-                        existing_keys_lower = {k.lower() for k in define_map}
-                        if base_name.lower() not in existing_keys_lower:
-                            define_map[base_name] = def_file
+        project_dir = project_paths.project_root(project)
+        project.project_type = ProjectType.EB_TRESOS
+        project.import_mode = mode
+        project.selected_chip = chip_name   # before any module: packages select files by chip
+        project.eb_source_root = project_root
+        project.available_chips = EpcFileScanner.detect_available_chips(project_root)
 
-        # Fallback: search more broadly in Define/ or Def/ for both .xdm and .arxml
-        if not define_map:
-            for define_dir_name in ["Define", "Def"]:
-                define_dir = project_root / define_dir_name
-                if define_dir.exists():
-                    for ext in ("*.xdm", "*.arxml"):
-                        for def_file in define_dir.rglob(ext):
-                            module_name = def_file.stem
-                            # Filter out config/rec files
-                            if module_name.endswith("_Config") or module_name.endswith("_rec"):
-                                continue
-                            if module_name not in define_map:
-                                define_map[module_name] = def_file
-                    if define_map:
-                        break
+        report = eb_import.ImportReport(source=project_root.as_posix(),
+                                        project_file=project.path.as_posix(),
+                                        mode=mode, chip=chip_name)
 
-        _progress(f"Found {len(define_map)} module definition(s)")
+        def source_rel(path: Path) -> str:
+            try:
+                return Path(path).relative_to(project_root).as_posix()
+            except ValueError:
+                return Path(path).as_posix()
 
-        # ------------------------------------------------------------------
-        # Step 1.5: Materialize plugins under project_dir/Def/plugins/
-        #   copy mode: copy each plugin directory (self-contained project)
-        #   link mode: one symlink Def/plugins -> source plugins dir; all
-        #              downstream code (def loading, resource scan, template
-        #              lookup) works unchanged through the link
-        # ------------------------------------------------------------------
-        plugins_target = project_paths.resolve(project, "legacy_plugins")
-
-        # Common source root of all plugins (define_map paths sit at
-        # {plugins_root}/{PluginName}/(config|autosar)/File)
-        plugin_roots = {p.parent.parent.parent for p in define_map.values()}
-        plugins_source = plugin_roots.pop() if len(plugin_roots) == 1 else None
-
-        if not define_map:
-            pass  # EPC-only import (stub modules): nothing to copy or link
-        elif mode == "link":
-            _progress("Linking plugin directory...")
-            if plugins_source is None:
-                raise ValueError(
-                    "Link-mode import requires all plugins under one directory; "
-                    f"found several roots for {sorted(define_map)}"
-                )
-            if plugins_target.resolve() != plugins_source.resolve():
-                plugins_target.parent.mkdir(parents=True, exist_ok=True)
-                if plugins_target.is_symlink() or plugins_target.exists():
-                    raise ValueError(
-                        f"Cannot link plugins: {plugins_target} already exists. "
-                        f"Remove it or import in copy mode."
-                    )
-                os.symlink(plugins_source, plugins_target, target_is_directory=True)
-                _progress(f"  Def/plugins -> {plugins_source}")
+        # Step 1: the plugins directory and the module packages in it (read only)
+        _progress("Scanning for module packages...")
+        plugins_dir = eb_import.find_plugins_dir(project_root)
+        if plugins_dir is not None:
+            survey = eb_import.survey_plugins(plugins_dir)
         else:
-            plugins_target.mkdir(parents=True, exist_ok=True)
-            copied_plugins: set[str] = set()
+            survey = eb_import.PluginSurvey()
+            report.notices.append("来源中没有 EB 插件目录（Define/EbPlugins/eclipse 或 "
+                                  f"{project_paths.ProjectDirectories.legacy().legacy_plugins}），"
+                                  "没有模块能加载定义")
+        report.wrapped = survey.wrapped
+        report.skipped = survey.skipped
+        excluded = set(survey.exclude)
+        _progress(f"Found {len(survey.packages)} module plugin(s)")
 
-            _progress("Copying plugin directories...")
-
-            for module_name, def_path in list(define_map.items()):
-                # def_path is typically .../PluginName/config/Module.xdm
-                # or .../PluginName/autosar/Module.arxml
-                plugin_dir = def_path.parent.parent
-                plugin_name = plugin_dir.name
-                target_plugin = plugins_target / plugin_name
-
-                # Copy entire plugin directory (config/, resource/, autosar/,
-                # generate_PB/, etc.) if not already done and source != target
-                if plugin_name not in copied_plugins and plugin_dir.is_dir():
-                    if plugin_dir.resolve() != target_plugin.resolve():
-                        try:
-                            shutil.copytree(plugin_dir, target_plugin, dirs_exist_ok=True)
-                            _progress(f"  Copied {plugin_name}")
-                        except Exception as e:
-                            _progress(f"  Warning: Failed to copy {plugin_name}: {e}")
-                    copied_plugins.add(plugin_name)
-
-            _progress(f"Copied {len(copied_plugins)} plugin directory(ies) to Def/plugins/")
-
-        # Remap define_map entries into Def/plugins/ (works for both modes:
-        # real copies or paths through the symlink)
-        if plugins_source is not None or mode == "copy":
-            for module_name, def_path in list(define_map.items()):
-                plugin_dir = def_path.parent.parent
-                try:
-                    relative = def_path.relative_to(plugin_dir)
-                    new_path = plugins_target / plugin_dir.name / relative
-                    if new_path.exists():
-                        define_map[module_name] = new_path
-                except ValueError:
-                    pass  # keep original path if remapping fails
-
-        # Step 2: Scan for EPC configuration files
+        # Step 2: the EPC values, keyed by the module they configure
         _progress("Scanning for EPC configuration files...")
-        epc_map = EpcFileScanner.find_epc_files(project_root, chip_name)
-        _progress(f"Found {len(epc_map)} EPC configuration file(s)")
+        values: Dict[str, "eb_import.EpcValues"] = {}
+        for epc in sorted(set(EpcFileScanner.find_epc_files(project_root, chip_name).values()),
+                          key=lambda p: p.as_posix()):
+            try:
+                configs = eb_import.module_configs_in(epc)
+            except Exception as exc:  # noqa: BLE001 - one unreadable file is reported, not fatal
+                report.notices.append(f"EPC 文件无法读取，未导入：{source_rel(epc)}（{exc}）")
+                continue
+            if not configs:
+                report.notices.append(f"EPC 文件中没有模块配置，未导入：{source_rel(epc)}")
+            for short_name, definition_ref in configs:
+                module = (definition_ref.rstrip("/").rsplit("/", 1)[-1]
+                          if definition_ref else short_name)
+                if module in values:
+                    report.notices.append(
+                        f"{module} 的值出现了多次：导入 {source_rel(values[module].file)} 中的，"
+                        f"未导入 {source_rel(epc)} 中的 {short_name}")
+                    continue
+                values[module] = eb_import.EpcValues(epc, short_name, definition_ref)
+        _progress(f"Found EPC values for {len(values)} module(s)")
 
-        # Step 2.5: A single value file may bundle several module
-        # configurations — register every contained module, not just the
-        # one matching the filename stem.
-        for epc_path in sorted(set(epc_map.values())):
-            for contained in EpcFileScanner.list_module_names(epc_path):
-                if contained not in epc_map:
-                    epc_map[contained] = epc_path
-                    _progress(f"  Found bundled module '{contained}' in {epc_path.name}")
+        # The import never overwrites a project: no .dpa, value file or baseline of an
+        # earlier one may be in the way (they would be read as this project's own)
+        names = {pkg.manifest.module for pkg in survey.packages} | set(values)
+        config_dir = project_paths.resolve(project, "config")
+        base_dir = project_paths.resolve(project, "base")
+        in_the_way = [p for p in [project.path] if p.exists()]
+        in_the_way += [config_dir / f"{n}.arxml" for n in sorted(names)
+                       if (config_dir / f"{n}.arxml").exists()]
+        if base_dir.is_dir() and any(base_dir.iterdir()):
+            in_the_way.append(base_dir)
+        if in_the_way:
+            raise ValueError(
+                "目标目录中已有工程文件，导入不会覆盖它们：\n  "
+                + "\n  ".join(p.as_posix() for p in in_the_way)
+                + "\n请选择一个空目录，或先删除这些文件。")
 
-        # Step 3: Match defines with EPCs by module name
-        all_modules = set(define_map.keys())
-        epc_only = set(epc_map.keys()) - all_modules
-        
-        # Add epc_only modules to all_modules so we process them as stubs
-        if epc_only:
-            for name in sorted(epc_only):
-                msg = f"EPC found but no matching define: {name}. Will load as stub module."
-                _progress(f"Notice: {msg}")
-                all_modules.add(name)
+        # Step 3: the module library — the plugins dir itself (link) or modules/ (copy).
+        # A wrapped MCAL directory is excluded from the plugins dir (link); copy mode does
+        # not copy it, so nothing in modules/ needs excluding.
+        if plugins_dir is not None:
+            if mode == "link":
+                library_path = self._to_posix_path(plugins_dir.resolve(), project_dir.resolve())
+                library_exclude = sorted(excluded)
+            else:
+                modules_dir = project_paths.resolve(project, "modules")
+                modules_dir.mkdir(parents=True, exist_ok=True)
+                _progress("Copying plugin directories...")
+                copied = 0
+                for pkg in survey.packages:
+                    if pkg.root.name in excluded:
+                        continue
+                    target = modules_dir / pkg.root.name
+                    if pkg.root.resolve() == target.resolve():
+                        continue
+                    try:
+                        # symlinks=False: a linked file in the plugin is copied as a file
+                        shutil.copytree(pkg.root, target, dirs_exist_ok=True)
+                        copied += 1
+                        _progress(f"  Copied {pkg.root.name}")
+                    except (OSError, shutil.Error) as exc:
+                        report.notices.append(f"插件目录复制失败：{pkg.root.name}（{exc}）")
+                _progress(f"Copied {copied} plugin directory(ies) to "
+                          f"{project_paths.dirs(project).modules}/")
+                library_path = project_paths.dirs(project).modules
+                library_exclude = []
+            project.module_libraries = [LibraryRef(path=library_path, kind="eb-plugins",
+                                                   exclude=library_exclude)]
+            report.library = library_path
+            report.exclude = library_exclude
 
-        # Step 4: Load each module
-        total = len(all_modules)
-        for idx, module_name in enumerate(sorted(all_modules), 1):
-            def_path = define_map.get(module_name)
-            epc_path = epc_map.get(module_name)
+        # Step 4: every module the library provides
+        libraries = scan_libraries(project)
+        modules: Dict[str, str] = {}             # definition -> module name
+        for _, packages in libraries:
+            for pkg in packages:
+                modules.setdefault(pkg.manifest.definition, pkg.manifest.module)
+        ordered = sorted(modules.items(), key=lambda item: (item[1], item[0]))
 
-            status = f"({idx}/{total}) Loading {module_name}..."
-            if epc_path:
-                status += f" + EPC"
-            _progress(status)
+        loaded_modules: List[str] = []
+        failed_modules: List[Tuple[str, str]] = []
+        records: Dict[str, "eb_import.ModuleImport"] = {}
+        taken: Dict[str, str] = {}               # module name -> definition that took it
+        imported_at = datetime.now().isoformat()
+
+        def write_values(name: str, epc: "eb_import.EpcValues") -> str:
+            """Put the EPC file in place as ``config/<name>.arxml``; its project-relative path."""
+            config_path = project_paths.config_file(project, name)
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(epc.file, config_path)
+            return self._to_posix_path(config_path, project_dir)
+
+        def keep_failed_entry(name: str, definition: str, index: int, config_rel: str,
+                              pkg=None) -> None:
+            """A module with values that did not load keeps its entry, so its values (in
+            ``config_rel``) are neither lost nor written over; the next open retries it."""
+            project.module_managers.pop(name, None)
+            project.module_defs.pop(name, None)
+            project.packages.pop(name, None)
+            project.baselines.pop(name, None)
+            project.module_entries[name] = ModuleEntry(
+                name=name, definition=definition, library=index, config_path=config_rel,
+                package_record=eb_import.package_record(pkg) if pkg is not None else {})
+
+        for position, (definition, module) in enumerate(ordered, 1):
+            epc = values.get(module)
+            _progress(f"({position}/{len(ordered)}) Loading {module}..." + (" + EPC" if epc else ""))
+            record = eb_import.ModuleImport(name=module, definition=definition)
+            report.modules.append(record)
+
+            if module in taken:
+                record.error = f"模块名 {module} 已由定义 {taken[module]} 使用，未导入 {definition}"
+                failed_modules.append((module, record.error))
+                continue
+            taken[module] = definition
+            values.pop(module, None)
+            records[module] = record
+
+            config_rel = None
+            if epc is not None:
+                record.source_epc = source_rel(epc.file)
+                config_rel = write_values(module, epc)
 
             try:
-                actual_name = module_name
-                if def_path:
-                    # Parse definition (selector enumerations include the project's own chips)
-                    self.def_parser.set_selector_values(_chip_selector_values(project))
-                    module_def = self.def_parser.parse_module_def_file(def_path)
-                    actual_name = module_def.short_name
-    
-                    # Check if module already loaded (e.g., EcuC.xdm and Ecuc.arxml both define "EcuC")
-                    if actual_name in project.module_managers:
-                        _progress(f"  Skipped {module_name}: module '{actual_name}' already loaded")
-                        continue
-    
-                    # Add to project
-                    manager = project.add_module(module_def, def_path)
-                else:
-                    # Stub load: Create a surrogate module definition
-                    from .model.definition_model import EcucModuleDef
-                    module_def = EcucModuleDef(
-                        short_name=module_name, 
-                        definition_ref=f"/__STUB__/AUTOSAR/EcucDefs/{module_name}"
-                    )
-                    
-                    if actual_name in project.module_managers:
-                        _progress(f"  Skipped {module_name}: module '{actual_name}' already loaded")
-                        continue
-                        
-                    # Create manager with def_missing=True
-                    manager = project.add_module(module_def, Path(f"stub_{module_name}.xdm"), def_missing=True)
+                index, pkg = find_package(libraries, definition)
+            except PackageError as exc:      # two plugins provide it: the user must exclude one
+                record.error = str(exc)
+                failed_modules.append((module, f"Failed to load: {exc}"))
+                if config_rel is not None:
+                    keep_failed_entry(module, definition, 0, config_rel)
+                continue
+            record.plugin = pkg.root.name
+            record.exchange_copies = list(pkg.manifest.exchange_copies)
 
-                # Load EPC configuration if available
-                # Also try matching by parsed short_name if filename didn't match
-                actual_epc = epc_path
-                if not actual_epc and actual_name != module_name:
-                    actual_epc = epc_map.get(actual_name)
-                if actual_epc:
-                    manager.load_configuration(actual_epc, skip_cleanup=not bool(def_path))
+            try:
+                # A new entry; the value file just written is Active. The merge below is
+                # the import's own — reconcile=False keeps it from running twice.
+                manager = project.add_module_from_package(pkg, index, persist=False,
+                                                          reconcile=False)
+            except Exception as exc:  # noqa: BLE001 - one module must not abort the import
+                record.error = str(exc)
+                failed_modules.append((module, f"Failed to load: {exc}"))
+                if config_rel is not None:
+                    keep_failed_entry(module, definition, index, config_rel, pkg)
+                continue
+            name = manager.module_def.short_name
+            entry = project.module_entries[name]
+            entry.package_record = eb_import.package_record(pkg)
+            project.module_provenance[name] = {
+                "origin": "eb-import",
+                "source_epc": record.source_epc,
+                "imported_at": imported_at,
+            }
 
-                # Record provenance (source_epc relative to the EB source root)
-                source_epc_str = None
-                if actual_epc:
-                    try:
-                        source_epc_str = Path(actual_epc).relative_to(project_root).as_posix()
-                    except ValueError:
-                        source_epc_str = Path(actual_epc).as_posix()
-                project.module_provenance[actual_name] = {
-                    "origin": "eb-import",
-                    "source_epc": source_epc_str,
-                    "imported_at": datetime.now().isoformat(),
-                }
+            if epc is None:
+                baseline = project.baselines.get(name)
+                if baseline is not None and baseline.pre_keys:
+                    record.pre = f"无 EPC 值，按新模块用基线初始化，Pre 键 {len(baseline.pre_keys)} 个已写入"
+                elif baseline is not None:
+                    record.pre = "无 EPC 值，按新模块用基线（Rec）初始化"
+                loaded_modules.append(name)
+                continue
 
-                loaded_modules.append(actual_name)
-            except Exception as e:
-                error_str = str(e)
-                # Non-module definition files (e.g., McuPreConfiguration) - just skip
-                if "No ECUC-MODULE-DEF found" in error_str:
-                    _progress(f"  Skipped {module_name}: not a module definition ({def_path.name})")
-                    continue
-                error_msg = f"Failed to load: {error_str}"
-                failed_modules.append((module_name, error_msg))
+            # A migrated module: no Base (entry.base_hash is None), every EPC value USER,
+            # only Pre may change them — and only when the user accepts the preview.
+            record.counts = eb_import.count_values(manager.configuration)
+            answers: List[bool] = []
 
+            def ask(preview, result, _answers=answers):
+                answer = bool(confirm(preview, result)) if confirm is not None else False
+                _answers.append(answer)
+                return answer
+
+            try:
+                result = project.reconcile_baseline(manager, entry, pkg, ask)
+            except Exception as exc:  # noqa: BLE001 - as on load: the module fails, its values stay
+                record.error = f"基线合并失败：{exc}"
+                failed_modules.append((name, f"Baseline merge failed: {exc}"))
+                keep_failed_entry(name, definition, index, config_rel, pkg)
+                continue
+            record.pre, record.conflicts = self._import_pre_summary(
+                result, bool(answers and answers[-1]), confirm is not None,
+                project.baselines.get(name))
+            loaded_modules.append(name)
+
+        # EPC values no plugin provides a definition for: kept, reported, failing
+        for module in sorted(values):
+            epc = values[module]
+            config_rel = write_values(module, epc)
+            reason = (f"没有插件提供定义 {epc.definition_ref or '（EPC 未写明定义）'}；"
+                      f"EPC 值已保存到 {config_rel}，插件库提供该定义后重新打开工程即可加载")
+            project.module_entries[module] = ModuleEntry(
+                name=module, definition=epc.definition_ref or "", library=0,
+                config_path=config_rel)
+            report.epc_only.append(eb_import.ModuleImport(
+                name=module, definition=epc.definition_ref or "",
+                source_epc=source_rel(epc.file), error=reason))
+            failed_modules.append((module, reason))
 
         _progress(f"Import complete: {len(loaded_modules)} loaded, {len(failed_modules)} failed")
 
         # Step 5: Resolve cross-module references
         if loaded_modules:
             try:
-                resolved_count, error_count = project.resolve_all_references()
-                reverse_count = project.build_reverse_reference_index()
+                project.resolve_all_references()
+                project.build_reverse_reference_index()
             except Exception as e:
                 import logging
                 logging.getLogger(__name__).warning(
                     f"Reference resolution failed during EB import: {e}", exc_info=True
                 )
-        # Link mode: templates/{Module} -> plugin generate_PB symlinks
-        # (copy mode copies them at save time via _copy_eb_templates)
-        if mode == "link":
-            templates_dir = project_paths.resolve(project, "templates")
-            templates_dir.mkdir(parents=True, exist_ok=True)
-            linked = 0
-            for name, def_path in project.module_defs.items():
-                generate_pb = def_path.parent.parent / "generate_PB"
-                link_path = templates_dir / name
-                if generate_pb.is_dir() and not (link_path.is_symlink() or link_path.exists()):
-                    os.symlink(generate_pb.resolve(), link_path, target_is_directory=True)
-                    linked += 1
-            _progress(f"Linked {linked} template directory(ies) into templates/")
+        for name, record in records.items():
+            manager = project.module_managers.get(name)
+            if manager is not None:
+                record.unresolved = [f"`{err.path}`：{err.message}"
+                                     for err in manager.configuration.get_resolution_errors()]
 
-        # Store chip info and EB source root
-        chips = EpcFileScanner.detect_available_chips(project_root)
-        project.available_chips = chips
-        project.selected_chip = chip_name
-        project.eb_source_root = project_root
-
-        # Step 6: Load ECU resources from .properties files (now in Def/plugins/)
-        ecu_res = project.load_ecu_resources()
-
+        # Step 6: ECU resources (.properties of the project and of the packages)
+        project.load_ecu_resources()
 
         self.current_project = project
+
+        # Step 7: the report, then the project file
+        import logging
+        log = logging.getLogger(__name__)
+        self.last_import_report = None
+        try:
+            self.last_import_report = eb_import.write_report(project, report)
+        except OSError as exc:
+            log.warning("导入报告写入失败：%s", exc)
+            _progress(f"导入报告写入失败：{exc}")
+        for line in report.summary_lines():
+            log.info("EB import: %s", line)
+            _progress(line)
+        if self.last_import_report is not None:
+            _progress(f"导入报告：{self.last_import_report.as_posix()}")
+
+        self.save_project()
         return project, loaded_modules, failed_modules
+
+    @staticmethod
+    def _import_pre_summary(result, accepted: bool, asked: bool, baseline):
+        """``(one-line Pre summary, conflict lines)`` of an imported module's merge.
+
+        Args:
+            result: The merge result, or ``None`` when no merge ran (no Pre or Rec).
+            accepted: Whether the user accepted the preview.
+            asked: Whether the import had a ``confirm`` to ask.
+            baseline: The module's baseline after the merge, if it has one.
+        """
+        from .baseline.merge import MergeKind
+
+        if result is None:
+            return "", []
+        forced = result.of_kind(MergeKind.PRE_FORCED)
+        created = result.of_kind(MergeKind.CREATE)
+        kept = result.of_kind(MergeKind.KEPT_USER)
+        conflicts = [f"`{i.key}`：EPC 值 {i.active_value} → 预设值 {i.new_value}" for i in forced]
+        pre_keys = len(baseline.pre_keys) if baseline is not None else 0
+        if not result.has_changes:
+            summary = "EPC 值与预设一致，无需改动" if pre_keys else "无预设改动"
+        elif accepted:
+            summary = (f"已应用：预设强制 {len(forced)} 项，创建 {len(created)} 项"
+                       f"（Pre 键 {pre_keys} 个）")
+        else:
+            why = "用户拒绝" if asked else "导入时未提供确认"
+            summary = (f"未应用（{why}）：预设强制 {len(forced)} 项，创建 {len(created)} 项；"
+                       "EPC 值保持不变，下次打开工程会再次询问")
+        if kept:
+            summary += f"；保留导入值 {len(kept)} 项（基线另有值）"
+        return summary, conflicts

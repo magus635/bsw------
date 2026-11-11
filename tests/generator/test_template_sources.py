@@ -5,7 +5,6 @@ module package's own template directory is the fallback.  Saving must not copy
 the package into the overlay anymore.
 """
 import json
-import shutil
 from pathlib import Path
 
 import pytest
@@ -15,9 +14,7 @@ from autosar_configurator.core.packages.package import ModulePackage
 from autosar_configurator.core.packages.types import ModuleManifest
 from autosar_configurator.core.workspace_manager import WorkspaceManager
 from autosar_configurator.generator.generator import CodeGenerator
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-DIO_DEF_SAMPLE = REPO_ROOT / "Dio_Definition_Test.arxml"
+from tests.core.test_eb_import_modes import write_dio_plugin
 
 DIO_EPC = """<?xml version="1.0" encoding="UTF-8"?>
 <AUTOSAR xmlns="http://autosar.org/schema/r4.0">
@@ -228,11 +225,7 @@ def _import_eb_project(eb_source_tree, tmp_path, mode, format_version):
 @pytest.fixture
 def eb_source_tree(tmp_path):
     src_root = tmp_path / "EbSource"
-    plugin = src_root / "Define" / "EbPlugins" / "eclipse" / "Dio_TS_T40D11M7I0R0"
-    (plugin / "autosar").mkdir(parents=True)
-    shutil.copy(DIO_DEF_SAMPLE, plugin / "autosar" / "Dio_THA6206_LFBGA292.arxml")
-    (plugin / "generate_PB" / "Dio").mkdir(parents=True)
-    (plugin / "generate_PB" / "Dio" / "Dio_Cfg.h.tpl").write_text("/* tpl */", encoding="utf-8")
+    write_dio_plugin(src_root / "Define" / "EbPlugins" / "eclipse" / "Dio_TS_T40D11M7I0R0")
 
     output = src_root / "Config" / "THA6206" / "output"
     output.mkdir(parents=True)
@@ -266,10 +259,9 @@ def test_v7_save_still_copies_templates(eb_source_tree, tmp_path):
 def test_v8_import_then_save_does_not_copy_templates(eb_source_tree, tmp_path):
     """M5: the real save path — a v8 project LOADED from disk, saved, copies nothing.
 
-    ``import_eb_project`` still writes format 7 (it has no packages), so the v8
-    project is loaded the way the UI loads one: from its ``.dpa``.  Dio fails to
-    load (no library provides its definition) but its template overlay is still the
-    user's, and the save must leave it alone.
+    The imported project is loaded the way the UI loads one: from its ``.dpa``, Dio
+    through the ``modules`` library.  Its template overlay is the user's, and the
+    save must leave it alone.
     """
     manager, project, target = _import_eb_project(eb_source_tree, tmp_path, "copy", 8)
     overlay = _write(target / "templates" / "Dio" / "Dio_Cfg.h", "/* user edit */\n")
