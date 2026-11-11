@@ -125,7 +125,8 @@ class CodeGenerator:
         If selected_chip is set, only load the matching chip's .properties file.
         """
         ecu_resources = {}
-        if not self.project_template_dir and not self.package_template_dir:
+        if not (self.project_template_dir or self.package_template_dir
+                or self.user_template_dir):
             # No templates: nothing to render, so nothing to scan for
             return ecu_resources
         project_root = getattr(self, "project_root", None)
@@ -170,10 +171,13 @@ class CodeGenerator:
                 else:
                     props_files.extend(all_props)
 
-            # also check templates for any embedded properties (a source without
-            # a template dir only skips itself; a package-only project still scans)
-            for template_root in (self.project_template_dir, self.package_template_dir,
-                                  self.user_template_dir):
+            # Also check the template sources for embedded properties. One precedence
+            # with the templates: the project overlay is scanned LAST so that its
+            # values override the package's and the user's (later files override
+            # earlier ones below). A source without a directory only skips itself, so
+            # a package-only project still scans.
+            for template_root in (self.package_template_dir, self.user_template_dir,
+                                  self.project_template_dir):
                 if template_root and Path(template_root).is_dir():
                     props_files.extend(list(Path(template_root).glob("**/*.properties")))
         except Exception as e:
@@ -200,11 +204,11 @@ class CodeGenerator:
     def _guess_project_root(self) -> Path:
         """Legacy project root detection, used only when no project_root was given.
 
-        Search upwards from project_template_dir (or, without one, from
-        package_template_dir) until we find a directory containing 'Def' or
+        Search upwards from project_template_dir (else package_template_dir, else
+        user_template_dir) until we find a directory containing 'Def' or
         'Define', or we hit the filesystem root.
         """
-        start = self.project_template_dir or self.package_template_dir
+        start = self.project_template_dir or self.package_template_dir or self.user_template_dir
         if not start:
             return Path.cwd()
         project_root = None

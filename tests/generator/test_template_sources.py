@@ -113,8 +113,28 @@ def test_package_only_module_still_scans_ecu_resources(tmp_path):
     generator = CodeGenerator(_module_def(), _config(),
                               package_template_dir=package_dir,
                               project_root=project_root)
+    # ChipName comes from Def (scanned first); DioBase exists ONLY in the package
+    # properties, so it proves the package source was not skipped.
     assert generator.ecu_resources["ChipName"] == "THA6206"
+    assert str(generator.ecu_resources["DioBase"]) == "7"
     assert generator.generate_all(tmp_path / "out") is True
+
+
+def test_overlay_properties_win_over_package(tmp_path):
+    """One precedence with the templates: the overlay's .properties value wins"""
+    overlay_root = tmp_path / "templates"
+    _write(overlay_root / "Dio" / "Dio_Cfg.h", "/* overlay */\n")
+    _write(overlay_root / "Dio" / "overlay.properties", "ChipName=FROM_OVERLAY\n")
+    package_dir = tmp_path / "pkg" / "generate_PB"
+    _write(package_dir / "Dio" / "Dio_Cfg.h", "/* package */\n")
+    _write(package_dir / "package.properties", "ChipName=FROM_PACKAGE\nDioBase=7\n")
+
+    generator = CodeGenerator(_module_def(), _config(),
+                              project_template_dir=overlay_root,
+                              package_template_dir=package_dir)
+    assert generator.ecu_resources["ChipName"] == "FROM_OVERLAY"
+    # The package file is still read for keys the overlay does not define
+    assert str(generator.ecu_resources["DioBase"]) == "7"
 
 
 def test_package_dir_is_not_an_overlay_root(tmp_path):
