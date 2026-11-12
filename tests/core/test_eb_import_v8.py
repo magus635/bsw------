@@ -535,6 +535,82 @@ def test_relocated_project_makes_an_outside_library_absolute(dio_tree, tmp_path)
     assert failed == [] and "Dio" in loaded_project.module_managers
 
 
+# --- round 2: free sibling names, ambiguous bindings ----------------------------------------
+
+def test_import_never_merges_into_an_existing_sibling(dio_tree):
+    taken = dio_tree.parent / "EbDio_imported"
+    (taken / "modules" / "Stale").mkdir(parents=True)
+    (taken / "modules" / "Stale" / "plugin.xml").write_text("<plugin/>", encoding="utf-8")
+    (taken / "other.dpa").write_text("{}", encoding="utf-8")
+    before = _tree(taken)
+    lines = []
+
+    project, loaded, failed = WorkspaceManager().import_eb_project(
+        dio_tree, target_dir=None, mode="copy", progress_callback=lines.append)
+
+    second = dio_tree.parent / "EbDio_imported_2"
+    assert loaded == ["Dio"], failed
+    assert project.path == second / "EbDio_imported_2.dpa"
+    assert _tree(taken) == before                              # the existing folder is untouched
+    assert sorted(p.name for p in (second / "modules").iterdir()) == ["Dio_TS_T40D11M7I0R0"]
+    assert list(second.glob("*.dpa")) == [project.path]
+    # The chosen place is said, in the report and through the progress callback
+    (report,) = sorted((second / ".history" / "reports").glob("*_import.md"))
+    assert second.as_posix() in report.read_text(encoding="utf-8")
+    assert any(second.as_posix() in line for line in lines)
+
+
+def test_free_sibling_names_count_up(tmp_path):
+    from autosar_configurator.core.eb_import import import_project_dir
+
+    root = tmp_path / "Eb"
+    root.mkdir()
+    assert import_project_dir(root, None) == tmp_path / "Eb_imported"
+    (tmp_path / "Eb_imported").mkdir()                         # empty: still free
+    assert import_project_dir(root, None) == tmp_path / "Eb_imported"
+    (tmp_path / "Eb_imported" / "x.txt").write_text("x", encoding="utf-8")
+    (tmp_path / "Eb_imported_2").write_text("a file", encoding="utf-8")
+    assert import_project_dir(root, None) == tmp_path / "Eb_imported_3"
+    assert import_project_dir(root, root) == tmp_path / "Eb_imported_3"
+
+
+def test_explicit_target_with_files_is_refused(dio_tree, tmp_path):
+    target = tmp_path / "Chosen"
+    (target / "notes").mkdir(parents=True)
+    (target / "notes" / "readme.txt").write_text("mine", encoding="utf-8")
+    before = _tree(target)
+
+    with pytest.raises(ValueError, match="导入不会覆盖"):
+        WorkspaceManager().import_eb_project(dio_tree, target_dir=target, mode="copy")
+    assert _tree(target) == before
+
+
+@pytest.mark.parametrize("epc_ref", ["none", "standard"])
+def test_an_epc_two_plugins_could_take_is_not_bound(dio_tree, tmp_path, epc_ref):
+    plugins = dio_tree / "Define" / "EbPlugins" / "eclipse"
+    write_dio_plugin(plugins / "Dio_Vendor", package="Vendor")       # /Vendor/Dio and /THA6.../Dio
+    epc = dio_tree / "Config" / "THA6206" / "output" / "Dio.epc"
+    text = DIO_EPC.replace(">/THA6_AS440_FuSa/Dio<", ">/AUTOSAR/EcucDefs/Dio<")
+    if epc_ref == "none":
+        text = text.replace(
+            '<DEFINITION-REF DEST="ECUC-MODULE-DEF">/AUTOSAR/EcucDefs/Dio</DEFINITION-REF>', "")
+    epc.write_text(text, encoding="utf-8")
+
+    manager, project, loaded, failed, target = _import(dio_tree, tmp_path, "link")
+
+    assert loaded == []
+    assert "Dio" not in project.module_managers
+    reasons = [reason for name, reason in failed if name == "Dio"]
+    assert len(reasons) == 1
+    assert "/THA6_AS440_FuSa/Dio" in reasons[0] and "/Vendor/Dio" in reasons[0]
+    # The values are kept for the user to resolve, not given to either plugin
+    assert project.module_entries["Dio"].config_path == "config/Dio.arxml"
+    assert "DioConfig" in (target / "config" / "Dio.arxml").read_text(encoding="utf-8")
+    (report,) = sorted((target / ".history" / "reports").glob("*_import.md"))
+    text = report.read_text(encoding="utf-8")
+    assert "Dio_Vendor" in text and "Dio_TS_T40D11M7I0R0" in text
+
+
 # --- old projects ---------------------------------------------------------------------
 
 def test_old_v7_imported_project_still_opens(tmp_path):

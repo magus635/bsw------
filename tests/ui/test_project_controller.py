@@ -127,6 +127,15 @@ def test_import_eb_project_never_targets_the_eb_tree(tmp_path, monkeypatch):
     assert warnings and "EB" in warnings[0]
 
 
+def test_import_eb_project_refuses_an_existing_project_as_source(tmp_path, monkeypatch):
+    (tmp_path / "EbSource").mkdir()
+    (tmp_path / "EbSource" / "EbSource.dpa").write_text("{}", encoding="utf-8")
+    source, win, warnings = _run_import(tmp_path, monkeypatch, tmp_path)
+    win.workspace_manager.import_eb_project.assert_not_called()
+    assert warnings and "EbSource.dpa" in warnings[0]
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["EbSource"]
+
+
 def test_import_eb_project_next_to_the_eb_tree_gets_a_sibling(tmp_path, monkeypatch):
     source, win, warnings = _run_import(tmp_path, monkeypatch, tmp_path)
     assert warnings == []
@@ -146,8 +155,88 @@ def test_save_as_relocates_a_project_living_in_the_eb_tree(tmp_path, monkeypatch
                         lambda *a, **k: str(tmp_path / "Out"))
     win = MagicMock()
     win.current_project = project
-    ProjectController(win).save_project()
+    ctrl = ProjectController(win)
+    with patch.object(ctrl, "_update_recent_files_menu"):
+        ctrl.save_project()
 
     win.workspace_manager.relocate_project.assert_called_once_with(tmp_path / "Out" / "P.dpa")
     win.workspace_manager.save_project.assert_called_once()
     assert win.current_project_file == tmp_path / "Out" / "P.dpa"
+
+
+def test_save_as_points_recent_files_and_last_project_at_the_new_dpa(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from autosar_configurator.ui.controllers import project_controller
+
+    eb_root = tmp_path / "Eb"
+    old, new = eb_root / "P.dpa", tmp_path / "Out" / "P.dpa"
+    project = SimpleNamespace(eb_source_root=eb_root, path=old, name="P", module_managers={})
+    monkeypatch.setattr(project_controller.QFileDialog, "getExistingDirectory",
+                        lambda *a, **k: str(tmp_path / "Out"))
+    ctrl, win, store = _controller_with_recent([str(old), "other.dpa"])
+    store["last_project_path"] = str(old)
+    win.current_project = project
+    with patch.object(ctrl, "_update_recent_files_menu"):
+        ctrl.save_project()
+
+    assert store["recent_files"] == [str(new), "other.dpa"]
+    assert store["last_project_path"] == str(new)
+
+
+def test_save_as_that_fails_leaves_recent_files_alone(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from autosar_configurator.ui.controllers import project_controller
+
+    eb_root = tmp_path / "Eb"
+    old = eb_root / "P.dpa"
+    project = SimpleNamespace(eb_source_root=eb_root, path=old, name="P", module_managers={})
+    monkeypatch.setattr(project_controller.QFileDialog, "getExistingDirectory",
+                        lambda *a, **k: str(tmp_path / "Out"))
+    monkeypatch.setattr(project_controller.QMessageBox, "critical", lambda *a: None)
+    ctrl, win, store = _controller_with_recent([str(old)])
+    store["last_project_path"] = str(old)
+    win.current_project = project
+    win.workspace_manager.relocate_project.side_effect = OSError("disk full")
+    with patch.object(ctrl, "_update_recent_files_menu"):
+        ctrl.save_project()
+
+    assert store["recent_files"] == [str(old)]
+    assert store["last_project_path"] == str(old)
+
+
+def test_open_folder_of_an_imported_project_opens_it(tmp_path, monkeypatch):
+    """N1: a folder holding a .dpa is a project, even one typed EB Tresos — never re-imported."""
+    import json
+
+    from autosar_configurator.core.workspace_manager import WorkspaceManager
+    from autosar_configurator.ui.controllers import project_controller
+    from tests.core.test_eb_import_modes import DIO_EPC, write_dio_plugin
+
+    src = tmp_path / "EbSource"
+    write_dio_plugin(src / "Define" / "EbPlugins" / "eclipse" / "Dio_TS")
+    (src / "Config" / "C1" / "output").mkdir(parents=True)
+    (src / "Config" / "C1" / "output" / "Dio.epc").write_text(DIO_EPC, encoding="utf-8")
+    project, _, _ = WorkspaceManager().import_eb_project(src, target_dir=tmp_path / "Imported")
+    folder = project.path.parent
+    assert json.loads(project.path.read_text(encoding="utf-8"))["project_type"] == "EB Tresos"
+
+    monkeypatch.setattr(project_controller.QMessageBox, "information", lambda *a: None)
+    monkeypatch.setattr(project_controller.QMessageBox, "warning", lambda *a: None)
+    monkeypatch.setattr(project_controller.QMessageBox, "critical",
+                        lambda *a: (_ for _ in ()).throw(AssertionError(a[2])))
+    monkeypatch.setattr(project_controller.QFileDialog, "getExistingDirectory",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("asked for a target")))
+    win = MagicMock()
+    win.workspace_manager = WorkspaceManager()
+    ctrl = ProjectController(win)
+    with patch.object(ctrl, "apply_project_chip"), \
+            patch.object(ctrl, "_ecu_resource_status", return_value=""), \
+            patch.object(ctrl, "_selector_status", return_value=""), \
+            patch.object(ctrl, "_update_recent_files_menu"):
+        ctrl._load_project_at_path(folder)
+
+    assert win.current_project_file == project.path
+    assert "Dio" in win.current_project.module_managers
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["EbSource", "Imported"]

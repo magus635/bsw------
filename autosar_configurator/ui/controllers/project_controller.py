@@ -160,6 +160,20 @@ class ProjectController:
             if busy:
                 QApplication.setOverrideCursor(Qt.WaitCursor)
 
+    @staticmethod
+    def _project_file_in(folder: Path):
+        """The project file (``.dpa``) at the top level of ``folder``, or None.
+
+        The one named after the folder wins (the import writes ``<dir>/<dir>.dpa``),
+        otherwise the first by name — a stable choice when there are several."""
+        try:
+            found = sorted((p for p in Path(folder).glob("*.dpa") if p.is_file()),
+                           key=lambda p: p.name)
+        except OSError:
+            return None
+        named = [p for p in found if p.stem == Path(folder).name]
+        return (named or found or [None])[0]
+
     def _import_target_dir(self, project_root: Path, chosen: Path):
         """The project directory for the destination folder the user chose, or None (with a
         warning) when it is the EB tree or inside it: the import only reads the EB tree.
@@ -651,6 +665,11 @@ class ProjectController:
         else:
             project_root = path
             file_path = None
+            # A folder holding a .dpa is a project — an imported EB project too (its .dpa
+            # says "EB Tresos") — and is opened, never imported again
+            dpa = self._project_file_in(path)
+            if dpa is not None:
+                file_path = str(dpa)
             
         # Detect project type
         project_type = ProjectTypeDetector.detect(project_root)
@@ -833,6 +852,7 @@ class ProjectController:
         try:
             # For EB-imported projects: first save needs a separate working directory
             # The original EB project directory should remain untouched
+            moved_from = None
             if self.win.current_project.eb_source_root:
                 project_dir = self.win.current_project.path.parent
                 eb_root = self.win.current_project.eb_source_root
@@ -859,8 +879,10 @@ class ProjectController:
 
                     # Move the project to the new location; a format 8 project takes its
                     # module library, baseline and unloaded values along
+                    old_dpa_path = self.win.current_project.path
                     self.win.workspace_manager.relocate_project(new_dpa_path)
                     self.win.current_project_file = new_dpa_path
+                    moved_from = old_dpa_path
 
                     # Update window title
                     self.win._update_window_title()
@@ -874,6 +896,14 @@ class ProjectController:
             # Save project metadata file (.dpa) and all module configurations
             # workspace_manager.save_project() handles saving to ConfigValue/ directory
             self.win.workspace_manager.save_project()
+
+            if moved_from is not None:
+                # The project now lives at the new .dpa: the recent list and the
+                # auto-open entry must not lead back to the old one
+                new_path = str(self.win.current_project_file)
+                self._remove_from_recent_files(str(moved_from))
+                self._add_to_recent_files(new_path)
+                self.win.settings.setValue("last_project_path", new_path)
 
             # Show result
             if modified_count > 0:
@@ -1172,6 +1202,17 @@ class ProjectController:
             return
 
         project_root = Path(project_root)
+
+        # A folder with a .dpa is a project of this tool (an earlier import), not an EB
+        # tree: importing it would only produce an empty project
+        existing = self._project_file_in(project_root)
+        if existing is not None:
+            QMessageBox.warning(
+                self.win, "这是已有工程",
+                f"所选目录中已有工程文件：\n{existing}\n\n"
+                "它不是 EB Tresos 工程，不能导入。请用“打开工程”打开它，"
+                "或选择 EB 工程的根目录。")
+            return
 
         # Detect available chips
         chips = EpcFileScanner.detect_available_chips(project_root)

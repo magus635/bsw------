@@ -33,7 +33,8 @@ from .packages.package import ModulePackage, module_def_paths
 __all__ = [
     "EB_PLUGIN_MARKER", "IMPORTED_SUFFIX", "SkippedDir", "WrappedMcal", "PluginSurvey",
     "EpcValues", "ModuleImport", "ImportReport",
-    "import_project_dir", "import_target", "find_plugins_dir", "survey_plugins",
+    "import_project_dir", "import_target", "free_sibling", "check_target_is_free",
+    "find_plugins_dir", "survey_plugins",
     "module_configs_in",
     "epc_names_definition", "count_values", "package_record", "report_path", "write_report",
 ]
@@ -74,21 +75,66 @@ def _inside_message(target: Path, project_root: Path) -> str:
             f"{Path(project_root).as_posix()} 之内。请选择 EB 工程目录之外的文件夹。")
 
 
+def _is_free(directory: Path) -> bool:
+    """Nothing there yet, or an empty directory: a project can be created in it."""
+    if not directory.exists():
+        return True
+    try:
+        return directory.is_dir() and not any(directory.iterdir())
+    except OSError:
+        return False
+
+
+def free_sibling(project_root: Path) -> Path:
+    """The first of ``<root>_imported``, ``<root>_imported_2``, … that is free
+    (missing, or an empty directory) — an existing folder is never merged into."""
+    project_root = Path(project_root)
+    base = f"{project_root.name}{IMPORTED_SUFFIX}"
+    candidate, counter = project_root.parent / base, 2
+    while not _is_free(candidate):
+        candidate = project_root.parent / f"{base}_{counter}"
+        counter += 1
+    return candidate
+
+
 def import_project_dir(project_root: Path, target_dir: Optional[Path]) -> Path:
     """The directory :meth:`WorkspaceManager.import_eb_project` writes the project to.
 
-    ``None``, or the EB tree itself, gives the sibling ``<EB tree>_imported``; any other
-    directory is used as it is.
+    ``None``, or the EB tree itself, gives the first free sibling (:func:`free_sibling`);
+    any other directory is used as it is — and must be free, see
+    :func:`check_target_is_free`.
 
     Raises:
         ValueError: ``target_dir`` lies inside the EB tree — the import only reads it.
     """
     project_root = Path(project_root)
     if target_dir is None or Path(target_dir).resolve() == project_root.resolve():
-        return project_root.parent / f"{project_root.name}{IMPORTED_SUFFIX}"
+        return free_sibling(project_root)
     if _is_within(target_dir, project_root):
         raise ValueError(_inside_message(target_dir, project_root))
     return Path(target_dir)
+
+
+def check_target_is_free(project_dir: Path) -> None:
+    """Refuse a project directory that already holds anything (a file, a folder).
+
+    Raises:
+        ValueError: the directory is a file, or a directory that is not empty; the message
+            names what is there. The import never merges into, or overwrites, existing
+            content.
+    """
+    project_dir = Path(project_dir)
+    if _is_free(project_dir):
+        return
+    if not project_dir.is_dir():
+        found = [project_dir]
+    else:
+        found = sorted(project_dir.iterdir(), key=lambda p: p.name)
+    shown = "\n  ".join(p.as_posix() for p in found[:10])
+    more = f"\n  …以及另外 {len(found) - 10} 项" if len(found) > 10 else ""
+    raise ValueError(
+        f"目标目录中已有内容，导入不会覆盖或合并进已有内容：\n  {shown}{more}\n"
+        "请选择一个空目录。")
 
 
 def import_target(project_root: Path, parent: Optional[Path]) -> Path:
@@ -420,8 +466,10 @@ class ImportReport:
         return lines
 
     def to_markdown(self) -> str:
+        project_dir = Path(self.project_file).parent.as_posix() if self.project_file else ""
         lines = ["# EB 工程导入报告", "",
                  f"- 来源：`{self.source}`",
+                 f"- 工程目录：`{project_dir}`",
                  f"- 工程文件：`{self.project_file}`",
                  f"- 模式：{self.mode}",
                  f"- 芯片：{self.chip or '未选择'}"]

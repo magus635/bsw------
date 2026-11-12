@@ -1985,9 +1985,11 @@ class WorkspaceManager:
         Args:
             project_root: Root directory of the source EB project
             chip_name: Optional chip name to select Config/{chip}/output/*.epc
-            target_dir: Optional target directory for the new project. None, or the EB
-                        root itself, puts the project in the sibling directory
-                        ``<project_root>_imported``: the EB tree is only read.
+            target_dir: Optional target directory for the new project; it must be missing
+                        or empty. None, or the EB root itself, puts the project in the
+                        first free sibling ``<project_root>_imported``,
+                        ``<project_root>_imported_2``, …: the EB tree is only read, and
+                        an existing folder is never merged into.
             progress_callback: Optional callable(message: str) for progress updates
             mode: "copy" (self-contained) or "link" (reference original tree)
             confirm: ``(preview_markdown, MergeResult) -> bool`` asked once per module
@@ -2000,8 +2002,8 @@ class WorkspaceManager:
 
         Raises:
             ValueError: unknown mode, a target inside the EB tree, or a target directory
-                that already holds this project's files (the import never overwrites a
-                project).
+                that already holds anything (the import never overwrites or merges into
+                existing content).
         """
         from . import eb_import
 
@@ -2012,11 +2014,14 @@ class WorkspaceManager:
             if progress_callback:
                 progress_callback(msg)
 
-        # Determine where the project will live: never inside the EB tree
+        # Determine where the project will live: never inside the EB tree, never merged
+        # into a directory that already holds something
         project_root = Path(project_root)
         project_dir = eb_import.import_project_dir(project_root, target_dir)
+        eb_import.check_target_is_free(project_dir)
         project_name = project_dir.name
         dpa = project_dir / f"{project_name}.dpa"
+        _progress(f"导入到：{project_dir.as_posix()}")
 
         # If the user selected a chip (or passed a subfolder), we should append it to project_root
         if chip_name and (project_root / chip_name).exists():
@@ -2093,22 +2098,6 @@ class WorkspaceManager:
                 values[module] = eb_import.EpcValues(epc, short_name, definition_ref)
         _progress(f"Found EPC values for {len(values)} module(s)")
 
-        # The import never overwrites a project: no .dpa, value file or baseline of an
-        # earlier one may be in the way (they would be read as this project's own)
-        names = {pkg.manifest.module for pkg in survey.packages} | set(values)
-        config_dir = project_paths.resolve(project, "config")
-        base_dir = project_paths.resolve(project, "base")
-        in_the_way = [p for p in [project.path] if p.exists()]
-        in_the_way += [config_dir / f"{n}.arxml" for n in sorted(names)
-                       if (config_dir / f"{n}.arxml").exists()]
-        if base_dir.is_dir() and any(base_dir.iterdir()):
-            in_the_way.append(base_dir)
-        if in_the_way:
-            raise ValueError(
-                "目标目录中已有工程文件，导入不会覆盖它们：\n  "
-                + "\n  ".join(p.as_posix() for p in in_the_way)
-                + "\n请选择一个空目录，或先删除这些文件。")
-
         # Step 3: the module library — the plugins dir itself (link) or modules/ (copy).
         # A wrapped MCAL directory is excluded from the plugins dir (link); copy mode does
         # not copy it, so nothing in modules/ needs excluding.
@@ -2166,6 +2155,24 @@ class WorkspaceManager:
 
         ordered = sorted(modules.items(), key=binding_order)
 
+        # An EPC that names no definition, or only the standard /AUTOSAR/EcucDefs/<M>, fits
+        # every plugin of that module name equally. With two or more such plugins and none
+        # named exactly, any choice would be a guess: the EPC binds to none of them, its
+        # values are kept, and every candidate is reported (below, with the EPC-only entry).
+        ambiguous: Dict[str, List[str]] = {}     # module name -> candidate plugins
+        by_name: Dict[str, List[str]] = {}
+        for definition, module in modules.items():
+            by_name.setdefault(module, []).append(definition)
+        for module, definitions in sorted(by_name.items()):
+            epc = values.get(module)
+            if epc is None or len(definitions) < 2:
+                continue
+            exact = [d for d in definitions
+                     if epc.definition_ref and epc.definition_ref.rstrip("/") == d.rstrip("/")]
+            fitting = [d for d in definitions if eb_import.epc_names_definition(epc.definition_ref, d)]
+            if not exact and len(fitting) > 1:
+                ambiguous[module] = sorted(fitting)
+
         loaded_modules: List[str] = []
         failed_modules: List[Tuple[str, str]] = []
         records: Dict[str, "eb_import.ModuleImport"] = {}
@@ -2196,6 +2203,10 @@ class WorkspaceManager:
             epc = values.get(module)
             _progress(f"({position}/{len(ordered)}) Loading {module}..." + (" + EPC" if epc else ""))
             record = eb_import.ModuleImport(name=module, definition=definition)
+
+            if module in ambiguous:
+                # Not imported here; reported once with the EPC-only entry below
+                continue
 
             if module in taken:
                 report.modules.append(record)
@@ -2301,11 +2312,26 @@ class WorkspaceManager:
         for module in sorted(values):
             epc = values[module]
             config_rel = write_values(module, epc)
-            reason = (f"没有插件提供定义 {epc.definition_ref or '（EPC 未写明定义）'}；"
-                      f"EPC 值已保存到 {config_rel}，插件库提供该定义后重新打开工程即可加载")
+            if module in ambiguous:
+                plugins = []
+                for candidate in ambiguous[module]:
+                    try:
+                        plugins.append(f"{candidate}（插件 {find_package(libraries, candidate)[1].root.name}）")
+                    except PackageError:
+                        plugins.append(candidate)
+                reason = (f"EPC 的 DEFINITION-REF 是 {epc.definition_ref or '（未写明）'}，"
+                          f"有 {len(plugins)} 个同名插件都可能对应，无法确定，未绑定、未导入："
+                          + "、".join(plugins)
+                          + f"；EPC 值已保存到 {config_rel}。请在插件库的 exclude 中排除多余的插件，"
+                          "或在 EPC 中写明定义路径后重新导入")
+            else:
+                reason = (f"没有插件提供定义 {epc.definition_ref or '（EPC 未写明定义）'}；"
+                          f"EPC 值已保存到 {config_rel}，插件库提供该定义后重新打开工程即可加载")
             if module in unbound:
                 reason += ("。同名插件的定义与 EPC 的 DEFINITION-REF 不符，未绑定、未导入："
                            + "、".join(unbound[module]))
+            # The entry keeps the EPC's own reference (never a guessed candidate), so the
+            # next open fails the same way instead of binding silently
             project.module_entries[module] = ModuleEntry(
                 name=module, definition=epc.definition_ref or "", library=0,
                 config_path=config_rel)
