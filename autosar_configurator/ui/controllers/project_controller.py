@@ -160,24 +160,49 @@ class ProjectController:
             if busy:
                 QApplication.setOverrideCursor(Qt.WaitCursor)
 
-    @staticmethod
-    def _project_file_in(folder: Path):
-        """The project file (``.dpa``) at the top level of ``folder``, or None.
-
-        The one named after the folder wins (the import writes ``<dir>/<dir>.dpa``),
-        otherwise the first by name — a stable choice when there are several."""
-        try:
-            found = sorted((p for p in Path(folder).glob("*.dpa") if p.is_file()),
-                           key=lambda p: p.name)
-        except OSError:
+    def _choose_project_file(self, folder: Path, project_files):
+        """The project file to open from ``folder``: the only one, or the user's choice
+        among several (listed sorted by name); None when the user cancels."""
+        if len(project_files) == 1:
+            return project_files[0]
+        names = [p.name for p in project_files]
+        name, ok = QInputDialog.getItem(
+            self.win, "选择工程文件",
+            f"{folder}\n中有 {len(names)} 个工程文件，请选择要打开的一个：",
+            names, 0, False)
+        if not ok or name not in names:
             return None
-        named = [p for p in found if p.stem == Path(folder).name]
-        return (named or found or [None])[0]
+        return project_files[names.index(name)]
+
+    def _ask_open_or_import(self, folder: Path, project_file: Path):
+        """``"open"``, ``"import"`` or None (cancel) for a folder that is both a project of
+        this tool and an EB tree — an earlier import wrote ``<root>/<root>.dpa`` into the EB
+        folder. Never decided silently."""
+        box = QMessageBox(self.win)
+        box.setWindowTitle("工程还是 EB 工程？")
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setText(f"{folder}\n既有本工具的工程文件，又是 EB Tresos 工程：\n\n"
+                    f"  工程文件：{project_file.name}\n\n"
+                    "要打开这个工程，还是把它作为 EB 工程重新导入（导入到另一个目录）？")
+        open_button = box.addButton("打开工程", QMessageBox.ButtonRole.AcceptRole)
+        import_button = box.addButton("导入 EB 工程", QMessageBox.ButtonRole.ActionRole)
+        box.addButton("取消", QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        clicked = box.clickedButton()
+        if clicked is open_button:
+            return "open"
+        if clicked is import_button:
+            return "import"
+        return None
 
     def _import_target_dir(self, project_root: Path, chosen: Path):
         """The project directory for the destination folder the user chose, or None (with a
         warning) when it is the EB tree or inside it: the import only reads the EB tree.
-        A folder that holds the EB tree gives the sibling ``<EB tree>_imported``."""
+
+        The project goes to ``<chosen>/<EB tree name>``. When that would be the EB tree
+        itself (the chosen folder holds it), it goes to the first free sibling instead:
+        ``<EB tree>_imported``, ``<EB tree>_imported_2``, … — never into an existing non-empty
+        folder (see ``eb_import.import_target``)."""
         from ...core.eb_import import import_target
         try:
             return import_target(project_root, chosen)
@@ -659,27 +684,56 @@ class ProjectController:
         if not path.exists():
             return
 
+        forced_type = None
         if path.is_file():
             project_root = path.parent
             file_path = str(path)
         else:
             project_root = path
             file_path = None
-            # A folder holding a .dpa is a project — an imported EB project too (its .dpa
-            # says "EB Tresos") — and is opened, never imported again
-            dpa = self._project_file_in(path)
-            if dpa is not None:
-                file_path = str(dpa)
-            
-        # Detect project type
-        project_type = ProjectTypeDetector.detect(project_root)
-        
+            # A folder is a project only by a .dpa of this tool (JSON with format_version);
+            # a DaVinci XML or damaged .dpa is ignored. A folder that is also an EB tree is
+            # the user's call; otherwise a project is opened, never imported again.
+            from ...core.eb_import import inspect_folder
+            kind = inspect_folder(path)
+            if kind.is_project:
+                project_file = self._choose_project_file(path, kind.project_files)
+                if project_file is None:
+                    return
+                choice = (self._ask_open_or_import(path, project_file) if kind.is_both
+                          else "open")
+                if choice is None:
+                    return
+                if choice == "open":
+                    file_path = str(project_file)
+                else:
+                    forced_type = ProjectType.EB_TRESOS
+            elif kind.is_eb_tree or kind.has_eb_marker:
+                # EB content decides, whatever .dpa (DaVinci XML, damaged) is lying there
+                forced_type = ProjectType.EB_TRESOS
+            else:
+                # Neither: a .dpa that is not ours (e.g. DaVinci XML) must not make the folder
+                # look like a Vector project and then be imported as EB
+                forced_type = ProjectType.UNKNOWN
+
+        # Detect project type: the opened .dpa says what it is (not whichever .dpa a folder
+        # scan meets first); a folder chosen for import is EB
+        if forced_type is not None:
+            project_type = forced_type
+        elif file_path is not None:
+            project_type = (ProjectTypeDetector._read_stored_project_type(Path(file_path))
+                            or ProjectTypeDetector.detect(Path(file_path).parent))
+        else:
+            project_type = ProjectTypeDetector.detect(project_root)
+
         if project_type == ProjectType.UNKNOWN:
             QMessageBox.warning(
                 self.win,
                 "Unknown Project Type",
                 f"Could not detect project type for:\n{project_root}\n\n"
-                "Expected: .dpa file (Vector) or .tresos/.project marker (EB)"
+                "Expected: a project file (.dpa) of this tool, or an EB Tresos tree "
+                "(EB plugins, Config/<chip>/output/*.epc, or a .tresos/.project marker).\n"
+                "A .dpa of another tool (e.g. DaVinci XML) is not a project of this tool."
             )
             return
             
@@ -1203,16 +1257,28 @@ class ProjectController:
 
         project_root = Path(project_root)
 
-        # A folder with a .dpa is a project of this tool (an earlier import), not an EB
-        # tree: importing it would only produce an empty project
-        existing = self._project_file_in(project_root)
-        if existing is not None:
+        # Only a .dpa of this tool makes a folder a project (a DaVinci XML or damaged .dpa
+        # is ignored). A project that is not also an EB tree cannot be imported; one that is
+        # both is the user's call.
+        from ...core.eb_import import inspect_folder
+        kind = inspect_folder(project_root)
+        if kind.is_project and not kind.is_eb_tree:
             QMessageBox.warning(
                 self.win, "这是已有工程",
-                f"所选目录中已有工程文件：\n{existing}\n\n"
-                "它不是 EB Tresos 工程，不能导入。请用“打开工程”打开它，"
-                "或选择 EB 工程的根目录。")
+                f"所选目录中有本工具的工程文件：\n{kind.project_files[0]}\n\n"
+                "其中没有 EB 插件或 EPC，不是 EB Tresos 工程，不能导入。"
+                "请用“打开工程”打开它，或选择 EB 工程的根目录。")
             return
+        if kind.is_both:
+            project_file = self._choose_project_file(project_root, kind.project_files)
+            if project_file is None:
+                return
+            choice = self._ask_open_or_import(project_root, project_file)
+            if choice is None:
+                return
+            if choice == "open":
+                self._load_project_at_path(project_file)
+                return
 
         # Detect available chips
         chips = EpcFileScanner.detect_available_chips(project_root)

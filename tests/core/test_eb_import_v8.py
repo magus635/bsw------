@@ -611,6 +611,85 @@ def test_an_epc_two_plugins_could_take_is_not_bound(dio_tree, tmp_path, epc_ref)
     assert "Dio_Vendor" in text and "Dio_TS_T40D11M7I0R0" in text
 
 
+# --- round 3: what a folder is (no Qt) -------------------------------------------------------
+
+def _tool_dpa(path: Path, **extra) -> Path:
+    data = {"format_version": 8, "name": path.stem, "project_type": "EB Tresos", "modules": []}
+    data.update(extra)
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return path
+
+
+_DAVINCI_XML_DPA = """<?xml version="1.0" encoding="UTF-8"?>
+<DaVinciProject><Folders><ECUC>Config/ECUC</ECUC></Folders></DaVinciProject>
+"""
+
+
+def test_inspect_folder_ignores_a_davinci_xml_dpa(dio_tree):
+    from autosar_configurator.core.eb_import import inspect_folder
+
+    (dio_tree / "Vendor.dpa").write_text(_DAVINCI_XML_DPA, encoding="utf-8")
+    kind = inspect_folder(dio_tree)
+    assert kind.project_files == []
+    assert kind.is_eb_tree
+
+
+@pytest.mark.parametrize("content", ["{not json", "", "[1, 2]", '{"name": "x"}', "\xff\xfe"])
+def test_inspect_folder_ignores_a_dpa_that_is_not_ours(dio_tree, content):
+    from autosar_configurator.core.eb_import import inspect_folder
+
+    (dio_tree / "EbDio.dpa").write_text(content, encoding="utf-8", errors="surrogateescape")
+    kind = inspect_folder(dio_tree)
+    assert kind.project_files == [] and kind.is_eb_tree
+
+
+def test_inspect_folder_sees_a_prefix_project_inside_an_eb_tree(dio_tree):
+    from autosar_configurator.core.eb_import import inspect_folder
+
+    dpa = _tool_dpa(dio_tree / "EbDio.dpa", format_version=7)
+    kind = inspect_folder(dio_tree)
+    assert kind.project_files == [dpa]
+    assert kind.is_eb_tree and kind.is_both
+
+
+def test_inspect_folder_project_only_and_several_sorted(tmp_path):
+    from autosar_configurator.core.eb_import import inspect_folder
+
+    folder = tmp_path / "Proj"
+    (folder / "modules" / "Dio").mkdir(parents=True)
+    second = _tool_dpa(folder / "b.dpa")
+    first = _tool_dpa(folder / "A.dpa")
+    (folder / "nested").mkdir()
+    _tool_dpa(folder / "nested" / "deeper.dpa")             # not at the top level
+    kind = inspect_folder(folder)
+    assert kind.project_files == [first, second]
+    assert not kind.is_eb_tree and not kind.is_both
+    assert not kind.has_eb_marker
+
+
+def test_inspect_folder_an_eb_marker_is_not_eb_content(tmp_path):
+    """``.project``/``.tresos`` alone is a marker, not plugins or EPCs: not "both"."""
+    from autosar_configurator.core.eb_import import inspect_folder
+
+    folder = tmp_path / "Proj"
+    folder.mkdir()
+    dpa = _tool_dpa(folder / "Proj.dpa")
+    (folder / ".project").write_text("<projectDescription/>", encoding="utf-8")
+    kind = inspect_folder(folder)
+    assert kind.project_files == [dpa] and kind.has_eb_marker
+    assert not kind.is_eb_tree and not kind.is_both
+
+
+def test_inspect_folder_epcs_alone_make_an_eb_tree(tmp_path):
+    from autosar_configurator.core.eb_import import inspect_folder
+
+    src = tmp_path / "EpcOnly"
+    (src / "Config" / "C1" / "output").mkdir(parents=True)
+    (src / "Config" / "C1" / "output" / "Dio.epc").write_text(DIO_EPC, encoding="utf-8")
+    assert inspect_folder(src).is_eb_tree
+    assert not inspect_folder(tmp_path / "missing").is_eb_tree
+
+
 # --- old projects ---------------------------------------------------------------------
 
 def test_old_v7_imported_project_still_opens(tmp_path):

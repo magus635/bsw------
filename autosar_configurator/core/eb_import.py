@@ -3,6 +3,10 @@
 The pieces ``WorkspaceManager.import_eb_project`` puts together, kept here so that method
 only orchestrates:
 
+- :func:`import_project_dir` / :func:`import_target`: where the project goes — never inside
+  the EB tree, never into a folder that already holds something;
+- :func:`inspect_folder`: whether a folder is a project of this tool (a JSON ``.dpa``), an
+  EB tree, or both — the one rule "Open Project Folder" and "Import EB Project" share;
 - :func:`find_plugins_dir` / :func:`survey_plugins`: which plugin directories of the source
   tree are module packages, which are skipped and why, and which Vector-wrapped MCAL
   directories go into the library's ``exclude`` because an EB plugin provides the same
@@ -34,6 +38,7 @@ __all__ = [
     "EB_PLUGIN_MARKER", "IMPORTED_SUFFIX", "SkippedDir", "WrappedMcal", "PluginSurvey",
     "EpcValues", "ModuleImport", "ImportReport",
     "import_project_dir", "import_target", "free_sibling", "check_target_is_free",
+    "is_tool_project_file", "FolderKind", "inspect_folder",
     "find_plugins_dir", "survey_plugins",
     "module_configs_in",
     "epc_names_definition", "count_values", "package_record", "report_path", "write_report",
@@ -140,9 +145,12 @@ def check_target_is_free(project_dir: Path) -> None:
 def import_target(project_root: Path, parent: Optional[Path]) -> Path:
     """The project directory for a destination folder the user chose (the UI dialogs).
 
-    The project gets a subfolder of ``parent`` named after the EB tree; ``None`` means
-    "next to the EB tree". When that subfolder would be the EB tree itself (``parent``
-    holds it), the project goes to the sibling ``<EB tree>_imported`` instead.
+    The project gets the subfolder ``<parent>/<EB tree name>``; ``None`` means "next to
+    the EB tree". When that subfolder would be the EB tree itself (``parent`` holds it),
+    the project goes to the first free sibling instead — ``<EB tree>_imported``,
+    ``<EB tree>_imported_2``, … (:func:`free_sibling`), never an existing non-empty folder.
+    A subfolder that already holds something is refused later by
+    :func:`check_target_is_free`.
 
     Raises:
         ValueError: ``parent`` is the EB tree or inside it.
@@ -153,6 +161,88 @@ def import_target(project_root: Path, parent: Optional[Path]) -> Path:
     if _is_within(parent, project_root):
         raise ValueError(_inside_message(parent, project_root))
     return import_project_dir(project_root, Path(parent) / project_root.name)
+
+
+# --- what a folder is -------------------------------------------------------------------
+
+def is_tool_project_file(path: Path) -> bool:
+    """Whether ``path`` is a project file of this tool: a JSON object with ``format_version``.
+
+    Anything else with the ``.dpa`` extension — a DaVinci XML project, a damaged or empty
+    file, JSON that is not ours — is not a project of this tool, and must neither stop an
+    EB import nor be opened as one.
+    """
+    import json
+
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError, UnicodeDecodeError):
+        return False
+    return isinstance(data, dict) and "format_version" in data
+
+
+@dataclass
+class FolderKind:
+    """What :func:`inspect_folder` found at the top level of a folder.
+
+    Attributes:
+        folder: The folder inspected.
+        project_files: Project files of this tool (:func:`is_tool_project_file`) directly
+            in the folder, sorted by name (case-insensitively, then exactly).
+        is_eb_tree: The folder holds EB content an import would read: an EB plugins
+            directory with at least one ``plugin.xml``, or EPC values under ``Config/``.
+        has_eb_marker: The folder carries an EB workspace marker (``.tresos`` or
+            ``.project``). Not EB content — it does not make a folder "both" — but it lets
+            a folder without a project file be imported as EB, as it always could.
+    """
+    folder: Path
+    project_files: List[Path] = field(default_factory=list)
+    is_eb_tree: bool = False
+    has_eb_marker: bool = False
+
+    @property
+    def is_project(self) -> bool:
+        return bool(self.project_files)
+
+    @property
+    def is_both(self) -> bool:
+        """A project file *and* EB content — e.g. ``<root>/<root>.dpa`` written into the EB
+        tree by an earlier version of the import. Only the user can say which is meant."""
+        return self.is_project and self.is_eb_tree
+
+
+def _has_epc_values(folder: Path) -> bool:
+    config = folder / "Config"
+    try:
+        return config.is_dir() and any(
+            (chip / "output").is_dir() and any((chip / "output").glob("*.epc"))
+            for chip in config.iterdir() if chip.is_dir())
+    except OSError:
+        return False
+
+
+def inspect_folder(folder: Path) -> FolderKind:
+    """Classify ``folder`` for "Open Project Folder" and "Import EB Project".
+
+    Only the top level is looked at for project files, and a ``.dpa`` counts only when it
+    is this tool's JSON project file. EB content is an EB plugins directory that holds
+    plugins (:func:`find_plugins_dir`) or EPC values in ``Config/<chip>/output``. Nothing is
+    written, and an unreadable folder is simply neither.
+    """
+    folder = Path(folder)
+    kind = FolderKind(folder)
+    if not folder.is_dir():
+        return kind
+    try:
+        candidates = [p for p in folder.glob("*.dpa") if p.is_file()]
+    except OSError:
+        candidates = []
+    kind.project_files = sorted((p for p in candidates if is_tool_project_file(p)),
+                                key=lambda p: (p.name.lower(), p.name))
+    plugins = find_plugins_dir(folder)
+    kind.is_eb_tree = (plugins is not None and _holds_plugins(plugins)) or _has_epc_values(folder)
+    kind.has_eb_marker = any((folder / name).exists() for name in (".tresos", ".project"))
+    return kind
 
 
 # --- the plugin directory ---------------------------------------------------------------
