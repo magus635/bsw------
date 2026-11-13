@@ -50,6 +50,114 @@ openspec validate --all --strict
 4. 选择项目保存目录。
 5. 保存后将生成 `.dpa` 工程文件。
 
+#### 新项目的最小要求
+
+新工程不是简单创建一个空文件就够了。对于 Format 8 的新工程，项目至少需要这些元素：
+
+- `.dpa` 工程文件：用于保存项目的全局元数据、模块清单和当前芯片。
+- `modules/`：模块库目录，用于放置每个模块包。
+- `modules/<Module>/module.json`：模块包描述文件，告诉工具这个模块的定义路径、模板目录、资源目录和文件来源。
+- `modules/<Module>/config/`：模块配置文件目录，通常保存 `.arxml` / `.xdm`。
+- `modules/<Module>/templates/`：模板目录，用于代码生成。
+- `modules/<Module>/resource/`：资源目录，用于属性或模块资源文件。
+
+一个典型的项目骨架如下：
+
+```text
+<project>/
+├── project.dpa
+├── modules/
+│   ├── Mcu/
+│   │   ├── module.json
+│   │   ├── config/
+│   │   ├── templates/
+│   │   └── resource/
+│   ├── Os/
+│   │   ├── module.json
+│   │   ├── config/
+│   │   ├── templates/
+│   │   └── resource/
+│   └── ...
+├── chips/
+├── templates/
+├── system/
+├── integration/
+└── base/
+```
+
+#### `module.json` 的完整说明
+
+`module.json` 是模块包的核心说明文件。它决定了模块是否会被扫描、它对应的 AUTOSAR 定义路径是什么、模板和资源在什么位置、以及当前项目中它的配置文件有哪些。
+
+```json
+{
+  "schema": 1,
+  "module": "Os",
+  "definition": "/THA6_ASR21/Os",
+  "files": [
+    { "path": "config/Os_Config.arxml", "chips": ["THA6206_LFBGA292"] },
+    { "path": "config/Os_Arti.arxml", "chips": ["THA6206_LFBGA292"] }
+  ],
+  "pre": [],
+  "rec": [],
+  "templates": "templates",
+  "resources": "resource",
+  "implementation": null,
+  "exchange_copies": [],
+  "origin": { "source": "legacy-t1", "kind": "manual-package" },
+  "inferred": true,
+  "chip_selector": null
+}
+```
+
+字段说明：
+
+| 字段 | 含义 | 关键作用 |
+| --- | --- | --- |
+| `schema` | manifest 版本，当前必须为 `1` | 代码会校验此值，错误会导致加载失败 |
+| `module` | 模块名，如 `Os`、`Mcu`、`Can` | 作为模块键，决定模块在工程中的名称 |
+| `definition` | AUTOSAR 中的模块定义路径，如 `/THA6_ASR21/Os` | 定义该模块究竟对应哪个 ECUC-MODULE-DEF |
+| `files` | 模块的配置和定义文件列表 | 由扫描器筛选当前芯片，并用来定位模块定义 |
+| `pre` | PRE 配置路径列表 | 用于加载预设值，参与基线和合并 |
+| `rec` | REC 配置路径列表 | 用于加载推荐值 |
+| `templates` | 模板目录的相对路径 | 告诉生成器模板在哪里 |
+| `resources` | 资源目录的相对路径 | 告诉工具资源文件在哪 |
+| `implementation` | 实现目录/入口，通常为空 | 供实装层使用 |
+| `exchange_copies` | 交换副本文件列表 | 记录导出或交换用副本，不是主配置来源 |
+| `origin` | 来源标识（legacy、manual-package、eb-import 等） | 能追踪该模块包来自哪条路径 |
+| `inferred` | 是否从现有目录或插件元数据自动推断出来 | 区分自动推断与手工维护 |
+| `chip_selector` | 芯片选择器配置 | 适用于需要按芯片精细选择的场景 |
+
+如果一个模块包没有 `module.json`，或者 `definition` 代码无法在 `files` 中匹配到真实定义，模块就会被视为“不可用”，并且不会进入项目的 `module_entries`。
+
+#### 最小可用的 `module.json`
+
+如果你在迁移旧工程时需要先做兼容，最小可用版本可以非常简单：
+
+```json
+{
+  "schema": 1,
+  "module": "Os",
+  "definition": "/THA6_ASR21/Os",
+  "files": [
+    { "path": "config/Os_Config.arxml", "chips": ["THA6206_LFBGA292"] }
+  ],
+  "templates": "templates",
+  "resources": "resource",
+  "pre": [],
+  "rec": [],
+  "origin": { "source": "legacy-t1", "kind": "manual-package" },
+  "inferred": true
+}
+```
+
+它的核心要求不是 JSON 语法复杂，而是：
+
+1. `definition` 必须和真实 ARXML 中的 ECUC 定义一致；
+2. `files` 中至少要有一份能真正包含这个定义；
+3. `templates` / `resources` 路径要和实际目录一致；
+4. 当前项目选定芯片要和 `chips` 条件匹配。
+
 ### 导入 EB Tresos 工程
 
 1. 菜单 `File -> Import EB Tresos Project...`
@@ -57,6 +165,8 @@ openspec validate --all --strict
 3. 如果检测到多个芯片变体，在弹窗中选择目标芯片。
 4. 选择导入后的项目保存目录。
 5. 工具会自动扫描并加载模块定义 (`.xdm`/`.epd`)、配置实例 (`.epc`/`.arxml`)、模板与硬件资源。
+
+> 旧版工程（Format <= 7）可以继续打开；新设计中推荐使用 Format 8，且优先按模块包来管理。新老工程的区别在于：旧工程允许从 `Def/plugins`、`ConfigValue` 等目录中按历史约定解析，而新工程强调 `modules/` + `module.json` 的结构与显式来源信息。
 
 ## 4. 基础配置流程
 

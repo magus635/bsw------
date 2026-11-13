@@ -76,6 +76,89 @@ autosar_configurator/
 └── utils/
 ```
 
+## 新项目的结构与必需部分（Format 8）
+
+本工具当前的推荐工程格式是 Format 8。它的核心思想不是“把所有东西都塞进一个目录”，而是把每个模块都做成一个可扫描的模块包，项目根目录只保留工程描述和全局数据。
+
+```text
+<project>/
+├── project.dpa                 # 工程文件，保存 format_version、module_libraries、module_entries
+├── modules/                    # 模块库根目录，按模块组织
+│   ├── Mcu/
+│   │   ├── module.json         # 模块包描述文件（必需）
+│   │   ├── config/
+│   │   │   ├── Mcu.xdm         # 模块定义/配置文件
+│   │   │   └── McuPreConfiguration.xdm
+│   │   ├── templates/
+│   │   └── resource/
+│   ├── Os/
+│   │   ├── module.json
+│   │   ├── config/
+│   │   ├── templates/
+│   │   └── resource/
+│   └── ...
+├── chips/                      # 芯片资源、YAML/属性文件（可选但推荐）
+├── templates/                  # 工程级模板覆盖层（可选）
+├── system/                     # 工程级系统描述/集成数据（可选）
+├── integration/                # 集成输出目录（可选）
+├── base/                       # 基线快照目录（由工具维护）
+├── .history/                   # 导入/保存记录（由工具维护）
+└── ...
+```
+
+### 每一部分的职责
+
+- `.dpa`：工程主文件，保存项目元数据、选择的芯片、模块库、模块列表和基线状态。
+- `modules/`：模块库根目录，每个模块必须具备独立包目录。
+- `module.json`：模块包的清单文件。它决定这个模块能否被扫描、定义路径是否正确、模板和资源目录在哪、以及哪些文件在什么芯片下生效。
+- `config/`：模块配置文件，通常包含定义文件、递归值文件、预配置文件、芯片条件文件。
+- `templates/`：该模块的生成模板目录。
+- `resource/`：资源文件、属性文件和其他与模块相关的非模板资源。
+- `chips/`：芯片资源定义，项目打开和模块加载时用来解析当前芯片的可用配置。
+
+### 典型的 `module.json`
+
+```json
+{
+  "schema": 1,
+  "module": "Os",
+  "definition": "/THA6_ASR21/Os",
+  "files": [
+    { "path": "config/Os_Config.arxml", "chips": ["THA6206_LFBGA292"] },
+    { "path": "config/Os_Arti.arxml", "chips": ["THA6206_LFBGA292"] }
+  ],
+  "pre": [],
+  "rec": [],
+  "templates": "templates",
+  "resources": "resource",
+  "implementation": null,
+  "origin": { "source": "legacy-t1", "kind": "manual-package" },
+  "inferred": true
+}
+```
+
+### `module.json` 中每一项的含义
+
+| 字段 | 作用 | 影响 |
+| --- | --- | --- |
+| `schema` | manifest 版本号，当前必须为 `1` | 代码要求它必须是 `1`，否则拒绝加载 |
+| `module` | 模块短名，如 `Os`、`Mcu`、`Can` | 作为项目中的模块键，决定模块在工程中如何命名 |
+| `definition` | AUTOSAR 定义路径，如 `/THA6_ASR21/Os` | 决定模块的真实 ECUC 定义，必须和 ARXML 中的定义一致 |
+| `files` | 包含的配置文件列表，可按芯片条件过滤 | 由扫描器匹配当前芯片，并决定哪个文件包含该模块定义 |
+| `pre` | PRE 配置路径列表 | 影响预配置值的加载和基线合并 |
+| `rec` | REC 配置路径列表 | 影响推荐值加载和基线生成 |
+| `templates` | 模板目录 | 告诉生成器在哪里找模板 |
+| `resources` | 资源目录 | 告诉工具在哪里找资源文件 |
+| `implementation` | 可选实现目录 | 用于实现层信息，通常为 `null` |
+| `origin` | 来源描述（legacy、eb-import、manual-package 等） | 便于维护和追踪模块来源 |
+| `inferred` | 是否由扫描器/插件 AST 推断生成 | 用于区分自动推断与手工维护 |
+
+### 兼容性说明
+
+- 旧工程（Format <= 7）可以继续打开，不会被强制重写成新格式。
+- 新工程应按 Format 8 模式建立，并提供 `modules/` 和 `module.json` 结构。
+- 只有满足 `module.json` + `definition` + `files` 约束的模块包，才能被 `scan_library()` 和 `WorkspaceProject.add_module_from_package()` 正确识别。
+
 ## 运行测试
 
 激活虚拟环境：
