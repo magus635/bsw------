@@ -690,6 +690,83 @@ def test_inspect_folder_epcs_alone_make_an_eb_tree(tmp_path):
     assert not inspect_folder(tmp_path / "missing").is_eb_tree
 
 
+# --- round 4: legacy project files, and an XML .dpa rejected from a prefix ------------------
+
+LEGACY_DPA = REPO_ROOT / "tests" / "test_data" / "test_project.dpa"
+
+
+def test_the_legacy_fixture_is_a_project_file():
+    """The oldest .dpa this tool wrote (2025-12, no ``format_version``) is ours."""
+    from autosar_configurator.core.eb_import import is_tool_project_file
+
+    assert "format_version" not in json.loads(LEGACY_DPA.read_text(encoding="utf-8"))
+    assert is_tool_project_file(LEGACY_DPA)
+
+
+@pytest.mark.parametrize("data, ours", [
+    ({"name": "P", "modules": []}, True),
+    ({"name": "P", "modules": [{"name": "Adc", "def_path": "a", "config_path": "b"}]}, True),
+    ({"modules": []}, False),
+    ({"name": "P"}, False),
+    ({"name": 3, "modules": []}, False),
+    ({"name": "P", "modules": {}}, False),
+    ({"name": "P", "modules": ["Adc"]}, False),
+    ({"name": "P", "modules": [{"name": "Adc", "def_path": "a"}]}, False),
+])
+def test_legacy_project_keys(tmp_path, data, ours):
+    from autosar_configurator.core.eb_import import is_tool_project_file
+
+    path = tmp_path / "P.dpa"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    assert is_tool_project_file(path) is ours
+
+
+def test_a_utf8_bom_and_whitespace_before_the_json_are_allowed(tmp_path):
+    import codecs
+
+    from autosar_configurator.core.eb_import import is_tool_project_file
+
+    path = tmp_path / "P.dpa"
+    path.write_bytes(codecs.BOM_UTF8 + b" \r\n\t" + json.dumps({"format_version": 8}).encode())
+    assert is_tool_project_file(path)
+    path.write_bytes(b'{"a": ' + b"[" * 200_000)                 # absurdly deep: not ours
+    assert not is_tool_project_file(path)
+
+
+def test_an_xml_dpa_is_rejected_from_a_bounded_prefix(tmp_path, monkeypatch):
+    """A DaVinci XML .dpa is turned down by its first bytes, never read in full."""
+    import io
+
+    from autosar_configurator.core.eb_import import is_tool_project_file
+
+    path = tmp_path / "DaVinci.dpa"
+    path.write_text(_DAVINCI_XML_DPA + "<!--" + "x" * 2_000_000 + "-->\n", encoding="utf-8")
+    sizes = []
+    real_open = io.open
+
+    class _Recording:
+        def __init__(self, f):
+            self._f = f
+
+        def read(self, size=-1):
+            sizes.append(size)
+            return self._f.read(size)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self._f.close()
+
+        def __getattr__(self, name):
+            return getattr(self._f, name)
+
+    monkeypatch.setattr(io, "open", lambda *a, **k: _Recording(real_open(*a, **k)))
+    assert not is_tool_project_file(path)
+    assert sizes, "the file was not read through io.open"
+    assert all(isinstance(s, int) and 0 < s <= 4096 for s in sizes), sizes
+
+
 # --- old projects ---------------------------------------------------------------------
 
 def test_old_v7_imported_project_still_opens(tmp_path):

@@ -165,20 +165,61 @@ def import_target(project_root: Path, parent: Optional[Path]) -> Path:
 
 # --- what a folder is -------------------------------------------------------------------
 
+_DPA_PREFIX_BYTES = 1024
+_LEGACY_MODULE_KEYS = ("name", "def_path", "config_path")
+
+
+def _starts_like_json_object(head: bytes) -> bool:
+    """Whether the first bytes of a file open a JSON object: ``{`` as the first character
+    after an optional UTF-8 BOM and JSON whitespace."""
+    import codecs
+
+    if head.startswith(codecs.BOM_UTF8):
+        head = head[len(codecs.BOM_UTF8):]
+    return head.lstrip(b" \t\r\n")[:1] == b"{"
+
+
+def _is_legacy_project(data: dict) -> bool:
+    """This tool's oldest project file (2025-12-04..06, before ``format_version``): a string
+    ``"name"`` and a ``"modules"`` list whose entries each carry ``"name"``, ``"def_path"``
+    and ``"config_path"`` — exactly what that version saved, and what ``load_project``'s
+    format ≤7 path reads from every module entry. An empty ``"modules"`` list counts."""
+    modules = data.get("modules")
+    return (isinstance(data.get("name"), str) and isinstance(modules, list)
+            and all(isinstance(m, dict) and all(k in m for k in _LEGACY_MODULE_KEYS)
+                    for m in modules))
+
+
 def is_tool_project_file(path: Path) -> bool:
-    """Whether ``path`` is a project file of this tool: a JSON object with ``format_version``.
+    """Whether ``path`` is a project file of this tool.
+
+    It is when it parses as a JSON object (UTF-8, optional BOM) that either
+      - carries ``format_version`` (every project saved since format 1), or
+      - is a legacy project of this tool without it: a string ``"name"`` and a
+        ``"modules"`` list of entries with ``"name"``, ``"def_path"`` and ``"config_path"``
+        (see :func:`_is_legacy_project`; e.g. ``tests/test_data/test_project.dpa``).
 
     Anything else with the ``.dpa`` extension — a DaVinci XML project, a damaged or empty
     file, JSON that is not ours — is not a project of this tool, and must neither stop an
-    EB import nor be opened as one.
+    EB import nor be opened as one. Only the first ``_DPA_PREFIX_BYTES`` bytes are read
+    unless they open a JSON object, so an XML ``.dpa`` costs one small read (leading
+    whitespace longer than that prefix is not expected and counts as "not ours").
     """
+    import io
     import json
 
     try:
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
-    except (OSError, ValueError, UnicodeDecodeError):
+        with io.open(path, "rb") as f:
+            head = f.read(_DPA_PREFIX_BYTES)
+            if not _starts_like_json_object(head):
+                return False
+            raw = head + f.read()
+        data = json.loads(raw.decode("utf-8-sig"))
+    except (OSError, ValueError, RecursionError):     # UnicodeDecodeError is a ValueError
         return False
-    return isinstance(data, dict) and "format_version" in data
+    if not isinstance(data, dict):
+        return False
+    return "format_version" in data or _is_legacy_project(data)
 
 
 @dataclass

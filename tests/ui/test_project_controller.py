@@ -424,6 +424,33 @@ def test_open_folder_with_only_a_dpa_that_is_not_ours(tmp_path, monkeypatch, mar
     assert (folder / "DaVinci.dpa").read_text(encoding="utf-8") == _DAVINCI_XML_DPA
 
 
+@pytest.mark.parametrize("marker", [None, ".project", ".tresos"])
+def test_open_folder_with_a_legacy_project_file_opens_it(tmp_path, monkeypatch, marker):
+    """The oldest .dpa (no ``format_version``; tests/test_data/test_project.dpa) is a project:
+    Open Folder opens it — not "unknown", and not an empty EB import beside an EB marker."""
+    import shutil
+    from pathlib import Path
+
+    folder = tmp_path / "Legacy"
+    shutil.copytree(Path(__file__).resolve().parents[1] / "test_data", folder)
+    if marker:
+        (folder / marker).write_text("<projectDescription/>", encoding="utf-8")
+    before = (folder / "test_project.dpa").read_bytes()
+    ui = _Ui(monkeypatch, [])
+    win, ctrl, patches = _controller()
+    _run(ctrl, patches, lambda: ctrl._load_project_at_path(folder))
+
+    assert ui.questions == []
+    # Only the load-with-errors note may appear: the fixture's configs carry XML comments
+    # the config parser does not accept (pre-existing, unrelated to detection)
+    assert [w for w in ui.warnings if not w.startswith("Project loaded, but")] == []
+    assert win.current_project_file == folder / "test_project.dpa"
+    assert win.current_project.path == folder / "test_project.dpa"
+    assert sorted(win.current_project.module_managers) == ["Adc", "Mcu"]
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["Legacy"]
+    assert (folder / "test_project.dpa").read_bytes() == before
+
+
 def test_import_menu_on_a_project_only_folder_refuses(tmp_path, monkeypatch):
     """A valid tool .dpa and no EB content: not an EB tree — the menu says to open it."""
     folder = tmp_path / "Proj"
