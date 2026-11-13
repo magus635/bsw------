@@ -65,7 +65,7 @@ openspec validate --all --strict
 
 ```text
 <project>/
-├── project.dpa
+├── <project_name>.dpa
 ├── modules/
 │   ├── Mcu/
 │   │   ├── module.json
@@ -82,7 +82,8 @@ openspec validate --all --strict
 ├── templates/
 ├── system/
 ├── integration/
-└── base/
+└── config/
+    └── base/
 ```
 
 #### `module.json` 的完整说明
@@ -102,7 +103,7 @@ openspec validate --all --strict
   "rec": [],
   "templates": "templates",
   "resources": "resource",
-  "implementation": null,
+  "implementation_path": null,
   "exchange_copies": [],
   "origin": { "source": "legacy-t1", "kind": "manual-package" },
   "inferred": true,
@@ -122,13 +123,14 @@ openspec validate --all --strict
 | `rec` | REC 配置路径列表 | 用于加载推荐值 |
 | `templates` | 模板目录的相对路径 | 告诉生成器模板在哪里 |
 | `resources` | 资源目录的相对路径 | 告诉工具资源文件在哪 |
-| `implementation` | 实现目录/入口，通常为空 | 供实装层使用 |
+| `implementation_path` | AUTOSAR BSW-IMPLEMENTATION 路径 | AUTOSAR 元素路径，通常为空 |
+| `implementation` | BSW 源码目录路径 | 静态源码目录（如 Vector SIP Implementation/），通常为空 |
 | `exchange_copies` | 交换副本文件列表 | 记录导出或交换用副本，不是主配置来源 |
 | `origin` | 来源标识（legacy、manual-package、eb-import 等） | 能追踪该模块包来自哪条路径 |
 | `inferred` | 是否从现有目录或插件元数据自动推断出来 | 区分自动推断与手工维护 |
 | `chip_selector` | 芯片选择器配置 | 适用于需要按芯片精细选择的场景 |
 
-如果一个模块包没有 `module.json`，或者 `definition` 代码无法在 `files` 中匹配到真实定义，模块就会被视为“不可用”，并且不会进入项目的 `module_entries`。
+如果一个模块包没有 `module.json`，或者 `definition` 代码无法在 `files` 中匹配到真实定义，模块就会被视为“不可用”，并且不会进入项目的 `modules` 字段。
 
 #### 最小可用的 `module.json`
 

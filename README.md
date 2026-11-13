@@ -82,7 +82,7 @@ autosar_configurator/
 
 ```text
 <project>/
-├── project.dpa                 # 工程文件，保存 format_version、module_libraries、module_entries
+├── <project_name>.dpa          # 工程文件，保存 format_version、module_libraries、modules
 ├── modules/                    # 模块库根目录，按模块组织
 │   ├── Mcu/
 │   │   ├── module.json         # 模块包描述文件（必需）
@@ -101,7 +101,9 @@ autosar_configurator/
 ├── templates/                  # 工程级模板覆盖层（可选）
 ├── system/                     # 工程级系统描述/集成数据（可选）
 ├── integration/                # 集成输出目录（可选）
-├── base/                       # 基线快照目录（由工具维护）
+├── config/                     # 配置文件目录（format 8）
+│   ├── base/                   # 基线快照目录（由工具维护）
+│   └── ...
 ├── .history/                   # 导入/保存记录（由工具维护）
 └── ...
 ```
@@ -131,7 +133,7 @@ autosar_configurator/
   "rec": [],
   "templates": "templates",
   "resources": "resource",
-  "implementation": null,
+  "implementation_path": null,
   "origin": { "source": "legacy-t1", "kind": "manual-package" },
   "inferred": true
 }
@@ -149,7 +151,8 @@ autosar_configurator/
 | `rec` | REC 配置路径列表 | 影响推荐值加载和基线生成 |
 | `templates` | 模板目录 | 告诉生成器在哪里找模板 |
 | `resources` | 资源目录 | 告诉工具在哪里找资源文件 |
-| `implementation` | 可选实现目录 | 用于实现层信息，通常为 `null` |
+| `implementation_path` | AUTOSAR BSW-IMPLEMENTATION 路径（可选） | AUTOSAR 元素路径（如 `/MICROSAR/Os_Impl`），用于链接定义与实现；通常为 `null` |
+| `implementation` | BSW 源码目录路径（可选） | BSW 静态源码所在目录（如 Vector SIP 的 `Implementation/`），工具不复制进包，仅记录路径；通常为 `null` |
 | `origin` | 来源描述（legacy、eb-import、manual-package 等） | 便于维护和追踪模块来源 |
 | `inferred` | 是否由扫描器/插件 AST 推断生成 | 用于区分自动推断与手工维护 |
 
