@@ -29,6 +29,87 @@ class ValidationError(Exception):
     pass
 
 
+def find_container_def(module_def: Optional[EcucModuleDef], rec_container: EcucContainerValue) -> Optional[EcucContainerDef]:
+    """Find container definition by DEFINITION-REF, handling scope and EB suffixes.
+
+    Uses matches_container_def to handle:
+    - EB Tresos _N instance suffixes
+    - Container names without full paths
+    - Same name in different scopes (e.g., vBRS/vBRSMemLayoutHwRegion vs vBaseEnv/vBRSMemLayoutHwRegion)
+
+    Args:
+        module_def: The module definition
+        rec_container: The container instance being imported
+
+    Returns:
+        Matching EcucContainerDef, or None
+
+    Raises:
+        ValidationError: If definition is found in multiple scopes (ambiguous)
+    """
+    if not module_def or not rec_container.definition_ref:
+        # Fallback: lookup by short name
+        return module_def.containers.get(rec_container.short_name) if module_def else None
+
+    hits = [d for d in module_def.containers.values()
+            if defrefs.matches_container_def(rec_container.definition_ref, d.definition_ref,
+                                             rec_container.short_name, module_def.short_name)]
+
+    if len(hits) == 1:
+        return hits[0]
+    if len(hits) > 1:
+        raise ValidationError(
+            f"Container definition {rec_container.definition_ref!r} matches {len(hits)} definitions "
+            f"in module {module_def.short_name}; cannot determine which scope"
+        )
+
+    # Fallback: try short name
+    return module_def.containers.get(rec_container.short_name) if module_def else None
+
+
+def merge_module_configurations(configs: List[EcucModuleConfiguration]) -> Optional[EcucModuleConfiguration]:
+    """Merge multiple module configuration blocks into one.
+
+    Combines containers and parameters by taking the union; raises on value conflicts.
+
+    Args:
+        configs: List of EcucModuleConfiguration blocks (same module, different SHORT-NAME)
+
+    Returns:
+        Single merged EcucModuleConfiguration, or None if empty
+
+    Raises:
+        ValidationError: If the same parameter has conflicting values
+    """
+    if not configs:
+        return None
+    if len(configs) == 1:
+        return configs[0]
+
+    # Merge into first config
+    result = configs[0]
+
+    for cfg in configs[1:]:
+        # Containers: union (add new, keep existing)
+        for sub in cfg.containers:
+            if not any(c.short_name == sub.short_name for c in result.containers):
+                result.containers.append(sub)
+
+        # Parameters: union with conflict detection
+        for name, value in cfg.parameter_values.items():
+            if name in result.parameter_values:
+                existing = result.parameter_values[name]
+                if existing.value != value.value:
+                    raise ValidationError(
+                        f"Parameter conflict for '{name}': "
+                        f"'{existing.value}' vs '{value.value}'"
+                    )
+            else:
+                result.parameter_values[name] = value
+
+    return result
+
+
 class PreLockedError(ValueError):
     """A Pre (preconfigured) value the user may not edit, per design §6.5 (D1: locked).
 
@@ -306,10 +387,16 @@ class EpcFileScanner:
 
     @staticmethod
     def list_module_names(value_file: Path) -> List[str]:
-        """List short-names of all module configurations inside a value file.
+        """List module names of all module configurations inside a value file.
 
         EB value files may bundle several ECUC-MODULE-CONFIGURATION-VALUES
         elements; import must consider every one, not just the filename stem.
+
+        A module name is the last segment of the block's DEFINITION-REF
+        (``/MICROSAR/vBRS`` -> ``vBRS``), so blocks whose SHORT-NAME differs from
+        the module (``vBRS_Pre``, ``vBRS_Rec``) still gate as ``vBRS``. Files
+        without a DEFINITION-REF fall back to their SHORT-NAME.
+
         Returns an empty list when the file is not a standard ARXML value file.
         """
         import lxml.etree as etree
@@ -320,11 +407,25 @@ class EpcFileScanner:
             for tag in ('{http://autosar.org/schema/r4.0}ECUC-MODULE-CONFIGURATION-VALUES',
                         'ECUC-MODULE-CONFIGURATION-VALUES'):
                 for elem in root.iter(tag):
-                    for sn_tag in ('{http://autosar.org/schema/r4.0}SHORT-NAME', 'SHORT-NAME'):
-                        sn = elem.find(sn_tag)
-                        if sn is not None and sn.text:
-                            names.append(sn.text)
+                    def_ref = None
+                    for ref_tag in ('{http://autosar.org/schema/r4.0}DEFINITION-REF', 'DEFINITION-REF'):
+                        ref_elem = elem.find(ref_tag)
+                        if ref_elem is not None and ref_elem.text:
+                            def_ref = ref_elem.text.strip()
                             break
+
+                    if def_ref:
+                        name = def_ref.rstrip('/').rsplit('/', 1)[-1]
+                    else:
+                        name = None
+                        for sn_tag in ('{http://autosar.org/schema/r4.0}SHORT-NAME', 'SHORT-NAME'):
+                            sn = elem.find(sn_tag)
+                            if sn is not None and sn.text:
+                                name = sn.text.strip()
+                                break
+
+                    if name and name not in names:
+                        names.append(name)
                 if names:
                     break
         except (etree.XMLSyntaxError, OSError) as e:
@@ -1141,22 +1242,26 @@ class ConfigurationManager:
 
             if all_configs:
                 module_name = self.module_def.short_name if self.module_def else None
-                new_config = None
+                matching_configs = []
                 if module_name:
                     for cfg in all_configs:
                         # Match by config short-name or by the module segment
                         # of its DEFINITION-REF (/Pkg/Module)
                         def_module = cfg.definition_ref.rstrip('/').rsplit('/', 1)[-1]
                         if cfg.short_name == module_name or def_module == module_name:
-                            new_config = cfg
-                            break
-                if new_config is None:
+                            matching_configs.append(cfg)
+
+                if matching_configs:
+                    # Task 2 改法：多块自动合并
+                    new_config = merge_module_configurations(matching_configs)
+                    skipped = [c.short_name for c in all_configs if c not in matching_configs]
+                else:
                     new_config = all_configs[0]
+                    skipped = [c.short_name for c in all_configs if c is not new_config]
                     if module_name and len(all_configs) > 1:
                         logger.warning(
                             "%s: no configuration matching module '%s'; using first ('%s')",
                             file_path.name, module_name, new_config.short_name)
-                skipped = [c.short_name for c in all_configs if c is not new_config]
                 if skipped:
                     logger.warning(
                         "%s contains %d additional module configuration(s) not loaded here: %s",
@@ -1933,7 +2038,8 @@ class ConfigurationManager:
             )
             container_is_new = False
             if not current_container and self.module_def:
-                c_def = self.module_def.containers.get(rec_container.short_name)
+                # P1 改法：用 find_container_def 按 DEFINITION-REF 查找，处理作用域 + EB 后缀
+                c_def = find_container_def(self.module_def, rec_container)
                 if c_def:
                     try:
                         current_container = self.create_container_instance(c_def, instance_name=rec_container.short_name)

@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 
 import logging
 
-from ...core.config_manager import PreLockedError, ValidationError
+from ...core.config_manager import PreLockedError, ValidationError, find_container_def
 from ...core.model.configuration_model import EcucContainerValue
 from ..commands import SetParameterCommand
 
@@ -96,7 +96,9 @@ def apply_recommended_changes(manager, rec_config, only_empty: bool, undo_stack)
         current = next((c for c in manager.configuration.containers if c.short_name == path), None)
         created = current is None
         if created:
-            current = create(manager.module_def.containers.get(path), None, path, path)
+            # P1 改法：用 find_container_def 按 DEFINITION-REF 查找，处理作用域 + EB 后缀
+            container_def = find_container_def(manager.module_def, rec_container)
+            current = create(container_def, None, path, path)
         if current is not None:
             collect(current, rec_container, path, created)
 
