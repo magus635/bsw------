@@ -1060,8 +1060,11 @@ class ProjectController:
             
         try:
             project = self.win.current_project
-            from ...core.workspace_manager import package_for_path
-            hit = package_for_path(project, Path(file_path)) if project.module_libraries else None
+            from ...core.workspace_manager import ensure_package_for_path, package_for_path
+            if getattr(project, "format_version", 7) >= 8:
+                hit = ensure_package_for_path(project, Path(file_path))
+            else:
+                hit = package_for_path(project, Path(file_path)) if project.module_libraries else None
             manager = None
             if hit is not None:
                 # The file lies inside a package of a registered library: add through it.
@@ -1080,6 +1083,7 @@ class ProjectController:
                 self.win.def_parser.set_selector_values(selector_values(project))
                 module_def = self.win.def_parser.parse_module_def_file(Path(file_path))
                 project.add_module(module_def, Path(file_path))
+            self.win._has_unsaved_changes = True
             # The new module may ship its own .properties resources
             self.win.current_project.load_ecu_resources()
             # Its chip selector parameters follow the project's chip

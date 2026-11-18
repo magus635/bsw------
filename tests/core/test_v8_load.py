@@ -455,3 +455,34 @@ def test_v8_discover_available_chips_and_package_record(tmp_path):
     assert record["sw_version"] == "2.3.4"
     assert "def/Resource.xdm" in record["files"]
     assert record["files"]["def/Resource.xdm"].startswith("sha256:")
+
+
+def test_ensure_package_for_path_registers_library_on_new_v8_project(tmp_path):
+    """Adding a module via file selection on a new v8 project auto-registers its package library."""
+    from autosar_configurator.core.workspace_manager import ensure_package_for_path
+
+    project_file = tmp_path / "proj" / "P.dpa"
+    wm = WorkspaceManager()
+    project = wm.create_project("P", project_file, format_version=8)
+    project.selected_chip = CHIP
+    assert project.module_libraries == []
+
+    hit = ensure_package_for_path(project, EB_PLUGINS / "Mcu_THA6_AS440" / "config" / "Mcu.xdm")
+    assert hit is not None
+    lib_index, pkg = hit
+    assert lib_index == 0
+    assert pkg.manifest.module == "Mcu"
+    assert len(project.module_libraries) == 1
+    assert project.module_libraries[0].kind == "eb-plugins"
+
+    manager = project.add_module_from_package(pkg, lib_index)
+    assert any(c.short_name == "McuPublishedInformation" for c in manager.configuration.containers)
+    wm.save_project()
+
+    reloaded, failed = WorkspaceManager().load_project(project_file)
+    assert failed == []
+    assert "Mcu" in reloaded.module_managers
+    assert any(
+        c.short_name == "McuPublishedInformation"
+        for c in reloaded.module_managers["Mcu"].configuration.containers
+    )

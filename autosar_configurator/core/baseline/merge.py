@@ -42,7 +42,7 @@ every Active key as removed and every Base' key as new.
 """
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from ..model.configuration_model import (
     EcucContainerValue,
@@ -260,9 +260,12 @@ def three_way_merge(base: Optional[Dict[ValueKey, Any]], new_base: Dict[ValueKey
         return "C:" + path in active
 
     def inside_created(key: ValueKey) -> bool:
-        """Whether the key's container is created, or sits inside a created container."""
+        """Whether the key's own container is created (not a sibling/child REC container)."""
+        c_key = "C:" + _container_path_of(key)
+        if c_key in new_base:
+            return c_key in created
         path = _container_path_of(key)
-        while path.count("/") > 1:                   # walk up to the outermost container
+        while path.count("/") > 1:
             if "C:" + path in created:
                 return True
             path = path.rpartition("/")[0]
@@ -348,13 +351,18 @@ def _clone_ref(ref: EcucReferenceValue) -> EcucReferenceValue:
 
 
 def _clone_subtree(src: EcucContainerValue, parent: Optional[EcucContainerValue],
-                   module_name: str) -> EcucContainerValue:
-    """A deep copy of ``src`` and its subtree, placed under ``parent``.
+                   module_name: str,
+                   allowed_paths: Optional[Set[str]] = None) -> EcucContainerValue:
+    """A deep copy of ``src`` and its allowed subtree, placed under ``parent``.
 
     The clone approach of ``compose._shell`` / ``_merge_container``: new value objects, so
     a later edit of Active cannot reach back into Base', and the same identity fields. The
     parent goes to the constructor, not a later assignment, so a nested ``get_path()``
     already sees its final place.
+
+    When ``allowed_paths`` is provided (the set of container paths planned for ``CREATE``),
+    sub-containers outside ``allowed_paths`` (e.g. a sibling REC-only sub-container under
+    a created parent) are skipped rather than copied into Active.
 
     ``unknown_parameters`` is an index into ``parameter_values`` / ``multi_parameter_values``
     (the values themselves stay there), so it is rebuilt to point at the clones — as
@@ -378,8 +386,11 @@ def _clone_subtree(src: EcucContainerValue, parent: Optional[EcucContainerValue]
             clone.unknown_parameters[name] = clone.parameter_values[name]
         elif name in clone.multi_parameter_values:
             clone.unknown_parameters[name] = clone.multi_parameter_values[name]
+    clone_path = clone.get_path()
     for sub in src.sub_containers:
-        clone.sub_containers.append(_clone_subtree(sub, clone, module_name))
+        if allowed_paths is not None and f"{clone_path}/{sub.short_name}" not in allowed_paths:
+            continue
+        clone.sub_containers.append(_clone_subtree(sub, clone, module_name, allowed_paths))
     return clone
 
 
@@ -397,7 +408,7 @@ class _Step:
 
 
 def _plan(active_config: EcucModuleConfiguration, new_base_config: EcucModuleConfiguration,
-          changing: List[MergeItem]) -> List[_Step]:
+          changing: List[MergeItem]) -> Tuple[List[_Step], Set[str]]:
     """Resolve every target of ``changing`` first; raise before Active is touched.
 
     Applying a merge in place cannot be undone, so a plan that would fail half-way must
@@ -405,10 +416,11 @@ def _plan(active_config: EcucModuleConfiguration, new_base_config: EcucModuleCon
 
     A container is copied unless Active already has it. A value's container counts as
     present when Active has it, when the plan copies it, or when the plan copies an
-    ancestor whose subtree includes it (a subtree copy brings descendants along).
+    ancestor whose subtree includes it (a subtree copy brings allowed descendants along).
     """
     steps: List[_Step] = []
-    copied: List[str] = []       # container paths the plan creates, subtrees included
+    copied: List[str] = []          # root container paths copied from Base'
+    created_paths: Set[str] = set() # every container path created (roots + allowed descendants)
 
     def will_exist(path: str) -> bool:
         if active_config.get_instance_by_path(path) is not None:
@@ -420,7 +432,7 @@ def _plan(active_config: EcucModuleConfiguration, new_base_config: EcucModuleCon
         if not _is_container(item.key):
             continue
         path = _container_path(item.key, active_config.short_name)
-        if will_exist(path):
+        if active_config.get_instance_by_path(path) is not None:
             steps.append(_Step(item, path))            # pre-existing: its values still apply
             continue
         source_path = _container_path(item.key, new_base_config.short_name)
@@ -428,6 +440,10 @@ def _plan(active_config: EcucModuleConfiguration, new_base_config: EcucModuleCon
             raise MergeApplyError(
                 f"CREATE {item.key!r}: Base' has no container at {source_path!r} "
                 f"(active module {active_config.short_name!r})")
+        created_paths.add(path)
+        if will_exist(path):
+            steps.append(_Step(item, path))            # brought along inside an ancestor's copy
+            continue
         parent_path = path.rpartition("/")[0]
         if parent_path != root_path and not will_exist(parent_path):
             raise MergeApplyError(
@@ -445,12 +461,12 @@ def _plan(active_config: EcucModuleConfiguration, new_base_config: EcucModuleCon
         if not will_exist(path):
             raise MergeApplyError(
                 f"{item.kind.value} {item.key!r}: Active has no container at {path!r}")
-        steps.append(_Step(item, path, write=_value_write_needed(item, path, copied,
+        steps.append(_Step(item, path, write=_value_write_needed(item, path, created_paths,
                                                                  active_config)))
-    return steps
+    return steps, created_paths
 
 
-def _value_write_needed(item: MergeItem, path: str, copied: List[str],
+def _value_write_needed(item: MergeItem, path: str, created_paths: Set[str],
                         active_config: EcucModuleConfiguration) -> bool:
     """Whether a value item needs a write of its own on top of a possible container copy.
 
@@ -460,11 +476,13 @@ def _value_write_needed(item: MergeItem, path: str, copied: List[str],
     written: that is the case where the merge saw the container as new only because the
     keys carried another module prefix.
     """
-    if any(path == root or path.startswith(root + "/") for root in copied):
+    if path in created_paths:
         return False
     if item.kind is not MergeKind.CREATE:
         return True
     container = active_config.get_instance_by_path(path)
+    if container is None:
+        return True
     current = _container_value(container, _name_of(item.key))
     return current is None or values_equal(current, item.new_value)
 
@@ -486,8 +504,9 @@ _VALUE_ATTR = {"parameter_values": "value", "multi_parameter_values": "value",
 
 
 def _copy_container(active_config: EcucModuleConfiguration,
-                    new_base_config: EcucModuleConfiguration, path: str) -> EcucContainerValue:
-    """Copy the container at ``path`` (with its subtree) from Base' into Active.
+                    new_base_config: EcucModuleConfiguration, path: str,
+                    allowed_paths: Optional[Set[str]] = None) -> EcucContainerValue:
+    """Copy the container at ``path`` (with its allowed subtree) from Base' into Active.
 
     Called only for a path :func:`_plan` accepted, so the source and the parent exist.
     """
@@ -498,7 +517,7 @@ def _copy_container(active_config: EcucModuleConfiguration,
     source = new_base_config.get_instance_by_path(source_path)
     parent_path = path.rpartition("/")[0]
     parent = active_config.get_instance_by_path(parent_path)
-    clone = _clone_subtree(source, parent, active_config.short_name)
+    clone = _clone_subtree(source, parent, active_config.short_name, allowed_paths)
     if parent is None:
         active_config.add_container(clone)
     else:
@@ -533,12 +552,12 @@ def apply_merge(active_config: EcucModuleConfiguration,
         result: The merge result to apply.
     """
     changing = [item for item in result.items if item.kind in _CHANGING]
-    plan = _plan(active_config, new_base_config, changing)   # raises before any write
+    plan, created_paths = _plan(active_config, new_base_config, changing)   # raises before any write
 
     root = "/" + active_config.short_name
     for step in plan:
         if step.copy:
-            _copy_container(active_config, new_base_config, step.path)
+            _copy_container(active_config, new_base_config, step.path, created_paths)
 
     for step in plan:
         if not step.write or _is_container(step.item.key):

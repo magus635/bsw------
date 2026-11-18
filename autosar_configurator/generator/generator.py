@@ -265,7 +265,8 @@ class CodeGenerator:
         content, _ = self._load_template_with_path(template_name, module_name)
         return content
         
-    def generate_all(self, output_dir: Path, force: bool = False, variant: Optional[str] = None) -> bool:
+    def generate_all(self, output_dir: Path, force: bool = False,
+                     variant: Optional[str] = None, flat: bool = False) -> bool:
         """Generate all code files by discovering templates in search directories"""
         output_dir = Path(output_dir)
         module_name = self.configuration.short_name
@@ -276,10 +277,16 @@ class CodeGenerator:
             self.variant_name = variant
 
         # Locate output directory (created only if there is something to generate)
-        out_module_dir = output_dir / module_name
-        if variant:
-            out_module_dir = out_module_dir / variant
-            logger.info(f"Generating for variant: {variant}")
+        if flat:
+            out_module_dir = output_dir
+            if variant and variant != "Default":
+                out_module_dir = out_module_dir / variant
+                logger.info(f"Generating for variant: {variant}")
+        else:
+            out_module_dir = output_dir / module_name
+            if variant:
+                out_module_dir = out_module_dir / variant
+                logger.info(f"Generating for variant: {variant}")
 
         # Discover and generate files
         generated_files = []

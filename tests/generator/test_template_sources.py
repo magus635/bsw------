@@ -297,3 +297,21 @@ def test_overlay_template_includes_macro_from_package(tmp_path):
 
     out = tmp_path / "out" / "Dio" / "src" / "Dio_PBcfg.c"
     assert "/* overlay macro=FROM_PKG */" in out.read_text(encoding="utf-8")
+
+
+def test_flat_gen_layout_writes_without_module_subdir(tmp_path):
+    """Format 8 projects with gen_layout='flat' write directly under gen/ via project_paths.gen_dir."""
+    _, project = _v8_project(tmp_path)
+    pkg_dir = tmp_path / "pkg" / "generate_PB"
+    _write(pkg_dir / "Dio_Cfg.h", "/* flat */\n")
+
+    gen_root = project_paths.gen_dir(project, "Dio")
+    assert gen_root == tmp_path / "gen"
+
+    generator = CodeGenerator(_module_def(), _config(), package_template_dir=pkg_dir)
+    assert generator.generate_all(gen_root, variant="Default", flat=True) is True
+
+    out = tmp_path / "gen" / "include" / "Dio_Cfg.h"
+    assert out.is_file()
+    assert out.read_text(encoding="utf-8") == "/* flat */\n"
+    assert not (tmp_path / "gen" / "Dio").exists()

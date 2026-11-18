@@ -883,3 +883,33 @@ def test_missing_pre_container_restored_even_when_present_in_base():
     }
     assert merged["C:/Mcu/McuOther"] is True
     assert merged[OTHER + "Never"] == 5
+
+
+def test_created_parent_does_not_copy_sibling_rec_subcontainer():
+    """When a parent container is created for a PRE child, sibling REC-only subcontainers are not copied."""
+    new = _config()
+    pre_sub = EcucContainerValue(short_name="PreSub", definition_ref="/X/Mcu/McuGeneral/PreSub")
+    pre_sub.parameter_values["Depth"] = EcucParameterValue("/X/Depth", 5)
+    rec_sub = EcucContainerValue(short_name="RecSub", definition_ref="/X/Mcu/McuGeneral/RecSub")
+    rec_sub.parameter_values["Depth"] = EcucParameterValue("/X/Depth", 9)
+    _top(new).add_sub_container(pre_sub)
+    _top(new).add_sub_container(rec_sub)
+    active = _config(container=None)
+
+    layers = {
+        "C:/Mcu/McuGeneral": Layer.REC,
+        "C:/Mcu/McuGeneral/PreSub": Layer.PRE,
+        "P:/Mcu/McuGeneral/PreSub.Depth": Layer.PRE,
+        "C:/Mcu/McuGeneral/RecSub": Layer.REC,
+        "P:/Mcu/McuGeneral/RecSub.Depth": Layer.REC,
+    }
+    result, merged = _apply(None, active, new, layers)
+    assert _kinds(result) == {
+        ("C:/Mcu/McuGeneral", MergeKind.CREATE),
+        ("C:/Mcu/McuGeneral/PreSub", MergeKind.CREATE),
+        ("P:/Mcu/McuGeneral/PreSub.Depth", MergeKind.CREATE),
+        ("C:/Mcu/McuGeneral/RecSub", MergeKind.KEPT_USER),
+        ("P:/Mcu/McuGeneral/RecSub.Depth", MergeKind.KEPT_USER),
+    }
+    assert "C:/Mcu/McuGeneral/PreSub" in merged
+    assert "C:/Mcu/McuGeneral/RecSub" not in merged

@@ -215,7 +215,7 @@ class GenerationController:
             finished = Signal(str, str, str)  # module_name, status (GEN/SKIP/FAIL), message
 
         class GenWorker(QRunnable):
-            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None, project_template_dir=None, package_template_dir=None, all_configs=None, selected_chip=None, ecu_resources=None, project_root=None):
+            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None, project_template_dir=None, package_template_dir=None, all_configs=None, selected_chip=None, ecu_resources=None, project_root=None, flat=False):
                 super().__init__()
                 self.name = name
                 self.manager = manager
@@ -228,6 +228,7 @@ class GenerationController:
                 self.selected_chip = selected_chip
                 self.ecu_resources = ecu_resources
                 self.project_root = project_root
+                self.flat = flat
                 self.signals = GenSignals()
 
             @Slot()
@@ -250,9 +251,9 @@ class GenerationController:
                         ecu_resources=self.ecu_resources,
                         project_root=self.project_root
                     )
-                    # Pass parent output path; generator.generate_all() handles the ModuleName/ subdir
                     variant_to_use = self.variant_name if self.variant_name else "Default"
-                    generated = generator.generate_all(self.out_path, force=False, variant=variant_to_use)
+                    generated = generator.generate_all(
+                        self.out_path, force=False, variant=variant_to_use, flat=self.flat)
 
                     if generated:
                         status, detail = "GEN", ""
@@ -375,6 +376,7 @@ class GenerationController:
         self._gen_workers = []
         all_configs = self._get_all_project_configurations()
         ecu_resources = self._project_ecu_resources()
+        is_flat = project_paths.dirs(win.current_project).gen_layout == project_paths.GEN_LAYOUT_FLAT
 
         for name, manager in modules:
             if not manager.configuration:
@@ -389,9 +391,10 @@ class GenerationController:
                 mod_variant_overrides = manager.configuration.variant_overrides.get(variant_name, {})
 
             overlay_root, package_dir, project_root = _template_sources(win, name)
+            mod_out_path = project_paths.gen_dir(win.current_project, name) if is_flat else output_path
 
             worker = GenWorker(
-                name, manager, output_path,
+                name, manager, mod_out_path,
                 variant_name=variant_name,
                 variant_overrides=mod_variant_overrides,
                 project_template_dir=overlay_root,
@@ -399,7 +402,8 @@ class GenerationController:
                 all_configs=all_configs,
                 selected_chip=win.current_project.selected_chip if win.current_project else None,
                 ecu_resources=ecu_resources,
-                project_root=project_root
+                project_root=project_root,
+                flat=is_flat,
             )
             worker.setAutoDelete(False)  # Prevent automatic deletion
             # Use QueuedConnection for cross-thread signal delivery

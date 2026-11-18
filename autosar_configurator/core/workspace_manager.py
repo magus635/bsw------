@@ -149,6 +149,75 @@ def package_for_path(project, file: Path) -> Optional[Tuple[int, ModulePackage]]
     return None
 
 
+def ensure_package_for_path(project, file: Path) -> Optional[Tuple[int, ModulePackage]]:
+    """Find the package containing ``file``, auto-registering its library for format 8 projects.
+
+    When adding a module via file selection on a new format 8 project whose
+    ``module_libraries`` has not been populated yet, walk upward from ``file`` to see if
+    it lives inside a module package (``module.json`` or ``plugin.xml``). If so, register
+    its parent directory as a library in ``project.module_libraries`` (or un-exclude it if
+    that library is already registered) and return ``(lib_index, ModulePackage)``.
+    """
+    hit = package_for_path(project, file)
+    if hit is not None:
+        return hit
+    if getattr(project, "format_version", 7) < 8:
+        return None
+
+    from .packages.manifest import infer_package
+
+    try:
+        resolved_file = Path(file).resolve()
+    except OSError:
+        return None
+
+    candidates = [resolved_file] if resolved_file.is_dir() else []
+    candidates.extend(resolved_file.parents)
+    for pkg_dir in candidates:
+        has_manifest = (pkg_dir / "module.json").is_file()
+        has_plugin = (pkg_dir / "plugin.xml").is_file()
+        if not (has_manifest or has_plugin):
+            continue
+        try:
+            manifest = infer_package(pkg_dir)
+        except PackageError:
+            continue
+
+        kind = "package" if has_manifest else "eb-plugins"
+        lib_dir = pkg_dir.parent.resolve()
+        proj_root = (
+            project_paths.project_root(project).resolve()
+            if getattr(project, "path", None)
+            else Path(".").resolve()
+        )
+
+        # Reuse an existing library pointing at lib_dir if present
+        for index, ref in enumerate(getattr(project, "module_libraries", [])):
+            if ref.kind != kind:
+                continue
+            ref_path = Path(ref.path)
+            if not ref_path.is_absolute():
+                ref_path = Path(os.path.normpath(proj_root / ref_path))
+            try:
+                if ref_path.resolve() == lib_dir:
+                    if pkg_dir.name in ref.exclude:
+                        ref.exclude = [e for e in ref.exclude if e != pkg_dir.name]
+                    return index, ModulePackage(pkg_dir, manifest)
+            except OSError:
+                continue
+
+        try:
+            rel = lib_dir.relative_to(proj_root)
+            lib_path_str = rel.as_posix() or "."
+        except ValueError:
+            lib_path_str = lib_dir.as_posix()
+
+        project.module_libraries.append(LibraryRef(path=lib_path_str, kind=kind, exclude=[]))
+        return len(project.module_libraries) - 1, ModulePackage(pkg_dir, manifest)
+
+    return None
+
+
 class WorkspaceProject:
     """Represents a DaVinci-style project containing multiple modules"""
     
@@ -1413,10 +1482,15 @@ class WorkspaceManager:
                 entry = project.module_entries[name]
                 entry.config_path = relative_config_path
             else:
+                def_path_ar = (
+                    getattr(manager.module_def, "ar_path", None)
+                    or getattr(manager.module_def, "definition_ref", None)
+                    or f"/AUTOSAR/EcucDefs/{name}"
+                )
                 entry = ModuleEntry(
                     name=name,
-                    definition=f"/AUTOSAR/EcucDefs/{name}",  # Default; caller should override
-                    library=0,  # Default; caller should set
+                    definition=def_path_ar,
+                    library=0,
                     config_path=relative_config_path,
                     pre_unlocked=[],
                     package_record={},
