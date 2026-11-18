@@ -521,7 +521,7 @@ def package_record(pkg: ModulePackage) -> Dict[str, object]:
         path = pkg.root / pf.path
         files[pf.path] = _sha256(path) if path.is_file() else None
     record: Dict[str, object] = {"files": files}
-    version = _plugin_sw_version(pkg.root)
+    version = _plugin_sw_version(pkg.root) or (pkg.manifest.origin or {}).get("sw_version")
     if version:
         record["sw_version"] = version
     return record

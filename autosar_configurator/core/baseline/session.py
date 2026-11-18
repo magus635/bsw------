@@ -214,7 +214,7 @@ def reconcile(manager, old_base: Optional[EcucModuleConfiguration], new: ModuleB
     old = None if old_base is None else flatten(old_base, module_name)
     result = three_way_merge(old, flatten(new.base_config, module_name),
                              flatten(manager.configuration, module_name),
-                             new.layers, unlocked)
+                             new.layers, unlocked, pre_keys=new.pre_keys)
     if not result.has_changes or confirm is None:
         return result, False
     if not confirm(result.to_markdown(module_name), result):

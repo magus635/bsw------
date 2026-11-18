@@ -847,3 +847,30 @@ def test_template_create_new_probe_rejects_a_bad_value(project, monkeypatch):
     assert wizard.created_instance is None
     assert not [c for c in manager.configuration.containers if c.short_name.startswith("TrkLog")]
     assert messages                                                   # the refusal was reported
+
+
+def test_import_value_file_missing_pre_container_restores_on_reload(tmp_path):
+    """Importing an arxml file that omits the Pre container restores the whole Pre container on reload."""
+    make_package(tmp_path / "lib", rec={"Mode": "Fast", "Ratio": "10"}, pre={"Level": "3"})
+    wm = new_project(tmp_path)
+    manager = add_trk(wm.current_project)
+    wm.save_project()
+
+    empty_import = tmp_path / "EmptyImport.arxml"
+    empty_import.write_text(_VALUES.format(collections="""        <ECUC-MODULE-CONFIGURATION-VALUES>
+          <SHORT-NAME>Imported</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-MODULE-DEF">/Vendor/Trk</DEFINITION-REF>
+          <CONTAINERS />
+        </ECUC-MODULE-CONFIGURATION-VALUES>"""), encoding="utf-8")
+    manager.load_configuration(empty_import)
+    assert manager.configuration.containers == []
+    wm.save_project()
+
+    def confirm(text, result):
+        assert "创建" in text
+        return True
+
+    opened, failed = WorkspaceManager().load_project(Path(wm.current_project.path), confirm=confirm)
+    assert failed == []
+    assert [c.short_name for c in opened.module_managers["Trk"].configuration.containers] == ["TrkGeneral"]
+    assert level(opened.module_managers["Trk"]) == "3"

@@ -660,6 +660,77 @@ class CodeGenerator:
             return f'"{value}"'
         return str(value)
 
+    def _build_include_search_paths(
+        self, module_name: str, template_source_dir: Optional[Path]
+    ) -> List[Path]:
+        """Collect permitted INCLUDE directories across overlay, package and user templates.
+
+        Keeping package_template_dir (and its subdirectories, without exposing its parent)
+        allows an overlay file in ``templates/<Module>/`` to ``[!INCLUDE "Mod.m"!]`` macro
+        files that live only in the module package's ``generate_PB/`` directory.
+        """
+        search_paths: List[Path] = []
+        seen = set()
+
+        def add_dir(d: Optional[Path]) -> None:
+            if not d:
+                return
+            try:
+                p = Path(d)
+                if not p.is_dir():
+                    return
+                resolved = p.resolve()
+            except OSError:
+                return
+            if resolved not in seen:
+                seen.add(resolved)
+                search_paths.append(p)
+
+        def add_module_root_and_subdirs(base_dir: Optional[Path]) -> None:
+            if not base_dir:
+                return
+            base = Path(base_dir)
+            if not base.is_dir():
+                return
+            mod_dir = base / module_name
+            if not mod_dir.is_dir():
+                try:
+                    for item in sorted(base.iterdir(), key=lambda p: p.name):
+                        if item.is_dir() and item.name.lower() == module_name.lower():
+                            mod_dir = item
+                            break
+                except OSError:
+                    mod_dir = None
+            if mod_dir is not None and mod_dir.is_dir():
+                add_dir(mod_dir)
+                try:
+                    for sub in sorted(mod_dir.iterdir(), key=lambda p: p.name):
+                        if sub.is_dir():
+                            add_dir(sub)
+                except OSError:
+                    pass
+            add_dir(base)
+
+        if template_source_dir:
+            add_dir(template_source_dir)
+            add_dir(Path(template_source_dir).parent)
+
+        add_module_root_and_subdirs(self.project_template_dir)
+
+        if self.package_template_dir:
+            pkg_dir = Path(self.package_template_dir)
+            add_dir(pkg_dir)
+            if pkg_dir.is_dir():
+                try:
+                    for sub in sorted(pkg_dir.iterdir(), key=lambda p: p.name):
+                        if sub.is_dir():
+                            add_dir(sub)
+                except OSError:
+                    pass
+
+        add_module_root_and_subdirs(self.user_template_dir)
+        return search_paths
+
     def _generate_single_file(self, t_info: Dict[str, Any], output_parent: Path) -> bool:
         """Generate a single file from a template type"""
         module_name = self.configuration.short_name
@@ -687,7 +758,12 @@ class CodeGenerator:
             # Automatic engine selection: EB syntax [! ... !] vs Standard
             if "[!" in template_content:
                 logger.debug(f"Detected EB syntax in {template_name}, using EBTemplateEngine")
-                eb_engine = EBTemplateEngine(strict=False, template_dir=template_source_dir)
+                include_paths = self._build_include_search_paths(module_name, template_source_dir)
+                eb_engine = EBTemplateEngine(
+                    strict=False,
+                    template_dir=template_source_dir,
+                    include_search_paths=include_paths,
+                )
                 context['all_modules'] = self.all_configurations
                 try:
                     rendered = eb_engine.render(template_content, context, ecu_resources=self.ecu_resources, template_file=original_path)

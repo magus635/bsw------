@@ -17,7 +17,8 @@ class EBTemplateEngine:
     Wraps the robust implementation in autosar_configurator.generator.eb.
     """
     
-    def __init__(self, strict: bool = True, template_dir: Optional[Path] = None):
+    def __init__(self, strict: bool = True, template_dir: Optional[Path] = None,
+                 include_search_paths: Optional[list] = None):
         self.template_dir = template_dir
         
         # Build include search paths
@@ -26,6 +27,9 @@ class EBTemplateEngine:
             search_paths.append(template_dir)
             # Add parent directory to allow includes from module root (e.g., from include/ to root)
             search_paths.append(template_dir.parent)
+        for extra in include_search_paths or []:
+            if extra and extra not in search_paths:
+                search_paths.append(extra)
             
         self.renderer = Renderer(strict=strict, template_dir=template_dir, include_search_paths=search_paths)
         self.initialized_modules = set()

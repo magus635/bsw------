@@ -839,3 +839,47 @@ def test_values_equal_semantics_are_used():
     result, merged = _apply(base, active, new)
     assert _kinds(result) == {(GEN + "Speed", MergeKind.ADOPT)}
     assert merged[GEN + "Speed"] == " 2 "
+
+
+def test_pre_subcontainer_under_rec_parent_creates_parent_when_missing():
+    """When REC introduced the parent container and PRE added a child container, missing Active parent is created too."""
+    new = _config()
+    sub = EcucContainerValue(short_name="McuSub", definition_ref="/X/Mcu/McuGeneral/McuSub")
+    sub.parameter_values["Depth"] = EcucParameterValue("/X/Depth", 5)
+    _top(new).add_sub_container(sub)
+    active = _config(container=None)
+
+    layers = {
+        "C:/Mcu/McuGeneral": Layer.REC,
+        "C:/Mcu/McuGeneral/McuSub": Layer.PRE,
+        SUB + "Depth": Layer.PRE,
+    }
+    result, merged = _apply(None, active, new, layers)
+    assert _kinds(result) == {
+        ("C:/Mcu/McuGeneral", MergeKind.CREATE),
+        ("C:/Mcu/McuGeneral/McuSub", MergeKind.CREATE),
+        (SUB + "Depth", MergeKind.CREATE),
+    }
+    assert merged["C:/Mcu/McuGeneral"] is True
+    assert merged["C:/Mcu/McuGeneral/McuSub"] is True
+    assert merged[SUB + "Depth"] == 5
+
+
+def test_missing_pre_container_restored_even_when_present_in_base():
+    """If Base already had a Pre container and Active lost it (e.g. value import), restore it via CREATE."""
+    base = _config()
+    _set(base, "Never", 5, container="McuOther")
+    new = _config()
+    _set(new, "Never", 5, container="McuOther")
+    active = _config()
+
+    result, merged = _apply(base, active, new, {
+        "C:/Mcu/McuOther": Layer.PRE,
+        OTHER + "Never": Layer.PRE,
+    })
+    assert _kinds(result) == {
+        ("C:/Mcu/McuOther", MergeKind.CREATE),
+        (OTHER + "Never", MergeKind.CREATE),
+    }
+    assert merged["C:/Mcu/McuOther"] is True
+    assert merged[OTHER + "Never"] == 5

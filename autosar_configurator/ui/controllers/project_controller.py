@@ -257,7 +257,12 @@ class ProjectController:
         if not project:
             return None
         project.selected_chip = chip_name
-        project.chip_changed()
+        if write_selectors:
+            project.chip_changed(confirm=self._confirm_merge)
+            if any(getattr(b, "dirty", False) for b in getattr(project, "baselines", {}).values()):
+                self.win._has_unsaved_changes = True
+        else:
+            project.chip_changed()
 
         result = None
         if write_selectors and chip_name:

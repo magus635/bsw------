@@ -2,6 +2,7 @@
 
 Defines LibraryRef, which records metadata about a module library (package or EB plugins).
 """
+import os
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional, Any, Dict, Tuple
@@ -78,7 +79,7 @@ def scan_library(ref: LibraryRef, base: Path) -> List["ModulePackage"]:
 
     lib_root = Path(ref.path)
     if not lib_root.is_absolute():
-        lib_root = Path(base) / lib_root
+        lib_root = Path(os.path.normpath(Path(base) / lib_root))
     if not lib_root.is_dir():
         return []
 

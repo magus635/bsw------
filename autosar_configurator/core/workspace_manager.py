@@ -302,11 +302,17 @@ class WorkspaceProject:
                 config_rel = config_rel.relative_to(project_paths.project_root(self))
             except ValueError:
                 pass
+        if new_entry:
+            pkg_record = {}
+            if self.format_version >= 8:
+                from . import eb_import
+                pkg_record = eb_import.package_record(pkg)
             entry = ModuleEntry(
                 name=name,
                 definition=pkg.manifest.definition,
                 library=lib_index,
                 config_path=config_rel.as_posix(),
+                package_record=pkg_record,
             )
 
         config_loaded = False
@@ -331,6 +337,9 @@ class WorkspaceProject:
         else:
             entry.definition = pkg.manifest.definition
             entry.library = lib_index
+            if self.format_version >= 8 and not entry.package_record:
+                from . import eb_import
+                entry.package_record = eb_import.package_record(pkg)
         self.packages[name] = pkg
 
         if self.format_version < 8:
@@ -405,13 +414,17 @@ class WorkspaceProject:
         if not new.has_layers:
             return None
 
-        old = baseline_session.load_baseline(self, name, entry.base_hash)
+        old = self.baselines.get(name)
+        if (old is None or not old.dirty or old.base_config is None or old.layers_untrusted):
+            old = baseline_session.load_baseline(self, name, entry.base_hash)
         unlocked = set(entry.pre_unlocked)
         result, applied = baseline_session.reconcile(
             manager, old.base_config, new, unlocked, confirm, module_name=name)
         if applied:
+            from . import eb_import
             new.dirty = True                       # written by the next save
             self.baselines[name] = new
+            entry.package_record = eb_import.package_record(pkg)
         elif old.base_config is None and not result.has_changes:
             # A project with no snapshot whose active values already agree with Base' (a
             # migrated project, a first open): Base' becomes the snapshot on the next save,
@@ -473,30 +486,46 @@ class WorkspaceProject:
     def discover_available_chips(self) -> List[str]:
         """Scan project for available chip .properties files.
         
-        Looks in Def/plugins/*/resource/*.properties for chip definition files.
+        Looks in Def/plugins/*/resource/*.properties (and format 8 module packages'
+        resource directories) for chip definition files.
         Returns list of chip names (derived from filename).
         """
         if not self.path:
             return []
-        
+
+        def _extract_chip_name(props_file: Path) -> str:
+            name = props_file.stem
+            parts = name.split('_')
+            for i, part in enumerate(parts):
+                if part.startswith('THA') or part.startswith('tha'):
+                    return '_'.join(parts[i:])
+            return name
+
         chips = []
         def_dir = project_paths.resolve(self, "legacy_plugins")
         if def_dir.exists():
             # Look for resource/*.properties files
             for props_file in def_dir.rglob("resource/*.properties"):
-                # Extract chip name from filename (e.g., CotexR52_THA6206_LFBGA292.properties -> THA6206_LFBGA292)
-                name = props_file.stem
-                # Try to extract chip identifier (THAxxxx pattern)
-                parts = name.split('_')
-                for i, part in enumerate(parts):
-                    if part.startswith('THA') or part.startswith('tha'):
-                        chip_name = '_'.join(parts[i:])
-                        chips.append(chip_name)
-                        break
-                else:
-                    # If no THA pattern, use the full stem
-                    chips.append(name)
-        
+                chips.append(_extract_chip_name(props_file))
+
+        if self.format_version >= 8:
+            seen_dirs = set()
+            resource_dirs: List[Path] = []
+            for pkg in self.packages.values():
+                res_dir = pkg.resource_dir()
+                if res_dir is not None and res_dir.resolve() not in seen_dirs:
+                    seen_dirs.add(res_dir.resolve())
+                    resource_dirs.append(res_dir)
+            for _, pkgs in scan_libraries(self):
+                for pkg in pkgs:
+                    res_dir = pkg.resource_dir()
+                    if res_dir is not None and res_dir.resolve() not in seen_dirs:
+                        seen_dirs.add(res_dir.resolve())
+                        resource_dirs.append(res_dir)
+            for res_dir in resource_dirs:
+                for props_file in sorted(res_dir.glob("*.properties"), key=lambda p: p.name):
+                    chips.append(_extract_chip_name(props_file))
+
         self.available_chips = sorted(set(chips))
         return self.available_chips
 
@@ -670,13 +699,16 @@ class WorkspaceProject:
         self.load_ecu_resources()
         return path
 
-    def chip_changed(self):
+    def chip_changed(self, confirm=None):
         """Call after ``selected_chip`` changed: keep the project's chips/ in step and recompute.
 
         A project that already keeps its chips in ``chips/`` gets the newly
         selected chip copied there from the library; a project without a
         ``chips/`` directory is left as it is (the user can adopt the chip
         explicitly).  The ECU resources are always recomputed from scratch.
+
+        When ``confirm`` is provided on a format 8 project, each loaded module package
+        reconciles its baseline so chip-conditional Pre/Rec files take effect immediately.
         """
         import copy
 
@@ -692,7 +724,21 @@ class WorkspaceProject:
         record = self.chip_data_record or {}
         if self.selected_chip and record.get("name") != self.selected_chip:
             self.record_chip_data()
-        return self.load_ecu_resources()
+        resources = self.load_ecu_resources()
+
+        if self.format_version >= 8 and confirm is not None:
+            for name in sorted(self.packages):
+                pkg = self.packages[name]
+                manager = self.module_managers.get(name)
+                entry = self.module_entries.get(name)
+                if manager is None or entry is None:
+                    continue
+                try:
+                    self.reconcile_baseline(manager, entry, pkg, confirm=confirm)
+                except Exception as exc:  # noqa: BLE001 - chip switch must not crash on one module
+                    _log_warning("切换芯片时基线合并失败：%s（%s）", name, exc)
+
+        return resources
 
     def apply_chip_selectors(self, modules=None):
         """Write the selected chip's declared selector values into the loaded modules.

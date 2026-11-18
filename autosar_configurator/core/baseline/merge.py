@@ -183,14 +183,13 @@ def _is_container_path_missing(active: Dict[ValueKey, Any], path: str) -> bool:
 # --- the merge ------------------------------------------------------------------
 
 def _forced_by_pre(key: ValueKey, new_value: Any, active_value: Any, has_target: bool,
-                   new_layers: Dict[ValueKey, Layer], unlocked: Set[ValueKey]) -> bool:
+                   is_locked_pre: bool) -> bool:
     """Pre and not unlocked, and Active differs from Base' (or lacks the value entirely).
 
     ``has_target`` says whether Active has somewhere to put the value; a Pre value the user
     removed is restored, one whose container Active never had is left to ``CREATE``.
     """
-    if (new_value is None or _is_container(key) or new_layers.get(key) is not Layer.PRE
-            or key in unlocked):
+    if new_value is None or _is_container(key) or not is_locked_pre:
         return False
     if active_value is None:
         return has_target
@@ -199,7 +198,8 @@ def _forced_by_pre(key: ValueKey, new_value: Any, active_value: Any, has_target:
 
 def three_way_merge(base: Optional[Dict[ValueKey, Any]], new_base: Dict[ValueKey, Any],
                     active: Dict[ValueKey, Any], new_layers: Dict[ValueKey, Layer],
-                    unlocked: Set[ValueKey]) -> MergeResult:
+                    unlocked: Set[ValueKey],
+                    pre_keys: Optional[Set[ValueKey]] = None) -> MergeResult:
     """Merge Base (snapshot), Base' (``new_base``) and Active, one ``ValueKey`` at a time.
 
     Args:
@@ -210,6 +210,9 @@ def three_way_merge(base: Optional[Dict[ValueKey, Any]], new_base: Dict[ValueKey
         new_layers: The layer each key of ``new_base`` comes from (``compose_base``
             origins).
         unlocked: Pre keys the user unlocked; they merge like ordinary keys.
+        pre_keys: Optional set of all keys owned by Pre (used alongside ``new_layers``
+            so containers introduced by Rec that hold Pre values or Pre sub-containers
+            still get created when missing).
 
     Returns:
         A :class:`MergeResult` sorted by key. A key that needs no attention gets no entry:
@@ -220,12 +223,29 @@ def three_way_merge(base: Optional[Dict[ValueKey, Any]], new_base: Dict[ValueKey
     if base is not None:
         keys |= set(base)
 
-    # The containers only Pre has and Active lacks: those, and only those, are created.
-    # A nested container counts as new when Active lacks it, whatever its parent's story.
-    created = {key for key in new_base
-               if _is_container(key) and key not in active
-               and (base is None or key not in base)
-               and new_layers.get(key) is Layer.PRE and key not in unlocked}
+    def _is_locked_pre(key: ValueKey) -> bool:
+        if key in unlocked:
+            return False
+        if new_layers.get(key) is Layer.PRE:
+            return True
+        return pre_keys is not None and key in pre_keys
+
+    # Containers that Pre introduces or needs (including a missing Pre container even when
+    # Base recorded it before Active lost it, plus any missing ancestor containers whose
+    # first layer was REC/DEFAULT so apply_merge can attach the Pre subtree).
+    created: Set[ValueKey] = {
+        key for key in new_base
+        if _is_container(key) and key not in active and _is_locked_pre(key)
+    }
+    for key in list(new_base):
+        if not _is_locked_pre(key):
+            continue
+        path = _container_path_of(key)
+        while path.count("/") > 1:
+            anc_key = "C:" + path
+            if anc_key in new_base and anc_key not in active and anc_key not in unlocked:
+                created.add(anc_key)
+            path = path.rpartition("/")[0]
 
     def has_target(key: ValueKey) -> bool:
         """Whether Active already has the container this key's value lives in.
@@ -255,7 +275,7 @@ def three_way_merge(base: Optional[Dict[ValueKey, Any]], new_base: Dict[ValueKey
         base_value = None if base is None else base.get(key)
 
         # 1. Pre is read-only: it wins over every other rule, even "Base = Base'".
-        if _forced_by_pre(key, new_value, active_value, has_target(key), new_layers, unlocked):
+        if _forced_by_pre(key, new_value, active_value, has_target(key), _is_locked_pre(key)):
             items.append(MergeItem(key, MergeKind.PRE_FORCED, base_value, new_value, active_value))
             continue
 
@@ -403,9 +423,10 @@ def _plan(active_config: EcucModuleConfiguration, new_base_config: EcucModuleCon
         if will_exist(path):
             steps.append(_Step(item, path))            # pre-existing: its values still apply
             continue
-        if new_base_config.get_instance_by_path(path) is None:
+        source_path = _container_path(item.key, new_base_config.short_name)
+        if new_base_config.get_instance_by_path(source_path) is None:
             raise MergeApplyError(
-                f"CREATE {item.key!r}: Base' has no container at {path!r} "
+                f"CREATE {item.key!r}: Base' has no container at {source_path!r} "
                 f"(active module {active_config.short_name!r})")
         parent_path = path.rpartition("/")[0]
         if parent_path != root_path and not will_exist(parent_path):
@@ -473,7 +494,8 @@ def _copy_container(active_config: EcucModuleConfiguration,
     existing = active_config.get_instance_by_path(path)
     if existing is not None:                          # a subtree copy already brought it
         return existing
-    source = new_base_config.get_instance_by_path(path)
+    source_path = _container_path("C:" + path, new_base_config.short_name)
+    source = new_base_config.get_instance_by_path(source_path)
     parent_path = path.rpartition("/")[0]
     parent = active_config.get_instance_by_path(parent_path)
     clone = _clone_subtree(source, parent, active_config.short_name)
@@ -528,8 +550,9 @@ def apply_merge(active_config: EcucModuleConfiguration,
             active_config.parameter_values[name].is_modified = True
             continue
         container = active_config.get_instance_by_path(step.path)
+        base_container_path = _container_path("C:" + step.path, new_base_config.short_name)
         _set_value(container, name, step.item.new_value,
-                   new_base_config.get_instance_by_path(step.path))
+                   new_base_config.get_instance_by_path(base_container_path))
 
     active_config.is_modified = True
 

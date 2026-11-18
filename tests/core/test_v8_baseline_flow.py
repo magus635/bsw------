@@ -637,3 +637,42 @@ def test_layers_file_round_trips(tmp_path):
     assert flatten(reloaded.base_config, "Trk") == flatten(baseline.base_config, "Trk")
     assert reloaded.layers == baseline.layers
     assert reloaded.pre_keys == baseline.pre_keys
+
+
+def test_chip_switch_reconciles_chip_conditional_pre(tmp_path):
+    """Switching selected_chip on a format 8 project reconciles chip-conditional Pre files."""
+    lib_dir = tmp_path / "lib"
+    pkg_dir = lib_dir / "Trk"
+    _write(pkg_dir, "def/Trk.arxml", _DEF)
+    _write(pkg_dir, "config/Trk_A_pre.arxml", _VALUES.format(collections=_collection("Trk_Pre", {"Level": "1"})))
+    _write(pkg_dir, "config/Trk_B_pre.arxml", _VALUES.format(collections=_collection("Trk_Pre", {"Level": "2"})))
+    (pkg_dir / "module.json").write_text(json.dumps({
+        "schema": 1,
+        "module": "Trk",
+        "definition": "/Vendor/Trk",
+        "files": [
+            "def/Trk.arxml",
+            {"path": "config/Trk_A_pre.arxml", "chips": ["ChipA"]},
+            {"path": "config/Trk_B_pre.arxml", "chips": ["ChipB"]},
+        ],
+        "pre": ["/Vendor/Trk_Pre"],
+    }), encoding="utf-8")
+
+    wm = new_project(tmp_path)
+    project = wm.current_project
+    project.selected_chip = "ChipA"
+    add_trk(project)
+    assert flat(project)[GEN + "Level"] == "1"
+
+    seen = []
+
+    def confirm(text, result):
+        seen.append(result)
+        return True
+
+    project.selected_chip = "ChipB"
+    project.chip_changed(confirm=confirm)
+
+    assert len(seen) == 1 and seen[0].has_changes
+    assert flat(project)[GEN + "Level"] == "2"
+    assert project.baselines["Trk"].dirty is True

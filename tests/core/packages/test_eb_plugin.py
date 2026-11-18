@@ -12,8 +12,9 @@ from autosar_configurator.core.packages.eb_plugin import infer_from_plugin_xml
 
 
 # Use tracked fixture plugins
-MCU_PLUGIN = Path("D:/bsw-------main/bsw------/test_import_project/Def/plugins/Mcu_THA6_AS440")
-CAN_PLUGIN = Path("D:/bsw-------main/bsw------/test_import_project/Def/plugins/Can_THA6_AS440")
+REPO_ROOT = Path(__file__).resolve().parents[3]
+MCU_PLUGIN = REPO_ROOT / "test_import_project" / "Def" / "plugins" / "Mcu_THA6_AS440"
+CAN_PLUGIN = REPO_ROOT / "test_import_project" / "Def" / "plugins" / "Can_THA6_AS440"
 
 
 def test_mcu_plugin_inferred():
@@ -61,8 +62,37 @@ def test_infer_package_from_plugin():
     assert manifest.inferred is True
 
 
-def test_infer_package_missing_both():
+def test_infer_package_missing_both(tmp_path):
     """infer_package raises PackageError if neither manifest nor plugin.xml."""
-    nonexistent = Path("D:/bsw-------main/bsw------/tests/core/packages/nonexistent")
+    nonexistent = tmp_path / "nonexistent"
     with pytest.raises(PackageError, match="No module.json or plugin.xml"):
         infer_package(nonexistent)
+
+
+def test_arxml_only_plugin_infers_chip_conditions(tmp_path):
+    """Plugin with only autosar/*.arxml (no xdm) infers chip conditions from filenames."""
+    plugin_dir = tmp_path / "Foo_THA6_AS440"
+    (plugin_dir / "autosar").mkdir(parents=True)
+    (plugin_dir / "autosar" / "Foo_THA6206_LFBGA292.arxml").write_text("<AUTOSAR/>", encoding="utf-8")
+    (plugin_dir / "autosar" / "Foo_THA6412_BGA516.arxml").write_text("<AUTOSAR/>", encoding="utf-8")
+    (plugin_dir / "plugin.xml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<plugin>
+  <extension point="dreisoft.tresos.launcher2.plugin.configuration">
+    <configuration>
+      <schema/>
+      <data>
+        <schemaNode path="ASPath:/THA6_AS440_FuSa/Foo"/>
+      </data>
+    </configuration>
+  </extension>
+</plugin>
+""", encoding="utf-8")
+
+    manifest = infer_from_plugin_xml(plugin_dir)
+    assert manifest.module == "Foo"
+    assert manifest.definition == "/THA6_AS440_FuSa/Foo"
+    assert manifest.exchange_copies == []
+    assert [(pf.path, pf.chips) for pf in manifest.files] == [
+        ("autosar/Foo_THA6206_LFBGA292.arxml", ["THA6206_LFBGA292"]),
+        ("autosar/Foo_THA6412_BGA516.arxml", ["THA6412_BGA516"]),
+    ]

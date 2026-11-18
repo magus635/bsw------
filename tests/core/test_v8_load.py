@@ -421,3 +421,37 @@ def test_delete_module_command_undo_restores_v8_bookkeeping(tmp_path):
     saved = {m["name"]: m for m in _saved_modules(project_file)}
     assert saved["Mcu"]["definition"] == "/THA6_AS440_FuSa/Mcu"
     assert saved["Gone"]["definition"] == "/Nowhere/Gone"
+
+
+def test_v8_discover_available_chips_and_package_record(tmp_path):
+    """Format 8 projects discover chips from package resource dirs and record package_record on add."""
+    lib_dir = tmp_path / "lib"
+    pkg_dir = lib_dir / "Res"
+    (pkg_dir / "def").mkdir(parents=True)
+    shutil.copy(EB_PLUGINS / "Resource_THA6_AS440" / "config" / "Resource.xdm",
+                pkg_dir / "def" / "Resource.xdm")
+    (pkg_dir / "resource").mkdir()
+    (pkg_dir / "resource" / "Res_THA6206_LFBGA292.properties").write_text("K=1\n", encoding="utf-8")
+    (pkg_dir / "resource" / "Res_THA6412_BGA516.properties").write_text("K=2\n", encoding="utf-8")
+    (pkg_dir / "module.json").write_text(json.dumps({
+        "schema": 1,
+        "module": "Resource",
+        "definition": "/THA6_AS440_FuSa/Resource",
+        "files": ["def/Resource.xdm"],
+        "resources": "resource",
+        "origin": {"sw_version": "2.3.4"},
+    }), encoding="utf-8")
+
+    wm = WorkspaceManager()
+    project = wm.create_project("P", tmp_path / "proj" / "P.dpa", format_version=8)
+    project.module_libraries.append(LibraryRef(path="../lib", kind="package"))
+
+    chips = project.discover_available_chips()
+    assert chips == ["THA6206_LFBGA292", "THA6412_BGA516"]
+
+    [pkg] = scan_library(project.module_libraries[0], tmp_path / "proj")
+    project.add_module_from_package(pkg, 0)
+    record = project.module_entries["Resource"].package_record
+    assert record["sw_version"] == "2.3.4"
+    assert "def/Resource.xdm" in record["files"]
+    assert record["files"]["def/Resource.xdm"].startswith("sha256:")

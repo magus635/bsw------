@@ -271,3 +271,172 @@ def test_key_helpers_use_container_path():
     assert param_key(child, "McuFreq") == "P:/Mcu/McuGeneralConfiguration/Clk.McuFreq"
     assert ref_key(child, "McuRef") == "R:/Mcu/McuGeneralConfiguration/Clk.McuRef"
     assert param_key(child, "Same") != ref_key(child, "Same")
+
+
+def test_merge_multi_reference_values_and_conflict(tmp_path: Path):
+    """Multi-value references merge across files and raise PackageConflictError on mismatch."""
+    def write_multi_ref(path: Path, refs):
+        ref_xml = "\n".join(
+            f"""                <ECUC-REFERENCE-VALUE>
+                  <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/MICROSAR/X/Cfg/RefList</DEFINITION-REF>
+                  <VALUE-REF DEST="ECUC-CONTAINER-VALUE">{target}</VALUE-REF>
+                </ECUC-REFERENCE-VALUE>"""
+            for target in refs
+        )
+        path.write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>MICROSAR</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-CONFIGURATION-VALUES>
+          <SHORT-NAME>X_Pre</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/X</DEFINITION-REF>
+          <CONTAINERS>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>Cfg</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/X/Cfg</DEFINITION-REF>
+              <REFERENCE-VALUES>
+{ref_xml}
+              </REFERENCE-VALUES>
+            </ECUC-CONTAINER-VALUE>
+          </CONTAINERS>
+        </ECUC-MODULE-CONFIGURATION-VALUES>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>
+""", encoding="utf-8")
+
+    f_param = tmp_path / "f_param.arxml"
+    f_param.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>MICROSAR</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-CONFIGURATION-VALUES>
+          <SHORT-NAME>X_Pre</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/X</DEFINITION-REF>
+          <CONTAINERS>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>Cfg</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/X/Cfg</DEFINITION-REF>
+              <PARAMETER-VALUES>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/MICROSAR/X/Cfg/Mode</DEFINITION-REF>
+                  <VALUE>1</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+              </PARAMETER-VALUES>
+            </ECUC-CONTAINER-VALUE>
+          </CONTAINERS>
+        </ECUC-MODULE-CONFIGURATION-VALUES>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>
+""", encoding="utf-8")
+
+    f_ref_1 = tmp_path / "f_ref_1.arxml"
+    f_ref_2 = tmp_path / "f_ref_2.arxml"
+    write_multi_ref(f_ref_1, ["/Os/TaskA", "/Os/TaskB"])
+    write_multi_ref(f_ref_2, ["/Os/TaskB", "/Os/TaskA"])
+
+    merged = load_value_collection([f_param, f_ref_1], "/MICROSAR/X_Pre")
+    assert merged is not None
+    cfg = merged.containers[0]
+    assert cfg.parameter_values["Mode"].value == 1
+    assert [r.value_ref for r in cfg.multi_reference_values["RefList"]] == ["/Os/TaskA", "/Os/TaskB"]
+
+    with pytest.raises(PackageConflictError) as exc_info:
+        load_value_collection([f_ref_1, f_ref_2], "/MICROSAR/X_Pre")
+    assert "RefList" in exc_info.value.path
+    assert {Path(f).name for f in exc_info.value.files} == {"f_ref_1.arxml", "f_ref_2.arxml"}
+
+
+def test_same_short_name_in_different_packages_same_file(tmp_path: Path):
+    """Two collections with the same SHORT-NAME in different AR-PACKAGEs must not shadow each other."""
+    arxml_file = tmp_path / "same_short_name.arxml"
+    arxml_file.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>PkgA</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-CONFIGURATION-VALUES>
+          <SHORT-NAME>X_Pre</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-MODULE-DEF">/PkgA/X</DEFINITION-REF>
+          <CONTAINERS>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>ContainerFromA</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/PkgA/X/Cfg</DEFINITION-REF>
+            </ECUC-CONTAINER-VALUE>
+          </CONTAINERS>
+        </ECUC-MODULE-CONFIGURATION-VALUES>
+      </ELEMENTS>
+    </AR-PACKAGE>
+    <AR-PACKAGE>
+      <SHORT-NAME>PkgB</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-CONFIGURATION-VALUES>
+          <SHORT-NAME>X_Pre</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-MODULE-DEF">/PkgB/X</DEFINITION-REF>
+          <CONTAINERS>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>ContainerFromB</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/PkgB/X/Cfg</DEFINITION-REF>
+            </ECUC-CONTAINER-VALUE>
+          </CONTAINERS>
+        </ECUC-MODULE-CONFIGURATION-VALUES>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>
+""", encoding="utf-8")
+
+    index = index_value_collections(arxml_file)
+    assert [c.short_name for c in index["/PkgA/X_Pre"][0].containers] == ["ContainerFromA"]
+    assert [c.short_name for c in index["/PkgB/X_Pre"][0].containers] == ["ContainerFromB"]
+
+
+def test_three_files_conflict_reports_actual_source_files(tmp_path: Path):
+    """When file 2 introduces a parameter and file 3 conflicts with it, report files 2 and 3."""
+    def write_param(path: Path, param_name: str, value: int):
+        path.write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>MICROSAR</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-CONFIGURATION-VALUES>
+          <SHORT-NAME>X_Pre</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/X</DEFINITION-REF>
+          <CONTAINERS>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>Shared</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/X/Shared</DEFINITION-REF>
+              <PARAMETER-VALUES>
+                <ECUC-NUMERICAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/MICROSAR/X/Shared/{param_name}</DEFINITION-REF>
+                  <VALUE>{value}</VALUE>
+                </ECUC-NUMERICAL-PARAM-VALUE>
+              </PARAMETER-VALUES>
+            </ECUC-CONTAINER-VALUE>
+          </CONTAINERS>
+        </ECUC-MODULE-CONFIGURATION-VALUES>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>
+""", encoding="utf-8")
+
+    f1 = tmp_path / "f1.arxml"
+    f2 = tmp_path / "f2.arxml"
+    f3 = tmp_path / "f3.arxml"
+    write_param(f1, "OnlyInOne", 1)
+    write_param(f2, "SharedParam", 10)
+    write_param(f3, "SharedParam", 20)
+
+    with pytest.raises(PackageConflictError) as exc_info:
+        load_value_collection([f1, f2, f3], "/MICROSAR/X_Pre")
+    assert {Path(f).name for f in exc_info.value.files} == {"f2.arxml", "f3.arxml"}

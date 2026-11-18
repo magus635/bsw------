@@ -274,3 +274,26 @@ def test_v8_import_then_save_does_not_copy_templates(eb_source_tree, tmp_path):
 
     assert overlay.read_text(encoding="utf-8") == "/* user edit */\n"
     assert not (target / "templates" / "Dio" / "Dio").exists()
+
+
+def test_overlay_template_includes_macro_from_package(tmp_path):
+    """An overlay template in templates/<Module>/ can INCLUDE macro files from the package."""
+    overlay_root = tmp_path / "templates"
+    _write(
+        overlay_root / "Dio" / "Dio_PBcfg.c",
+        '[!INCLUDE "Dio.m"!]\n/* overlay macro=[!"$MacroVal"!] */\n',
+    )
+    package_dir = tmp_path / "pkg" / "generate_PB"
+    _write(package_dir / "Dio.m", '[!VAR "MacroVal" = "\'FROM_PKG\'"!]\n')
+    _write(package_dir / "src" / "Dio_PBcfg.c", '/* original package */\n')
+
+    generator = CodeGenerator(
+        _module_def(),
+        _config(),
+        project_template_dir=overlay_root,
+        package_template_dir=package_dir,
+    )
+    assert generator.generate_all(tmp_path / "out") is True
+
+    out = tmp_path / "out" / "Dio" / "src" / "Dio_PBcfg.c"
+    assert "/* overlay macro=FROM_PKG */" in out.read_text(encoding="utf-8")
