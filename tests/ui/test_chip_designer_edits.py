@@ -181,3 +181,74 @@ def test_history_button_state_and_formatting(dialog, ask):
     assert formatted.index("bob") < formatted.index("alice")
     assert "1.0.1 → 1.0.2" in formatted and "1.0.0 → 1.0.1" in formatted
     assert dialog._format_history_entries([]) == "暂无修改历史记录。"
+
+
+def test_one_click_sync_all_from_ecu_updates_ui_tabs(qtbot, ask, tmp_path):
+    ecu_chip = (
+        "name: CHIP_ECU\n"
+        "metadata:\n"
+        "  cores: {count: 1, available: [CORE0], master: CORE0}\n"
+        "ecu_resources:\n"
+        "  OsResource:\n"
+        "    NumOfCores: 2\n"
+        "    AvailableCores: [CORE0, CORE1]\n"
+        "    MasterCore: OS_CORE_ID_0\n"
+        "  Can:\n"
+        "    MaxModules: 2\n"
+        "  Port:\n"
+        "    AvailablePortsID: _0_\n"
+        "    Port0_AvailablePins: _0_ _1_\n"
+    )
+    (tmp_path / "CHIP_ECU.yaml").write_text(ecu_chip, encoding="utf-8")
+    dlg = ChipDefinitionDesignerDialog(chip_database=ChipDatabase(tmp_path), initial_chip="CHIP_ECU")
+    qtbot.addWidget(dlg)
+
+    dlg._on_sync_all_from_ecu_clicked()
+
+    assert dlg.core_count_spin.value() == 2
+    assert dlg.avail_cores_edit.text() == "CORE0, CORE1"
+    assert len(dlg.peripheral_editor.resources().get("can_controller", [])) == 2
+    assert [p.pin for p in dlg.current_ports.get("P00", [])] == [0, 1]
+
+
+def test_batch_confirm_marks_clears_unconfirmed_on_save(qtbot, ask, tmp_path):
+    from autosar_configurator.core.hardware.chip_completeness import unconfirmed_marks
+
+    chip_yaml = (
+        "name: CHIP_MARK\n"
+        "ports:\n"
+        "  P00:\n"
+        "    - {name: P00_0, port: P00, pin: 0, alternate_functions: [GPIO], default_direction: INPUT}\n"
+        "memory_regions:\n"
+        "  - {name: PFLASH, start: 0x80000000, size: 0x100000, type: flash, cacheable: true}\n"
+        "metadata:\n"
+        "  cores: {count: 2, available: [CORE0, CORE1], master: CORE0}\n"
+        "  unconfirmed:\n"
+        "    ports: 待核对引脚列表\n"
+        "    memory_regions: 待核对内存表\n"
+        "    metadata.flash_size: 待填写\n"
+    )
+    (tmp_path / "CHIP_MARK.yaml").write_text(chip_yaml, encoding="utf-8")
+    dlg = ChipDefinitionDesignerDialog(chip_database=ChipDatabase(tmp_path), initial_chip="CHIP_MARK")
+    qtbot.addWidget(dlg)
+
+    # Empty TO_FILL_IN field must NOT be offered as directly confirmable
+    confirmable = dlg._confirmable_marks()
+    assert set(confirmable.keys()) == {"ports", "memory_regions"}
+
+    confirmed = dlg.confirm_marks(["ports", "memory_regions", "metadata.flash_size"])
+    assert confirmed == 2
+    dlg._on_save_clicked()
+
+    saved = ChipDatabase(tmp_path).get_chip("CHIP_MARK")
+    marks = unconfirmed_marks(saved)
+    assert "ports" not in marks
+    assert "memory_regions" not in marks
+    assert marks.get("metadata.flash_size") == "待填写"
+
+
+def test_sc300_copy_not_in_builtin_chip_library():
+    from autosar_configurator.core.hardware.chip_database import default_chips_dir
+
+    db = ChipDatabase(default_chips_dir())
+    assert "SC300_COPY" not in db.list_chips()

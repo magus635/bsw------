@@ -16,6 +16,7 @@ from autosar_configurator.core.hardware.chip_exporter import (
 from autosar_configurator.core.hardware.ecu_resource_data import parse_selectors
 from autosar_configurator.core.hardware.ecu_resource_diagnostics import (
     check_selectors,
+    sync_derived_fields_from_ecu,
     typed_field_differences,
     typed_fields_from_ecu,
 )
@@ -413,3 +414,52 @@ def test_findings_reach_the_diagnosis_report(tmp_path):
     db.get_chip("C").ecu_resources = {"Os": {"A": 2}}
     report = project.diagnose_ecu_resources()
     assert any("Update from Library" in line for line in report.warning_lines())
+
+
+def test_sync_derived_fields_from_ecu_updates_cores_peripherals_and_ports():
+    from autosar_configurator.core.hardware.chip_database import PortPinDef
+
+    # 1. Full sync: updates metadata.cores, resources, and ports
+    full_chip = ChipDefinition(
+        name="SYNC_FULL",
+        metadata={"cores": {"count": 1, "available": ["CORE0"], "master": "CORE0"}},
+        ecu_resources={
+            "OsResource": {
+                "NumOfCores": 2,
+                "AvailableCores": ["CORE0", "CORE1"],
+                "MasterCore": "OS_CORE_ID_0",
+            },
+            "Can": {"MaxModules": 2},
+            "Port": {
+                "AvailablePortsID": "_0_",
+                "Port0_AvailablePins": "_0_ _1_",
+                "InputModesXDM0": "GPIO",
+            },
+        },
+    )
+    summary = sync_derived_fields_from_ecu(full_chip)
+    assert summary["cores_updated"] is True
+    assert full_chip.metadata["cores"] == {
+        "count": 2,
+        "available": ["CORE0", "CORE1"],
+        "master": "CORE0",
+    }
+    assert "can_controller" in summary["peripheral_types"]
+    assert len(full_chip.resources["can_controller"]) == 2
+    assert summary["port_count"] == 1
+    assert [p.pin for p in full_chip.ports["P00"]] == [0, 1]
+
+    # 2. Partial sync: only cores in ecu_resources leaves existing ports untouched
+    existing_pins = {"P02": [PortPinDef(name="P02_0", port="P02", pin=0)]}
+    partial_chip = ChipDefinition(
+        name="SYNC_PARTIAL",
+        metadata={"cores": {"count": 1, "available": ["CORE0"], "master": "CORE0"}},
+        ports=existing_pins,
+        ecu_resources={"OsResource": {"NumOfCores": 4}},
+    )
+    p_summary = sync_derived_fields_from_ecu(partial_chip)
+    assert p_summary["cores_updated"] is True
+    assert partial_chip.metadata["cores"]["count"] == 4
+    assert p_summary["peripheral_types"] == []
+    assert p_summary["port_count"] == 0
+    assert partial_chip.ports == existing_pins

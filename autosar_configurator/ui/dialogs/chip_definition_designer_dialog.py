@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QTextEdit, QLabel, QGroupBox, QWidget, QComboBox, QPushButton,
     QSpinBox, QTabWidget, QTableWidget, QTableWidgetItem,
     QHeaderView, QMessageBox, QFileDialog, QSplitter, QAbstractItemView,
-    QTableView
+    QTableView, QCheckBox, QDialogButtonBox, QScrollArea
 )
 from PySide6.QtCore import (
     Qt, Signal, QAbstractTableModel, QModelIndex, QSortFilterProxyModel,
@@ -39,7 +39,7 @@ from ...core.hardware.ecu_resource_data import (
 from ...core.hardware.ecu_resource_data import parse_selectors
 from ...core.hardware.ecu_resource_diagnostics import (
     check_consistency, peripherals_from_ecu, pin_table_differences, ports_from_ecu,
-    typed_field_differences, typed_fields_from_ecu,
+    sync_derived_fields_from_ecu, typed_field_differences, typed_fields_from_ecu,
 )
 from .ecu_resource_editor import EcuResourceEditor
 from .memory_region_editor import MemoryRegionEditor
@@ -267,6 +267,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         # field by field; filled by "Import properties" or loaded with the chip.
         self._ecu_resources: EcuResources = {}
         self._resource_version: str = ""
+        self._confirmed_marks: Set[str] = set()
 
         self.setWindowTitle("Chip Definition Designer - 芯片定义设计器")
         self.resize(920, 700)
@@ -324,6 +325,16 @@ class ChipDefinitionDesignerDialog(QDialog):
         self.delete_chip_btn.clicked.connect(self._on_delete_chip_clicked)
         clone_layout.addWidget(self.delete_chip_btn)
         clone_layout.addStretch()
+
+        self.sync_all_btn = QPushButton("🔄 从 ECU 同步全部")
+        self.sync_all_btn.setToolTip("以 ECU 资源为单一权威源，一键同步 CPU 核数、外设实例与引脚复用表")
+        self.sync_all_btn.clicked.connect(self._on_sync_all_from_ecu_clicked)
+        clone_layout.addWidget(self.sync_all_btn)
+
+        self.batch_confirm_btn = QPushButton("✓ 批量确认待确认项…")
+        self.batch_confirm_btn.setToolTip("在设计器内直接勾选并清除已核对的待确认标记 (unconfirmed)")
+        self.batch_confirm_btn.clicked.connect(self._on_batch_confirm_clicked)
+        clone_layout.addWidget(self.batch_confirm_btn)
 
         self.history_btn = QPushButton("📜 修改历史")
         self.history_btn.setToolTip("查看当前芯片在 history/<芯片>.yaml 中的版本与修改记录")
@@ -677,14 +688,12 @@ class ChipDefinitionDesignerDialog(QDialog):
         if imported_note:
             self._memory_note = imported_note
             self._memory_confirmed = False
+            self._confirmed_marks.discard("memory_regions")
             self.memory_editor.set_unconfirmed_mark(self._memory_note)
 
     def _on_confirm_memory_clicked(self):
         """Clear the unconfirmed mark for memory_regions so saving records it as confirmed."""
-        self._memory_confirmed = True
-        self._memory_note = ""
-        self.memory_editor.clear_import_note()
-        self.memory_editor.set_unconfirmed_mark(None)
+        self.confirm_marks(["memory_regions"])
         self.status_label.setText("已标记物理存储为已确认（保存芯片后生效）")
 
     def _set_memory_regions(self, regions, unconfirmed_note: Optional[str] = None):
@@ -840,6 +849,7 @@ class ChipDefinitionDesignerDialog(QDialog):
 
         self._base_chip = copy.deepcopy(chip)
         self._editing_name = chip.name
+        self._confirmed_marks = set()
         self._set_ecu_resources(copy.deepcopy(chip.ecu_resources))
         mem_mark = unconfirmed_marks(chip).get("memory_regions")
         self._set_memory_regions(chip.memory_regions, unconfirmed_note=mem_mark)
@@ -1015,6 +1025,167 @@ class ChipDefinitionDesignerDialog(QDialog):
         layout.addWidget(close_btn, alignment=Qt.AlignRight)
         dlg.exec()
 
+    def _on_sync_all_from_ecu_clicked(self):
+        """Sync metadata.cores, resources (peripherals), and ports from ecu_resources in one step."""
+        before = self._build_current_chip()
+        probe = copy.deepcopy(before)
+        summary = sync_derived_fields_from_ecu(probe)
+
+        cores_changed = bool(summary["cores_updated"])
+        periph_changed = any(
+            before.resources.get(t) != probe.resources.get(t)
+            for t in summary["peripheral_types"]
+        )
+        ports_changed = bool(summary["port_count"]) and before.ports != probe.ports
+
+        if not (cores_changed or periph_changed or ports_changed):
+            QMessageBox.information(
+                self,
+                "无需同步",
+                "当前 ECU 资源没有可同步的核数、外设或引脚差异。",
+            )
+            return
+
+        overwritten: List[str] = []
+        if periph_changed:
+            over_types = [
+                t for t in summary["peripheral_types"]
+                if before.resources.get(t) and before.resources.get(t) != probe.resources.get(t)
+            ]
+            if over_types:
+                overwritten.append(f"外设实例（{', '.join(over_types)}）")
+        if ports_changed and before.ports:
+            overwritten.append(
+                f"引脚表（{len(before.ports)} 端口 / {sum(len(p) for p in before.ports.values())} 引脚）"
+            )
+        if overwritten:
+            reply = QMessageBox.question(
+                self,
+                "同步全部派生数据",
+                "以下现有派生数据将被 ECU 资源的推导结果覆盖，手工修改会丢失：\n"
+                + "\n".join(f"  • {item}" for item in overwritten)
+                + "\n\n是否继续同步？",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if reply != QMessageBox.Yes:
+                self.status_label.setText("已取消从 ECU 同步全部派生数据")
+                return
+
+        updated_parts: List[str] = []
+        if cores_changed:
+            cores = probe.metadata.get("cores") or {}
+            if "count" in cores:
+                self.core_count_spin.blockSignals(True)
+                self.core_count_spin.setValue(int(cores["count"]))
+                self.core_count_spin.blockSignals(False)
+            if "available" in cores:
+                self.avail_cores_edit.setText(", ".join(cores["available"]))
+            if "master" in cores:
+                self.master_core_edit.setText(str(cores["master"]))
+            self._refresh_typed_differences()
+            updated_parts.append("CPU 核配置")
+
+        if periph_changed:
+            self.peripheral_editor.set_resources(copy.deepcopy(probe.resources))
+            updated_parts.append(
+                f"外设 {len(summary['peripheral_types'])} 类/{summary['peripheral_count']} 个实例"
+            )
+
+        if ports_changed:
+            self.pin_model.set_pins(probe.get_all_pins())
+            updated_parts.append(
+                f"引脚 {summary['port_count']} 端口/{summary['pin_count']} 个引脚"
+            )
+
+        if self.tabs.currentWidget() is getattr(self, "_preview_tab", None):
+            self._on_tab_changed(self.tabs.currentIndex())
+
+        self.status_label.setText(f"已从 ECU 同步：{'，'.join(updated_parts)}")
+
+    def _confirmable_marks(self) -> Dict[str, str]:
+        """Return non-placeholder ``metadata.unconfirmed`` entries eligible for confirmation."""
+        marks = unconfirmed_marks(self._build_current_chip())
+        return {k: str(v) for k, v in marks.items() if v != TO_FILL_IN}
+
+    def confirm_marks(self, keys: List[str]) -> int:
+        """Mark the given confirmable keys as confirmed in editor state (persisted on save).
+
+        Entries still marked ``待填写`` (``TO_FILL_IN``) remain unconfirmable until filled.
+        """
+        confirmable = self._confirmable_marks()
+        if "memory_regions" in unconfirmed_marks(self._build_current_chip()):
+            mem_note = unconfirmed_marks(self._build_current_chip()).get("memory_regions")
+            if mem_note and mem_note != TO_FILL_IN:
+                confirmable.setdefault("memory_regions", str(mem_note))
+
+        count = 0
+        for key in keys:
+            if key not in confirmable:
+                continue
+            if key not in self._confirmed_marks:
+                self._confirmed_marks.add(key)
+                count += 1
+            if key == "memory_regions":
+                self._memory_confirmed = True
+                self._memory_note = ""
+                self.memory_editor.clear_import_note()
+                self.memory_editor.set_unconfirmed_mark(None)
+
+        if count:
+            self._show_basic_marks(self._build_current_chip())
+            if self.tabs.currentWidget() is getattr(self, "_preview_tab", None):
+                self._on_tab_changed(self.tabs.currentIndex())
+        return count
+
+    def _on_batch_confirm_clicked(self):
+        """Open a checklist dialog to confirm multiple ``metadata.unconfirmed`` entries."""
+        confirmable = self._confirmable_marks()
+        if not confirmable:
+            QMessageBox.information(
+                self,
+                "无待确认项",
+                "当前没有可直接确认的待确认标记（值为空的“待填写”项请先填值）。",
+            )
+            return
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("批量确认待确认项 (Unconfirmed)")
+        dlg.resize(540, 360)
+        layout = QVBoxLayout(dlg)
+
+        hint = QLabel("勾选已核对无误的条目，点击“确认所选”后将在保存芯片时从 unconfirmed 中移除：")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        inner = QWidget()
+        inner_layout = QVBoxLayout(inner)
+        checkboxes: Dict[str, QCheckBox] = {}
+        for key in sorted(confirmable):
+            cb = QCheckBox(f"{key} — {confirmable[key]}")
+            cb.setChecked(True)
+            inner_layout.addWidget(cb)
+            checkboxes[key] = cb
+        inner_layout.addStretch()
+        scroll.setWidget(inner)
+        layout.addWidget(scroll, 1)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        ok_btn = buttons.button(QDialogButtonBox.Ok)
+        if ok_btn is not None:
+            ok_btn.setText("确认所选")
+        buttons.accepted.connect(dlg.accept)
+        buttons.rejected.connect(dlg.reject)
+        layout.addWidget(buttons)
+
+        if dlg.exec() == QDialog.Accepted:
+            chosen = [k for k, cb in checkboxes.items() if cb.isChecked()]
+            confirmed_count = self.confirm_marks(chosen)
+            if confirmed_count:
+                self.status_label.setText(f"已确认 {confirmed_count} 项待确认标记（保存芯片后生效）")
+
     def _on_repair_clicked(self):
         """Repair the chip being edited in the repair wizard, then reload it."""
         from ..wizards.chip_repair_wizard import ChipRepairWizard
@@ -1045,6 +1216,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         """Set up initial blank values"""
         self._base_chip = None
         self._editing_name = None
+        self._confirmed_marks = set()
         self._set_ecu_resources({})
         self._set_memory_regions([])
         self._resource_version = ""
@@ -1254,6 +1426,15 @@ class ChipDefinitionDesignerDialog(QDialog):
         }
         self._apply_basic_fields(chip, base)
         self._apply_memory_mark(chip)
+        if getattr(self, "_confirmed_marks", None):
+            marks = unconfirmed_marks(chip)
+            for key in list(self._confirmed_marks):
+                if marks.get(key) != TO_FILL_IN:
+                    marks.pop(key, None)
+            if marks:
+                chip.metadata["unconfirmed"] = marks
+            else:
+                chip.metadata.pop("unconfirmed", None)
 
         # Entries the needed-keys guide added stay marked 待填写 until they get a value
         return drop_filled_marks(mark_to_fill_in(chip, self.ecu_editor.added_placeholders()))
@@ -1488,6 +1669,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._base_chip = copy.deepcopy(chip)
         self._editing_name = chip.name
         self._last_saved_chip = chip.name
+        self._confirmed_marks = set()
         self._memory_note = ""
         self._memory_confirmed = False
         self.memory_editor.clear_import_note()

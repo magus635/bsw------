@@ -702,3 +702,60 @@ def pin_table_differences(chip) -> List[str]:
         messages.append("pin table has ports not in Port.AvailablePortsID: "
                         + ", ".join(sorted(n for n in chip.ports if port_number_of(n) in extra)))
     return messages
+
+
+def sync_derived_fields_from_ecu(chip) -> Dict[str, Any]:
+    """Synchronize a ChipDefinition's derived views (``metadata['cores']``,
+    ``resources``, and ``ports``) from its authoritative ``ecu_resources`` in one pass.
+
+    A derived section is updated only when ``ecu_resources`` supplies data for it;
+    otherwise the existing section on ``chip`` is left unchanged.
+
+    Returns:
+        Summary dict: ``{"cores_updated": bool, "peripheral_types": List[str],
+        "peripheral_count": int, "port_count": int, "pin_count": int}``.
+    """
+    summary: Dict[str, Any] = {
+        "cores_updated": False,
+        "peripheral_types": [],
+        "peripheral_count": 0,
+        "port_count": 0,
+        "pin_count": 0,
+    }
+    ecu = getattr(chip, "ecu_resources", None) or {}
+    if not ecu:
+        return summary
+
+    # 1. Core metadata
+    core_vals = typed_fields_from_ecu(chip)
+    if core_vals:
+        if not isinstance(getattr(chip, "metadata", None), dict):
+            chip.metadata = {}
+        cores = dict(chip.metadata.get("cores") or {})
+        changed = False
+        for key in ("count", "available", "master"):
+            if key in core_vals and cores.get(key) != core_vals[key]:
+                cores[key] = core_vals[key]
+                changed = True
+        if changed:
+            chip.metadata["cores"] = cores
+            summary["cores_updated"] = True
+
+    # 2. Peripherals (merge derived types, preserve unrelated manual types)
+    derived_peripherals = peripherals_from_ecu(ecu)
+    if derived_peripherals:
+        if not isinstance(getattr(chip, "resources", None), dict):
+            chip.resources = {}
+        for r_type, instances in derived_peripherals.items():
+            chip.resources[r_type] = list(instances)
+        summary["peripheral_types"] = sorted(derived_peripherals.keys())
+        summary["peripheral_count"] = sum(len(v) for v in derived_peripherals.values())
+
+    # 3. Pin table
+    derived_ports = ports_from_ecu(ecu)
+    if derived_ports:
+        chip.ports = derived_ports
+        summary["port_count"] = len(derived_ports)
+        summary["pin_count"] = sum(len(v) for v in derived_ports.values())
+
+    return summary
