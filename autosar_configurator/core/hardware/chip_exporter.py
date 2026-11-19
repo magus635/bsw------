@@ -183,6 +183,9 @@ class ChipDefinitionExporter:
         if chip.resource_version:
             data['resource_version'] = chip.resource_version
 
+        if chip.derivative_uuid:
+            data['derivative_uuid'] = chip.derivative_uuid
+
         if chip.selectors:
             data['selectors'] = {k: chip.selectors[k] for k in sorted(chip.selectors)}
 

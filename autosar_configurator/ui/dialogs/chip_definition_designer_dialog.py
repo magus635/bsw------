@@ -325,6 +325,12 @@ class ChipDefinitionDesignerDialog(QDialog):
         clone_layout.addWidget(self.delete_chip_btn)
         clone_layout.addStretch()
 
+        self.history_btn = QPushButton("📜 修改历史")
+        self.history_btn.setToolTip("查看当前芯片在 history/<芯片>.yaml 中的版本与修改记录")
+        self.history_btn.setEnabled(False)
+        self.history_btn.clicked.connect(self._on_history_clicked)
+        clone_layout.addWidget(self.history_btn)
+
         self.repair_btn = QPushButton("🔧 修复此芯片…")
         self.repair_btn.setToolTip("用厂商 .properties、插件所需键修复正在编辑的芯片，处理待确认项，并留下修改记录")
         self.repair_btn.setEnabled(False)
@@ -396,6 +402,10 @@ class ChipDefinitionDesignerDialog(QDialog):
         self.package_edit = QLineEdit()
         self.package_edit.setPlaceholderText("例: LFBGA180, LQFP176, BGA516")
         form.addRow("封装规格 (Package):", self.package_edit)
+
+        self.derivative_uuid_edit = QLineEdit()
+        self.derivative_uuid_edit.setPlaceholderText("可选，例: B632B9EE-F23D-43CD-9C54-542178A058D9（DaVinci Derivative UUID）")
+        form.addRow("DaVinci 衍生 UUID:", self.derivative_uuid_edit)
 
         # CPU core specs (persisted under metadata['cores'])
         self.core_count_spin = QSpinBox()
@@ -839,6 +849,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         self.name_edit.setText(chip.name)
         self.family_edit.setText(chip.family)
         self.package_edit.setText(chip.package)
+        self.derivative_uuid_edit.setText(chip.derivative_uuid)
         self.desc_edit.setPlainText(chip.description)
 
         cores = chip.metadata.get('cores') if isinstance(chip.metadata.get('cores'), dict) else {}
@@ -861,9 +872,11 @@ class ChipDefinitionDesignerDialog(QDialog):
         return True
 
     def _mark_clean(self):
-        """Remember the editor content as saved; repair is offered only for a library chip."""
+        """Remember the editor content as saved; repair & history are offered only for a library chip."""
         self._loaded_checksum = chip_checksum(self._build_current_chip())
-        self.repair_btn.setEnabled(self._editing_name is not None)
+        is_library_chip = self._editing_name is not None
+        self.repair_btn.setEnabled(is_library_chip)
+        self.history_btn.setEnabled(is_library_chip)
 
     def _has_unsaved_edits(self) -> bool:
         return chip_checksum(self._build_current_chip()) != self._loaded_checksum
@@ -950,6 +963,58 @@ class ChipDefinitionDesignerDialog(QDialog):
         if notice:
             QMessageBox.information(self, "工程副本未更新", notice)
 
+    @staticmethod
+    def _format_history_entries(entries: List[Dict[str, Any]]) -> str:
+        """Render chip repair history entries (newest first) into readable text."""
+        if not entries:
+            return "暂无修改历史记录。"
+        blocks: List[str] = []
+        for idx, entry in enumerate(reversed(entries), 1):
+            ver = entry.get("resource_version") or {}
+            ver_str = f"{ver.get('old') or '—'} → {ver.get('new') or '—'}" if isinstance(ver, dict) else str(ver)
+            lines = [
+                f"[{idx}] 版本: {ver_str}",
+                f"    时间: {entry.get('timestamp') or entry.get('date') or '未知'}",
+                f"    作者: {entry.get('author') or '未知'} | 来源: {entry.get('source') or '未知'}",
+            ]
+            changes = entry.get("changes") or entry.get("ecu_changes")
+            if isinstance(changes, list) and changes:
+                lines.append(f"    变更条目 ({len(changes)}):")
+                for ch in changes[:15]:
+                    lines.append(f"      - {ch}")
+                if len(changes) > 15:
+                    lines.append(f"      ... 其余 {len(changes) - 15} 条")
+            confirmed = entry.get("confirmed")
+            if isinstance(confirmed, list) and confirmed:
+                lines.append(f"    已确认 ({len(confirmed)}): " + ", ".join(str(c) for c in confirmed[:10]))
+            blocks.append("\n".join(lines))
+        return "\n\n".join(blocks)
+
+    def _on_history_clicked(self):
+        """Show read-only repair history from ``history/<chip>.yaml``."""
+        from ...core.hardware.chip_repair import read_history
+
+        name = self._editing_name
+        if not name:
+            return
+        chip_file = self._get_save_dir() / f"{name}.yaml"
+        entries = read_history(chip_file)
+        text = self._format_history_entries(entries)
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle(f"修改历史 - {name}")
+        dlg.resize(640, 440)
+        layout = QVBoxLayout(dlg)
+        viewer = QTextEdit()
+        viewer.setReadOnly(True)
+        viewer.setFont(QFont("Menlo, Monaco, Consolas, Courier New", 10))
+        viewer.setPlainText(text)
+        layout.addWidget(viewer, 1)
+        close_btn = QPushButton("关闭")
+        close_btn.clicked.connect(dlg.accept)
+        layout.addWidget(close_btn, alignment=Qt.AlignRight)
+        dlg.exec()
+
     def _on_repair_clicked(self):
         """Repair the chip being edited in the repair wizard, then reload it."""
         from ..wizards.chip_repair_wizard import ChipRepairWizard
@@ -988,6 +1053,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         self.name_edit.setText("NEW_MCU_SERIES")
         self.family_edit.setText("THA6")
         self.package_edit.setText("LQFP144")
+        self.derivative_uuid_edit.setText("")
         self.desc_edit.setText("Automotive MCU Resource Definition")
         for edit in self.basic_edits.values():
             edit.clear()
@@ -1172,7 +1238,8 @@ class ChipDefinitionDesignerDialog(QDialog):
             metadata=initial_metadata,
             ecu_resources=copy.deepcopy(self._ecu_resources),
             resource_version=self._resource_version,
-            # the page "6. 物理存储" owns the address map; a chip never loaded into the page has none
+            derivative_uuid=self.derivative_uuid_edit.text().strip(),
+            # the page "5. 物理存储" owns the address map; a chip never loaded into the page has none
             memory_regions=copy.deepcopy(self._memory_regions),
         )
         try:

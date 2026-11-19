@@ -154,3 +154,30 @@ def test_consistent_core_fields_save_without_asking(dialog, ask, tmp_path):
     dialog._on_save_clicked()
     assert ask["questions"] == []
     assert ChipDatabase(tmp_path).get_chip("CHIP_X").metadata["cores"]["available"] == ["CORE0", "CORE1", "CORE2"]
+
+
+def test_derivative_uuid_round_trips_and_database_lookup(dialog, ask, tmp_path):
+    uuid = "B632B9EE-F23D-43CD-9C54-542178A058D9"
+    dialog.derivative_uuid_edit.setText(uuid)
+    dialog._on_save_clicked()
+
+    reloaded_db = ChipDatabase(tmp_path)
+    chip = reloaded_db.get_chip("CHIP_X")
+    assert chip.derivative_uuid == uuid
+    assert reloaded_db.find_chip_by_derivative_uuid(uuid.lower()).name == "CHIP_X"
+    assert reloaded_db.find_chip_by_derivative_uuid("00000000-0000-0000-0000-000000000000") is None
+
+
+def test_history_button_state_and_formatting(dialog, ask):
+    assert dialog.history_btn.isEnabled()
+    _clone(dialog, "CHIP_Y")
+    assert not dialog.history_btn.isEnabled()
+
+    formatted = dialog._format_history_entries([
+        {"resource_version": {"old": "1.0.0", "new": "1.0.1"}, "timestamp": "2026-11-19", "author": "alice", "source": "设计器手工编辑"},
+        {"resource_version": {"old": "1.0.1", "new": "1.0.2"}, "timestamp": "2026-11-20", "author": "bob", "source": "修复向导"},
+    ])
+    # Newest entry first
+    assert formatted.index("bob") < formatted.index("alice")
+    assert "1.0.1 → 1.0.2" in formatted and "1.0.0 → 1.0.1" in formatted
+    assert dialog._format_history_entries([]) == "暂无修改历史记录。"

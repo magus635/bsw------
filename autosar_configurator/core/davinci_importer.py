@@ -1944,10 +1944,23 @@ class DaVinciProjectImporter:
                 eb_lib_index = len(new_project.module_libraries)
                 new_project.module_libraries.append(eb_lib_ref)
                 new_project.discover_available_chips()
-                # Select matching chip if derivative_name shares device token (e.g. THA6206)
+                # Select matching chip: prefer exact derivative_uuid match in chip database,
+                # then fall back to device-token prefix match (e.g. THA6206 in Tongxin_THA6206).
                 if new_project.available_chips:
                     matched_chip = None
-                    if dv.derivative_name:
+                    if dv.derivative_uuid:
+                        db = getattr(new_project, "chip_database", None)
+                        if db is None:
+                            try:
+                                from .hardware.chip_database import ChipDatabase
+                                db = ChipDatabase()
+                            except Exception:
+                                db = None
+                        if db is not None:
+                            hit = db.find_chip_by_derivative_uuid(dv.derivative_uuid)
+                            if hit is not None and hit.name in new_project.available_chips:
+                                matched_chip = hit.name
+                    if matched_chip is None and dv.derivative_name:
                         for chip in new_project.available_chips:
                             prefix = chip.split("_")[0]
                             if prefix and prefix.lower() in dv.derivative_name.lower():

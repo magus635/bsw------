@@ -116,6 +116,7 @@ class ChipDefinition:
     # key "<module>.<name>" equals the key of the matching .properties entry.
     ecu_resources: EcuResources = field(default_factory=dict)
     resource_version: str = ""
+    derivative_uuid: str = ""
 
     # Value of each selector parameter of a module definition for this chip,
     # keyed "<Module>.<parameter>" (e.g. "Os.OsResourceSubderivative": "Os_THA6412")
@@ -392,6 +393,7 @@ class ChipDatabase:
         except ValueError as e:
             raise ValueError(f"{yaml_path}: {e}") from e
         chip.resource_version = str(data.get('resource_version', '') or '')
+        chip.derivative_uuid = str(data.get('derivative_uuid', '') or '').strip()
         try:
             chip.selectors = parse_selectors(data.get('selectors'))
         except ValueError as e:
@@ -447,6 +449,16 @@ class ChipDatabase:
     def get_chip(self, name: str) -> Optional[ChipDefinition]:
         """Get chip definition by name"""
         return self._chips.get(name)
+
+    def find_chip_by_derivative_uuid(self, derivative_uuid: Optional[str]) -> Optional[ChipDefinition]:
+        """Find a chip definition whose ``derivative_uuid`` matches (case-insensitive)."""
+        target = (derivative_uuid or "").strip().lower()
+        if not target:
+            return None
+        for chip in self._chips.values():
+            if (chip.derivative_uuid or "").strip().lower() == target:
+                return chip
+        return None
 
     def list_chips(self) -> List[str]:
         """List all available chip names"""
