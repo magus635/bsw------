@@ -440,6 +440,10 @@ class ChipDatabase:
         """Register a chip definition"""
         self._chips[chip.name] = chip
 
+    def unregister_chip(self, name: str) -> bool:
+        """Remove a chip definition from the in-memory database; returns True if removed."""
+        return self._chips.pop(name, None) is not None
+
     def get_chip(self, name: str) -> Optional[ChipDefinition]:
         """Get chip definition by name"""
         return self._chips.get(name)

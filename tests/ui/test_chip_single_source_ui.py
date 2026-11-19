@@ -80,5 +80,5 @@ def test_preview_lists_typed_field_differences(qtbot, tmp_path, monkeypatch):
     dialog = _dialog(qtbot, tmp_path, "C", C=(
         "name: C\nmetadata:\n  cores: {count: 2, available: [CORE0, CORE1], master: CORE0}\n"
         "ecu_resources:\n  Resource:\n    NumOfCores: 4\n"))
-    dialog.tabs.setCurrentIndex(4)
+    dialog.tabs.setCurrentWidget(dialog._preview_tab)
     assert "Resource.NumOfCores" in dialog.consistency_label.text()

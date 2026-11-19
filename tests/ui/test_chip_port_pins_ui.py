@@ -73,5 +73,5 @@ def test_warning_for_demo_pins_on_pin_and_preview_pages(qtbot, asked):
     assert dialog.pin_warning_label.text().splitlines() == [
         "⚠ pin table lacks ports of Port.AvailablePortsID: P10",
         "⚠ pin table has ports not in Port.AvailablePortsID: PORT_B"]
-    dialog.tabs.setCurrentIndex(4)
+    dialog.tabs.setCurrentWidget(dialog._preview_tab)
     assert "pin table lacks ports" in dialog.consistency_label.text()

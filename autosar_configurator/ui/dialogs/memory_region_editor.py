@@ -180,6 +180,7 @@ class MemoryRegionEditor(QWidget):
     """Tree of physical memories and their windows, with the editing buttons."""
 
     changed = Signal()
+    confirm_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -192,7 +193,21 @@ class MemoryRegionEditor(QWidget):
     def set_regions(self, regions: List[MemoryRegionDef]) -> None:
         """Replace the edited data (the editor works on its own copy)."""
         self._regions = copy.deepcopy(list(regions or []))
+        self._unconfirmed_note = ""
         self._refresh()
+
+    def set_unconfirmed_mark(self, note: Optional[str]) -> None:
+        """Display or hide the unconfirmed-memory banner with a confirm button."""
+        text = (note or "").strip()
+        if text:
+            self._unconfirmed_label.setText(f"⚠ 物理存储待确认：{text}")
+            self._unconfirmed_bar.setVisible(True)
+        else:
+            self._unconfirmed_label.setText("")
+            self._unconfirmed_bar.setVisible(False)
+
+    def clear_import_note(self) -> None:
+        self._unconfirmed_note = ""
 
     def regions(self) -> List[MemoryRegionDef]:
         return copy.deepcopy(self._regions)
@@ -217,6 +232,20 @@ class MemoryRegionEditor(QWidget):
                       "数值待确认时可以先录入，保存时只提示，不阻止。")
         note.setWordWrap(True)
         layout.addWidget(note)
+
+        self._unconfirmed_bar = QWidget()
+        bar_layout = QHBoxLayout(self._unconfirmed_bar)
+        bar_layout.setContentsMargins(0, 0, 0, 0)
+        self._unconfirmed_label = QLabel()
+        self._unconfirmed_label.setWordWrap(True)
+        self._unconfirmed_label.setStyleSheet("color: #8a4b00;")
+        bar_layout.addWidget(self._unconfirmed_label, 1)
+        self.confirm_memory_btn = QPushButton("✓ 标记为已确认")
+        self.confirm_memory_btn.setToolTip("确认当前物理存储区域已核对无误，保存时清除待确认标记")
+        self.confirm_memory_btn.clicked.connect(self.confirm_requested.emit)
+        bar_layout.addWidget(self.confirm_memory_btn)
+        self._unconfirmed_bar.setVisible(False)
+        layout.addWidget(self._unconfirmed_bar)
         self.tree = QTreeWidget()
         self.tree.setHeaderLabels(COLUMNS)
         for column, width in enumerate((200, 110, 90, 60, 80, 70, 80, 220)):

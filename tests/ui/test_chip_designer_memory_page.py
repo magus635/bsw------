@@ -68,10 +68,10 @@ def test_bad_hex_input_names_the_field(text):
 
 # --- the page in the designer ---------------------------------------------------------------
 
-def test_the_page_is_the_sixth_tab_and_shows_the_chip(qtbot, library, boxes):
+def test_the_page_is_the_fifth_tab_and_shows_the_chip(qtbot, library, boxes):
     dialog = _open(qtbot, library)
-    assert dialog.tabs.tabText(5).startswith("6. 物理存储")
-    assert dialog.tabs.tabText(4).startswith("5. 预览")          # the preview kept its place
+    assert dialog.tabs.tabText(4).startswith("5. 物理存储")
+    assert dialog.tabs.tabText(5).startswith("6. 预览")
     assert _names(dialog.memory_editor) == ["GMU_NORMAL", "GMU_DEVICE"]
     top = dialog.memory_editor.tree.topLevelItem(0)
     assert top.text(0).startswith("GMU") and top.childCount() == 2
@@ -142,7 +142,18 @@ def test_a_repeated_name_stops_the_save_and_names_it(qtbot, library, boxes):
     dialog._on_save_clicked()
     assert any("名称重复：GMU_NORMAL" in text for text in boxes["warning"])
     assert (library / "CHIP_X.yaml").read_text(encoding="utf-8") == before
-    assert dialog.tabs.currentIndex() == 5
+    assert dialog.tabs.currentWidget() is dialog._memory_tab
+
+
+def test_confirm_memory_clears_unconfirmed_mark_on_save(qtbot, library, boxes):
+    dialog = _open(qtbot, library)
+    assert not dialog.memory_editor._unconfirmed_bar.isHidden()
+    dialog._on_confirm_memory_clicked()
+    assert dialog.memory_editor._unconfirmed_bar.isHidden()
+    assert dialog._has_unsaved_edits()
+    dialog._on_save_clicked()
+    saved = ChipDatabase(library).get_chip("CHIP_X")
+    assert "memory_regions" not in unconfirmed_marks(saved)
 
 
 def test_doubtful_data_is_listed_and_saved(qtbot, library, boxes):

@@ -299,19 +299,30 @@ class ChipDefinitionDesignerDialog(QDialog):
         main_layout.setContentsMargins(12, 12, 12, 12)
         main_layout.setSpacing(10)
 
-        # Top bar: Clone toolbar
-        clone_bar = QGroupBox("快速模板 (Quick Template)")
+        # Top bar: Chip library management (Open / Clone / Delete / Repair)
+        clone_bar = QGroupBox("芯片库管理 (Chip Library)")
         clone_layout = QHBoxLayout(clone_bar)
         clone_layout.setContentsMargins(10, 6, 10, 6)
 
-        clone_layout.addWidget(QLabel("从已有芯片克隆 (Clone Existing):"))
+        clone_layout.addWidget(QLabel("选择芯片 (Chip):"))
         self.clone_combo = QComboBox()
         self.clone_combo.setMinimumWidth(220)
         clone_layout.addWidget(self.clone_combo)
 
-        clone_btn = QPushButton("📋 克隆并载入 (Clone & Apply)")
+        self.open_btn = QPushButton("📂 打开编辑 (Open)")
+        self.open_btn.setToolTip("直接载入所选芯片进行原地编辑（保存时保留版本与历史记录）")
+        self.open_btn.clicked.connect(self._on_open_clicked)
+        clone_layout.addWidget(self.open_btn)
+
+        clone_btn = QPushButton("📋 克隆为新芯片 (Clone)")
+        clone_btn.setToolTip("以所选芯片为模板创建新芯片副本")
         clone_btn.clicked.connect(self._on_clone_clicked)
         clone_layout.addWidget(clone_btn)
+
+        self.delete_chip_btn = QPushButton("🗑 删除芯片 (Delete)")
+        self.delete_chip_btn.setToolTip("从芯片库中删除所选芯片 YAML")
+        self.delete_chip_btn.clicked.connect(self._on_delete_chip_clicked)
+        clone_layout.addWidget(self.delete_chip_btn)
         clone_layout.addStretch()
 
         self.repair_btn = QPushButton("🔧 修复此芯片…")
@@ -329,7 +340,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         self.copy_notice_label.setVisible(False)
         main_layout.addWidget(self.copy_notice_label)
 
-        # Tabs
+        # Tabs (ordered logically: Basic -> Peripherals -> Pinout -> ECU -> Memory -> Preview)
         self.tabs = QTabWidget()
         self.tabs.currentChanged.connect(self._on_tab_changed)
         main_layout.addWidget(self.tabs, 1)
@@ -338,8 +349,8 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._setup_peripherals_tab()
         self._setup_pinout_tab()
         self._setup_ecu_tab()
-        self._setup_preview_tab()
         self._setup_memory_tab()
+        self._setup_preview_tab()
 
         # Bottom Button Bar
         bottom_bar = QHBoxLayout()
@@ -458,6 +469,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         layout.addWidget(sel_group)
 
         layout.addStretch()
+        self._basic_tab = tab
         self.tabs.addTab(tab, "1. 基础信息 (Basic Info)")
 
     # --- selectors ------------------------------------------------------------
@@ -514,6 +526,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         """Tab 2: peripheral instances of any type (chip YAML "resources")"""
         self.peripheral_editor = PeripheralEditor(requirements=rule_resource_requirements())
         self.peripheral_editor.sync_from_ecu_requested.connect(self._sync_peripherals_from_ecu)
+        self._peripherals_tab = self.peripheral_editor
         self.tabs.addTab(self.peripheral_editor, "2. 外设 (Peripherals)")
 
     def _sync_peripherals_from_ecu(self):
@@ -620,6 +633,7 @@ class ChipDefinitionDesignerDialog(QDialog):
             sig.connect(self._on_pin_model_changed)
 
         layout.addWidget(self.pin_table, 1)
+        self._pinout_tab = tab
         self.tabs.addTab(tab, "3. 引脚复用矩阵 (Pinout & Mux)")
 
     def _setup_ecu_tab(self):
@@ -628,6 +642,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         self.ecu_editor.set_context(self.chip_database, lambda: self.name_edit.text().strip(), self._project)
         self.ecu_editor.import_requested.connect(self._on_import_properties_clicked)
         self.ecu_editor.changed.connect(self._on_ecu_edited)
+        self._ecu_tab = self.ecu_editor
         self.tabs.addTab(self.ecu_editor, "4. ECU 资源 (ECU Resources)")
 
     def _on_ecu_edited(self):
@@ -636,32 +651,50 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._refresh_pin_warning()
 
     def _setup_memory_tab(self):
-        """Tab 6: physical memory (the chip's memory_regions)"""
+        """Tab 5: physical memory (the chip's memory_regions)"""
         self.memory_editor = MemoryRegionEditor()
         self.memory_editor.changed.connect(self._on_memory_edited)
-        self.tabs.addTab(self.memory_editor, "6. 物理存储 (Memory)")
+        self.memory_editor.confirm_requested.connect(self._on_confirm_memory_clicked)
+        self._memory_tab = self.memory_editor
+        self.tabs.addTab(self.memory_editor, "5. 物理存储 (Memory)")
         self._memory_regions: List = []
         self._memory_note = ""
+        self._memory_confirmed = False
 
     def _on_memory_edited(self):
         self._memory_regions = self.memory_editor.regions()
-        self._memory_note = self.memory_editor.import_note() or self._memory_note
+        imported_note = self.memory_editor.import_note()
+        if imported_note:
+            self._memory_note = imported_note
+            self._memory_confirmed = False
+            self.memory_editor.set_unconfirmed_mark(self._memory_note)
 
-    def _set_memory_regions(self, regions):
+    def _on_confirm_memory_clicked(self):
+        """Clear the unconfirmed mark for memory_regions so saving records it as confirmed."""
+        self._memory_confirmed = True
+        self._memory_note = ""
+        self.memory_editor.clear_import_note()
+        self.memory_editor.set_unconfirmed_mark(None)
+        self.status_label.setText("已标记物理存储为已确认（保存芯片后生效）")
+
+    def _set_memory_regions(self, regions, unconfirmed_note: Optional[str] = None):
         """Replace the chip's memory regions everywhere they are shown."""
         self._memory_regions = copy.deepcopy(list(regions or []))
         self._memory_note = ""
+        self._memory_confirmed = False
         self.memory_editor.set_regions(self._memory_regions)
+        self.memory_editor.set_unconfirmed_mark(unconfirmed_note)
 
     def _set_ecu_resources(self, resources: EcuResources):
         """Replace the chip's ECU resources everywhere they are shown."""
         self._ecu_resources = resources
         self.ecu_editor.set_resources(resources)
-        self.ecu_preview.setPlainText(describe_ecu_resources(resources))
+        if hasattr(self, "ecu_preview"):
+            self.ecu_preview.setPlainText(describe_ecu_resources(resources))
         self._refresh_pin_warning()
 
     def _setup_preview_tab(self):
-        """Tab 4: Preview & Export"""
+        """Tab 6: Preview & Export"""
         tab = QWidget()
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(12, 12, 12, 12)
@@ -695,13 +728,13 @@ class ChipDefinitionDesignerDialog(QDialog):
         splitter.setSizes([450, 450])
         layout.addWidget(splitter, 1)
 
-        ecu_box = QGroupBox("ECU 资源 (ecu_resources，只读预览；来自 YAML 或导入的 .properties)")
+        ecu_box = QGroupBox("ECU 资源摘要与一致性检查（编辑请在“4. ECU 资源”页进行）")
         ecu_layout = QVBoxLayout(ecu_box)
         self.ecu_preview = QTextEdit()
         self.ecu_preview.setFont(QFont("Menlo, Monaco, Consolas, Courier New", 10))
         self.ecu_preview.setReadOnly(True)
-        self.ecu_preview.setPlaceholderText("尚无 ECU 资源。可通过下方按钮导入 .properties 文件。")
-        self.ecu_preview.setMaximumHeight(170)
+        self.ecu_preview.setPlaceholderText("尚无 ECU 资源。可在“4. ECU 资源”页导入 .properties 文件。")
+        self.ecu_preview.setMaximumHeight(110)
         ecu_layout.addWidget(self.ecu_preview)
 
         self.consistency_label = QLabel()
@@ -710,7 +743,8 @@ class ChipDefinitionDesignerDialog(QDialog):
         ecu_layout.addWidget(self.consistency_label)
         layout.addWidget(ecu_box)
 
-        self.tabs.addTab(tab, "5. 预览与导出 (Preview & Export)")
+        self._preview_tab = tab
+        self.tabs.addTab(tab, "6. 预览与导出 (Preview & Export)")
 
     def _populate_clone_dropdown(self):
         """Populate the clone combo box with existing chips from database"""
@@ -718,6 +752,56 @@ class ChipDefinitionDesignerDialog(QDialog):
         self.clone_combo.addItem("-- 选择要克隆的芯片模版 --", None)
         for chip_name in sorted(self.chip_database.list_chips()):
             self.clone_combo.addItem(chip_name, chip_name)
+
+    def _on_open_clicked(self):
+        """Load selected chip from library for in-place editing."""
+        chip_name = self.clone_combo.currentData()
+        if not chip_name:
+            QMessageBox.information(self, "提示", "请先从下拉菜单中选择一个要打开的芯片型号。")
+            return
+        if chip_name == self._editing_name and not self._has_unsaved_edits():
+            self.status_label.setText(f"当前正在编辑: {chip_name}")
+            return
+        if not self._confirm_discard_edits(
+            f"打开 {chip_name} 会替换正在编辑的内容，未保存的修改将丢失。是否继续？"
+        ):
+            return
+        if self._load_chip_by_name(chip_name):
+            self.status_label.setText(f"已载入芯片用于原地编辑: {chip_name}")
+
+    def _on_delete_chip_clicked(self):
+        """Delete selected chip YAML from the chip library after confirmation."""
+        chip_name = self.clone_combo.currentData()
+        if not chip_name:
+            QMessageBox.information(self, "提示", "请先从下拉菜单中选择一个要删除的芯片型号。")
+            return
+
+        target_file = self._get_save_dir() / f"{chip_name}.yaml"
+        reply = QMessageBox.question(
+            self,
+            "删除芯片确认",
+            f"确定要从芯片库中删除芯片 {chip_name} 吗？\n"
+            + (f"将删除文件：{target_file}" if target_file.exists() else "将从当前芯片库移除注册。"),
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        if target_file.exists():
+            try:
+                target_file.unlink()
+            except OSError as exc:
+                QMessageBox.critical(self, "删除失败", f"无法删除芯片文件:\n{exc}")
+                return
+
+        self.chip_database.unregister_chip(chip_name)
+        if self._editing_name == chip_name:
+            self._editing_name = None
+            self._base_chip = None
+            self._mark_clean()
+        self._populate_clone_dropdown()
+        self.status_label.setText(f"已从芯片库删除: {chip_name}")
 
     def _on_clone_clicked(self):
         """Clone selected chip into the designer"""
@@ -730,10 +814,10 @@ class ChipDefinitionDesignerDialog(QDialog):
 
         if not self._load_chip_by_name(chip_name):
             return
-        # A clone is a new chip: saving must not silently overwrite the source
+        # A clone is a new chip: set the copy name BEFORE marking clean so closing without edits does not warn
         self._editing_name = None
-        self._mark_clean()
         self.name_edit.setText(f"{chip_name}_COPY")
+        self._mark_clean()
         self.status_label.setText(f"已克隆芯片模板: {chip_name}")
         QMessageBox.information(self, "克隆成功", f"已成功载入 {chip_name} 的全部规格与引脚定义，您可以直接在此基础上修改。")
 
@@ -747,7 +831,8 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._base_chip = copy.deepcopy(chip)
         self._editing_name = chip.name
         self._set_ecu_resources(copy.deepcopy(chip.ecu_resources))
-        self._set_memory_regions(chip.memory_regions)
+        mem_mark = unconfirmed_marks(chip).get("memory_regions")
+        self._set_memory_regions(chip.memory_regions, unconfirmed_note=mem_mark)
         self._resource_version = chip.resource_version
         self._set_selectors(chip.selectors)
 
@@ -1107,21 +1192,22 @@ class ChipDefinitionDesignerDialog(QDialog):
         return drop_filled_marks(mark_to_fill_in(chip, self.ecu_editor.added_placeholders()))
 
     def _apply_memory_mark(self, chip: ChipDefinition):
-        """Imported regions are marked to be confirmed; an edit never confirms anything.
-
-        The mark of ``memory_regions`` that the chip already has is kept as it is; an import
-        sets it (or replaces its note) so the user sees where the data came from and what the
-        source left unsaid.  Nothing here removes a mark.
-        """
-        if not self._memory_note:
-            return
+        """Apply or clear the ``unconfirmed['memory_regions']`` mark on ``chip``."""
         marks = unconfirmed_marks(chip)
-        marks["memory_regions"] = self._memory_note
-        chip.metadata["unconfirmed"] = marks
+        if self._memory_note:
+            marks["memory_regions"] = self._memory_note
+            chip.metadata["unconfirmed"] = marks
+        elif self._memory_confirmed and "memory_regions" in marks:
+            marks.pop("memory_regions", None)
+            if marks:
+                chip.metadata["unconfirmed"] = marks
+            else:
+                chip.metadata.pop("unconfirmed", None)
 
     def _on_tab_changed(self, index: int):
-        """Update preview when tab 4 is selected"""
-        if index == 4:  # Preview tab
+        """Update preview when the Preview tab is selected."""
+        current = self.tabs.widget(index)
+        if current is getattr(self, "_preview_tab", None):
             chip = self._build_current_chip()
             self.yaml_preview.setPlainText(self.exporter.to_yaml_string(chip))
             cores = chip.metadata['cores']
@@ -1135,7 +1221,7 @@ class ChipDefinitionDesignerDialog(QDialog):
             self.consistency_label.setText("\n".join(
                 check_consistency(flatten_ecu_resources(chip.ecu_resources))
                 + typed_field_differences(chip) + pin_table_differences(chip)))
-        elif index == 0:
+        elif current is getattr(self, "_basic_tab", None):
             self._refresh_typed_differences()
 
     def _copy_to_clipboard(self, text: str):
@@ -1212,7 +1298,7 @@ class ChipDefinitionDesignerDialog(QDialog):
                 self, "验证失败",
                 "请输入有效的芯片型号名称！\n仅允许字母、数字、下划线、点和连字符，且不能以符号开头。"
             )
-            self.tabs.setCurrentIndex(0)
+            self.tabs.setCurrentWidget(self._basic_tab)
             self.name_edit.setFocus()
             return
 
@@ -1220,7 +1306,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         if dups:
             listed = ", ".join(f"{port}/{pin}" for port, pin in sorted(dups)[:10])
             QMessageBox.warning(self, "引脚重复", f"以下引脚重复定义（已标红），请修正后再保存:\n{listed}")
-            self.tabs.setCurrentIndex(2)
+            self.tabs.setCurrentWidget(self._pinout_tab)
             return
 
         if not chip.ports:
@@ -1232,33 +1318,33 @@ class ChipDefinitionDesignerDialog(QDialog):
                 QMessageBox.No
             )
             if reply != QMessageBox.Yes:
-                self.tabs.setCurrentIndex(2)
+                self.tabs.setCurrentWidget(self._pinout_tab)
                 return
 
         try:
             self._selectors_from_table()
         except ValueError as e:
             QMessageBox.warning(self, "选择器无效", str(e))
-            self.tabs.setCurrentIndex(0)
+            self.tabs.setCurrentWidget(self._basic_tab)
             return
 
         try:
             self.peripheral_editor.validated_resources()
         except ValueError as e:
             QMessageBox.warning(self, "外设实例无效", str(e))
-            self.tabs.setCurrentIndex(1)
+            self.tabs.setCurrentWidget(self._peripherals_tab)
             return
 
         memory_errors = self.memory_editor.blocking_problems()
         if memory_errors:
             QMessageBox.warning(self, "物理存储无效", "\n".join(memory_errors))
-            self.tabs.setCurrentIndex(5)
+            self.tabs.setCurrentWidget(self._memory_tab)
             return
 
         basic_problems = self._basic_field_problems()
         if basic_problems:
             QMessageBox.warning(self, "基础信息格式不对", "\n".join(m for _f, m in basic_problems))
-            self.tabs.setCurrentIndex(0)
+            self.tabs.setCurrentWidget(self._basic_tab)
             self.basic_edits[basic_problems[0][0]].setFocus()
             return
 
@@ -1269,7 +1355,7 @@ class ChipDefinitionDesignerDialog(QDialog):
                 "\n".join(core_problems) + "\n\n确定要保存吗？",
                 QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
             if reply != QMessageBox.Yes:
-                self.tabs.setCurrentIndex(0)
+                self.tabs.setCurrentWidget(self._basic_tab)
                 self.avail_cores_edit.setFocus()
                 return
 
@@ -1285,7 +1371,7 @@ class ChipDefinitionDesignerDialog(QDialog):
             )
             if reply != QMessageBox.Yes:
                 self.ecu_editor.filter_combo.setCurrentIndex(1)     # show only the entries to fill in
-                self.tabs.setCurrentIndex(3)
+                self.tabs.setCurrentWidget(self._ecu_tab)
                 return
 
         target_file = self._get_save_dir() / f"{chip.name}.yaml"
@@ -1335,6 +1421,10 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._base_chip = copy.deepcopy(chip)
         self._editing_name = chip.name
         self._last_saved_chip = chip.name
+        self._memory_note = ""
+        self._memory_confirmed = False
+        self.memory_editor.clear_import_note()
+        self.memory_editor.set_unconfirmed_mark(unconfirmed_marks(chip).get("memory_regions"))
         self._mark_clean()
         self._populate_clone_dropdown()
         self._show_basic_marks(chip)

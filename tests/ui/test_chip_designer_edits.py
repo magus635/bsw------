@@ -89,6 +89,31 @@ def test_clone_without_edits_asks_nothing(dialog, ask):
     _clone(dialog, "CHIP_Y")
     assert ask["questions"] == []
     assert dialog.name_edit.text() == "CHIP_Y_COPY"
+    # Freshly cloned chip with no further edits must not be marked dirty
+    assert not dialog._has_unsaved_edits()
+    dialog.reject()
+    assert ask["questions"] == []
+    assert dialog.finished_codes == [0]
+
+
+def test_open_chip_loads_in_place_for_editing(dialog, ask):
+    dialog.clone_combo.setCurrentIndex(dialog.clone_combo.findData("CHIP_Y"))
+    dialog._on_open_clicked()
+    assert ask["questions"] == []
+    assert dialog.name_edit.text() == "CHIP_Y"
+    assert dialog._editing_name == "CHIP_Y"
+    assert dialog.repair_btn.isEnabled()
+    assert not dialog._has_unsaved_edits()
+
+
+def test_delete_chip_removes_file_and_unregisters(dialog, ask, tmp_path):
+    assert (tmp_path / "CHIP_Y.yaml").is_file()
+    ask["answer"] = QMessageBox.Yes
+    dialog.clone_combo.setCurrentIndex(dialog.clone_combo.findData("CHIP_Y"))
+    dialog._on_delete_chip_clicked()
+    assert not (tmp_path / "CHIP_Y.yaml").exists()
+    assert dialog.chip_database.get_chip("CHIP_Y") is None
+    assert dialog.clone_combo.findData("CHIP_Y") == -1
 
 
 # --- core fields -------------------------------------------------------------------
