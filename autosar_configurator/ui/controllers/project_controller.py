@@ -1437,8 +1437,9 @@ class ProjectController:
             QApplication.restoreOverrideCursor()
 
     def import_davinci_project(self):
-        """Import BSW modules and MCAL resources from a DaVinci .dpa project"""
+        """Import BSW modules from DaVinci .dpa and create a new project with complete structure"""
         from PySide6.QtWidgets import QApplication
+        import json
 
         # Select DaVinci project file (.dpa)
         dpa_file, _ = QFileDialog.getOpenFileName(
@@ -1452,10 +1453,10 @@ class ProjectController:
 
         dpa_file = Path(dpa_file)
 
-        # Select target directory for imported modules
+        # Select target directory for new project
         target_dir_str = QFileDialog.getExistingDirectory(
             self.win,
-            "Select Target Directory for Imported Modules",
+            "Select Directory for New Project",
             str(Path.home()),
             QFileDialog.ShowDirsOnly
         )
@@ -1464,6 +1465,19 @@ class ProjectController:
 
         target_dir = Path(target_dir_str)
         target_dir.mkdir(parents=True, exist_ok=True)
+
+        # Ask for project name
+        project_name, ok = QInputDialog.getText(
+            self.win,
+            "Project Name",
+            "Enter name for the imported project:",
+            QLineEdit.Normal,
+            "DaVinciImport"
+        )
+        if not ok or not project_name.strip():
+            return
+
+        project_name = project_name.strip()
 
         # Ask whether to include resources
         import_resources = QMessageBox.question(
@@ -1476,15 +1490,22 @@ class ProjectController:
 
         # Show wait cursor
         QApplication.setOverrideCursor(Qt.WaitCursor)
-        self.win.statusbar.showMessage("Importing DaVinci project...")
+        self.win.statusbar.showMessage("Creating project and importing DaVinci modules...")
         QApplication.processEvents()
 
         try:
-            # Run DaVinci import CLI
+            # Create new project directory and export modules to DaVinciImport/ subdirectory
+            project_root = target_dir / project_name
+            project_root.mkdir(parents=True, exist_ok=True)
+
+            davinci_import_dir = project_root / "DaVinciImport"
+            davinci_import_dir.mkdir(parents=True, exist_ok=True)
+
+            # Run DaVinci import CLI to export modules
             cli = DaVinciImportCLI(verbose=True)
             args = [
                 "--project", str(dpa_file),
-                "--output", str(target_dir),
+                "--output", str(davinci_import_dir),
             ]
             if import_resources:
                 args.append("--include-resources")
@@ -1501,31 +1522,103 @@ class ProjectController:
                 return
 
             # List imported modules
-            module_dirs = list(target_dir.glob("*/module.json"))
+            module_dirs = list(davinci_import_dir.glob("*/module.json"))
             imported_modules = []
             for manifest_path in module_dirs:
                 try:
-                    import json
                     data = json.loads(manifest_path.read_text())
                     imported_modules.append(data.get("module", "unknown"))
                 except Exception:
                     pass
 
+            if not imported_modules:
+                QMessageBox.warning(
+                    self.win,
+                    "No Modules",
+                    f"No BSW modules were found to import from {dpa_file}"
+                )
+                return
+
+            # Create new project with complete structure
+            dpa_path = project_root / f"{project_name}.dpa"
+            new_project = self.win.workspace_manager.create_project(
+                name=project_name,
+                path=dpa_path,
+                format_version=8
+            )
+
+            # Create project directories
+            for dir_key in ["config", "base", "templates", "gen", "chips", "integration", "system", "history", "modules"]:
+                dir_name = getattr(new_project.directories, dir_key)
+                if dir_name:
+                    (project_root / dir_name).mkdir(parents=True, exist_ok=True)
+
+            # Register DaVinciImport as a library
+            from ...core.packages.library import LibraryRef
+            lib_ref = LibraryRef(
+                path="DaVinciImport",
+                kind="package",
+                exclude=[]
+            )
+            new_project.module_libraries.append(lib_ref)
+
+            # Auto-add all imported modules to project
+            self.win.statusbar.showMessage(f"Adding {len(imported_modules)} modules to project...")
+            QApplication.processEvents()
+
+            added_count = 0
+            failed_count = 0
+
+            # Helper: auto-confirm Pre/Rec merges
+            def auto_confirm_merge(preview_text, merge_result):
+                return True  # Accept all merges
+
+            for module_name in sorted(imported_modules):
+                try:
+                    from ...core.packages.manifest import infer_package
+                    from ...core.packages.package import ModulePackage
+
+                    module_pkg_dir = davinci_import_dir / module_name
+                    manifest = infer_package(module_pkg_dir)
+                    pkg = ModulePackage(module_pkg_dir, manifest)
+
+                    new_project.add_module_from_package(
+                        pkg=pkg,
+                        lib_index=0,  # DaVinciImport is at index 0
+                        persist=True,
+                        confirm=auto_confirm_merge,
+                        reconcile=True
+                    )
+                    added_count += 1
+                except Exception as e:
+                    failed_count += 1
+                    print(f"Warning: Failed to add {module_name}: {e}")
+
+            # Save project
+            self.win.current_project = new_project
+            self.win.current_project_file = dpa_path
+            self.win.workspace_manager.current_project = new_project
+            self.win.workspace_manager.save_project()
+
+            # Open the project to display in tree
+            self._load_project_at_path(dpa_path)
+
             # Show summary
             summary = (
                 f"DaVinci project imported successfully.\n\n"
                 f"Source: {dpa_file}\n"
-                f"Target: {target_dir}\n\n"
-                f"Imported modules: {len(imported_modules)}"
+                f"Project: {project_root}\n"
+                f"Modules imported: {len(imported_modules)}\n"
+                f"Modules added to project: {added_count}"
             )
-            if imported_modules:
-                summary += f"\n  {', '.join(sorted(imported_modules))}"
+            if failed_count > 0:
+                summary += f"\nFailed to add: {failed_count}"
             if import_resources:
-                summary += "\n\nMCAL resources exported to YAML files"
+                summary += "\n\nMCAL resources extracted to YAML files"
 
-            QMessageBox.information(self.win, "DaVinci Project Imported", summary)
+            QMessageBox.information(self.win, "DaVinci Import Complete", summary)
             self.win.statusbar.showMessage(
-                f"Imported: {len(imported_modules)} modules from DaVinci to {target_dir.name}",
+                f"Imported {added_count}/{len(imported_modules)} modules from DaVinci",
                 5000
             )
 
