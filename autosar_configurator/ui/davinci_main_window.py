@@ -233,6 +233,10 @@ class DaVinciMainWindow(QMainWindow):
         self.import_eb_project_action.setStatusTip("Batch import an EB Tresos project (auto-discover defines + EPC configs)")
         self.import_eb_project_action.triggered.connect(self.project_controller.import_eb_project)
 
+        self.import_davinci_project_action = QAction("Import from DaVinci Project...", self)
+        self.import_davinci_project_action.setStatusTip("Import BSW modules and MCAL resources from a DaVinci .dpa project")
+        self.import_davinci_project_action.triggered.connect(self.project_controller.import_davinci_project)
+
         self.import_value_action = QAction("Import Value File...", self)
         self.import_value_action.setStatusTip("Replace the current module's configuration with an EB value file (.epc/.arxml/.xdm)")
         self.import_value_action.setEnabled(False)
@@ -374,6 +378,7 @@ class DaVinciMainWindow(QMainWindow):
         # Import submenu under File
         self.import_menu = file_menu.addMenu("Import")
         self.import_menu.addAction(self.import_eb_project_action)
+        self.import_menu.addAction(self.import_davinci_project_action)
         self.import_menu.addAction(self.import_value_action)
         self.import_menu.addSeparator()
         self.import_menu.addAction(self.import_config_action)

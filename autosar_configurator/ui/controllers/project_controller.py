@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 import logging
 
 from ...core.config_manager import PreLockedError, ValidationError, find_container_def
+from ...core.davinci_import_cli import DaVinciImportCLI
 from ...core.model.configuration_model import EcucContainerValue
 from ..commands import SetParameterCommand
 
@@ -1429,6 +1430,108 @@ class ProjectController:
 
         except Exception as e:
             QMessageBox.critical(self.win, "Import Error", f"Failed to import EB project:\n{str(e)}")
+        finally:
+            QApplication.restoreOverrideCursor()
+
+    def import_davinci_project(self):
+        """Import BSW modules and MCAL resources from a DaVinci .dpa project"""
+        from PySide6.QtWidgets import QApplication
+
+        # Select DaVinci project file (.dpa)
+        dpa_file, _ = QFileDialog.getOpenFileName(
+            self.win,
+            "Select DaVinci Project (.dpa)",
+            str(Path.home()),
+            "DaVinci Projects (*.dpa);;All Files (*)"
+        )
+        if not dpa_file:
+            return
+
+        dpa_file = Path(dpa_file)
+
+        # Select target directory for imported modules
+        target_dir_str = QFileDialog.getExistingDirectory(
+            self.win,
+            "Select Target Directory for Imported Modules",
+            str(Path.home()),
+            QFileDialog.ShowDirsOnly
+        )
+        if not target_dir_str:
+            return
+
+        target_dir = Path(target_dir_str)
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        # Ask whether to include resources
+        import_resources = QMessageBox.question(
+            self.win,
+            "Include MCAL Resources?",
+            "Do you want to extract MCAL resources (.properties → YAML)?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        ) == QMessageBox.Yes
+
+        # Show wait cursor
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        self.win.statusbar.showMessage("Importing DaVinci project...")
+        QApplication.processEvents()
+
+        try:
+            # Run DaVinci import CLI
+            cli = DaVinciImportCLI(verbose=True)
+            args = [
+                "--project", str(dpa_file),
+                "--output", str(target_dir),
+            ]
+            if import_resources:
+                args.append("--include-resources")
+
+            exit_code = cli.run(args)
+
+            if exit_code != 0:
+                QMessageBox.critical(
+                    self.win,
+                    "Import Failed",
+                    f"DaVinci project import failed with exit code {exit_code}.\n\n"
+                    "Check the project file and try again."
+                )
+                return
+
+            # List imported modules
+            module_dirs = list(target_dir.glob("*/module.json"))
+            imported_modules = []
+            for manifest_path in module_dirs:
+                try:
+                    import json
+                    data = json.loads(manifest_path.read_text())
+                    imported_modules.append(data.get("module", "unknown"))
+                except Exception:
+                    pass
+
+            # Show summary
+            summary = (
+                f"DaVinci project imported successfully.\n\n"
+                f"Source: {dpa_file}\n"
+                f"Target: {target_dir}\n\n"
+                f"Imported modules: {len(imported_modules)}"
+            )
+            if imported_modules:
+                summary += f"\n  {', '.join(sorted(imported_modules))}"
+            if import_resources:
+                summary += "\n\nMCAL resources exported to YAML files"
+
+            QMessageBox.information(self.win, "DaVinci Project Imported", summary)
+            self.win.statusbar.showMessage(
+                f"Imported: {len(imported_modules)} modules from DaVinci to {target_dir.name}",
+                5000
+            )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self.win,
+                "Import Error",
+                f"Failed to import DaVinci project:\n{str(e)}"
+            )
         finally:
             QApplication.restoreOverrideCursor()
 

@@ -84,11 +84,16 @@ class DaVinciImportCLI:
                     logger.warning("  Failed to merge %s", module_name)
                     continue
 
+                # Separate definition and config
+                def_content, pre_config, rec_config = SipMerger.separate_definition_and_config(merged)
+
                 # Write package
                 try:
                     pkg_dir = SipPackageWriter.write_package(
                         module_name=module_name,
-                        definition_content=merged,
+                        definition_content=def_content,
+                        pre_config=pre_config,
+                        rec_config=rec_config,
                         output_dir=output_dir,
                     )
                     logger.info("  Wrote package to %s", pkg_dir)

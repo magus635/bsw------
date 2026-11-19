@@ -12,6 +12,7 @@ from typing import Dict, List, Optional, Set
 from lxml import etree
 import json
 import logging
+import io
 
 logger = logging.getLogger(__name__)
 @dataclass
@@ -353,6 +354,94 @@ class SipMerger:
         # TODO: Implement proper AUTOSAR path-based merge (Task 2)
         return files[0].content
 
+    @staticmethod
+    def separate_definition_and_config(merged_arxml: bytes) -> tuple[Optional[bytes], Optional[bytes], Optional[bytes]]:
+        """Separate ECUC-MODULE-DEF and ECUC-MODULE-CONFIGURATION-VALUES from merged ARXML.
+
+        Returns:
+            Tuple of (definition_bytes, pre_config_bytes, rec_config_bytes)
+            Each can be None if not present.
+        """
+        try:
+            parser = etree.XMLParser(resolve_entities=False, no_network=True)
+            tree = etree.parse(io.BytesIO(merged_arxml), parser)
+            root = tree.getroot()
+
+            # Create three separate trees
+            ns = {'ar': 'http://autosar.org/schema/r4.0'}
+
+            def_root = etree.Element(root.tag, nsmap=root.nsmap)
+            pre_root = etree.Element(root.tag, nsmap=root.nsmap)
+            rec_root = etree.Element(root.tag, nsmap=root.nsmap)
+
+            def_has_content = False
+            pre_has_content = False
+            rec_has_content = False
+
+            # Process each AR-PACKAGE
+            for pkg in root.findall('.//ar:AR-PACKAGE', ns):
+                # Create clean packages for each output
+                def_pkg = etree.Element(pkg.tag, nsmap=pkg.nsmap)
+                pre_pkg = etree.Element(pkg.tag, nsmap=pkg.nsmap)
+                rec_pkg = etree.Element(pkg.tag, nsmap=pkg.nsmap)
+
+                # Copy SHORT-NAME
+                sn = pkg.find('./ar:SHORT-NAME', ns)
+                if sn is not None:
+                    etree.SubElement(def_pkg, sn.tag).text = sn.text
+                    etree.SubElement(pre_pkg, sn.tag).text = sn.text
+                    etree.SubElement(rec_pkg, sn.tag).text = sn.text
+
+                # Process ELEMENTS
+                elements = pkg.find('./ar:ELEMENTS', ns)
+                if elements is not None:
+                    def_elements = etree.SubElement(def_pkg, elements.tag)
+                    pre_elements = etree.SubElement(pre_pkg, elements.tag)
+                    rec_elements = etree.SubElement(rec_pkg, elements.tag)
+
+                    for child in elements:
+                        tag_name = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+
+                        if tag_name == "ECUC-MODULE-DEF":
+                            def_elements.append(etree.fromstring(etree.tostring(child)))
+                            def_has_content = True
+                        elif tag_name == "BSW-IMPLEMENTATION":
+                            # Include implementation in def only
+                            def_elements.append(etree.fromstring(etree.tostring(child)))
+                            def_has_content = True
+                        elif tag_name == "ECUC-MODULE-CONFIGURATION-VALUES":
+                            # Determine if Pre or Rec by checking DEFINITION-REF or SHORT-NAME
+                            def_ref = child.findtext('./ar:DEFINITION-REF', "", ns)
+                            short_name = child.findtext('./ar:SHORT-NAME', "", ns)
+
+                            is_pre = "Pre" in short_name or "Pre" in def_ref
+
+                            if is_pre:
+                                pre_elements.append(etree.fromstring(etree.tostring(child)))
+                                pre_has_content = True
+                            else:
+                                rec_elements.append(etree.fromstring(etree.tostring(child)))
+                                rec_has_content = True
+
+                # Only add package if it has content
+                if def_has_content and len(def_elements):
+                    def_root.append(def_pkg)
+                if pre_has_content and len(pre_elements):
+                    pre_root.append(pre_pkg)
+                if rec_has_content and len(rec_elements):
+                    rec_root.append(rec_pkg)
+
+            # Convert to bytes
+            def_bytes = etree.tostring(def_root, encoding='utf-8', xml_declaration=True, pretty_print=True) if def_has_content else None
+            pre_bytes = etree.tostring(pre_root, encoding='utf-8', xml_declaration=True, pretty_print=True) if pre_has_content else None
+            rec_bytes = etree.tostring(rec_root, encoding='utf-8', xml_declaration=True, pretty_print=True) if rec_has_content else None
+
+            return def_bytes, pre_bytes, rec_bytes
+
+        except Exception as e:
+            logger.debug(f"Failed to separate ARXML: {e}")
+            return None, None, None
+
 
 class SipPackageWriter:
     """Write module package with correct schema."""
@@ -365,7 +454,7 @@ class SipPackageWriter:
         rec_config: Optional[bytes] = None,
         output_dir: Optional[Path] = None,
     ) -> Path:
-        """Write a module package.
+        """Write a module package with separate def/ and config/ directories.
 
         Args:
             module_name: Module name (e.g., "Os")
@@ -383,18 +472,22 @@ class SipPackageWriter:
             output_dir = Path(output_dir) / module_name
 
         output_dir.mkdir(parents=True, exist_ok=True)
+        def_dir = output_dir / "def"
         config_dir = output_dir / "config"
+        def_dir.mkdir(exist_ok=True)
         config_dir.mkdir(exist_ok=True)
 
-        # Write definition file
-        def_path = config_dir / f"{module_name}.arxml"
-        def_path.write_bytes(definition_content)
-
-        # Write pre/rec if provided
-        files_list = [f"config/{module_name}.arxml"]
+        # Write definition file to def/ directory
+        files_list = []
         pre_list = []
         rec_list = []
 
+        if definition_content:
+            def_path = def_dir / f"{module_name}.arxml"
+            def_path.write_bytes(definition_content)
+            files_list.append(f"def/{module_name}.arxml")
+
+        # Write pre/rec to config/ directory
         if pre_config:
             pre_path = config_dir / f"{module_name}_Pre.arxml"
             pre_path.write_bytes(pre_config)
