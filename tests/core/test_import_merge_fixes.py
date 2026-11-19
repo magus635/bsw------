@@ -15,6 +15,7 @@ from autosar_configurator.core.model.configuration_model import (
     EcucContainerValue,
     EcucModuleConfiguration,
     EcucParameterValue,
+    EcucReferenceValue,
 )
 from autosar_configurator.core.model.definition_model import (
     EcucContainerDef,
@@ -197,3 +198,89 @@ class TestModuleConfigurationMerge:
         assert len(result.containers) == 2
         assert any(c.short_name == "Config1" for c in result.containers)
         assert any(c.short_name == "Config2" for c in result.containers)
+
+    def test_merge_same_named_containers_recursively(self):
+        """同名容器应递归合并参数、引用、多值项和子容器，而不是整块跳过。"""
+        child1 = EcucContainerValue(
+            short_name="SubA",
+            definition_ref="/MICROSAR/vBRS/General/SubA",
+            parameter_values={
+                "P1": EcucParameterValue(definition_ref="/MICROSAR/vBRS/General/SubA/P1", value="a"),
+            },
+        )
+        c1 = EcucContainerValue(
+            short_name="vBRSGeneral",
+            definition_ref="/MICROSAR/vBRS/vBRSGeneral",
+            parameter_values={
+                "Clock": EcucParameterValue(definition_ref="/MICROSAR/vBRS/vBRSGeneral/Clock", value="100"),
+            },
+            reference_values={
+                "Ref1": EcucReferenceValue(definition_ref="/MICROSAR/vBRS/vBRSGeneral/Ref1", value_ref="/Target/A"),
+            },
+            sub_containers=[child1],
+        )
+
+        child2_same = EcucContainerValue(
+            short_name="SubA",
+            definition_ref="/MICROSAR/vBRS/General/SubA",
+            parameter_values={
+                "P2": EcucParameterValue(definition_ref="/MICROSAR/vBRS/General/SubA/P2", value="b"),
+            },
+        )
+        child2_new = EcucContainerValue(
+            short_name="SubB",
+            definition_ref="/MICROSAR/vBRS/General/SubB",
+        )
+        c2 = EcucContainerValue(
+            short_name="vBRSGeneral",
+            definition_ref="/MICROSAR/vBRS/vBRSGeneral",
+            parameter_values={
+                "Clock": EcucParameterValue(definition_ref="/MICROSAR/vBRS/vBRSGeneral/Clock", value="100"),
+                "Mode": EcucParameterValue(definition_ref="/MICROSAR/vBRS/vBRSGeneral/Mode", value="FAST"),
+            },
+            reference_values={
+                "Ref2": EcucReferenceValue(definition_ref="/MICROSAR/vBRS/vBRSGeneral/Ref2", value_ref="/Target/B"),
+            },
+            multi_parameter_values={
+                "Tags": [EcucParameterValue(definition_ref="/MICROSAR/vBRS/vBRSGeneral/Tags", value="T1")],
+            },
+            sub_containers=[child2_same, child2_new],
+        )
+
+        cfg1 = EcucModuleConfiguration(short_name="vBRS_Pre", definition_ref="/MICROSAR/vBRS", containers=[c1])
+        cfg2 = EcucModuleConfiguration(short_name="vBRS_Rec", definition_ref="/MICROSAR/vBRS", containers=[c2])
+
+        merged = merge_module_configurations([cfg1, cfg2])
+        assert len(merged.containers) == 1
+        gen = merged.containers[0]
+        assert gen.parameter_values["Clock"].value == "100"
+        assert gen.parameter_values["Mode"].value == "FAST"
+        assert gen.reference_values["Ref1"].value_ref == "/Target/A"
+        assert gen.reference_values["Ref2"].value_ref == "/Target/B"
+        assert [p.value for p in gen.multi_parameter_values["Tags"]] == ["T1"]
+        sub_a = next(s for s in gen.sub_containers if s.short_name == "SubA")
+        assert sub_a.parameter_values["P1"].value == "a"
+        assert sub_a.parameter_values["P2"].value == "b"
+        assert any(s.short_name == "SubB" for s in gen.sub_containers)
+
+    def test_merge_same_named_containers_raises_on_nested_conflict(self):
+        """同名容器内的嵌套参数或引用冲突应抛出 ValidationError。"""
+        c1 = EcucContainerValue(
+            short_name="vBRSGeneral",
+            definition_ref="/MICROSAR/vBRS/vBRSGeneral",
+            parameter_values={
+                "Clock": EcucParameterValue(definition_ref="/MICROSAR/vBRS/vBRSGeneral/Clock", value="100"),
+            },
+        )
+        c2 = EcucContainerValue(
+            short_name="vBRSGeneral",
+            definition_ref="/MICROSAR/vBRS/vBRSGeneral",
+            parameter_values={
+                "Clock": EcucParameterValue(definition_ref="/MICROSAR/vBRS/vBRSGeneral/Clock", value="200"),
+            },
+        )
+        cfg1 = EcucModuleConfiguration(short_name="vBRS_Pre", definition_ref="/MICROSAR/vBRS", containers=[c1])
+        cfg2 = EcucModuleConfiguration(short_name="vBRS_Rec", definition_ref="/MICROSAR/vBRS", containers=[c2])
+
+        with pytest.raises(ValidationError, match="Clock"):
+            merge_module_configurations([cfg1, cfg2])

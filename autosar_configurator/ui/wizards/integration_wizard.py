@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem, QHeaderView, QGroupBox, QFileDialog,
     QProgressBar, QWidget, QCheckBox, QRadioButton, QTreeWidget,
     QTreeWidgetItem, QSplitter, QTextBrowser, QMessageBox,
-    QAbstractItemView
+    QAbstractItemView, QInputDialog, QWizard
 )
 from PySide6.QtCore import Qt, Signal, QThread
 from PySide6.QtGui import QBrush, QColor
@@ -22,6 +22,7 @@ from ...core.workspace_manager import WorkspaceProject
 from ...core.packages.library import LibraryRef, scan_library
 from ...core.packages.package import ModulePackage
 from ...core.packages.types import ModuleManifest
+from ...core.baseline import session as baseline_session
 from ...core.baseline.merge import MergeResult
 
 
@@ -45,6 +46,7 @@ class LibrarySelectionPage(WizardPage):
 
     def __init__(self, project: WorkspaceProject):
         self.project = project
+        self._libraries: List[LibraryRef] = list(project.module_libraries)
         self.lib_table = QTableWidget()
         self.add_btn = QPushButton()
         self.remove_btn = QPushButton()
@@ -96,47 +98,69 @@ class LibrarySelectionPage(WizardPage):
     def _refresh_table(self):
         """Populate table with project libraries."""
         self.lib_table.setRowCount(0)
-        for i, lib in enumerate(self.project.module_libraries):
+        project_root = self.project.path.parent if self.project.path else Path.cwd()
+        for lib in self._libraries:
             row = self.lib_table.rowCount()
             self.lib_table.insertRow(row)
             self.lib_table.setItem(row, 0, QTableWidgetItem(lib.path))
             self.lib_table.setItem(row, 1, QTableWidgetItem(lib.kind))
-            self.lib_table.setItem(row, 2, QTableWidgetItem("—"))  # count filled by scan
+            try:
+                count = str(len(scan_library(lib, project_root)))
+            except Exception:
+                count = "—"
+            self.lib_table.setItem(row, 2, QTableWidgetItem(count))
 
     def _add_library(self):
         """Add a new library (package or EB plugins)."""
+        start_dir = str(self.project.path.parent) if self.project.path else str(Path.home())
         path = QFileDialog.getExistingDirectory(
-            self, "Select Module Library", str(Path.home())
+            self, "Select Module Library", start_dir
         )
         if not path:
             return
 
-        # TODO: detect kind (package vs eb-plugins) by scanning for module.json or plugin.xml
-        kind, ok = QComboBox.getItem(
+        chosen = Path(path)
+        is_eb = False
+        if chosen.is_dir():
+            is_eb = (chosen / "plugin.xml").is_file() or any(
+                (d / "plugin.xml").is_file() for d in chosen.iterdir() if d.is_dir()
+            )
+        default_idx = 1 if is_eb else 0
+
+        kind, ok = QInputDialog.getItem(
             self, "Library Type", "Select library type:",
-            ["package", "eb-plugins"], 0, False
+            ["package", "eb-plugins"], default_idx, False
         )
         if not ok:
             return
 
-        lib = LibraryRef(path=path, kind=kind, exclude=[])
-        self.project.module_libraries.append(lib)
+        stored_path = chosen.as_posix()
+        if self.project.path:
+            proj_root = self.project.path.parent.resolve()
+            try:
+                rel = chosen.resolve().relative_to(proj_root)
+                stored_path = rel.as_posix() or "."
+            except ValueError:
+                pass
+
+        lib = LibraryRef(path=stored_path, kind=kind, exclude=[])
+        self._libraries.append(lib)
         self._refresh_table()
-        self.libraries_changed.emit(self.project.module_libraries)
+        self.libraries_changed.emit(list(self._libraries))
 
     def _remove_library(self):
         """Remove selected library."""
         row = self.lib_table.currentRow()
-        if row >= 0:
-            self.project.module_libraries.pop(row)
+        if 0 <= row < len(self._libraries):
+            self._libraries.pop(row)
             self._refresh_table()
-            self.libraries_changed.emit(self.project.module_libraries)
+            self.libraries_changed.emit(list(self._libraries))
 
     def _on_selection_changed(self):
         self.remove_btn.setEnabled(len(self.lib_table.selectedItems()) > 0)
 
     def get_data(self) -> Dict[str, Any]:
-        return {"libraries": self.project.module_libraries}
+        return {"libraries": list(self._libraries)}
 
 
 class ModuleSelectionPage(WizardPage):
@@ -216,10 +240,19 @@ class ModuleSelectionPage(WizardPage):
         chip_name = self.project.selected_chip
         installed = set(self.project.module_managers.keys())
 
+        libraries = self.project.module_libraries
+        wizard = self.wizard()
+        if wizard is not None and wizard.pageIds():
+            lib_page = wizard.page(wizard.pageIds()[0])
+            if hasattr(lib_page, "get_data"):
+                libraries = lib_page.get_data().get("libraries", libraries)
+
+        project_root = self.project.path.parent if self.project.path else Path.cwd()
+
         all_packages = []
-        for lib_idx, lib in enumerate(self.project.module_libraries):
+        for lib_idx, lib in enumerate(libraries):
             try:
-                packages = scan_library(lib, self.project.path.parent)
+                packages = scan_library(lib, project_root)
                 all_packages.extend((pkg, lib_idx) for pkg in packages)
             except Exception as e:
                 print(f"Warning: Failed to scan {lib.path}: {e}")
@@ -243,30 +276,33 @@ class ModuleSelectionPage(WizardPage):
 
         # Populate tree by category
         categories = {}
-        for cand in sorted(self.candidates, key=lambda c: (c.category, c.package.manifest.module)):
-            if cand.category not in categories:
-                cat_item = QTreeWidgetItem(self.tree, [cand.category])
-                cat_item.setFlags(cat_item.flags() | Qt.ItemIsAutoTristate)
-                cat_item.setExpanded(True)
-                categories[cand.category] = cat_item
+        self.tree.blockSignals(True)
+        try:
+            for cand in sorted(self.candidates, key=lambda c: (c.category, c.package.manifest.module)):
+                if cand.category not in categories:
+                    cat_item = QTreeWidgetItem(self.tree, [cand.category])
+                    cat_item.setFlags(cat_item.flags() | Qt.ItemIsAutoTristate)
+                    cat_item.setExpanded(True)
+                    categories[cand.category] = cat_item
 
-            status = self._status_text(cand)
-            item = QTreeWidgetItem(categories[cand.category], [
-                cand.package.manifest.module,
-                "✓" if cand.has_pre else "",
-                "✓" if cand.has_rec else "",
-                status,
-            ])
-            item.setData(0, Qt.UserRole, cand)
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(0, Qt.Unchecked)
+                status = self._status_text(cand)
+                item = QTreeWidgetItem(categories[cand.category], [
+                    cand.package.manifest.module,
+                    "✓" if cand.has_pre else "",
+                    "✓" if cand.has_rec else "",
+                    status,
+                ])
+                item.setData(0, Qt.UserRole, cand)
+                item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+                item.setCheckState(0, Qt.Unchecked)
 
-            # Color-code
-            if cand.is_installed:
-                item.setForeground(0, QBrush(QColor("gray")))
-                item.setFlags(item.flags() & ~Qt.ItemIsEnabled)
-            elif not cand.is_compatible:
-                item.setForeground(0, QBrush(QColor("orange")))
+                # Color-code (keep installed modules enabled so user can replace/merge)
+                if cand.is_installed:
+                    item.setForeground(0, QBrush(QColor("gray")))
+                elif not cand.is_compatible:
+                    item.setForeground(0, QBrush(QColor("orange")))
+        finally:
+            self.tree.blockSignals(False)
 
         self._update_count()
 
@@ -547,26 +583,56 @@ class IntegrationWizard(ConfigWizard):
 
     def accept(self):
         """Perform integration on finish."""
-        # Collect data from pages
-        lib_data = self.page(0).get_data()
-        mod_data = self.page(1).get_data()
-        conf_data = self.page(2).get_data()
+        page_ids = self.pageIds()
+        lib_data = self.page(page_ids[0]).get_data() if len(page_ids) > 0 else {}
+        mod_data = self.page(page_ids[1]).get_data() if len(page_ids) > 1 else {}
+        conf_data = self.page(page_ids[2]).get_data() if len(page_ids) > 2 else {}
+
+        if "libraries" in lib_data:
+            self.project.module_libraries = list(lib_data["libraries"])
 
         selected: List[ModuleCandidate] = mod_data.get("selected", [])
         merge_strategy = conf_data.get("merge_strategy", "merge")
 
         # Perform integration
         self._result = self._integrate_modules(selected, merge_strategy)
+        self.collected_data = self._result
 
+        # Emit once and call QWizard.accept directly so ConfigWizard.accept does not
+        # emit a second time with raw page data.
         self.wizard_completed.emit(self._result)
-        super().accept()
+        QWizard.accept(self)
+
+    def _apply_replace_baseline(self, mgr, pkg: ModulePackage, mod_name: str, can_persist: bool) -> None:
+        """Replace a module's Active configuration and baseline snapshot with the package baseline."""
+        if self.project.format_version < 8:
+            return
+        baseline = baseline_session.compute_new_base(
+            pkg, self.project.selected_chip, mgr.module_def, mod_name
+        )
+        entry = self.project.module_entries.get(mod_name)
+        if baseline.has_layers:
+            baseline_session.adopt_base(mgr, baseline.base_config)
+            if can_persist and entry is not None:
+                entry.base_hash = baseline_session.write_baseline(
+                    self.project, mod_name, baseline
+                )
+            else:
+                baseline.dirty = True
+            self.project.baselines[mod_name] = baseline
+        else:
+            mgr.configuration.containers.clear()
+            mgr.configuration._instance_registry.clear()
+            mgr.configuration.parameter_values.clear()
+            self.project.baselines.pop(mod_name, None)
+        mgr.baseline_error = None
 
     def _integrate_modules(self, candidates: List[ModuleCandidate], merge_strategy: str) -> Dict[str, Any]:
         """Add modules to project (baseline merge).
 
         Strategies:
         - merge: Reconcile Pre/Rec with existing baseline (auto-approve)
-        - replace: Use Pre/Rec as new baseline (reconcile with auto-approve)
+        - replace: Force Active and baseline snapshot to package Pre/Rec
         - skip: Don't load Pre/Rec configurations
         """
         result = {
@@ -575,33 +641,89 @@ class IntegrationWizard(ConfigWizard):
             "merge_conflicts": [],
         }
 
-        # Create confirm callback based on merge strategy
-        if merge_strategy in ("merge", "replace"):
-            # Auto-approve merges for merge and replace strategies
-            def confirm_merge(preview_text: str, merge_result) -> bool:
-                """Auto-approve baseline merges."""
-                return True
-        else:
-            # skip strategy: no merge
-            confirm_merge = None
+        can_persist = bool(self.project.path)
 
-        reconcile = merge_strategy != "skip"
+        def confirm_merge(preview_text: str, merge_result) -> bool:
+            return True
 
         for cand in candidates:
             try:
-                mgr = self.project.add_module_from_package(
-                    cand.package,
-                    lib_index=cand.lib_index,
-                    persist=True,
-                    confirm=confirm_merge,
-                    reconcile=reconcile,
-                )
-                result["added"].append(cand.package.manifest.module)
+                mod_name = cand.package.manifest.module
+                if mod_name in self.project.module_managers:
+                    from ...core.parser.ecuc_def_parser import EcucDefParser
+                    from ...core.workspace_manager import _chip_selector_values
+                    from ...core import eb_import
+
+                    mgr = self.project.module_managers[mod_name]
+                    def_file = cand.package.definition_file(self.project.selected_chip)
+                    parser = EcucDefParser()
+                    parser.set_selector_values(_chip_selector_values(self.project))
+                    module_def = parser.parse_module_def_file(def_file)
+                    mod_name = module_def.short_name
+                    mgr.module_def = module_def
+                    self.project.module_defs[mod_name] = def_file
+                    self.project.packages[mod_name] = cand.package
+                    entry = self.project.module_entries.get(mod_name)
+                    if entry is not None:
+                        entry.definition = cand.package.manifest.definition
+                        entry.library = cand.lib_index
+                        if self.project.format_version >= 8:
+                            entry.package_record = eb_import.package_record(cand.package)
+
+                    if merge_strategy == "replace":
+                        self._apply_replace_baseline(mgr, cand.package, mod_name, can_persist)
+                    elif merge_strategy == "merge" and self.project.format_version >= 8 and entry is not None:
+                        try:
+                            self.project.reconcile_baseline(
+                                mgr, entry, cand.package, confirm_merge
+                            )
+                        except Exception as exc:
+                            self.project.baselines.pop(mod_name, None)
+                            mgr.baseline_error = str(exc)
+
+                    result["added"].append(mod_name)
+                    if merge_strategy != "skip" and hasattr(mgr, 'baseline_error') and mgr.baseline_error:
+                        result["merge_conflicts"].append({
+                            "module": mod_name,
+                            "error": mgr.baseline_error,
+                        })
+                    continue
+
+                if merge_strategy == "skip":
+                    mgr = self.project.add_module_from_package(
+                        cand.package,
+                        lib_index=cand.lib_index,
+                        persist=can_persist,
+                        confirm=None,
+                        reconcile=False,
+                        init_baseline=False,
+                    )
+                elif merge_strategy == "replace":
+                    mgr = self.project.add_module_from_package(
+                        cand.package,
+                        lib_index=cand.lib_index,
+                        persist=can_persist,
+                        confirm=None,
+                        reconcile=False,
+                        init_baseline=True,
+                    )
+                    self._apply_replace_baseline(mgr, cand.package, mgr.module_def.short_name, can_persist)
+                else:
+                    mgr = self.project.add_module_from_package(
+                        cand.package,
+                        lib_index=cand.lib_index,
+                        persist=can_persist,
+                        confirm=confirm_merge,
+                        reconcile=True,
+                        init_baseline=True,
+                    )
+
+                result["added"].append(mgr.module_def.short_name)
 
                 # Log baseline merge result if applicable
-                if reconcile and hasattr(mgr, 'baseline_error') and mgr.baseline_error:
+                if merge_strategy != "skip" and hasattr(mgr, 'baseline_error') and mgr.baseline_error:
                     result["merge_conflicts"].append({
-                        "module": cand.package.manifest.module,
+                        "module": mgr.module_def.short_name,
                         "error": mgr.baseline_error,
                     })
             except Exception as e:

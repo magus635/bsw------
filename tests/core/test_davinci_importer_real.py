@@ -275,8 +275,271 @@ class TestSipMergerByDefinition:
             SipFile(path=Path("Arti_MemMap.arxml"), module="Arti", content=memmap),
         ], "Arti")
 
-        # Must return merged bytes without error
+        # Must return merged bytes containing both elements from /MICROSAR
         assert result is not None
+        assert b"Arti" in result
+        assert b"ArtiRefinement" in result
+
+    def test_merger_combines_bsw_impl_and_memory_sections(self):
+        """Arti_bswmd + Arti_MemMap merge MEMORY-SECTIONS and REQUIRED-ARTIFACTS on same BSW-IMPLEMENTATION."""
+        from autosar_configurator.core.davinci_importer import SipFile, SipMerger
+
+        f1 = b"""<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+    <AR-PACKAGES>
+        <AR-PACKAGE>
+            <SHORT-NAME>MICROSAR</SHORT-NAME>
+            <ELEMENTS>
+                <ECUC-MODULE-DEF><SHORT-NAME>Arti</SHORT-NAME></ECUC-MODULE-DEF>
+                <BSW-IMPLEMENTATION>
+                    <SHORT-NAME>Arti_Impl</SHORT-NAME>
+                    <SW-VERSION>1.02.00</SW-VERSION>
+                    <PRECONFIGURED-CONFIGURATION-REFS>
+                        <PRECONFIGURED-CONFIGURATION-REF DEST="ECUC-MODULE-CONFIGURATION-VALUES">/MICROSAR/Arti_Pre</PRECONFIGURED-CONFIGURATION-REF>
+                    </PRECONFIGURED-CONFIGURATION-REFS>
+                </BSW-IMPLEMENTATION>
+            </ELEMENTS>
+        </AR-PACKAGE>
+    </AR-PACKAGES>
+</AUTOSAR>"""
+        f2 = b"""<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+    <AR-PACKAGES>
+        <AR-PACKAGE>
+            <SHORT-NAME>MICROSAR</SHORT-NAME>
+            <ELEMENTS>
+                <BSW-IMPLEMENTATION>
+                    <SHORT-NAME>Arti_Impl</SHORT-NAME>
+                    <SW-VERSION>1.02.00</SW-VERSION>
+                    <RESOURCE-CONSUMPTION>
+                        <MEMORY-SECTIONS>
+                            <MEMORY-SECTION>
+                                <SHORT-NAME>ARTI_CODE</SHORT-NAME>
+                                <ALIGNMENT>UNSPECIFIED</ALIGNMENT>
+                            </MEMORY-SECTION>
+                        </MEMORY-SECTIONS>
+                    </RESOURCE-CONSUMPTION>
+                    <REQUIRED-ARTIFACTS>
+                        <ARTIFACT-DESCRIPTORS>
+                            <AUTOSAR-ENGINEERING-OBJECT>
+                                <SHORT-LABEL>Arti_Cfg.h</SHORT-LABEL>
+                                <CATEGORY>SWHDR</CATEGORY>
+                            </AUTOSAR-ENGINEERING-OBJECT>
+                        </ARTIFACT-DESCRIPTORS>
+                    </REQUIRED-ARTIFACTS>
+                </BSW-IMPLEMENTATION>
+            </ELEMENTS>
+        </AR-PACKAGE>
+    </AR-PACKAGES>
+</AUTOSAR>"""
+        sip_files = [
+            SipFile(path=Path("Components/Arti/BSWMD/Arti_bswmd.arxml"), module="Arti", content=f1),
+            SipFile(path=Path("Components/Arti/BSWMD/Arti_MemMap.arxml"), module="Arti", content=f2),
+        ]
+        merged = SipMerger.merge_definition(sip_files, "Arti")
+        assert merged is not None
+        assert b"ARTI_CODE" in merged
+        assert b"Arti_Cfg.h" in merged
+
+        meta = SipMerger.extract_bsw_implementation_metadata(sip_files)
+        assert meta["sw_version"] == "1.02.00"
+        assert meta["preconfigured_refs"] == ["/MICROSAR/Arti_Pre"]
+        assert meta["memory_sections"][0]["short_name"] == "ARTI_CODE"
+        assert meta["required_artifacts"][0]["short_label"] == "Arti_Cfg.h"
+
+    def test_merger_detects_type_scalar_and_duplicate_def_conflicts(self):
+        """SipMergeError is raised on type mismatch, SW-VERSION conflict, or duplicate ECUC-MODULE-DEF."""
+        from autosar_configurator.core.davinci_importer import SipFile, SipMergeError, SipMerger
+
+        def_xml = b"""<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+    <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+        <ECUC-MODULE-DEF><SHORT-NAME>Arti</SHORT-NAME></ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>"""
+        impl_same_name = b"""<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+    <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+        <BSW-IMPLEMENTATION><SHORT-NAME>Arti</SHORT-NAME></BSW-IMPLEMENTATION>
+    </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>"""
+        with pytest.raises(SipMergeError, match="type mismatch"):
+            SipMerger.merge_definition([
+                SipFile(path=Path("a.arxml"), module="Arti", content=def_xml),
+                SipFile(path=Path("b.arxml"), module="Arti", content=impl_same_name),
+            ], "Arti")
+
+        impl_v1 = b"""<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+    <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+        <BSW-IMPLEMENTATION><SHORT-NAME>Arti_Impl</SHORT-NAME><SW-VERSION>1.02.00</SW-VERSION></BSW-IMPLEMENTATION>
+    </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>"""
+        impl_v2 = b"""<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+    <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+        <BSW-IMPLEMENTATION><SHORT-NAME>Arti_Impl</SHORT-NAME><SW-VERSION>1.03.00</SW-VERSION></BSW-IMPLEMENTATION>
+    </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>"""
+        with pytest.raises(SipMergeError, match="SW-VERSION"):
+            SipMerger.merge_definition([
+                SipFile(path=Path("v1.arxml"), module="Arti", content=impl_v1),
+                SipFile(path=Path("v2.arxml"), module="Arti", content=impl_v2),
+            ], "Arti")
+
+        with pytest.raises(SipMergeError, match="across components"):
+            SipMerger.merge_definition([
+                SipFile(path=Path("Components/CompA/BSWMD/a.arxml"), module="Arti", content=def_xml),
+                SipFile(path=Path("Components/CompB/BSWMD/b.arxml"), module="Arti", content=def_xml),
+            ], "Arti")
+
+    def test_extract_value_collections_merges_fragments_and_loads_in_package(self, tmp_path):
+        """Multi-file Pre fragments merge recursively and ModulePackage.load_pre/read_impl_metadata work."""
+        from autosar_configurator.core.davinci_importer import SipFile, SipMerger, SipPackageWriter
+        from autosar_configurator.core.packages.manifest import load_manifest
+        from autosar_configurator.core.packages.package import ModulePackage
+
+        def_file = b"""<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+    <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+        <ECUC-MODULE-DEF><SHORT-NAME>vBRS</SHORT-NAME></ECUC-MODULE-DEF>
+        <BSW-IMPLEMENTATION>
+            <SHORT-NAME>vBRS_Impl</SHORT-NAME>
+            <SW-VERSION>2.00.00</SW-VERSION>
+            <RESOURCE-CONSUMPTION><MEMORY-SECTIONS>
+                <MEMORY-SECTION><SHORT-NAME>VBRS_VAR</SHORT-NAME></MEMORY-SECTION>
+            </MEMORY-SECTIONS></RESOURCE-CONSUMPTION>
+            <PRECONFIGURED-CONFIGURATION-REFS>
+                <PRECONFIGURED-CONFIGURATION-REF DEST="ECUC-MODULE-CONFIGURATION-VALUES">/MICROSAR/vBRS_Pre</PRECONFIGURED-CONFIGURATION-REF>
+            </PRECONFIGURED-CONFIGURATION-REFS>
+        </BSW-IMPLEMENTATION>
+    </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>"""
+        pre_1 = b"""<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+    <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+        <ECUC-MODULE-CONFIGURATION-VALUES>
+            <SHORT-NAME>vBRS_Pre</SHORT-NAME>
+            <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/vBRS</DEFINITION-REF>
+            <CONTAINERS>
+                <ECUC-CONTAINER-VALUE>
+                    <SHORT-NAME>vBRSGeneral</SHORT-NAME>
+                    <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/vBRS/vBRSGeneral</DEFINITION-REF>
+                    <PARAMETER-VALUES>
+                        <ECUC-TEXTUAL-PARAM-VALUE>
+                            <DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">/MICROSAR/vBRS/vBRSGeneral/P1</DEFINITION-REF>
+                            <VALUE>one</VALUE>
+                        </ECUC-TEXTUAL-PARAM-VALUE>
+                    </PARAMETER-VALUES>
+                </ECUC-CONTAINER-VALUE>
+            </CONTAINERS>
+        </ECUC-MODULE-CONFIGURATION-VALUES>
+    </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>"""
+        pre_2 = b"""<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+    <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+        <ECUC-MODULE-CONFIGURATION-VALUES>
+            <SHORT-NAME>vBRS_Pre</SHORT-NAME>
+            <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/vBRS</DEFINITION-REF>
+            <CONTAINERS>
+                <ECUC-CONTAINER-VALUE>
+                    <SHORT-NAME>vBRSGeneral</SHORT-NAME>
+                    <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/vBRS/vBRSGeneral</DEFINITION-REF>
+                    <PARAMETER-VALUES>
+                        <ECUC-TEXTUAL-PARAM-VALUE>
+                            <DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">/MICROSAR/vBRS/vBRSGeneral/P2</DEFINITION-REF>
+                            <VALUE>two</VALUE>
+                        </ECUC-TEXTUAL-PARAM-VALUE>
+                    </PARAMETER-VALUES>
+                </ECUC-CONTAINER-VALUE>
+            </CONTAINERS>
+        </ECUC-MODULE-CONFIGURATION-VALUES>
+    </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>"""
+
+        sip_files = [
+            SipFile(path=Path("Components/vBRS/BSWMD/vBRS_bswmd.arxml"), module="vBRS", content=def_file),
+            SipFile(path=Path("Components/vBRS/BSWMD/vBRS_General_pre.arxml"), module="vBRS", content=pre_1),
+            SipFile(path=Path("DemoComponents/vBaseEnv/BSWMD/vBRS_THA6_pre.arxml"), module="vBRS", content=pre_2),
+        ]
+        merged_def = SipMerger.merge_definition(sip_files, "vBRS")
+        vals = SipMerger.extract_value_collections(sip_files, "vBRS")
+        impl = SipMerger.extract_bsw_implementation_metadata(sip_files)
+        pkg_dir = SipPackageWriter.write_package(
+            "vBRS",
+            merged_def,
+            pre_config=vals.get("pre"),
+            rec_config=vals.get("rec"),
+            output_dir=tmp_path,
+            source_files=[str(f.path) for f in sip_files],
+            impl_metadata=impl,
+        )
+        manifest = load_manifest(pkg_dir)
+        assert manifest.pre == ["/MICROSAR/vBRS_Pre"]
+        assert manifest.implementation_path == "/MICROSAR/vBRS_Impl"
+
+        pkg = ModulePackage(pkg_dir, manifest)
+        pre_cfgs = pkg.load_pre(None)
+        assert len(pre_cfgs) == 1
+        gen = pre_cfgs[0].containers[0]
+        assert gen.parameter_values["P1"].value == "one"
+        assert gen.parameter_values["P2"].value == "two"
+
+        read_impl = pkg.read_impl_metadata()
+        assert read_impl["memory_sections"][0]["short_name"] == "VBRS_VAR"
+
+    def test_merge_deduplicates_unnamed_children_and_detects_value_conflict(self):
+        """Identical unnamed children (e.g. PRECONFIGURED-CONFIGURATION-REF) are deduplicated;
+        conflicting single-valued parameters across multi-file Pre fragments raise SipMergeError."""
+        from lxml import etree
+        from autosar_configurator.core.davinci_importer import SipFile, SipMergeError, SipMerger
+
+        # 1. Identical PRECONFIGURED-CONFIGURATION-REF across two files should not duplicate
+        impl_a = b"""<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+    <BSW-IMPLEMENTATION>
+      <SHORT-NAME>ModA_Impl</SHORT-NAME>
+      <PRECONFIGURED-CONFIGURATION-REFS>
+        <PRECONFIGURED-CONFIGURATION-REF DEST="ECUC-MODULE-CONFIGURATION-VALUES">/MICROSAR/ModA_Pre</PRECONFIGURED-CONFIGURATION-REF>
+      </PRECONFIGURED-CONFIGURATION-REFS>
+    </BSW-IMPLEMENTATION>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>"""
+        merged = SipMerger.merge_definition([
+            SipFile(path=Path("a.arxml"), module="ModA", content=impl_a),
+            SipFile(path=Path("b.arxml"), module="ModA", content=impl_a),
+        ], "ModA")
+        assert merged is not None
+        root = etree.fromstring(merged)
+        refs = [e for e in root.iter() if isinstance(e.tag, str) and e.tag.endswith("PRECONFIGURED-CONFIGURATION-REF")]
+        assert len(refs) == 1
+
+        # 2. Conflicting single-valued parameter in same-path Pre fragments raises SipMergeError
+        pre_1 = b"""<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>ModA_Pre</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/ModA</DEFINITION-REF>
+      <CONTAINERS><ECUC-CONTAINER-VALUE>
+        <SHORT-NAME>General</SHORT-NAME>
+        <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/ModA/General</DEFINITION-REF>
+        <PARAMETER-VALUES><ECUC-TEXTUAL-PARAM-VALUE>
+          <DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">/MICROSAR/ModA/General/P1</DEFINITION-REF>
+          <VALUE>alpha</VALUE>
+        </ECUC-TEXTUAL-PARAM-VALUE></PARAMETER-VALUES>
+      </ECUC-CONTAINER-VALUE></CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>"""
+        pre_2 = pre_1.replace(b">alpha<", b">beta<")
+        with pytest.raises(SipMergeError, match="Conflicting parameter"):
+            SipMerger.extract_value_collections([
+                SipFile(path=Path("pre1.arxml"), module="ModA", content=pre_1),
+                SipFile(path=Path("pre2.arxml"), module="ModA", content=pre_2),
+            ], "ModA")
 
 
 class TestSipPackageWriter:
@@ -296,3 +559,35 @@ class TestSipPackageWriter:
         manifest = load_manifest(pkg_path)
         assert manifest.module == "Os"
         assert manifest.definition is not None
+
+
+def test_ecuc_def_parser_supports_linker_symbol_multiline_and_add_info(tmp_path):
+    """EcucDefParser recognizes ECUC-LINKER-SYMBOL-DEF, ECUC-MULTILINE-STRING-PARAM-DEF, and ECUC-ADD-INFO-PARAM-DEF."""
+    from autosar_configurator.core.model.definition_model import EcucParameterType
+    from autosar_configurator.core.parser.ecuc_def_parser import EcucDefParser
+
+    def_xml = tmp_path / "vLinkGen_bswmd.arxml"
+    def_xml.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-DEF>
+      <SHORT-NAME>vLinkGen</SHORT-NAME>
+      <CONTAINERS>
+        <ECUC-PARAM-CONF-CONTAINER-DEF>
+          <SHORT-NAME>vLinkGenSection</SHORT-NAME>
+          <PARAMETERS>
+            <ECUC-LINKER-SYMBOL-DEF><SHORT-NAME>SectionName</SHORT-NAME></ECUC-LINKER-SYMBOL-DEF>
+            <ECUC-MULTILINE-STRING-PARAM-DEF><SHORT-NAME>AdditionalCode</SHORT-NAME></ECUC-MULTILINE-STRING-PARAM-DEF>
+            <ECUC-ADD-INFO-PARAM-DEF><SHORT-NAME>ExtraDoc</SHORT-NAME></ECUC-ADD-INFO-PARAM-DEF>
+          </PARAMETERS>
+        </ECUC-PARAM-CONF-CONTAINER-DEF>
+      </CONTAINERS>
+    </ECUC-MODULE-DEF>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    mod_def = EcucDefParser().parse_module_def_file(def_xml)
+    params = mod_def.containers["vLinkGenSection"].parameters
+    assert params["SectionName"].param_type == EcucParameterType.LINKER_SYMBOL
+    assert params["AdditionalCode"].param_type == EcucParameterType.MULTILINE_STRING
+    assert params["ExtraDoc"].param_type == EcucParameterType.ADD_INFO

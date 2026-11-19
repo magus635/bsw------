@@ -70,7 +70,8 @@ def find_container_def(module_def: Optional[EcucModuleDef], rec_container: EcucC
 def merge_module_configurations(configs: List[EcucModuleConfiguration]) -> Optional[EcucModuleConfiguration]:
     """Merge multiple module configuration blocks into one.
 
-    Combines containers and parameters by taking the union; raises on value conflicts.
+    Combines containers (recursively by short_name), parameters, and references;
+    raises ValidationError on value conflicts.
 
     Args:
         configs: List of EcucModuleConfiguration blocks (same module, different SHORT-NAME)
@@ -79,21 +80,89 @@ def merge_module_configurations(configs: List[EcucModuleConfiguration]) -> Optio
         Single merged EcucModuleConfiguration, or None if empty
 
     Raises:
-        ValidationError: If the same parameter has conflicting values
+        ValidationError: If the same parameter or reference has conflicting values
     """
     if not configs:
         return None
     if len(configs) == 1:
         return configs[0]
 
+    def _merge_containers(target: EcucContainerValue, src: EcucContainerValue) -> None:
+        # 1. Single parameter values
+        for name, val in src.parameter_values.items():
+            if name in target.parameter_values:
+                existing = target.parameter_values[name]
+                if existing.value != val.value:
+                    raise ValidationError(
+                        f"Parameter conflict for '{name}' in '{target.short_name}': "
+                        f"'{existing.value}' vs '{val.value}'"
+                    )
+            else:
+                target.parameter_values[name] = val
+
+        # 2. Multi-valued parameters
+        for name, vals in src.multi_parameter_values.items():
+            if name in target.multi_parameter_values:
+                existing_vals = [p.value for p in target.multi_parameter_values[name]]
+                new_vals = [p.value for p in vals]
+                if existing_vals != new_vals:
+                    raise ValidationError(
+                        f"Multi-parameter conflict for '{name}' in '{target.short_name}': "
+                        f"{existing_vals!r} vs {new_vals!r}"
+                    )
+            else:
+                target.multi_parameter_values[name] = list(vals)
+
+        # 3. Single reference values
+        for name, val in src.reference_values.items():
+            if name in target.reference_values:
+                existing = target.reference_values[name]
+                if existing.value_ref != val.value_ref:
+                    raise ValidationError(
+                        f"Reference conflict for '{name}' in '{target.short_name}': "
+                        f"'{existing.value_ref}' vs '{val.value_ref}'"
+                    )
+            else:
+                target.reference_values[name] = val
+
+        # 4. Multi-valued references
+        for name, vals in src.multi_reference_values.items():
+            if name in target.multi_reference_values:
+                existing_refs = [r.value_ref for r in target.multi_reference_values[name]]
+                new_refs = [r.value_ref for r in vals]
+                if existing_refs != new_refs:
+                    raise ValidationError(
+                        f"Multi-reference conflict for '{name}' in '{target.short_name}': "
+                        f"{existing_refs!r} vs {new_refs!r}"
+                    )
+            else:
+                target.multi_reference_values[name] = list(vals)
+
+        # 5. Sub-containers (recursive)
+        for sub in src.sub_containers:
+            existing_sub = next(
+                (c for c in target.sub_containers if c.short_name == sub.short_name),
+                None,
+            )
+            if existing_sub is not None:
+                _merge_containers(existing_sub, sub)
+            else:
+                target.add_sub_container(sub)
+
     # Merge into first config
     result = configs[0]
 
     for cfg in configs[1:]:
-        # Containers: union (add new, keep existing)
+        # Containers: recursive union by short_name
         for sub in cfg.containers:
-            if not any(c.short_name == sub.short_name for c in result.containers):
-                result.containers.append(sub)
+            existing_c = next(
+                (c for c in result.containers if c.short_name == sub.short_name),
+                None,
+            )
+            if existing_c is not None:
+                _merge_containers(existing_c, sub)
+            else:
+                result.add_container(sub)
 
         # Parameters: union with conflict detection
         for name, value in cfg.parameter_values.items():
@@ -758,7 +827,84 @@ class ConfigurationManager:
         if computed:
             self._apply_computed_defaults(instance, container_def, computed)
 
+        self._apply_package_rec_defaults(instance, container_def, computed_names=set(computed))
+
         return instance
+
+    def _apply_package_rec_defaults(
+        self,
+        instance: EcucContainerValue,
+        container_def: EcucContainerDef,
+        computed_names: Optional[set] = None,
+    ) -> None:
+        """Populate initial parameter values on a new container instance from package REC (W5)."""
+        project = self.project_context
+        if project is None or getattr(project, "format_version", 0) < 8 or self.module_def is None:
+            return
+        pkg = (getattr(project, "packages", None) or {}).get(self.module_def.short_name)
+        if pkg is None or not getattr(pkg.manifest, "rec", None):
+            return
+
+        chip = getattr(project, "selected_chip", None)
+        cache_key = (pkg.root, chip)
+        cache = getattr(self, "_rec_defaults_cache", None)
+        if cache is None or cache[0] != cache_key:
+            try:
+                rec_configs = pkg.load_rec(chip)
+            except Exception:
+                return
+            self._rec_defaults_cache = (cache_key, rec_configs)
+        else:
+            rec_configs = cache[1]
+        if not rec_configs:
+            return
+
+        target_def_ref = container_def.definition_ref
+        mod_name = self.module_def.short_name
+
+        def _find_matching_rec(containers: List[EcucContainerValue]) -> Optional[EcucContainerValue]:
+            fallback: Optional[EcucContainerValue] = None
+            for rc in containers:
+                if rc.definition_ref and defrefs.matches_container_def(
+                    rc.definition_ref, target_def_ref, rc.short_name, mod_name
+                ):
+                    if rc.short_name == instance.short_name:
+                        return rc
+                    if fallback is None:
+                        fallback = rc
+                nested = _find_matching_rec(rc.sub_containers)
+                if nested is not None:
+                    if nested.short_name == instance.short_name:
+                        return nested
+                    if fallback is None:
+                        fallback = nested
+            return fallback
+
+        matched_rec: Optional[EcucContainerValue] = None
+        for rec_cfg in rec_configs:
+            candidate = _find_matching_rec(rec_cfg.containers)
+            if candidate is not None:
+                matched_rec = candidate
+                if candidate.short_name == instance.short_name:
+                    break
+        if matched_rec is None:
+            return
+
+        computed_names = computed_names or set()
+        for param_name, rec_param in matched_rec.parameter_values.items():
+            if rec_param.value is None or param_name in computed_names:
+                continue
+            if self.pre_unlock_state(instance, param_name) == "locked":
+                continue
+            param_def = container_def.parameters.get(param_name)
+            static_default = param_def.default_value if param_def is not None else None
+            existing_val = instance.parameter_values.get(param_name)
+            if existing_val is not None and existing_val.value != static_default:
+                continue
+            try:
+                self.set_parameter_value(instance, param_name, rec_param.value, enforce_lock=False)
+            except Exception:
+                pass
 
     def _apply_computed_defaults(self, instance: EcucContainerValue, container_def: EcucContainerDef,
                                  names: List[str]):
@@ -962,7 +1108,13 @@ class ConfigurationManager:
                         f"{param_name}: '{value}' not in allowed values: {param_def.literals}"
                     )
                     
-            elif param_def.param_type == EcucParameterType.STRING:
+            elif param_def.param_type in (
+                EcucParameterType.STRING,
+                EcucParameterType.MULTILINE_STRING,
+                EcucParameterType.LINKER_SYMBOL,
+                EcucParameterType.FUNCTION,
+                EcucParameterType.ADD_INFO,
+            ):
                 value = str(value)
                 
         except (ValueError, TypeError) as e:

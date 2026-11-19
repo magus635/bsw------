@@ -256,6 +256,8 @@ class WorkspaceProject:
         # Chip/Variant Selection (for projects with multiple chip .properties files)
         self.available_chips: List[str] = []  # Discovered chip variants from .properties
         self.selected_chip: Optional[str] = None  # User's selected chip
+        self.derivative_uuid: Optional[str] = None
+        self.derivative_name: Optional[str] = None
 
         # Chip dependency scan: added directories (POSIX, relative to the project
         # directory or absolute) and extra chip keywords
@@ -318,7 +320,8 @@ class WorkspaceProject:
 
     def add_module_from_package(self, pkg: "ModulePackage", lib_index: int,
                                 persist: bool = True, confirm=None,
-                                reconcile: bool = True) -> ConfigurationManager:
+                                reconcile: bool = True,
+                                init_baseline: bool = True) -> ConfigurationManager:
         """Add the module provided by ``pkg`` (from ``module_libraries[lib_index]``).
 
         Parses the package's definition file for ``selected_chip``, adds the module and
@@ -330,7 +333,8 @@ class WorkspaceProject:
 
         - **A new module** (no ``config/<M>.arxml``): Base' is composed from the package and
           becomes Active (D8: Rec included), and — with ``persist`` — the snapshot is
-          written immediately.
+          written immediately (unless ``init_baseline=False``, e.g., Integration Wizard
+          ``skip`` strategy, which adds the module without Pre/Rec baseline).
         - **A configuration file exists** (re-add after ``remove_module``, a project being
           loaded): the file is Active, and Base' is reconciled into it exactly as on load —
           Base is the snapshot on disk when there still is one, the merge needs ``confirm``
@@ -348,6 +352,8 @@ class WorkspaceProject:
             reconcile: Whether an existing configuration is merged with Base' here. The
                 project load passes False: it reconciles every module itself, once, in
                 :meth:`reconcile_baseline` — so the add path must not do it a second time.
+            init_baseline: Whether a brand-new module (without existing config on disk)
+                adopts the package's Pre/Rec baseline as its initial Active configuration.
 
         Raises:
             PackageError / PackageConflictError: the package has no unique definition file
@@ -430,6 +436,10 @@ class WorkspaceProject:
                 self.baselines.pop(name, None)
                 manager.baseline_error = str(exc)
                 _log_warning("基线合并失败，模块按无基线处理：%s（%s）", name, exc)
+            return manager
+
+        if not init_baseline:
+            self.baselines.pop(name, None)
             return manager
 
         # A new module: Active = Base' (D8), snapshot written at once
@@ -943,8 +953,42 @@ class WorkspaceProject:
             manager.configuration.variant_overrides = stashed
         return manager
         
-    def remove_module(self, module_name: str):
+    def _archive_removed_module(self, module_name: str, archive_move: bool = False) -> Optional[Path]:
+        """Archive a removed Format 8 module configuration under ``<history>/deleted/`` (W7)."""
+        if self.format_version < 8 or not self.path:
+            return None
+        from datetime import datetime
+
+        deleted_dir = project_paths.resolve(self, "history") / "deleted"
+        stamp = datetime.now().strftime("%Y%m%dT%H%M%S")
+        archive_path = deleted_dir / f"{module_name}_{stamp}.arxml"
+        counter = 2
+        while archive_path.exists():
+            archive_path = deleted_dir / f"{module_name}_{stamp}-{counter}.arxml"
+            counter += 1
+
+        cfg_path = project_paths.config_file(self, module_name)
+        if cfg_path.is_file():
+            deleted_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(cfg_path, archive_path)
+            if archive_move:
+                cfg_path.unlink(missing_ok=True)
+            return archive_path
+
+        mgr = self.module_managers.get(module_name)
+        if mgr is not None and (mgr.configuration.containers or mgr.configuration.parameter_values):
+            deleted_dir.mkdir(parents=True, exist_ok=True)
+            mgr.save_configuration(archive_path)
+            return archive_path
+
+        return None
+
+    def remove_module(self, module_name: str, archive_move: bool = False, archive: bool = True):
         """Remove a module from the project.
+
+        In Format 8 projects, archives the configuration into
+        ``<history>/deleted/<Module>_<timestamp>.arxml`` before removal when
+        ``archive`` is True.
 
         Before deleting, scan all other loaded modules for references that
         resolve into the module being removed.  Such references would become
@@ -952,6 +996,9 @@ class WorkspaceProject:
         downstream code generation/validation does not silently consume a
         stale pointer.
         """
+        if archive:
+            self._archive_removed_module(module_name, archive_move=archive_move)
+
         if module_name in self.module_managers:
             manager = self.module_managers[module_name]
             removed_containers = set()
@@ -998,6 +1045,161 @@ class WorkspaceProject:
         self.packages.pop(module_name, None)
         self.baselines.pop(module_name, None)
         self.unloaded_variant_overrides.pop(module_name, None)
+
+    def list_deleted_archives(self, module_name: Optional[str] = None) -> List[Path]:
+        """List deleted module archive files in ``<history>/deleted/`` (newest first)."""
+        if not self.path:
+            return []
+        deleted_dir = project_paths.resolve(self, "history") / "deleted"
+        if not deleted_dir.is_dir():
+            return []
+        items = [p for p in deleted_dir.glob("*.arxml") if p.is_file()]
+        if module_name:
+            items = [p for p in items if p.name.startswith(f"{module_name}_")]
+        return sorted(items, key=lambda p: (p.stat().st_mtime, p.name), reverse=True)
+
+    def restore_deleted_module(
+        self,
+        archive_path: Path,
+        module_name: Optional[str] = None,
+        confirm=None,
+    ) -> ConfigurationManager:
+        """Restore a previously deleted module from ``<history>/deleted/`` (W7)."""
+        from .config_manager import EpcFileScanner
+
+        archive_path = Path(archive_path)
+        if not archive_path.is_file():
+            raise FileNotFoundError(f"Deleted archive not found: {archive_path}")
+
+        if not module_name:
+            names = EpcFileScanner.list_module_names(archive_path)
+            if names:
+                module_name = names[0]
+            else:
+                import re
+                m = re.match(r"^(.+?)_\d{8}T\d{6}(?:-\d+)?$", archive_path.stem)
+                module_name = m.group(1) if m else archive_path.stem.rsplit("_", 1)[0]
+
+        libraries = scan_libraries(self)
+        match = None
+        for idx, pkgs in libraries:
+            for pkg in pkgs:
+                def_leaf = pkg.manifest.definition.rstrip("/").rsplit("/", 1)[-1]
+                if pkg.manifest.module == module_name or def_leaf == module_name:
+                    match = (idx, pkg)
+                    break
+            if match is not None:
+                break
+
+        if match is None:
+            raise ValueError(f"No module package found for '{module_name}' in registered libraries")
+
+        lib_index, pkg = match
+        if pkg.manifest.module in self.module_managers:
+            raise ValueError(
+                f"Module '{pkg.manifest.module}' is already loaded in the project; "
+                "remove it first before restoring an archive"
+            )
+        target_cfg = project_paths.config_file(self, pkg.manifest.module)
+        target_cfg.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(archive_path, target_cfg)
+        return self.add_module_from_package(
+            pkg, lib_index, persist=True, confirm=confirm, reconcile=True
+        )
+
+    def upgrade_to_v8(self, confirm=None) -> Dict[str, Any]:
+        """Upgrade a format <= 7 project structure in-place to Format 8 (W8)."""
+        from . import eb_import
+
+        if self.format_version >= 8:
+            raise ValueError("Project is already at format version 8")
+        if not self.path:
+            raise ValueError("Project must be saved with a .dpa path before upgrading")
+
+        proj_root = project_paths.project_root(self)
+        self.format_version = 8
+        self.directories = project_paths.ProjectDirectories.default_v8()
+
+        for key in ("config", "base", "templates", "gen", "chips", "integration", "system", "history", "modules"):
+            project_paths.resolve(self, key).mkdir(parents=True, exist_ok=True)
+
+        # Register Def/plugins if present and not yet registered
+        plugins_dir = project_paths.legacy_plugins_dir(proj_root)
+        if plugins_dir.is_dir():
+            rel_plugins = project_paths.dirs(self).legacy_plugins
+            if not any(lib.path == rel_plugins for lib in self.module_libraries):
+                try:
+                    exclude = sorted(eb_import.survey_plugins(plugins_dir).exclude)
+                except Exception:
+                    exclude = []
+                self.module_libraries.append(
+                    LibraryRef(path=rel_plugins, kind="eb-plugins", exclude=exclude)
+                )
+
+        upgraded_modules: List[str] = []
+        libraries = scan_libraries(self)
+        for mod_name, mgr in sorted(self.module_managers.items()):
+            cfg_path = project_paths.config_file(self, mod_name)
+            cfg_path.parent.mkdir(parents=True, exist_ok=True)
+            mgr.save_configuration(cfg_path)
+            try:
+                cfg_rel = cfg_path.relative_to(proj_root).as_posix()
+            except ValueError:
+                cfg_rel = cfg_path.as_posix()
+
+            hit = None
+            def_path = self.module_defs.get(mod_name)
+            if def_path is not None:
+                hit = ensure_package_for_path(self, def_path)
+                if hit is not None:
+                    libraries = scan_libraries(self)
+            if hit is None:
+                for idx, pkgs in libraries:
+                    for pkg in pkgs:
+                        def_leaf = pkg.manifest.definition.rstrip("/").rsplit("/", 1)[-1]
+                        if pkg.manifest.module == mod_name or def_leaf == mod_name:
+                            hit = (idx, pkg)
+                            break
+                    if hit is not None:
+                        break
+
+            if hit is not None:
+                lib_idx, pkg = hit
+                self.packages[mod_name] = pkg
+                entry = ModuleEntry(
+                    name=mod_name,
+                    definition=pkg.manifest.definition,
+                    library=lib_idx,
+                    config_path=cfg_rel,
+                    package_record=eb_import.package_record(pkg),
+                )
+                self.module_entries[mod_name] = entry
+                try:
+                    self.reconcile_baseline(mgr, entry, pkg, confirm)
+                except Exception as exc:
+                    self.baselines.pop(mod_name, None)
+                    mgr.baseline_error = str(exc)
+            else:
+                def_ar = (
+                    getattr(mgr.module_def, "ar_path", None)
+                    or getattr(mgr.module_def, "definition_ref", None)
+                    or f"/AUTOSAR/EcucDefs/{mod_name}"
+                )
+                self.module_entries[mod_name] = ModuleEntry(
+                    name=mod_name,
+                    definition=def_ar,
+                    library=0,
+                    config_path=cfg_rel,
+                    package_record={},
+                )
+            upgraded_modules.append(mod_name)
+
+        self.is_modified = True
+        return {
+            "upgraded_modules": upgraded_modules,
+            "libraries": len(self.module_libraries),
+            "format_version": 8,
+        }
     def find_references_to_module(self, module_name: str) -> List[tuple]:
         """Find all references in other modules pointing to this module."""
         references = []
@@ -1450,6 +1652,10 @@ class WorkspaceManager:
             "dependency_rules": self.current_project.dependency_rules,
             "available_chips": self.current_project.available_chips,
             "selected_chip": self.current_project.selected_chip,
+            **({"derivative_uuid": self.current_project.derivative_uuid}
+               if getattr(self.current_project, "derivative_uuid", None) else {}),
+            **({"derivative_name": self.current_project.derivative_name}
+               if getattr(self.current_project, "derivative_name", None) else {}),
             "chip_data": self.current_project.chip_data_record or self.current_project.record_chip_data(),
             "eb_source_root": eb_source_root_str,
             "import_mode": self.current_project.import_mode,
@@ -1842,6 +2048,8 @@ class WorkspaceManager:
         # Load chip selection (new in format v7)
         project.available_chips = data.get("available_chips", [])
         project.selected_chip = data.get("selected_chip", None)
+        project.derivative_uuid = data.get("derivative_uuid")
+        project.derivative_name = data.get("derivative_name")
         project.chip_data_record = data.get("chip_data") or None
         project.chip_scan_dirs = list(data.get("chip_scan_dirs") or [])
         project.chip_scan_keywords = list(data.get("chip_scan_keywords") or [])
@@ -2532,3 +2740,46 @@ class WorkspaceManager:
         if kept:
             summary += f"；保留导入值 {len(kept)} 项（基线另有值）"
         return summary, conflicts
+
+    def import_davinci_project(
+        self,
+        dpa_path: Path,
+        target_dir: Path,
+        project_name: Optional[str] = None,
+        mcal_source_dir: Optional[Path] = None,
+        include_resources: bool = False,
+        sip_library_dir: Optional[Path] = None,
+        confirm=None,
+    ):
+        """Import a DaVinci XML .dpa project into a new Format 8 project."""
+        from .davinci_importer import DaVinciProjectImporter
+
+        return DaVinciProjectImporter.import_project(
+            workspace_manager=self,
+            dpa_path=Path(dpa_path),
+            target_dir=Path(target_dir),
+            project_name=project_name,
+            mcal_source_dir=Path(mcal_source_dir) if mcal_source_dir is not None else None,
+            include_resources=include_resources,
+            sip_library_dir=Path(sip_library_dir) if sip_library_dir is not None else None,
+            confirm=confirm,
+        )
+
+    def upgrade_project_to_v8(
+        self,
+        project: Optional[WorkspaceProject] = None,
+        confirm=None,
+    ) -> Dict[str, Any]:
+        """Upgrade ``project`` (default: ``current_project``) to Format 8 and save it (W8)."""
+        target = project or self.current_project
+        if target is None:
+            raise ValueError("No project loaded")
+        result = target.upgrade_to_v8(confirm=confirm)
+        prev = self.current_project
+        self.current_project = target
+        try:
+            self.save_project()
+        finally:
+            if prev is not None and prev is not target:
+                self.current_project = prev
+        return result

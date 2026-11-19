@@ -242,6 +242,16 @@ class DaVinciMainWindow(QMainWindow):
         self.integrate_modules_action.setStatusTip("Add BSW modules from libraries with baseline merge")
         self.integrate_modules_action.triggered.connect(self.project_controller.integrate_modules)
 
+        self.restore_deleted_action = QAction("Restore Deleted Module...", self)
+        self.restore_deleted_action.setEnabled(False)
+        self.restore_deleted_action.setStatusTip("Restore a previously deleted module configuration from .history/deleted/")
+        self.restore_deleted_action.triggered.connect(self.project_controller.restore_deleted_module)
+
+        self.upgrade_project_action = QAction("Upgrade Project Structure...", self)
+        self.upgrade_project_action.setEnabled(False)
+        self.upgrade_project_action.setStatusTip("Upgrade a legacy project structure (format <= 7) to Format 8")
+        self.upgrade_project_action.triggered.connect(self.project_controller.upgrade_project_structure)
+
         self.import_value_action = QAction("Import Value File...", self)
         self.import_value_action.setStatusTip("Replace the current module's configuration with an EB value file (.epc/.arxml/.xdm)")
         self.import_value_action.setEnabled(False)
@@ -378,7 +388,9 @@ class DaVinciMainWindow(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction(self.add_module_action)
         file_menu.addAction(self.integrate_modules_action)
+        file_menu.addAction(self.restore_deleted_action)
         file_menu.addAction(self.load_recommended_action)
+        file_menu.addAction(self.upgrade_project_action)
         file_menu.addSeparator()
 
         # Import submenu under File
@@ -836,6 +848,13 @@ class DaVinciMainWindow(QMainWindow):
         self.project_properties_action.setEnabled(is_project_mode)
         self.manage_variants_action.setEnabled(is_project_mode)
         self.add_module_action.setEnabled(is_project_mode)
+        self.integrate_modules_action.setEnabled(is_project_mode)
+        self.restore_deleted_action.setEnabled(
+            is_project_mode and getattr(self.current_project, "format_version", 0) >= 8
+        )
+        self.upgrade_project_action.setEnabled(
+            is_project_mode and getattr(self.current_project, "format_version", 0) < 8
+        )
         self.load_recommended_action.setEnabled(is_project_mode)
         self.show_dep_graph_action.setEnabled(is_project_mode)
         

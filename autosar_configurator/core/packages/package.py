@@ -1,7 +1,7 @@
 """Module package: chip-conditional file selection and PRE/REC loading."""
 
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from lxml import etree
 
@@ -201,6 +201,23 @@ class ModulePackage:
 
     def resource_dir(self) -> Optional[Path]:
         return self._optional_dir(self.manifest.resources)
+
+    def read_impl_metadata(self) -> Dict[str, Any]:
+        """Query BSW-IMPLEMENTATION metadata (memory sections, required artifacts, version)."""
+        from ..davinci_importer import SipMerger, SipPackageWriter, SipFile
+
+        impl = SipPackageWriter.read_impl_metadata(self.root)
+        if impl:
+            return impl
+        sip_files = []
+        for pf in self.manifest.files:
+            fpath = self.root / pf.path
+            if fpath.is_file() and fpath.suffix.lower() == ".arxml":
+                try:
+                    sip_files.append(SipFile(path=fpath, module=self.manifest.module, content=fpath.read_bytes()))
+                except OSError:
+                    pass
+        return SipMerger.extract_bsw_implementation_metadata(sip_files) if sip_files else {}
 
     def _optional_dir(self, rel: Optional[str]) -> Optional[Path]:
         if not rel:

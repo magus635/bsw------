@@ -20,7 +20,6 @@ from PySide6.QtWidgets import (
 import logging
 
 from ...core.config_manager import PreLockedError, ValidationError, find_container_def
-from ...core.davinci_import_cli import DaVinciImportCLI
 from ...core.model.configuration_model import EcucContainerValue
 from ..commands import SetParameterCommand
 
@@ -1437,11 +1436,10 @@ class ProjectController:
             QApplication.restoreOverrideCursor()
 
     def import_davinci_project(self):
-        """Import BSW modules from DaVinci .dpa and create a new project with complete structure"""
+        """Import BSW modules + ECUC values from a DaVinci .dpa into a Format 8 project."""
         from PySide6.QtWidgets import QApplication
-        import json
 
-        # Select DaVinci project file (.dpa)
+        # 1. Select DaVinci project file (.dpa)
         dpa_file, _ = QFileDialog.getOpenFileName(
             self.win,
             "Select DaVinci Project (.dpa)",
@@ -1450,10 +1448,9 @@ class ProjectController:
         )
         if not dpa_file:
             return
-
         dpa_file = Path(dpa_file)
 
-        # Select target directory for new project
+        # 2. Select target directory for new project
         target_dir_str = QFileDialog.getExistingDirectory(
             self.win,
             "Select Directory for New Project",
@@ -1462,24 +1459,41 @@ class ProjectController:
         )
         if not target_dir_str:
             return
-
         target_dir = Path(target_dir_str)
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        # Ask for project name
+        # 3. Ask for project name
         project_name, ok = QInputDialog.getText(
             self.win,
             "Project Name",
             "Enter name for the imported project:",
             QLineEdit.Normal,
-            "DaVinciImport"
+            dpa_file.stem or "DaVinciImport"
         )
         if not ok or not project_name.strip():
             return
-
         project_name = project_name.strip()
 
-        # Ask whether to include resources
+        # 4. Optionally specify EB MCAL source directory
+        mcal_dir = None
+        if QMessageBox.question(
+            self.win,
+            "EB MCAL Source",
+            "是否指定外部 EB MCAL 配置/插件目录？\n"
+            "（若选择“是”，将跳过 DaVinci 的 MCAL 配置并改用 EB MCAL 导入）",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        ) == QMessageBox.Yes:
+            chosen_mcal = QFileDialog.getExistingDirectory(
+                self.win,
+                "Select EB MCAL Directory",
+                str(dpa_file.parent),
+                QFileDialog.ShowDirsOnly,
+            )
+            if chosen_mcal:
+                mcal_dir = Path(chosen_mcal)
+
+        # 5. Ask whether to include resources YAML
         import_resources = QMessageBox.question(
             self.win,
             "Include MCAL Resources?",
@@ -1488,93 +1502,14 @@ class ProjectController:
             QMessageBox.No
         ) == QMessageBox.Yes
 
-        # Show wait cursor
         QApplication.setOverrideCursor(Qt.WaitCursor)
-        self.win.statusbar.showMessage("Creating project and importing DaVinci modules...")
+        self.win.statusbar.showMessage("Creating project and importing DaVinci configuration...")
         QApplication.processEvents()
 
         try:
-            # Create new project directory and export modules to DaVinciImport/ subdirectory
-            project_root = target_dir / project_name
-            project_root.mkdir(parents=True, exist_ok=True)
-
-            davinci_import_dir = project_root / "DaVinciImport"
-            davinci_import_dir.mkdir(parents=True, exist_ok=True)
-
-            # Run DaVinci import CLI to export modules
-            cli = DaVinciImportCLI(verbose=True)
-            args = [
-                "--project", str(dpa_file),
-                "--output", str(davinci_import_dir),
-            ]
-            if import_resources:
-                args.append("--include-resources")
-
-            exit_code = cli.run(args)
-
-            if exit_code != 0:
-                QMessageBox.critical(
-                    self.win,
-                    "Import Failed",
-                    f"DaVinci project import failed with exit code {exit_code}.\n\n"
-                    "Check the project file and try again."
-                )
-                return
-
-            # List imported modules
-            module_dirs = list(davinci_import_dir.glob("*/module.json"))
-            imported_modules = []
-            for manifest_path in module_dirs:
-                try:
-                    data = json.loads(manifest_path.read_text())
-                    imported_modules.append(data.get("module", "unknown"))
-                except Exception:
-                    pass
-
-            if not imported_modules:
-                QMessageBox.warning(
-                    self.win,
-                    "No Modules",
-                    f"No BSW modules were found to import from {dpa_file}"
-                )
-                return
-
-            # Create new project with complete structure
-            dpa_path = project_root / f"{project_name}.dpa"
-            new_project = self.win.workspace_manager.create_project(
-                name=project_name,
-                path=dpa_path,
-                format_version=8
-            )
-
-            # Create project directories
-            for dir_key in ["config", "base", "templates", "gen", "chips", "integration", "system", "history", "modules"]:
-                dir_name = getattr(new_project.directories, dir_key)
-                if dir_name:
-                    (project_root / dir_name).mkdir(parents=True, exist_ok=True)
-
-            # Register DaVinciImport as a library
-            from ...core.packages.library import LibraryRef
-            lib_ref = LibraryRef(
-                path="DaVinciImport",
-                kind="package",
-                exclude=[]
-            )
-            new_project.module_libraries.append(lib_ref)
-
-            # Auto-add all imported modules to project
-            self.win.statusbar.showMessage(f"Adding {len(imported_modules)} modules to project...")
-            QApplication.processEvents()
-
-            added_count = 0
-            failed_count = 0
-            rejected_count = 0
-
-            # Confirm callback: show merge preview dialog, let user accept/reject
             def confirm_with_preview(preview_text, merge_result):
                 from ..dialogs.merge_preview_dialog import MergePreviewDialog
 
-                # Extract module name from preview header (e.g. "# Os 基线合并预演")
                 module_name = "Module"
                 if preview_text:
                     first_line = preview_text.split('\n')[0]
@@ -1582,70 +1517,47 @@ class ProjectController:
                         module_name = first_line.replace('#', '').replace('基线合并预演', '').strip()
 
                 dialog = MergePreviewDialog(self.win, module_name, preview_text, merge_result)
-                accepted = dialog.exec() == QDialog.Accepted
-                return accepted
-
-            for module_name in sorted(imported_modules):
+                QApplication.restoreOverrideCursor()
                 try:
-                    from ...core.packages.manifest import infer_package
-                    from ...core.packages.package import ModulePackage
+                    return dialog.exec() == QDialog.Accepted
+                finally:
+                    QApplication.setOverrideCursor(Qt.WaitCursor)
 
-                    module_pkg_dir = davinci_import_dir / module_name
-                    manifest = infer_package(module_pkg_dir)
-                    pkg = ModulePackage(module_pkg_dir, manifest)
+            new_project, report = self.win.workspace_manager.import_davinci_project(
+                dpa_path=dpa_file,
+                target_dir=target_dir,
+                project_name=project_name,
+                mcal_source_dir=mcal_dir,
+                include_resources=import_resources,
+                confirm=confirm_with_preview,
+            )
 
-                    # Track whether this module's merge was rejected
-                    merge_rejected = [False]
-                    def confirm_with_tracking(preview_text, merge_result):
-                        accepted = confirm_with_preview(preview_text, merge_result)
-                        if not accepted:
-                            merge_rejected[0] = True
-                        return accepted
+            self._load_project_at_path(new_project.path)
 
-                    new_project.add_module_from_package(
-                        pkg=pkg,
-                        lib_index=0,  # DaVinciImport is at index 0
-                        persist=True,
-                        confirm=confirm_with_tracking,
-                        reconcile=True
-                    )
-
-                    if merge_rejected[0]:
-                        rejected_count += 1
-                    else:
-                        added_count += 1
-                except Exception as e:
-                    failed_count += 1
-                    print(f"Warning: Failed to add {module_name}: {e}")
-
-            # Save project
-            self.win.current_project = new_project
-            self.win.current_project_file = dpa_path
-            self.win.workspace_manager.current_project = new_project
-            self.win.workspace_manager.save_project()
-
-            # Open the project to display in tree
-            self._load_project_at_path(dpa_path)
-
-            # Show summary
             summary = (
                 f"DaVinci project imported successfully.\n\n"
                 f"Source: {dpa_file}\n"
-                f"Project: {project_root}\n"
-                f"Modules imported: {len(imported_modules)}\n"
-                f"Modules added to project: {added_count}"
+                f"Project: {new_project.path.parent}\n"
+                f"Modules imported: {report.imported_count}\n"
+                f"Skipped MCAL: {len(report.skipped_mcal_modules)}\n"
+                f"Rejected baseline merges: {len(report.rejected_modules)}\n"
+                f"Failed: {len(report.failed_modules)}\n"
+                f"Unresolved references: {len(report.unresolved_references)}"
             )
-            if failed_count > 0:
-                summary += f"\nFailed to add: {failed_count}"
-            if import_resources:
-                summary += "\n\nMCAL resources extracted to YAML files"
+            if report.report_files:
+                summary += f"\n\n导入报告：{report.report_files[0]}"
 
-            QMessageBox.information(self.win, "DaVinci Import Complete", summary)
+            box = QMessageBox(self.win)
+            box.setIcon(QMessageBox.Information)
+            box.setWindowTitle("DaVinci Import Complete")
+            box.setText(summary)
+            box.setDetailedText(report.to_markdown())
+            box.exec()
+
             self.win.statusbar.showMessage(
-                f"Imported {added_count}/{len(imported_modules)} modules from DaVinci",
+                f"Imported {report.imported_count} module(s) from DaVinci",
                 5000
             )
-
         except Exception as e:
             QMessageBox.critical(
                 self.win,
@@ -2034,6 +1946,11 @@ class ProjectController:
         conflicts = result.get("merge_conflicts", [])
 
         if added:
+            self.win._has_unsaved_changes = True
+            self.win.current_project.load_ecu_resources()
+            self.win.current_project.apply_chip_selectors(modules=added)
+            self.win.tree_view.set_project(self.win.current_project)
+
             msg = f"Successfully added {len(added)} module(s):\n"
             msg += "\n".join(f"  • {m}" for m in added[:10])
             if len(added) > 10:
@@ -2063,3 +1980,90 @@ class ProjectController:
             QMessageBox.critical(self.win, "Integration Failed", msg)
         else:
             QMessageBox.information(self.win, "No Changes", "No modules were added.")
+
+    def restore_deleted_module(self):
+        """Restore a previously deleted module archived under .history/deleted/ (W7)."""
+        project = self.win.current_project
+        if not project:
+            QMessageBox.warning(self.win, "No Project", "Please open a project first.")
+            return
+
+        archives = project.list_deleted_archives()
+        if not archives:
+            QMessageBox.information(
+                self.win,
+                "No Deleted Archives",
+                "没有找到可恢复的已删除模块归档（.history/deleted/）。",
+            )
+            return
+
+        labels = [p.name for p in archives]
+        chosen_name, ok = QInputDialog.getItem(
+            self.win,
+            "Restore Deleted Module",
+            "选择要恢复的已删除模块配置归档：",
+            labels,
+            0,
+            False,
+        )
+        if not ok or not chosen_name:
+            return
+
+        archive_path = archives[labels.index(chosen_name)]
+        try:
+            mgr = project.restore_deleted_module(archive_path, confirm=self._confirm_merge)
+            self.win._has_unsaved_changes = True
+            self.win.tree_view.set_project(project)
+            self.win.statusbar.showMessage(
+                f"Restored module: {mgr.module_def.short_name}", 4000
+            )
+        except Exception as exc:
+            QMessageBox.critical(
+                self.win,
+                "Restore Failed",
+                f"恢复已删除模块失败：\n{exc}",
+            )
+
+    def upgrade_project_structure(self):
+        """Explicitly upgrade a legacy (format <= 7) project to Format 8 (W8)."""
+        project = self.win.current_project
+        if not project:
+            QMessageBox.warning(self.win, "No Project", "Please open a project first.")
+            return
+        if getattr(project, "format_version", 0) >= 8:
+            QMessageBox.information(
+                self.win,
+                "Already Format 8",
+                "当前工程已经是 Format 8 目录结构。",
+            )
+            return
+
+        reply = QMessageBox.question(
+            self.win,
+            "Upgrade Project Structure",
+            "确定要将当前工程结构升级为 Format 8（config/、config/base/、.history/ 等）并保存吗？",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes,
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        try:
+            result = self.win.workspace_manager.upgrade_project_to_v8(
+                project=project, confirm=self._confirm_merge
+            )
+            self.win.tree_view.set_project(project)
+            self.win._update_mode_actions()
+            self.win._has_unsaved_changes = False
+            QMessageBox.information(
+                self.win,
+                "Upgrade Complete",
+                f"工程已升级至 Format 8。\n已迁移模块：{len(result['upgraded_modules'])} 个。",
+            )
+            self.win.statusbar.showMessage("Project upgraded to Format 8", 5000)
+        except Exception as exc:
+            QMessageBox.critical(
+                self.win,
+                "Upgrade Failed",
+                f"升级工程结构失败：\n{exc}",
+            )

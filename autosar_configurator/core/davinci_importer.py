@@ -6,15 +6,37 @@ Real design (per MERGE_DESIGN_REVIEW.md):
 - Task 2：Value import + baseline integration
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 from lxml import etree
 import json
 import logging
 import io
 
 logger = logging.getLogger(__name__)
+
+
+class SipMergeError(Exception):
+    """Raised when merge conflict detected during SIP ingestion."""
+
+    def __init__(
+        self,
+        ar_path: str,
+        reason: str,
+        file1: Optional[Path] = None,
+        file2: Optional[Path] = None,
+    ):
+        self.ar_path = ar_path
+        self.reason = reason
+        self.file1 = file1
+        self.file2 = file2
+        msg = f"Merge conflict at {ar_path}: {reason}"
+        if file1 is not None:
+            msg += f"\n  file1: {file1}"
+        if file2 is not None:
+            msg += f"\n  file2: {file2}"
+        super().__init__(msg)
 
 
 @dataclass
@@ -71,57 +93,119 @@ class DaVinciProject:
         tree = etree.parse(str(dpa_path), parser)
         root = tree.getroot()
 
-        # Extract SIP root
+        # Extract SIP root (normalize Windows backslashes on POSIX hosts)
         sip_root = None
         sip_elem = root.find(".//Folders/SIP")
+        if sip_elem is None:
+            sip_elem = root.find(".//SIP")
         if sip_elem is not None and sip_elem.text:
-            rel_path = sip_elem.text.strip()
+            rel_path = sip_elem.text.strip().replace("\\", "/")
             try:
                 sip_root = (dpa_path.parent / rel_path).resolve()
             except (OSError, ValueError):
                 pass
 
+        # Validate that sip_root actually holds Components/ or DemoComponents/.
+        # Some DaVinci projects (e.g. Applications/SipAddon/StartApplication) have
+        # <SIP>.\..\..</SIP> which lands on Applications/ one level below the real SIP root.
+        def _is_sip_root(p: Optional[Path]) -> bool:
+            return bool(
+                p is not None
+                and p.is_dir()
+                and ((p / "Components").is_dir() or (p / "DemoComponents").is_dir())
+            )
+
+        if not _is_sip_root(sip_root):
+            candidates: List[Path] = []
+            if sip_root is not None:
+                candidates.extend(list(sip_root.parents)[:4])
+            candidates.extend(list(dpa_path.parent.parents)[:5])
+            for cand in candidates:
+                if _is_sip_root(cand):
+                    sip_root = cand
+                    break
+
         # Extract derivative info
         derivative_uuid = None
         derivative_name = None
         deriv_elem = root.find(".//Environment/Derivative[@UUID]")
+        if deriv_elem is None:
+            deriv_elem = root.find(".//Derivative[@UUID]")
         if deriv_elem is not None:
             derivative_uuid = deriv_elem.get("UUID")
             if deriv_elem.text:
                 derivative_name = deriv_elem.text.strip()
 
-        # Extract module definitions
-        module_definitions = {}
+        # Extract module definitions from both ModuleDefinitionMappings and ECUC/Active/ModuleRef
+        module_definitions: Dict[str, str] = {}
         for mapping in root.findall(".//ModuleDefinitionMappings/ModuleDefinitionMapping"):
             mod_name = mapping.get("ModuleConfigName", "").strip()
             def_ref = mapping.get("ModuleDefinitionRef", "").strip()
             if mod_name and def_ref:
                 module_definitions[mod_name] = def_ref
+        for mod_ref in root.findall(".//ECUC/Active/ModuleRef"):
+            mod_name = mod_ref.get("name", "").strip()
+            def_ref = mod_ref.get("definitionRef", "").strip()
+            if mod_name and def_ref and mod_name not in module_definitions:
+                module_definitions[mod_name] = def_ref
 
-        # Extract ECUC split mapping
-        ecuc_split_map = {}
+        # Extract ECUC split mapping from both Splitter/Module and Entry schemas
+        ecuc_split_map: Dict[str, str] = {}
         for splitter in root.findall(".//EcucSplitter/Splitter"):
-            file_path = splitter.get("File", "").strip()
+            file_path = splitter.get("File", "").strip().replace("\\", "/")
             mod_elem = splitter.find("Module")
             if mod_elem is not None:
                 mod_name = mod_elem.get("Name", "").strip()
                 if mod_name and file_path:
                     ecuc_split_map[mod_name] = file_path
+        for entry in root.findall(".//EcucSplitter/Entry"):
+            mod_name = entry.get("module", "").strip()
+            file_path = entry.get("file", "").strip().replace("\\", "/")
+            if mod_name and file_path and mod_name not in ecuc_split_map:
+                ecuc_split_map[mod_name] = file_path
 
         # Extract main ECUC file
         main_ecuc_file = None
         config_elem = root.find(".//EcucSplitter/Configuration")
         if config_elem is not None and config_elem.text:
-            main_ecuc_file = config_elem.text.strip()
+            main_ecuc_file = config_elem.text.strip().replace("\\", "/")
+        else:
+            active_elem = root.find(".//ECUC/Active")
+            if active_elem is not None and active_elem.text and active_elem.text.strip():
+                main_ecuc_file = active_elem.text.strip().replace("\\", "/")
 
-        # Extract active modules from ECUC collection
-        active_modules = set()
-        active_elem = root.find(".//ECUC/Active[@RootPackageName]")
-        if active_elem is not None:
-            # The root package name identifies the active config
-            # (e.g., "/ActiveEcuC/ActiveEcuC")
-            # Module list comes from the actual ECUC file content (Task 2)
-            pass
+        # Extract active modules:
+        # 1. Authoritative: ECUC-VALUE-COLLECTION refs in main_ecuc_file (e.g. StartApplication.ecuc.arxml)
+        # 2. Fallback: EcucSplitter module list
+        # 3. Last resort (minimal .dpa): ModuleDefinitionMappings keys
+        active_modules: Set[str] = set()
+        if main_ecuc_file:
+            main_norm = main_ecuc_file[2:] if main_ecuc_file.startswith("./") else main_ecuc_file
+            main_path = (dpa_path.parent / main_norm).resolve()
+            if main_path.is_file():
+                try:
+                    main_tree = etree.parse(str(main_path), parser)
+                    for elem in main_tree.getroot().iter():
+                        if (
+                            isinstance(elem.tag, str)
+                            and elem.tag.rsplit("}", 1)[-1] == "ECUC-MODULE-CONFIGURATION-VALUES-REF"
+                            and elem.text
+                        ):
+                            ref_leaf = elem.text.strip().rstrip("/").rsplit("/", 1)[-1]
+                            if ref_leaf:
+                                active_modules.add(ref_leaf)
+                except Exception:
+                    pass
+                if not active_modules:
+                    try:
+                        from .config_manager import EpcFileScanner
+                        active_modules.update(EpcFileScanner.list_module_names(main_path))
+                    except Exception:
+                        pass
+        if not active_modules and ecuc_split_map:
+            active_modules.update(ecuc_split_map.keys())
+        if not active_modules and module_definitions:
+            active_modules.update(module_definitions.keys())
 
         return cls(
             dpa_path=dpa_path,
@@ -133,6 +217,25 @@ class DaVinciProject:
             main_ecuc_file=main_ecuc_file,
             active_modules=active_modules,
         )
+
+    def resolve_ecuc_file(self, module_name: str) -> Optional[Path]:
+        """Resolve the DaVinci ECUC ARXML path for ``module_name``, or main ECUC file."""
+        rel = self.ecuc_split_map.get(module_name)
+        if rel:
+            norm = rel.replace("\\", "/")
+            if norm.startswith("./"):
+                norm = norm[2:]
+            cand = (self.dpa_path.parent / norm).resolve()
+            if cand.is_file():
+                return cand
+        if self.main_ecuc_file:
+            norm_main = self.main_ecuc_file.replace("\\", "/")
+            if norm_main.startswith("./"):
+                norm_main = norm_main[2:]
+            cand_main = (self.dpa_path.parent / norm_main).resolve()
+            if cand_main.is_file():
+                return cand_main
+        return None
 
     def bsw_modules(self) -> List[str]:
         """Modules with /MICROSAR/ definition path."""
@@ -156,12 +259,16 @@ class SipScanner:
     def __init__(self, sip_root: Path):
         self.sip_root = Path(sip_root)
 
-    def scan_all_modules(self) -> Dict[str, List["SipFile"]]:
+    def scan_all_modules(self, derivative_uuid: Optional[str] = None) -> Dict[str, List["SipFile"]]:
         """Scan all BSWMD directories and return files grouped by module.
 
         Each file is classified:
-        - role="def"   : contains ECUC-MODULE-DEF (definitions)
+        - role="def"   : contains ECUC-MODULE-DEF or BSW-IMPLEMENTATION
         - role="config": contains only ECUC-MODULE-CONFIGURATION-VALUES (pre/rec)
+
+        Args:
+            derivative_uuid: Optional derivative UUID used to filter chip-specific
+                subdirectories via ``DerivativeMapping_<Module>.xml``.
 
         Returns:
             {module_name: [SipFile, ...]}
@@ -198,16 +305,68 @@ class SipScanner:
                     except (OSError, etree.XMLSyntaxError, AttributeError):
                         pass
 
-        for module in result:
+        for module in list(result.keys()):
             result[module].sort(key=lambda f: str(f.path))
+            if derivative_uuid:
+                result[module] = self._filter_by_derivative_mapping(
+                    module, result[module], derivative_uuid
+                )
 
         return result
+
+    def _filter_by_derivative_mapping(
+        self, module_name: str, files: List[SipFile], derivative_uuid: str
+    ) -> List[SipFile]:
+        """Filter chip subdirectory files using ``DerivativeMapping_<Module>.xml``.
+
+        Common module files directly under ``BSWMD/`` or ``BSWMD/<Module>/`` are
+        always preserved; only files inside deeper chip-variant subdirectories are
+        filtered by ``chip_folder``.
+        """
+        if not derivative_uuid or not files:
+            return files
+
+        mapping_file = (
+            self.sip_root / "Components" / module_name / "GeneratorMsr" / f"DerivativeMapping_{module_name}.xml"
+        )
+        if not mapping_file.exists():
+            mapping_file = (
+                self.sip_root / "DemoComponents" / module_name / "GeneratorMsr" / f"DerivativeMapping_{module_name}.xml"
+            )
+
+        if not mapping_file.exists():
+            return files
+
+        try:
+            chip_folder = self._get_chip_folder_from_mapping(mapping_file, derivative_uuid)
+        except Exception:
+            return files
+
+        if not chip_folder:
+            return files
+
+        filtered: List[SipFile] = []
+        for f in files:
+            parts = f.path.parts
+            # Check relative path after BSWMD[/<module_name>]
+            rel_parts: Tuple[str, ...] = ()
+            for idx, part in enumerate(parts):
+                if part == "BSWMD":
+                    rel_parts = parts[idx + 1 :]
+                    break
+            if rel_parts and rel_parts[0] == module_name:
+                rel_parts = rel_parts[1:]
+
+            # Keep top-level common files (len <= 1) or files matching chip_folder
+            if len(rel_parts) <= 1 or chip_folder in rel_parts or chip_folder in str(f.path):
+                filtered.append(f)
+        return filtered
 
     def scan_module(self, module_name: str, derivative_uuid: Optional[str] = None) -> List[SipFile]:
         """Get all SipFile for one module, optionally filtered by derivative UUID.
 
         If derivative_uuid is provided, loads only the chip folder specified in
-        DerivativeMapping_<Module>.xml for that UUID.
+        DerivativeMapping_<Module>.xml for that UUID (plus common BSWMD files).
 
         Args:
             module_name: Module name (e.g., "Os", "vBRS")
@@ -216,72 +375,38 @@ class SipScanner:
         Returns:
             List of SipFile matching the module and optional derivative
         """
-        all_by_module = self.scan_all_modules()
-        files = all_by_module.get(module_name, [])
-
-        # Task 2 改法：按 DerivativeMapping 过滤 chip 文件夹
-        if derivative_uuid and files:
-            # 尝试加载 DerivativeMapping_<Module>.xml
-            mapping_file = self.sip_root / "Components" / module_name / "GeneratorMsr" / f"DerivativeMapping_{module_name}.xml"
-            if not mapping_file.exists():
-                mapping_file = self.sip_root / "DemoComponents" / module_name / "GeneratorMsr" / f"DerivativeMapping_{module_name}.xml"
-
-            if mapping_file.exists():
-                try:
-                    chip_folder = self._get_chip_folder_from_mapping(mapping_file, derivative_uuid)
-                    if chip_folder:
-                        # 只保留路径包含该 chip 文件夹的文件
-                        files = [f for f in files if chip_folder in str(f.path)]
-                except Exception:
-                    # 解析 mapping 失败，返回全部（fallback）
-                    pass
-
-        return files
+        all_by_module = self.scan_all_modules(derivative_uuid=derivative_uuid)
+        return all_by_module.get(module_name, [])
 
     @staticmethod
     def _get_chip_folder_from_mapping(mapping_file: Path, derivative_uuid: str) -> Optional[str]:
-        """从 DerivativeMapping XML 提取 UUID 对应的 chip 文件夹名。
-
-        XML 格式：
-        <Settings Name="ModuleList">
-            <Settings Name="<Module>">
-                <Settings Name="<ChipFolder>">
-                    <Settings Name="<UUID>">
-                        <Setting Name="SIP_Folder" Value="<ChipFolder>"/>
-                    </Settings>
-                </Settings>
-            </Settings>
-        </Settings>
-
-        Args:
-            mapping_file: DerivativeMapping XML 文件路径
-            derivative_uuid: UUID 字符串
-
-        Returns:
-            Chip 文件夹名（如 "Generic_CortexR52_ASIMD"），或 None
-        """
+        """从 DerivativeMapping XML 提取 UUID 对应的 chip 文件夹名。"""
         try:
-            from lxml import etree
-            tree = etree.parse(str(mapping_file))
+            parser = etree.XMLParser(resolve_entities=False, no_network=True)
+            tree = etree.parse(str(mapping_file), parser)
             root = tree.getroot()
+            target_uuid = derivative_uuid.strip().lower()
 
-            # 查找 UUID 节点并读取 SIP_Folder 值
-            for uuid_node in root.iter():
-                if uuid_node.text and uuid_node.text.strip() == derivative_uuid:
-                    # 找到 UUID，返回其父节点（ChipFolder Settings）的 Name
-                    chip_settings = uuid_node.getparent()
-                    if chip_settings is not None:
-                        chip_name = chip_settings.get("Name")
-                        if chip_name:
-                            return chip_name
-
-            # 替代方法：直接搜索值为 UUID 的属性
+            # Pattern 1: <Settings Name="<ChipFolder>"><Settings Name="<UUID>"><Setting Name="SIP_Folder" Value="..."/>
             for settings in root.iter():
-                if settings.get("Name") == derivative_uuid:
-                    # 其父节点是 ChipFolder Settings
+                if not isinstance(settings.tag, str):
+                    continue
+                if (settings.get("Name") or "").strip().lower() == target_uuid:
+                    for child in settings:
+                        if (child.get("Name") or "") == "SIP_Folder" and child.get("Value"):
+                            return child.get("Value").strip()
                     parent = settings.getparent()
-                    if parent is not None:
-                        return parent.get("Name")
+                    if parent is not None and parent.get("Name"):
+                        return parent.get("Name").strip()
+
+            # Pattern 2: text node containing UUID
+            for uuid_node in root.iter():
+                if not isinstance(uuid_node.tag, str):
+                    continue
+                if uuid_node.text and uuid_node.text.strip().lower() == target_uuid:
+                    chip_settings = uuid_node.getparent()
+                    if chip_settings is not None and chip_settings.get("Name"):
+                        return chip_settings.get("Name").strip()
         except Exception:
             pass
 
@@ -293,8 +418,8 @@ class SipScanner:
 
         Returns:
             (module_name, role) where role is "def" if the file contains
-            ECUC-MODULE-DEF, or "config" if it only has CONFIGURATION-VALUES.
-            Returns (None, "unknown") if the file has no relevant elements.
+            ECUC-MODULE-DEF or BSW-IMPLEMENTATION, or "config" if it only has
+            CONFIGURATION-VALUES. Returns (None, "unknown") if no relevant elements.
         """
         try:
             parser = etree.XMLParser(resolve_entities=False, no_network=True)
@@ -303,6 +428,7 @@ class SipScanner:
 
             has_def = False
             module_from_def = None
+            module_from_impl = None
             module_from_config = None
 
             for elem in root.iter():
@@ -313,31 +439,38 @@ class SipScanner:
 
                 if tag == "ECUC-MODULE-DEF":
                     has_def = True
-                    # Module name from SHORT-NAME directly (not nested)
                     for child in elem:
-                        c_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+                        c_tag = child.tag.split('}')[-1] if isinstance(child.tag, str) and '}' in child.tag else child.tag
                         if c_tag == "SHORT-NAME" and child.text:
                             module_from_def = child.text.strip()
                             break
 
-                elif tag == "ECUC-MODULE-CONFIGURATION-VALUES" and not module_from_config:
-                    # Get module name from DEFINITION-REF last segment
+                elif tag == "BSW-IMPLEMENTATION" and not module_from_impl:
                     for child in elem:
-                        c_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+                        c_tag = child.tag.split('}')[-1] if isinstance(child.tag, str) and '}' in child.tag else child.tag
+                        if c_tag == "SHORT-NAME" and child.text:
+                            sn = child.text.strip()
+                            module_from_impl = sn[:-5] if sn.endswith("_Impl") else sn
+                            break
+
+                elif tag == "ECUC-MODULE-CONFIGURATION-VALUES" and not module_from_config:
+                    for child in elem:
+                        c_tag = child.tag.split('}')[-1] if isinstance(child.tag, str) and '}' in child.tag else child.tag
                         if c_tag == "DEFINITION-REF" and child.text:
                             module_from_config = child.text.rstrip("/").rsplit("/", 1)[-1]
                             break
                     if not module_from_config:
-                        # Fallback: SHORT-NAME of the config block
                         for child in elem:
-                            c_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+                            c_tag = child.tag.split('}')[-1] if isinstance(child.tag, str) and '}' in child.tag else child.tag
                             if c_tag == "SHORT-NAME" and child.text:
                                 module_from_config = child.text.strip()
                                 break
 
             if has_def and module_from_def:
                 return module_from_def, "def"
-            elif module_from_config:
+            if module_from_impl and not module_from_config:
+                return module_from_impl, "def"
+            if module_from_config:
                 return module_from_config, "config"
             return None, "unknown"
 
@@ -352,47 +485,217 @@ class SipScanner:
 
 
 class SipMerger:
-    """Merge BSWMD files by AUTOSAR path.
+    """Merge BSWMD files by AUTOSAR path with conflict detection."""
 
-    Prerequisite: caller has grouped files by module (scanner output).
-    Merger's job: combine all files for one module into a single ECUC-MODULE-DEF tree.
-    """
+    _DEF_ELEMENT_TAGS = (
+        "ECUC-MODULE-DEF",
+        "BSW-IMPLEMENTATION",
+        "ECUC-DEFINITION-COLLECTION",
+        "MEMORY-SECTION-REFINEMENT",
+    )
+    _SCALAR_CONFLICT_FIELDS = (
+        "SW-VERSION",
+        "AR-RELEASE-VERSION",
+        "VENDOR-ID",
+        "VENDOR-API-INFIX",
+    )
+    _MERGEABLE_CONTAINER_TAGS = {
+        "CONTAINERS",
+        "RESOURCE-CONSUMPTION",
+        "MEMORY-SECTIONS",
+        "REQUIRED-ARTIFACTS",
+        "ARTIFACT-DESCRIPTORS",
+        "PRECONFIGURED-CONFIGURATION-REFS",
+        "RECOMMENDED-CONFIGURATION-REFS",
+        "SECTION-NAME-PREFIXS",
+        "ADMIN-DATA",
+        "SDGS",
+    }
+
+    @staticmethod
+    def _component_name(path: Optional[Path]) -> Optional[str]:
+        if path is None:
+            return None
+        parts = Path(path).parts
+        for idx, part in enumerate(parts):
+            if part in ("Components", "DemoComponents") and idx + 1 < len(parts):
+                return f"{part}/{parts[idx + 1]}"
+        return None
+
+    @staticmethod
+    def _clone(elem) -> Any:
+        return etree.fromstring(etree.tostring(elem))
+
+    @staticmethod
+    def _elem_signature(elem) -> bytes:
+        try:
+            return etree.tostring(elem, method="c14n")
+        except Exception:
+            return etree.tostring(elem)
+
+    @staticmethod
+    def _merge_collection_children(target_wrapper, src_wrapper) -> None:
+        """Append non-duplicate children from src_wrapper into target_wrapper."""
+        seen_signatures = {
+            SipMerger._elem_signature(c)
+            for c in target_wrapper if isinstance(c.tag, str)
+        }
+        existing_by_sn = {}
+        for child in target_wrapper:
+            if not isinstance(child.tag, str):
+                continue
+            sn = SipMerger._child_text(child, "SHORT-NAME")
+            if sn:
+                existing_by_sn[(SipMerger._local(child.tag), sn)] = child
+
+        for child in src_wrapper:
+            if not isinstance(child.tag, str):
+                continue
+            ctag = SipMerger._local(child.tag)
+            sn = SipMerger._child_text(child, "SHORT-NAME")
+            if sn and (ctag, sn) in existing_by_sn:
+                # Recurse if container wrapper (e.g. MEMORY-SECTIONS inside RESOURCE-CONSUMPTION)
+                existing_child = existing_by_sn[(ctag, sn)]
+                if ctag in ("RESOURCE-CONSUMPTION", "ECUC-PARAM-CONF-CONTAINER-DEF"):
+                    SipMerger._merge_def_children(existing_child, child)
+                continue
+            sig = SipMerger._elem_signature(child)
+            if sig not in seen_signatures:
+                seen_signatures.add(sig)
+                target_wrapper.append(SipMerger._clone(child))
+
+    @staticmethod
+    def _merge_def_children(target_elem, src_elem) -> None:
+        """Merge container-like child blocks of two compatible definition/impl elements."""
+        existing_wrappers: Dict[str, Any] = {}
+        for child in target_elem:
+            if isinstance(child.tag, str):
+                existing_wrappers[SipMerger._local(child.tag)] = child
+
+        for child in src_elem:
+            if not isinstance(child.tag, str):
+                continue
+            ctag = SipMerger._local(child.tag)
+            if ctag in ("SHORT-NAME", *SipMerger._SCALAR_CONFLICT_FIELDS):
+                if ctag not in existing_wrappers and (child.text or "").strip():
+                    target_elem.append(SipMerger._clone(child))
+                continue
+            if ctag in SipMerger._MERGEABLE_CONTAINER_TAGS:
+                if ctag not in existing_wrappers:
+                    cloned = SipMerger._clone(child)
+                    target_elem.append(cloned)
+                    existing_wrappers[ctag] = cloned
+                else:
+                    if ctag == "RESOURCE-CONSUMPTION":
+                        SipMerger._merge_def_children(existing_wrappers[ctag], child)
+                    else:
+                        SipMerger._merge_collection_children(existing_wrappers[ctag], child)
+            elif ctag not in existing_wrappers:
+                cloned = SipMerger._clone(child)
+                target_elem.append(cloned)
+                existing_wrappers[ctag] = cloned
+
+    @staticmethod
+    def _build_arxml_from_package_elements(
+        root_tag: str,
+        nsmap: Optional[dict],
+        pkg_elements: Dict[str, List[Any]],
+    ) -> bytes:
+        """Assemble a normalized AUTOSAR XML document from {pkg_path: [elem, ...]}."""
+        out_root = etree.Element(root_tag, nsmap=nsmap)
+        root_pkgs = etree.SubElement(out_root, SipMerger._ns_tag(root_tag, "AR-PACKAGES"))
+        pkg_nodes: Dict[str, Any] = {}
+
+        def _ensure_package(pkg_path: str):
+            norm = pkg_path.strip("/")
+            if not norm:
+                norm = "AUTOSAR"
+            full = "/" + norm
+            if full in pkg_nodes:
+                return pkg_nodes[full]
+            segments = norm.split("/")
+            parent_pkgs = root_pkgs
+            acc = ""
+            node = None
+            for seg in segments:
+                acc = f"{acc}/{seg}"
+                if acc not in pkg_nodes:
+                    pkg_el = etree.SubElement(parent_pkgs, SipMerger._ns_tag(root_tag, "AR-PACKAGE"))
+                    etree.SubElement(pkg_el, SipMerger._ns_tag(root_tag, "SHORT-NAME")).text = seg
+                    pkg_nodes[acc] = pkg_el
+                node = pkg_nodes[acc]
+                # Find or prepare nested AR-PACKAGES only if more segments follow
+                sub_pkgs = None
+                for ch in node:
+                    if isinstance(ch.tag, str) and SipMerger._local(ch.tag) == "AR-PACKAGES":
+                        sub_pkgs = ch
+                        break
+                if sub_pkgs is None:
+                    sub_pkgs = etree.SubElement(node, SipMerger._ns_tag(root_tag, "AR-PACKAGES"))
+                parent_pkgs = sub_pkgs
+            return node
+
+        # Track order deterministically; clean unused trailing AR-PACKAGES wrappers afterward
+        for pkg_path in sorted(pkg_elements):
+            elems = pkg_elements[pkg_path]
+            if not elems:
+                continue
+            pkg_el = _ensure_package(pkg_path)
+            elements_el = None
+            for ch in pkg_el:
+                if isinstance(ch.tag, str) and SipMerger._local(ch.tag) == "ELEMENTS":
+                    elements_el = ch
+                    break
+            if elements_el is None:
+                # Insert ELEMENTS before AR-PACKAGES if AR-PACKAGES exists
+                ar_pkgs_idx = next(
+                    (i for i, ch in enumerate(pkg_el)
+                     if isinstance(ch.tag, str) and SipMerger._local(ch.tag) == "AR-PACKAGES"),
+                    None,
+                )
+                elements_el = etree.Element(SipMerger._ns_tag(root_tag, "ELEMENTS"))
+                if ar_pkgs_idx is not None:
+                    pkg_el.insert(ar_pkgs_idx, elements_el)
+                else:
+                    pkg_el.append(elements_el)
+            for e in elems:
+                elements_el.append(e)
+
+        # Prune empty AR-PACKAGES elements
+        for el in list(out_root.iter()):
+            if isinstance(el.tag, str) and SipMerger._local(el.tag) == "AR-PACKAGES" and len(el) == 0:
+                parent = el.getparent()
+                if parent is not None:
+                    parent.remove(el)
+
+        return etree.tostring(out_root, encoding="utf-8", xml_declaration=True, pretty_print=True)
 
     @staticmethod
     def merge_module(files: List[SipFile], module_name: str) -> Optional[bytes]:
-        """Merge multiple ARXML files for one module.
+        """Merge multiple ARXML files for one module by AUTOSAR path.
 
-        Args:
-            files: SipFile list for this module
-            module_name: Module name (for error reporting)
-
-        Returns:
-            Merged ARXML bytes, or None if no files
+        Raises SipMergeError on element type mismatch, scalar field conflicts,
+        or duplicate ECUC-MODULE-DEF across different components.
         """
         if not files:
             return None
 
-        if len(files) == 1:
-            # Single file: return as-is
-            return files[0].content
-
-        # Multiple files: merge by collecting all ECUC-MODULE-DEF into one root
-        # (Full implementation deferred; for now return first file)
-        # TODO: Implement proper AUTOSAR path-based merge (Task 2)
+        merged = SipMerger.merge_definition(files, module_name)
+        if merged is not None:
+            return merged
         return files[0].content
 
     @staticmethod
     def merge_definition(files: List[SipFile], module_name: str) -> Optional[bytes]:
-        """Collect every ECUC-MODULE-DEF / BSW-IMPLEMENTATION from all files into one document.
+        """Merge ECUC-MODULE-DEF / BSW-IMPLEMENTATION elements by AUTOSAR path.
 
-        Unlike :meth:`merge_module`, this never drops a file: every AR-PACKAGE that
-        carries a definition or implementation element is copied into the result,
-        deduplicated by its AR path.
-
-        Returns:
-            ARXML bytes, or None when no file holds a definition.
+        Detects conflicts:
+        - Different element types at the same AUTOSAR path -> SipMergeError
+        - Differing single-value fields (SW-VERSION, AR-RELEASE-VERSION, VENDOR-ID) -> SipMergeError
+        - Duplicate ECUC-MODULE-DEF from different components -> SipMergeError
         """
-        by_path: Dict[str, Any] = {}
+        elements_by_ar_path: Dict[str, Tuple[str, Any, Optional[Path]]] = {}
+        pkg_elements: Dict[str, List[Any]] = {}
         nsmap = None
         root_tag = None
 
@@ -410,37 +713,217 @@ class SipMerger:
                 root_tag = root.tag
 
             for pkg in SipMerger._walk_packages(root):
-                if not SipMerger._package_has_definition(pkg):
+                pkg_path = SipMerger._package_path(pkg)
+                elements_el = None
+                for ch in pkg:
+                    if isinstance(ch.tag, str) and SipMerger._local(ch.tag) == "ELEMENTS":
+                        elements_el = ch
+                        break
+                if elements_el is None:
                     continue
-                key = SipMerger._package_path(pkg)
-                if key not in by_path:
-                    by_path[key] = etree.fromstring(etree.tostring(pkg))
 
-        if not by_path or root_tag is None:
+                for elem in elements_el:
+                    if not isinstance(elem.tag, str):
+                        continue
+                    elem_tag = SipMerger._local(elem.tag)
+                    if elem_tag == "ECUC-MODULE-CONFIGURATION-VALUES":
+                        continue
+                    if elem_tag not in SipMerger._DEF_ELEMENT_TAGS and not SipMerger._package_has_definition(pkg):
+                        continue
+
+                    sn = SipMerger._child_text(elem, "SHORT-NAME")
+                    ar_path = f"{pkg_path}/{sn}" if sn else f"{pkg_path}/__{elem_tag}"
+
+                    if ar_path not in elements_by_ar_path:
+                        cloned = SipMerger._clone(elem)
+                        elements_by_ar_path[ar_path] = (pkg_path, cloned, sip_file.path)
+                        pkg_elements.setdefault(pkg_path, []).append(cloned)
+                        continue
+
+                    _, prev_elem, prev_file = elements_by_ar_path[ar_path]
+                    if prev_file == sip_file.path:
+                        continue
+
+                    prev_tag = SipMerger._local(prev_elem.tag)
+                    if prev_tag != elem_tag:
+                        raise SipMergeError(
+                            ar_path,
+                            f"Element type mismatch ({prev_tag} vs {elem_tag})",
+                            prev_file,
+                            sip_file.path,
+                        )
+
+                    if elem_tag == "ECUC-MODULE-DEF":
+                        c1 = SipMerger._component_name(prev_file)
+                        c2 = SipMerger._component_name(sip_file.path)
+                        if c1 and c2 and c1 != c2:
+                            raise SipMergeError(
+                                ar_path,
+                                f"Duplicate ECUC-MODULE-DEF across components ({c1} vs {c2})",
+                                prev_file,
+                                sip_file.path,
+                            )
+
+                    for field_name in SipMerger._SCALAR_CONFLICT_FIELDS:
+                        v1 = SipMerger._child_text(prev_elem, field_name)
+                        v2 = SipMerger._child_text(elem, field_name)
+                        if v1 is not None and v2 is not None and v1 != v2:
+                            raise SipMergeError(
+                                ar_path,
+                                f"Conflicting {field_name} ({v1!r} vs {v2!r})",
+                                prev_file,
+                                sip_file.path,
+                            )
+
+                    SipMerger._merge_def_children(prev_elem, elem)
+
+        if not pkg_elements or root_tag is None:
             return None
 
-        out_root = etree.Element(root_tag, nsmap=nsmap)
-        packages = etree.SubElement(out_root, SipMerger._ns_tag(root_tag, "AR-PACKAGES"))
-        for key in sorted(by_path):
-            packages.append(by_path[key])
-        return etree.tostring(out_root, encoding="utf-8", xml_declaration=True, pretty_print=True)
+        return SipMerger._build_arxml_from_package_elements(root_tag, nsmap, pkg_elements)
+
+    @staticmethod
+    def _merge_xml_container_value(target_containers_el, src_container_el) -> None:
+        """Recursively merge <ECUC-CONTAINER-VALUE> nodes by <SHORT-NAME>."""
+        src_sn = SipMerger._child_text(src_container_el, "SHORT-NAME")
+        existing = None
+        if src_sn:
+            for cand in target_containers_el:
+                if not isinstance(cand.tag, str) or SipMerger._local(cand.tag) != "ECUC-CONTAINER-VALUE":
+                    continue
+                if SipMerger._child_text(cand, "SHORT-NAME") == src_sn:
+                    existing = cand
+                    break
+
+        if existing is None:
+            target_containers_el.append(SipMerger._clone(src_container_el))
+            return
+
+        def _ensure_child(parent, local_name: str):
+            for ch in parent:
+                if isinstance(ch.tag, str) and SipMerger._local(ch.tag) == local_name:
+                    return ch
+            return etree.SubElement(parent, SipMerger._ns_tag(parent.tag, local_name))
+
+        def _merge_value_children(
+            src_wrapper,
+            wrapper_tag: str,
+            value_tag: str,
+            kind_label: str,
+        ) -> None:
+            tgt_wrapper = _ensure_child(existing, wrapper_tag)
+            tgt_elems = [e for e in tgt_wrapper if isinstance(e.tag, str)]
+            src_elems = [e for e in src_wrapper if isinstance(e.tag, str)]
+
+            # Count occurrences per DEFINITION-REF inside each side to detect multi-valued items
+            tgt_def_counts: Dict[Optional[str], int] = {}
+            for e in tgt_elems:
+                d = SipMerger._child_text(e, "DEFINITION-REF")
+                tgt_def_counts[d] = tgt_def_counts.get(d, 0) + 1
+            src_def_counts: Dict[Optional[str], int] = {}
+            for e in src_elems:
+                d = SipMerger._child_text(e, "DEFINITION-REF")
+                src_def_counts[d] = src_def_counts.get(d, 0) + 1
+
+            seen_full = set()
+            by_slot: Dict[Tuple[Optional[str], Optional[str]], Optional[str]] = {}
+            for e in tgt_elems:
+                d = SipMerger._child_text(e, "DEFINITION-REF")
+                idx = SipMerger._child_text(e, "INDEX")
+                val = SipMerger._child_text(e, value_tag)
+                seen_full.add((d, idx, val))
+                by_slot[(d, idx)] = val
+
+            for e in src_elems:
+                d = SipMerger._child_text(e, "DEFINITION-REF")
+                idx = SipMerger._child_text(e, "INDEX")
+                val = SipMerger._child_text(e, value_tag)
+                full_sig = (d, idx, val)
+                if full_sig in seen_full:
+                    continue
+                is_multi = (
+                    idx is None
+                    and (tgt_def_counts.get(d, 0) > 1 or src_def_counts.get(d, 0) > 1)
+                )
+                if not is_multi and (d, idx) in by_slot and by_slot[(d, idx)] != val:
+                    raise SipMergeError(
+                        f"{src_sn or ''}/{d or ''}",
+                        f"Conflicting {kind_label} value ({by_slot[(d, idx)]!r} vs {val!r})",
+                    )
+                seen_full.add(full_sig)
+                by_slot[(d, idx)] = val
+                tgt_wrapper.append(SipMerger._clone(e))
+
+        # Merge PARAMETER-VALUES
+        src_params = next(
+            (ch for ch in src_container_el
+             if isinstance(ch.tag, str) and SipMerger._local(ch.tag) == "PARAMETER-VALUES"),
+            None,
+        )
+        if src_params is not None:
+            _merge_value_children(src_params, "PARAMETER-VALUES", "VALUE", "parameter")
+
+        # Merge REFERENCE-VALUES
+        src_refs = next(
+            (ch for ch in src_container_el
+             if isinstance(ch.tag, str) and SipMerger._local(ch.tag) == "REFERENCE-VALUES"),
+            None,
+        )
+        if src_refs is not None:
+            _merge_value_children(src_refs, "REFERENCE-VALUES", "VALUE-REF", "reference")
+
+        # Merge SUB-CONTAINERS recursively
+        src_subs = next(
+            (ch for ch in src_container_el
+             if isinstance(ch.tag, str) and SipMerger._local(ch.tag) == "SUB-CONTAINERS"),
+            None,
+        )
+        if src_subs is not None:
+            tgt_subs = _ensure_child(existing, "SUB-CONTAINERS")
+            for sub in src_subs:
+                if isinstance(sub.tag, str) and SipMerger._local(sub.tag) == "ECUC-CONTAINER-VALUE":
+                    SipMerger._merge_xml_container_value(tgt_subs, sub)
+
+    @staticmethod
+    def _merge_xml_value_collection(target_elem, src_elem) -> None:
+        """Merge a same-path ECUC-MODULE-CONFIGURATION-VALUES fragment into target_elem."""
+        src_variant = SipMerger._child_text(src_elem, "IMPLEMENTATION-CONFIG-VARIANT")
+        if src_variant and SipMerger._child_text(target_elem, "IMPLEMENTATION-CONFIG-VARIANT") is None:
+            v_el = etree.Element(SipMerger._ns_tag(target_elem.tag, "IMPLEMENTATION-CONFIG-VARIANT"))
+            v_el.text = src_variant
+            target_elem.append(v_el)
+
+        src_containers = next(
+            (ch for ch in src_elem
+             if isinstance(ch.tag, str) and SipMerger._local(ch.tag) == "CONTAINERS"),
+            None,
+        )
+        if src_containers is None:
+            return
+
+        tgt_containers = next(
+            (ch for ch in target_elem
+             if isinstance(ch.tag, str) and SipMerger._local(ch.tag) == "CONTAINERS"),
+            None,
+        )
+        if tgt_containers is None:
+            tgt_containers = etree.SubElement(target_elem, SipMerger._ns_tag(target_elem.tag, "CONTAINERS"))
+
+        for c in src_containers:
+            if isinstance(c.tag, str) and SipMerger._local(c.tag) == "ECUC-CONTAINER-VALUE":
+                SipMerger._merge_xml_container_value(tgt_containers, c)
 
     @staticmethod
     def extract_value_collections(files: List[SipFile], module_name: str) -> Dict[str, bytes]:
         """Split the value collections of all files into Pre / Rec / other documents.
 
-        The role of a collection comes from the module's own BSW-IMPLEMENTATION:
-        ``PRECONFIGURED-CONFIGURATION-REFS`` names the Pre paths,
-        ``RECOMMENDED-CONFIGURATION-REFS`` the Rec paths (SIP spec §6.2 — by AUTOSAR
-        path, never by file name or SHORT-NAME). A collection named by neither is kept
-        under ``"values"`` so nothing is silently dropped.
-
-        Returns:
-            {"pre": bytes, "rec": bytes, "values": bytes} — only non-empty keys.
+        Same-path ``ECUC-MODULE-CONFIGURATION-VALUES`` across multiple files (e.g.
+        multi-file Pre/Rec fragments) are merged recursively and preserved in their
+        original ``AR-PACKAGE`` hierarchy.
         """
         pre_paths: Set[str] = set()
         rec_paths: Set[str] = set()
-        collections: Dict[str, Any] = {}
+        collections: Dict[str, Tuple[str, Any]] = {}
         nsmap = None
         root_tag = None
 
@@ -472,10 +955,16 @@ class SipMerger:
                         elif c_tag == "RECOMMENDED-CONFIGURATION-REF" and child.text:
                             rec_paths.add(child.text.strip())
 
-            # Collect every value collection with its full AR path
+            # Collect and merge every value collection with its full AR path
             for pkg in SipMerger._walk_packages(root):
                 pkg_path = SipMerger._package_path(pkg)
-                for elem in pkg.iter():
+                elements_el = next(
+                    (ch for ch in pkg if isinstance(ch.tag, str) and SipMerger._local(ch.tag) == "ELEMENTS"),
+                    None,
+                )
+                if elements_el is None:
+                    continue
+                for elem in elements_el:
                     if not isinstance(elem.tag, str):
                         continue
                     if SipMerger._local(elem.tag) != "ECUC-MODULE-CONFIGURATION-VALUES":
@@ -485,34 +974,130 @@ class SipMerger:
                         continue
                     ar_path = f"{pkg_path}/{short}" if pkg_path else f"/{short}"
                     if ar_path not in collections:
-                        collections[ar_path] = etree.fromstring(etree.tostring(elem))
+                        collections[ar_path] = (pkg_path or f"/{module_name}", SipMerger._clone(elem))
+                    else:
+                        SipMerger._merge_xml_value_collection(collections[ar_path][1], elem)
 
         if not collections or root_tag is None:
             return {}
 
-        buckets: Dict[str, List[Any]] = {"pre": [], "rec": [], "values": []}
+        buckets: Dict[str, Dict[str, List[Any]]] = {"pre": {}, "rec": {}, "values": {}}
         for ar_path in sorted(collections):
-            elem = collections[ar_path]
+            pkg_path, elem = collections[ar_path]
             if ar_path in pre_paths:
-                buckets["pre"].append(elem)
+                target_bucket = buckets["pre"]
             elif ar_path in rec_paths:
-                buckets["rec"].append(elem)
+                target_bucket = buckets["rec"]
             else:
-                buckets["values"].append(elem)
+                target_bucket = buckets["values"]
+            target_bucket.setdefault(pkg_path, []).append(elem)
 
         result: Dict[str, bytes] = {}
-        for role, elems in buckets.items():
-            if not elems:
+        for role, grouped in buckets.items():
+            if not grouped:
                 continue
-            out_root = etree.Element(root_tag, nsmap=nsmap)
-            packages = etree.SubElement(out_root, SipMerger._ns_tag(root_tag, "AR-PACKAGES"))
-            pkg_elem = etree.SubElement(packages, SipMerger._ns_tag(root_tag, "AR-PACKAGE"))
-            etree.SubElement(pkg_elem, SipMerger._ns_tag(root_tag, "SHORT-NAME")).text = module_name
-            elements_elem = etree.SubElement(pkg_elem, SipMerger._ns_tag(root_tag, "ELEMENTS"))
-            for elem in elems:
-                elements_elem.append(elem)
-            result[role] = etree.tostring(out_root, encoding="utf-8", xml_declaration=True, pretty_print=True)
+            result[role] = SipMerger._build_arxml_from_package_elements(root_tag, nsmap, grouped)
         return result
+
+    @staticmethod
+    def extract_bsw_implementation_metadata(files: List[SipFile]) -> Dict[str, Any]:
+        """Extract structured BSW-IMPLEMENTATION metadata (W10) from SIP files.
+
+        Returns a dict containing ``ar_path``, ``short_name``, ``sw_version``,
+        ``ar_release_version``, ``vendor_id``, ``vendor_api_infix``,
+        ``memory_sections``, ``required_artifacts``, ``preconfigured_refs``,
+        and ``recommended_refs``. Empty dict if no ``BSW-IMPLEMENTATION`` is present.
+        """
+        meta: Dict[str, Any] = {}
+        mem_sections: List[Dict[str, Any]] = []
+        seen_sections: Set[str] = set()
+        artifacts: List[Dict[str, Any]] = []
+        seen_artifacts: Set[str] = set()
+        pre_refs: List[str] = []
+        rec_refs: List[str] = []
+
+        for sip_file in files:
+            if not sip_file.content:
+                continue
+            try:
+                parser = etree.XMLParser(resolve_entities=False, no_network=True)
+                root = etree.fromstring(sip_file.content, parser)
+            except (etree.XMLSyntaxError, ValueError):
+                continue
+
+            for pkg in SipMerger._walk_packages(root):
+                pkg_path = SipMerger._package_path(pkg)
+                elements_el = next(
+                    (ch for ch in pkg if isinstance(ch.tag, str) and SipMerger._local(ch.tag) == "ELEMENTS"),
+                    None,
+                )
+                if elements_el is None:
+                    continue
+                for elem in elements_el:
+                    if not isinstance(elem.tag, str) or SipMerger._local(elem.tag) != "BSW-IMPLEMENTATION":
+                        continue
+                    sn = SipMerger._child_text(elem, "SHORT-NAME")
+                    if sn and "short_name" not in meta:
+                        meta["short_name"] = sn
+                        meta["ar_path"] = f"{pkg_path}/{sn}" if pkg_path else f"/{sn}"
+                    for field_key, tag_name in (
+                        ("sw_version", "SW-VERSION"),
+                        ("ar_release_version", "AR-RELEASE-VERSION"),
+                        ("vendor_id", "VENDOR-ID"),
+                        ("vendor_api_infix", "VENDOR-API-INFIX"),
+                    ):
+                        val = SipMerger._child_text(elem, tag_name)
+                        if val and field_key not in meta:
+                            meta[field_key] = val
+
+                    for sub in elem.iter():
+                        if not isinstance(sub.tag, str):
+                            continue
+                        stag = SipMerger._local(sub.tag)
+                        if stag == "MEMORY-SECTION":
+                            sec_name = SipMerger._child_text(sub, "SHORT-NAME") or ""
+                            if sec_name and sec_name not in seen_sections:
+                                seen_sections.add(sec_name)
+                                opts = [
+                                    (o.text or "").strip()
+                                    for o in sub.iter()
+                                    if isinstance(o.tag, str)
+                                    and SipMerger._local(o.tag) == "OPTION"
+                                    and (o.text or "").strip()
+                                ]
+                                mem_sections.append({
+                                    "short_name": sec_name,
+                                    "alignment": SipMerger._child_text(sub, "ALIGNMENT"),
+                                    "sw_addr_method_ref": SipMerger._child_text(sub, "SW-ADDRMETHOD-REF"),
+                                    "options": opts,
+                                })
+                        elif stag == "AUTOSAR-ENGINEERING-OBJECT":
+                            art_label = SipMerger._child_text(sub, "SHORT-LABEL") or SipMerger._child_text(sub, "SHORT-NAME") or ""
+                            art_cat = SipMerger._child_text(sub, "CATEGORY")
+                            art_key = f"{art_label}|{art_cat or ''}"
+                            if art_label and art_key not in seen_artifacts:
+                                seen_artifacts.add(art_key)
+                                artifacts.append({
+                                    "short_label": art_label,
+                                    "category": art_cat,
+                                })
+                        elif stag == "PRECONFIGURED-CONFIGURATION-REF" and sub.text:
+                            ref = sub.text.strip()
+                            if ref and ref not in pre_refs:
+                                pre_refs.append(ref)
+                        elif stag == "RECOMMENDED-CONFIGURATION-REF" and sub.text:
+                            ref = sub.text.strip()
+                            if ref and ref not in rec_refs:
+                                rec_refs.append(ref)
+
+        if not meta and not mem_sections and not artifacts and not pre_refs and not rec_refs:
+            return {}
+
+        meta["memory_sections"] = mem_sections
+        meta["required_artifacts"] = artifacts
+        meta["preconfigured_refs"] = pre_refs
+        meta["recommended_refs"] = rec_refs
+        return meta
 
     # --- small XML helpers -------------------------------------------------------------
 
@@ -684,6 +1269,8 @@ class SipPackageWriter:
         pre_config: Optional[bytes] = None,
         rec_config: Optional[bytes] = None,
         output_dir: Optional[Path] = None,
+        source_files: Optional[List[str]] = None,
+        impl_metadata: Optional[Dict[str, Any]] = None,
     ) -> Path:
         """Write a module package with separate def/ and config/ directories.
 
@@ -693,6 +1280,8 @@ class SipPackageWriter:
             pre_config: Optional pre configuration ARXML
             rec_config: Optional rec configuration ARXML
             output_dir: Output directory; defaults to ./packages/<module_name>
+            source_files: Optional list of contributing SIP source file paths
+            impl_metadata: Optional BSW-IMPLEMENTATION metadata dict
 
         Returns:
             Path to package root
@@ -718,18 +1307,18 @@ class SipPackageWriter:
             def_path.write_bytes(definition_content)
             files_list.append(f"def/{module_name}.arxml")
 
-        # Write pre/rec to config/ directory
+        # Write pre/rec to config/ directory and index their AUTOSAR paths for manifest
         if pre_config:
             pre_path = config_dir / f"{module_name}_Pre.arxml"
             pre_path.write_bytes(pre_config)
-            pre_list.append(f"config/{module_name}_Pre.arxml")
             files_list.append(f"config/{module_name}_Pre.arxml")
+            pre_list.extend(SipPackageWriter._extract_collection_paths(pre_config))
 
         if rec_config:
             rec_path = config_dir / f"{module_name}_Rec.arxml"
             rec_path.write_bytes(rec_config)
-            rec_list.append(f"config/{module_name}_Rec.arxml")
             files_list.append(f"config/{module_name}_Rec.arxml")
+            rec_list.extend(SipPackageWriter._extract_collection_paths(rec_config))
 
         # Extract AUTOSAR definition path from definition content
         def_ar_path = SipPackageWriter._extract_definition_path(definition_content, module_name) if definition_content else None
@@ -737,8 +1326,13 @@ class SipPackageWriter:
             # Fallback: guess /MICROSAR/<Module>
             def_ar_path = f"/MICROSAR/{module_name}"
 
+        if impl_metadata is None and definition_content:
+            impl_metadata = SipMerger.extract_bsw_implementation_metadata(
+                [SipFile(path=Path(f"{module_name}.arxml"), module=module_name, content=definition_content)]
+            )
+
         # Write module.json matching load_manifest schema
-        manifest = {
+        manifest: Dict[str, Any] = {
             "schema": 1,
             "module": module_name,
             "definition": def_ar_path,
@@ -746,12 +1340,81 @@ class SipPackageWriter:
             "pre": pre_list,
             "rec": rec_list,
         }
+        if impl_metadata and impl_metadata.get("ar_path"):
+            manifest["implementation_path"] = impl_metadata["ar_path"]
+        if impl_metadata and impl_metadata.get("sw_version"):
+            manifest["version"] = impl_metadata["sw_version"]
 
         manifest_path = output_dir / "module.json"
         with open(manifest_path, "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2)
 
+        if source_files is not None or impl_metadata:
+            sources_payload = {
+                "module": module_name,
+                "definition": def_ar_path,
+                "source_files": list(source_files or []),
+                "implementation": impl_metadata or {},
+            }
+            sources_path = output_dir / "sources.json"
+            with open(sources_path, "w", encoding="utf-8") as f:
+                json.dump(sources_payload, f, indent=2, ensure_ascii=False)
+
         return output_dir
+
+    @staticmethod
+    def _extract_collection_paths(content: bytes) -> List[str]:
+        """Extract full AUTOSAR paths of ECUC-MODULE-CONFIGURATION-VALUES elements."""
+        try:
+            parser = etree.XMLParser(resolve_entities=False, no_network=True)
+            root = etree.fromstring(content, parser)
+        except (etree.XMLSyntaxError, ValueError):
+            return []
+
+        paths: List[str] = []
+        for elem in root.iter():
+            if not isinstance(elem.tag, str) or SipMerger._local(elem.tag) != "ECUC-MODULE-CONFIGURATION-VALUES":
+                continue
+            sn = SipMerger._child_text(elem, "SHORT-NAME")
+            if not sn:
+                continue
+            segments = [sn]
+            parent = elem.getparent()
+            while parent is not None:
+                if isinstance(parent.tag, str) and SipMerger._local(parent.tag) == "AR-PACKAGE":
+                    pkg_sn = SipMerger._child_text(parent, "SHORT-NAME")
+                    if pkg_sn:
+                        segments.append(pkg_sn)
+                parent = parent.getparent()
+            ar_path = "/" + "/".join(reversed(segments))
+            if ar_path not in paths:
+                paths.append(ar_path)
+        return paths
+
+    @staticmethod
+    def read_impl_metadata(package_dir: Path) -> Dict[str, Any]:
+        """Read BSW-IMPLEMENTATION metadata (W10) for an ingested module package."""
+        pkg_dir = Path(package_dir)
+        sources_path = pkg_dir / "sources.json"
+        if sources_path.is_file():
+            try:
+                data = json.loads(sources_path.read_text(encoding="utf-8"))
+                impl = data.get("implementation")
+                if isinstance(impl, dict) and impl:
+                    return impl
+            except Exception:
+                pass
+
+        # Fallback: parse def/*.arxml inside package_dir
+        sip_files: List[SipFile] = []
+        def_dir = pkg_dir / "def"
+        if def_dir.is_dir():
+            for arxml in sorted(def_dir.glob("*.arxml")):
+                try:
+                    sip_files.append(SipFile(path=arxml, module=pkg_dir.name, content=arxml.read_bytes()))
+                except OSError:
+                    pass
+        return SipMerger.extract_bsw_implementation_metadata(sip_files) if sip_files else {}
 
     @staticmethod
     def _extract_definition_path(content: bytes, module_name: str) -> Optional[str]:
@@ -828,13 +1491,16 @@ class McalResourceExtractor:
         """
         self.sip_root = Path(sip_root)
 
-    def extract_from_properties(self, properties_file: Path) -> Dict[str, Dict[str, str]]:
+    def extract_from_properties(
+        self, properties_file: Path, record_source: bool = False
+    ) -> Dict[str, Dict[str, str]]:
         """Extract resources from a single .properties file.
 
-        Parses key=value format and groups by module name (prefix before dot).
+        Parses key=value or key:value format and groups by module name (prefix before dot).
 
         Args:
-            properties_file: Path to resources.properties
+            properties_file: Path to .properties file
+            record_source: When True, include ``"_source": <path>`` in each module dict.
 
         Returns:
             {module_name: {property_name: value, ...}, ...}
@@ -843,7 +1509,7 @@ class McalResourceExtractor:
         if not properties_file.exists():
             return {}
 
-        resources = {}
+        resources: Dict[str, Dict[str, str]] = {}
         try:
             with open(properties_file, encoding="utf-8") as f:
                 for line in f:
@@ -877,20 +1543,26 @@ class McalResourceExtractor:
         except Exception as e:
             logger.debug("Error parsing %s: %s", properties_file, e)
 
+        if record_source:
+            src = Path(properties_file).as_posix()
+            for module_dict in resources.values():
+                module_dict["_source"] = src
+
         return resources
 
     def extract_all_chips_resources(self) -> Dict[str, Dict[str, Dict[str, str]]]:
-        """Extract resources from all chip directories.
+        """Extract resources from SIP Components/GeneratorMsr/resource AND EB Resource*/resource/*.properties.
 
-        Walks Components/<Module>/GeneratorMsr/resource/<chip>/resources.properties
-        and groups by chip name.
+        Walks:
+        1. ``Components/<Module>/GeneratorMsr/resource/<chip>/resources.properties``
+        2. ``**/Resource*/resource/*.properties`` (e.g. ``CotexR52_<Chip>.properties`` / ``CortexR52_<Chip>.properties``)
 
         Returns:
             {chip_name: {module_name: {property: value, ...}, ...}, ...}
         """
-        all_resources = {}
+        all_resources: Dict[str, Dict[str, Dict[str, str]]] = {}
 
-        # Walk Components/
+        # 1. Walk Components/*/GeneratorMsr/resource/<chip>/resources.properties
         components_dir = self.sip_root / "Components"
         if components_dir.exists():
             for module_dir in components_dir.iterdir():
@@ -901,7 +1573,6 @@ class McalResourceExtractor:
                 if not resource_base.exists():
                     continue
 
-                # Each subdirectory is a chip
                 for chip_dir in resource_base.iterdir():
                     if not chip_dir.is_dir():
                         continue
@@ -911,11 +1582,31 @@ class McalResourceExtractor:
                     if props_file.exists():
                         resources = self.extract_from_properties(props_file)
                         if resources:
-                            if chip_name not in all_resources:
-                                all_resources[chip_name] = {}
-                            # Merge resources (later modules override earlier ones if duplicate keys)
+                            all_resources.setdefault(chip_name, {})
                             for module_name, module_resources in resources.items():
                                 all_resources[chip_name][module_name] = module_resources
+
+        # 2. Walk EB Resource plugin layout (**/Resource*/resource/*CotexR52_*.properties or CortexR52_*.properties)
+        if self.sip_root.exists():
+            for props_file in sorted(self.sip_root.rglob("*.properties")):
+                if props_file.parent.name != "resource":
+                    continue
+                if props_file.name == "resources.properties":
+                    continue
+                parent_plugin = props_file.parent.parent.name
+                stem = props_file.stem
+                if "Resource" not in parent_plugin and not stem.startswith(("CotexR52_", "CortexR52_")):
+                    continue
+                chip_name = stem
+                for prefix in ("CotexR52_", "CortexR52_"):
+                    if chip_name.startswith(prefix):
+                        chip_name = chip_name[len(prefix):]
+                        break
+                resources = self.extract_from_properties(props_file, record_source=True)
+                if resources:
+                    all_resources.setdefault(chip_name, {})
+                    for module_name, module_resources in resources.items():
+                        all_resources[chip_name][module_name] = module_resources
 
         return all_resources
 
@@ -938,3 +1629,545 @@ class McalResourceExtractor:
         with open(output_yaml, "w", encoding="utf-8") as f:
             import yaml
             yaml.dump(chip_resources, f, default_flow_style=False, sort_keys=True)
+
+
+@dataclass
+class DaVinciImportReport:
+    """Detailed report of a DaVinci project import (W12)."""
+
+    source_dpa: str
+    target_project: str
+    project_file: str
+    derivative_uuid: Optional[str] = None
+    derivative_name: Optional[str] = None
+    sip_root: Optional[str] = None
+    mcal_source_dir: Optional[str] = None
+    module_stats: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    skipped_mcal_modules: List[Dict[str, str]] = field(default_factory=list)
+    failed_modules: List[Tuple[str, str]] = field(default_factory=list)
+    rejected_modules: List[str] = field(default_factory=list)
+    unresolved_references: List[Dict[str, str]] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
+    mcal_resources_exported: List[str] = field(default_factory=list)
+    report_files: List[str] = field(default_factory=list)
+
+    @property
+    def imported_count(self) -> int:
+        return len(self.module_stats)
+
+    def to_markdown(self) -> str:
+        from datetime import datetime
+
+        lines = [
+            "# DaVinci 工程导入报告",
+            "",
+            f"- **生成时间**：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            f"- **源工程 (.dpa)**：`{self.source_dpa}`",
+            f"- **目标工程目录**：`{self.target_project}`",
+            f"- **目标工程文件**：`{self.project_file}`",
+            f"- **衍生芯片**：{self.derivative_name or '未指定'} (`{self.derivative_uuid or '无 UUID'}`)",
+            f"- **SIP 根目录**：`{self.sip_root or '未指定'}`",
+        ]
+        if self.mcal_source_dir:
+            lines.append(f"- **EB MCAL 来源**：`{self.mcal_source_dir}`")
+        lines.extend([
+            "",
+            f"## 汇总：已导入 {self.imported_count} 个模块，"
+            f"跳过 MCAL {len(self.skipped_mcal_modules)} 个，"
+            f"用户拒绝合并 {len(self.rejected_modules)} 个，"
+            f"失败 {len(self.failed_modules)} 个，"
+            f"未决引用 {len(self.unresolved_references)} 条",
+            "",
+        ])
+
+        if self.module_stats:
+            lines.extend([
+                "## 已导入模块统计",
+                "",
+                "| 模块 | 配置来源 | 定义路径 | 容器数 | 参数数 | 引用数 |",
+                "|---|---|---|---:|---:|---:|",
+            ])
+            for mod in sorted(self.module_stats):
+                st = self.module_stats[mod]
+                lines.append(
+                    f"| {mod} | {st.get('config_source', '')} | "
+                    f"`{st.get('definition', '')}` | {st.get('containers', 0)} | "
+                    f"{st.get('parameters', 0)} | {st.get('references', 0)} |"
+                )
+            lines.append("")
+
+        if self.skipped_mcal_modules:
+            lines.extend(["## 已跳过的 DaVinci MCAL 模块", ""])
+            for item in self.skipped_mcal_modules:
+                lines.append(f"- **{item['module']}**：{item['reason']}")
+            lines.append("")
+
+        if self.rejected_modules:
+            lines.extend(["## 用户拒绝基线合并的模块", ""])
+            for mod in self.rejected_modules:
+                lines.append(f"- {mod}")
+            lines.append("")
+
+        if self.failed_modules:
+            lines.extend(["## 导入失败的模块", ""])
+            for mod, err in self.failed_modules:
+                lines.append(f"- **{mod}**：{err}")
+            lines.append("")
+
+        if self.unresolved_references:
+            lines.extend(["## 未决跨模块引用", ""])
+            for ref in self.unresolved_references:
+                lines.append(
+                    f"- `{ref.get('module', '')}` / `{ref.get('container', '')}`."
+                    f"`{ref.get('reference', '')}` -> `{ref.get('target', '')}`：{ref.get('message', '')}"
+                )
+            lines.append("")
+
+        if self.warnings:
+            lines.extend(["## 警告", ""])
+            for w in self.warnings:
+                lines.append(f"- {w}")
+            lines.append("")
+
+        return "\n".join(lines)
+
+
+class DaVinciProjectImporter:
+    """Import a DaVinci XML .dpa project (BSW definitions + active ECUC values + optional EB MCAL) into Format 8."""
+
+    @staticmethod
+    def _locate_eb_plugins_dir(mcal_source_dir: Path) -> Optional[Path]:
+        from . import eb_import
+
+        src = Path(mcal_source_dir)
+        found = eb_import.find_plugins_dir(src)
+        if found is not None and eb_import._holds_plugins(found):
+            return found
+        if src.is_dir() and eb_import._holds_plugins(src):
+            return src
+        for ancestor in src.parents:
+            cand = eb_import.find_plugins_dir(ancestor)
+            if cand is not None and eb_import._holds_plugins(cand):
+                return cand
+        return None
+
+    @staticmethod
+    def _extract_module_config(
+        ecuc_file: Path,
+        module_name: str,
+        expected_def_ref: Optional[str],
+    ):
+        """Parse ``ecuc_file`` and extract the configuration block(s) for ``module_name``."""
+        from .parser.arxml_parser import ArxmlParser
+        from .config_manager import merge_module_configurations
+
+        parser = etree.XMLParser(resolve_entities=False, no_network=True)
+        root = etree.parse(str(ecuc_file), parser).getroot()
+        configs = ArxmlParser().parse_all_module_configurations(root)
+        if not configs:
+            return None
+
+        matches = []
+        norm_expected = (expected_def_ref or "").rstrip("/")
+        for cfg in configs:
+            cfg_def = (cfg.definition_ref or "").rstrip("/")
+            def_leaf = cfg_def.rsplit("/", 1)[-1] if cfg_def else ""
+            if (
+                (norm_expected and cfg_def == norm_expected)
+                or def_leaf == module_name
+                or cfg.short_name == module_name
+            ):
+                matches.append(cfg)
+
+        if not matches:
+            return None
+        return merge_module_configurations(matches)
+
+    @staticmethod
+    def _count_module_items(configuration) -> Dict[str, int]:
+        containers = 0
+        parameters = 0
+        references = 0
+
+        def walk(c):
+            nonlocal containers, parameters, references
+            containers += 1
+            parameters += len(c.parameter_values) + sum(
+                len(v) for v in c.multi_parameter_values.values()
+            )
+            references += len(c.reference_values) + sum(
+                len(v) for v in c.multi_reference_values.values()
+            )
+            for sub in c.sub_containers:
+                walk(sub)
+
+        parameters += len(getattr(configuration, "parameter_values", {}))
+        for top in getattr(configuration, "containers", []):
+            walk(top)
+        return {
+            "containers": containers,
+            "parameters": parameters,
+            "references": references,
+        }
+
+    @classmethod
+    def import_project(
+        cls,
+        workspace_manager,
+        dpa_path: Path,
+        target_dir: Path,
+        project_name: Optional[str] = None,
+        mcal_source_dir: Optional[Path] = None,
+        include_resources: bool = False,
+        sip_library_dir: Optional[Path] = None,
+        confirm=None,
+    ) -> Tuple[Any, DaVinciImportReport]:
+        """Import a DaVinci .dpa project into a new Format 8 WorkspaceProject."""
+        from datetime import datetime
+        from . import project_paths, eb_import
+        from .packages.library import LibraryRef, scan_library
+        from .packages.package import ModulePackage
+        from .packages.manifest import infer_package
+        from .serializer.ecuc_serializer import EcucValueSerializer
+        from .config_manager import EpcFileScanner, ProjectType
+
+        dpa_path = Path(dpa_path)
+        dv = DaVinciProject.from_file(dpa_path)
+
+        proj_name = (project_name or dpa_path.stem or "DaVinciImport").strip()
+        project_root = Path(target_dir) / proj_name
+        project_root.mkdir(parents=True, exist_ok=True)
+        out_dpa = project_root / f"{proj_name}.dpa"
+
+        new_project = workspace_manager.create_project(
+            name=proj_name,
+            path=out_dpa,
+            format_version=8,
+        )
+        new_project.project_type = ProjectType.VECTOR
+        new_project.derivative_uuid = dv.derivative_uuid
+        new_project.derivative_name = dv.derivative_name
+
+        # Ensure standard Format 8 subdirectories exist
+        for dir_key in ["config", "base", "templates", "gen", "chips", "integration", "system", "history", "modules"]:
+            dir_name = getattr(new_project.directories, dir_key)
+            if dir_name:
+                (project_root / dir_name).mkdir(parents=True, exist_ok=True)
+
+        report = DaVinciImportReport(
+            source_dpa=dpa_path.as_posix(),
+            target_project=project_root.as_posix(),
+            project_file=out_dpa.as_posix(),
+            derivative_uuid=dv.derivative_uuid,
+            derivative_name=dv.derivative_name,
+            sip_root=dv.sip_root.as_posix() if dv.sip_root else None,
+            mcal_source_dir=Path(mcal_source_dir).as_posix() if mcal_source_dir else None,
+        )
+
+        # 1. Obtain or ingest BSW SIP module packages
+        if sip_library_dir is not None:
+            lib_dir = Path(sip_library_dir)
+            if not lib_dir.is_dir():
+                raise FileNotFoundError(f"SIP library directory not found: {lib_dir}")
+            bsw_lib_ref = LibraryRef(path=lib_dir.as_posix(), kind="package", exclude=[])
+            bsw_packages_list = scan_library(bsw_lib_ref, project_root)
+        else:
+            if dv.sip_root is None or not dv.sip_root.exists():
+                raise FileNotFoundError(f"SIP root not found for DaVinci project: {dv.sip_root}")
+            davinci_import_dir = project_root / "DaVinciImport"
+            davinci_import_dir.mkdir(parents=True, exist_ok=True)
+
+            scanner = SipScanner(dv.sip_root)
+            all_modules = scanner.scan_all_modules(derivative_uuid=dv.derivative_uuid)
+            for mod_name in sorted(all_modules):
+                files = all_modules[mod_name]
+                # Exclude Vector-wrapped Components/Mcal_Tha62x when EB MCAL is provided
+                if mcal_source_dir is not None:
+                    files = [f for f in files if "Mcal_Tha62x" not in f.path.parts]
+                if not files:
+                    continue
+                def_files = [f for f in files if f.role == "def"]
+                try:
+                    def_content = SipMerger.merge_definition(files, mod_name)
+                    if not def_content and not def_files:
+                        continue
+                    value_docs = SipMerger.extract_value_collections(files, mod_name)
+                except SipMergeError as exc:
+                    report.warnings.append(f"SIP 模块 {mod_name} 合并冲突，已跳过：{exc}")
+                    continue
+                impl_meta = SipMerger.extract_bsw_implementation_metadata(files)
+                SipPackageWriter.write_package(
+                    module_name=mod_name,
+                    definition_content=def_content or b"",
+                    pre_config=value_docs.get("pre"),
+                    rec_config=value_docs.get("rec"),
+                    output_dir=davinci_import_dir,
+                    source_files=[str(f.path) for f in files],
+                    impl_metadata=impl_meta,
+                )
+
+            if include_resources:
+                extractor = McalResourceExtractor(dv.sip_root)
+                all_resources = extractor.extract_all_chips_resources()
+                for chip_name in sorted(all_resources):
+                    yaml_file = davinci_import_dir / f"resources_{chip_name}.yaml"
+                    extractor.extract_and_generate_yaml(chip_name, yaml_file)
+                    report.mcal_resources_exported.append(yaml_file.as_posix())
+
+            bsw_lib_ref = LibraryRef(path="DaVinciImport", kind="package", exclude=[])
+            bsw_packages_list = scan_library(bsw_lib_ref, project_root)
+
+        new_project.module_libraries.append(bsw_lib_ref)
+        bsw_lib_index = 0
+
+        bsw_by_name: Dict[str, ModulePackage] = {
+            p.manifest.module: p for p in bsw_packages_list
+        }
+        bsw_by_def: Dict[str, ModulePackage] = {
+            p.manifest.definition.rstrip("/"): p for p in bsw_packages_list
+        }
+
+        # 2. Optional EB MCAL plugin library + chip discovery BEFORE adding modules
+        eb_plugins_dir: Optional[Path] = None
+        eb_lib_index: Optional[int] = None
+        eb_survey = None
+        if mcal_source_dir is not None:
+            mcal_src = Path(mcal_source_dir)
+            eb_plugins_dir = cls._locate_eb_plugins_dir(mcal_src)
+            if eb_plugins_dir is not None:
+                eb_survey = eb_import.survey_plugins(eb_plugins_dir)
+                eb_lib_ref = LibraryRef(
+                    path=eb_plugins_dir.resolve().as_posix(),
+                    kind="eb-plugins",
+                    exclude=sorted(eb_survey.exclude),
+                )
+                eb_lib_index = len(new_project.module_libraries)
+                new_project.module_libraries.append(eb_lib_ref)
+                new_project.discover_available_chips()
+                # Select matching chip if derivative_name shares device token (e.g. THA6206)
+                if new_project.available_chips:
+                    matched_chip = None
+                    if dv.derivative_name:
+                        for chip in new_project.available_chips:
+                            prefix = chip.split("_")[0]
+                            if prefix and prefix.lower() in dv.derivative_name.lower():
+                                matched_chip = chip
+                                break
+                    new_project.selected_chip = matched_chip or new_project.available_chips[0]
+                new_project.load_ecu_resources()
+            else:
+                report.warnings.append(
+                    f"未在指定的 MCAL 目录中找到 EB 插件 (plugin.xml)：{mcal_source_dir}"
+                )
+
+        # 3. Determine active BSW modules & record skipped DaVinci MCAL modules
+        # Respect dv.active_modules (from ECUC-VALUE-COLLECTION / EcucSplitter) rather than
+        # unioning all 100+ unused ModuleDefinitionMappings entries.
+        declared_modules = (
+            set(dv.active_modules)
+            if dv.active_modules
+            else (set(dv.ecuc_split_map.keys()) or set(dv.module_definitions.keys()))
+        )
+        mcal_names = set(dv.mcal_modules())
+
+        if declared_modules:
+            target_bsw: List[str] = []
+            for mod_name in sorted(declared_modules):
+                if mod_name in mcal_names:
+                    if mcal_source_dir is not None:
+                        report.skipped_mcal_modules.append({
+                            "module": mod_name,
+                            "reason": f"跳过 DaVinci MCAL（已改用 EB MCAL：{mcal_source_dir}）",
+                        })
+                    elif mod_name in bsw_by_name or dv.module_definitions.get(mod_name, "").rstrip("/") in bsw_by_def:
+                        target_bsw.append(mod_name)
+                    else:
+                        report.skipped_mcal_modules.append({
+                            "module": mod_name,
+                            "reason": "未指定 EB MCAL 来源目录，且 SIP 中无对应模块定义",
+                        })
+                else:
+                    target_bsw.append(mod_name)
+        else:
+            # Minimal .dpa without <ModuleDefinitionMappings> or <EcucSplitter>: import all SIP packages
+            target_bsw = sorted(bsw_by_name.keys())
+
+        # 4. Import BSW modules with actual DaVinci ECUC configuration values
+        serializer = EcucValueSerializer()
+        imported_at = datetime.now().isoformat()
+
+        for mod_name in target_bsw:
+            expected_def = dv.module_definitions.get(mod_name)
+            pkg = bsw_by_name.get(mod_name) or (
+                bsw_by_def.get(expected_def.rstrip("/")) if expected_def else None
+            )
+            if pkg is None:
+                msg = f"Module {mod_name} definition not found: {expected_def or mod_name}"
+                report.failed_modules.append((mod_name, msg))
+                continue
+
+            config_source = "sip_baseline"
+            written_cfg_path: Optional[Path] = None
+            ecuc_file = dv.resolve_ecuc_file(mod_name)
+            if ecuc_file is not None:
+                try:
+                    extracted_cfg = cls._extract_module_config(ecuc_file, mod_name, expected_def)
+                except Exception as exc:
+                    extracted_cfg = None
+                    report.warnings.append(f"{mod_name}: 读取 DaVinci 配置 {ecuc_file.name} 失败：{exc}")
+                if extracted_cfg is not None:
+                    # Keep module's short_name consistent with definition leaf
+                    target_cfg_path = project_paths.config_file(new_project, mod_name)
+                    target_cfg_path.parent.mkdir(parents=True, exist_ok=True)
+                    serializer.serialize_to_file(extracted_cfg, target_cfg_path)
+                    written_cfg_path = target_cfg_path
+                    config_source = "davinci_ecuc"
+
+            merge_rejected = [False]
+            if confirm is not None:
+                def confirm_with_tracking(preview_text, merge_result):
+                    accepted = bool(confirm(preview_text, merge_result))
+                    if not accepted:
+                        merge_rejected[0] = True
+                    return accepted
+                confirm_cb = confirm_with_tracking
+            else:
+                confirm_cb = None
+
+            try:
+                mgr = new_project.add_module_from_package(
+                    pkg=pkg,
+                    lib_index=bsw_lib_index,
+                    persist=True,
+                    confirm=confirm_cb,
+                    reconcile=True,
+                )
+            except Exception as exc:
+                if written_cfg_path is not None and written_cfg_path.is_file():
+                    written_cfg_path.unlink(missing_ok=True)
+                report.failed_modules.append((mod_name, str(exc)))
+                continue
+
+            if merge_rejected[0]:
+                new_project.remove_module(mgr.module_def.short_name, archive=False)
+                if written_cfg_path is not None and written_cfg_path.is_file():
+                    written_cfg_path.unlink(missing_ok=True)
+                report.rejected_modules.append(mod_name)
+                continue
+
+            actual_name = mgr.module_def.short_name
+            new_project.module_provenance[actual_name] = {
+                "origin": "davinci-import",
+                "source_epc": ecuc_file.as_posix() if ecuc_file else None,
+                "imported_at": imported_at,
+            }
+            stats = cls._count_module_items(mgr.configuration)
+            stats["config_source"] = config_source
+            stats["definition"] = pkg.manifest.definition
+            report.module_stats[actual_name] = stats
+
+        # 5. Import EB MCAL modules (when EB MCAL source directory is supplied and holds plugins)
+        if eb_plugins_dir is not None and eb_lib_index is not None and eb_survey is not None:
+            for skipped_dir in eb_survey.skipped:
+                report.warnings.append(f"EB 插件目录跳过：{skipped_dir.name}（{skipped_dir.reason}）")
+            epc_values: Dict[str, Any] = {}
+            epc_candidates = sorted(
+                set(EpcFileScanner.find_epc_files(Path(mcal_source_dir), new_project.selected_chip).values()),
+                key=lambda p: p.as_posix(),
+            )
+            # Also collect standalone *.xdm config files if mcal_source_dir is a config/ folder
+            if Path(mcal_source_dir).is_dir():
+                for xdm_path in sorted(Path(mcal_source_dir).glob("*.xdm")):
+                    epc_candidates.append(xdm_path)
+
+            for epc in epc_candidates:
+                try:
+                    configs = eb_import.module_configs_in(epc)
+                except Exception:
+                    continue
+                for sn, def_ref in configs:
+                    m_name = def_ref.rstrip("/").rsplit("/", 1)[-1] if def_ref else sn
+                    if m_name not in epc_values:
+                        epc_values[m_name] = eb_import.EpcValues(epc, sn, def_ref)
+
+            excluded = set(eb_survey.exclude)
+            for pkg in eb_survey.packages:
+                if pkg.root.name in excluded:
+                    continue
+                m_name = pkg.manifest.module
+                if m_name in new_project.module_managers:
+                    continue
+                epc = epc_values.get(m_name)
+                written_mcal_cfg: Optional[Path] = None
+                if epc is not None and eb_import.epc_names_definition(epc.definition_ref, pkg.manifest.definition):
+                    written_mcal_cfg = project_paths.config_file(new_project, m_name)
+                    written_mcal_cfg.parent.mkdir(parents=True, exist_ok=True)
+                    import shutil
+                    shutil.copyfile(epc.file, written_mcal_cfg)
+                mcal_rejected = [False]
+                if confirm is not None:
+                    def confirm_mcal(preview_text, merge_result, _flag=mcal_rejected):
+                        accepted = bool(confirm(preview_text, merge_result))
+                        if not accepted:
+                            _flag[0] = True
+                        return accepted
+                    mcal_confirm_cb = confirm_mcal
+                else:
+                    mcal_confirm_cb = None
+
+                try:
+                    mgr = new_project.add_module_from_package(
+                        pkg=pkg,
+                        lib_index=eb_lib_index,
+                        persist=True,
+                        confirm=mcal_confirm_cb,
+                        reconcile=True,
+                    )
+                    if mcal_rejected[0]:
+                        new_project.remove_module(mgr.module_def.short_name, archive=False)
+                        if written_mcal_cfg is not None:
+                            written_mcal_cfg.unlink(missing_ok=True)
+                        report.rejected_modules.append(m_name)
+                        continue
+                    stats = cls._count_module_items(mgr.configuration)
+                    stats["config_source"] = "eb_mcal"
+                    stats["definition"] = pkg.manifest.definition
+                    report.module_stats[mgr.module_def.short_name] = stats
+                except Exception as exc:
+                    if written_mcal_cfg is not None:
+                        written_mcal_cfg.unlink(missing_ok=True)
+                    report.failed_modules.append((m_name, str(exc)))
+
+        # 6. Resolve cross-module references & record unresolved ones
+        if new_project.module_managers:
+            try:
+                new_project.resolve_all_references()
+                new_project.build_reverse_reference_index()
+            except Exception as exc:
+                report.warnings.append(f"跨模块引用解析出现异常：{exc}")
+
+            for m_name, mgr in sorted(new_project.module_managers.items()):
+                for err in mgr.configuration.get_resolution_errors():
+                    report.unresolved_references.append({
+                        "module": m_name,
+                        "container": "",
+                        "reference": "",
+                        "target": err.path,
+                        "message": err.message,
+                    })
+
+        # 7. Write Markdown reports and persist project
+        md_text = report.to_markdown()
+        root_report = project_root / ".import_report.md"
+        history_report = project_paths.resolve(new_project, "history") / "reports" / "davinci_import_report.md"
+        for rpath in (root_report, history_report):
+            try:
+                rpath.parent.mkdir(parents=True, exist_ok=True)
+                rpath.write_text(md_text, encoding="utf-8")
+                report.report_files.append(rpath.as_posix())
+            except OSError as exc:
+                report.warnings.append(f"写入导入报告失败 {rpath}: {exc}")
+
+        workspace_manager.current_project = new_project
+        workspace_manager.save_project()
+        return new_project, report

@@ -124,9 +124,11 @@ class TestEndToEndDaVinciImport:
             assert "module" in data, f"Missing module in {manifest_path}"
             assert "definition" in data, f"Missing definition in {manifest_path}"
 
-            # definition 文件应该存在
-            def_file = manifest_path.parent / data["definition"]
-            assert def_file.exists(), f"Definition file not found: {def_file}"
+            # definition 应是 AUTOSAR 路径，files 中引用的包文件应该存在
+            assert data["definition"].startswith("/")
+            for rel_file in data.get("files", []):
+                pkg_file = manifest_path.parent / rel_file
+                assert pkg_file.exists(), f"Package file not found: {pkg_file}"
 
             logger.info("Verified: %s (schema=%s)", data["module"], data["schema"])
 

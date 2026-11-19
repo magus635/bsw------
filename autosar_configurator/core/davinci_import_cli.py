@@ -63,10 +63,11 @@ class DaVinciImportCLI:
             output_dir.mkdir(parents=True, exist_ok=True)
             logger.info("Output directory: %s", output_dir)
 
-            # Scan SIP modules
-            logger.info("Scanning SIP modules...")
+            # Scan SIP modules (with derivative UUID filtering if available)
+            effective_uuid = parsed.derivative_uuid or davinci.derivative_uuid
+            logger.info("Scanning SIP modules (derivative_uuid=%s)...", effective_uuid or "none")
             scanner = SipScanner(davinci.sip_root)
-            all_modules = scanner.scan_all_modules()
+            all_modules = scanner.scan_all_modules(derivative_uuid=effective_uuid)
             logger.info("Found %d module(s): %s", len(all_modules), ", ".join(sorted(all_modules)))
 
             # Import each module
@@ -96,6 +97,8 @@ class DaVinciImportCLI:
                 value_docs = SipMerger.extract_value_collections(all_files, module_name)
                 pre_config = value_docs.get("pre")
                 rec_config = value_docs.get("rec")
+                impl_meta = SipMerger.extract_bsw_implementation_metadata(all_files)
+                source_paths = [str(f.path) for f in all_files]
 
                 logger.info("Importing %s... def=%s pre=%s rec=%s values=%s",
                             module_name,
@@ -112,6 +115,8 @@ class DaVinciImportCLI:
                         pre_config=pre_config,
                         rec_config=rec_config,
                         output_dir=output_dir,
+                        source_files=source_paths,
+                        impl_metadata=impl_meta,
                     )
                     imported += 1
                 except Exception as e:

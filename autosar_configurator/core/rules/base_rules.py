@@ -189,7 +189,13 @@ class TypeValidationRule(ValidationRule):
                     parameter_name=param_def.short_name
                 ))
         
-        elif param_def.param_type == EcucParameterType.STRING:
+        elif param_def.param_type in (
+            EcucParameterType.STRING,
+            EcucParameterType.MULTILINE_STRING,
+            EcucParameterType.LINKER_SYMBOL,
+            EcucParameterType.FUNCTION,
+            EcucParameterType.ADD_INFO,
+        ):
             # Accept str directly, and also int/float/bool which can be used as string values
             # This is common in AUTOSAR for fields like CryptoKeyElementInitValue, FlsExpectedHwId
             # where numeric IDs might be stored

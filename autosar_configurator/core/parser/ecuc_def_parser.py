@@ -594,7 +594,9 @@ class EcucDefParser:
                 elif xdm_type == 'FLOAT': param_type = EcucParameterType.FLOAT
                 elif xdm_type == 'BOOLEAN': param_type = EcucParameterType.BOOLEAN
                 elif xdm_type == 'STRING': param_type = EcucParameterType.STRING
+                elif xdm_type == 'MULTILINE-STRING': param_type = EcucParameterType.MULTILINE_STRING
                 elif xdm_type == 'FUNCTION-NAME': param_type = EcucParameterType.FUNCTION
+                elif xdm_type == 'LINKER-SYMBOL': param_type = EcucParameterType.LINKER_SYMBOL
                 else: param_type = EcucParameterType.STRING # Default
             else:
                 param_type = EcucParameterType(tag_name)
