@@ -1949,17 +1949,12 @@ class DaVinciProjectImporter:
                 if new_project.available_chips:
                     matched_chip = None
                     if dv.derivative_uuid:
-                        db = getattr(new_project, "chip_database", None)
-                        if db is None:
-                            try:
-                                from .hardware.chip_database import ChipDatabase
-                                db = ChipDatabase()
-                            except Exception:
-                                db = None
-                        if db is not None:
-                            hit = db.find_chip_by_derivative_uuid(dv.derivative_uuid)
-                            if hit is not None and hit.name in new_project.available_chips:
-                                matched_chip = hit.name
+                        try:
+                            hit = new_project._chip_library().find_chip_by_derivative_uuid(dv.derivative_uuid)
+                        except Exception:
+                            hit = None
+                        if hit is not None and hit.name in new_project.available_chips:
+                            matched_chip = hit.name
                     if matched_chip is None and dv.derivative_name:
                         for chip in new_project.available_chips:
                             prefix = chip.split("_")[0]
@@ -1972,6 +1967,18 @@ class DaVinciProjectImporter:
                 report.warnings.append(
                     f"未在指定的 MCAL 目录中找到 EB 插件 (plugin.xml)：{mcal_source_dir}"
                 )
+
+        # If no EB MCAL chip was selected (e.g. pure DaVinci BSW import), match chip by derivative_uuid
+        if new_project.selected_chip is None and dv.derivative_uuid:
+            try:
+                hit = new_project._chip_library().find_chip_by_derivative_uuid(dv.derivative_uuid)
+            except Exception:
+                hit = None
+            if hit is not None:
+                if hit.name not in new_project.available_chips:
+                    new_project.available_chips.append(hit.name)
+                new_project.selected_chip = hit.name
+                new_project.load_ecu_resources()
 
         # 3. Determine active BSW modules & record skipped DaVinci MCAL modules
         # Respect dv.active_modules (from ECUC-VALUE-COLLECTION / EcucSplitter) rather than

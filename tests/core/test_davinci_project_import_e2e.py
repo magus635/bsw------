@@ -413,3 +413,38 @@ def test_davinci_dpa_resolves_parent_sip_root_and_respects_active_collection(tmp
     assert dv.active_modules == {"Os"}
     assert "UnusedEthIf" not in dv.active_modules
     assert "UnusedFrIf" not in dv.active_modules
+
+
+def test_import_davinci_project_selects_chip_by_derivative_uuid_without_mcal(tmp_path, monkeypatch):
+    """Pure DaVinci import without mcal_source_dir still selects matching chip by derivative_uuid."""
+    from autosar_configurator.core.hardware.chip_database import ChipDatabase, ChipDefinition
+
+    dpa_file, _ = _create_sample_sip_and_davinci(tmp_path)
+    db = ChipDatabase()
+    db.register_chip(
+        ChipDefinition(
+            name="CUSTOM_THA6206_CHIP",
+            derivative_uuid="uuid-tha6206",  # verify case-insensitive match
+            ecu_resources={"OsResource": {"NumOfCores": 2}},
+        )
+    )
+    monkeypatch.setattr(
+        "autosar_configurator.core.hardware.chip_database.get_default_chip_database",
+        lambda: db,
+    )
+    monkeypatch.setattr(
+        "autosar_configurator.core.hardware.ecu_resource_resolver.get_default_chip_database",
+        lambda: db,
+    )
+
+    wm = WorkspaceManager()
+    project, report = wm.import_davinci_project(
+        dpa_path=dpa_file,
+        target_dir=tmp_path / "uuid_out",
+        project_name="UuidChipApp",
+        confirm=lambda p, r: True,
+    )
+
+    assert project.selected_chip == "CUSTOM_THA6206_CHIP"
+    assert "CUSTOM_THA6206_CHIP" in project.available_chips
+    assert project.ecu_resources.get("OsResource.NumOfCores") == 2

@@ -814,12 +814,19 @@ class ChipDefinitionDesignerDialog(QDialog):
                 QMessageBox.critical(self, "删除失败", f"无法删除芯片文件:\n{exc}")
                 return
 
+        was_editing = self._editing_name == chip_name
         self.chip_database.unregister_chip(chip_name)
-        if self._editing_name == chip_name:
-            self._editing_name = None
-            self._base_chip = None
-            self._mark_clean()
         self._populate_clone_dropdown()
+        if was_editing:
+            next_chip = next(
+                (self.clone_combo.itemData(i) for i in range(self.clone_combo.count())
+                 if self.clone_combo.itemData(i)),
+                None,
+            )
+            if next_chip:
+                self._load_chip_by_name(next_chip)
+            else:
+                self._init_default_fields()
         self.status_label.setText(f"已从芯片库删除: {chip_name}")
 
     def _on_clone_clicked(self):
@@ -978,6 +985,14 @@ class ChipDefinitionDesignerDialog(QDialog):
         """Render chip repair history entries (newest first) into readable text."""
         if not entries:
             return "暂无修改历史记录。"
+
+        def _fmt_mark_item(item: Any) -> str:
+            if isinstance(item, dict):
+                field = item.get("field") or ""
+                note = item.get("note") or ""
+                return f"{field}（{note}）" if note else str(field)
+            return str(item)
+
         blocks: List[str] = []
         for idx, entry in enumerate(reversed(entries), 1):
             ver = entry.get("resource_version") or {}
@@ -987,6 +1002,38 @@ class ChipDefinitionDesignerDialog(QDialog):
                 f"    时间: {entry.get('timestamp') or entry.get('date') or '未知'}",
                 f"    作者: {entry.get('author') or '未知'} | 来源: {entry.get('source') or '未知'}",
             ]
+            if entry.get("note"):
+                lines.append(f"    备注: {entry['note']}")
+
+            # Real chip_repair._history_entry format: ecu_resources = {"added": [...], "changed": [...], "removed": [...]}
+            ecu_diff = entry.get("ecu_resources")
+            if isinstance(ecu_diff, dict):
+                ecu_lines: List[str] = []
+                for item in ecu_diff.get("added") or []:
+                    if isinstance(item, dict):
+                        ecu_lines.append(f"      + {item.get('key', '')} = {item.get('new')!r}")
+                for item in ecu_diff.get("changed") or []:
+                    if isinstance(item, dict):
+                        ecu_lines.append(f"      ~ {item.get('key', '')}: {item.get('old')!r} → {item.get('new')!r}")
+                for item in ecu_diff.get("removed") or []:
+                    if isinstance(item, dict):
+                        ecu_lines.append(f"      - {item.get('key', '')} (原值 {item.get('old')!r})")
+                if ecu_lines:
+                    lines.append(f"    ECU 资源变更 ({len(ecu_lines)}):")
+                    lines.extend(ecu_lines[:15])
+                    if len(ecu_lines) > 15:
+                        lines.append(f"      ... 其余 {len(ecu_lines) - 15} 条")
+
+            meta_diff = entry.get("metadata")
+            if isinstance(meta_diff, list) and meta_diff:
+                lines.append(f"    元数据变更 ({len(meta_diff)}):")
+                for item in meta_diff[:10]:
+                    if isinstance(item, dict):
+                        lines.append(f"      ~ {item.get('field', '')}: {item.get('old')!r} → {item.get('new')!r}")
+                    else:
+                        lines.append(f"      - {item}")
+
+            # Legacy/generic list fallback
             changes = entry.get("changes") or entry.get("ecu_changes")
             if isinstance(changes, list) and changes:
                 lines.append(f"    变更条目 ({len(changes)}):")
@@ -994,9 +1041,15 @@ class ChipDefinitionDesignerDialog(QDialog):
                     lines.append(f"      - {ch}")
                 if len(changes) > 15:
                     lines.append(f"      ... 其余 {len(changes) - 15} 条")
+
             confirmed = entry.get("confirmed")
             if isinstance(confirmed, list) and confirmed:
-                lines.append(f"    已确认 ({len(confirmed)}): " + ", ".join(str(c) for c in confirmed[:10]))
+                lines.append(f"    已确认 ({len(confirmed)}): " + ", ".join(_fmt_mark_item(c) for c in confirmed[:10]))
+
+            marked = entry.get("marked")
+            if isinstance(marked, list) and marked:
+                lines.append(f"    新标记 ({len(marked)}): " + ", ".join(_fmt_mark_item(m) for m in marked[:10]))
+
             blocks.append("\n".join(lines))
         return "\n\n".join(blocks)
 
@@ -1027,6 +1080,13 @@ class ChipDefinitionDesignerDialog(QDialog):
 
     def _on_sync_all_from_ecu_clicked(self):
         """Sync metadata.cores, resources (peripherals), and ports from ecu_resources in one step."""
+        if not self._ecu_resources:
+            QMessageBox.information(
+                self,
+                "无可用推导数据",
+                "当前芯片尚未加载 ECU 资源。请先在“4. ECU 资源”页导入 .properties 文件或填写相关键值。",
+            )
+            return
         before = self._build_current_chip()
         probe = copy.deepcopy(before)
         summary = sync_derived_fields_from_ecu(probe)
@@ -1114,10 +1174,6 @@ class ChipDefinitionDesignerDialog(QDialog):
         Entries still marked ``待填写`` (``TO_FILL_IN``) remain unconfirmable until filled.
         """
         confirmable = self._confirmable_marks()
-        if "memory_regions" in unconfirmed_marks(self._build_current_chip()):
-            mem_note = unconfirmed_marks(self._build_current_chip()).get("memory_regions")
-            if mem_note and mem_note != TO_FILL_IN:
-                confirmable.setdefault("memory_regions", str(mem_note))
 
         count = 0
         for key in keys:

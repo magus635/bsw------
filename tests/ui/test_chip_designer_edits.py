@@ -114,6 +114,25 @@ def test_delete_chip_removes_file_and_unregisters(dialog, ask, tmp_path):
     assert not (tmp_path / "CHIP_Y.yaml").exists()
     assert dialog.chip_database.get_chip("CHIP_Y") is None
     assert dialog.clone_combo.findData("CHIP_Y") == -1
+    # Deleting non-active chip leaves current chip active
+    assert dialog._editing_name == "CHIP_X"
+
+    # Now re-add CHIP_Y and delete the currently edited chip CHIP_X -> must switch cleanly
+    (tmp_path / "CHIP_Y.yaml").write_text(OTHER, encoding="utf-8")
+    dialog.chip_database = ChipDatabase(tmp_path)
+    dialog._populate_clone_dropdown()
+    dialog.clone_combo.setCurrentIndex(dialog.clone_combo.findData("CHIP_X"))
+    dialog._on_delete_chip_clicked()
+    assert not (tmp_path / "CHIP_X.yaml").exists()
+    assert dialog._editing_name == "CHIP_Y"
+    assert dialog.name_edit.text() == "CHIP_Y"
+    assert dialog.desc_edit.toPlainText() == "other chip"
+
+    # Deleting the last remaining chip resets form cleanly via _init_default_fields()
+    dialog.clone_combo.setCurrentIndex(dialog.clone_combo.findData("CHIP_Y"))
+    dialog._on_delete_chip_clicked()
+    assert dialog._editing_name is None
+    assert dialog.name_edit.text() == "NEW_MCU_SERIES"
 
 
 # --- core fields -------------------------------------------------------------------
@@ -175,11 +194,28 @@ def test_history_button_state_and_formatting(dialog, ask):
 
     formatted = dialog._format_history_entries([
         {"resource_version": {"old": "1.0.0", "new": "1.0.1"}, "timestamp": "2026-11-19", "author": "alice", "source": "设计器手工编辑"},
-        {"resource_version": {"old": "1.0.1", "new": "1.0.2"}, "timestamp": "2026-11-20", "author": "bob", "source": "修复向导"},
+        {
+            "resource_version": {"old": "1.0.1", "new": "1.0.2"},
+            "date": "2026-11-20",
+            "author": "bob",
+            "source": "修复向导",
+            "ecu_resources": {
+                "added": [{"key": "Os.A", "new": 1}],
+                "changed": [{"key": "Os.B", "old": 1, "new": 2}],
+                "removed": [],
+            },
+            "metadata": [{"field": "flash_size", "old": "2MB", "new": "4MB"}],
+            "confirmed": [{"field": "ports", "note": "已核对"}],
+        },
     ])
     # Newest entry first
     assert formatted.index("bob") < formatted.index("alice")
     assert "1.0.1 → 1.0.2" in formatted and "1.0.0 → 1.0.1" in formatted
+    assert "+ Os.A = 1" in formatted
+    assert "~ Os.B: 1 → 2" in formatted
+    assert "~ flash_size: '2MB' → '4MB'" in formatted
+    assert "ports（已核对）" in formatted
+    assert "{'field':" not in formatted
     assert dialog._format_history_entries([]) == "暂无修改历史记录。"
 
 
