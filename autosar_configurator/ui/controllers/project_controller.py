@@ -1568,10 +1568,22 @@ class ProjectController:
 
             added_count = 0
             failed_count = 0
+            rejected_count = 0
 
-            # Helper: auto-confirm Pre/Rec merges
-            def auto_confirm_merge(preview_text, merge_result):
-                return True  # Accept all merges
+            # Confirm callback: show merge preview dialog, let user accept/reject
+            def confirm_with_preview(preview_text, merge_result):
+                from ..dialogs.merge_preview_dialog import MergePreviewDialog
+
+                # Extract module name from preview header (e.g. "# Os 基线合并预演")
+                module_name = "Module"
+                if preview_text:
+                    first_line = preview_text.split('\n')[0]
+                    if '基线合并预演' in first_line:
+                        module_name = first_line.replace('#', '').replace('基线合并预演', '').strip()
+
+                dialog = MergePreviewDialog(self.win, module_name, preview_text, merge_result)
+                accepted = dialog.exec() == QDialog.Accepted
+                return accepted
 
             for module_name in sorted(imported_modules):
                 try:
@@ -1582,14 +1594,26 @@ class ProjectController:
                     manifest = infer_package(module_pkg_dir)
                     pkg = ModulePackage(module_pkg_dir, manifest)
 
+                    # Track whether this module's merge was rejected
+                    merge_rejected = [False]
+                    def confirm_with_tracking(preview_text, merge_result):
+                        accepted = confirm_with_preview(preview_text, merge_result)
+                        if not accepted:
+                            merge_rejected[0] = True
+                        return accepted
+
                     new_project.add_module_from_package(
                         pkg=pkg,
                         lib_index=0,  # DaVinciImport is at index 0
                         persist=True,
-                        confirm=auto_confirm_merge,
+                        confirm=confirm_with_tracking,
                         reconcile=True
                     )
-                    added_count += 1
+
+                    if merge_rejected[0]:
+                        rejected_count += 1
+                    else:
+                        added_count += 1
                 except Exception as e:
                     failed_count += 1
                     print(f"Warning: Failed to add {module_name}: {e}")
