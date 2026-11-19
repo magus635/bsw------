@@ -261,6 +261,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         # Name of the chip whose file is being edited (None for new / cloned chips)
         self._editing_name: Optional[str] = None
         self._last_saved_chip: Optional[str] = None
+        self._library_mutated: bool = False
         # Checksum of the editor content right after loading/saving (unsaved edits differ)
         self._loaded_checksum: Optional[str] = None
         # ECU resources (ecu:get/ecu:list data) and their version: not edited
@@ -815,6 +816,9 @@ class ChipDefinitionDesignerDialog(QDialog):
                 return
 
         was_editing = self._editing_name == chip_name
+        self._library_mutated = True
+        if self._last_saved_chip == chip_name:
+            self._last_saved_chip = None
         self.chip_database.unregister_chip(chip_name)
         self._populate_clone_dropdown()
         if was_editing:
@@ -1725,6 +1729,7 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._base_chip = copy.deepcopy(chip)
         self._editing_name = chip.name
         self._last_saved_chip = chip.name
+        self._library_mutated = True
         self._confirmed_marks = set()
         self._memory_note = ""
         self._memory_confirmed = False
@@ -1753,10 +1758,10 @@ class ChipDefinitionDesignerDialog(QDialog):
         self._tell_project_copy(chip.name)
 
     def reject(self):
-        """Closing after a successful save reports Accepted so callers using exec() refresh"""
+        """Closing after a successful save or deletion reports Accepted so callers using exec() refresh"""
         if not self._confirm_discard_edits("芯片定义有未保存的修改，关闭后将丢失。确定要关闭吗？"):
             return
-        if self._last_saved_chip:
+        if self._last_saved_chip or getattr(self, "_library_mutated", False):
             self.accept()
         else:
             super().reject()

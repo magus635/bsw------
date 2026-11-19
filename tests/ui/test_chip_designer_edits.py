@@ -128,11 +128,17 @@ def test_delete_chip_removes_file_and_unregisters(dialog, ask, tmp_path):
     assert dialog.name_edit.text() == "CHIP_Y"
     assert dialog.desc_edit.toPlainText() == "other chip"
 
-    # Deleting the last remaining chip resets form cleanly via _init_default_fields()
+    # Deleting the last remaining chip resets form cleanly via _init_default_fields(),
+    # clears _last_saved_chip if deleted, and marks library_mutated so reject() returns Accepted
+    dialog._last_saved_chip = "CHIP_Y"
     dialog.clone_combo.setCurrentIndex(dialog.clone_combo.findData("CHIP_Y"))
     dialog._on_delete_chip_clicked()
     assert dialog._editing_name is None
+    assert dialog._last_saved_chip is None
     assert dialog.name_edit.text() == "NEW_MCU_SERIES"
+
+    dialog.reject()
+    assert dialog.finished_codes == [1]
 
 
 # --- core fields -------------------------------------------------------------------

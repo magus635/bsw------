@@ -2158,6 +2158,13 @@ class DaVinciProjectImporter:
                         written_mcal_cfg.unlink(missing_ok=True)
                     report.failed_modules.append((m_name, str(exc)))
 
+        # Refresh ECU resources after all modules are loaded so apply_chip_expressions runs on each module_def
+        if new_project.module_managers and (new_project.selected_chip or mcal_source_dir is not None):
+            try:
+                new_project.load_ecu_resources()
+            except Exception as exc:
+                report.warnings.append(f"刷新 ECU 资源表达式失败：{exc}")
+
         # 6. Resolve cross-module references & record unresolved ones
         if new_project.module_managers:
             try:
