@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Integration Wizard UI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            color: #333;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { margin-bottom: 30px; color: #0066cc; }
+        .flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .page {
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .page.active { border-color: #0066cc; background: #f0f6ff; }
+        .page h3 {
+            margin: 0 0 10px 0;
+            color: #0066cc;
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .page h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #000;
+        }
+        .page p { font-size: 13px; line-height: 1.5; color: #666; margin-bottom: 15px; }
+        .section { margin-bottom: 20px; }
+        .section-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 0.5px;
+        }
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .table th {
+            background: #e8e8e8;
+            padding: 8px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+        }
+        .table td {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            color: #555;
+        }
+        .table tr:hover { background: #f0f0f0; }
+        .btn-group { display: flex; gap: 8px; margin: 15px 0; flex-wrap: wrap; }
+        .btn {
+            padding: 6px 12px;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            flex: 1;
+            min-width: 80px;
+        }
+        .btn:hover { background: #0052a3; }
+        .btn-secondary { background: #666; }
+        .btn-secondary:hover { background: #555; }
+        .input-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .input-group input {
+            flex: 1;
+            padding: 6px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #0066cc;
+            color: white;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge.neutral { background: #ccc; }
+        .badge.success { background: #28a745; }
+        .badge.warning { background: #ffc107; color: #000; }
+        .badge.danger { background: #dc3545; }
+        .check { color: #28a745; font-weight: bold; }
+        .cross { color: #dc3545; }
+        .tree-item {
+            padding: 8px;
+            border-left: 2px solid #ddd;
+            margin-left: 10px;
+            margin-bottom: 4px;
+            font-size: 12px;
+        }
+        .tree-item.category { font-weight: 600; border-left-color: #0066cc; background: #f0f6ff; }
+        .tree-item.module { padding-left: 20px; }
+        .tree-item.installed { color: #999; }
+        .status {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+        }
+        .status.available { background: #d4edda; color: #155724; }
+        .status.installed { background: #e2e3e5; color: #383d41; }
+        .status.incompatible { background: #fff3cd; color: #856404; }
+        .arrow { text-align: center; font-size: 24px; color: #0066cc; margin: 20px 0; }
+        @media (max-width: 768px) {
+            .flow { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Integration Wizard — Module Selection Flow</h1>
+
+    <p style="font-size: 14px; color: #666; margin-bottom: 30px;">
+        <strong>Purpose:</strong> Add BSW modules from DaVinci SIP, EB Tresos, or custom libraries to the project,
+        with baseline merge support and conflict detection.
+    </p>
+
+    <h2 style="margin-top: 30px; margin-bottom: 20px;">Page 1: Library Selection</h2>
+    <div class="page active">
+        <h3>File → Integrate Modules...</h3>
+        <h2>Select Module Libraries</h2>
+        <p>Choose which libraries to scan for available modules</p>
+
+        <div class="section">
+            <div class="section-title">Module Libraries</div>
+            <table class="table">
+                <tr><th>Path</th><th>Type</th><th>Modules</th></tr>
+                <tr><td>C:/davinci_imported_fixed</td><td>package</td><td>117</td></tr>
+                <tr><td>C:/EB_plugins</td><td>eb-plugins</td><td>—</td></tr>
+            </table>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn">Add Library...</button>
+            <button class="btn btn-secondary">Remove</button>
+        </div>
+
+        <p style="font-size: 12px; color: #666;">
+            <em>Libraries from the project are already listed. Add more to discover additional modules.</em>
+        </p>
+    </div>
+
+    <div class="arrow">→</div>
+
+    <h2 style="margin-top: 30px; margin-bottom: 20px;">Page 2: Module Selection</h2>
+    <div class="page active">
+        <h3>Module Selection</h3>
+        <h2>Select Modules (chip: THA6206_LFBGA292)</h2>
+        <p>Choose modules to add</p>
+
+        <div class="section">
+            <div class="section-title">Filter</div>
+            <input type="text" placeholder="Type to filter by name or category..." style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div>
+                <div class="section-title">Categories (left pane)</div>
+                <div class="tree-item category">MCAL (12)</div>
+                <div class="tree-item module"><input type="checkbox"> Adc <span class="badge">Pre</span> <span class="badge">Rec</span></div>
+                <div class="tree-item module"><input type="checkbox"> Can <span class="badge">Pre</span> <span class="badge">Rec</span></div>
+                <div class="tree-item module"><input type="checkbox"> Dio</div>
+
+                <div class="tree-item category">Communication (7)</div>
+                <div class="tree-item module"><input type="checkbox"> Com <span class="badge">Pre</span> <span class="badge">Rec</span></div>
+                <div class="tree-item module"><input type="checkbox"> CanIf <span class="badge">Pre</span> <span class="badge">Rec</span></div>
+
+                <div class="tree-item category">System (5)</div>
+                <div class="tree-item module installed"><input type="checkbox" disabled> Os <span class="badge neutral">Installed</span></div>
+                <div class="tree-item module"><input type="checkbox"> EcuC <span class="badge">Pre</span> <span class="badge">Rec</span></div>
+            </div>
+
+            <div>
+                <div class="section-title">Module Details (right pane)</div>
+                <table class="table" style="background: white;">
+                    <tr><td><strong>Module:</strong></td><td>Adc</td></tr>
+                    <tr><td><strong>Category:</strong></td><td>MCAL</td></tr>
+                    <tr><td><strong>Definition:</strong></td><td><code>/THA6_AS440_FuSa/Adc</code></td></tr>
+                    <tr><td><strong>Chip Compatible:</strong></td><td><span class="check">Yes</span></td></tr>
+                    <tr><td><strong>Pre Config:</strong></td><td>Yes</td></tr>
+                    <tr><td><strong>Rec Config:</strong></td><td>Yes</td></tr>
+                    <tr><td><strong>Templates:</strong></td><td>No</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn">Select All Compatible</button>
+            <button class="btn btn-secondary">Deselect All</button>
+            <div style="flex: 1; text-align: right; padding: 6px;">
+                <strong>12 module(s) selected</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="arrow">→</div>
+
+    <h2 style="margin-top: 30px; margin-bottom: 20px;">Page 3: Confirmation</h2>
+    <div class="page active">
+        <h3>Confirmation</h3>
+        <h2>Confirm Integration</h2>
+        <p>Review modules to add and configure baseline merge</p>
+
+        <div class="section">
+            <div class="section-title">Modules to Add</div>
+            <table class="table">
+                <tr><th>Module</th><th>Category</th><th>Pre</th><th>Rec</th><th>Library</th></tr>
+                <tr><td>Adc</td><td>MCAL</td><td>✓</td><td>✓</td><td>davinci_imported_fixed</td></tr>
+                <tr><td>Can</td><td>MCAL</td><td>✓</td><td>✓</td><td>davinci_imported_fixed</td></tr>
+                <tr><td>Com</td><td>Communication</td><td>✓</td><td>✓</td><td>davinci_imported_fixed</td></tr>
+                <tr><td>CanIf</td><td>Communication</td><td>✓</td><td>✓</td><td>davinci_imported_fixed</td></tr>
+            </table>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Baseline Merge</div>
+            <p>When adding Pre/Rec configs, merge with existing baseline or replace?</p>
+            <label style="display: block; margin-bottom: 8px;"><input type="radio" checked> <strong>Merge:</strong> Combine Pre/Rec with existing baseline</label>
+            <label style="display: block; margin-bottom: 8px;"><input type="radio"> <strong>Replace:</strong> Use module's Pre/Rec as new baseline</label>
+            <label style="display: block;"><input type="radio"> <strong>Skip:</strong> Don't load Pre/Rec configurations</label>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Conflicts & Warnings</div>
+            <div style="padding: 10px; background: #d4edda; border-radius: 4px; border-left: 3px solid #28a745; font-size: 12px; color: #155724;">
+                No conflicts detected.
+            </div>
+        </div>
+
+        <p style="font-size: 13px; font-weight: bold; color: #0066cc; margin-top: 20px;">
+            Ready to add 12 module(s)
+        </p>
+
+        <div class="btn-group">
+            <button class="btn">Finish</button>
+            <button class="btn btn-secondary">Cancel</button>
+        </div>
+    </div>
+
+    <h2 style="margin-top: 40px; margin-bottom: 20px;">Key Features</h2>
+    <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #0066cc;">
+        <ul style="margin-left: 20px; line-height: 1.8;">
+            <li><strong>Multi-library scanning:</strong> DaVinci SIP, EB Tresos plugins, custom packages</li>
+            <li><strong>Smart categorization:</strong> MCAL, Communication, System, Diagnostic, Memory, Security</li>
+            <li><strong>Chip filtering:</strong> Only show modules compatible with selected chip</li>
+            <li><strong>Pre/Rec visibility:</strong> See at a glance which modules have Pre/Rec configs</li>
+            <li><strong>Conflict detection:</strong> Warn about already-installed modules</li>
+            <li><strong>Baseline merge:</strong> Choose merge strategy (merge / replace / skip)</li>
+            <li><strong>Batch integration:</strong> Add multiple modules in one operation</li>
+        </ul>
+    </div>
+
+</div>
+</body>
+</html>

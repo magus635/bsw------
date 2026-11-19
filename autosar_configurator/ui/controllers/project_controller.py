@@ -640,6 +640,7 @@ class ProjectController:
 
         self.win.save_project_action.setEnabled(True)
         self.win.add_module_action.setEnabled(True)
+        self.win.integrate_modules_action.setEnabled(True)
         self.win.manage_variants_action.setEnabled(True)
         self.win.manage_variants_btn.setEnabled(True)
         self.win.project_properties_action.setEnabled(True)
@@ -838,6 +839,7 @@ class ProjectController:
             self.win.manage_variants_action.setEnabled(True)
             self.win.manage_variants_btn.setEnabled(True)
             self.win.add_module_action.setEnabled(True)
+            self.win.integrate_modules_action.setEnabled(True)
             
             # Update variant selector
             self.win._update_variant_selector()
@@ -1372,6 +1374,7 @@ class ProjectController:
             self.win.manage_variants_action.setEnabled(True)
             self.win.manage_variants_btn.setEnabled(True)
             self.win.add_module_action.setEnabled(True)
+            self.win.integrate_modules_action.setEnabled(True)
 
             # Update variant selector
             self.win._update_variant_selector()
@@ -1800,6 +1803,7 @@ class ProjectController:
             self.win.tree_view.clear()
             self.win.save_project_action.setEnabled(False)
             self.win.add_module_action.setEnabled(False)
+            self.win.integrate_modules_action.setEnabled(False)
 
         try:
             # Show loading cursor
@@ -1893,3 +1897,52 @@ class ProjectController:
             if path.exists():
                 self.win.statusbar.showMessage(f"Auto-loading last project: {path.name}...")
                 self._load_project_at_path(path)
+
+    def integrate_modules(self):
+        """Launch the integration wizard to add modules from libraries."""
+        if not self.win.current_project:
+            QMessageBox.warning(self.win, "No Project", "Please open a project first.")
+            return
+
+        from ...ui.wizards.integration_wizard import IntegrationWizard
+
+        wizard = IntegrationWizard(self.win.current_project, parent=self.win)
+        wizard.wizard_completed.connect(self._on_integration_complete)
+        wizard.exec()
+
+    def _on_integration_complete(self, result: dict):
+        """Handle integration wizard completion."""
+        added = result.get("added", [])
+        failed = result.get("failed", [])
+        conflicts = result.get("merge_conflicts", [])
+
+        if added:
+            msg = f"Successfully added {len(added)} module(s):\n"
+            msg += "\n".join(f"  • {m}" for m in added[:10])
+            if len(added) > 10:
+                msg += f"\n  ... and {len(added) - 10} more"
+
+            if conflicts:
+                msg += f"\n\nBaseline merge issues ({len(conflicts)}):\n"
+                msg += "\n".join(f"  • {c['module']}: {c['error'][:50]}" for c in conflicts[:5])
+                if len(conflicts) > 5:
+                    msg += f"\n  ... and {len(conflicts) - 5} more"
+
+            if failed:
+                msg += f"\n\nFailed to add {len(failed)} module(s):\n"
+                msg += "\n".join(f"  • {m[0]}: {m[1][:50]}" for m in failed[:5])
+                if len(failed) > 5:
+                    msg += f"\n  ... and {len(failed) - 5} more"
+
+            if conflicts or failed:
+                QMessageBox.warning(self.win, "Integration Partial", msg)
+            else:
+                QMessageBox.information(self.win, "Integration Complete", msg)
+
+            self.win.statusbar.showMessage(f"Added {len(added)} module(s)")
+        elif failed:
+            msg = "Failed to add modules:\n"
+            msg += "\n".join(f"  • {m[0]}: {m[1]}" for m in failed)
+            QMessageBox.critical(self.win, "Integration Failed", msg)
+        else:
+            QMessageBox.information(self.win, "No Changes", "No modules were added.")

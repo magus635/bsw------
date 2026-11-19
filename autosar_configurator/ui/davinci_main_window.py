@@ -237,6 +237,11 @@ class DaVinciMainWindow(QMainWindow):
         self.import_davinci_project_action.setStatusTip("Import BSW modules and MCAL resources from a DaVinci .dpa project")
         self.import_davinci_project_action.triggered.connect(self.project_controller.import_davinci_project)
 
+        self.integrate_modules_action = QAction("Integrate Modules...", self)
+        self.integrate_modules_action.setEnabled(False)
+        self.integrate_modules_action.setStatusTip("Add BSW modules from libraries with baseline merge")
+        self.integrate_modules_action.triggered.connect(self.project_controller.integrate_modules)
+
         self.import_value_action = QAction("Import Value File...", self)
         self.import_value_action.setStatusTip("Replace the current module's configuration with an EB value file (.epc/.arxml/.xdm)")
         self.import_value_action.setEnabled(False)
@@ -372,6 +377,7 @@ class DaVinciMainWindow(QMainWindow):
         file_menu.addAction(self.manage_variants_action)
         file_menu.addSeparator()
         file_menu.addAction(self.add_module_action)
+        file_menu.addAction(self.integrate_modules_action)
         file_menu.addAction(self.load_recommended_action)
         file_menu.addSeparator()
 

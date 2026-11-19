@@ -15,12 +15,15 @@ import logging
 import io
 
 logger = logging.getLogger(__name__)
+
+
 @dataclass
 class SipFile:
     """A single ARXML/XDM file from SIP."""
     path: Path
-    module: str  # Extracted from DEFINITION-REF in the file, not from path
+    module: str  # Extracted from the file content, not from path
     content: Optional[bytes] = None
+    role: str = "def"  # "def" (has ECUC-MODULE-DEF) | "config" (only value collections)
 
 
 class DaVinciProject:
@@ -153,15 +156,18 @@ class SipScanner:
     def __init__(self, sip_root: Path):
         self.sip_root = Path(sip_root)
 
-    def scan_all_modules(self) -> Dict[str, List[SipFile]]:
+    def scan_all_modules(self) -> Dict[str, List["SipFile"]]:
         """Scan all BSWMD directories and return files grouped by module.
+
+        Each file is classified:
+        - role="def"   : contains ECUC-MODULE-DEF (definitions)
+        - role="config": contains only ECUC-MODULE-CONFIGURATION-VALUES (pre/rec)
 
         Returns:
             {module_name: [SipFile, ...]}
         """
-        result = {}
+        result: Dict[str, List[SipFile]] = {}
 
-        # Walk both Components/ and DemoComponents/
         for root_dir in ["Components", "DemoComponents"]:
             base = self.sip_root / root_dir
             if not base.exists():
@@ -175,23 +181,23 @@ class SipScanner:
                 if not bswmd_dir.exists():
                     continue
 
-                # Walk all arxml/xdm files in BSWMD (root + subdirs)
                 for arxml_file in bswmd_dir.rglob("*.arxml"):
                     try:
-                        module = self._extract_module_from_file(arxml_file)
+                        module, role = self._extract_module_and_role(arxml_file)
                         if module:
                             content = arxml_file.read_bytes()
-                            sip_file = SipFile(path=arxml_file, module=module, content=content)
+                            sip_file = SipFile(
+                                path=arxml_file,
+                                module=module,
+                                content=content,
+                                role=role,
+                            )
                             if module not in result:
                                 result[module] = []
                             result[module].append(sip_file)
                     except (OSError, etree.XMLSyntaxError, AttributeError):
-                        # XMLSyntaxError: malformed XML
-                        # OSError: file read error
-                        # AttributeError: lxml Cython object issues
                         pass
 
-        # Sort each module's files deterministically
         for module in result:
             result[module].sort(key=lambda f: str(f.path))
 
@@ -282,46 +288,67 @@ class SipScanner:
         return None
 
     @staticmethod
-    def _extract_module_from_file(file_path: Path) -> Optional[str]:
-        """Extract module name from ARXML file.
-
-        Looks for ECUC-MODULE-DEF or ECUC-MODULE-CONFIGURATION-VALUES.
-        Prefers DEFINITION-REF (full path); falls back to SHORT-NAME.
+    def _extract_module_and_role(file_path: Path) -> tuple[Optional[str], str]:
+        """Extract module name and classify the file's role.
 
         Returns:
-            Module name (e.g., "Os", "vBRS"), or None if not found.
+            (module_name, role) where role is "def" if the file contains
+            ECUC-MODULE-DEF, or "config" if it only has CONFIGURATION-VALUES.
+            Returns (None, "unknown") if the file has no relevant elements.
         """
         try:
             parser = etree.XMLParser(resolve_entities=False, no_network=True)
             tree = etree.parse(str(file_path), parser)
             root = tree.getroot()
 
-            # Find ECUC-MODULE-DEF or ECUC-MODULE-CONFIGURATION-VALUES
+            has_def = False
+            module_from_def = None
+            module_from_config = None
+
             for elem in root.iter():
-                # Guard: elem.tag must be a string (not a Cython method object)
                 if not isinstance(elem.tag, str):
                     continue
 
-                if elem.tag.endswith("ECUC-MODULE-DEF") or elem.tag.endswith("ECUC-MODULE-CONFIGURATION-VALUES"):
-                    # Try DEFINITION-REF first
-                    for child in elem:
-                        if child.tag.endswith("DEFINITION-REF"):
-                            def_ref = child.text
-                            if def_ref:
-                                # Extract module name: last segment
-                                # e.g., "/MICROSAR/Os" -> "Os"
-                                return def_ref.rstrip("/").rsplit("/", 1)[-1]
+                tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
 
-                    # Fallback: SHORT-NAME (for simple test ARXML without DEFINITION-REF)
+                if tag == "ECUC-MODULE-DEF":
+                    has_def = True
+                    # Module name from SHORT-NAME directly (not nested)
                     for child in elem:
-                        if child.tag.endswith("SHORT-NAME"):
-                            short_name = child.text
-                            if short_name:
-                                return short_name.strip()
+                        c_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+                        if c_tag == "SHORT-NAME" and child.text:
+                            module_from_def = child.text.strip()
+                            break
 
-            return None
-        except (etree.XMLSyntaxError, OSError):
-            return None
+                elif tag == "ECUC-MODULE-CONFIGURATION-VALUES" and not module_from_config:
+                    # Get module name from DEFINITION-REF last segment
+                    for child in elem:
+                        c_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+                        if c_tag == "DEFINITION-REF" and child.text:
+                            module_from_config = child.text.rstrip("/").rsplit("/", 1)[-1]
+                            break
+                    if not module_from_config:
+                        # Fallback: SHORT-NAME of the config block
+                        for child in elem:
+                            c_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+                            if c_tag == "SHORT-NAME" and child.text:
+                                module_from_config = child.text.strip()
+                                break
+
+            if has_def and module_from_def:
+                return module_from_def, "def"
+            elif module_from_config:
+                return module_from_config, "config"
+            return None, "unknown"
+
+        except (etree.XMLSyntaxError, OSError, AttributeError):
+            return None, "unknown"
+
+    @staticmethod
+    def _extract_module_from_file(file_path: Path) -> Optional[str]:
+        """Backward-compatible wrapper that returns module name."""
+        name, _ = SipScanner._extract_module_and_role(file_path)
+        return name
 
 
 class SipMerger:
@@ -355,86 +382,284 @@ class SipMerger:
         return files[0].content
 
     @staticmethod
-    def separate_definition_and_config(merged_arxml: bytes) -> tuple[Optional[bytes], Optional[bytes], Optional[bytes]]:
-        """Separate ECUC-MODULE-DEF and ECUC-MODULE-CONFIGURATION-VALUES from merged ARXML.
+    def merge_definition(files: List[SipFile], module_name: str) -> Optional[bytes]:
+        """Collect every ECUC-MODULE-DEF / BSW-IMPLEMENTATION from all files into one document.
+
+        Unlike :meth:`merge_module`, this never drops a file: every AR-PACKAGE that
+        carries a definition or implementation element is copied into the result,
+        deduplicated by its AR path.
 
         Returns:
-            Tuple of (definition_bytes, pre_config_bytes, rec_config_bytes)
-            Each can be None if not present.
+            ARXML bytes, or None when no file holds a definition.
+        """
+        by_path: Dict[str, Any] = {}
+        nsmap = None
+        root_tag = None
+
+        for sip_file in files:
+            if not sip_file.content:
+                continue
+            try:
+                parser = etree.XMLParser(resolve_entities=False, no_network=True)
+                root = etree.fromstring(sip_file.content, parser)
+            except (etree.XMLSyntaxError, ValueError):
+                continue
+
+            if nsmap is None:
+                nsmap = root.nsmap
+                root_tag = root.tag
+
+            for pkg in SipMerger._walk_packages(root):
+                if not SipMerger._package_has_definition(pkg):
+                    continue
+                key = SipMerger._package_path(pkg)
+                if key not in by_path:
+                    by_path[key] = etree.fromstring(etree.tostring(pkg))
+
+        if not by_path or root_tag is None:
+            return None
+
+        out_root = etree.Element(root_tag, nsmap=nsmap)
+        packages = etree.SubElement(out_root, SipMerger._ns_tag(root_tag, "AR-PACKAGES"))
+        for key in sorted(by_path):
+            packages.append(by_path[key])
+        return etree.tostring(out_root, encoding="utf-8", xml_declaration=True, pretty_print=True)
+
+    @staticmethod
+    def extract_value_collections(files: List[SipFile], module_name: str) -> Dict[str, bytes]:
+        """Split the value collections of all files into Pre / Rec / other documents.
+
+        The role of a collection comes from the module's own BSW-IMPLEMENTATION:
+        ``PRECONFIGURED-CONFIGURATION-REFS`` names the Pre paths,
+        ``RECOMMENDED-CONFIGURATION-REFS`` the Rec paths (SIP spec §6.2 — by AUTOSAR
+        path, never by file name or SHORT-NAME). A collection named by neither is kept
+        under ``"values"`` so nothing is silently dropped.
+
+        Returns:
+            {"pre": bytes, "rec": bytes, "values": bytes} — only non-empty keys.
+        """
+        pre_paths: Set[str] = set()
+        rec_paths: Set[str] = set()
+        collections: Dict[str, Any] = {}
+        nsmap = None
+        root_tag = None
+
+        for sip_file in files:
+            if not sip_file.content:
+                continue
+            try:
+                parser = etree.XMLParser(resolve_entities=False, no_network=True)
+                root = etree.fromstring(sip_file.content, parser)
+            except (etree.XMLSyntaxError, ValueError):
+                continue
+
+            if nsmap is None:
+                nsmap = root.nsmap
+                root_tag = root.tag
+
+            # Learn the Pre/Rec paths from every BSW-IMPLEMENTATION in the module
+            for elem in root.iter():
+                if not isinstance(elem.tag, str):
+                    continue
+                tag = SipMerger._local(elem.tag)
+                if tag == "BSW-IMPLEMENTATION":
+                    for child in elem.iter():
+                        if not isinstance(child.tag, str):
+                            continue
+                        c_tag = SipMerger._local(child.tag)
+                        if c_tag == "PRECONFIGURED-CONFIGURATION-REF" and child.text:
+                            pre_paths.add(child.text.strip())
+                        elif c_tag == "RECOMMENDED-CONFIGURATION-REF" and child.text:
+                            rec_paths.add(child.text.strip())
+
+            # Collect every value collection with its full AR path
+            for pkg in SipMerger._walk_packages(root):
+                pkg_path = SipMerger._package_path(pkg)
+                for elem in pkg.iter():
+                    if not isinstance(elem.tag, str):
+                        continue
+                    if SipMerger._local(elem.tag) != "ECUC-MODULE-CONFIGURATION-VALUES":
+                        continue
+                    short = SipMerger._child_text(elem, "SHORT-NAME")
+                    if not short:
+                        continue
+                    ar_path = f"{pkg_path}/{short}" if pkg_path else f"/{short}"
+                    if ar_path not in collections:
+                        collections[ar_path] = etree.fromstring(etree.tostring(elem))
+
+        if not collections or root_tag is None:
+            return {}
+
+        buckets: Dict[str, List[Any]] = {"pre": [], "rec": [], "values": []}
+        for ar_path in sorted(collections):
+            elem = collections[ar_path]
+            if ar_path in pre_paths:
+                buckets["pre"].append(elem)
+            elif ar_path in rec_paths:
+                buckets["rec"].append(elem)
+            else:
+                buckets["values"].append(elem)
+
+        result: Dict[str, bytes] = {}
+        for role, elems in buckets.items():
+            if not elems:
+                continue
+            out_root = etree.Element(root_tag, nsmap=nsmap)
+            packages = etree.SubElement(out_root, SipMerger._ns_tag(root_tag, "AR-PACKAGES"))
+            pkg_elem = etree.SubElement(packages, SipMerger._ns_tag(root_tag, "AR-PACKAGE"))
+            etree.SubElement(pkg_elem, SipMerger._ns_tag(root_tag, "SHORT-NAME")).text = module_name
+            elements_elem = etree.SubElement(pkg_elem, SipMerger._ns_tag(root_tag, "ELEMENTS"))
+            for elem in elems:
+                elements_elem.append(elem)
+            result[role] = etree.tostring(out_root, encoding="utf-8", xml_declaration=True, pretty_print=True)
+        return result
+
+    # --- small XML helpers -------------------------------------------------------------
+
+    @staticmethod
+    def _local(tag) -> str:
+        return tag.split('}')[-1] if isinstance(tag, str) and '}' in tag else (tag if isinstance(tag, str) else "")
+
+    @staticmethod
+    def _ns_tag(root_tag: str, name: str) -> str:
+        if isinstance(root_tag, str) and root_tag.startswith('{'):
+            return '{' + root_tag[1:].split('}')[0] + '}' + name
+        return name
+
+    @staticmethod
+    def _walk_packages(root):
+        """Every AR-PACKAGE in document order (nested ones included)."""
+        for elem in root.iter():
+            if isinstance(elem.tag, str) and SipMerger._local(elem.tag) == "AR-PACKAGE":
+                yield elem
+
+    @staticmethod
+    def _package_path(pkg) -> str:
+        """Full AR path of a package, e.g. ``/MICROSAR/VTT``."""
+        names = []
+        node = pkg
+        while node is not None:
+            if isinstance(node.tag, str) and SipMerger._local(node.tag) == "AR-PACKAGE":
+                short = SipMerger._child_text(node, "SHORT-NAME")
+                if short:
+                    names.append(short)
+            node = node.getparent()
+        return '/' + '/'.join(reversed(names)) if names else ''
+
+    @staticmethod
+    def _child_text(elem, name: str) -> Optional[str]:
+        for child in elem:
+            if isinstance(child.tag, str) and SipMerger._local(child.tag) == name:
+                return (child.text or '').strip() or None
+        return None
+
+    @staticmethod
+    def _package_has_definition(pkg) -> bool:
+        for child in pkg:
+            if not isinstance(child.tag, str):
+                continue
+            if SipMerger._local(child.tag) != "ELEMENTS":
+                continue
+            for elem in child:
+                if not isinstance(elem.tag, str):
+                    continue
+                if SipMerger._local(elem.tag) in (
+                        "ECUC-MODULE-DEF", "BSW-IMPLEMENTATION", "ECUC-DEFINITION-COLLECTION"):
+                    return True
+        return False
+
+    @staticmethod
+    def separate_definition_and_config(merged_arxml: bytes) -> tuple[Optional[bytes], Optional[bytes], Optional[bytes]]:
+        """Backward-compatible helper: split one document into def / pre / rec.
+
+        Only used by older call sites; the CLI uses :meth:`merge_definition` and
+        :meth:`extract_value_collections`, which work across several files.
         """
         try:
             parser = etree.XMLParser(resolve_entities=False, no_network=True)
-            tree = etree.parse(io.BytesIO(merged_arxml), parser)
-            root = tree.getroot()
+            root = etree.fromstring(merged_arxml, parser)
+            nsmap, root_tag = root.nsmap, root.tag
 
-            # Create three separate trees
-            ns = {'ar': 'http://autosar.org/schema/r4.0'}
+            # Build Pre/Rec path sets from BSW-IMPLEMENTATION references
+            pre_paths: set = set()
+            rec_paths: set = set()
+            for elem in root.iter():
+                if not isinstance(elem.tag, str):
+                    continue
+                tag = SipMerger._local(elem.tag)
+                if tag == "BSW-IMPLEMENTATION":
+                    for child in elem.iter():
+                        if not isinstance(child.tag, str):
+                            continue
+                        c_tag = SipMerger._local(child.tag)
+                        if c_tag == "PRECONFIGURED-CONFIGURATION-REF" and child.text:
+                            pre_paths.add(child.text.strip())
+                        elif c_tag == "RECOMMENDED-CONFIGURATION-REF" and child.text:
+                            rec_paths.add(child.text.strip())
 
-            def_root = etree.Element(root.tag, nsmap=root.nsmap)
-            pre_root = etree.Element(root.tag, nsmap=root.nsmap)
-            rec_root = etree.Element(root.tag, nsmap=root.nsmap)
+            def_has = False
+            pre_elems: list = []
+            rec_elems: list = []
 
-            def_has_content = False
-            pre_has_content = False
-            rec_has_content = False
+            # Walk packages: separate definitions from value collections
+            def_pkgs: list = []
+            for pkg in SipMerger._walk_packages(root):
+                has_def_child = SipMerger._package_has_definition(pkg)
+                pkg_path = SipMerger._package_path(pkg)
 
-            # Process each AR-PACKAGE
-            for pkg in root.findall('.//ar:AR-PACKAGE', ns):
-                # Create clean packages for each output
-                def_pkg = etree.Element(pkg.tag, nsmap=pkg.nsmap)
-                pre_pkg = etree.Element(pkg.tag, nsmap=pkg.nsmap)
-                rec_pkg = etree.Element(pkg.tag, nsmap=pkg.nsmap)
-
-                # Copy SHORT-NAME
-                sn = pkg.find('./ar:SHORT-NAME', ns)
-                if sn is not None:
-                    etree.SubElement(def_pkg, sn.tag).text = sn.text
-                    etree.SubElement(pre_pkg, sn.tag).text = sn.text
-                    etree.SubElement(rec_pkg, sn.tag).text = sn.text
-
-                # Process ELEMENTS
-                elements = pkg.find('./ar:ELEMENTS', ns)
-                if elements is not None:
-                    def_elements = etree.SubElement(def_pkg, elements.tag)
-                    pre_elements = etree.SubElement(pre_pkg, elements.tag)
-                    rec_elements = etree.SubElement(rec_pkg, elements.tag)
-
-                    for child in elements:
-                        tag_name = child.tag.split('}')[-1] if '}' in child.tag else child.tag
-
-                        if tag_name == "ECUC-MODULE-DEF":
-                            def_elements.append(etree.fromstring(etree.tostring(child)))
-                            def_has_content = True
-                        elif tag_name == "BSW-IMPLEMENTATION":
-                            # Include implementation in def only
-                            def_elements.append(etree.fromstring(etree.tostring(child)))
-                            def_has_content = True
-                        elif tag_name == "ECUC-MODULE-CONFIGURATION-VALUES":
-                            # Determine if Pre or Rec by checking DEFINITION-REF or SHORT-NAME
-                            def_ref = child.findtext('./ar:DEFINITION-REF', "", ns)
-                            short_name = child.findtext('./ar:SHORT-NAME', "", ns)
-
-                            is_pre = "Pre" in short_name or "Pre" in def_ref
-
-                            if is_pre:
-                                pre_elements.append(etree.fromstring(etree.tostring(child)))
-                                pre_has_content = True
+                # Strip ECUC-MODULE-CONFIGURATION-VALUES out of def; collect them separately
+                clean_pkg = etree.Element(pkg.tag, nsmap=pkg.nsmap)
+                for child in pkg:
+                    c_tag = SipMerger._local(child.tag)
+                    if c_tag == "ELEMENTS":
+                        elements_elem = etree.SubElement(clean_pkg, child.tag)
+                        for sub in child:
+                            s_tag = SipMerger._local(sub.tag)
+                            if s_tag == "ECUC-MODULE-CONFIGURATION-VALUES":
+                                # Route to pre/rec
+                                sn = SipMerger._child_text(sub, "SHORT-NAME") or ""
+                                ar_path = f"{pkg_path}/{sn}" if sn else ""
+                                if ar_path and ar_path in pre_paths:
+                                    pre_elems.append((etree.fromstring(etree.tostring(sub)), pkg_path))
+                                elif ar_path and ar_path in rec_paths:
+                                    rec_elems.append((etree.fromstring(etree.tostring(sub)), pkg_path))
+                                # (If role unknown, skip — config files handle it)
                             else:
-                                rec_elements.append(etree.fromstring(etree.tostring(child)))
-                                rec_has_content = True
+                                if s_tag in ("ECUC-MODULE-DEF", "BSW-IMPLEMENTATION", "ECUC-DEFINITION-COLLECTION"):
+                                    def_has = True
+                                elements_elem.append(etree.fromstring(etree.tostring(sub)))
+                    else:
+                        clean_pkg.append(etree.fromstring(etree.tostring(child)))
 
-                # Only add package if it has content
-                if def_has_content and len(def_elements):
-                    def_root.append(def_pkg)
-                if pre_has_content and len(pre_elements):
-                    pre_root.append(pre_pkg)
-                if rec_has_content and len(rec_elements):
-                    rec_root.append(rec_pkg)
+                if has_def_child:
+                    def_pkgs.append(clean_pkg)
 
-            # Convert to bytes
-            def_bytes = etree.tostring(def_root, encoding='utf-8', xml_declaration=True, pretty_print=True) if def_has_content else None
-            pre_bytes = etree.tostring(pre_root, encoding='utf-8', xml_declaration=True, pretty_print=True) if pre_has_content else None
-            rec_bytes = etree.tostring(rec_root, encoding='utf-8', xml_declaration=True, pretty_print=True) if rec_has_content else None
+            # Build output documents
+            def _make_doc(pairs_or_pkgs, is_packages=False):
+                out = etree.Element(root_tag, nsmap=nsmap)
+                packages = etree.SubElement(out, SipMerger._ns_tag(root_tag, "AR-PACKAGES"))
+                if is_packages:
+                    for pkg in pairs_or_pkgs:
+                        packages.append(pkg)
+                else:
+                    # Group by package path
+                    by_path: dict = {}
+                    for elem, pkg_path in pairs_or_pkgs:
+                        if pkg_path not in by_path:
+                            by_path[pkg_path] = []
+                        by_path[pkg_path].append(elem)
+                    for path, elems in sorted(by_path.items()):
+                        pkg_elem = etree.SubElement(packages, SipMerger._ns_tag(root_tag, "AR-PACKAGE"))
+                        name = path.rsplit("/", 1)[-1] if "/" in path else path
+                        etree.SubElement(pkg_elem, SipMerger._ns_tag(root_tag, "SHORT-NAME")).text = name
+                        elements_elem = etree.SubElement(pkg_elem, SipMerger._ns_tag(root_tag, "ELEMENTS"))
+                        for e in elems:
+                            elements_elem.append(e)
+                return etree.tostring(out, encoding='utf-8', xml_declaration=True, pretty_print=True)
+
+            def_bytes = _make_doc(def_pkgs, is_packages=True) if def_has else None
+            pre_bytes = _make_doc(pre_elems) if pre_elems else None
+            rec_bytes = _make_doc(rec_elems) if rec_elems else None
 
             return def_bytes, pre_bytes, rec_bytes
 
@@ -500,11 +725,17 @@ class SipPackageWriter:
             rec_list.append(f"config/{module_name}_Rec.arxml")
             files_list.append(f"config/{module_name}_Rec.arxml")
 
+        # Extract AUTOSAR definition path from definition content
+        def_ar_path = SipPackageWriter._extract_definition_path(definition_content, module_name) if definition_content else None
+        if not def_ar_path:
+            # Fallback: guess /MICROSAR/<Module>
+            def_ar_path = f"/MICROSAR/{module_name}"
+
         # Write module.json matching load_manifest schema
         manifest = {
             "schema": 1,
             "module": module_name,
-            "definition": f"config/{module_name}.arxml",
+            "definition": def_ar_path,
             "files": files_list,
             "pre": pre_list,
             "rec": rec_list,
@@ -515,6 +746,65 @@ class SipPackageWriter:
             json.dump(manifest, f, indent=2)
 
         return output_dir
+
+    @staticmethod
+    def _extract_definition_path(content: bytes, module_name: str) -> Optional[str]:
+        """Extract AUTOSAR path of ECUC-MODULE-DEF from definition ARXML content.
+
+        Returns:
+            AR path like "/MICROSAR/Os", or None if not found
+        """
+        try:
+            root = etree.fromstring(content)
+        except etree.XMLSyntaxError:
+            return None
+
+        # Find ECUC-MODULE-DEF element
+        def_elem = None
+        for elem in root.iter():
+            if isinstance(elem.tag, str) and elem.tag.endswith("}ECUC-MODULE-DEF"):
+                def_elem = elem
+                break
+            elif elem.tag == "ECUC-MODULE-DEF":
+                def_elem = elem
+                break
+
+        if def_elem is None:
+            return None
+
+        # Extract SHORT-NAME of the definition
+        def_name = None
+        for child in def_elem:
+            tag = child.tag
+            if isinstance(tag, str):
+                tag = tag.rsplit("}", 1)[-1]
+            if tag == "SHORT-NAME":
+                def_name = (child.text or "").strip()
+                break
+
+        if not def_name:
+            return None
+
+        # Build AR-PACKAGE path
+        segments = [def_name]
+        parent = def_elem.getparent()
+        while parent is not None:
+            tag = parent.tag
+            if isinstance(tag, str):
+                tag = tag.rsplit("}", 1)[-1]
+            if tag == "AR-PACKAGE":
+                for child in parent:
+                    child_tag = child.tag
+                    if isinstance(child_tag, str):
+                        child_tag = child_tag.rsplit("}", 1)[-1]
+                    if child_tag == "SHORT-NAME":
+                        pkg_name = (child.text or "").strip()
+                        if pkg_name:
+                            segments.append(pkg_name)
+                        break
+            parent = parent.getparent()
+
+        return "/" + "/".join(reversed(segments))
 
 
 class McalResourceExtractor:

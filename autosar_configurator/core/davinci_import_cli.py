@@ -71,37 +71,53 @@ class DaVinciImportCLI:
 
             # Import each module
             imported = 0
+            skipped_no_def = 0
             for module_name in sorted(all_modules):
-                logger.info("Importing %s...", module_name)
-                files = scanner.scan_module(module_name, parsed.derivative_uuid)
-                if not files:
-                    logger.warning("  No files found for %s", module_name)
+                files = all_modules[module_name]
+
+                # Collect definition and config files separately
+                def_files = [f for f in files if f.role == "def"]
+                cfg_files = [f for f in files if f.role == "config"]
+
+                if not def_files and not cfg_files:
+                    logger.warning("  Skipping %s: no files", module_name)
                     continue
 
-                # Merge files for this module
-                merged = SipMerger.merge_module(files, module_name)
-                if not merged:
-                    logger.warning("  Failed to merge %s", module_name)
+                # Build merged definition document
+                all_files = def_files + cfg_files
+                def_content = SipMerger.merge_definition(all_files, module_name)
+
+                if not def_content and not def_files:
+                    logger.warning("  Skipping %s: no definition found", module_name)
+                    skipped_no_def += 1
                     continue
 
-                # Separate definition and config
-                def_content, pre_config, rec_config = SipMerger.separate_definition_and_config(merged)
+                # Extract value collections (Pre/Rec) using IMPL-guided role assignment
+                value_docs = SipMerger.extract_value_collections(all_files, module_name)
+                pre_config = value_docs.get("pre")
+                rec_config = value_docs.get("rec")
+
+                logger.info("Importing %s... def=%s pre=%s rec=%s values=%s",
+                            module_name,
+                            "✓" if def_content else "✗",
+                            "✓" if pre_config else "—",
+                            "✓" if rec_config else "—",
+                            "✓" if value_docs.get("values") else "—")
 
                 # Write package
                 try:
                     pkg_dir = SipPackageWriter.write_package(
                         module_name=module_name,
-                        definition_content=def_content,
+                        definition_content=def_content or b"",
                         pre_config=pre_config,
                         rec_config=rec_config,
                         output_dir=output_dir,
                     )
-                    logger.info("  Wrote package to %s", pkg_dir)
                     imported += 1
                 except Exception as e:
                     logger.error("  Error writing package for %s: %s", module_name, e)
 
-            logger.info("Imported %d module(s)", imported)
+            logger.info("Imported %d module(s), skipped %d (no definition)", imported, skipped_no_def)
 
             # Optional: extract MCAL resources
             if parsed.include_resources:
