@@ -610,10 +610,16 @@ class SipMerger:
                 # Strip ECUC-MODULE-CONFIGURATION-VALUES out of def; collect them separately
                 clean_pkg = etree.Element(pkg.tag, nsmap=pkg.nsmap)
                 for child in pkg:
+                    # Skip non-element nodes (comments, processing instructions) — their tag is a function
+                    if not isinstance(child.tag, str):
+                        continue
                     c_tag = SipMerger._local(child.tag)
                     if c_tag == "ELEMENTS":
                         elements_elem = etree.SubElement(clean_pkg, child.tag)
                         for sub in child:
+                            # Skip non-element nodes
+                            if not isinstance(sub.tag, str):
+                                continue
                             s_tag = SipMerger._local(sub.tag)
                             if s_tag == "ECUC-MODULE-CONFIGURATION-VALUES":
                                 # Route to pre/rec
