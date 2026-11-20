@@ -564,7 +564,13 @@ class OverlayEngine:
         for param_name, param_def in container_def.parameters.items():
             is_multi = param_def.upper_multiplicity == -1 or param_def.upper_multiplicity > 1
             multi_param_list = multi_params_source.get(param_name, [])
-            
+
+            # AUTOSAR multi-valued params with REQUIRES-INDEX=false store a single entry in parameter_values.
+            if is_multi and not multi_param_list and param_name in params_source:
+                single_param = params_source[param_name]
+                if getattr(single_param, 'value', None) is not None:
+                    multi_param_list = [single_param]
+
             if is_multi and multi_param_list:
                 # Multi-valued parameter: create wrapper node with indexed children
                 wrapper_node = ConfigurationNode(

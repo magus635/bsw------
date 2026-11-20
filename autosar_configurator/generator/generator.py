@@ -43,6 +43,13 @@ class CodeGenerator:
     NON_C_TEMPLATE_SUFFIXES = ('.arxml', '.orti')
     # Templates generated under their own file name, without the "<Module>_" prefix
     UNPREFIXED_TEMPLATE_SUFFIXES = ('.scat', '.sct', '.ld', '.lsl', '.icf', '.lcf')
+    # Extra filename prefixes accepted for modules whose generated files
+    # intentionally use a different prefix than the AUTOSAR module short_name
+    # (e.g. THA6 MCAL Resource module generates Mcall_Cfg.h).
+    # Matched files preserve their own filename as output_name (stripping optional .tpl).
+    MODULE_EXTRA_PREFIXES: Dict[str, Tuple[str, ...]] = {
+        'resource': ('mcall_',),
+    }
     # Part of the fingerprint: changes when the generator produces different output
     # for the same configuration and templates (2: definition ENABLE conditions,
     # 3: EB value semantics - Double numbers, string variables, XPath 1.0 comparison)
@@ -284,7 +291,7 @@ class CodeGenerator:
                 logger.info(f"Generating for variant: {variant}")
         else:
             out_module_dir = output_dir / module_name
-            if variant:
+            if variant and variant != "Default":
                 out_module_dir = out_module_dir / variant
                 logger.info(f"Generating for variant: {variant}")
 
@@ -422,6 +429,7 @@ class CodeGenerator:
 
                     name_lower = f.name.lower()
                     prefix_lower = f"{module_name}_".lower()
+                    extra_prefixes = self.MODULE_EXTRA_PREFIXES.get(module_name.lower(), ())
 
                     if (not name_lower.startswith((prefix_lower, "module_"))
                             and name_lower.endswith(self.UNPREFIXED_TEMPLATE_SUFFIXES)):
@@ -435,6 +443,29 @@ class CodeGenerator:
                                 'rel_dir': rel_dir,
                                 'template_name': f.name,
                                 'output_name': f.name,
+                                'original_path': str(f.resolve()),
+                                'source_dir': str(md.resolve())
+                            }
+                    elif extra_prefixes and name_lower.startswith(extra_prefixes):
+                        if not (
+                            name_lower.endswith('.tpl')
+                            or name_lower.endswith(('.c', '.h'))
+                            or name_lower.endswith(self.NON_C_TEMPLATE_SUFFIXES)
+                        ):
+                            continue
+                        try:
+                            rel_path = f.parent.relative_to(md)
+                        except ValueError:
+                            rel_path = Path('.')
+                        rel_dir = str(rel_path).replace('\\', '/')
+                        out_name = f.name[:-4] if name_lower.endswith('.tpl') else f.name
+                        dedup_key = f"{rel_dir}/{out_name}"
+                        if dedup_key not in found:
+                            found[dedup_key] = {
+                                'type': out_name,
+                                'rel_dir': rel_dir,
+                                'template_name': f.name,
+                                'output_name': out_name,
                                 'original_path': str(f.resolve()),
                                 'source_dir': str(md.resolve())
                             }
@@ -829,7 +860,12 @@ class CodeGenerator:
         mod = module_name or (self.configuration.short_name if self.configuration else "")
         types = self._discover_template_types(mod)
         for t_info in types:
-            if t_info['template_name'] == template_name or f"{mod}_{t_info['type']}" == template_name or f"{mod}_{t_info['type']}.tpl" == template_name:
+            if (
+                t_info['template_name'] == template_name
+                or t_info.get('output_name') == template_name
+                or f"{mod}_{t_info['type']}" == template_name
+                or f"{mod}_{t_info['type']}.tpl" == template_name
+            ):
                 orig_path = t_info.get('original_path')
                 if orig_path:
                     try:

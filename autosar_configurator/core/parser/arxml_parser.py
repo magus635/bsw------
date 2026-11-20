@@ -550,15 +550,38 @@ class ArxmlParser:
                 index_val = int(index_text)
             except (ValueError, TypeError):
                 index_val = 0
+            # First entry of a multi-valued parameter may omit INDEX while subsequent ones include it
+            if param_name in container.parameter_values and param_name not in container.multi_parameter_values:
+                first = container.parameter_values.pop(param_name)
+                first.index = 0
+                container.multi_parameter_values[param_name] = [first]
             container.add_multi_parameter_value(param_name, value, definition_ref, index_val)
             # Set dest_type on the newly added multi-param
             if dest_type and param_name in container.multi_parameter_values:
-                container.multi_parameter_values[param_name][-1].dest_type = dest_type
+                items = container.multi_parameter_values[param_name]
+                target = items[index_val] if 0 <= index_val < len(items) else items[-1]
+                target.dest_type = dest_type
         else:
-            container.set_parameter_value(param_name, value, definition_ref)
-            # Set dest_type on the parameter
-            if dest_type and param_name in container.parameter_values:
-                container.parameter_values[param_name].dest_type = dest_type
+            # Multi-valued params with REQUIRES-INDEX=false repeat the element without <INDEX>
+            if param_name in container.parameter_values:
+                existing_param = container.parameter_values.pop(param_name)
+                if existing_param.index is None:
+                    existing_param.index = 0
+                container.multi_parameter_values.setdefault(param_name, []).append(existing_param)
+                next_index = len(container.multi_parameter_values[param_name])
+                container.add_multi_parameter_value(param_name, value, definition_ref, next_index)
+                if dest_type:
+                    container.multi_parameter_values[param_name][-1].dest_type = dest_type
+            elif param_name in container.multi_parameter_values:
+                next_index = len(container.multi_parameter_values[param_name])
+                container.add_multi_parameter_value(param_name, value, definition_ref, next_index)
+                if dest_type:
+                    container.multi_parameter_values[param_name][-1].dest_type = dest_type
+            else:
+                container.set_parameter_value(param_name, value, definition_ref)
+                # Set dest_type on the parameter
+                if dest_type and param_name in container.parameter_values:
+                    container.parameter_values[param_name].dest_type = dest_type
 
     @classmethod
     def typed_value(cls, value: Optional[str], dest_type: Optional[str], numerical: bool):

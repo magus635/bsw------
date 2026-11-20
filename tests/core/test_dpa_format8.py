@@ -216,7 +216,7 @@ def test_v8_create_has_default_directories():
     assert project.directories.base == "config/base"
     assert project.directories.templates == "templates"
     assert project.directories.gen == "gen"
-    assert project.directories.gen_layout == "flat"
+    assert project.directories.gen_layout == "per-module"
     assert project.directories.chips == "chips"
     assert project.directories.integration == "integration"
     assert project.directories.system == "system"

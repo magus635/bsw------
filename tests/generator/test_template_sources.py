@@ -300,8 +300,11 @@ def test_overlay_template_includes_macro_from_package(tmp_path):
 
 
 def test_flat_gen_layout_writes_without_module_subdir(tmp_path):
-    """Format 8 projects with gen_layout='flat' write directly under gen/ via project_paths.gen_dir."""
+    """Format 8 projects with explicit gen_layout='flat' write directly under gen/ via project_paths.gen_dir."""
     _, project = _v8_project(tmp_path)
+    project.directories = project_paths.ProjectDirectories.from_dict(
+        {"gen_layout": "flat"}, project_paths.ProjectDirectories.default_v8()
+    )
     pkg_dir = tmp_path / "pkg" / "generate_PB"
     _write(pkg_dir / "Dio_Cfg.h", "/* flat */\n")
 
@@ -315,3 +318,21 @@ def test_flat_gen_layout_writes_without_module_subdir(tmp_path):
     assert out.is_file()
     assert out.read_text(encoding="utf-8") == "/* flat */\n"
     assert not (tmp_path / "gen" / "Dio").exists()
+
+
+def test_per_module_gen_layout_default_and_custom_variant(tmp_path):
+    """Format 8 projects default to per-module; Default omits variant subdir while custom variants keep it."""
+    _, project = _v8_project(tmp_path)
+    assert project_paths.dirs(project).gen_layout == "per-module"
+    assert project_paths.gen_dir(project, "Dio") == tmp_path / "gen" / "Dio"
+
+    pkg_dir = tmp_path / "pkg" / "generate_PB"
+    _write(pkg_dir / "Dio_Cfg.h", "/* per-module */\n")
+
+    generator = CodeGenerator(_module_def(), _config(), package_template_dir=pkg_dir)
+    assert generator.generate_all(tmp_path / "gen", variant="Default", flat=False) is True
+    assert (tmp_path / "gen" / "Dio" / "include" / "Dio_Cfg.h").is_file()
+    assert not (tmp_path / "gen" / "Dio" / "Default").exists()
+
+    assert generator.generate_all(tmp_path / "gen", variant="VariantA", flat=False) is True
+    assert (tmp_path / "gen" / "Dio" / "VariantA" / "include" / "Dio_Cfg.h").is_file()

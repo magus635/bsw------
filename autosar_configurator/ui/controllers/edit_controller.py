@@ -45,23 +45,96 @@ class EditController:
         # But we handle is_modified manually for now, so maybe just update UI?
         pass
 
+    def _all_container_defs(self, module_def) -> List[EcucContainerDef]:
+        """Recursively collect all container definitions belonging to ``module_def``."""
+        if not module_def:
+            return []
+        collected: List[EcucContainerDef] = []
+
+        def collect(cdefs):
+            if not isinstance(cdefs, dict):
+                return
+            for cdef in cdefs.values():
+                collected.append(cdef)
+                collect(getattr(cdef, "sub_containers", None))
+
+        collect(getattr(module_def, "containers", None))
+        return collected
+
+    def _resolve_config_manager_for_instance(
+        self,
+        instance: Optional[EcucContainerValue],
+        fallback_to_active: bool = True,
+    ):
+        """Find the ConfigurationManager owning ``instance`` across the active project."""
+        project = getattr(self.win, "current_project", None)
+        managers = getattr(project, "module_managers", None)
+        if instance is not None and isinstance(managers, dict) and managers:
+            for manager in managers.values():
+                cfg = getattr(manager, "configuration", None)
+                if cfg and any(c is instance for c in self._get_all_instances(cfg)):
+                    return manager
+            if not fallback_to_active:
+                return None
+        return self.win.config_manager
+
+    def _resolve_config_manager_for_def(
+        self,
+        container_def: EcucContainerDef,
+        parent_instance: Optional[EcucContainerValue] = None,
+    ):
+        """Find the ConfigurationManager owning ``container_def`` (or ``parent_instance``)."""
+        if parent_instance is not None:
+            mgr = self._resolve_config_manager_for_instance(
+                parent_instance, fallback_to_active=False
+            )
+            if mgr is not None:
+                return mgr
+
+        project = getattr(self.win, "current_project", None)
+        managers = getattr(project, "module_managers", None)
+        if isinstance(managers, dict) and managers:
+            for mgr in managers.values():
+                if any(
+                    d is container_def
+                    for d in self._all_container_defs(getattr(mgr, "module_def", None))
+                ):
+                    return mgr
+
+            def_ref = getattr(container_def, "definition_ref", None) or ""
+            if isinstance(def_ref, str) and def_ref:
+                for mgr in managers.values():
+                    mod_def = getattr(mgr, "module_def", None)
+                    mod_ref = getattr(mod_def, "definition_ref", None) if mod_def else None
+                    if isinstance(mod_ref, str) and mod_ref and def_ref.startswith(mod_ref + "/"):
+                        return mgr
+
+                for mgr in managers.values():
+                    mod_def = getattr(mgr, "module_def", None)
+                    mod_name = getattr(mod_def, "short_name", None) if mod_def else None
+                    if isinstance(mod_name, str) and mod_name and f"/{mod_name}/" in def_ref:
+                        return mgr
+
+        return self.win.config_manager
+
     def handle_parameter_change(self, instance: EcucContainerValue, param_name: str, value: Any):
         """Handle parameter change request via command"""
-        if not self.win.config_manager:
+        config_manager = self._resolve_config_manager_for_instance(instance)
+        if not config_manager:
             return
             
         if param_name.startswith('ref:'):
             # Reference change
             ref_name = param_name[4:]
             try:
-                command = SetReferenceCommand(self.win.config_manager, instance, ref_name, value)
+                command = SetReferenceCommand(config_manager, instance, ref_name, value)
             except PreLockedError as exc:
                 _report_pre_locked(self.win, exc)
                 return
         else:
             # Parameter change
             try:
-                command = SetParameterCommand(self.win.config_manager, instance, param_name, value)
+                command = SetParameterCommand(config_manager, instance, param_name, value)
             except PreLockedError as exc:
                 _report_pre_locked(self.win, exc)
                 return
@@ -90,17 +163,7 @@ class EditController:
         
     def handle_create_container(self, container_def: EcucContainerDef, parent_instance: Optional[EcucContainerValue], name: str):
         """Handle container creation request via command"""
-        config_manager = self.win.config_manager
-        project = getattr(self.win, "project", None)
-        if project and getattr(project, "module_managers", None):
-            def_ref = getattr(container_def, "definition_ref", None) or ""
-            for mgr in project.module_managers.values():
-                mod_def = getattr(mgr, "module_def", None)
-                mod_ref = getattr(mod_def, "definition_ref", None) if mod_def else None
-                if mod_ref and def_ref.startswith(mod_ref + "/"):
-                    config_manager = mgr
-                    break
-
+        config_manager = self._resolve_config_manager_for_def(container_def, parent_instance)
         if not config_manager:
             return
 
@@ -128,14 +191,9 @@ class EditController:
     def handle_delete_container(self, instance: EcucContainerValue, parent_instance: Optional[EcucContainerValue]):
         """Handle container deletion request via command"""
         # Find the appropriate config_manager
-        config_manager = self.win.config_manager
-        
-        if not config_manager and self.win.current_project:
-            # In project mode, find the manager for this instance
-            for module_name, manager in self.win.current_project.module_managers.items():
-                if manager.configuration and instance in self._get_all_instances(manager.configuration):
-                    config_manager = manager
-                    break
+        config_manager = self._resolve_config_manager_for_instance(
+            instance, fallback_to_active=False
+        )
         
         if not config_manager:
             self.win.statusbar.showMessage("无法删除：未找到配置管理器", 3000)
@@ -200,15 +258,9 @@ class EditController:
         
         for instance, parent_instance in instances_list:
             # Find the appropriate config_manager for this instance
-            config_manager = None
-            if self.win.current_project:
-                # Find which module this instance belongs to
-                for module_name, manager in self.win.current_project.module_managers.items():
-                    if manager.configuration and instance in self._get_all_instances(manager.configuration):
-                        config_manager = manager
-                        break
-            else:
-                config_manager = self.win.config_manager
+            config_manager = self._resolve_config_manager_for_instance(
+                instance, fallback_to_active=False
+            )
             
             if not config_manager:
                 continue
@@ -352,13 +404,10 @@ class EditController:
     def handle_move_container(self, instance: EcucContainerValue, new_parent, new_index):
         """Handle container move request via command"""
         # Resolve the config_manager that owns this instance (project mode may
-        # not have an active config_manager until a module node is selected).
-        config_manager = self.win.config_manager
-        if not config_manager and self.win.current_project:
-            for module_name, manager in self.win.current_project.module_managers.items():
-                if manager.configuration and instance in self._get_all_instances(manager.configuration):
-                    config_manager = manager
-                    break
+        # have another module currently active).
+        config_manager = self._resolve_config_manager_for_instance(
+            instance, fallback_to_active=False
+        )
 
         if not config_manager:
             self.win.statusbar.showMessage("无法移动：未找到配置管理器", 3000)
@@ -388,13 +437,10 @@ class EditController:
             return
 
         # Resolve the config_manager that owns this instance (project mode may
-        # not have an active config_manager until a module node is selected).
-        config_manager = self.win.config_manager
-        if not config_manager and self.win.current_project:
-            for module_name, manager in self.win.current_project.module_managers.items():
-                if manager.configuration and instance in self._get_all_instances(manager.configuration):
-                    config_manager = manager
-                    break
+        # have another module currently active).
+        config_manager = self._resolve_config_manager_for_instance(
+            instance, fallback_to_active=False
+        )
 
         if not config_manager:
             self.win.statusbar.showMessage("无法重命名：未找到配置管理器", 3000)

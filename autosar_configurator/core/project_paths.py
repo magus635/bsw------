@@ -46,7 +46,7 @@ class ProjectDirectories:
     def default_v8(cls) -> "ProjectDirectories":
         """Defaults of a new format 8 project."""
         return cls(config="config", base="config/base", templates="templates", gen="gen",
-                   gen_layout=GEN_LAYOUT_FLAT, chips="chips", integration="integration",
+                   gen_layout=GEN_LAYOUT_PER_MODULE, chips="chips", integration="integration",
                    system="system", history=".history", modules="modules",
                    legacy_plugins="Def/plugins")
 

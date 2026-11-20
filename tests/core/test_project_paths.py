@@ -31,19 +31,25 @@ def test_legacy_dirs_match_old_names(tmp_path):
     assert resolve(p, "legacy_plugins") == tmp_path / "Def" / "plugins"
 
 
-def test_v8_dirs_flat_gen(tmp_path):
+def test_v8_dirs_per_module_and_explicit_flat_gen(tmp_path):
     p = _project(tmp_path, ProjectDirectories.default_v8())
-    assert gen_dir(p, "Mcu") == tmp_path / "gen"
+    assert gen_dir(p, "Mcu") == tmp_path / "gen" / "Mcu"
     assert config_file(p, "Mcu") == tmp_path / "config" / "Mcu.arxml"
     assert resolve(p, "base") == tmp_path / "config" / "base"
     assert resolve(p, "history") == tmp_path / ".history"
+
+    p_flat = _project(
+        tmp_path,
+        ProjectDirectories.from_dict({"gen_layout": "flat"}, ProjectDirectories.default_v8()),
+    )
+    assert gen_dir(p_flat, "Mcu") == tmp_path / "gen"
 
 
 def test_default_v8_values():
     d = ProjectDirectories.default_v8()
     assert d.to_dict() == {
         "config": "config", "base": "config/base", "templates": "templates", "gen": "gen",
-        "gen_layout": "flat", "chips": "chips", "integration": "integration",
+        "gen_layout": "per-module", "chips": "chips", "integration": "integration",
         "system": "system", "history": ".history", "modules": "modules",
     }
 

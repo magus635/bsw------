@@ -1156,10 +1156,21 @@ class Renderer:
             tokens = tokenize(template)
             
             self._recursion_depth += 1
+            prev_template_file = self._template_file
+            self._template_file = str(include_path)
             try:
                 self._execute_tokens(tokens, 0, len(tokens))
             finally:
                 self._recursion_depth -= 1
+                self._template_file = prev_template_file
+        except TemplateExecutionError as e:
+            if e.cause is None:
+                # Explicit [!ERROR!] inside an included file must abort rendering
+                # rather than continuing with half-initialized macros in non-strict mode.
+                raise
+            logger.warning(f"ERROR including {filename}: {e}")
+            if self.strict:
+                raise TemplateParseError(f"Error including {filename}: {e}")
         except Exception as e:
             logger.warning(f"ERROR including {filename}: {e}")
             if self.strict:
