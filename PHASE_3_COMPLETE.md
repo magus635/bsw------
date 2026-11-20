@@ -1,14 +1,14 @@
-# Phase 3 Complete: DaVinci Import with Automatic Project Creation
+# Phase 3 Complete: DaVinci Import, Merge into Format 8, and Report Verification
 
 **Status:** ✅ DELIVERED  
-**Date:** 2026-11-13  
-**Test Result:** 116/117 modules auto-added and persisted
+**Date:** 2026-11-20  
+**Test Result:** Verified with E2E + UI suites (`tests/core/test_davinci_project_import_e2e.py`, `tests/core/test_task2_value_import.py`, `tests/ui/test_project_controller.py`)
 
 ---
 
 ## Objective
 
-Implement a complete DaVinci .dpa import workflow that automatically creates a new project with proper directory structure, exports modules to a dedicated `DaVinciImport/` subdirectory, and auto-adds all modules to the project.
+Implement a complete DaVinci `.dpa` import workflow (both creating a new Format 8 project and merging into an existing Format 8 workspace), strict `DerivativeMapping` UUID selection, interactive `MergePreviewDialog` confirmation, and full verification reporting.
 
 ---
 
@@ -81,28 +81,14 @@ File → Import DaVinci Project
 
 ### Key Features
 
-1. **Auto-confirmation** — Pre/Rec merges accepted automatically via callback
-   ```python
-   def auto_confirm_merge(preview_text, merge_result):
-       return True  # Accept all merges
-   ```
-
-2. **Error resilience** — Single module failure doesn't stop import
-   ```
-   Added 116, failed 1 (WdgIf)
-   ```
-
-3. **Clean directory structure** — Modules in `DaVinciImport/` subfolder, not scattered
-   ```
-   project/
-   ├── Project.dpa
-   ├── config/
-   ├── DaVinciImport/
-   │   ├── Adc/
-   │   ├── CanIf/
-   │   └── ...
-   └── ...
-   ```
+1. **Baseline Merge Preview (`MergePreviewDialog`)** — Pre/Rec conflicts are previewed interactively via `MergePreviewDialog` (`ProjectController._confirm_merge_preview`); rejected modules are cleanly skipped and rolled back without creating `.history/deleted/` ghosts.
+2. **Merge into Existing Format 8 Workspace** — Supports `into_project` with `on_conflict` (`auto`/`keep`/`replace`), backup/rollback on failure, and cross-library definition deduplication.
+3. **Strict `DerivativeMapping` Filtering (W11)** — Raises `SipDerivativeMappingError` instead of silently loading all chip folders when `DerivativeMapping_<Module>.xml` exists and does not match the project's derivative UUID (or fails XML parsing).
+4. **W12 Import Report Verification** — `.import_report.md` and `.history/reports/davinci_import_report.md` now record:
+   - `pre_inconsistencies`: Active vs Pre overrides (`PRE_FORCED` / `CREATED_IN_BASE`)
+   - `version_mismatches`: `.dpa` `BswImplSwVersion` vs ingested package `SW-VERSION` (normalized)
+   - `value_diffs`: Parameter-by-parameter source vs imported comparison (`compare_module_values`)
+5. **Comment Node & Chip UUID Matching** — Non-element XML comment nodes are skipped when splitting/merging DaVinci ARXML (`dd07296`), and chip matching prefers exact `derivative_uuid` lookup before name-prefix fallback.
 
 ---
 
@@ -157,14 +143,15 @@ RESULT: PASS
 
 ---
 
-## Known Issues
+## Known Issues & Resolved Items
 
-### 1. WdgIf Module Import Failure
-**Symptom:** `Invalid input tag of type <class '_cython_3_1_4.cython_function_or_method'>`  
-**Root cause:** WdgIf definition contains Cython function type in input tags (unsupported by parser)  
-**Impact:** 1 module fails, 116 succeed (99.1% success rate)  
-**Workaround:** Skip WdgIf or manually add later via Integration Wizard  
-**Future:** Extend parser to handle Cython function types
+### 1. WdgIf Comment-Node ARXML Split Failure (Resolved in `dd07296`)
+**Symptom:** `Invalid input tag of type <class '_cython_3_1_4.cython_function_or_method'>` when DaVinci ARXML files contained XML comments.  
+**Fix:** Non-element nodes (`not isinstance(elem.tag, str)`) are skipped in `SipMerger` / `SipPackageWriter` XML traversal.
+
+### 2. Remaining Deferred Items (`add-vector-sip-davinci-import/tasks.md`)
+- Task `2.11`: Byte-for-byte code generation comparison against DaVinci baseline (depends on Roadmap #4 module code templates).
+- Tasks `3.2`/`3.3`/`3.6`: 8 missing `Port.*` ECU resource keys absent from vendor THA6206 `.properties` require chip datasheet confirmation before writing to `chips/*.yaml`.
 
 ---
 

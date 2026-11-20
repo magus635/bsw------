@@ -1,14 +1,14 @@
-# Phase 2 Complete: Integration Wizard + Baseline Merge
+# Phase 2 Complete: Integration Wizard + Lifecycle Management (W3, W5, W7, W8)
 
 **Status:** ✅ DELIVERED  
-**Date:** 2026-11-13  
-**Test Coverage:** E2E + UI Integration
+**Date:** 2026-11-20  
+**Test Coverage:** E2E + UI Integration (`tests/core/test_phase2_lifecycle.py`, `tests/ui/test_integration_wizard.py`)
 
 ---
 
 ## Objective
 
-Implement a complete workflow for importing and integrating multiple BSW modules from DaVinci library into a Tresos project, with support for three baseline merge strategies (merge/replace/skip).
+Implement the Phase 2 integration lifecycle capabilities: multi-module Integration Wizard with baseline merge strategies (`merge`/`replace`/`skip`), package REC defaults & Pre/Rec separation (W5), deleted module archive/restore (W7), and explicit Format ≤7 → Format 8 project structure upgrade (W8).
 
 ---
 
@@ -52,9 +52,9 @@ Implement a complete workflow for importing and integrating multiple BSW modules
 
 | Strategy | `reconcile` | `confirm` callback | Behavior |
 |---|---|---|---|
-| **merge** | True | Auto-approve | Load Pre/Rec, accept computed merges |
-| **replace** | True | Auto-approve | Same as merge (user intent: replace baseline) |
-| **skip** | False | None | Add module without Pre/Rec loading |
+| **merge** | True | `MergePreviewDialog` (UI) / `confirm_merge` | Reconcile Pre/Rec with existing baseline; prompt user before applying changes; track rejections in `merge_rejected` |
+| **replace** | False | None (explicit user intent) | Force Active and baseline snapshot to package Pre/Rec via `_apply_replace_baseline()` |
+| **skip** | False | None | Add module without loading Pre/Rec baseline layers |
 
 #### Error Handling
 - Missing packages → Recorded in `failed` list, integration continues
@@ -64,11 +64,23 @@ Implement a complete workflow for importing and integrating multiple BSW modules
 #### Result Tracking
 ```python
 result = {
-    "added": ["CanIf", "Dcm", ...],           # Successfully added
+    "added": ["CanIf", "Dcm", ...],           # Successfully added/merged
     "failed": [("Module", "error msg"), ...], # Failed to add
-    "merge_conflicts": [],                     # Pre/Rec merge issues
+    "merge_conflicts": [],                    # Pre/Rec merge issues
+    "merge_rejected": [],                     # Modules whose merge preview was rejected
 }
 ```
+
+### 4. Phase 2 Lifecycle Additions (W5, W7, W8)
+
+- **W5 (REC Initial Values & Pre/Rec Separation)**:
+  - `ConfigurationManager.create_container_instance()` applies package REC defaults (`_apply_package_rec_defaults()`) without violating locked Pre keys.
+  - `ConfigurationManager.load_recommended_values()` strictly excludes `_Pre` blocks and package `manifest.pre` paths so Pre values are never mixed into manual REC imports.
+- **W7 (Deleted Module Archive & Restore)**:
+  - Removing a Format 8 module archives its configuration to `.history/deleted/<Module>_<timestamp>.arxml`.
+  - `WorkspaceProject.list_deleted_archives()` / `restore_deleted_module()` and UI action `File -> Restore Deleted Module...` restore archived modules without overwriting already-loaded ones.
+- **W8 (Legacy Project Upgrade)**:
+  - `WorkspaceManager.upgrade_project_to_v8()` and UI action `File -> Upgrade Project Structure...` migrate Format ≤7 projects to Format 8 with library registration and baseline reconciliation preview.
 
 ---
 

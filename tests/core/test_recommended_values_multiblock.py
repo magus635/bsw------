@@ -78,31 +78,33 @@ def test_load_recommended_values_real_ecuc_files():
 
     general_container = next((c for c in rec_config.containers if c.short_name == "EcucGeneral"), None)
     assert general_container is not None
-    assert len(general_container.parameter_values) == 15
-    assert "CPUType" in general_container.parameter_values
+    # EcuC_Pre (4 params) must be excluded; only EcuC_Rec (11 params) is loaded
+    assert len(general_container.parameter_values) == 11
+    assert "CPUType" not in general_container.parameter_values
+    assert "ByteOrder" not in general_container.parameter_values
     assert "DummyFunction" in general_container.parameter_values
+    assert "DummyStatement" in general_container.parameter_values
 
     comparisons = cm.get_recommended_value_comparison(rec_config)
-    assert len(comparisons) == 15
+    assert len(comparisons) == 11
     for comp in comparisons:
         assert comp["current_value"] is None
         assert comp["differs"] is True
 
-    # Even if only_empty=True is passed, a newly auto-created container must have all 15 values applied
+    # Even if only_empty=True is passed, a newly auto-created container must have all 11 values applied
     # rather than being blocked by create_container_instance smart defaults.
     applied = cm.apply_recommended_values(rec_config, only_empty=True)
-    assert applied == 15
+    assert applied == 11
     assert len(cm.configuration.containers) == 1
     applied_container = cm.configuration.containers[0]
     assert applied_container.short_name == "EcucGeneral"
-    assert applied_container.parameter_values["CPUType"].value == "CPU32Bit"
-    assert applied_container.parameter_values["ByteOrder"].value == "LITTLE_ENDIAN"
+    assert "CPUType" not in applied_container.parameter_values
     assert applied_container.parameter_values["DummyFunction"].value is False
     assert applied_container.parameter_values["DummyStatement"].value is True
 
 
-def test_pre_takes_precedence_over_rec_and_ignores_other_modules(tmp_path: Path):
-    """Verify _Pre overrides _Rec even if _Rec appears first in XML, and unrelated modules are ignored."""
+def test_load_recommended_values_excludes_pre_blocks_and_ignores_other_modules(tmp_path: Path):
+    """Verify _Pre blocks are excluded (only _Rec is loaded) and unrelated modules are ignored."""
     arxml_content = """<?xml version="1.0" encoding="UTF-8"?>
 <AUTOSAR xmlns="http://autosar.org/schema/r4.0">
   <AR-PACKAGES>
@@ -171,8 +173,44 @@ def test_pre_takes_precedence_over_rec_and_ignores_other_modules(tmp_path: Path)
     assert container_names == ["EcucGeneral"]
 
     general = rec_config.containers[0]
-    assert general.parameter_values["CPUType"].value == "CPU32Bit"
+    assert general.parameter_values["CPUType"].value == "CPU16Bit"
     assert general.parameter_values["DummyFunction"].value == 1
+
+
+def test_load_recommended_values_returns_none_for_pre_only_file(tmp_path: Path):
+    """A file containing only _Pre blocks has no recommended values to load."""
+    arxml_content = """<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>MICROSAR</SHORT-NAME>
+      <ELEMENTS>
+        <ECUC-MODULE-CONFIGURATION-VALUES>
+          <SHORT-NAME>EcuC_Pre</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/EcuC</DEFINITION-REF>
+          <CONTAINERS>
+            <ECUC-CONTAINER-VALUE>
+              <SHORT-NAME>EcucGeneral</SHORT-NAME>
+              <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/EcuC/EcucGeneral</DEFINITION-REF>
+              <PARAMETER-VALUES>
+                <ECUC-TEXTUAL-PARAM-VALUE>
+                  <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/MICROSAR/EcuC/EcucGeneral/CPUType</DEFINITION-REF>
+                  <VALUE>CPU32Bit</VALUE>
+                </ECUC-TEXTUAL-PARAM-VALUE>
+              </PARAMETER-VALUES>
+            </ECUC-CONTAINER-VALUE>
+          </CONTAINERS>
+        </ECUC-MODULE-CONFIGURATION-VALUES>
+      </ELEMENTS>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>
+"""
+    pre_file = tmp_path / "EcuC_pre.arxml"
+    pre_file.write_text(arxml_content, encoding="utf-8")
+
+    cm = ConfigurationManager(_build_mock_ecuc_module_def())
+    assert cm.load_recommended_values(pre_file) is None
 
 
 def test_sub_container_auto_creation_and_only_empty_flag(tmp_path: Path):

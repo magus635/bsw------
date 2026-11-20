@@ -615,3 +615,34 @@ def test_import_davinci_project_can_merge_into_open_v8_project(tmp_path, monkeyp
     assert kwargs["mcal_source_dir"] is None
     load_mock.assert_called_once_with(existing_proj.path)
 
+
+def test_load_project_at_path_passes_confirm_package_change(tmp_path, monkeypatch):
+    """_load_project_at_path passes confirm_package_change=_confirm_package_change and prompts properly."""
+    from autosar_configurator.core.eb_import import PackageDrift
+    from autosar_configurator.ui.controllers import project_controller as pc
+
+    dpa = _tool_dpa(tmp_path / "Proj.dpa", format_version=8)
+    _Ui(monkeypatch, [])
+    win, ctrl, patches = _controller(MagicMock())
+    win.workspace_manager.load_project.return_value = (MagicMock(module_managers={}), [])
+    _run(ctrl, patches, lambda: ctrl._load_project_at_path(dpa))
+
+    kwargs = win.workspace_manager.load_project.call_args.kwargs
+    assert kwargs["confirm"] == ctrl._confirm_merge
+    assert kwargs["confirm_package_change"] == ctrl._confirm_package_change
+
+    # _confirm_package_change returns True on Yes and False on No
+    drifts = {
+        "Resource": PackageDrift(
+            module="Resource",
+            old_version="1.0.0",
+            new_version="1.0.1",
+            changed_files=["def/Resource.xdm"],
+        )
+    }
+    monkeypatch.setattr(pc.QMessageBox, "question", lambda *a, **k: pc.QMessageBox.Yes)
+    assert ctrl._confirm_package_change(drifts) is True
+
+    monkeypatch.setattr(pc.QMessageBox, "question", lambda *a, **k: pc.QMessageBox.No)
+    assert ctrl._confirm_package_change(drifts) is False
+

@@ -238,3 +238,140 @@ class TestSipScannerDerivativeMappingFilter:
             assert len(files) == 1
             assert "Generic_CortexR52_ASIMD" in str(files[0].path)
             assert "S32Gxx" not in str(files[0].path)
+
+    def test_scanner_raises_when_derivative_uuid_missing_from_mapping(self, tmp_path: Path):
+        """存在 DerivativeMapping 但查不到当前 UUID 时必须报错，不得退回全量加载。"""
+        from autosar_configurator.core.davinci_importer import (
+            SipDerivativeMappingError,
+            SipMergeError,
+            SipScanner,
+        )
+
+        os_arxml = """<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+    <AR-PACKAGES>
+        <AR-PACKAGE>
+            <SHORT-NAME>MICROSAR</SHORT-NAME>
+            <ELEMENTS>
+                <ECUC-MODULE-DEF>
+                    <SHORT-NAME>Os</SHORT-NAME>
+                </ECUC-MODULE-DEF>
+            </ELEMENTS>
+        </AR-PACKAGE>
+    </AR-PACKAGES>
+</AUTOSAR>"""
+        os_bswmd = tmp_path / "Components" / "Os" / "BSWMD" / "Os"
+        for chip_dir in ("Generic_CortexR52_ASIMD", "S32Gxx"):
+            d = os_bswmd / chip_dir
+            d.mkdir(parents=True)
+            (d / "os_pre.arxml").write_text(os_arxml, encoding="utf-8")
+
+        mapping_file = tmp_path / "Components" / "Os" / "GeneratorMsr" / "DerivativeMapping_Os.xml"
+        mapping_file.parent.mkdir(parents=True)
+        mapping_file.write_text("""<?xml version="1.0"?>
+<Settings>
+    <Settings Name="ModuleList">
+        <Settings Name="Os">
+            <Settings Name="Generic_CortexR52_ASIMD">
+                <Settings Name="B632B9EE-F23D-43CD-9C54-542178A058D9">
+                    <Setting Name="SIP_Folder" Value="Generic_CortexR52_ASIMD"/>
+                </Settings>
+            </Settings>
+        </Settings>
+    </Settings>
+</Settings>""", encoding="utf-8")
+
+        unknown_uuid = "00000000-0000-0000-0000-000000000000"
+        scanner = SipScanner(tmp_path)
+
+        assert issubclass(SipDerivativeMappingError, SipMergeError)
+
+        with pytest.raises(SipDerivativeMappingError) as exc1:
+            scanner.scan_module("Os", derivative_uuid=unknown_uuid)
+        msg1 = str(exc1.value)
+        assert "Os" in msg1
+        assert unknown_uuid in msg1
+        assert "DerivativeMapping_Os.xml" in msg1
+
+        with pytest.raises(SipDerivativeMappingError) as exc2:
+            scanner.scan_all_modules(derivative_uuid=unknown_uuid)
+        msg2 = str(exc2.value)
+        assert "Os" in msg2
+        assert unknown_uuid in msg2
+        assert "DerivativeMapping_Os.xml" in msg2
+
+    def test_scanner_raises_when_derivative_mapping_xml_is_malformed(self, tmp_path: Path):
+        """DerivativeMapping XML 解析失败时必须报错，不得静默吞掉。"""
+        from autosar_configurator.core.davinci_importer import SipDerivativeMappingError, SipScanner
+
+        os_dir = tmp_path / "Components" / "Os" / "BSWMD" / "Os" / "Generic_CortexR52_ASIMD"
+        os_dir.mkdir(parents=True)
+        (os_dir / "os_pre.arxml").write_text("""<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+    <AR-PACKAGES>
+        <AR-PACKAGE>
+            <SHORT-NAME>MICROSAR</SHORT-NAME>
+            <ELEMENTS>
+                <ECUC-MODULE-DEF><SHORT-NAME>Os</SHORT-NAME></ECUC-MODULE-DEF>
+            </ELEMENTS>
+        </AR-PACKAGE>
+    </AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+        mapping_file = tmp_path / "Components" / "Os" / "GeneratorMsr" / "DerivativeMapping_Os.xml"
+        mapping_file.parent.mkdir(parents=True)
+        mapping_file.write_text("<Settings><Broken", encoding="utf-8")
+
+        scanner = SipScanner(tmp_path)
+        with pytest.raises(SipDerivativeMappingError) as exc:
+            scanner.scan_module("Os", derivative_uuid="B632B9EE-F23D-43CD-9C54-542178A058D9")
+        assert "DerivativeMapping_Os.xml" in str(exc.value)
+        assert "Os" in str(exc.value)
+
+    def test_scan_module_ignores_unrelated_module_mapping_error(self, tmp_path: Path):
+        """按单模块扫描 vBRS 时，不因其他模块(Os)的 DerivativeMapping 不匹配而失败。"""
+        from autosar_configurator.core.davinci_importer import SipScanner
+
+        os_dir = tmp_path / "Components" / "Os" / "BSWMD" / "Os" / "Generic_CortexR52_ASIMD"
+        os_dir.mkdir(parents=True)
+        (os_dir / "os_pre.arxml").write_text("""<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+    <AR-PACKAGES>
+        <AR-PACKAGE>
+            <SHORT-NAME>MICROSAR</SHORT-NAME>
+            <ELEMENTS>
+                <ECUC-MODULE-DEF><SHORT-NAME>Os</SHORT-NAME></ECUC-MODULE-DEF>
+            </ELEMENTS>
+        </AR-PACKAGE>
+    </AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+        mapping_file = tmp_path / "Components" / "Os" / "GeneratorMsr" / "DerivativeMapping_Os.xml"
+        mapping_file.parent.mkdir(parents=True)
+        mapping_file.write_text("""<?xml version="1.0"?>
+<Settings>
+    <Settings Name="Generic_CortexR52_ASIMD">
+        <Settings Name="UUID-A">
+            <Setting Name="SIP_Folder" Value="Generic_CortexR52_ASIMD"/>
+        </Settings>
+    </Settings>
+</Settings>""", encoding="utf-8")
+
+        vbrs_dir = tmp_path / "DemoComponents" / "vBRS" / "BSWMD"
+        vbrs_dir.mkdir(parents=True)
+        (vbrs_dir / "vBRS_bswmd.arxml").write_text("""<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+    <AR-PACKAGES>
+        <AR-PACKAGE>
+            <SHORT-NAME>MICROSAR</SHORT-NAME>
+            <ELEMENTS>
+                <ECUC-MODULE-DEF><SHORT-NAME>vBRS</SHORT-NAME></ECUC-MODULE-DEF>
+            </ELEMENTS>
+        </AR-PACKAGE>
+    </AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+        scanner = SipScanner(tmp_path)
+        files = scanner.scan_module("vBRS", derivative_uuid="UUID-UNKNOWN")
+        assert len(files) == 1
+        assert files[0].module == "vBRS"

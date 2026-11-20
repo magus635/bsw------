@@ -2020,37 +2020,73 @@ class ConfigurationManager:
             if not config_elems:
                 return None
             
+            def _elem_ar_path(elem, short_name: str) -> str:
+                segs = [short_name]
+                parent = elem.getparent()
+                while parent is not None:
+                    if isinstance(parent.tag, str) and etree.QName(parent).localname == "AR-PACKAGE":
+                        sn = next(
+                            ((c.text or "").strip() for c in parent
+                             if isinstance(c.tag, str) and etree.QName(c).localname == "SHORT-NAME"),
+                            "",
+                        )
+                        if sn:
+                            segs.append(sn)
+                    parent = parent.getparent()
+                return "/" + "/".join(reversed(segs))
+
             parser = ArxmlParser()
-            parsed_configs = [parser.parse_ecuc_configuration_values(elem) for elem in config_elems]
-            parsed_configs = [c for c in parsed_configs if c is not None]
-            if not parsed_configs:
+            parsed_pairs = []
+            for elem in config_elems:
+                cfg = parser.parse_ecuc_configuration_values(elem)
+                if cfg is not None:
+                    parsed_pairs.append((cfg, _elem_ar_path(elem, cfg.short_name)))
+            if not parsed_pairs:
                 return None
-            
+
             # Filter configs that match current module if module_def is present
-            matching_configs = []
+            matching_pairs = []
             module_name = self.module_def.short_name if self.module_def else None
-            for cfg in parsed_configs:
+            for cfg, ar_p in parsed_pairs:
                 if module_name:
                     def_module = cfg.definition_ref.rstrip('/').rsplit('/', 1)[-1] if cfg.definition_ref else None
-                    if (cfg.short_name == module_name or 
-                        def_module == module_name or 
+                    if (cfg.short_name == module_name or
+                        def_module == module_name or
                         cfg.short_name.startswith(f"{module_name}_")):
-                        matching_configs.append(cfg)
+                        matching_pairs.append((cfg, ar_p))
                 else:
-                    matching_configs.append(cfg)
-            
-            if not matching_configs:
+                    matching_pairs.append((cfg, ar_p))
+
+            if not matching_pairs:
                 # Names did not match: accept only blocks whose containers this module defines,
                 # never another module's values.
                 known = set(self.module_def.containers) if self.module_def else set()
-                matching_configs = [c for c in parsed_configs
-                                    if not self.module_def or any(t.short_name in known for t in c.containers)]
+                matching_pairs = [
+                    (c, ar_p) for c, ar_p in parsed_pairs
+                    if not self.module_def or any(t.short_name in known for t in c.containers)
+                ]
+
+            # Exclude Pre blocks: Load Recommended Values must only apply REC, never mix Pre (W5).
+            pre_paths: set = set()
+            pre_names: set = set()
+            if self.project_context is not None and module_name:
+                pkg = (getattr(self.project_context, "packages", None) or {}).get(module_name)
+                if pkg is not None and getattr(pkg, "manifest", None) is not None:
+                    pre_paths = {p.rstrip("/") for p in (pkg.manifest.pre or ()) if p}
+                    pre_names = {p.rsplit("/", 1)[-1] for p in pre_paths}
+
+            def _is_pre_block(cfg: 'EcucModuleConfiguration', ar_path: str) -> bool:
+                return (
+                    cfg.short_name.endswith("_Pre")
+                    or cfg.short_name in pre_names
+                    or ar_path.rstrip("/") in pre_paths
+                    or (getattr(cfg, "ar_path", None) or "").rstrip("/") in pre_paths
+                )
+
+            matching_configs = [c for c, ar_p in matching_pairs if not _is_pre_block(c, ar_p)]
             if not matching_configs:
                 return None
-            
-            # Prioritize _Pre configs before _Rec so pre-configuration values have precedence
-            matching_configs.sort(key=lambda c: 0 if c.short_name.endswith('_Pre') else 1)
-            
+
             def merge_containers(target: EcucContainerValue, src: EcucContainerValue):
                 for p_name, p_val in src.parameter_values.items():
                     if p_name not in target.parameter_values:

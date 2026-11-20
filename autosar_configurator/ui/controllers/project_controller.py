@@ -9,7 +9,7 @@ and Qt parenting.
 """
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Tuple
+from typing import Any, Dict, List, Tuple
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
@@ -142,6 +142,50 @@ class ProjectController:
             preview, "基线已变化",
             "模块包改变了该模块的基线。\n要把合并结果写入配置吗？\n"
             "（“保留当前”不改配置，下次打开会再次询问。）")
+
+    def _confirm_merge_preview(self, preview_text: str, merge_result) -> bool:
+        """Show ``MergePreviewDialog`` for a baseline merge and return user acceptance."""
+        from PySide6.QtWidgets import QApplication
+        from ..dialogs.merge_preview_dialog import MergePreviewDialog
+
+        module_name = "Module"
+        if preview_text:
+            first_line = preview_text.split('\n')[0]
+            if '基线合并预演' in first_line:
+                module_name = first_line.replace('#', '').replace('基线合并预演', '').strip()
+
+        dialog = MergePreviewDialog(self.win, module_name, preview_text, merge_result)
+        busy = QApplication.overrideCursor() is not None
+        if busy:
+            QApplication.restoreOverrideCursor()
+        try:
+            return dialog.exec() == QDialog.Accepted
+        finally:
+            if busy:
+                QApplication.setOverrideCursor(Qt.WaitCursor)
+
+    def _confirm_package_change(self, drifts: Dict[str, Any]) -> bool:
+        """Ask the user whether to update saved ``package_record`` hashes/versions (R4)."""
+        if not drifts:
+            return True
+        details = []
+        for name in sorted(drifts):
+            drift = drifts[name]
+            if hasattr(drift, "summary_lines"):
+                details.extend(drift.summary_lines())
+            else:
+                details.append(f"- {name}")
+        reply = QMessageBox.question(
+            self.win,
+            "模块包已变化",
+            "以下模块在模块库中的文件或版本与上次打开时不同：\n\n"
+            + "\n".join(details)
+            + "\n\n是否更新工程中记录的包版本与文件校验信息？\n"
+            "（选择“否”将保留旧记录，下次打开时继续提示。）",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes,
+        )
+        return reply == QMessageBox.Yes
 
     def _confirm_import_merge(self, preview: str, result) -> bool:
         """The same question for an EB import (design §6.10): the plugin's Pre values would
@@ -757,7 +801,10 @@ class ProjectController:
                 # Use existing .dpa loading logic
                 load_path = Path(file_path) if file_path else path
                 self.win.current_project, failed_modules = self.win.workspace_manager.load_project(
-                    load_path, confirm=self._confirm_merge)
+                    load_path,
+                    confirm=self._confirm_merge,
+                    confirm_package_change=self._confirm_package_change,
+                )
                 self.win.current_project_file = load_path
             else:
                 # EB project: auto-import all defines + EPC configs
@@ -1640,29 +1687,13 @@ class ProjectController:
         QApplication.processEvents()
 
         try:
-            def confirm_with_preview(preview_text, merge_result):
-                from ..dialogs.merge_preview_dialog import MergePreviewDialog
-
-                module_name = "Module"
-                if preview_text:
-                    first_line = preview_text.split('\n')[0]
-                    if '基线合并预演' in first_line:
-                        module_name = first_line.replace('#', '').replace('基线合并预演', '').strip()
-
-                dialog = MergePreviewDialog(self.win, module_name, preview_text, merge_result)
-                QApplication.restoreOverrideCursor()
-                try:
-                    return dialog.exec() == QDialog.Accepted
-                finally:
-                    QApplication.setOverrideCursor(Qt.WaitCursor)
-
             davinci_kwargs = dict(
                 dpa_path=dpa_file,
                 target_dir=target_dir,
                 project_name=project_name,
                 mcal_source_dir=mcal_dir,
                 include_resources=import_resources,
-                confirm=confirm_with_preview,
+                confirm=self._confirm_merge_preview,
             )
             if merge_into_current:
                 davinci_kwargs["into_project"] = self.win.current_project
@@ -2080,7 +2111,11 @@ class ProjectController:
 
         from ...ui.wizards.integration_wizard import IntegrationWizard
 
-        wizard = IntegrationWizard(self.win.current_project, parent=self.win)
+        wizard = IntegrationWizard(
+            self.win.current_project,
+            parent=self.win,
+            confirm_merge=self._confirm_merge_preview,
+        )
         wizard.wizard_completed.connect(self._on_integration_complete)
         wizard.exec()
 
@@ -2089,6 +2124,7 @@ class ProjectController:
         added = result.get("added", [])
         failed = result.get("failed", [])
         conflicts = result.get("merge_conflicts", [])
+        rejected = result.get("merge_rejected", [])
 
         if added:
             self.win._has_unsaved_changes = True
@@ -2100,6 +2136,10 @@ class ProjectController:
             msg += "\n".join(f"  • {m}" for m in added[:10])
             if len(added) > 10:
                 msg += f"\n  ... and {len(added) - 10} more"
+
+            if rejected:
+                msg += f"\n\nRejected baseline merge ({len(rejected)}):\n"
+                msg += "\n".join(f"  • {m}" for m in rejected[:10])
 
             if conflicts:
                 msg += f"\n\nBaseline merge issues ({len(conflicts)}):\n"
@@ -2113,7 +2153,7 @@ class ProjectController:
                 if len(failed) > 5:
                     msg += f"\n  ... and {len(failed) - 5} more"
 
-            if conflicts or failed:
+            if conflicts or failed or rejected:
                 QMessageBox.warning(self.win, "Integration Partial", msg)
             else:
                 QMessageBox.information(self.win, "Integration Complete", msg)
@@ -2123,6 +2163,9 @@ class ProjectController:
             msg = "Failed to add modules:\n"
             msg += "\n".join(f"  • {m[0]}: {m[1]}" for m in failed)
             QMessageBox.critical(self.win, "Integration Failed", msg)
+        elif rejected:
+            msg = "Baseline merge rejected for module(s):\n" + "\n".join(f"  • {m}" for m in rejected)
+            QMessageBox.information(self.win, "Integration Cancelled", msg)
         else:
             QMessageBox.information(self.win, "No Changes", "No modules were added.")
 

@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem, QHeaderView, QGroupBox, QFileDialog,
     QProgressBar, QWidget, QCheckBox, QRadioButton, QTreeWidget,
     QTreeWidgetItem, QSplitter, QTextBrowser, QMessageBox,
-    QAbstractItemView, QInputDialog, QWizard
+    QAbstractItemView, QInputDialog, QWizard, QDialog
 )
 from PySide6.QtCore import Qt, Signal, QThread
 from PySide6.QtGui import QBrush, QColor
@@ -435,9 +435,6 @@ class ModuleSelectionPage(WizardPage):
         return True
 
 
-# [CONTINUATION MARKER - add ConfirmationPage and IntegrationWizard class next]
-
-
 class ConfirmationPage(WizardPage):
     """Page 3: Preview modules and configure merge behavior."""
 
@@ -566,8 +563,9 @@ class IntegrationWizard(ConfigWizard):
 
     wizard_completed = Signal(dict)  # Emits result dict
 
-    def __init__(self, project: WorkspaceProject, parent=None):
+    def __init__(self, project: WorkspaceProject, parent=None, confirm_merge=None):
         self.project = project
+        self._confirm_merge = confirm_merge
         self._result: Optional[Dict] = None
         super().__init__(parent, title="Integrate BSW Modules")
 
@@ -631,7 +629,7 @@ class IntegrationWizard(ConfigWizard):
         """Add modules to project (baseline merge).
 
         Strategies:
-        - merge: Reconcile Pre/Rec with existing baseline (auto-approve)
+        - merge: Reconcile Pre/Rec with existing baseline (via MergePreviewDialog or callback)
         - replace: Force Active and baseline snapshot to package Pre/Rec
         - skip: Don't load Pre/Rec configurations
         """
@@ -639,16 +637,33 @@ class IntegrationWizard(ConfigWizard):
             "added": [],
             "failed": [],
             "merge_conflicts": [],
+            "merge_rejected": [],
         }
 
         can_persist = bool(self.project.path)
 
-        def confirm_merge(preview_text: str, merge_result) -> bool:
-            return True
+        def _make_confirm(module_name: str, rejected_flag: List[bool]):
+            def _confirm(preview_text: str, merge_result) -> bool:
+                if self._confirm_merge is not None:
+                    accepted = bool(self._confirm_merge(preview_text, merge_result))
+                elif self.parent() is not None:
+                    from ..dialogs.merge_preview_dialog import MergePreviewDialog
+                    dialog = MergePreviewDialog(self, module_name, preview_text, merge_result)
+                    accepted = dialog.exec() == QDialog.Accepted
+                else:
+                    # Headless programmatic caller without parent/callback keeps legacy auto-accept behavior
+                    accepted = True
+                if not accepted:
+                    rejected_flag[0] = True
+                return accepted
+            return _confirm
 
         for cand in candidates:
             try:
                 mod_name = cand.package.manifest.module
+                rejected_flag = [False]
+                confirm_merge = _make_confirm(mod_name, rejected_flag)
+
                 if mod_name in self.project.module_managers:
                     from ...core.parser.ecuc_def_parser import EcucDefParser
                     from ...core.workspace_manager import _chip_selector_values
@@ -681,7 +696,10 @@ class IntegrationWizard(ConfigWizard):
                             self.project.baselines.pop(mod_name, None)
                             mgr.baseline_error = str(exc)
 
-                    result["added"].append(mod_name)
+                    if rejected_flag[0]:
+                        result["merge_rejected"].append(mod_name)
+                    else:
+                        result["added"].append(mod_name)
                     if merge_strategy != "skip" and hasattr(mgr, 'baseline_error') and mgr.baseline_error:
                         result["merge_conflicts"].append({
                             "module": mod_name,
@@ -718,6 +736,8 @@ class IntegrationWizard(ConfigWizard):
                         init_baseline=True,
                     )
 
+                if rejected_flag[0]:
+                    result["merge_rejected"].append(mgr.module_def.short_name)
                 result["added"].append(mgr.module_def.short_name)
 
                 # Log baseline merge result if applicable

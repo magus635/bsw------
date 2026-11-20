@@ -21,6 +21,7 @@ only orchestrates:
 No PySide6 here.
 """
 import hashlib
+import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -36,12 +37,13 @@ from .packages.package import ModulePackage, module_def_paths
 
 __all__ = [
     "EB_PLUGIN_MARKER", "IMPORTED_SUFFIX", "SkippedDir", "WrappedMcal", "PluginSurvey",
-    "EpcValues", "ModuleImport", "ImportReport",
+    "EpcValues", "ModuleImport", "ImportReport", "PackageDrift",
     "import_project_dir", "import_target", "free_sibling", "check_target_is_free",
     "is_tool_project_file", "FolderKind", "inspect_folder",
     "find_plugins_dir", "survey_plugins",
     "module_configs_in",
-    "epc_names_definition", "count_values", "package_record", "report_path", "write_report",
+    "epc_names_definition", "count_values", "package_record", "diff_package_record",
+    "report_path", "write_report",
 ]
 
 _log = logging.getLogger(__name__)
@@ -509,6 +511,20 @@ def _plugin_sw_version(plugin_dir: Path) -> Optional[str]:
     return None
 
 
+def _manifest_version(pkg_dir: Path) -> Optional[str]:
+    """Read optional ``version`` field from ``module.json`` (written by SipPackageWriter)."""
+    manifest_path = pkg_dir / _VECTOR_MANIFEST
+    if not manifest_path.is_file():
+        return None
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        version = data.get("version")
+        return str(version).strip() if version else None
+    except (OSError, ValueError) as exc:
+        _log.debug("Could not read version from %s: %s", manifest_path, exc)
+        return None
+
+
 def package_record(pkg: ModulePackage) -> Dict[str, object]:
     """``{"sw_version": …, "files": {<path>: "sha256:<hex>"}}`` of a package's files.
 
@@ -521,10 +537,84 @@ def package_record(pkg: ModulePackage) -> Dict[str, object]:
         path = pkg.root / pf.path
         files[pf.path] = _sha256(path) if path.is_file() else None
     record: Dict[str, object] = {"files": files}
-    version = _plugin_sw_version(pkg.root) or (pkg.manifest.origin or {}).get("sw_version")
+    version = (
+        _plugin_sw_version(pkg.root)
+        or (pkg.manifest.origin or {}).get("sw_version")
+        or _manifest_version(pkg.root)
+    )
     if version:
         record["sw_version"] = version
     return record
+
+
+@dataclass
+class PackageDrift:
+    """Changes detected between a module's saved ``package_record`` and the current library package (R4)."""
+
+    module: str
+    old_version: Optional[str] = None
+    new_version: Optional[str] = None
+    added_files: List[str] = field(default_factory=list)
+    removed_files: List[str] = field(default_factory=list)
+    changed_files: List[str] = field(default_factory=list)
+
+    @property
+    def has_changes(self) -> bool:
+        return (
+            self.old_version != self.new_version
+            or bool(self.added_files or self.removed_files or self.changed_files)
+        )
+
+    def summary_lines(self) -> List[str]:
+        lines = [f"- {self.module}:"]
+        if self.old_version != self.new_version:
+            lines.append(
+                f"  版本变化: {self.old_version or '未记录'} -> {self.new_version or '未记录'}"
+            )
+        if self.added_files:
+            lines.append(f"  新增文件: {', '.join(self.added_files)}")
+        if self.removed_files:
+            lines.append(f"  移除文件: {', '.join(self.removed_files)}")
+        if self.changed_files:
+            lines.append(f"  修改文件: {', '.join(self.changed_files)}")
+        return lines
+
+
+def diff_package_record(
+    module: str,
+    saved: Optional[Dict[str, object]],
+    current: Dict[str, object],
+) -> Optional[PackageDrift]:
+    """Compare a saved ``package_record`` against ``current``; return ``None`` when unchanged or unrecorded."""
+    if not saved:
+        return None
+
+    def _norm_ver(rec: Dict[str, object]) -> Optional[str]:
+        v = rec.get("sw_version")
+        if v is None:
+            return None
+        s = str(v).strip()
+        return s or None
+
+    old_ver = _norm_ver(saved)
+    new_ver = _norm_ver(current)
+    old_files = dict(saved.get("files") or {})
+    new_files = dict(current.get("files") or {})
+
+    added = sorted(k for k in new_files if k not in old_files)
+    removed = sorted(k for k in old_files if k not in new_files)
+    changed = sorted(
+        k for k in new_files if k in old_files and new_files[k] != old_files[k]
+    )
+    drift = PackageDrift(
+        module=module,
+        old_version=old_ver,
+        new_version=new_ver,
+        added_files=added,
+        removed_files=removed,
+        changed_files=changed,
+    )
+    return drift if drift.has_changes else None
 
 
 # --- the report -----------------------------------------------------------------------

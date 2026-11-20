@@ -202,3 +202,118 @@ def test_skip_and_replace_strategies_behave_distinctly(qtbot, tmp_path):
 
     mgr_after = project_rep.module_managers["Foo"]
     assert mgr_after.configuration.containers[0].parameter_values["Mode"].value == "Ultra"
+
+
+def test_merge_strategy_respects_confirm_merge_callback(qtbot, tmp_path):
+    """merge strategy must pass confirm_merge to reconcile_baseline and track rejections."""
+    pre_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Vendor</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>Foo_Pre</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/Vendor/Foo</DEFINITION-REF>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>FooGeneral</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/Vendor/Foo/FooGeneral</DEFINITION-REF>
+          <PARAMETER-VALUES>
+            <ECUC-TEXTUAL-PARAM-VALUE>
+              <DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">/Vendor/Foo/FooGeneral/Mode</DEFINITION-REF>
+              <VALUE>{pre_mode}</VALUE>
+            </ECUC-TEXTUAL-PARAM-VALUE>
+          </PARAMETER-VALUES>
+        </ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>
+"""
+    wm, project, lib_dir = _new_v8_project(tmp_path / "merge_cb", with_lib=True)
+    pkg_dir = lib_dir / "Foo"
+    (pkg_dir / "config" / "Foo_pre.arxml").write_text(pre_xml.format(pre_mode="PreInitial"), encoding="utf-8")
+    (pkg_dir / "module.json").write_text(json.dumps({
+        "schema": 1,
+        "module": "Foo",
+        "definition": "/Vendor/Foo",
+        "files": ["def/Foo.arxml", "config/Foo_pre.arxml"],
+        "pre": ["/Vendor/Foo_Pre"],
+        "rec": [],
+    }), encoding="utf-8")
+
+    # Install Foo initially with PreInitial
+    w_init = IntegrationWizard(project)
+    qtbot.addWidget(w_init)
+    mp = w_init.page(w_init.pageIds()[1])
+    mp.initializePage()
+    mp._select_all()
+    w_init.accept()
+    wm.save_project()
+    assert project.module_managers["Foo"].configuration.containers[0].parameter_values["Mode"].value == "PreInitial"
+
+    # Update Pre in package to PreUpdated
+    (pkg_dir / "config" / "Foo_pre.arxml").write_text(pre_xml.format(pre_mode="PreUpdated"), encoding="utf-8")
+
+    # 1. Rejecting confirm_merge leaves Active unchanged and records merge_rejected
+    seen_previews = []
+    w_rej = IntegrationWizard(
+        project,
+        confirm_merge=lambda preview, res: seen_previews.append(preview) or False,
+    )
+    qtbot.addWidget(w_rej)
+    mp_rej = w_rej.page(w_rej.pageIds()[1])
+    cp_rej = w_rej.page(w_rej.pageIds()[2])
+    mp_rej.initializePage()
+    mp_rej.tree.topLevelItem(0).child(0).setCheckState(0, Qt.Checked)
+    cp_rej.initializePage()
+    cp_rej.merge_strategy_merge.setChecked(True)
+    w_rej.accept()
+
+    assert len(seen_previews) == 1
+    assert w_rej._result["merge_rejected"] == ["Foo"]
+    assert "Foo" not in w_rej._result["added"]
+    assert project.module_managers["Foo"].configuration.containers[0].parameter_values["Mode"].value == "PreInitial"
+
+    # 2. Accepting confirm_merge applies PreUpdated
+    w_acc = IntegrationWizard(project, confirm_merge=lambda preview, res: True)
+    qtbot.addWidget(w_acc)
+    mp_acc = w_acc.page(w_acc.pageIds()[1])
+    cp_acc = w_acc.page(w_acc.pageIds()[2])
+    mp_acc.initializePage()
+    mp_acc.tree.topLevelItem(0).child(0).setCheckState(0, Qt.Checked)
+    cp_acc.initializePage()
+    cp_acc.merge_strategy_merge.setChecked(True)
+    w_acc.accept()
+
+    assert w_acc._result["merge_rejected"] == []
+    assert w_acc._result["added"] == ["Foo"]
+    assert project.module_managers["Foo"].configuration.containers[0].parameter_values["Mode"].value == "PreUpdated"
+
+
+def test_project_controller_integrate_modules_passes_confirm_merge_preview(monkeypatch, tmp_path):
+    """ProjectController.integrate_modules() wires _confirm_merge_preview into IntegrationWizard."""
+    from autosar_configurator.ui.controllers import project_controller as pc
+    from autosar_configurator.ui.wizards import integration_wizard as iw
+
+    _, project, _ = _new_v8_project(tmp_path / "ctrl_cb", with_lib=True)
+    win = MagicMock()
+    win.current_project = project
+    ctrl = ProjectController(win)
+
+    captured = {}
+
+    class _FakeWizard:
+        def __init__(self, proj, parent=None, confirm_merge=None):
+            captured["project"] = proj
+            captured["parent"] = parent
+            captured["confirm_merge"] = confirm_merge
+            self.wizard_completed = MagicMock()
+
+        def exec(self):
+            return 0
+
+    monkeypatch.setattr(iw, "IntegrationWizard", _FakeWizard)
+    ctrl.integrate_modules()
+
+    assert captured["project"] is project
+    assert captured["parent"] is win
+    assert captured["confirm_merge"] == ctrl._confirm_merge_preview

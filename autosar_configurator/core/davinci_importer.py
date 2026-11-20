@@ -39,6 +39,65 @@ class SipMergeError(Exception):
         super().__init__(msg)
 
 
+class SipDerivativeMappingError(SipMergeError):
+    """Raised when a DerivativeMapping XML exists but cannot resolve the requested UUID."""
+
+
+def normalize_version(version: Optional[str]) -> Tuple[Any, ...]:
+    """Normalize dotted version strings so '1.2.0' compares equal to '1.02.00'."""
+    if not version:
+        return ()
+    parts: List[Any] = []
+    for token in str(version).strip().split("."):
+        token = token.strip()
+        if token.isdigit():
+            parts.append((0, int(token)))
+        else:
+            parts.append((1, token.lower()))
+    return tuple(parts)
+
+
+def versions_match(v1: Optional[str], v2: Optional[str]) -> bool:
+    """Return True when two non-empty version strings represent the same normalized version."""
+    n1 = normalize_version(v1)
+    n2 = normalize_version(v2)
+    return bool(n1 and n2 and n1 == n2)
+
+
+def compare_module_values(
+    source_cfg,
+    imported_cfg,
+    module_name: str,
+    expected_pre_keys: Optional[Set[str]] = None,
+) -> List[Dict[str, Any]]:
+    """Compare source configuration values against imported Active values (W12)."""
+    from .baseline.values import flatten, values_equal
+
+    skip_keys = expected_pre_keys or set()
+    src_flat = flatten(source_cfg, module_name)
+    dst_flat = flatten(imported_cfg, module_name)
+    diffs: List[Dict[str, Any]] = []
+    for key in sorted(src_flat):
+        if key in skip_keys:
+            continue
+        src_val = src_flat[key]
+        if key not in dst_flat:
+            diffs.append({
+                "key": key,
+                "kind": "missing",
+                "source": src_val,
+                "imported": None,
+            })
+        elif not values_equal(src_val, dst_flat[key]):
+            diffs.append({
+                "key": key,
+                "kind": "different",
+                "source": src_val,
+                "imported": dst_flat[key],
+            })
+    return diffs
+
+
 @dataclass
 class SipFile:
     """A single ARXML/XDM file from SIP."""
@@ -61,6 +120,7 @@ class DaVinciProject:
         ecuc_split_map: Dict[str, str],
         main_ecuc_file: Optional[str],
         active_modules: Optional[Set[str]] = None,
+        bsw_impl_versions: Optional[Dict[str, str]] = None,
     ):
         self.dpa_path = Path(dpa_path)
         self.derivative_uuid = derivative_uuid
@@ -70,6 +130,7 @@ class DaVinciProject:
         self.ecuc_split_map = ecuc_split_map  # {name -> ecuc_arxml_file}
         self.main_ecuc_file = main_ecuc_file
         self.active_modules = active_modules or set()
+        self.bsw_impl_versions = bsw_impl_versions or {}
 
     @classmethod
     def from_file(cls, dpa_path: Path) -> "DaVinciProject":
@@ -207,6 +268,26 @@ class DaVinciProject:
         if not active_modules and module_definitions:
             active_modules.update(module_definitions.keys())
 
+        # Extract BswImplSwVersion entries from BswImplVersionPersistor
+        bsw_impl_versions: Dict[str, str] = {}
+        persistor = root.find(
+            ".//Settings[@Name='com.vector.cfg.gen.core.bswmdmigration.internal.service.BswImplVersionPersistor']"
+        )
+        if persistor is not None:
+            for mod_settings in persistor.findall("Settings"):
+                raw_name = (mod_settings.get("Name") or "").strip()
+                if not raw_name:
+                    continue
+                ar_path = raw_name.replace("|", "/").rstrip("/")
+                if not ar_path.startswith("/"):
+                    ar_path = "/" + ar_path
+                for setting in mod_settings.findall("Setting"):
+                    if (setting.get("Name") or "").strip() == "BswImplSwVersion":
+                        val = (setting.get("Value") or "").strip()
+                        if val:
+                            bsw_impl_versions[ar_path] = val
+                        break
+
         return cls(
             dpa_path=dpa_path,
             derivative_uuid=derivative_uuid,
@@ -216,6 +297,7 @@ class DaVinciProject:
             ecuc_split_map=ecuc_split_map,
             main_ecuc_file=main_ecuc_file,
             active_modules=active_modules,
+            bsw_impl_versions=bsw_impl_versions,
         )
 
     def resolve_ecuc_file(self, module_name: str) -> Optional[Path]:
@@ -339,11 +421,19 @@ class SipScanner:
 
         try:
             chip_folder = self._get_chip_folder_from_mapping(mapping_file, derivative_uuid)
-        except Exception:
-            return files
+        except (etree.XMLSyntaxError, OSError) as exc:
+            raise SipDerivativeMappingError(
+                ar_path=f"/{module_name}",
+                reason=f"Failed to parse {mapping_file.name}: {exc}",
+                file1=mapping_file,
+            ) from exc
 
         if not chip_folder:
-            return files
+            raise SipDerivativeMappingError(
+                ar_path=f"/{module_name}",
+                reason=f"Derivative UUID '{derivative_uuid}' not found in {mapping_file.name}",
+                file1=mapping_file,
+            )
 
         filtered: List[SipFile] = []
         for f in files:
@@ -375,40 +465,41 @@ class SipScanner:
         Returns:
             List of SipFile matching the module and optional derivative
         """
-        all_by_module = self.scan_all_modules(derivative_uuid=derivative_uuid)
-        return all_by_module.get(module_name, [])
+        # Filter only the requested module so unrelated modules' mapping errors do not block single-module scans.
+        all_by_module = self.scan_all_modules(derivative_uuid=None)
+        files = all_by_module.get(module_name, [])
+        if derivative_uuid:
+            return self._filter_by_derivative_mapping(module_name, files, derivative_uuid)
+        return files
 
     @staticmethod
     def _get_chip_folder_from_mapping(mapping_file: Path, derivative_uuid: str) -> Optional[str]:
         """从 DerivativeMapping XML 提取 UUID 对应的 chip 文件夹名。"""
-        try:
-            parser = etree.XMLParser(resolve_entities=False, no_network=True)
-            tree = etree.parse(str(mapping_file), parser)
-            root = tree.getroot()
-            target_uuid = derivative_uuid.strip().lower()
+        parser = etree.XMLParser(resolve_entities=False, no_network=True)
+        tree = etree.parse(str(mapping_file), parser)
+        root = tree.getroot()
+        target_uuid = derivative_uuid.strip().lower()
 
-            # Pattern 1: <Settings Name="<ChipFolder>"><Settings Name="<UUID>"><Setting Name="SIP_Folder" Value="..."/>
-            for settings in root.iter():
-                if not isinstance(settings.tag, str):
-                    continue
-                if (settings.get("Name") or "").strip().lower() == target_uuid:
-                    for child in settings:
-                        if (child.get("Name") or "") == "SIP_Folder" and child.get("Value"):
-                            return child.get("Value").strip()
-                    parent = settings.getparent()
-                    if parent is not None and parent.get("Name"):
-                        return parent.get("Name").strip()
+        # Pattern 1: <Settings Name="<ChipFolder>"><Settings Name="<UUID>"><Setting Name="SIP_Folder" Value="..."/>
+        for settings in root.iter():
+            if not isinstance(settings.tag, str):
+                continue
+            if (settings.get("Name") or "").strip().lower() == target_uuid:
+                for child in settings:
+                    if (child.get("Name") or "") == "SIP_Folder" and child.get("Value"):
+                        return child.get("Value").strip()
+                parent = settings.getparent()
+                if parent is not None and parent.get("Name"):
+                    return parent.get("Name").strip()
 
-            # Pattern 2: text node containing UUID
-            for uuid_node in root.iter():
-                if not isinstance(uuid_node.tag, str):
-                    continue
-                if uuid_node.text and uuid_node.text.strip().lower() == target_uuid:
-                    chip_settings = uuid_node.getparent()
-                    if chip_settings is not None and chip_settings.get("Name"):
-                        return chip_settings.get("Name").strip()
-        except Exception:
-            pass
+        # Pattern 2: text node containing UUID
+        for uuid_node in root.iter():
+            if not isinstance(uuid_node.tag, str):
+                continue
+            if uuid_node.text and uuid_node.text.strip().lower() == target_uuid:
+                chip_settings = uuid_node.getparent()
+                if chip_settings is not None and chip_settings.get("Name"):
+                    return chip_settings.get("Name").strip()
 
         return None
 
@@ -1651,6 +1742,9 @@ class DaVinciImportReport:
     warnings: List[str] = field(default_factory=list)
     mcal_resources_exported: List[str] = field(default_factory=list)
     report_files: List[str] = field(default_factory=list)
+    pre_inconsistencies: List[Dict[str, Any]] = field(default_factory=list)
+    version_mismatches: List[Dict[str, str]] = field(default_factory=list)
+    value_diffs: List[Dict[str, Any]] = field(default_factory=list)
 
     @property
     def imported_count(self) -> int:
@@ -1682,6 +1776,9 @@ class DaVinciImportReport:
             )
             + f"用户拒绝合并 {len(self.rejected_modules)} 个，"
             f"失败 {len(self.failed_modules)} 个，"
+            f"Active/Pre 不一致 {len(self.pre_inconsistencies)} 处，"
+            f"版本不一致 {len(self.version_mismatches)} 个，"
+            f"逐参数核对差异 {len(self.value_diffs)} 处，"
             f"未决引用 {len(self.unresolved_references)} 条",
             "",
         ])
@@ -1739,6 +1836,49 @@ class DaVinciImportReport:
             lines.extend(["## 警告", ""])
             for w in self.warnings:
                 lines.append(f"- {w}")
+            lines.append("")
+
+        if self.pre_inconsistencies:
+            lines.extend([
+                "## Active 与 Pre 不一致项",
+                "",
+                "| 模块 | 类型 | 路径键 | 源 Active 值 | Pre 预设值 |",
+                "|---|---|---|---|---|",
+            ])
+            for item in self.pre_inconsistencies:
+                lines.append(
+                    f"| {item.get('module', '')} | {item.get('kind', '')} | "
+                    f"`{item.get('key', '')}` | `{item.get('active', '')}` | `{item.get('pre', '')}` |"
+                )
+            lines.append("")
+
+        if self.version_mismatches:
+            lines.extend([
+                "## BswImplSwVersion 版本不一致",
+                "",
+                "| 模块 | 定义路径 | DaVinci .dpa 版本 | 入库包版本 |",
+                "|---|---|---|---|",
+            ])
+            for item in self.version_mismatches:
+                lines.append(
+                    f"| {item.get('module', '')} | `{item.get('definition', '')}` | "
+                    f"`{item.get('dpa_version', '')}` | `{item.get('package_version', '')}` |"
+                )
+            lines.append("")
+
+        if self.value_diffs:
+            lines.extend([
+                "## 导入配置逐参数核对差异",
+                "",
+                "| 模块 | 来源 | 差异类型 | 路径键 | 源值 | 导入后值 |",
+                "|---|---|---|---|---|---|",
+            ])
+            for item in self.value_diffs:
+                lines.append(
+                    f"| {item.get('module', '')} | {item.get('source', '')} | {item.get('kind', '')} | "
+                    f"`{item.get('key', '')}` | `{item.get('source_value', item.get('source', ''))}` | "
+                    f"`{item.get('imported', '')}` |"
+                )
             lines.append("")
 
         return "\n".join(lines)
@@ -1920,10 +2060,11 @@ class DaVinciProjectImporter:
         """Populate ``new_project`` with DaVinci SIP BSW modules, values, and optional EB MCAL."""
         from datetime import datetime
         from . import project_paths, eb_import
+        from .baseline.merge import MergeKind
         from .packages.library import LibraryRef, scan_library
         from .packages.package import ModulePackage
         from .serializer.ecuc_serializer import EcucValueSerializer
-        from .config_manager import EpcFileScanner
+        from .config_manager import ConfigurationManager, EpcFileScanner
 
         has_existing_eb_lib = any(
             lib.kind == "eb-plugins" for lib in new_project.module_libraries
@@ -2180,6 +2321,7 @@ class DaVinciProjectImporter:
             else:
                 confirm_cb = None
 
+            new_project.last_merge_results.pop(target_name, None)
             try:
                 mgr = new_project.add_module_from_package(
                     pkg=pkg,
@@ -2213,6 +2355,56 @@ class DaVinciProjectImporter:
             stats["config_source"] = config_source
             stats["definition"] = pkg.manifest.definition
             report.module_stats[actual_name] = stats
+
+            # W12 verification 1: record Active vs Pre inconsistencies from baseline merge
+            pre_forced_keys: Set[str] = set()
+            merge_res = new_project.last_merge_results.get(actual_name)
+            if merge_res is not None:
+                for item in merge_res.items:
+                    if item.kind == MergeKind.PRE_FORCED or (
+                        config_source == "davinci_ecuc"
+                        and item.kind == MergeKind.CREATED_IN_BASE
+                        and item.new_value is not None
+                    ):
+                        report.pre_inconsistencies.append({
+                            "module": actual_name,
+                            "kind": item.kind.value,
+                            "key": item.key,
+                            "active": item.active_value,
+                            "pre": item.new_value,
+                        })
+                    if item.kind == MergeKind.PRE_FORCED:
+                        pre_forced_keys.add(item.key)
+
+            # W12 verification 2: compare .dpa BswImplSwVersion against ingested package SW-VERSION
+            def_key = pkg.manifest.definition.rstrip("/")
+            dpa_ver = dv.bsw_impl_versions.get(def_key)
+            pkg_ver = (
+                pkg.read_impl_metadata().get("sw_version")
+                or eb_import.package_record(pkg).get("sw_version")
+            )
+            if dpa_ver and pkg_ver and not versions_match(dpa_ver, str(pkg_ver)):
+                report.version_mismatches.append({
+                    "module": actual_name,
+                    "definition": def_key,
+                    "dpa_version": dpa_ver,
+                    "package_version": str(pkg_ver),
+                })
+
+            # W12 verification 3: parameter-by-parameter comparison against source DaVinci ECUC
+            if config_source == "davinci_ecuc" and extracted_cfg is not None:
+                for diff in compare_module_values(
+                    extracted_cfg,
+                    mgr.configuration,
+                    actual_name,
+                    expected_pre_keys=pre_forced_keys,
+                ):
+                    report.value_diffs.append({
+                        "module": actual_name,
+                        "source": "davinci_ecuc",
+                        "source_value": diff["source"],
+                        **diff,
+                    })
 
         # 5. Import EB MCAL modules (when EB MCAL source directory is supplied and holds plugins)
         if eb_plugins_dir is not None and eb_lib_index is not None and eb_survey is not None:
@@ -2268,6 +2460,7 @@ class DaVinciProjectImporter:
                 else:
                     mcal_confirm_cb = None
 
+                new_project.last_merge_results.pop(m_name, None)
                 try:
                     mgr = new_project.add_module_from_package(
                         pkg=pkg,
@@ -2283,10 +2476,49 @@ class DaVinciProjectImporter:
                         new_project._restore_module_replace_backup(mcal_backup)
                         report.rejected_modules.append(m_name)
                         continue
+                    actual_mcal_name = mgr.module_def.short_name
                     stats = cls._count_module_items(mgr.configuration)
                     stats["config_source"] = "eb_mcal"
                     stats["definition"] = pkg.manifest.definition
-                    report.module_stats[mgr.module_def.short_name] = stats
+                    report.module_stats[actual_mcal_name] = stats
+
+                    mcal_pre_forced: Set[str] = set()
+                    mcal_merge = new_project.last_merge_results.get(actual_mcal_name)
+                    if mcal_merge is not None:
+                        for item in mcal_merge.items:
+                            if item.kind == MergeKind.PRE_FORCED:
+                                mcal_pre_forced.add(item.key)
+                                report.pre_inconsistencies.append({
+                                    "module": actual_mcal_name,
+                                    "kind": item.kind.value,
+                                    "key": item.key,
+                                    "active": item.active_value,
+                                    "pre": item.new_value,
+                                })
+
+                    if epc is not None and written_mcal_cfg is not None:
+                        try:
+                            src_mgr = ConfigurationManager(mgr.module_def)
+                            src_mgr.load_configuration(epc.file)
+                            for diff in compare_module_values(
+                                src_mgr.configuration,
+                                mgr.configuration,
+                                actual_mcal_name,
+                                expected_pre_keys=mcal_pre_forced,
+                            ):
+                                report.value_diffs.append({
+                                    "module": actual_mcal_name,
+                                    "source": "eb_mcal",
+                                    "source_value": diff["source"],
+                                    **diff,
+                                })
+                        except Exception as exc:
+                            logger.warning(
+                                "Failed to compare EB MCAL source values for %s (%s): %s",
+                                actual_mcal_name,
+                                epc.file,
+                                exc,
+                            )
                 except Exception as exc:
                     if written_mcal_cfg is not None:
                         written_mcal_cfg.unlink(missing_ok=True)

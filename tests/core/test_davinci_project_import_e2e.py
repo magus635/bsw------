@@ -323,7 +323,10 @@ def test_import_davinci_project_preserves_ecuc_values_mcal_and_report(tmp_path):
     dio_mgr = project.module_managers["Dio"]
     assert dio_mgr.configuration.containers[0].parameter_values["DioDevErrorDetect"].value is True
 
-    # 5. Report written with per-module stats
+    # 5. Report written with per-module stats and zero inconsistencies/value diffs on clean import
+    assert report.pre_inconsistencies == []
+    assert report.version_mismatches == []
+    assert report.value_diffs == []
     report_path = out_parent / "MigratedApp" / ".import_report.md"
     assert report_path.is_file()
     md = report_path.read_text(encoding="utf-8")
@@ -808,5 +811,110 @@ def test_merge_eb_replace_failure_restores_existing_davinci_module(tmp_path):
     reloaded, reload_failed = WorkspaceManager().load_project(project.path, confirm=lambda *_: True)
     assert reload_failed == []
     assert reloaded.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is False
+
+
+def test_import_davinci_report_checks_pre_inconsistencies_versions_and_values(tmp_path):
+    """W12: report tracks Active-vs-Pre overrides, BswImplSwVersion mismatches, and zero unexpected value diffs."""
+    dpa_file, eb_root = _create_sample_sip_and_davinci(tmp_path)
+
+    # Inject Pre disagreement on OsCoreCount (Active=2 in ECUC, Pre=4) -> PRE_FORCED when accepted
+    pre_file = tmp_path / "sip" / "Components" / "Os" / "BSWMD" / "Os" / "THA6206_Sub" / "Os_THA_pre.arxml"
+    pre_file.write_text(
+        pre_file.read_text(encoding="utf-8").replace("<VALUE>2</VALUE>", "<VALUE>4</VALUE>"),
+        encoding="utf-8",
+    )
+
+    # Add BswImplVersionPersistor to .dpa: Os matches normalized (2.10.0 vs 2.10.00), Com mismatches
+    com_bswmd = tmp_path / "sip" / "Components" / "Com" / "BSWMD" / "Com_bswmd.arxml"
+    com_bswmd.write_text(
+        com_bswmd.read_text(encoding="utf-8").replace(
+            "</ECUC-MODULE-DEF>",
+            "</ECUC-MODULE-DEF>\n    <BSW-IMPLEMENTATION><SHORT-NAME>Com_Impl</SHORT-NAME><SW-VERSION>3.01.00</SW-VERSION></BSW-IMPLEMENTATION>",
+        ),
+        encoding="utf-8",
+    )
+    dpa_text = dpa_file.read_text(encoding="utf-8").replace(
+        "</ProjectAssistant>",
+        """  <ToolSettings>
+    <Settings Name="Misc">
+      <Settings Name="com.vector.cfg.gen.core.bswmdmigration.internal.service.BswImplVersionPersistor">
+        <Settings Name="|MICROSAR|Os">
+          <Setting Name="BswImplSwVersion" Value="2.10.0"/>
+        </Settings>
+        <Settings Name="|MICROSAR|Com">
+          <Setting Name="BswImplSwVersion" Value="2.0.0"/>
+        </Settings>
+      </Settings>
+    </Settings>
+  </ToolSettings>
+</ProjectAssistant>""",
+    )
+    dpa_file.write_text(dpa_text, encoding="utf-8")
+
+    wm = WorkspaceManager()
+    project, report = wm.import_davinci_project(
+        dpa_path=dpa_file,
+        target_dir=tmp_path / "checked_out",
+        project_name="CheckedImport",
+        mcal_source_dir=eb_root,
+        confirm=lambda *_: True,
+    )
+
+    # 1. Active vs Pre inconsistency captured for OsCoreCount (2 -> 4)
+    assert any(
+        item["module"] == "Os" and "OsCoreCount" in item["key"]
+        and item["active"] == 2 and item["pre"] == 4
+        for item in report.pre_inconsistencies
+    )
+
+    # 2. Normalized Os version (2.10.0 == 2.10.00) does NOT flag mismatch, whereas Com (2.0.0 != 3.01.00) DOES
+    assert all(m["module"] != "Os" for m in report.version_mismatches)
+    assert any(
+        m["module"] == "Com" and m["dpa_version"] == "2.0.0" and m["package_version"] == "3.01.00"
+        for m in report.version_mismatches
+    )
+
+    # 3. Value diffs are empty (the expected PRE_FORCED override is excluded from loss/drift diffs)
+    assert report.value_diffs == []
+
+    # 4. Markdown report renders all verification sections
+    md = (tmp_path / "checked_out" / "CheckedImport" / ".import_report.md").read_text(encoding="utf-8")
+    assert "Active 与 Pre 不一致项" in md
+    assert "OsCoreCount" in md
+    assert "BswImplSwVersion 版本不一致" in md
+    assert "3.01.00" in md
+
+
+def test_compare_module_values_detects_missing_and_mismatched_and_normalizes_booleans():
+    from autosar_configurator.core.davinci_importer import compare_module_values
+    from autosar_configurator.core.model.configuration_model import (
+        EcucContainerValue,
+        EcucModuleConfiguration,
+        EcucParameterValue,
+    )
+
+    src = EcucModuleConfiguration(short_name="Mod", definition_ref="/V/Mod")
+    src_c = EcucContainerValue(short_name="Gen", definition_ref="/V/Mod/Gen", module_name="Mod")
+    src_c.parameter_values["Flag"] = EcucParameterValue("/V/Mod/Gen/Flag", "true")
+    src_c.parameter_values["Rate"] = EcucParameterValue("/V/Mod/Gen/Rate", 100)
+    src_c.parameter_values["MissingKey"] = EcucParameterValue("/V/Mod/Gen/MissingKey", "abc")
+    src_c.parameter_values["PreKey"] = EcucParameterValue("/V/Mod/Gen/PreKey", "from_src")
+    src.add_container(src_c)
+
+    dst = EcucModuleConfiguration(short_name="Mod", definition_ref="/V/Mod")
+    dst_c = EcucContainerValue(short_name="Gen", definition_ref="/V/Mod/Gen", module_name="Mod")
+    dst_c.parameter_values["Flag"] = EcucParameterValue("/V/Mod/Gen/Flag", True)  # normalized equal
+    dst_c.parameter_values["Rate"] = EcucParameterValue("/V/Mod/Gen/Rate", 200)   # diff
+    dst_c.parameter_values["PreKey"] = EcucParameterValue("/V/Mod/Gen/PreKey", "from_pre")  # expected_pre_keys
+    dst.add_container(dst_c)
+
+    diffs = compare_module_values(src, dst, "Mod", expected_pre_keys={"P:/Mod/Gen.PreKey"})
+    by_key = {d["key"]: d for d in diffs}
+    assert "P:/Mod/Gen.Flag" not in by_key
+    assert "P:/Mod/Gen.PreKey" not in by_key
+    assert by_key["P:/Mod/Gen.Rate"]["kind"] == "different"
+    assert by_key["P:/Mod/Gen.Rate"]["source"] == 100
+    assert by_key["P:/Mod/Gen.Rate"]["imported"] == 200
+    assert by_key["P:/Mod/Gen.MissingKey"]["kind"] == "missing"
 
 

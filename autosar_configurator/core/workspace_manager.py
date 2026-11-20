@@ -308,6 +308,8 @@ class WorkspaceProject:
         self.module_libraries: List[LibraryRef] = []  # List of available module libraries
         self.module_entries: Dict[str, ModuleEntry] = {}  # Active modules keyed by name
         self.packages: Dict[str, "ModulePackage"] = {}  # Module package of each module, by name
+        self.package_drifts: Dict[str, Any] = {}  # R4 package_record drifts detected on open
+        self.last_merge_results: Dict[str, Any] = {}  # Latest MergeResult per module for reporting
         # Format 8: raw variant_overrides of modules that failed to load, kept so a
         # save writes them back unchanged
         self.unloaded_variant_overrides: Dict[str, Any] = {}
@@ -531,6 +533,7 @@ class WorkspaceProject:
             # they are. ``old`` still carries Base's layers (and Base' when it has no
             # snapshot), which is what the origins and the Pre lock read.
             self.baselines[name] = old
+        self.last_merge_results[name] = result
         return result
 
     def snapshot_module(self, name: str) -> Dict[str, Any]:
@@ -2068,7 +2071,7 @@ class WorkspaceManager:
             return p
         return project_dir / p
 
-    def load_project(self, project_path: Path, confirm=None) -> tuple[WorkspaceProject, list]:
+    def load_project(self, project_path: Path, confirm=None, confirm_package_change=None) -> tuple[WorkspaceProject, list]:
         """Load project from file (format ≤8)
 
         A format 8 project reconciles every module's baseline while loading (design §6.5,
@@ -2081,6 +2084,8 @@ class WorkspaceManager:
             project_path: The ``.dpa`` file.
             confirm: Optional ``(preview_text, MergeResult) -> bool`` shown before a merge
                 that changes Active.
+            confirm_package_change: Optional ``(drifts: Dict[str, PackageDrift]) -> bool``
+                shown when any module's ``package_record`` changed in its library.
 
         Returns:
             tuple: (project, failed_modules list)
@@ -2211,7 +2216,10 @@ class WorkspaceManager:
 
         # Load modules: format 8 uses module_entries, earlier formats use def_path
         if format_version >= 8:
-            self._load_v8_modules(project, data, project_dir, failed_modules, confirm)
+            self._load_v8_modules(
+                project, data, project_dir, failed_modules, confirm,
+                confirm_package_change=confirm_package_change,
+            )
         else:
             # Format ≤7: Load with def_path (existing logic)
             for module_data in data.get("modules", []):
@@ -2324,7 +2332,7 @@ class WorkspaceManager:
 
     def _load_v8_modules(self, project: WorkspaceProject, data: Dict[str, Any],
                          project_dir: Path, failed_modules: list,
-                         confirm=None) -> None:
+                         confirm=None, confirm_package_change=None) -> None:
         """Load the ``modules`` of a format 8 project through its module libraries.
 
         Every entry is kept in ``module_entries`` (so saving does not drop it).  A module
@@ -2358,7 +2366,9 @@ class WorkspaceManager:
                 project.unloaded_variant_overrides[name] = raw_overrides[name]
 
         libraries = scan_libraries(project)
+        pending_drifts = []
         for entry in entries:
+            saved_record = dict(entry.package_record) if entry.package_record else {}
             try:
                 index, pkg = find_package(libraries, entry.definition)
                 # Also loads the entry's configuration file when it exists. The snapshot is
@@ -2380,6 +2390,25 @@ class WorkspaceManager:
                 # or serialiser error means the baseline cannot be computed at all. Either
                 # way one module is reported and the rest of the project loads.
                 fail(entry.name, f"Baseline merge failed: {exc}")
+                continue
+
+            # Detect R4 package_record changes even when baseline values did not change
+            # (or when a baseline merge was rejected), avoiding silent updates.
+            if saved_record:
+                from . import eb_import
+                current_record = eb_import.package_record(pkg)
+                if entry.package_record != current_record:
+                    drift = eb_import.diff_package_record(entry.name, saved_record, current_record)
+                    if drift is not None:
+                        pending_drifts.append((entry, drift, current_record))
+
+        if pending_drifts:
+            project.package_drifts = {entry.name: drift for entry, drift, _ in pending_drifts}
+            if confirm_package_change is not None and bool(confirm_package_change(dict(project.package_drifts))):
+                for entry, _, current_record in pending_drifts:
+                    entry.package_record = current_record
+                project.is_modified = True
+                project.package_drifts = {}
 
     def import_eb_project(self, project_root: Path, chip_name: Optional[str] = None,
                           target_dir: Optional[Path] = None,

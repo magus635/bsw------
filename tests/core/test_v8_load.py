@@ -486,3 +486,81 @@ def test_ensure_package_for_path_registers_library_on_new_v8_project(tmp_path):
         c.short_name == "McuPublishedInformation"
         for c in reloaded.module_managers["Mcu"].configuration.containers
     )
+
+
+def test_v8_detects_package_record_drift_and_prompts_without_baseline_value_change(tmp_path):
+    """R4: changing package file or sw_version without changing baseline values records drift and prompts."""
+    lib_dir = tmp_path / "lib"
+    pkg_dir = lib_dir / "Res"
+    (pkg_dir / "def").mkdir(parents=True)
+    xdm_path = pkg_dir / "def" / "Resource.xdm"
+    shutil.copy(EB_PLUGINS / "Resource_THA6_AS440" / "config" / "Resource.xdm", xdm_path)
+    manifest_path = pkg_dir / "module.json"
+    manifest_data = {
+        "schema": 1,
+        "module": "Resource",
+        "definition": "/THA6_AS440_FuSa/Resource",
+        "files": ["def/Resource.xdm"],
+        "origin": {"sw_version": "1.0.0"},
+    }
+    manifest_path.write_text(json.dumps(manifest_data), encoding="utf-8")
+
+    project_file = tmp_path / "proj" / "P.dpa"
+    wm = WorkspaceManager()
+    project = wm.create_project("P", project_file, format_version=8)
+    project.module_libraries.append(LibraryRef(path="../lib", kind="package"))
+    [pkg] = scan_library(project.module_libraries[0], tmp_path / "proj")
+    project.add_module_from_package(pkg, 0)
+    wm.save_project()
+
+    saved_before = json.loads(project_file.read_text(encoding="utf-8"))
+    old_record = saved_before["modules"][0]["package_record"]
+    assert old_record["sw_version"] == "1.0.0"
+
+    # Bump version and append an XML comment to the definition without changing baseline values
+    manifest_data["origin"]["sw_version"] = "1.0.1"
+    manifest_path.write_text(json.dumps(manifest_data), encoding="utf-8")
+    xdm_path.write_text(xdm_path.read_text(encoding="utf-8") + "\n<!-- updated -->\n", encoding="utf-8")
+
+    # 1. Headless (confirm_package_change=None): opens with current content, records drift, keeps old record
+    reloaded_none, failed_none = WorkspaceManager().load_project(project_file)
+    assert failed_none == []
+    assert "Resource" in reloaded_none.package_drifts
+    drift = reloaded_none.package_drifts["Resource"]
+    assert drift.old_version == "1.0.0"
+    assert drift.new_version == "1.0.1"
+    assert "def/Resource.xdm" in drift.changed_files
+    assert reloaded_none.module_entries["Resource"].package_record == old_record
+
+    # 2. User rejects update -> keeps old package_record, next open still sees drift
+    seen = []
+    reloaded_reject, failed_rej = WorkspaceManager().load_project(
+        project_file,
+        confirm_package_change=lambda d: seen.append(d) or False,
+    )
+    assert failed_rej == []
+    assert len(seen) == 1
+    assert "Resource" in seen[0]
+    assert reloaded_reject.module_entries["Resource"].package_record == old_record
+    assert "Resource" in reloaded_reject.package_drifts
+
+    # 3. User accepts update -> updates package_record, marks modified, save clears drift on subsequent load
+    wm2 = WorkspaceManager()
+    reloaded_accept, failed_acc = wm2.load_project(
+        project_file,
+        confirm_package_change=lambda d: True,
+    )
+    assert failed_acc == []
+    assert reloaded_accept.package_drifts == {}
+    assert reloaded_accept.is_modified is True
+    assert reloaded_accept.module_entries["Resource"].package_record["sw_version"] == "1.0.1"
+    wm2.save_project()
+
+    called_after_save = []
+    reloaded_clean, failed_clean = WorkspaceManager().load_project(
+        project_file,
+        confirm_package_change=lambda d: called_after_save.append(d) or True,
+    )
+    assert failed_clean == []
+    assert called_after_save == []
+    assert reloaded_clean.package_drifts == {}
