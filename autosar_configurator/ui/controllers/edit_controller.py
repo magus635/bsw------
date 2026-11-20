@@ -91,12 +91,15 @@ class EditController:
     def handle_create_container(self, container_def: EcucContainerDef, parent_instance: Optional[EcucContainerValue], name: str):
         """Handle container creation request via command"""
         config_manager = self.win.config_manager
-        if getattr(self.win, "workspace", None) and hasattr(self.win.workspace, "get_manager_for_definition"):
-            def_ref = getattr(container_def, "definition_ref", None)
-            if def_ref:
-                target_cm = self.win.workspace.get_manager_for_definition(def_ref)
-                if target_cm is not None:
-                    config_manager = target_cm
+        project = getattr(self.win, "project", None)
+        if project and getattr(project, "module_managers", None):
+            def_ref = getattr(container_def, "definition_ref", None) or ""
+            for mgr in project.module_managers.values():
+                mod_def = getattr(mgr, "module_def", None)
+                mod_ref = getattr(mod_def, "definition_ref", None) if mod_def else None
+                if mod_ref and def_ref.startswith(mod_ref + "/"):
+                    config_manager = mgr
+                    break
 
         if not config_manager:
             return
