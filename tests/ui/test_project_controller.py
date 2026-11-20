@@ -485,3 +485,133 @@ def test_several_project_files_ask_which_one(tmp_path, monkeypatch, picked):
     else:
         loaded = win.workspace_manager.load_project.call_args.args[0]
         assert loaded == [upper_a, lower_b][picked]
+
+
+def test_import_eb_project_can_merge_into_open_v8_project(tmp_path, monkeypatch):
+    """When a Format 8 project is already open, import_eb_project offers merging into it
+    without asking for a target directory and preserves its existing project_type."""
+    from types import SimpleNamespace
+
+    from autosar_configurator.core.config_manager import ProjectType
+    from autosar_configurator.ui.controllers import project_controller as pc
+
+    eb_src = _eb_tree(tmp_path / "EbMcal")
+    existing_dpa = tmp_path / "Existing" / "Existing.dpa"
+    existing_dpa.parent.mkdir(parents=True)
+    existing_proj = SimpleNamespace(
+        name="Existing",
+        format_version=8,
+        path=existing_dpa,
+        project_type=ProjectType.VECTOR,
+        selected_chip=None,
+        ecu_resources={},
+        module_libraries=[],
+    )
+
+    ui = _Ui(monkeypatch, [eb_src])
+    monkeypatch.setattr(pc.QFileDialog, "getExistingDirectory", lambda *a, **k: str(eb_src))
+
+    win, ctrl, patches = _controller()
+    win.current_project = existing_proj
+    win.workspace_manager.import_eb_project = MagicMock(return_value=(existing_proj, ["Dio"], []))
+    win.workspace_manager.last_import_report = None
+
+    _run(ctrl, patches, ctrl.import_eb_project)
+
+    assert any(title == "Import Target" for title, _ in ui.item_lists)
+    kwargs = win.workspace_manager.import_eb_project.call_args.kwargs
+    assert kwargs["into_project"] is existing_proj
+    assert kwargs["on_conflict"] == "replace"
+    assert kwargs["target_dir"] is None
+    assert existing_proj.project_type == ProjectType.VECTOR
+
+
+def test_import_davinci_project_can_merge_into_open_v8_project(tmp_path, monkeypatch):
+    """When a Format 8 EB project is already open, import_davinci_project offers merging into it,
+    skips target dir / project name / external MCAL prompts, and forwards into_project + on_conflict."""
+    from types import SimpleNamespace
+
+    from autosar_configurator.core.config_manager import ProjectType
+    from autosar_configurator.core.packages.library import LibraryRef
+    from autosar_configurator.ui.controllers import project_controller as pc
+
+    dpa_file = tmp_path / "Sample.dpa"
+    dpa_file.write_text("<ProjectAssistant/>", encoding="utf-8")
+    existing_dpa = tmp_path / "ExistingEB" / "ExistingEB.dpa"
+    existing_dpa.parent.mkdir(parents=True)
+    existing_proj = SimpleNamespace(
+        name="ExistingEB",
+        format_version=8,
+        path=existing_dpa,
+        project_type=ProjectType.EB_TRESOS,
+        module_libraries=[LibraryRef(path="modules", kind="eb-plugins")],
+    )
+
+    class _FakeMsgBox:
+        Information = 1
+        Yes = 16384
+        No = 65536
+        question_titles = []
+
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def setIcon(self, *args):
+            pass
+
+        def setWindowTitle(self, *args):
+            pass
+
+        def setText(self, *args):
+            pass
+
+        def setDetailedText(self, *args):
+            pass
+
+        def exec(self):
+            return 0
+
+        @classmethod
+        def question(cls, parent, title, *args, **kwargs):
+            cls.question_titles.append(title)
+            return cls.No
+
+        @staticmethod
+        def critical(*args, **kwargs):
+            raise AssertionError(f"Unexpected QMessageBox.critical: {args}")
+
+    _Ui(monkeypatch, [])
+    monkeypatch.setattr(pc.QFileDialog, "getOpenFileName", lambda *a, **k: (str(dpa_file), ""))
+    monkeypatch.setattr(pc.QFileDialog, "getExistingDirectory",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("Should not ask target dir")))
+    monkeypatch.setattr(pc.QInputDialog, "getText",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("Should not ask project name")))
+    monkeypatch.setattr(pc, "QMessageBox", _FakeMsgBox)
+
+    fake_report = SimpleNamespace(
+        imported_count=2,
+        skipped_mcal_modules=[{"module": "Dio", "reason": "kept"}],
+        skipped_existing_modules=[],
+        rejected_modules=[],
+        failed_modules=[],
+        unresolved_references=[],
+        report_files=[],
+        to_markdown=lambda: "# report",
+    )
+
+    win, ctrl, patches = _controller()
+    win.current_project = existing_proj
+    win.workspace_manager.import_davinci_project = MagicMock(return_value=(existing_proj, fake_report))
+
+    with patch.object(ctrl, "_load_project_at_path") as load_mock:
+        _run(ctrl, patches, ctrl.import_davinci_project)
+
+    assert "EB MCAL Source" not in _FakeMsgBox.question_titles
+    kwargs = win.workspace_manager.import_davinci_project.call_args.kwargs
+    assert kwargs["into_project"] is existing_proj
+    assert kwargs["on_conflict"] == "auto"
+    assert kwargs["target_dir"] is None
+    assert kwargs["project_name"] is None
+    assert kwargs["mcal_source_dir"] is None
+    load_mock.assert_called_once_with(existing_proj.path)
+

@@ -162,6 +162,33 @@ autosar_configurator/
 - 新工程应按 Format 8 模式建立，并提供 `modules/` 和 `module.json` 结构。
 - 只有满足 `module.json` + `definition` + `files` 约束的模块包，才能被 `scan_library()` 和 `WorkspaceProject.add_module_from_package()` 正确识别。
 
+## Vector SIP 入库与 DaVinci 工程导入
+
+### 界面导入 DaVinci `.dpa` 工程
+
+通过菜单 `File -> Import -> Import from DaVinci Project...` 选择 Vector DaVinci XML 格式 `.dpa` 文件并指定目标目录与工程名（可选指定外部 EB MCAL 插件/配置目录与导出 MCAL 资源 YAML）：
+
+- 工具会自动扫描 SIP 中的 `Components/*/BSWMD/` 与 `DemoComponents/*/BSWMD/`，合并定义并写入 Format 8 工程的 `DaVinciImport/` 库与 `modules`/`config` 目录；
+- 从 `Config/ECUC/` 读取各活跃模块的实际配置值写入 `config/<Module>.arxml`，再与 `Pre`/`Rec` 基线合并并在冲突时弹出 `MergePreviewDialog` 预览确认；
+- 导入结束后在工程根目录生成 `.import_report.md`（并在 `.history/reports/davinci_import_report.md` 存档）。
+
+### SIP 组件入库 CLI
+
+```bash
+python -m autosar_configurator.core.davinci_import_cli \
+  --project <path/to/StartApplication.dpa> \
+  --output <path/to/output_packages> \
+  [--derivative-uuid <UUID>] \
+  [--include-resources] \
+  [--verbose]
+```
+
+### 常见排障
+
+- **`<SIP>` 相对路径层级偏移**：若 DaVinci `.dpa` 中 `<Folders><SIP>`（例如 `.\..\..`）指向 `Applications/` 等下级目录，导入器会自动校验 `Components/` 或 `DemoComponents/` 并向上定位真正的 SIP 根目录。
+- **活跃模块识别**：优先解析 `<EcucSplitter><Configuration>`（如 `StartApplication.ecuc.arxml` 中的 `ECUC-VALUE-COLLECTION`）与 `<EcucSplitter>`，不会把 `<ModuleDefinitionMappings>` 中未启用的 100+ 映射全部导入。
+- **衍生芯片匹配**：若芯片定义（`Chip Definition Designer`）中填写了 `derivative_uuid`，导入器会优先按 UUID 精确匹配芯片，其次按芯片名前缀（如 `THA6206`）回退匹配。
+
 ## 运行测试
 
 激活虚拟环境：

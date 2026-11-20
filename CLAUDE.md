@@ -142,6 +142,8 @@ Core (autosar_configurator/core/): Data models, ARXML parsing/serialization, con
 * model/ — EcucModuleDef → EcucContainerDef → EcucParameterDef (definition side); EcucModuleConfiguration → EcucContainerValue → EcucParameterValue (configuration side)
 * command.py — Command pattern for undo/redo (SetParameterCommand, CreateContainerCommand, etc.)
 * Observer pattern (model/observers.py) syncs data changes to UI automatically
+* davinci_importer.py & davinci_import_cli.py — Vector SIP BSWMD scanner/merger (`SipScanner`, `SipMerger`, `SipPackageWriter`), DaVinci XML `.dpa` parser & Format 8 project importer (`DaVinciProject`, `DaVinciProjectImporter`), and `McalResourceExtractor`
+* packages/ & baseline/ — Format 8 module packages (`ModulePackage`, `LibraryRef`) and 4-layer baseline composition / 3-way merge (`DEFAULT < REC < DERIVED < PRE`)
 
 Generator (autosar_configurator/generator/): EB Tresos-compatible template engine with custom lexer, XPath 2.0/3.0 engine, and built-in function library.
 * eb/renderer.py — Template rendering (supports [!IF], [!LOOP], [!MACRO], [!SELECT], etc.)

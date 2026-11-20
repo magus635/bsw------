@@ -448,3 +448,365 @@ def test_import_davinci_project_selects_chip_by_derivative_uuid_without_mcal(tmp
     assert project.selected_chip == "CUSTOM_THA6206_CHIP"
     assert "CUSTOM_THA6206_CHIP" in project.available_chips
     assert project.ecu_resources.get("OsResource.NumOfCores") == 2
+
+
+def _create_overlapping_sip_and_eb(root: Path):
+    """Extend _create_sample_sip_and_davinci with a Vector-wrapped SIP Dio + ECUC (value=false)
+    matching EB Dio's definition /THA6_AS440_FuSa/Dio (value=true)."""
+    dpa_file, eb_root = _create_sample_sip_and_davinci(root)
+    sip = root / "sip"
+
+    # SIP Components/Mcal_Tha62x/BSWMD/Dio_bswmd.arxml
+    mcal_bswmd = sip / "Components" / "Mcal_Tha62x" / "BSWMD"
+    mcal_bswmd.mkdir(parents=True)
+    (mcal_bswmd / "Dio_bswmd.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>THA6_AS440_FuSa</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-DEF>
+      <SHORT-NAME>Dio</SHORT-NAME>
+      <CONTAINERS><ECUC-PARAM-CONF-CONTAINER-DEF>
+        <SHORT-NAME>DioGeneral</SHORT-NAME>
+        <PARAMETERS><ECUC-BOOLEAN-PARAM-DEF>
+          <SHORT-NAME>DioDevErrorDetect</SHORT-NAME>
+          <DEFAULT-VALUE>false</DEFAULT-VALUE>
+        </ECUC-BOOLEAN-PARAM-DEF></PARAMETERS>
+      </ECUC-PARAM-CONF-CONTAINER-DEF></CONTAINERS>
+    </ECUC-MODULE-DEF>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    # DaVinci ECUC for Dio (DioDevErrorDetect = false)
+    ecuc_dir = sip / "Applications" / "MyApp" / "Config" / "ECUC"
+    (ecuc_dir / "MyApp_Dio_ecuc.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>Dio</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/THA6_AS440_FuSa/Dio</DEFINITION-REF>
+      <CONTAINERS><ECUC-CONTAINER-VALUE>
+        <SHORT-NAME>DioGeneral</SHORT-NAME>
+        <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/THA6_AS440_FuSa/Dio/DioGeneral</DEFINITION-REF>
+        <PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE>
+          <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/THA6_AS440_FuSa/Dio/DioGeneral/DioDevErrorDetect</DEFINITION-REF>
+          <VALUE>false</VALUE>
+        </ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES>
+      </ECUC-CONTAINER-VALUE></CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    return dpa_file, eb_root
+
+
+def test_import_davinci_then_merge_eb_into_same_project(tmp_path):
+    """Order 1: Import DaVinci first (Os, Com, SIP Dio), then merge EB MCAL (Dio) replacing Dio."""
+    dpa_file, eb_root = _create_overlapping_sip_and_eb(tmp_path)
+    out_parent = tmp_path / "combo1_out"
+
+    wm = WorkspaceManager()
+    project, dv_report = wm.import_davinci_project(
+        dpa_path=dpa_file,
+        target_dir=out_parent,
+        project_name="Combo1",
+        confirm=lambda *_: True,
+    )
+    assert set(project.module_managers.keys()) == {"Os", "Com", "Dio"}
+    assert project.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is False
+
+    merged, loaded, failed = wm.import_eb_project(
+        eb_root,
+        mode="copy",
+        into_project=project,
+        on_conflict="replace",
+        confirm=lambda *_: True,
+    )
+    assert merged is project
+    assert project.path == out_parent / "Combo1" / "Combo1.dpa"
+    assert failed == []
+    assert "Dio" in loaded
+    assert len(project.module_libraries) == 2
+    assert project.module_libraries[0].path == "DaVinciImport"
+    assert project.module_libraries[1].kind == "eb-plugins"
+    assert "Dio" in project.module_libraries[0].exclude
+
+    # BSW keeps DaVinci values + cross-module ref; Dio now uses EB EPC value (true)
+    assert project.module_entries["Dio"].library == 1
+    assert project.module_provenance["Dio"]["origin"] == "eb-import"
+    assert project.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is True
+    os_init = next(c for c in project.module_managers["Os"].configuration.containers if c.short_name == "InitTask")
+    com_main = project.module_managers["Com"].configuration.containers[0]
+    assert com_main.parameter_values["ComMode"].value == "CYCLIC_FROM_ECUC"
+    assert com_main.reference_values["ComTaskRef"].target is os_init
+
+    reloaded, reload_failed = WorkspaceManager().load_project(project.path, confirm=lambda *_: True)
+    assert reload_failed == []
+    assert set(reloaded.module_managers.keys()) == {"Os", "Com", "Dio"}
+    assert reloaded.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is True
+
+
+def test_import_davinci_then_merge_eb_keep_existing(tmp_path):
+    """Order 1 with on_conflict='keep': DaVinci Dio stays, EB plugin package is excluded cleanly."""
+    dpa_file, eb_root = _create_overlapping_sip_and_eb(tmp_path)
+    out_parent = tmp_path / "combo1_keep_out"
+
+    wm = WorkspaceManager()
+    project, _ = wm.import_davinci_project(
+        dpa_path=dpa_file,
+        target_dir=out_parent,
+        project_name="Combo1Keep",
+        confirm=lambda *_: True,
+    )
+
+    _, _, failed = wm.import_eb_project(
+        eb_root,
+        mode="copy",
+        into_project=project,
+        on_conflict="keep",
+        confirm=lambda *_: True,
+    )
+    assert failed == []
+    assert project.module_entries["Dio"].library == 0
+    assert project.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is False
+    assert "Dio_THA6_AS440" in project.module_libraries[1].exclude
+
+    reloaded, reload_failed = WorkspaceManager().load_project(project.path, confirm=lambda *_: True)
+    assert reload_failed == []
+    assert reloaded.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is False
+
+
+def test_import_eb_then_merge_davinci_into_same_project(tmp_path):
+    """Order 2: Import EB MCAL first (Dio), then merge DaVinci .dpa (keeps EB Dio, adds Os & Com)."""
+    dpa_file, eb_root = _create_overlapping_sip_and_eb(tmp_path)
+    target_dir = tmp_path / "Combo2"
+
+    wm = WorkspaceManager()
+    project, loaded, failed = wm.import_eb_project(
+        eb_root,
+        target_dir=target_dir,
+        mode="copy",
+        confirm=lambda *_: True,
+    )
+    assert failed == [] and "Dio" in loaded
+    assert len(project.module_libraries) == 1
+
+    merged, dv_report = wm.import_davinci_project(
+        dpa_path=dpa_file,
+        into_project=project,
+        on_conflict="auto",
+        confirm=lambda *_: True,
+    )
+    assert merged is project
+    assert project.path == target_dir / "Combo2.dpa"
+    assert dv_report.failed_modules == []
+    assert len(project.module_libraries) == 2
+    assert project.module_libraries[0].kind == "eb-plugins"
+    assert project.module_libraries[1].path == "DaVinciImport"
+    assert project.derivative_uuid == "UUID-THA6206"
+
+    # EB Dio kept at library 0 with value=True; DaVinci Os & Com imported at library 1
+    assert any(item["module"] == "Dio" for item in dv_report.skipped_mcal_modules)
+    assert project.module_entries["Dio"].library == 0
+    assert project.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is True
+    assert project.module_entries["Os"].library == 1
+    assert project.module_entries["Com"].library == 1
+    os_init = next(c for c in project.module_managers["Os"].configuration.containers if c.short_name == "InitTask")
+    com_main = project.module_managers["Com"].configuration.containers[0]
+    assert com_main.parameter_values["ComMode"].value == "CYCLIC_FROM_ECUC"
+    assert com_main.reference_values["ComTaskRef"].target is os_init
+
+    reloaded, reload_failed = WorkspaceManager().load_project(project.path, confirm=lambda *_: True)
+    assert reload_failed == []
+    assert set(reloaded.module_managers.keys()) == {"Os", "Com", "Dio"}
+    assert reloaded.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is True
+    assert reloaded.derivative_uuid == "UUID-THA6206"
+
+
+def test_import_eb_then_merge_davinci_replace_conflict(tmp_path):
+    """Order 2 with on_conflict='replace': DaVinci Dio replaces EB Dio and excludes EB plugin dir."""
+    dpa_file, eb_root = _create_overlapping_sip_and_eb(tmp_path)
+    target_dir = tmp_path / "Combo2Replace"
+
+    wm = WorkspaceManager()
+    project, _, _ = wm.import_eb_project(
+        eb_root,
+        target_dir=target_dir,
+        mode="copy",
+        confirm=lambda *_: True,
+    )
+    assert project.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is True
+
+    _, dv_report = wm.import_davinci_project(
+        dpa_path=dpa_file,
+        into_project=project,
+        on_conflict="replace",
+        confirm=lambda *_: True,
+    )
+    assert dv_report.failed_modules == []
+    assert project.module_entries["Dio"].library == 1
+    assert project.module_provenance["Dio"]["origin"] == "davinci-import"
+    assert project.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is False
+    assert "Dio_THA6_AS440" in project.module_libraries[0].exclude
+
+    reloaded, reload_failed = WorkspaceManager().load_project(project.path, confirm=lambda *_: True)
+    assert reload_failed == []
+    assert reloaded.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is False
+
+
+def test_merge_eb_epc_only_stub_does_not_overwrite_existing_davinci_module(tmp_path):
+    """An EB Config/*.epc stub without a plugin must never purge/overwrite an existing DaVinci module."""
+    dpa_file, eb_root = _create_overlapping_sip_and_eb(tmp_path)
+    out_parent = tmp_path / "epc_stub_out"
+
+    wm = WorkspaceManager()
+    project, _ = wm.import_davinci_project(
+        dpa_path=dpa_file,
+        target_dir=out_parent,
+        project_name="EpcStubSafe",
+        confirm=lambda *_: True,
+    )
+
+    # Add an Os.epc stub with no corresponding Os plugin in eb_root
+    epc_dir = eb_root / "Config" / "THA6206_LFBGA292" / "output"
+    (epc_dir / "Os.epc").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Os</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>Os</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/Os</DEFINITION-REF>
+      <CONTAINERS><ECUC-CONTAINER-VALUE>
+        <SHORT-NAME>OsOS</SHORT-NAME>
+        <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/Os/OsOS</DEFINITION-REF>
+        <PARAMETER-VALUES><ECUC-TEXTUAL-PARAM-VALUE>
+          <DEFINITION-REF DEST="ECUC-ENUMERATION-PARAM-DEF">/MICROSAR/Os/OsOS/OsStatus</DEFINITION-REF>
+          <VALUE>STANDARD</VALUE>
+        </ECUC-TEXTUAL-PARAM-VALUE></PARAMETER-VALUES>
+      </ECUC-CONTAINER-VALUE></CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    _, loaded, failed = wm.import_eb_project(
+        eb_root,
+        mode="copy",
+        into_project=project,
+        on_conflict="replace",
+        confirm=lambda *_: True,
+    )
+    assert failed == []
+    assert "Dio" in loaded
+    assert project.module_entries["Dio"].library == 1
+    assert project.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is True
+
+    # Existing DaVinci Os remains intact
+    assert project.module_entries["Os"].library == 0
+    assert project.module_provenance["Os"]["origin"] == "davinci-import"
+    os_os = next(c for c in project.module_managers["Os"].configuration.containers if c.short_name == "OsOS")
+    assert os_os.parameter_values["OsStatus"].value == "EXTENDED"
+
+    reloaded, reload_failed = WorkspaceManager().load_project(project.path, confirm=lambda *_: True)
+    assert reload_failed == []
+    reloaded_os = next(c for c in reloaded.module_managers["Os"].configuration.containers if c.short_name == "OsOS")
+    assert reloaded_os.parameter_values["OsStatus"].value == "EXTENDED"
+
+
+def test_remerge_switching_conflict_winner_unexcludes_and_reloads_cleanly(tmp_path):
+    """Switching winner between DaVinci and EB across re-merges updates exclude lists cleanly."""
+    dpa_file, eb_root = _create_overlapping_sip_and_eb(tmp_path)
+    out_parent = tmp_path / "remerge_switch_out"
+
+    wm = WorkspaceManager()
+    # Step 1: Import DaVinci (Dio=False at lib 0)
+    project, _ = wm.import_davinci_project(
+        dpa_path=dpa_file,
+        target_dir=out_parent,
+        project_name="SwitchWinner",
+        confirm=lambda *_: True,
+    )
+    assert project.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is False
+
+    # Step 2: Merge EB with keep (DaVinci stays winner at lib 0; EB excluded)
+    _, _, failed_keep = wm.import_eb_project(
+        eb_root,
+        mode="copy",
+        into_project=project,
+        on_conflict="keep",
+        confirm=lambda *_: True,
+    )
+    assert failed_keep == []
+    assert project.module_entries["Dio"].library == 0
+    assert "Dio_THA6_AS440" in project.module_libraries[1].exclude
+
+    # Step 3: Re-merge EB with replace (EB becomes winner at lib 1; un-excluded in lib 1, DaVinci excluded in lib 0)
+    _, _, failed_eb_rep = wm.import_eb_project(
+        eb_root,
+        mode="copy",
+        into_project=project,
+        on_conflict="replace",
+        confirm=lambda *_: True,
+    )
+    assert failed_eb_rep == []
+    assert project.module_entries["Dio"].library == 1
+    assert project.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is True
+    assert "Dio_THA6_AS440" not in project.module_libraries[1].exclude
+    assert "Dio" in project.module_libraries[0].exclude
+
+    reloaded1, rf1 = WorkspaceManager().load_project(project.path, confirm=lambda *_: True)
+    assert rf1 == []
+    assert reloaded1.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is True
+
+    # Step 4: Re-merge DaVinci with replace (DaVinci becomes winner at lib 0; un-excluded in lib 0, EB excluded in lib 1)
+    _, dv_rep = wm.import_davinci_project(
+        dpa_path=dpa_file,
+        into_project=reloaded1,
+        on_conflict="replace",
+        confirm=lambda *_: True,
+    )
+    assert dv_rep.failed_modules == []
+    assert reloaded1.module_entries["Dio"].library == 0
+    assert reloaded1.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is False
+    assert "Dio" not in reloaded1.module_libraries[0].exclude
+    assert "Dio_THA6_AS440" in reloaded1.module_libraries[1].exclude
+
+    reloaded2, rf2 = WorkspaceManager().load_project(reloaded1.path, confirm=lambda *_: True)
+    assert rf2 == []
+    assert reloaded2.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is False
+
+
+def test_merge_eb_replace_failure_restores_existing_davinci_module(tmp_path):
+    """If replacing an existing DaVinci module with a broken EB plugin fails, restore DaVinci module & files."""
+    dpa_file, eb_root = _create_overlapping_sip_and_eb(tmp_path)
+    out_parent = tmp_path / "replace_fail_out"
+
+    wm = WorkspaceManager()
+    project, _ = wm.import_davinci_project(
+        dpa_path=dpa_file,
+        target_dir=out_parent,
+        project_name="ReplaceFailRollback",
+        confirm=lambda *_: True,
+    )
+    assert project.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is False
+    before_dio_cfg = (project.path.parent / "config" / "Dio.arxml").read_bytes()
+
+    # Corrupt EB Dio.xdm after plugin scanning still finds plugin.xml
+    (eb_root / "Def" / "plugins" / "Dio_THA6_AS440" / "config" / "Dio.xdm").write_text(
+        "<broken-xml", encoding="utf-8"
+    )
+
+    _, _, failed = wm.import_eb_project(
+        eb_root,
+        mode="copy",
+        into_project=project,
+        on_conflict="replace",
+        confirm=lambda *_: True,
+    )
+    assert any(name == "Dio" for name, _ in failed)
+    assert project.module_entries["Dio"].library == 0
+    assert project.module_provenance["Dio"]["origin"] == "davinci-import"
+    assert project.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is False
+    assert (project.path.parent / "config" / "Dio.arxml").read_bytes() == before_dio_cfg
+
+    reloaded, reload_failed = WorkspaceManager().load_project(project.path, confirm=lambda *_: True)
+    assert reload_failed == []
+    assert reloaded.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is False
+
+

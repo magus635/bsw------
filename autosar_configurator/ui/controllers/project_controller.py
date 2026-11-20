@@ -751,6 +751,7 @@ class ProjectController:
         def_search_paths = ConfigLoader.get_def_search_paths(project_root)
         
         try:
+            merge_into_current = False
             if file_path or path.is_file():
                 # Saved .dpa project file — load directly (works for both Vector and EB-typed saves)
                 # Use existing .dpa loading logic
@@ -761,6 +762,13 @@ class ProjectController:
             else:
                 # EB project: auto-import all defines + EPC configs
                 from ...core.config_manager import EpcFileScanner
+
+                on_conflict = "replace"
+                if self._can_merge_into_current_project():
+                    target_choice = self._ask_import_target_mode("eb")
+                    if target_choice is None:
+                        return
+                    merge_into_current, on_conflict = target_choice
 
                 # Check for available chips
                 chips = EpcFileScanner.detect_available_chips(project_root)
@@ -778,42 +786,66 @@ class ProjectController:
                 elif len(chips) == 1:
                     chip_name = chips[0]
 
-                # Ask user where to save the imported project
-                target_dir_str = QFileDialog.getExistingDirectory(
-                    self.win,
-                    "Select Target Directory for Imported Project",
-                    str(Path.home()),
-                    QFileDialog.ShowDirsOnly
-                )
-                if not target_dir_str:
-                    return
-                target_dir = self._import_target_dir(project_root, Path(target_dir_str))
-                if target_dir is None:
-                    return
-                target_dir.mkdir(parents=True, exist_ok=True)
+                if merge_into_current:
+                    target_dir = None
+                else:
+                    # Ask user where to save the imported project
+                    target_dir_str = QFileDialog.getExistingDirectory(
+                        self.win,
+                        "Select Target Directory for Imported Project",
+                        str(Path.home()),
+                        QFileDialog.ShowDirsOnly
+                    )
+                    if not target_dir_str:
+                        return
+                    target_dir = self._import_target_dir(project_root, Path(target_dir_str))
+                    if target_dir is None:
+                        return
+                    target_dir.mkdir(parents=True, exist_ok=True)
 
                 # Batch import with progress
                 self.win.statusbar.showMessage("Importing EB project...")
                 from PySide6.QtWidgets import QApplication
                 QApplication.processEvents()
 
+                import_kwargs = dict(
+                    chip_name=chip_name,
+                    target_dir=target_dir,
+                    progress_callback=lambda msg: self.win.statusbar.showMessage(msg),
+                    confirm=self._confirm_import_merge,
+                )
+                if merge_into_current:
+                    import_kwargs["into_project"] = self.win.current_project
+                    import_kwargs["on_conflict"] = on_conflict
+
                 self.win.current_project, loaded_modules, failed_modules = \
                     self.win.workspace_manager.import_eb_project(
-                        project_root, chip_name=chip_name,
-                        target_dir=target_dir,
-                        progress_callback=lambda msg: self.win.statusbar.showMessage(msg),
-                        confirm=self._confirm_import_merge,
+                        project_root, **import_kwargs
                     )
                 self.win.current_project_file = self.win.current_project.path
+                target_display = (
+                    self.win.current_project.path.parent if merge_into_current else target_dir
+                )
 
-                # Store search paths
-                self.win.current_project.def_search_paths = def_search_paths
+                # Store search paths (preserve existing entries when merging into current project)
+                if merge_into_current:
+                    existing_paths = list(getattr(self.win.current_project, "def_search_paths", []) or [])
+                    self.win.current_project.def_search_paths = list(
+                        dict.fromkeys(existing_paths + list(def_search_paths))
+                    )
+                else:
+                    self.win.current_project.def_search_paths = def_search_paths
 
                 # Show summary
+                summary_header = (
+                    "EB Tresos modules merged into current project."
+                    if merge_into_current
+                    else "EB Tresos project imported."
+                )
                 summary = (
-                    f"EB Tresos project imported.\n\n"
+                    f"{summary_header}\n\n"
                     f"Source: {project_root}\n"
-                    f"Target: {target_dir}\n\n"
+                    f"Target: {target_display}\n\n"
                     f"Loaded: {len(loaded_modules)} module(s)\n"
                     f"Failed: {len(failed_modules)} module(s)"
                 )
@@ -829,8 +861,10 @@ class ProjectController:
             
             self.win.tree_view.set_project(self.win.current_project)
             
-            # Set project type on loaded project
-            self.win.current_project.project_type = project_type
+            # Set project type on loaded project (preserve existing type when merging into current)
+            if not merge_into_current:
+                self.win.current_project.project_type = project_type
+            display_type = self.win.current_project.project_type
             
             # Enable project actions
             self.win.save_project_action.setEnabled(True)
@@ -844,12 +878,12 @@ class ProjectController:
             self.win._update_variant_selector()
             
             # Update mode label
-            self.win.mode_label.setText(f"Project: {project_type.value}")
+            self.win.mode_label.setText(f"Project: {display_type.value}")
             
             # Update menu/toolbar states for project mode
             self.win._update_mode_actions()
             
-            status_msg = f"Loaded project: {self.win.current_project.name} ({project_type.value})"
+            status_msg = f"Loaded project: {self.win.current_project.name} ({display_type.value})"
             
             # Show warning if some modules failed to load
             if failed_modules:
@@ -1255,6 +1289,49 @@ class ProjectController:
             f"Exported {len(written)} EPC file(s) to:\n{output_dir}\n\n{names}"
         )
 
+    def _can_merge_into_current_project(self) -> bool:
+        """Whether there is an open, saved Format 8 project that an import can merge into."""
+        proj = getattr(self.win, "current_project", None)
+        if proj is None or not isinstance(getattr(proj, "format_version", None), int):
+            return False
+        return proj.format_version >= 8 and getattr(proj, "path", None) is not None
+
+    def _ask_import_target_mode(self, incoming_kind: str):
+        """Ask whether to merge into the open Format 8 project (and how to handle conflicts)."""
+        proj = self.win.current_project
+        proj_name = getattr(proj, "name", None) or proj.path.stem
+        if incoming_kind == "eb":
+            options = [
+                (f"合并到当前工程「{proj_name}」（同名模块用 EB 覆盖，推荐）", (True, "replace")),
+                (f"合并到当前工程「{proj_name}」（保留当前工程已有同名模块）", (True, "keep")),
+                ("新建独立工程", (False, "replace")),
+            ]
+        elif incoming_kind == "davinci":
+            options = [
+                (f"合并到当前工程「{proj_name}」（保留已有 EB/MCAL，补入 BSW，推荐）", (True, "auto")),
+                (f"合并到当前工程「{proj_name}」（保留所有已有同名模块）", (True, "keep")),
+                (f"合并到当前工程「{proj_name}」（同名模块用 DaVinci 覆盖）", (True, "replace")),
+                ("新建独立工程", (False, "auto")),
+            ]
+        else:
+            raise ValueError(f"Unknown import kind: {incoming_kind!r}")
+
+        labels = [label for label, _ in options]
+        chosen, ok = QInputDialog.getItem(
+            self.win,
+            "Import Target",
+            f"当前已打开工程「{proj_name}」，请选择导入方式：",
+            labels,
+            0,
+            False,
+        )
+        if not ok:
+            return None
+        for label, decision in options:
+            if chosen == label:
+                return decision
+        return options[0][1]
+
     def import_eb_project(self):
         """Import an EB Tresos project by selecting its root directory"""
         from ...core.config_manager import EpcFileScanner
@@ -1293,6 +1370,14 @@ class ProjectController:
                 self._load_project_at_path(project_file)
                 return
 
+        merge_into_current = False
+        on_conflict = "replace"
+        if self._can_merge_into_current_project():
+            target_choice = self._ask_import_target_mode("eb")
+            if target_choice is None:
+                return
+            merge_into_current, on_conflict = target_choice
+
         # Detect available chips
         chips = EpcFileScanner.detect_available_chips(project_root)
         chip_name = None
@@ -1322,50 +1407,68 @@ class ProjectController:
             return
         import_mode = "link" if mode_choice == mode_labels[1] else "copy"
 
-        # Select target directory for the imported project
-        target_dir_str = QFileDialog.getExistingDirectory(
-            self.win,
-            "Select Target Directory for Imported Project",
-            str(Path.home()),
-            QFileDialog.ShowDirsOnly
-        )
-        if not target_dir_str:
-            return
+        if merge_into_current:
+            target_dir = None
+        else:
+            # Select target directory for the imported project
+            target_dir_str = QFileDialog.getExistingDirectory(
+                self.win,
+                "Select Target Directory for Imported Project",
+                str(Path.home()),
+                QFileDialog.ShowDirsOnly
+            )
+            if not target_dir_str:
+                return
 
-        # A project subdirectory inside the chosen target — never the EB tree itself
-        target_dir = self._import_target_dir(project_root, Path(target_dir_str))
-        if target_dir is None:
-            return
-        target_dir.mkdir(parents=True, exist_ok=True)
+            # A project subdirectory inside the chosen target — never the EB tree itself
+            target_dir = self._import_target_dir(project_root, Path(target_dir_str))
+            if target_dir is None:
+                return
+            target_dir.mkdir(parents=True, exist_ok=True)
 
         # Show wait cursor and perform import
         from PySide6.QtWidgets import QApplication
         QApplication.setOverrideCursor(Qt.WaitCursor)
-        self.win.statusbar.showMessage("Importing EB project...")
+        self.win.statusbar.showMessage(
+            "Merging EB project into current project..."
+            if merge_into_current
+            else "Importing EB project..."
+        )
         QApplication.processEvents()
 
         try:
+            import_kwargs = dict(
+                chip_name=chip_name,
+                target_dir=target_dir,
+                progress_callback=lambda msg: (
+                    self.win.statusbar.showMessage(msg),
+                    QApplication.processEvents()
+                ),
+                mode=import_mode,
+                confirm=self._confirm_import_merge,
+            )
+            if merge_into_current:
+                import_kwargs["into_project"] = self.win.current_project
+                import_kwargs["on_conflict"] = on_conflict
+
             project, loaded_modules, failed_modules = \
                 self.win.workspace_manager.import_eb_project(
-                    project_root, chip_name=chip_name,
-                    target_dir=target_dir,
-                    progress_callback=lambda msg: (
-                        self.win.statusbar.showMessage(msg),
-                        QApplication.processEvents()
-                    ),
-                    mode=import_mode,
-                    confirm=self._confirm_import_merge,
+                    project_root, **import_kwargs
                 )
 
             self.win.current_project = project
             self.win.current_project_file = project.path
+            target_display = project.path.parent if merge_into_current else target_dir
 
             # Set up UI
             self.win.tree_view.set_project(self.win.current_project)
 
             # Chip takes effect (ECU resources, UI constraints); the imported
             # configuration is kept as it is and only checked
-            self.apply_project_chip(chip_name, write_selectors=False)
+            effective_chip = chip_name if chip_name is not None else (
+                project.selected_chip if isinstance(getattr(project, "selected_chip", None), str) else None
+            )
+            self.apply_project_chip(effective_chip, write_selectors=False)
 
             # Enable project actions
             self.win.save_project_action.setEnabled(True)
@@ -1378,10 +1481,14 @@ class ProjectController:
             # Update variant selector
             self.win._update_variant_selector()
 
-            # Update mode label
+            # Update mode label (preserve existing project_type when merging into current)
             from ...core.config_manager import ProjectType
-            self.win.current_project.project_type = ProjectType.EB_TRESOS
-            self.win.mode_label.setText(f"Project: EB Tresos")
+            if not merge_into_current:
+                self.win.current_project.project_type = ProjectType.EB_TRESOS
+                mode_text = "Project: EB Tresos"
+            else:
+                mode_text = f"Project: {self.win.current_project.project_type.value}"
+            self.win.mode_label.setText(mode_text)
             self.win._update_mode_actions()
 
             # Auto-select first module
@@ -1395,10 +1502,15 @@ class ProjectController:
             self.win._update_window_title()
 
             # Show summary
+            summary_header = (
+                "EB Tresos modules merged into current project."
+                if merge_into_current
+                else "EB Tresos project imported."
+            )
             summary = (
-                f"EB Tresos project imported.\n\n"
+                f"{summary_header}\n\n"
                 f"Source: {project_root}\n"
-                f"Target: {target_dir}\n"
+                f"Target: {target_display}\n"
                 f"Mode: {import_mode}\n\n"
                 f"Loaded: {len(loaded_modules)} module(s)\n"
                 f"Failed: {len(failed_modules)} module(s)"
@@ -1426,7 +1538,7 @@ class ProjectController:
 
             QMessageBox.information(self.win, "EB Project Imported", summary)
             self.win.statusbar.showMessage(
-                f"Imported: {len(loaded_modules)} modules to {target_dir.name}"
+                f"Imported: {len(loaded_modules)} modules to {target_display.name}"
                 f"{self._ecu_resource_status()}", 5000
             )
 
@@ -1450,33 +1562,50 @@ class ProjectController:
             return
         dpa_file = Path(dpa_file)
 
-        # 2. Select target directory for new project
-        target_dir_str = QFileDialog.getExistingDirectory(
-            self.win,
-            "Select Directory for New Project",
-            str(Path.home()),
-            QFileDialog.ShowDirsOnly
-        )
-        if not target_dir_str:
-            return
-        target_dir = Path(target_dir_str)
-        target_dir.mkdir(parents=True, exist_ok=True)
+        merge_into_current = False
+        on_conflict = "auto"
+        if self._can_merge_into_current_project():
+            target_choice = self._ask_import_target_mode("davinci")
+            if target_choice is None:
+                return
+            merge_into_current, on_conflict = target_choice
 
-        # 3. Ask for project name
-        project_name, ok = QInputDialog.getText(
-            self.win,
-            "Project Name",
-            "Enter name for the imported project:",
-            QLineEdit.Normal,
-            dpa_file.stem or "DaVinciImport"
-        )
-        if not ok or not project_name.strip():
-            return
-        project_name = project_name.strip()
+        if merge_into_current:
+            target_dir = None
+            project_name = None
+            existing_libs = getattr(self.win.current_project, "module_libraries", []) or []
+            has_existing_eb = any(
+                getattr(lib, "kind", None) == "eb-plugins" for lib in existing_libs
+            )
+        else:
+            # 2. Select target directory for new project
+            target_dir_str = QFileDialog.getExistingDirectory(
+                self.win,
+                "Select Directory for New Project",
+                str(Path.home()),
+                QFileDialog.ShowDirsOnly
+            )
+            if not target_dir_str:
+                return
+            target_dir = Path(target_dir_str)
+            target_dir.mkdir(parents=True, exist_ok=True)
 
-        # 4. Optionally specify EB MCAL source directory
+            # 3. Ask for project name
+            project_name, ok = QInputDialog.getText(
+                self.win,
+                "Project Name",
+                "Enter name for the imported project:",
+                QLineEdit.Normal,
+                dpa_file.stem or "DaVinciImport"
+            )
+            if not ok or not project_name.strip():
+                return
+            project_name = project_name.strip()
+            has_existing_eb = False
+
+        # 4. Optionally specify EB MCAL source directory (skip when already merging into EB project)
         mcal_dir = None
-        if QMessageBox.question(
+        if not has_existing_eb and QMessageBox.question(
             self.win,
             "EB MCAL Source",
             "是否指定外部 EB MCAL 配置/插件目录？\n"
@@ -1503,7 +1632,11 @@ class ProjectController:
         ) == QMessageBox.Yes
 
         QApplication.setOverrideCursor(Qt.WaitCursor)
-        self.win.statusbar.showMessage("Creating project and importing DaVinci configuration...")
+        self.win.statusbar.showMessage(
+            "Merging DaVinci configuration into current project..."
+            if merge_into_current
+            else "Creating project and importing DaVinci configuration..."
+        )
         QApplication.processEvents()
 
         try:
@@ -1523,7 +1656,7 @@ class ProjectController:
                 finally:
                     QApplication.setOverrideCursor(Qt.WaitCursor)
 
-            new_project, report = self.win.workspace_manager.import_davinci_project(
+            davinci_kwargs = dict(
                 dpa_path=dpa_file,
                 target_dir=target_dir,
                 project_name=project_name,
@@ -1531,11 +1664,21 @@ class ProjectController:
                 include_resources=import_resources,
                 confirm=confirm_with_preview,
             )
+            if merge_into_current:
+                davinci_kwargs["into_project"] = self.win.current_project
+                davinci_kwargs["on_conflict"] = on_conflict
+
+            new_project, report = self.win.workspace_manager.import_davinci_project(**davinci_kwargs)
 
             self._load_project_at_path(new_project.path)
 
+            summary_header = (
+                "DaVinci configuration merged into current project successfully."
+                if merge_into_current
+                else "DaVinci project imported successfully."
+            )
             summary = (
-                f"DaVinci project imported successfully.\n\n"
+                f"{summary_header}\n\n"
                 f"Source: {dpa_file}\n"
                 f"Project: {new_project.path.parent}\n"
                 f"Modules imported: {report.imported_count}\n"
@@ -1544,6 +1687,8 @@ class ProjectController:
                 f"Failed: {len(report.failed_modules)}\n"
                 f"Unresolved references: {len(report.unresolved_references)}"
             )
+            if getattr(report, "skipped_existing_modules", None):
+                summary += f"\nSkipped existing modules: {len(report.skipped_existing_modules)}"
             if report.report_files:
                 summary += f"\n\n导入报告：{report.report_files[0]}"
 

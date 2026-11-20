@@ -544,6 +544,7 @@ class WorkspaceProject:
             "package": self.packages.get(name),
             "overrides": self.unloaded_variant_overrides.get(name, self._MISSING),
             "baseline": self.baselines.get(name, self._MISSING),
+            "provenance": self.module_provenance.get(name, self._MISSING),
         }
 
     def restore_module(self, snapshot: Dict[str, Any]) -> None:
@@ -561,6 +562,114 @@ class WorkspaceProject:
             self.unloaded_variant_overrides[name] = snapshot["overrides"]
         if snapshot.get("baseline", self._MISSING) is not self._MISSING:
             self.baselines[name] = snapshot["baseline"]
+        if snapshot.get("provenance", self._MISSING) is not self._MISSING:
+            self.module_provenance[name] = snapshot["provenance"]
+
+    @staticmethod
+    def _relative_pkg_dir(proj_root: Path, lib_ref: LibraryRef, pkg_root: Path) -> str:
+        """Return ``pkg_root`` relative to ``lib_ref`` (POSIX), falling back to dir name."""
+        lib_root = Path(lib_ref.path)
+        if not lib_root.is_absolute():
+            lib_root = Path(os.path.normpath(proj_root / lib_root))
+        try:
+            return pkg_root.resolve().relative_to(lib_root.resolve()).as_posix()
+        except ValueError:
+            try:
+                return pkg_root.relative_to(lib_root).as_posix()
+            except ValueError:
+                return pkg_root.name
+
+    def _capture_module_replace_backup(self, module_name: str) -> Dict[str, Any]:
+        """Capture in-memory state and on-disk config/baseline files for rollback on replace."""
+        snapshot = self.snapshot_module(module_name)
+        files: Dict[Path, Optional[bytes]] = {}
+        if self.path is not None:
+            for fpath in (
+                project_paths.config_file(self, module_name),
+                baseline_session.base_snapshot_path(self, module_name),
+                baseline_session.base_layers_path(self, module_name),
+            ):
+                files[fpath] = fpath.read_bytes() if fpath.is_file() else None
+        return {"snapshot": snapshot, "files": files}
+
+    def _restore_module_replace_backup(self, backup: Optional[Dict[str, Any]]) -> None:
+        """Restore a module and its on-disk files captured by ``_capture_module_replace_backup``."""
+        if backup is None:
+            return
+        for fpath, content in backup["files"].items():
+            if content is None:
+                fpath.unlink(missing_ok=True)
+            else:
+                fpath.parent.mkdir(parents=True, exist_ok=True)
+                fpath.write_bytes(content)
+        self.restore_module(backup["snapshot"])
+
+    def _purge_module_for_replace(self, module_name: str) -> None:
+        """Remove an existing module and its on-disk config/baseline before replacing it."""
+        self.remove_module(module_name, archive=False)
+        self.module_provenance.pop(module_name, None)
+        if self.path is not None:
+            project_paths.config_file(self, module_name).unlink(missing_ok=True)
+            baseline_session.base_snapshot_path(self, module_name).unlink(missing_ok=True)
+            baseline_session.base_layers_path(self, module_name).unlink(missing_ok=True)
+
+    def ensure_module_library(self, lib_ref: LibraryRef) -> int:
+        """Return the index of ``lib_ref`` in ``self.module_libraries``, appending if new."""
+        for idx, existing in enumerate(self.module_libraries):
+            if existing.path == lib_ref.path and existing.kind == lib_ref.kind:
+                existing.exclude = sorted(set(existing.exclude) | set(lib_ref.exclude))
+                return idx
+        self.module_libraries.append(lib_ref)
+        return len(self.module_libraries) - 1
+
+    def deduplicate_library_definitions(self) -> None:
+        """Ensure active module owners are un-excluded and exclude duplicates from other libraries.
+
+        Step A removes each active module's own package directory from its owning
+        ``entry.library``'s ``exclude`` list (so switching conflict winners during a re-merge
+        never leaves the new winner hidden).
+        Step B excludes duplicate package directories in non-owning libraries when multiple
+        libraries provide the same ``definition`` path, so reloading never hits PackageConflictError.
+        """
+        if self.format_version < 8 or self.path is None or not self.module_libraries:
+            return
+        proj_root = project_paths.project_root(self)
+
+        # Step A: un-exclude winning packages in their owning library
+        for entry in self.module_entries.values():
+            if not (0 <= entry.library < len(self.module_libraries)):
+                continue
+            pkg = self.packages.get(entry.name)
+            if pkg is None:
+                continue
+            owner_ref = self.module_libraries[entry.library]
+            owner_rel = self._relative_pkg_dir(proj_root, owner_ref, pkg.root)
+            if owner_rel and owner_rel in owner_ref.exclude:
+                owner_ref.exclude = [e for e in owner_ref.exclude if e != owner_rel]
+
+        if len(self.module_libraries) < 2:
+            return
+
+        # Step B: exclude losing duplicate definitions from non-owning libraries
+        scanned = scan_libraries(self)
+        providers_by_def: Dict[str, List[Tuple[int, ModulePackage]]] = {}
+        for lib_idx, pkgs in scanned:
+            for pkg in pkgs:
+                providers_by_def.setdefault(pkg.manifest.definition, []).append((lib_idx, pkg))
+
+        for entry in self.module_entries.values():
+            if not entry.definition:
+                continue
+            matches = providers_by_def.get(entry.definition, [])
+            if len(matches) <= 1 or not any(idx == entry.library for idx, _ in matches):
+                continue
+            for idx, pkg in matches:
+                if idx == entry.library:
+                    continue
+                lib_ref = self.module_libraries[idx]
+                rel = self._relative_pkg_dir(proj_root, lib_ref, pkg.root)
+                if rel:
+                    lib_ref.exclude = sorted(set(lib_ref.exclude) | {rel})
 
     def discover_available_chips(self) -> List[str]:
         """Scan project for available chip .properties files.
@@ -2275,7 +2384,9 @@ class WorkspaceManager:
     def import_eb_project(self, project_root: Path, chip_name: Optional[str] = None,
                           target_dir: Optional[Path] = None,
                           progress_callback=None,
-                          mode: str = "copy", confirm=None) -> tuple:
+                          mode: str = "copy", confirm=None,
+                          into_project: Optional[WorkspaceProject] = None,
+                          on_conflict: str = "replace") -> tuple:
         """Import an EB Tresos project as a format 8 project (design §6.10).
 
         The source tree is only read (unless ``target_dir`` is None: the project is then
@@ -2310,6 +2421,11 @@ class WorkspaceManager:
         ``<history>/reports/<YYYYmmdd-HHMMSS>_import.md`` and through
         ``progress_callback``. The project is saved at the end.
 
+        When ``into_project`` is provided, the EB plugins and EPC values are merged into
+        that existing Format 8 project instead of creating a new one; ``on_conflict``
+        (``"replace"`` or ``"keep"``) controls how same-named modules already present in
+        ``into_project`` are handled.
+
         Args:
             project_root: Root directory of the source EB project
             chip_name: Optional chip name to select Config/{chip}/output/*.epc
@@ -2317,11 +2433,15 @@ class WorkspaceManager:
                         or empty. None, or the EB root itself, puts the project in the
                         first free sibling ``<project_root>_imported``,
                         ``<project_root>_imported_2``, …: the EB tree is only read, and
-                        an existing folder is never merged into.
+                        an existing folder is never merged into. Ignored when
+                        ``into_project`` is given.
             progress_callback: Optional callable(message: str) for progress updates
             mode: "copy" (self-contained) or "link" (reference original tree)
             confirm: ``(preview_markdown, MergeResult) -> bool`` asked once per module
                 whose Pre values would change the imported values; ``None`` rejects.
+            into_project: Optional existing Format 8 WorkspaceProject to merge into.
+            on_conflict: ``"replace"`` (default) overwrites existing same-named modules;
+                ``"keep"`` keeps existing same-named modules unchanged.
 
         Returns:
             tuple: (project, loaded_modules, failed_modules)
@@ -2329,54 +2449,83 @@ class WorkspaceManager:
             failed_modules: List of tuples (module_name, error_message)
 
         Raises:
-            ValueError: unknown mode, a target inside the EB tree, or a target directory
-                that already holds anything (the import never overwrites or merges into
-                existing content).
+            ValueError: unknown mode/on_conflict, a target inside the EB tree, or a
+                target directory that already holds anything when creating a new project.
         """
         from . import eb_import
 
         if mode not in ("copy", "link"):
             raise ValueError(f"Unknown import mode: {mode!r} (expected 'copy' or 'link')")
+        if on_conflict not in ("replace", "keep"):
+            raise ValueError(
+                f"Unknown conflict policy: {on_conflict!r} (expected 'replace' or 'keep')"
+            )
 
         def _progress(msg):
             if progress_callback:
                 progress_callback(msg)
 
-        # Determine where the project will live: never inside the EB tree, never merged
-        # into a directory that already holds something
         project_root = Path(project_root)
-        project_dir = eb_import.import_project_dir(project_root, target_dir)
-        eb_import.check_target_is_free(project_dir)
-        project_name = project_dir.name
-        dpa = project_dir / f"{project_name}.dpa"
-        _progress(f"导入到：{project_dir.as_posix()}")
-
-        # If the user selected a chip (or passed a subfolder), we should append it to project_root
-        if chip_name and (project_root / chip_name).exists():
-            project_root = project_root / chip_name
-
         previous = self.current_project
-        project = self.create_project(project_name, dpa, format_version=8)
+        if into_project is not None:
+            if getattr(into_project, "format_version", 0) < 8 or into_project.path is None:
+                raise ValueError("只能合并到已保存的 Format 8 工程中")
+            into_dir = project_paths.project_root(into_project)
+            if eb_import._is_within(into_dir, project_root):
+                raise ValueError(eb_import._inside_message(into_dir, project_root))
+            _progress(f"合并导入到当前工程：{into_dir.as_posix()}")
+            if chip_name and (project_root / chip_name).exists():
+                project_root = project_root / chip_name
+            project = into_project
+            merge_into_existing = True
+        else:
+            # Determine where the project will live: never inside the EB tree, never merged
+            # into a directory that already holds something
+            project_dir = eb_import.import_project_dir(project_root, target_dir)
+            eb_import.check_target_is_free(project_dir)
+            project_name = project_dir.name
+            dpa = project_dir / f"{project_name}.dpa"
+            _progress(f"导入到：{project_dir.as_posix()}")
+
+            # If the user selected a chip (or passed a subfolder), we should append it to project_root
+            if chip_name and (project_root / chip_name).exists():
+                project_root = project_root / chip_name
+
+            project = self.create_project(project_name, dpa, format_version=8)
+            merge_into_existing = False
+
         try:
-            return self._import_eb_into(project, project_root, chip_name, mode, confirm,
-                                        _progress)
+            return self._import_eb_into(
+                project, project_root, chip_name, mode, confirm, _progress,
+                merge_into_existing=merge_into_existing, on_conflict=on_conflict,
+            )
         except BaseException:
             self.current_project = previous
             raise
 
     def _import_eb_into(self, project: WorkspaceProject, project_root: Path,
-                        chip_name: Optional[str], mode: str, confirm, _progress) -> tuple:
-        """The body of :meth:`import_eb_project` for a freshly created ``project``."""
+                        chip_name: Optional[str], mode: str, confirm, _progress,
+                        merge_into_existing: bool = False,
+                        on_conflict: str = "replace") -> tuple:
+        """The body of :meth:`import_eb_project` for a new or existing Format 8 ``project``."""
         from datetime import datetime
         from .config_manager import EpcFileScanner, ProjectType
         from . import eb_import
 
         project_dir = project_paths.project_root(project)
-        project.project_type = ProjectType.EB_TRESOS
-        project.import_mode = mode
-        project.selected_chip = chip_name   # before any module: packages select files by chip
-        project.eb_source_root = project_root
-        project.available_chips = EpcFileScanner.detect_available_chips(project_root)
+        discovered_chips = EpcFileScanner.detect_available_chips(project_root)
+        if merge_into_existing:
+            project.import_mode = mode
+            project.eb_source_root = project_root
+            project.available_chips = sorted(set(project.available_chips) | set(discovered_chips))
+            if chip_name is not None:
+                project.selected_chip = chip_name
+        else:
+            project.project_type = ProjectType.EB_TRESOS
+            project.import_mode = mode
+            project.selected_chip = chip_name   # before any module: packages select files by chip
+            project.eb_source_root = project_root
+            project.available_chips = discovered_chips
 
         report = eb_import.ImportReport(source=project_root.as_posix(),
                                         project_file=project.path.as_posix(),
@@ -2444,6 +2593,16 @@ class WorkspaceManager:
                     target = modules_dir / pkg.root.name
                     if pkg.root.resolve() == target.resolve():
                         continue
+                    if (
+                        merge_into_existing
+                        and on_conflict == "keep"
+                        and (
+                            pkg.manifest.module in project.module_managers
+                            or pkg.manifest.module in project.module_entries
+                        )
+                        and target.exists()
+                    ):
+                        continue
                     try:
                         # symlinks=True: copy a symlink as a link, not as its target
                         shutil.copytree(pkg.root, target, dirs_exist_ok=True, symlinks=True)
@@ -2455,13 +2614,51 @@ class WorkspaceManager:
                           f"{project_paths.dirs(project).modules}/")
                 library_path = project_paths.dirs(project).modules
                 library_exclude = []
-            project.module_libraries = [LibraryRef(path=library_path, kind="eb-plugins",
-                                                   exclude=library_exclude)]
+            eb_lib_ref = LibraryRef(path=library_path, kind="eb-plugins",
+                                    exclude=library_exclude)
+            if merge_into_existing:
+                eb_lib_index = project.ensure_module_library(eb_lib_ref)
+            else:
+                project.module_libraries = [eb_lib_ref]
+                eb_lib_index = 0
             report.library = library_path
             report.exclude = library_exclude
+        else:
+            eb_lib_index = 0
 
-        # Step 4: every module the library provides
-        libraries = scan_libraries(project)
+        if merge_into_existing:
+            discovered = project.discover_available_chips()
+            project.available_chips = sorted(set(project.available_chips) | set(discovered))
+            if project.selected_chip is None and project.available_chips:
+                matched_chip = None
+                if project.derivative_uuid:
+                    try:
+                        hit = project._chip_library().find_chip_by_derivative_uuid(
+                            project.derivative_uuid
+                        )
+                    except Exception:
+                        hit = None
+                    if hit is not None and hit.name in project.available_chips:
+                        matched_chip = hit.name
+                if matched_chip is None and project.derivative_name:
+                    for chip in project.available_chips:
+                        prefix = chip.split("_")[0]
+                        if prefix and prefix.lower() in project.derivative_name.lower():
+                            matched_chip = chip
+                            break
+                project.selected_chip = matched_chip or project.available_chips[0]
+
+        # Step 4: every module the incoming EB library provides
+        if plugins_dir is not None:
+            eb_ref = project.module_libraries[eb_lib_index]
+            scan_ref = (
+                LibraryRef(path=eb_ref.path, kind=eb_ref.kind, exclude=library_exclude)
+                if merge_into_existing and on_conflict == "replace"
+                else eb_ref
+            )
+            libraries = [(eb_lib_index, scan_library(scan_ref, project_dir))]
+        else:
+            libraries = []
         modules: Dict[str, str] = {}             # definition -> module name
         for _, packages in libraries:
             for pkg in packages:
@@ -2551,6 +2748,34 @@ class WorkspaceManager:
                 # reported once, from there, naming this plugin.
                 unbound.setdefault(module, []).append(definition)
                 continue
+
+            replace_backup = None
+            already_exists = (module in project.module_managers or module in project.module_entries)
+            if merge_into_existing and already_exists:
+                if on_conflict == "keep":
+                    values.pop(module, None)
+                    taken[module] = definition
+                    report.notices.append(
+                        f"跳过 EB 模块 {module}（当前工程已存在同名模块，策略：保留已有）"
+                    )
+                    continue
+                try:
+                    index, pkg = find_package(libraries, definition)
+                except PackageError as exc:
+                    report.modules.append(record)
+                    taken[module] = definition
+                    values.pop(module, None)
+                    record.error = str(exc)
+                    failed_modules.append((module, f"Failed to load: {exc}"))
+                    continue
+                replace_backup = project._capture_module_replace_backup(module)
+                project._purge_module_for_replace(module)
+            else:
+                try:
+                    index, pkg = find_package(libraries, definition)
+                except PackageError as exc:
+                    index, pkg = None, exc
+
             report.modules.append(record)
             taken[module] = definition
             values.pop(module, None)
@@ -2561,13 +2786,14 @@ class WorkspaceManager:
                 record.source_epc = source_rel(epc.file)
                 config_rel = write_values(module, epc)
 
-            try:
-                index, pkg = find_package(libraries, definition)
-            except PackageError as exc:      # two plugins provide it: the user must exclude one
-                record.error = str(exc)
-                failed_modules.append((module, f"Failed to load: {exc}"))
-                if config_rel is not None:
-                    keep_failed_entry(module, definition, 0, config_rel)
+            if isinstance(pkg, PackageError):      # two plugins provide it: the user must exclude one
+                record.error = str(pkg)
+                failed_modules.append((module, f"Failed to load: {pkg}"))
+                if replace_backup is not None:
+                    project.remove_module(module, archive=False)
+                    project._restore_module_replace_backup(replace_backup)
+                elif config_rel is not None:
+                    keep_failed_entry(module, definition, eb_lib_index, config_rel)
                 continue
             record.plugin = pkg.root.name
             record.exchange_copies = list(pkg.manifest.exchange_copies)
@@ -2580,7 +2806,10 @@ class WorkspaceManager:
             except Exception as exc:  # noqa: BLE001 - one module must not abort the import
                 record.error = str(exc)
                 failed_modules.append((module, f"Failed to load: {exc}"))
-                if config_rel is not None:
+                if replace_backup is not None:
+                    project.remove_module(module, archive=False)
+                    project._restore_module_replace_backup(replace_backup)
+                elif config_rel is not None:
                     keep_failed_entry(module, definition, index, config_rel, pkg)
                 continue
             name = manager.module_def.short_name
@@ -2616,7 +2845,11 @@ class WorkspaceManager:
             except Exception as exc:  # noqa: BLE001 - as on load: the module fails, its values stay
                 record.error = f"基线合并失败：{exc}"
                 failed_modules.append((name, f"Baseline merge failed: {exc}"))
-                keep_failed_entry(name, definition, index, config_rel, pkg)
+                if replace_backup is not None:
+                    project.remove_module(name, archive=False)
+                    project._restore_module_replace_backup(replace_backup)
+                else:
+                    keep_failed_entry(name, definition, index, config_rel, pkg)
                 continue
             record.pre, record.conflicts = self._import_pre_summary(
                 result, bool(answers and answers[-1]), confirm is not None,
@@ -2638,6 +2871,14 @@ class WorkspaceManager:
 
         # EPC values no plugin provides a definition for: kept, reported, failing
         for module in sorted(values):
+            if merge_into_existing and (
+                module in project.module_managers or module in project.module_entries
+            ):
+                report.notices.append(
+                    f"跳过仅含 EPC 且无对应 EB 插件的模块 {module}（保留当前工程已有模块）"
+                )
+                continue
+
             epc = values[module]
             config_rel = write_values(module, epc)
             if module in ambiguous:
@@ -2661,17 +2902,20 @@ class WorkspaceManager:
             # The entry keeps the EPC's own reference (never a guessed candidate), so the
             # next open fails the same way instead of binding silently
             project.module_entries[module] = ModuleEntry(
-                name=module, definition=epc.definition_ref or "", library=0,
+                name=module, definition=epc.definition_ref or "", library=eb_lib_index,
                 config_path=config_rel)
             report.epc_only.append(eb_import.ModuleImport(
                 name=module, definition=epc.definition_ref or "",
                 source_epc=source_rel(epc.file), error=reason))
             failed_modules.append((module, reason))
 
+        if merge_into_existing:
+            project.deduplicate_library_definitions()
+
         _progress(f"Import complete: {len(loaded_modules)} loaded, {len(failed_modules)} failed")
 
         # Step 5: Resolve cross-module references
-        if loaded_modules:
+        if loaded_modules or (merge_into_existing and project.module_managers):
             try:
                 project.resolve_all_references()
                 project.build_reverse_reference_index()
@@ -2744,25 +2988,29 @@ class WorkspaceManager:
     def import_davinci_project(
         self,
         dpa_path: Path,
-        target_dir: Path,
+        target_dir: Optional[Path] = None,
         project_name: Optional[str] = None,
         mcal_source_dir: Optional[Path] = None,
         include_resources: bool = False,
         sip_library_dir: Optional[Path] = None,
         confirm=None,
+        into_project: Optional[WorkspaceProject] = None,
+        on_conflict: str = "auto",
     ):
-        """Import a DaVinci XML .dpa project into a new Format 8 project."""
+        """Import a DaVinci XML .dpa project into a new or existing Format 8 project."""
         from .davinci_importer import DaVinciProjectImporter
 
         return DaVinciProjectImporter.import_project(
             workspace_manager=self,
             dpa_path=Path(dpa_path),
-            target_dir=Path(target_dir),
+            target_dir=Path(target_dir) if target_dir is not None else None,
             project_name=project_name,
             mcal_source_dir=Path(mcal_source_dir) if mcal_source_dir is not None else None,
             include_resources=include_resources,
             sip_library_dir=Path(sip_library_dir) if sip_library_dir is not None else None,
             confirm=confirm,
+            into_project=into_project,
+            on_conflict=on_conflict,
         )
 
     def upgrade_project_to_v8(

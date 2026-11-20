@@ -1644,6 +1644,7 @@ class DaVinciImportReport:
     mcal_source_dir: Optional[str] = None
     module_stats: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     skipped_mcal_modules: List[Dict[str, str]] = field(default_factory=list)
+    skipped_existing_modules: List[Dict[str, str]] = field(default_factory=list)
     failed_modules: List[Tuple[str, str]] = field(default_factory=list)
     rejected_modules: List[str] = field(default_factory=list)
     unresolved_references: List[Dict[str, str]] = field(default_factory=list)
@@ -1674,7 +1675,12 @@ class DaVinciImportReport:
             "",
             f"## 汇总：已导入 {self.imported_count} 个模块，"
             f"跳过 MCAL {len(self.skipped_mcal_modules)} 个，"
-            f"用户拒绝合并 {len(self.rejected_modules)} 个，"
+            + (
+                f"跳过已有模块 {len(self.skipped_existing_modules)} 个，"
+                if self.skipped_existing_modules
+                else ""
+            )
+            + f"用户拒绝合并 {len(self.rejected_modules)} 个，"
             f"失败 {len(self.failed_modules)} 个，"
             f"未决引用 {len(self.unresolved_references)} 条",
             "",
@@ -1699,6 +1705,12 @@ class DaVinciImportReport:
         if self.skipped_mcal_modules:
             lines.extend(["## 已跳过的 DaVinci MCAL 模块", ""])
             for item in self.skipped_mcal_modules:
+                lines.append(f"- **{item['module']}**：{item['reason']}")
+            lines.append("")
+
+        if self.skipped_existing_modules:
+            lines.extend(["## 已跳过的已有模块", ""])
+            for item in self.skipped_existing_modules:
                 lines.append(f"- **{item['module']}**：{item['reason']}")
             lines.append("")
 
@@ -1815,14 +1827,16 @@ class DaVinciProjectImporter:
         cls,
         workspace_manager,
         dpa_path: Path,
-        target_dir: Path,
+        target_dir: Optional[Path] = None,
         project_name: Optional[str] = None,
         mcal_source_dir: Optional[Path] = None,
         include_resources: bool = False,
         sip_library_dir: Optional[Path] = None,
         confirm=None,
+        into_project: Optional[Any] = None,
+        on_conflict: str = "auto",
     ) -> Tuple[Any, DaVinciImportReport]:
-        """Import a DaVinci .dpa project into a new Format 8 WorkspaceProject."""
+        """Import a DaVinci .dpa project into a new or existing Format 8 WorkspaceProject."""
         from datetime import datetime
         from . import project_paths, eb_import
         from .packages.library import LibraryRef, scan_library
@@ -1831,22 +1845,89 @@ class DaVinciProjectImporter:
         from .serializer.ecuc_serializer import EcucValueSerializer
         from .config_manager import EpcFileScanner, ProjectType
 
+        if on_conflict not in ("auto", "keep", "replace"):
+            raise ValueError(
+                f"Unknown conflict policy: {on_conflict!r} (expected 'auto', 'keep', or 'replace')"
+            )
+
         dpa_path = Path(dpa_path)
         dv = DaVinciProject.from_file(dpa_path)
+        previous_wm_project = workspace_manager.current_project
 
-        proj_name = (project_name or dpa_path.stem or "DaVinciImport").strip()
-        project_root = Path(target_dir) / proj_name
-        project_root.mkdir(parents=True, exist_ok=True)
-        out_dpa = project_root / f"{proj_name}.dpa"
+        if into_project is not None:
+            if getattr(into_project, "format_version", 0) < 8 or into_project.path is None:
+                raise ValueError("只能合并到已保存的 Format 8 工程中")
+            new_project = into_project
+            out_dpa = new_project.path
+            project_root = project_paths.project_root(new_project)
+            if dv.derivative_uuid:
+                new_project.derivative_uuid = dv.derivative_uuid
+            if dv.derivative_name:
+                new_project.derivative_name = dv.derivative_name
+        else:
+            if target_dir is None:
+                raise ValueError("target_dir is required when into_project is not specified")
+            proj_name = (project_name or dpa_path.stem or "DaVinciImport").strip()
+            project_root = Path(target_dir) / proj_name
+            project_root.mkdir(parents=True, exist_ok=True)
+            out_dpa = project_root / f"{proj_name}.dpa"
 
-        new_project = workspace_manager.create_project(
-            name=proj_name,
-            path=out_dpa,
-            format_version=8,
+            new_project = workspace_manager.create_project(
+                name=proj_name,
+                path=out_dpa,
+                format_version=8,
+            )
+            new_project.project_type = ProjectType.VECTOR
+            new_project.derivative_uuid = dv.derivative_uuid
+            new_project.derivative_name = dv.derivative_name
+
+        try:
+            return cls._populate_davinci_project(
+                workspace_manager=workspace_manager,
+                dv=dv,
+                dpa_path=dpa_path,
+                new_project=new_project,
+                project_root=project_root,
+                out_dpa=out_dpa,
+                mcal_source_dir=mcal_source_dir,
+                include_resources=include_resources,
+                sip_library_dir=sip_library_dir,
+                confirm=confirm,
+                into_project=into_project,
+                on_conflict=on_conflict,
+            )
+        except BaseException:
+            workspace_manager.current_project = previous_wm_project
+            raise
+
+    @classmethod
+    def _populate_davinci_project(
+        cls,
+        *,
+        workspace_manager,
+        dv: DaVinciProject,
+        dpa_path: Path,
+        new_project: Any,
+        project_root: Path,
+        out_dpa: Path,
+        mcal_source_dir: Optional[Path],
+        include_resources: bool,
+        sip_library_dir: Optional[Path],
+        confirm,
+        into_project: Optional[Any],
+        on_conflict: str,
+    ) -> Tuple[Any, DaVinciImportReport]:
+        """Populate ``new_project`` with DaVinci SIP BSW modules, values, and optional EB MCAL."""
+        from datetime import datetime
+        from . import project_paths, eb_import
+        from .packages.library import LibraryRef, scan_library
+        from .packages.package import ModulePackage
+        from .serializer.ecuc_serializer import EcucValueSerializer
+        from .config_manager import EpcFileScanner
+
+        has_existing_eb_lib = any(
+            lib.kind == "eb-plugins" for lib in new_project.module_libraries
         )
-        new_project.project_type = ProjectType.VECTOR
-        new_project.derivative_uuid = dv.derivative_uuid
-        new_project.derivative_name = dv.derivative_name
 
         # Ensure standard Format 8 subdirectories exist
         for dir_key in ["config", "base", "templates", "gen", "chips", "integration", "system", "history", "modules"]:
@@ -1879,10 +1960,13 @@ class DaVinciProjectImporter:
 
             scanner = SipScanner(dv.sip_root)
             all_modules = scanner.scan_all_modules(derivative_uuid=dv.derivative_uuid)
+            exclude_wrapped_mcal = mcal_source_dir is not None or (
+                into_project is not None and has_existing_eb_lib and on_conflict in ("auto", "keep")
+            )
             for mod_name in sorted(all_modules):
                 files = all_modules[mod_name]
                 # Exclude Vector-wrapped Components/Mcal_Tha62x when EB MCAL is provided
-                if mcal_source_dir is not None:
+                if exclude_wrapped_mcal:
                     files = [f for f in files if "Mcal_Tha62x" not in f.path.parts]
                 if not files:
                     continue
@@ -1917,8 +2001,7 @@ class DaVinciProjectImporter:
             bsw_lib_ref = LibraryRef(path="DaVinciImport", kind="package", exclude=[])
             bsw_packages_list = scan_library(bsw_lib_ref, project_root)
 
-        new_project.module_libraries.append(bsw_lib_ref)
-        bsw_lib_index = 0
+        bsw_lib_index = new_project.ensure_module_library(bsw_lib_ref)
 
         bsw_by_name: Dict[str, ModulePackage] = {
             p.manifest.module: p for p in bsw_packages_list
@@ -1941,12 +2024,11 @@ class DaVinciProjectImporter:
                     kind="eb-plugins",
                     exclude=sorted(eb_survey.exclude),
                 )
-                eb_lib_index = len(new_project.module_libraries)
-                new_project.module_libraries.append(eb_lib_ref)
+                eb_lib_index = new_project.ensure_module_library(eb_lib_ref)
                 new_project.discover_available_chips()
                 # Select matching chip: prefer exact derivative_uuid match in chip database,
                 # then fall back to device-token prefix match (e.g. THA6206 in Tongxin_THA6206).
-                if new_project.available_chips:
+                if new_project.selected_chip is None and new_project.available_chips:
                     matched_chip = None
                     if dv.derivative_uuid:
                         try:
@@ -1999,6 +2081,15 @@ class DaVinciProjectImporter:
                             "module": mod_name,
                             "reason": f"跳过 DaVinci MCAL（已改用 EB MCAL：{mcal_source_dir}）",
                         })
+                    elif (
+                        into_project is not None
+                        and (mod_name in new_project.module_managers or mod_name in new_project.module_entries)
+                        and on_conflict in ("auto", "keep")
+                    ):
+                        report.skipped_mcal_modules.append({
+                            "module": mod_name,
+                            "reason": "保留当前工程中已有的 MCAL 模块，跳过 DaVinci 同名 MCAL 模块",
+                        })
                     elif mod_name in bsw_by_name or dv.module_definitions.get(mod_name, "").rstrip("/") in bsw_by_def:
                         target_bsw.append(mod_name)
                     else:
@@ -2026,6 +2117,41 @@ class DaVinciProjectImporter:
                 report.failed_modules.append((mod_name, msg))
                 continue
 
+            target_name = pkg.manifest.module or mod_name
+            replace_backup = None
+            if into_project is not None and (
+                target_name in new_project.module_managers or target_name in new_project.module_entries
+            ):
+                existing_entry = new_project.module_entries.get(target_name)
+                existing_from_eb = (
+                    existing_entry is not None
+                    and 0 <= existing_entry.library < len(new_project.module_libraries)
+                    and new_project.module_libraries[existing_entry.library].kind == "eb-plugins"
+                )
+                is_mcal = (mod_name in mcal_names) or (target_name in mcal_names)
+                if on_conflict == "keep":
+                    keep_existing = True
+                elif on_conflict == "auto":
+                    keep_existing = existing_from_eb or is_mcal
+                else:
+                    keep_existing = False
+
+                if keep_existing:
+                    if existing_from_eb or is_mcal:
+                        report.skipped_mcal_modules.append({
+                            "module": target_name,
+                            "reason": "保留当前工程中已有的 EB/MCAL 模块，跳过 DaVinci 同名模块",
+                        })
+                    else:
+                        report.skipped_existing_modules.append({
+                            "module": target_name,
+                            "reason": "保留当前工程中已有模块（策略：保留已有）",
+                        })
+                    continue
+
+                replace_backup = new_project._capture_module_replace_backup(target_name)
+                new_project._purge_module_for_replace(target_name)
+
             config_source = "sip_baseline"
             written_cfg_path: Optional[Path] = None
             ecuc_file = dv.resolve_ecuc_file(mod_name)
@@ -2037,7 +2163,7 @@ class DaVinciProjectImporter:
                     report.warnings.append(f"{mod_name}: 读取 DaVinci 配置 {ecuc_file.name} 失败：{exc}")
                 if extracted_cfg is not None:
                     # Keep module's short_name consistent with definition leaf
-                    target_cfg_path = project_paths.config_file(new_project, mod_name)
+                    target_cfg_path = project_paths.config_file(new_project, target_name)
                     target_cfg_path.parent.mkdir(parents=True, exist_ok=True)
                     serializer.serialize_to_file(extracted_cfg, target_cfg_path)
                     written_cfg_path = target_cfg_path
@@ -2065,14 +2191,16 @@ class DaVinciProjectImporter:
             except Exception as exc:
                 if written_cfg_path is not None and written_cfg_path.is_file():
                     written_cfg_path.unlink(missing_ok=True)
-                report.failed_modules.append((mod_name, str(exc)))
+                new_project._restore_module_replace_backup(replace_backup)
+                report.failed_modules.append((target_name, str(exc)))
                 continue
 
             if merge_rejected[0]:
                 new_project.remove_module(mgr.module_def.short_name, archive=False)
                 if written_cfg_path is not None and written_cfg_path.is_file():
                     written_cfg_path.unlink(missing_ok=True)
-                report.rejected_modules.append(mod_name)
+                new_project._restore_module_replace_backup(replace_backup)
+                report.rejected_modules.append(target_name)
                 continue
 
             actual_name = mgr.module_def.short_name
@@ -2115,8 +2243,13 @@ class DaVinciProjectImporter:
                 if pkg.root.name in excluded:
                     continue
                 m_name = pkg.manifest.module
-                if m_name in new_project.module_managers:
-                    continue
+                mcal_backup = None
+                if m_name in new_project.module_managers or m_name in new_project.module_entries:
+                    if into_project is not None and on_conflict == "replace":
+                        mcal_backup = new_project._capture_module_replace_backup(m_name)
+                        new_project._purge_module_for_replace(m_name)
+                    else:
+                        continue
                 epc = epc_values.get(m_name)
                 written_mcal_cfg: Optional[Path] = None
                 if epc is not None and eb_import.epc_names_definition(epc.definition_ref, pkg.manifest.definition):
@@ -2147,6 +2280,7 @@ class DaVinciProjectImporter:
                         new_project.remove_module(mgr.module_def.short_name, archive=False)
                         if written_mcal_cfg is not None:
                             written_mcal_cfg.unlink(missing_ok=True)
+                        new_project._restore_module_replace_backup(mcal_backup)
                         report.rejected_modules.append(m_name)
                         continue
                     stats = cls._count_module_items(mgr.configuration)
@@ -2156,7 +2290,10 @@ class DaVinciProjectImporter:
                 except Exception as exc:
                     if written_mcal_cfg is not None:
                         written_mcal_cfg.unlink(missing_ok=True)
+                    new_project._restore_module_replace_backup(mcal_backup)
                     report.failed_modules.append((m_name, str(exc)))
+
+        new_project.deduplicate_library_definitions()
 
         # Refresh ECU resources after all modules are loaded so apply_chip_expressions runs on each module_def
         if new_project.module_managers and (new_project.selected_chip or mcal_source_dir is not None):
