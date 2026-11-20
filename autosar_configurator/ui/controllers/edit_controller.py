@@ -90,16 +90,24 @@ class EditController:
         
     def handle_create_container(self, container_def: EcucContainerDef, parent_instance: Optional[EcucContainerValue], name: str):
         """Handle container creation request via command"""
-        if not self.win.config_manager:
+        config_manager = self.win.config_manager
+        if getattr(self.win, "workspace", None) and hasattr(self.win.workspace, "get_manager_for_definition"):
+            def_ref = getattr(container_def, "definition_ref", None)
+            if def_ref:
+                target_cm = self.win.workspace.get_manager_for_definition(def_ref)
+                if target_cm is not None:
+                    config_manager = target_cm
+
+        if not config_manager:
             return
 
         # Pre-validate: check if instance with this name already exists
-        if self.win.config_manager._instance_exists(name, container_def, parent_instance):
+        if config_manager._instance_exists(name, container_def, parent_instance):
             QMessageBox.warning(self.win, "创建失败", f"名称 '{name}' 已存在，请使用其他名称")
             self.win.statusbar.showMessage(f"创建失败: 名称已存在", 3000)
             return
 
-        command = CreateContainerCommand(self.win.config_manager, container_def, parent_instance, name)
+        command = CreateContainerCommand(config_manager, container_def, parent_instance, name)
         self.win.undo_stack.push(command)
         
         self.win._has_unsaved_changes = True

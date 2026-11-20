@@ -2363,7 +2363,7 @@ class DaVinciProjectImporter:
                 for item in merge_res.items:
                     if item.kind == MergeKind.PRE_FORCED or (
                         config_source == "davinci_ecuc"
-                        and item.kind == MergeKind.CREATED_IN_BASE
+                        and item.kind == MergeKind.CREATE
                         and item.new_value is not None
                     ):
                         report.pre_inconsistencies.append({
