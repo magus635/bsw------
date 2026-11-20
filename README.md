@@ -83,37 +83,42 @@ autosar_configurator/
 ```text
 <project>/
 ├── <project_name>.dpa          # 工程文件，保存 format_version、module_libraries、modules
-├── modules/                    # 模块库根目录，按模块组织
-│   ├── Mcu/
-│   │   ├── module.json         # 模块包描述文件（必需）
-│   │   ├── config/
-│   │   │   ├── Mcu.xdm         # 模块定义/配置文件
-│   │   │   └── McuPreConfiguration.xdm
-│   │   ├── templates/
-│   │   └── resource/
-│   ├── Os/
-│   │   ├── module.json
-│   │   ├── config/
-│   │   ├── templates/
-│   │   └── resource/
-│   └── ...
+├── modules/                    # 按来源分区的模块库根目录（Format 8）
+│   ├── davinci/                # Vector DaVinci / SIP 入库模块包（kind="package"）
+│   │   └── Os/
+│   │       ├── module.json     # 模块清单（含 origin、implementation 等元数据）
+│   │       └── config/
+│   │           ├── Os.arxml    # 模块定义（Define）
+│   │           ├── Os_Pre.arxml# 预配置（Pre，可选）
+│   │           └── Os_Rec.arxml# 推荐配置（Rec，可选）
+│   ├── eb/                     # EB Tresos copy 模式导入的 MCAL 插件（kind="eb-plugins"）
+│   │   └── Mcu_THA6_AS440/
+│   │       ├── plugin.xml
+│   │       ├── config/         # Mcu.xdm + McuPreConfiguration.xdm
+│   │       ├── templates/
+│   │       └── resource/
+│   └── custom/                 # 工程师自定义/独立添加的模块包（kind="package"，不会被导入覆盖）
+│       └── CustomMod/
+│           ├── module.json
+│           └── config/
+│               └── CustomMod.arxml
 ├── chips/                      # 芯片资源、YAML/属性文件（可选但推荐）
 ├── templates/                  # 工程级模板覆盖层（可选）
 ├── system/                     # 工程级系统描述/集成数据（可选）
 ├── integration/                # 集成输出目录（可选）
-├── config/                     # 配置文件目录（format 8）
+├── config/                     # 活动配置目录（format 8）
 │   ├── base/                   # 基线快照目录（由工具维护）
 │   └── ...
-├── .history/                   # 导入/保存记录（由工具维护）
+├── .history/                   # 历史与审计目录（含 reports/*_import.md 与 *_davinci_import.md）
 └── ...
 ```
 
 ### 每一部分的职责
 
 - `.dpa`：工程主文件，保存项目元数据、选择的芯片、模块库、模块列表和基线状态。
-- `modules/`：模块库根目录，每个模块必须具备独立包目录。
-- `module.json`：模块包的清单文件。它决定这个模块能否被扫描、定义路径是否正确、模板和资源目录在哪、以及哪些文件在什么芯片下生效。
-- `config/`：模块配置文件，通常包含定义文件、递归值文件、预配置文件、芯片条件文件。
+- `modules/`：按来源分区的模块库根目录：`modules/davinci/`（SIP 入库，全量保留以便后续按需启用）、`modules/eb/`（EB copy 模式插件；EB link 模式直接指向外部目录而不创建该子目录）、`modules/custom/`（独立自定义模块）。
+- `module.json`：模块包的清单文件。它决定这个模块能否被扫描、定义路径是否正确、模板和资源目录在哪、以及来源/实现元数据（如 `origin`、`implementation`）和芯片过滤条件。
+- `config/`（包内）：模块包内统一放置定义文件（Define）、预配置文件（Pre）与推荐配置文件（Rec），无需拆分子目录。
 - `templates/`：该模块的生成模板目录。
 - `resource/`：资源文件、属性文件和其他与模块相关的非模板资源。
 - `chips/`：芯片资源定义，项目打开和模块加载时用来解析当前芯片的可用配置。
@@ -158,9 +163,9 @@ autosar_configurator/
 
 ### 兼容性说明
 
-- 旧工程（Format <= 7）可以继续打开，不会被强制重写成新格式。
-- 新工程应按 Format 8 模式建立，并提供 `modules/` 和 `module.json` 结构。
-- 只有满足 `module.json` + `definition` + `files` 约束的模块包，才能被 `scan_library()` 和 `WorkspaceProject.add_module_from_package()` 正确识别。
+- 旧工程（Format <= 7）及早期按根 `modules/` 或 `DaVinciImport/` + `def/` + `sources.json` 生成的 Format 8 工程均可继续打开，不会被强制重写。
+- 新建 Format 8 工程按来源分区在 `modules/{davinci,eb,custom}/` 下组织模块包；通过 UI 直接添加的独立自定义定义文件也会自动打包进 `modules/custom/<Module>/config/`。
+- 只有满足 `module.json` + `definition` + `files`（或 EB `plugin.xml`）约束的模块包，才能被 `scan_library()` 和 `WorkspaceProject.add_module_from_package()` 正确识别。
 
 ## Vector SIP 入库与 DaVinci 工程导入
 
@@ -168,9 +173,9 @@ autosar_configurator/
 
 通过菜单 `File -> Import -> Import from DaVinci Project...` 选择 Vector DaVinci XML 格式 `.dpa` 文件并指定目标目录与工程名（可选指定外部 EB MCAL 插件/配置目录与导出 MCAL 资源 YAML）：
 
-- 工具会自动扫描 SIP 中的 `Components/*/BSWMD/` 与 `DemoComponents/*/BSWMD/`，合并定义并写入 Format 8 工程的 `DaVinciImport/` 库与 `modules`/`config` 目录；
+- 工具会自动扫描 SIP 中的 `Components/*/BSWMD/` 与 `DemoComponents/*/BSWMD/`，合并定义/Pre/Rec 并全量写入 Format 8 工程的 `modules/davinci/<Module>/config/`，同时将 `origin` 与 SIP `Implementation/` 路径记录在 `module.json`（导出 MCAL 资源 YAML 时写入 `chips/`）；
 - 从 `Config/ECUC/` 读取各活跃模块的实际配置值写入 `config/<Module>.arxml`，再与 `Pre`/`Rec` 基线合并并在冲突时弹出 `MergePreviewDialog` 预览确认；
-- 导入结束后在工程根目录生成 `.import_report.md`（并在 `.history/reports/davinci_import_report.md` 存档）。
+- 导入结束后在 `.history/reports/<YYYYmmdd-HHMMSS>_davinci_import.md` 生成唯一时间戳导入报告（不再在工程根目录生成 `.import_report.md`）。
 
 ### SIP 组件入库 CLI
 

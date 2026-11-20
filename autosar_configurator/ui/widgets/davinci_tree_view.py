@@ -369,8 +369,10 @@ class DaVinciTreeView(QTreeWidget):
         # Add existing sub-instances (Filtered by active variant)
         sub_instances = []
         container_short_name = container_def.short_name
+        target_module_def = getattr(config_manager, 'module_def', None)
+        target_module_name = target_module_def.short_name if target_module_def is not None else None
         for sc in parent_instance.sub_containers:
-            if self._definition_refs_match(sc.definition_ref, container_def.definition_ref, container_short_name):
+            if self._definition_refs_match(sc.definition_ref, container_def.definition_ref, container_short_name, target_module_name):
                 # Filter by active variant:
                 # 1. Match active variant
                 # 2. Or instance has no variant (global)
@@ -412,15 +414,17 @@ class DaVinciTreeView(QTreeWidget):
         
         # Extract container short_name from definition_ref (last part of path)
         container_short_name = container_def.short_name
+        target_module_def = getattr(config_manager, 'module_def', None)
+        target_module_name = target_module_def.short_name if target_module_def is not None else None
         
         return [
             c for c in config_manager.configuration.containers
-            if self._definition_refs_match(c.definition_ref, container_def.definition_ref, container_short_name) and (
+            if self._definition_refs_match(c.definition_ref, container_def.definition_ref, container_short_name, target_module_name) and (
                 self.active_variant is None or c.variant is None or c.variant == self.active_variant
             )
         ]
     
-    def _definition_refs_match(self, config_ref: str, def_ref: str, short_name: str) -> bool:
+    def _definition_refs_match(self, config_ref: str, def_ref: str, short_name: str, module_name: Optional[str] = None) -> bool:
         """True when a configuration's DEFINITION-REF names this container definition.
 
         Compares the module-relative paths, so two definitions that share a
@@ -428,8 +432,9 @@ class DaVinciTreeView(QTreeWidget):
         list only their own instances. A value file naming just the last segment
         still matches, and an EB Tresos instance index (_0, _1, …) is ignored.
         """
-        module_def = self.module_def or getattr(self.config_manager, 'module_def', None)
-        module_name = module_def.short_name if module_def is not None else None
+        if module_name is None:
+            module_def = self.module_def or getattr(self.config_manager, 'module_def', None)
+            module_name = module_def.short_name if module_def is not None else None
         return matches_container_def(config_ref, def_ref, short_name, module_name)
 
     

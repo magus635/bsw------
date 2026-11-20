@@ -564,3 +564,311 @@ def test_v8_detects_package_record_drift_and_prompts_without_baseline_value_chan
     assert failed_clean == []
     assert called_after_save == []
     assert reloaded_clean.package_drifts == {}
+
+
+def test_add_custom_module_from_file_packages_into_modules_custom(tmp_path):
+    """Standalone custom definition files are packaged under modules/custom/ with unified config/."""
+    from autosar_configurator.core.baseline.origin import Origin
+    from autosar_configurator.core.packages.manifest import load_manifest
+
+    src_dir = tmp_path / "standalone"
+    src_dir.mkdir()
+    def_arxml = src_dir / "MyMod.arxml"
+    def_arxml.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Custom</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-DEF>
+      <SHORT-NAME>MyMod</SHORT-NAME>
+      <CONTAINERS>
+        <ECUC-PARAM-CONF-CONTAINER-DEF>
+          <SHORT-NAME>General</SHORT-NAME>
+          <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          <PARAMETERS>
+            <ECUC-INTEGER-PARAM-DEF><SHORT-NAME>TimeoutMs</SHORT-NAME></ECUC-INTEGER-PARAM-DEF>
+          </PARAMETERS>
+        </ECUC-PARAM-CONF-CONTAINER-DEF>
+      </CONTAINERS>
+    </ECUC-MODULE-DEF>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+    pre_arxml = src_dir / "MyMod_Pre.arxml"
+    pre_arxml.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Custom</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>MyMod_Pre</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/Custom/MyMod</DEFINITION-REF>
+      <CONTAINERS><ECUC-CONTAINER-VALUE>
+        <SHORT-NAME>General</SHORT-NAME>
+        <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/Custom/MyMod/General</DEFINITION-REF>
+        <PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE>
+          <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/Custom/MyMod/General/TimeoutMs</DEFINITION-REF>
+          <VALUE>250</VALUE>
+        </ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES>
+      </ECUC-CONTAINER-VALUE></CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    proj_dir = tmp_path / "Proj"
+    project_file = proj_dir / "Proj.dpa"
+    wm = WorkspaceManager()
+    project = wm.create_project("Proj", project_file, format_version=8)
+    wm.save_project()
+
+    mgr = project.add_custom_module_from_file(def_arxml, pre_files=[pre_arxml])
+    assert mgr.module_def.short_name == "MyMod"
+    assert mgr.configuration.containers[0].parameter_values["TimeoutMs"].value == 250
+    assert mgr.value_origin(mgr.configuration.containers[0], "TimeoutMs") is Origin.PRE
+
+    pkg_dir = proj_dir / "modules" / "custom" / "MyMod"
+    assert (pkg_dir / "config" / "MyMod.arxml").is_file()
+    assert (pkg_dir / "config" / "MyMod_Pre.arxml").is_file()
+    assert not (pkg_dir / "def").exists()
+    assert not (pkg_dir / "sources.json").exists()
+
+    manifest = load_manifest(pkg_dir)
+    assert manifest.definition == "/Custom/MyMod"
+    assert [f.path for f in manifest.files] == ["config/MyMod.arxml", "config/MyMod_Pre.arxml"]
+    assert manifest.pre == ["/Custom/MyMod_Pre"]
+    assert manifest.origin["source"] == "custom"
+    assert project.module_provenance["MyMod"]["origin"] == "custom"
+    assert [lib.to_dict() for lib in project.module_libraries] == [
+        {"path": "modules/custom", "kind": "package", "exclude": []}
+    ]
+
+    wm.save_project()
+    assert (proj_dir / "config" / "MyMod.arxml").is_file()
+
+    # Merging an EB copy tree into the same project keeps modules/custom/ untouched
+    eb_root = tmp_path / "EbSrc"
+    eb_plugin = eb_root / "Def" / "plugins" / "Dio_TS"
+    (eb_plugin / "config").mkdir(parents=True)
+    (eb_plugin / "plugin.xml").write_text(
+        '<?xml version="1.0"?><plugin>'
+        '<extension point="dreisoft.tresos.launcher2.plugin.module">'
+        '<module id="Dio_TS" label="Dio" swVersionMajor="1" swVersionMinor="0" swVersionPatch="0"/>'
+        '</extension>'
+        '<extension point="dreisoft.tresos.launcher2.plugin.configuration">'
+        '<configuration moduleId="Dio_TS">'
+        '<schema><resource type="xdm" value="config/Dio.xdm"/></schema>'
+        '<data><schemaNode path="ASPath:/Vendor/Dio"/></data>'
+        '</configuration></extension></plugin>',
+        encoding="utf-8",
+    )
+    (eb_plugin / "config" / "Dio.xdm").write_text("""<?xml version="1.0"?>
+<datamodel version="7.0"
+           xmlns="http://www.tresos.de/_projects/DataModel2/16/root.xsd"
+           xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd"
+           xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd">
+  <d:ctr type="AUTOSAR" factory="autosar">
+    <d:lst type="TOP-LEVEL-PACKAGES"><d:ctr name="Vendor" type="AR-PACKAGE"><d:lst type="ELEMENTS">
+      <d:chc name="Dio" type="AR-ELEMENT" value="MODULE-DEF"><v:ctr type="MODULE-DEF"/></d:chc>
+    </d:lst></d:ctr></d:lst>
+  </d:ctr>
+</datamodel>""", encoding="utf-8")
+    (eb_root / "Config" / "C1" / "output").mkdir(parents=True)
+    (eb_root / "Config" / "C1" / "output" / "Dio.epc").write_text("""<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0"><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Dio</SHORT-NAME><ELEMENTS>
+  <ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>Dio</SHORT-NAME>
+    <DEFINITION-REF DEST="ECUC-MODULE-DEF">/Vendor/Dio</DEFINITION-REF>
+  </ECUC-MODULE-CONFIGURATION-VALUES>
+</ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>""", encoding="utf-8")
+
+    wm2 = WorkspaceManager()
+    reloaded, failed = wm2.load_project(project_file)
+    assert failed == []
+    assert "MyMod" in reloaded.module_managers
+    assert reloaded.module_defs["MyMod"] == pkg_dir / "config" / "MyMod.arxml"
+
+    _, eb_loaded, eb_failed = wm2.import_eb_project(eb_root, mode="copy", into_project=reloaded)
+    assert eb_failed == [] and eb_loaded == ["Dio"]
+    assert (pkg_dir / "module.json").is_file()
+    assert (proj_dir / "modules" / "eb" / "Dio_TS" / "plugin.xml").is_file()
+    assert [lib.path for lib in reloaded.module_libraries] == ["modules/custom", "modules/eb"]
+
+
+def test_add_custom_module_from_file_multiple_rec_and_error_guards(tmp_path):
+    """Multiple Rec files get unique config/ filenames and Pre/Rec/path guards fail explicitly."""
+    from autosar_configurator.core.baseline.origin import Origin
+    from autosar_configurator.core.packages.manifest import load_manifest
+
+    src_dir = tmp_path / "custom_src"
+    src_dir.mkdir()
+    def_arxml = src_dir / "RecMod.arxml"
+    def_arxml.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Custom</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-DEF>
+      <SHORT-NAME>RecMod</SHORT-NAME>
+      <CONTAINERS>
+        <ECUC-PARAM-CONF-CONTAINER-DEF>
+          <SHORT-NAME>GeneralA</SHORT-NAME>
+          <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          <PARAMETERS>
+            <ECUC-STRING-PARAM-DEF><SHORT-NAME>Mode</SHORT-NAME></ECUC-STRING-PARAM-DEF>
+          </PARAMETERS>
+        </ECUC-PARAM-CONF-CONTAINER-DEF>
+        <ECUC-PARAM-CONF-CONTAINER-DEF>
+          <SHORT-NAME>GeneralB</SHORT-NAME>
+          <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          <PARAMETERS>
+            <ECUC-INTEGER-PARAM-DEF><SHORT-NAME>Limit</SHORT-NAME></ECUC-INTEGER-PARAM-DEF>
+          </PARAMETERS>
+        </ECUC-PARAM-CONF-CONTAINER-DEF>
+      </CONTAINERS>
+    </ECUC-MODULE-DEF>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    rec1 = src_dir / "rec1.arxml"
+    rec1.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Custom</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>RecMod_Rec1</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/Custom/RecMod</DEFINITION-REF>
+      <CONTAINERS><ECUC-CONTAINER-VALUE>
+        <SHORT-NAME>GeneralA</SHORT-NAME>
+        <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/Custom/RecMod/GeneralA</DEFINITION-REF>
+        <PARAMETER-VALUES><ECUC-TEXTUAL-PARAM-VALUE>
+          <DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">/Custom/RecMod/GeneralA/Mode</DEFINITION-REF>
+          <VALUE>FAST</VALUE>
+        </ECUC-TEXTUAL-PARAM-VALUE></PARAMETER-VALUES>
+      </ECUC-CONTAINER-VALUE></CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    rec2 = src_dir / "rec2.arxml"
+    rec2.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Custom</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>RecMod_Rec2</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/Custom/RecMod</DEFINITION-REF>
+      <CONTAINERS><ECUC-CONTAINER-VALUE>
+        <SHORT-NAME>GeneralB</SHORT-NAME>
+        <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/Custom/RecMod/GeneralB</DEFINITION-REF>
+        <PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE>
+          <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/Custom/RecMod/GeneralB/Limit</DEFINITION-REF>
+          <VALUE>99</VALUE>
+        </ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES>
+      </ECUC-CONTAINER-VALUE></CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    wm = WorkspaceManager()
+    proj_dir = tmp_path / "MultiRecProj"
+    project = wm.create_project("MultiRecProj", proj_dir / "MultiRecProj.dpa", format_version=8)
+    wm.save_project()
+
+    mgr = project.add_custom_module_from_file(def_arxml, rec_files=[rec1, rec2])
+    by_name = {c.short_name: c for c in mgr.configuration.containers}
+    assert by_name["GeneralA"].parameter_values["Mode"].value == "FAST"
+    assert by_name["GeneralB"].parameter_values["Limit"].value == 99
+    assert mgr.value_origin(by_name["GeneralA"], "Mode") is Origin.REC
+    assert mgr.value_origin(by_name["GeneralB"], "Limit") is Origin.REC
+
+    pkg_dir = proj_dir / "modules" / "custom" / "RecMod"
+    assert (pkg_dir / "config" / "RecMod.arxml").is_file()
+    assert (pkg_dir / "config" / "RecMod_Rec.arxml").is_file()
+    assert (pkg_dir / "config" / "RecMod_Rec_2.arxml").is_file()
+    manifest = load_manifest(pkg_dir)
+    assert [f.path for f in manifest.files] == [
+        "config/RecMod.arxml",
+        "config/RecMod_Rec.arxml",
+        "config/RecMod_Rec_2.arxml",
+    ]
+    assert manifest.rec == ["/Custom/RecMod_Rec1", "/Custom/RecMod_Rec2"]
+
+    # Validation guards
+    v7 = WorkspaceManager().create_project("V7", tmp_path / "V7" / "V7.dpa", format_version=7)
+    with pytest.raises(ValueError, match="Format 8"):
+        v7.add_custom_module_from_file(def_arxml)
+
+    unsaved = WorkspaceManager().create_project("Unsaved", None, format_version=8)
+    with pytest.raises(ValueError, match="Format 8"):
+        unsaved.add_custom_module_from_file(def_arxml)
+
+    with pytest.raises(FileNotFoundError):
+        project.add_custom_module_from_file(src_dir / "Missing.arxml")
+
+    with pytest.raises(FileNotFoundError):
+        project.add_custom_module_from_file(def_arxml, pre_files=[src_dir / "Missing_Pre.arxml"])
+
+
+def test_add_custom_module_from_file_readd_and_inplace_source(tmp_path):
+    """Re-adding an excluded/removed custom module from in-place config/ paths un-excludes without SameFileError."""
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    def_arxml = src_dir / "ReAddMod.arxml"
+    def_arxml.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Custom</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-DEF>
+      <SHORT-NAME>ReAddMod</SHORT-NAME>
+      <CONTAINERS>
+        <ECUC-PARAM-CONF-CONTAINER-DEF>
+          <SHORT-NAME>General</SHORT-NAME>
+          <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          <PARAMETERS>
+            <ECUC-INTEGER-PARAM-DEF><SHORT-NAME>TimeoutMs</SHORT-NAME></ECUC-INTEGER-PARAM-DEF>
+            <ECUC-STRING-PARAM-DEF><SHORT-NAME>UserNote</SHORT-NAME></ECUC-STRING-PARAM-DEF>
+          </PARAMETERS>
+        </ECUC-PARAM-CONF-CONTAINER-DEF>
+      </CONTAINERS>
+    </ECUC-MODULE-DEF>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+    pre_arxml = src_dir / "ReAddMod_Pre.arxml"
+    pre_arxml.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Custom</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>ReAddMod_Pre</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/Custom/ReAddMod</DEFINITION-REF>
+      <CONTAINERS><ECUC-CONTAINER-VALUE>
+        <SHORT-NAME>General</SHORT-NAME>
+        <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/Custom/ReAddMod/General</DEFINITION-REF>
+        <PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE>
+          <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/Custom/ReAddMod/General/TimeoutMs</DEFINITION-REF>
+          <VALUE>250</VALUE>
+        </ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES>
+      </ECUC-CONTAINER-VALUE></CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    wm = WorkspaceManager()
+    proj_dir = tmp_path / "ReAddProj"
+    dpa_path = proj_dir / "ReAddProj.dpa"
+    project = wm.create_project("ReAddProj", dpa_path, format_version=8)
+    wm.save_project()
+
+    mgr = project.add_custom_module_from_file(def_arxml, pre_files=[pre_arxml])
+    mgr.set_parameter_value(mgr.configuration.containers[0], "UserNote", "keep_me")
+    wm.save_project()
+
+    # Remove module and simulate its package being excluded in modules/custom
+    project.remove_module("ReAddMod", archive=False)
+    project.module_libraries[0].exclude.append("ReAddMod")
+    wm.save_project()
+
+    # Re-add directly from the in-place package paths under modules/custom/ReAddMod/config/
+    pkg_dir = proj_dir / "modules" / "custom" / "ReAddMod"
+    readded_mgr = project.add_custom_module_from_file(
+        pkg_dir / "config" / "ReAddMod.arxml",
+        pre_files=[pkg_dir / "config" / "ReAddMod_Pre.arxml"],
+        confirm=lambda *_: True,
+    )
+    assert len(project.module_libraries) == 1
+    assert "ReAddMod" not in project.module_libraries[0].exclude
+    assert readded_mgr.configuration.containers[0].parameter_values["TimeoutMs"].value == 250
+    assert readded_mgr.configuration.containers[0].parameter_values["UserNote"].value == "keep_me"
+
+    wm.save_project()
+    reloaded, failed = WorkspaceManager().load_project(dpa_path)
+    assert failed == []
+    assert reloaded.module_managers["ReAddMod"].configuration.containers[0].parameter_values["UserNote"].value == "keep_me"

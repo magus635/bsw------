@@ -9,9 +9,10 @@ def _create_sample_sip_and_davinci(root: Path):
     """Build a realistic Vector SIP + DaVinci XML .dpa + EB MCAL tree."""
     sip = root / "sip"
 
-    # 1. Os (BSW with DerivativeMapping + Pre)
+    # 1. Os (BSW with DerivativeMapping + Pre + Implementation dir)
     os_dir = sip / "Components" / "Os"
     (os_dir / "BSWMD").mkdir(parents=True)
+    (os_dir / "Implementation").mkdir(parents=True)
     (os_dir / "BSWMD" / "Os_bswmd.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
 <AUTOSAR xmlns="http://autosar.org/schema/r4.0">
   <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
@@ -293,14 +294,28 @@ def test_import_davinci_project_preserves_ecuc_values_mcal_and_report(tmp_path):
         mcal_source_dir=eb_root,
     )
 
-    # 1. Active BSW modules (Os, Com) + EB MCAL (Dio) imported; UnusedMod NOT added
+    # 1. Active BSW modules (Os, Com) + EB MCAL (Dio) imported; UnusedMod NOT active,
+    #    yet full SIP modules reside under modules/davinci/ with unified config/ layout.
     assert set(project.module_managers.keys()) == {"Os", "Com", "Dio"}
     assert "UnusedMod" not in project.module_managers
+    proj_root = out_parent / "MigratedApp"
+    assert not (proj_root / "DaVinciImport").exists()
+    assert not (proj_root / ".import_report.md").exists()
+    assert project.module_libraries[0].path == "modules/davinci"
+    os_pkg = proj_root / "modules" / "davinci" / "Os"
+    assert (os_pkg / "config" / "Os.arxml").is_file()
+    assert (os_pkg / "config" / "Os_Pre.arxml").is_file()
+    assert not (os_pkg / "def").exists()
+    assert not (os_pkg / "sources.json").exists()
+    assert (proj_root / "modules" / "davinci" / "UnusedMod" / "module.json").is_file()
+    assert project.packages["Os"].manifest.implementation == (
+        tmp_path / "sip" / "Components" / "Os" / "Implementation"
+    ).resolve().as_posix()
 
     # 2. Derivative metadata recorded and persisted in .dpa
     assert project.derivative_uuid == "UUID-THA6206"
     assert project.derivative_name == "Tongxin_THA6206"
-    saved_dpa = json.loads((out_parent / "MigratedApp" / "MigratedApp.dpa").read_text(encoding="utf-8"))
+    saved_dpa = json.loads((proj_root / "MigratedApp.dpa").read_text(encoding="utf-8"))
     assert saved_dpa["format_version"] == 8
     assert saved_dpa["derivative_uuid"] == "UUID-THA6206"
     assert saved_dpa["derivative_name"] == "Tongxin_THA6206"
@@ -327,9 +342,11 @@ def test_import_davinci_project_preserves_ecuc_values_mcal_and_report(tmp_path):
     assert report.pre_inconsistencies == []
     assert report.version_mismatches == []
     assert report.value_diffs == []
-    report_path = out_parent / "MigratedApp" / ".import_report.md"
-    assert report_path.is_file()
-    md = report_path.read_text(encoding="utf-8")
+    reports = sorted((proj_root / ".history" / "reports").glob("*_davinci_import.md"))
+    assert len(reports) == 1
+    assert report.report_files == [reports[0].as_posix()]
+    assert not (proj_root / ".history" / "reports" / "davinci_import_report.md").exists()
+    md = reports[0].read_text(encoding="utf-8")
     assert "Os" in md and "davinci_ecuc" in md
     assert "Dio" in md and "eb_mcal" in md
 
@@ -528,7 +545,8 @@ def test_import_davinci_then_merge_eb_into_same_project(tmp_path):
     assert failed == []
     assert "Dio" in loaded
     assert len(project.module_libraries) == 2
-    assert project.module_libraries[0].path == "DaVinciImport"
+    assert project.module_libraries[0].path == "modules/davinci"
+    assert project.module_libraries[1].path == "modules/eb"
     assert project.module_libraries[1].kind == "eb-plugins"
     assert "Dio" in project.module_libraries[0].exclude
 
@@ -602,8 +620,9 @@ def test_import_eb_then_merge_davinci_into_same_project(tmp_path):
     assert project.path == target_dir / "Combo2.dpa"
     assert dv_report.failed_modules == []
     assert len(project.module_libraries) == 2
+    assert project.module_libraries[0].path == "modules/eb"
     assert project.module_libraries[0].kind == "eb-plugins"
-    assert project.module_libraries[1].path == "DaVinciImport"
+    assert project.module_libraries[1].path == "modules/davinci"
     assert project.derivative_uuid == "UUID-THA6206"
 
     # EB Dio kept at library 0 with value=True; DaVinci Os & Com imported at library 1
@@ -877,8 +896,11 @@ def test_import_davinci_report_checks_pre_inconsistencies_versions_and_values(tm
     # 3. Value diffs are empty (the expected PRE_FORCED override is excluded from loss/drift diffs)
     assert report.value_diffs == []
 
-    # 4. Markdown report renders all verification sections
-    md = (tmp_path / "checked_out" / "CheckedImport" / ".import_report.md").read_text(encoding="utf-8")
+    # 4. Markdown report renders all verification sections at timestamped history path
+    checked_root = tmp_path / "checked_out" / "CheckedImport"
+    assert not (checked_root / ".import_report.md").exists()
+    (report_path,) = sorted((checked_root / ".history" / "reports").glob("*_davinci_import.md"))
+    md = report_path.read_text(encoding="utf-8")
     assert "Active 与 Pre 不一致项" in md
     assert "OsCoreCount" in md
     assert "BswImplSwVersion 版本不一致" in md
@@ -916,5 +938,110 @@ def test_compare_module_values_detects_missing_and_mismatched_and_normalizes_boo
     assert by_key["P:/Mod/Gen.Rate"]["source"] == 100
     assert by_key["P:/Mod/Gen.Rate"]["imported"] == 200
     assert by_key["P:/Mod/Gen.MissingKey"]["kind"] == "missing"
+
+
+def test_legacy_davinci_import_and_root_modules_v8_project_still_load(tmp_path):
+    """Pre-partition Format 8 projects referencing DaVinciImport/, def/, sources.json, and root modules/ still load."""
+    proj_dir = tmp_path / "LegacyV8"
+    (proj_dir / "config").mkdir(parents=True)
+
+    # Legacy DaVinciImport/Os package with def/ + sources.json
+    os_pkg = proj_dir / "DaVinciImport" / "Os"
+    (os_pkg / "def").mkdir(parents=True)
+    os_def = """<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-DEF><SHORT-NAME>Os</SHORT-NAME></ECUC-MODULE-DEF>
+    <BSW-IMPLEMENTATION><SHORT-NAME>Os_Impl</SHORT-NAME><SW-VERSION>1.0.0</SW-VERSION></BSW-IMPLEMENTATION>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>"""
+    (os_pkg / "def" / "Os.arxml").write_text(os_def, encoding="utf-8")
+    (os_pkg / "module.json").write_text(json.dumps({
+        "schema": 1,
+        "module": "Os",
+        "definition": "/MICROSAR/Os",
+        "files": ["def/Os.arxml"],
+    }), encoding="utf-8")
+    (os_pkg / "sources.json").write_text(json.dumps({
+        "module": "Os",
+        "implementation": {"ar_path": "/MICROSAR/Os_Impl", "sw_version": "1.0.0"},
+    }), encoding="utf-8")
+    (proj_dir / "config" / "Os.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>Os</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/Os</DEFINITION-REF>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    # Legacy EB plugin copied directly into modules/<Plugin>
+    dio_plugin = proj_dir / "modules" / "Dio_TS_T40D11M7I0R0"
+    (dio_plugin / "config").mkdir(parents=True)
+    (dio_plugin / "plugin.xml").write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<plugin>\n'
+        '  <extension point="dreisoft.tresos.launcher2.plugin.module" id="Dio_TS" name="Dio_TS">\n'
+        '    <module id="Dio_TS" label="Dio" swVersionMajor="1" swVersionMinor="0" swVersionPatch="0"/>\n'
+        '  </extension>\n'
+        '  <extension point="dreisoft.tresos.launcher2.plugin.configuration" id="Dio_Config">\n'
+        '    <configuration moduleId="Dio_TS">\n'
+        '      <schema><resource type="xdm" value="config/Dio.xdm"/></schema>\n'
+        '      <data><schemaNode path="ASPath:/THA6_AS440_FuSa/Dio"/></data>\n'
+        '    </configuration>\n'
+        '  </extension>\n'
+        '</plugin>\n',
+        encoding="utf-8",
+    )
+    (dio_plugin / "config" / "Dio.xdm").write_text("""<?xml version="1.0"?>
+<datamodel version="7.0"
+           xmlns="http://www.tresos.de/_projects/DataModel2/16/root.xsd"
+           xmlns:a="http://www.tresos.de/_projects/DataModel2/16/attribute.xsd"
+           xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd"
+           xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd">
+  <d:ctr type="AUTOSAR" factory="autosar">
+    <d:lst type="TOP-LEVEL-PACKAGES">
+      <d:ctr name="THA6_AS440_FuSa" type="AR-PACKAGE">
+        <d:lst type="ELEMENTS">
+          <d:chc name="Dio" type="AR-ELEMENT" value="MODULE-DEF">
+            <v:ctr type="MODULE-DEF"/>
+          </d:chc>
+        </d:lst>
+      </d:ctr>
+    </d:lst>
+  </d:ctr>
+</datamodel>""", encoding="utf-8")
+    (proj_dir / "config" / "Dio.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>Dio</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/THA6_AS440_FuSa/Dio</DEFINITION-REF>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    dpa = proj_dir / "LegacyV8.dpa"
+    dpa.write_text(json.dumps({
+        "format_version": 8,
+        "name": "LegacyV8",
+        "project_type": "Vector DaVinci",
+        "module_libraries": [
+            {"path": "DaVinciImport", "kind": "package", "exclude": []},
+            {"path": "modules", "kind": "eb-plugins", "exclude": []},
+        ],
+        "modules": [
+            {"name": "Os", "definition": "/MICROSAR/Os", "library": 0, "config_path": "config/Os.arxml"},
+            {"name": "Dio", "definition": "/THA6_AS440_FuSa/Dio", "library": 1, "config_path": "config/Dio.arxml"},
+        ],
+    }), encoding="utf-8")
+
+    loaded, failed = WorkspaceManager().load_project(dpa)
+    assert failed == []
+    assert set(loaded.module_managers.keys()) == {"Os", "Dio"}
+    assert loaded.packages["Os"].read_impl_metadata()["sw_version"] == "1.0.0"
+    assert loaded.module_defs["Os"] == os_pkg / "def" / "Os.arxml"
+    assert loaded.module_defs["Dio"] == dio_plugin / "config" / "Dio.xdm"
 
 

@@ -36,21 +36,21 @@ File → Import DaVinci Project
 
 1. **Create project structure** in `{target_dir}/{project_name}/`
    - `Project.dpa` (project metadata file)
-   - `DaVinciImport/` (module library subdirectory)
+   - `modules/davinci/` (SIP module library subdirectory; alongside optional `modules/eb/` and `modules/custom/`)
    - `config/`, `base/`, `templates/`, `gen/`, `chips/`, etc. (Format 8 directories)
 
-2. **Export DaVinci modules** to `{project_root}/DaVinciImport/`
-   - Run DaVinci import CLI with output directory = `DaVinciImport/`
-   - Extract BSW modules (117 found in test)
-   - Optional: extract MCAL resources as YAML
+2. **Ingest DaVinci SIP modules** to `{project_root}/modules/davinci/`
+   - Scan SIP components and merge Define + Pre + Rec into `{project_root}/modules/davinci/<Module>/config/` with metadata recorded in `module.json`
+   - Extract all scanned SIP modules into `modules/davinci/`
+   - Optional: extract MCAL resources as YAML into `chips/`
 
 3. **Register library**
-   - Add `LibraryRef(path="DaVinciImport", kind="package")` to `project.module_libraries`
+   - Add `LibraryRef(path="modules/davinci", kind="package")` to `project.module_libraries`
 
 4. **Auto-add modules**
-   - Scan `DaVinciImport/` for `module.json` manifests
-   - For each: `project.add_module_from_package(pkg, lib_index=0, reconcile=True, confirm=auto_approve)`
-   - Auto-approve Pre/Rec baseline merges
+   - Scan `modules/davinci/` for `module.json` manifests
+   - For each active module: `project.add_module_from_package(pkg, lib_index=0, reconcile=True, confirm=...)`
+   - Reconcile Pre/Rec baseline merges
 
 5. **Save and open**
    - Save project to disk
@@ -84,7 +84,7 @@ File → Import DaVinci Project
 1. **Baseline Merge Preview (`MergePreviewDialog`)** — Pre/Rec conflicts are previewed interactively via `MergePreviewDialog` (`ProjectController._confirm_merge_preview`); rejected modules are cleanly skipped and rolled back without creating `.history/deleted/` ghosts.
 2. **Merge into Existing Format 8 Workspace** — Supports `into_project` with `on_conflict` (`auto`/`keep`/`replace`), backup/rollback on failure, and cross-library definition deduplication.
 3. **Strict `DerivativeMapping` Filtering (W11)** — Raises `SipDerivativeMappingError` instead of silently loading all chip folders when `DerivativeMapping_<Module>.xml` exists and does not match the project's derivative UUID (or fails XML parsing).
-4. **W12 Import Report Verification** — `.import_report.md` and `.history/reports/davinci_import_report.md` now record:
+4. **W12 Import Report Verification** — Timestamped `.history/reports/<YYYYmmdd-HHMMSS>_davinci_import.md` now records:
    - `pre_inconsistencies`: Active vs Pre overrides (`PRE_FORCED` / `CREATED_IN_BASE`)
    - `version_mismatches`: `.dpa` `BswImplSwVersion` vs ingested package `SW-VERSION` (normalized)
    - `value_diffs`: Parameter-by-parameter source vs imported comparison (`compare_module_values`)
@@ -230,24 +230,26 @@ All modules use `reconcile=True` + auto-approval:
 ```
 {project_root}/
 ├── Project.dpa                    # Project metadata
-├── config/                        # AUTOSAR configurations
-│   ├── base/                      # Baseline (Pre/Rec merged)
+├── config/                        # Active AUTOSAR configurations
+│   ├── base/                      # Baseline snapshots (Pre/Rec merged)
 │   └── Adc.arxml, CanIf.arxml, ...
-├── DaVinciImport/                 # Module library (registered)
-│   ├── Adc/
-│   │   ├── module.json
-│   │   ├── def.arxml
-│   │   ├── pre.arxml (if present)
-│   │   └── rec.arxml (if present)
-│   ├── CanIf/
-│   │   ├── ...
-│   └── ...
-├── templates/                     # Templates (empty)
-├── gen/                           # Generated code (empty)
-├── chips/                         # Chip definitions
+├── modules/                       # Source-partitioned module libraries
+│   ├── davinci/                   # Vector SIP ingested packages (registered as kind="package")
+│   │   ├── Adc/
+│   │   │   ├── module.json        # Manifest (origin, implementation, definition, files, pre, rec)
+│   │   │   └── config/            # Unified Define + Pre + Rec ARXML files
+│   │   │       ├── Adc.arxml
+│   │   │       ├── Adc_Pre.arxml  (if present)
+│   │   │       └── Adc_Rec.arxml  (if present)
+│   │   └── ...
+│   ├── eb/                        # EB Tresos copy-mode plugins (registered as kind="eb-plugins")
+│   └── custom/                    # User/custom standalone module packages (preserved across imports)
+├── templates/                     # Project-level template overrides
+├── gen/                           # Generated code
+├── chips/                         # Chip definitions & extracted resource YAML
 ├── integration/                   # Integration guidelines
 ├── system/                        # System description
-└── .history/                      # Undo history
+└── .history/                      # Undo history & timestamped reports (*_davinci_import.md)
 ```
 
 ---

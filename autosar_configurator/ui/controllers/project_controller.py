@@ -1157,6 +1157,10 @@ class ProjectController:
                 manager = project.add_module_from_package(
                     pkg, lib_index, confirm=self._confirm_merge)
                 module_def = manager.module_def
+            elif getattr(project, "format_version", 7) >= 8 and getattr(project, "path", None) is not None:
+                manager = project.add_custom_module_from_file(
+                    Path(file_path), confirm=self._confirm_merge)
+                module_def = manager.module_def
             else:
                 # Ensure parser has latest chip constraints before parsing
                 constraints = self.win.chip_constraint_service.get_all_constraints()

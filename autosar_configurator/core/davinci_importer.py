@@ -1362,8 +1362,10 @@ class SipPackageWriter:
         output_dir: Optional[Path] = None,
         source_files: Optional[List[str]] = None,
         impl_metadata: Optional[Dict[str, Any]] = None,
+        implementation_dir: Optional[str] = None,
+        source_kind: str = "davinci",
     ) -> Path:
-        """Write a module package with separate def/ and config/ directories.
+        """Write a module package with definition, pre, and rec unified under config/.
 
         Args:
             module_name: Module name (e.g., "Os")
@@ -1373,6 +1375,8 @@ class SipPackageWriter:
             output_dir: Output directory; defaults to ./packages/<module_name>
             source_files: Optional list of contributing SIP source file paths
             impl_metadata: Optional BSW-IMPLEMENTATION metadata dict
+            implementation_dir: Optional POSIX path to SIP Implementation/ directory
+            source_kind: Origin tag recorded under manifest ``origin.source``
 
         Returns:
             Path to package root
@@ -1383,20 +1387,18 @@ class SipPackageWriter:
             output_dir = Path(output_dir) / module_name
 
         output_dir.mkdir(parents=True, exist_ok=True)
-        def_dir = output_dir / "def"
         config_dir = output_dir / "config"
-        def_dir.mkdir(exist_ok=True)
         config_dir.mkdir(exist_ok=True)
 
-        # Write definition file to def/ directory
+        # Keep definition, Pre, and Rec files unified under config/
         files_list = []
         pre_list = []
         rec_list = []
 
         if definition_content:
-            def_path = def_dir / f"{module_name}.arxml"
+            def_path = config_dir / f"{module_name}.arxml"
             def_path.write_bytes(definition_content)
-            files_list.append(f"def/{module_name}.arxml")
+            files_list.append(f"config/{module_name}.arxml")
 
         # Write pre/rec to config/ directory and index their AUTOSAR paths for manifest
         if pre_config:
@@ -1422,7 +1424,7 @@ class SipPackageWriter:
                 [SipFile(path=Path(f"{module_name}.arxml"), module=module_name, content=definition_content)]
             )
 
-        # Write module.json matching load_manifest schema
+        # Write module.json matching load_manifest schema (replaces separate sources.json)
         manifest: Dict[str, Any] = {
             "schema": 1,
             "module": module_name,
@@ -1435,21 +1437,22 @@ class SipPackageWriter:
             manifest["implementation_path"] = impl_metadata["ar_path"]
         if impl_metadata and impl_metadata.get("sw_version"):
             manifest["version"] = impl_metadata["sw_version"]
+        if implementation_dir:
+            manifest["implementation"] = str(implementation_dir).strip().replace("\\", "/")
+
+        origin: Dict[str, Any] = {"source": source_kind}
+        if source_files is not None:
+            origin["source_files"] = sorted(str(s) for s in source_files)
+        if impl_metadata:
+            origin["implementation"] = impl_metadata
+            if impl_metadata.get("sw_version"):
+                origin["sw_version"] = impl_metadata["sw_version"]
+        manifest["origin"] = origin
 
         manifest_path = output_dir / "module.json"
         with open(manifest_path, "w", encoding="utf-8") as f:
-            json.dump(manifest, f, indent=2)
-
-        if source_files is not None or impl_metadata:
-            sources_payload = {
-                "module": module_name,
-                "definition": def_ar_path,
-                "source_files": list(source_files or []),
-                "implementation": impl_metadata or {},
-            }
-            sources_path = output_dir / "sources.json"
-            with open(sources_path, "w", encoding="utf-8") as f:
-                json.dump(sources_payload, f, indent=2, ensure_ascii=False)
+            json.dump(manifest, f, indent=2, sort_keys=True, ensure_ascii=False)
+            f.write("\n")
 
         return output_dir
 
@@ -1486,6 +1489,20 @@ class SipPackageWriter:
     def read_impl_metadata(package_dir: Path) -> Dict[str, Any]:
         """Read BSW-IMPLEMENTATION metadata (W10) for an ingested module package."""
         pkg_dir = Path(package_dir)
+
+        manifest_path = pkg_dir / "module.json"
+        if manifest_path.is_file():
+            try:
+                data = json.loads(manifest_path.read_text(encoding="utf-8"))
+                origin = data.get("origin")
+                if isinstance(origin, dict):
+                    impl = origin.get("implementation")
+                    if isinstance(impl, dict) and impl:
+                        return impl
+            except (OSError, ValueError, TypeError) as exc:
+                logger.debug("Could not read implementation metadata from %s: %s", manifest_path, exc)
+
+        # Backward compatibility for legacy packages that wrote sources.json
         sources_path = pkg_dir / "sources.json"
         if sources_path.is_file():
             try:
@@ -1493,18 +1510,20 @@ class SipPackageWriter:
                 impl = data.get("implementation")
                 if isinstance(impl, dict) and impl:
                     return impl
-            except Exception:
-                pass
+            except (OSError, ValueError, TypeError) as exc:
+                logger.debug("Could not read legacy sources.json from %s: %s", sources_path, exc)
 
-        # Fallback: parse def/*.arxml inside package_dir
+        # Fallback: parse config/*.arxml and legacy def/*.arxml inside package_dir
         sip_files: List[SipFile] = []
-        def_dir = pkg_dir / "def"
-        if def_dir.is_dir():
-            for arxml in sorted(def_dir.glob("*.arxml")):
+        for sub_name in ("config", "def"):
+            sub_dir = pkg_dir / sub_name
+            if not sub_dir.is_dir():
+                continue
+            for arxml in sorted(sub_dir.glob("*.arxml")):
                 try:
                     sip_files.append(SipFile(path=arxml, module=pkg_dir.name, content=arxml.read_bytes()))
-                except OSError:
-                    pass
+                except OSError as exc:
+                    logger.debug("Could not read %s for impl metadata: %s", arxml, exc)
         return SipMerger.extract_bsw_implementation_metadata(sip_files) if sip_files else {}
 
     @staticmethod
@@ -2040,6 +2059,17 @@ class DaVinciProjectImporter:
             workspace_manager.current_project = previous_wm_project
             raise
 
+    @staticmethod
+    def _detect_sip_implementation_dir(files: List[SipFile]) -> Optional[str]:
+        """Locate the sibling ``Implementation/`` directory of the module's SIP component."""
+        for sip_file in sorted(files, key=lambda f: f.path.as_posix()):
+            for parent in sip_file.path.parents:
+                if parent.name == "BSWMD":
+                    candidate = parent.parent / "Implementation"
+                    if candidate.is_dir():
+                        return candidate.resolve().as_posix()
+        return None
+
     @classmethod
     def _populate_davinci_project(
         cls,
@@ -2096,7 +2126,12 @@ class DaVinciProjectImporter:
         else:
             if dv.sip_root is None or not dv.sip_root.exists():
                 raise FileNotFoundError(f"SIP root not found for DaVinci project: {dv.sip_root}")
-            davinci_import_dir = project_root / "DaVinciImport"
+            davinci_lib_rel = project_paths.module_source_rel(
+                new_project, project_paths.MODULE_SOURCE_DAVINCI
+            )
+            davinci_import_dir = project_paths.module_source_dir(
+                new_project, project_paths.MODULE_SOURCE_DAVINCI
+            )
             davinci_import_dir.mkdir(parents=True, exist_ok=True)
 
             scanner = SipScanner(dv.sip_root)
@@ -2129,17 +2164,20 @@ class DaVinciProjectImporter:
                     output_dir=davinci_import_dir,
                     source_files=[str(f.path) for f in files],
                     impl_metadata=impl_meta,
+                    implementation_dir=cls._detect_sip_implementation_dir(files),
                 )
 
             if include_resources:
                 extractor = McalResourceExtractor(dv.sip_root)
                 all_resources = extractor.extract_all_chips_resources()
+                chips_dir = project_paths.resolve(new_project, "chips")
+                chips_dir.mkdir(parents=True, exist_ok=True)
                 for chip_name in sorted(all_resources):
-                    yaml_file = davinci_import_dir / f"resources_{chip_name}.yaml"
+                    yaml_file = chips_dir / f"resources_{chip_name}.yaml"
                     extractor.extract_and_generate_yaml(chip_name, yaml_file)
                     report.mcal_resources_exported.append(yaml_file.as_posix())
 
-            bsw_lib_ref = LibraryRef(path="DaVinciImport", kind="package", exclude=[])
+            bsw_lib_ref = LibraryRef(path=davinci_lib_rel, kind="package", exclude=[])
             bsw_packages_list = scan_library(bsw_lib_ref, project_root)
 
         bsw_lib_index = new_project.ensure_module_library(bsw_lib_ref)
@@ -2552,17 +2590,15 @@ class DaVinciProjectImporter:
                         "message": err.message,
                     })
 
-        # 7. Write Markdown reports and persist project
+        # 7. Write a single timestamped Markdown report under .history/reports/ and persist project
         md_text = report.to_markdown()
-        root_report = project_root / ".import_report.md"
-        history_report = project_paths.resolve(new_project, "history") / "reports" / "davinci_import_report.md"
-        for rpath in (root_report, history_report):
-            try:
-                rpath.parent.mkdir(parents=True, exist_ok=True)
-                rpath.write_text(md_text, encoding="utf-8")
-                report.report_files.append(rpath.as_posix())
-            except OSError as exc:
-                report.warnings.append(f"写入导入报告失败 {rpath}: {exc}")
+        rpath = eb_import.report_path(new_project, kind="davinci_import")
+        try:
+            rpath.parent.mkdir(parents=True, exist_ok=True)
+            rpath.write_text(md_text, encoding="utf-8")
+            report.report_files.append(rpath.as_posix())
+        except OSError as exc:
+            report.warnings.append(f"写入导入报告失败 {rpath}: {exc}")
 
         workspace_manager.current_project = new_project
         workspace_manager.save_project()

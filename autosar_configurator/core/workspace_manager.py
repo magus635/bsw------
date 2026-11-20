@@ -469,6 +469,116 @@ class WorkspaceProject:
         if stashed is not None:
             self.unloaded_variant_overrides[name] = stashed
 
+    def add_custom_module_from_file(
+        self,
+        def_file: Path,
+        pre_files: Optional[List[Path]] = None,
+        rec_files: Optional[List[Path]] = None,
+        confirm=None,
+        persist: bool = True,
+    ) -> ConfigurationManager:
+        """Package a standalone custom module definition into ``modules/custom/`` and load it.
+
+        Saved Format 8 projects keep modules self-contained inside source-partitioned
+        libraries so EB/DaVinci re-imports cannot clobber engineer-defined modules.
+        Definition, Pre, and Rec files are unified under ``config/`` alongside ``module.json``.
+        """
+        if self.format_version < 8 or self.path is None:
+            raise ValueError("add_custom_module_from_file requires a saved Format 8 project")
+
+        def_src = Path(def_file).resolve()
+        if not def_src.is_file():
+            raise FileNotFoundError(f"Module definition file not found: {def_src}")
+
+        from .packages.manifest import write_manifest
+        from .packages.types import ModuleManifest, PackageFile
+        from .packages.value_index import index_value_collections
+
+        parser = EcucDefParser()
+        parser.set_selector_values(_chip_selector_values(self))
+        module_def = parser.parse_module_def_file(def_src)
+        module_name = module_def.short_name
+
+        raw_def = (module_def.ar_path or module_def.definition_ref or f"/{module_name}").strip()
+        def_ar_path = raw_def if raw_def.startswith("/") else f"/{raw_def}"
+
+        pkg_dir = project_paths.module_source_dir(self, project_paths.MODULE_SOURCE_CUSTOM) / module_name
+        config_dir = pkg_dir / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+
+        pkg_files: List[PackageFile] = []
+        source_files: List[str] = [def_src.as_posix()]
+        used_names: set = set()
+
+        def _copy_into_config(src: Path, preferred_stem: str) -> str:
+            src_resolved = Path(src).resolve()
+            if not src_resolved.is_file():
+                raise FileNotFoundError(f"Module file not found: {src_resolved}")
+            suffix = src_resolved.suffix or ".arxml"
+            candidate = f"{preferred_stem}{suffix}"
+            counter = 2
+            while candidate in used_names:
+                candidate = f"{preferred_stem}_{counter}{suffix}"
+                counter += 1
+            used_names.add(candidate)
+            dst = config_dir / candidate
+            if src_resolved != dst.resolve():
+                shutil.copy2(src_resolved, dst)
+            return f"config/{candidate}"
+
+        pkg_files.append(PackageFile(path=_copy_into_config(def_src, module_name)))
+
+        pre_paths: List[str] = []
+        for idx, pfile in enumerate(pre_files or ()):
+            stem = f"{module_name}_Pre" if idx == 0 else f"{module_name}_Pre_{idx + 1}"
+            rel = _copy_into_config(Path(pfile), stem)
+            pkg_files.append(PackageFile(path=rel))
+            source_files.append(Path(pfile).resolve().as_posix())
+            pre_paths.extend(index_value_collections(pkg_dir / rel).keys())
+
+        rec_paths: List[str] = []
+        for idx, rfile in enumerate(rec_files or ()):
+            stem = f"{module_name}_Rec" if idx == 0 else f"{module_name}_Rec_{idx + 1}"
+            rel = _copy_into_config(Path(rfile), stem)
+            pkg_files.append(PackageFile(path=rel))
+            source_files.append(Path(rfile).resolve().as_posix())
+            rec_paths.extend(index_value_collections(pkg_dir / rel).keys())
+
+        manifest = ModuleManifest(
+            module=module_name,
+            definition=def_ar_path,
+            files=pkg_files,
+            pre=sorted(set(pre_paths)),
+            rec=sorted(set(rec_paths)),
+            origin={
+                "source": project_paths.MODULE_SOURCE_CUSTOM,
+                "source_files": sorted(set(source_files)),
+            },
+        )
+        write_manifest(pkg_dir, manifest)
+
+        custom_lib_ref = LibraryRef(
+            path=project_paths.module_source_rel(self, project_paths.MODULE_SOURCE_CUSTOM),
+            kind="package",
+            exclude=[],
+        )
+        lib_index = self.ensure_module_library(custom_lib_ref)
+        lib_ref = self.module_libraries[lib_index]
+        if module_name in lib_ref.exclude:
+            lib_ref.exclude = [item for item in lib_ref.exclude if item != module_name]
+
+        manager = self.add_module_from_package(
+            ModulePackage(pkg_dir, manifest),
+            lib_index,
+            persist=persist,
+            confirm=confirm,
+        )
+        self.module_provenance[module_name] = {
+            "origin": project_paths.MODULE_SOURCE_CUSTOM,
+            "source_file": def_src.as_posix(),
+        }
+        return manager
+
     _MISSING = object()
 
     def reconcile_baseline(self, manager: ConfigurationManager, entry: "ModuleEntry",
@@ -2613,7 +2723,9 @@ class WorkspaceManager:
                 library_path = self._to_posix_path(plugins_dir.resolve(), project_dir.resolve())
                 library_exclude = sorted(excluded)
             else:
-                modules_dir = project_paths.resolve(project, "modules")
+                modules_dir = project_paths.module_source_dir(
+                    project, project_paths.MODULE_SOURCE_EB
+                )
                 modules_dir.mkdir(parents=True, exist_ok=True)
                 _progress("Copying plugin directories...")
                 copied = 0
@@ -2640,9 +2752,10 @@ class WorkspaceManager:
                         _progress(f"  Copied {pkg.root.name}")
                     except (OSError, shutil.Error) as exc:
                         report.notices.append(f"插件目录复制失败：{pkg.root.name}（{exc}）")
-                _progress(f"Copied {copied} plugin directory(ies) to "
-                          f"{project_paths.dirs(project).modules}/")
-                library_path = project_paths.dirs(project).modules
+                library_path = project_paths.module_source_rel(
+                    project, project_paths.MODULE_SOURCE_EB
+                )
+                _progress(f"Copied {copied} plugin directory(ies) to {library_path}/")
                 library_exclude = []
             eb_lib_ref = LibraryRef(path=library_path, kind="eb-plugins",
                                     exclude=library_exclude)

@@ -111,3 +111,28 @@ def test_project_paths_does_not_import_pyside6():
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
                          cwd=Path(__file__).resolve().parents[2], check=True)
     assert out.stdout.strip() == "False"
+
+
+def test_module_source_helpers(tmp_path):
+    assert project_paths.MODULE_SOURCE_DAVINCI == "davinci"
+    assert project_paths.MODULE_SOURCE_EB == "eb"
+    assert project_paths.MODULE_SOURCE_CUSTOM == "custom"
+
+    p = _project(tmp_path, ProjectDirectories.default_v8())
+    assert project_paths.module_source_rel(p, project_paths.MODULE_SOURCE_DAVINCI) == "modules/davinci"
+    assert project_paths.module_source_rel(p, project_paths.MODULE_SOURCE_EB) == "modules/eb"
+    assert project_paths.module_source_rel(p, project_paths.MODULE_SOURCE_CUSTOM) == "modules/custom"
+
+    assert project_paths.module_source_dir(p, project_paths.MODULE_SOURCE_DAVINCI) == tmp_path / "modules" / "davinci"
+    assert project_paths.module_source_dir(p, project_paths.MODULE_SOURCE_EB) == tmp_path / "modules" / "eb"
+    assert project_paths.module_source_dir(p, project_paths.MODULE_SOURCE_CUSTOM) == tmp_path / "modules" / "custom"
+
+    custom_dirs = ProjectDirectories.from_dict({"modules": "libs/vendor"}, ProjectDirectories.default_v8())
+    p_custom = _project(tmp_path, custom_dirs)
+    assert project_paths.module_source_rel(p_custom, project_paths.MODULE_SOURCE_EB) == "libs/vendor/eb"
+    assert project_paths.module_source_dir(p_custom, project_paths.MODULE_SOURCE_EB) == tmp_path / "libs" / "vendor" / "eb"
+
+    with pytest.raises(ValueError, match="Unknown module source"):
+        project_paths.module_source_rel(p, "unknown")
+    with pytest.raises(ValueError, match="Unknown module source"):
+        project_paths.module_source_dir(p, "unknown")

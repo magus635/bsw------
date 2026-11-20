@@ -646,3 +646,49 @@ def test_load_project_at_path_passes_confirm_package_change(tmp_path, monkeypatc
     monkeypatch.setattr(pc.QMessageBox, "question", lambda *a, **k: pc.QMessageBox.No)
     assert ctrl._confirm_package_change(drifts) is False
 
+
+def test_add_module_to_project_routes_standalone_v8_to_custom_library(tmp_path, monkeypatch):
+    """Adding a standalone definition file in a saved Format 8 project packages it under modules/custom/."""
+    from autosar_configurator.core.parser.ecuc_def_parser import EcucDefParser
+    from autosar_configurator.core.workspace_manager import WorkspaceManager
+    from autosar_configurator.ui.controllers import project_controller as pc
+
+    ext_def = tmp_path / "external" / "CustomMod.arxml"
+    ext_def.parent.mkdir(parents=True)
+    ext_def.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Vendor</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-DEF><SHORT-NAME>CustomMod</SHORT-NAME></ECUC-MODULE-DEF>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    # 1. Saved Format 8 project -> packaged under modules/custom/
+    wm_v8 = WorkspaceManager()
+    v8_dpa = tmp_path / "v8proj" / "V8.dpa"
+    proj_v8 = wm_v8.create_project("V8", v8_dpa, format_version=8)
+    wm_v8.save_project()
+
+    _Ui(monkeypatch, [])
+    monkeypatch.setattr(pc.QFileDialog, "getOpenFileName", lambda *a, **k: (str(ext_def), ""))
+    win, ctrl, patches = _controller(wm_v8)
+    win.current_project = proj_v8
+    win.def_parser = EcucDefParser()
+    win.chip_constraint_service.get_all_constraints.return_value = None
+    _run(ctrl, patches, ctrl.add_module_to_project)
+
+    assert "CustomMod" in proj_v8.module_managers
+    assert [lib.path for lib in proj_v8.module_libraries] == ["modules/custom"]
+    pkg_def = tmp_path / "v8proj" / "modules" / "custom" / "CustomMod" / "config" / "CustomMod.arxml"
+    assert pkg_def.is_file()
+    assert proj_v8.module_defs["CustomMod"] == pkg_def
+
+    # 2. Format 7 project keeps direct parse + add_module fallback without modules/custom/
+    wm_v7 = WorkspaceManager()
+    proj_v7 = wm_v7.create_project("V7", tmp_path / "v7proj" / "V7.dpa", format_version=7)
+    win.current_project = proj_v7
+    _run(ctrl, patches, ctrl.add_module_to_project)
+
+    assert "CustomMod" in proj_v7.module_managers
+    assert proj_v7.module_defs["CustomMod"] == ext_def
+    assert not (tmp_path / "v7proj" / "modules" / "custom").exists()
+

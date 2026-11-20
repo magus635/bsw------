@@ -175,13 +175,13 @@ def test_import_copy_into_modules(mcu_tree, tmp_path):
         mcu_tree, tmp_path, "copy", confirm=lambda preview, result: True)
     assert loaded == ["Mcu"], failed
 
-    assert (target / "modules" / "Mcu_THA6_AS440" / "plugin.xml").is_file()
-    assert project.module_defs["Mcu"] == target / "modules" / "Mcu_THA6_AS440" / "config" / "Mcu.xdm"
+    assert (target / "modules" / "eb" / "Mcu_THA6_AS440" / "plugin.xml").is_file()
+    assert project.module_defs["Mcu"] == target / "modules" / "eb" / "Mcu_THA6_AS440" / "config" / "Mcu.xdm"
 
     manager.save_project()
     data = json.loads(project.path.read_text(encoding="utf-8"))
     assert data["format_version"] == 8
-    assert data["module_libraries"] == [{"path": "modules", "kind": "eb-plugins", "exclude": []}]
+    assert data["module_libraries"] == [{"path": "modules/eb", "kind": "eb-plugins", "exclude": []}]
     (mcu,) = data["modules"]
     assert mcu["name"] == "Mcu"
     assert mcu["definition"] == "/THA6_AS440_FuSa/Mcu"
@@ -328,9 +328,9 @@ def test_copy_mode_leaves_wrapped_mcal_out(dio_tree, tmp_path):
 
     manager, project, loaded, failed, target = _import(dio_tree, tmp_path, "copy")
     assert loaded == ["Dio"], failed
-    assert sorted(p.name for p in (target / "modules").iterdir()) == ["Dio_TS_T40D11M7I0R0"]
+    assert sorted(p.name for p in (target / "modules" / "eb").iterdir()) == ["Dio_TS_T40D11M7I0R0"]
     assert [lib.to_dict() for lib in project.module_libraries] == [
-        {"path": "modules", "kind": "eb-plugins", "exclude": []}]
+        {"path": "modules/eb", "kind": "eb-plugins", "exclude": []}]
     (report,) = sorted((target / ".history" / "reports").glob("*_import.md"))
     assert "Mcal_Tha62x" in report.read_text(encoding="utf-8")
 
@@ -380,7 +380,7 @@ def test_import_into_the_eb_tree_goes_to_a_sibling(dio_tree, target):
     assert loaded == ["Dio"], failed
     assert project.path == sibling / "EbDio_imported.dpa"
     assert project.path.is_file()
-    assert (sibling / "modules" / "Dio_TS_T40D11M7I0R0" / "plugin.xml").is_file()
+    assert (sibling / "modules" / "eb" / "Dio_TS_T40D11M7I0R0" / "plugin.xml").is_file()
     assert list((sibling / ".history" / "reports").glob("*_import.md"))
     # The EB tree is only read (its own Config/ is the only config-like entry in it)
     assert _tree(dio_tree) == before
@@ -488,7 +488,7 @@ def test_copy_mode_keeps_symlinks_as_links(dio_tree, tmp_path):
 
     manager, project, loaded, failed, target = _import(dio_tree, tmp_path, "copy")
     assert loaded == ["Dio"], failed
-    assert (target / "modules" / "Dio_TS_T40D11M7I0R0" / "linked.tpl").is_symlink()
+    assert (target / "modules" / "eb" / "Dio_TS_T40D11M7I0R0" / "linked.tpl").is_symlink()
 
 
 # --- save-as keeps a format 8 project whole ------------------------------------------------
@@ -507,12 +507,12 @@ def test_relocated_project_keeps_modules_baseline_and_values(mcu_tree, tmp_path)
     manager.save_project()
 
     moved = new_dpa.parent
-    assert (moved / "modules" / "Mcu_THA6_AS440" / "plugin.xml").is_file()
+    assert (moved / "modules" / "eb" / "Mcu_THA6_AS440" / "plugin.xml").is_file()
     assert (moved / "config" / "base" / "Mcu.arxml").is_file()        # the accepted Base
     assert (moved / "config" / "Foo.arxml").is_file()                 # values of a failed module
     assert list((moved / ".history" / "reports").glob("*_import.md"))  # the import report
     data = json.loads(new_dpa.read_text(encoding="utf-8"))
-    assert data["module_libraries"] == [{"path": "modules", "kind": "eb-plugins", "exclude": []}]
+    assert data["module_libraries"] == [{"path": "modules/eb", "kind": "eb-plugins", "exclude": []}]
 
     reopen = _Recorder(True)
     loaded_project, failed = WorkspaceManager().load_project(new_dpa, confirm=reopen)
@@ -552,7 +552,7 @@ def test_import_never_merges_into_an_existing_sibling(dio_tree):
     assert loaded == ["Dio"], failed
     assert project.path == second / "EbDio_imported_2.dpa"
     assert _tree(taken) == before                              # the existing folder is untouched
-    assert sorted(p.name for p in (second / "modules").iterdir()) == ["Dio_TS_T40D11M7I0R0"]
+    assert sorted(p.name for p in (second / "modules" / "eb").iterdir()) == ["Dio_TS_T40D11M7I0R0"]
     assert list(second.glob("*.dpa")) == [project.path]
     # The chosen place is said, in the report and through the progress callback
     (report,) = sorted((second / ".history" / "reports").glob("*_import.md"))

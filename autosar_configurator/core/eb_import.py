@@ -777,14 +777,14 @@ def _module_section(m: ModuleImport) -> List[str]:
     return lines
 
 
-def report_path(project, now: Optional[datetime] = None) -> Path:
-    """``<history>/reports/<YYYYmmdd-HHMMSS>_import.md``; ``-2``, ``-3``… when taken."""
+def report_path(project, now: Optional[datetime] = None, kind: str = "import") -> Path:
+    """``<history>/reports/<YYYYmmdd-HHMMSS>_<kind>.md``; ``-2``, ``-3``… when taken."""
     stamp = (now or datetime.now()).strftime("%Y%m%d-%H%M%S")
     directory = project_paths.resolve(project, "history") / "reports"
-    path = directory / f"{stamp}_import.md"
+    path = directory / f"{stamp}_{kind}.md"
     counter = 2
     while path.exists():
-        path = directory / f"{stamp}_import-{counter}.md"
+        path = directory / f"{stamp}_{kind}-{counter}.md"
         counter += 1
     return path
 

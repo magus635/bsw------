@@ -560,6 +560,99 @@ class TestSipPackageWriter:
         assert manifest.module == "Os"
         assert manifest.definition is not None
 
+    def test_package_writer_puts_def_pre_rec_in_config_without_sources_json(self, tmp_path):
+        """Definition, Pre, and Rec files all live under config/; metadata is in module.json (no sources.json)."""
+        from autosar_configurator.core.davinci_importer import SipPackageWriter
+        from autosar_configurator.core.packages.manifest import load_manifest
+
+        def_xml = b"""<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-DEF><SHORT-NAME>Os</SHORT-NAME></ECUC-MODULE-DEF>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>"""
+        pre_xml = b"""<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>Os_Pre</SHORT-NAME></ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>"""
+        rec_xml = b"""<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES><SHORT-NAME>Os_Rec</SHORT-NAME></ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>"""
+
+        pkg_path = SipPackageWriter.write_package(
+            module_name="Os",
+            definition_content=def_xml,
+            pre_config=pre_xml,
+            rec_config=rec_xml,
+            output_dir=tmp_path,
+            source_files=["ThirdParty/Os/Os_bswmd.arxml"],
+            impl_metadata={
+                "ar_path": "/MICROSAR/Os_Impl",
+                "sw_version": "4.2.1",
+                "memory_sections": [{"short_name": "OS_CODE"}],
+            },
+            implementation_dir="ThirdParty/Os/Implementation",
+        )
+
+        assert (pkg_path / "config" / "Os.arxml").is_file()
+        assert (pkg_path / "config" / "Os_Pre.arxml").is_file()
+        assert (pkg_path / "config" / "Os_Rec.arxml").is_file()
+        assert not (pkg_path / "def").exists()
+        assert not (pkg_path / "sources.json").exists()
+
+        manifest = load_manifest(pkg_path)
+        assert [f.path for f in manifest.files] == [
+            "config/Os.arxml",
+            "config/Os_Pre.arxml",
+            "config/Os_Rec.arxml",
+        ]
+        assert manifest.definition == "/MICROSAR/Os"
+        assert manifest.implementation == "ThirdParty/Os/Implementation"
+        assert manifest.implementation_path == "/MICROSAR/Os_Impl"
+        assert manifest.pre == ["/MICROSAR/Os_Pre"]
+        assert manifest.rec == ["/MICROSAR/Os_Rec"]
+        assert manifest.origin["source"] == "davinci"
+        assert manifest.origin["sw_version"] == "4.2.1"
+        assert manifest.origin["source_files"] == ["ThirdParty/Os/Os_bswmd.arxml"]
+        assert manifest.origin["implementation"]["ar_path"] == "/MICROSAR/Os_Impl"
+
+        impl = SipPackageWriter.read_impl_metadata(pkg_path)
+        assert impl["sw_version"] == "4.2.1"
+        assert impl["memory_sections"] == [{"short_name": "OS_CODE"}]
+
+    def test_read_impl_metadata_legacy_sources_json_and_def_fallback(self, tmp_path):
+        """Legacy packages using sources.json or def/*.arxml remain readable."""
+        import json
+        from autosar_configurator.core.davinci_importer import SipPackageWriter
+
+        # 1. Legacy sources.json
+        legacy_sources = tmp_path / "LegacySources"
+        legacy_sources.mkdir()
+        (legacy_sources / "sources.json").write_text(
+            json.dumps({"implementation": {"ar_path": "/Old/Impl", "sw_version": "1.0.0"}}),
+            encoding="utf-8",
+        )
+        assert SipPackageWriter.read_impl_metadata(legacy_sources)["sw_version"] == "1.0.0"
+
+        # 2. Legacy def/*.arxml fallback (no module.json or sources.json)
+        legacy_def = tmp_path / "LegacyDef"
+        (legacy_def / "def").mkdir(parents=True)
+        (legacy_def / "def" / "LegacyDef.arxml").write_bytes(b"""<?xml version="1.0"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+    <BSW-IMPLEMENTATION>
+      <SHORT-NAME>LegacyDef_Impl</SHORT-NAME>
+      <SW-VERSION>2.3.4</SW-VERSION>
+    </BSW-IMPLEMENTATION>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""")
+        assert SipPackageWriter.read_impl_metadata(legacy_def)["sw_version"] == "2.3.4"
+
 
 def test_ecuc_def_parser_supports_linker_symbol_multiline_and_add_info(tmp_path):
     """EcucDefParser recognizes ECUC-LINKER-SYMBOL-DEF, ECUC-MULTILINE-STRING-PARAM-DEF, and ECUC-ADD-INFO-PARAM-DEF."""

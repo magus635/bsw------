@@ -138,7 +138,7 @@ class TestCopyMode:
     def test_copy_mode_is_self_contained(self, eb_source_tree, tmp_path):
         manager, project, target = _import(eb_source_tree, tmp_path, "copy")
 
-        modules_dir = target / "modules"
+        modules_dir = target / "modules" / "eb"
         assert modules_dir.is_dir() and not modules_dir.is_symlink()
         assert (modules_dir / "Dio_TS_T40D11M7I0R0" / "plugin.xml").is_file()
         assert not (target / "Def").exists()
@@ -181,7 +181,7 @@ class TestCopyMode:
         loaded_project, failed = WorkspaceManager().load_project(moved / project.path.name)
         assert not failed
         assert "Dio" in loaded_project.module_managers
-        assert loaded_project.module_defs["Dio"].is_relative_to(moved / "modules")
+        assert loaded_project.module_defs["Dio"].is_relative_to(moved / "modules" / "eb")
         assert loaded_project.module_entries["Dio"].definition == "/THA6_AS440_FuSa/Dio"
 
 

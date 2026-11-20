@@ -15,6 +15,12 @@ from typing import Any, Dict, Optional, Tuple
 GEN_LAYOUT_FLAT = "flat"
 GEN_LAYOUT_PER_MODULE = "per-module"
 
+# Source-partitioned subdirectories under the project's ``modules`` library
+MODULE_SOURCE_DAVINCI = "davinci"
+MODULE_SOURCE_EB = "eb"
+MODULE_SOURCE_CUSTOM = "custom"
+_MODULE_SOURCES = (MODULE_SOURCE_DAVINCI, MODULE_SOURCE_EB, MODULE_SOURCE_CUSTOM)
+
 # Keys written to / read from the .dpa ``directories`` table (format 8)
 _DPA_KEYS = ("config", "base", "templates", "gen", "gen_layout", "chips",
              "integration", "system", "history", "modules")
@@ -95,6 +101,20 @@ def resolve(project, key: str) -> Path:
     if key not in _DIR_KEYS:
         raise KeyError(f"Unknown project directory key: {key!r}")
     return project_root(project) / getattr(dirs(project), key)
+
+
+def module_source_rel(project, source: str) -> str:
+    """Relative POSIX path of a source-partitioned module library under ``modules``."""
+    if source not in _MODULE_SOURCES:
+        raise ValueError(f"Unknown module source: {source!r}")
+    return str(PurePosixPath(dirs(project).modules) / source)
+
+
+def module_source_dir(project, source: str) -> Path:
+    """Absolute path of a source-partitioned module library (e.g. ``modules/davinci``)."""
+    if source not in _MODULE_SOURCES:
+        raise ValueError(f"Unknown module source: {source!r}")
+    return resolve(project, "modules") / source
 
 
 def config_file(project, module: str) -> Path:
