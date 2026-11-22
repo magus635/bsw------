@@ -400,7 +400,21 @@ class EcucDefParser:
                 sub_container_def = self._parse_container_def(sub_cont_elem, current_path, is_choice=True)
                 if sub_container_def:
                     container_def.add_sub_container(sub_container_def)
-        
+
+        # Parse CHOICES of an ECUC-CHOICE-CONTAINER-DEF (choice targets).
+        # Configs reference them like ordinary sub-containers
+        # (/Module/BswMConfig/BswMArbitration/BswMModeCondition/BswMConditionValue/BswMBswMode).
+        choices_elem = self._find_child(element, 'CHOICES')
+        if choices_elem is not None:
+            for choice_elem in self._findall_children(choices_elem, 'ECUC-PARAM-CONF-CONTAINER-DEF'):
+                choice_def = self._parse_container_def(choice_elem, current_path)
+                if choice_def:
+                    container_def.add_sub_container(choice_def)
+            for choice_elem in self._findall_children(choices_elem, 'ECUC-CHOICE-CONTAINER-DEF'):
+                choice_def = self._parse_container_def(choice_elem, current_path, is_choice=True)
+                if choice_def:
+                    container_def.add_sub_container(choice_def)
+
         # XDM support: Parse sub-containers and multi-references from v:lst/v:ctr/v:chc
         ns_v = self.NAMESPACES['v']
         ns_a = self.NAMESPACES['a']
