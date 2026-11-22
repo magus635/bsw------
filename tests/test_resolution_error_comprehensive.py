@@ -277,5 +277,194 @@ class TestContextBuilderErrorIntegration:
         assert "[Diagnostics]" not in result.context_text
 
 
+class TestForeignReferenceResolution:
+    """Test resolution behavior for AUTOSAR foreign and instance references."""
+
+    def test_external_foreign_references_do_not_report_errors(self):
+        """Non-/ActiveEcuC/ foreign/instance refs target external AUTOSAR elements and should not fail."""
+        config = EcucModuleConfiguration("MemMap", "/MICROSAR/MemMap")
+        c = EcucContainerValue("MemMapGenericMapping_0", "/MICROSAR/MemMap/MemMapAllocation/MemMapGenericMapping")
+
+        external_targets = {
+            "SwAddrRef": ("ECUC-FOREIGN-REFERENCE-DEF", "/MICROSAR_MemMap/SwAddrMethods/CODE"),
+            "OsSwAddrRef": ("ECUC-FOREIGN-REFERENCE-DEF", "/MICROSAR/Os_ib_bswmd/SwAddrMethods/GLOBALSHARED_VAR_INIT"),
+            "SwcModeRef": ("ECUC-FOREIGN-REFERENCE-DEF", "/MICROSAR/BswM_swc/ESH_RunRequest/REQUESTED"),
+            "SysSignalRef": ("ECUC-FOREIGN-REFERENCE-DEF", "/PDU/MCU_Temp/MCU_RotorTemp"),
+            "IocDataTypeRef": ("ECUC-FOREIGN-REFERENCE-DEF", "/DataTypes/AswIoc_CmdGroupType"),
+            "InstanceRef": ("ECUC-INSTANCE-REFERENCE-DEF", "/SwComponentTypes/AppSwc/PPort"),
+        }
+        for name, (dest, target) in external_targets.items():
+            ref = EcucReferenceValue("/Def/" + name, target, dest_type=dest)
+            assert ref.is_foreign_reference is True
+            c.reference_values[name] = ref
+
+        # Also check multi-valued foreign reference
+        c.add_multi_reference_value("MultiSwAddr", "/MICROSAR_MemMap/SwAddrMethods/CONST", "/Def/MultiSwAddr", 0)
+        c.multi_reference_values["MultiSwAddr"][0].dest_type = "ECUC-FOREIGN-REFERENCE-DEF"
+
+        config.add_container(c)
+
+        resolved, errors = config.resolve_references(lambda _path: None)
+        assert resolved == 0
+        assert errors == 0
+        assert config.get_resolution_errors() == []
+        for ref in c.reference_values.values():
+            assert ref.has_error is False
+            assert ref.resolution_error is None
+        assert c.multi_reference_values["MultiSwAddr"][0].has_error is False
+
+    def test_active_ecuc_foreign_reference_resolves_and_reports_missing_module(self):
+        """/ActiveEcuC/... foreign refs resolve when present and report missing module when unloaded."""
+        config = EcucModuleConfiguration("vSet", "/MICROSAR/vSet")
+        c = EcucContainerValue("vSetInit", "/MICROSAR/vSet/vSetBswInitialization")
+
+        os_ref = EcucReferenceValue("/Def/vSetModuleRef", "/ActiveEcuC/Os", dest_type="ECUC-FOREIGN-REFERENCE-DEF")
+        nm_ref = EcucReferenceValue("/Def/vSetModuleRef", "/ActiveEcuC/Nm", dest_type="ECUC-FOREIGN-REFERENCE-DEF")
+        bad_path_ref = EcucReferenceValue("/Def/vSetModuleRef", "relative/path", dest_type="ECUC-FOREIGN-REFERENCE-DEF")
+        missing_ecuc_ref = EcucReferenceValue("/Def/NormalRef", "/ActiveEcuC/EcuC/EcucPduCollection/Pdu_0", dest_type="ECUC-REFERENCE-DEF")
+        missing_sym_ref = EcucReferenceValue("/Def/SymRef", "/ActiveEcuC/Can/CanConfigSet/CanCtrl_0", dest_type="ECUC-SYMBOLIC-NAME-REFERENCE-DEF")
+
+        assert missing_ecuc_ref.is_foreign_reference is False
+        assert missing_sym_ref.is_foreign_reference is False
+
+        c.reference_values["OsMod"] = os_ref
+        c.reference_values["NmMod"] = nm_ref
+        c.reference_values["BadPath"] = bad_path_ref
+        c.reference_values["NormalRef"] = missing_ecuc_ref
+        c.reference_values["SymRef"] = missing_sym_ref
+        config.add_container(c)
+
+        os_proxy = EcucContainerValue("Os", "/MICROSAR/Os")
+        resolved, errors = config.resolve_references(lambda p: os_proxy if p == "/ActiveEcuC/Os" else None)
+
+        assert resolved == 1
+        assert errors == 4
+        assert os_ref.is_resolved is True
+        assert os_ref.has_error is False
+        assert nm_ref.has_error is True
+        assert nm_ref.resolution_error.error_type == ResolutionError.MODULE_NOT_LOADED
+        assert bad_path_ref.has_error is True
+        assert bad_path_ref.resolution_error.error_type == ResolutionError.INVALID_PATH
+        assert missing_ecuc_ref.resolution_error.error_type == ResolutionError.PATH_NOT_FOUND
+        assert missing_sym_ref.resolution_error.error_type == ResolutionError.PATH_NOT_FOUND
+
+    def test_rules_and_context_builder_respect_foreign_references(self):
+        """ReferenceIntegrityRule, DanglingReferenceRule, and ContextBuilder treat foreign refs as external."""
+        from autosar_configurator.core.rules.reference_rules import (
+            ReferenceIntegrityRule,
+            DanglingReferenceRule,
+        )
+        from autosar_configurator.core.ai.context_builder import ObjectGraphContextBuilder
+
+        config = EcucModuleConfiguration("MemMap", "/MICROSAR/MemMap")
+        c = EcucContainerValue("Map0", "/MICROSAR/MemMap/Map0")
+        c.reference_values["ExtRef"] = EcucReferenceValue(
+            "/Def/ExtRef", "/MICROSAR_MemMap/SwAddrMethods/CODE", dest_type="ECUC-FOREIGN-REFERENCE-DEF"
+        )
+        c.add_multi_reference_value("ExtMulti", "/PDU/Sig_0", "/Def/ExtMulti", 0)
+        c.multi_reference_values["ExtMulti"][0].dest_type = "ECUC-FOREIGN-REFERENCE-DEF"
+        config.add_container(c)
+
+        config.resolve_references(lambda _p: None)
+        assert ReferenceIntegrityRule().validate(None, config).messages == []
+        assert DanglingReferenceRule().validate(None, config).messages == []
+
+        ctx = ObjectGraphContextBuilder().build_context(c)
+        assert "External Reference" in ctx.context_text
+        assert "[Diagnostics]" not in ctx.context_text
+
+    def test_re_resolve_after_adding_missing_module_clears_error(self):
+        """Adding a previously missing module and calling resolve_all_references(force=True) clears MODULE_NOT_LOADED."""
+        from pathlib import Path
+        from autosar_configurator.core.model.definition_model import (
+            EcucContainerDef,
+            EcucModuleDef,
+            EcucReferenceDef,
+        )
+        from autosar_configurator.core.workspace_manager import WorkspaceProject
+
+        project = WorkspaceProject("ReResolveProject")
+
+        vset_def = EcucModuleDef("vSet", definition_ref="/MICROSAR/vSet")
+        init_list_def = EcucContainerDef("vSetBswInitialization", definition_ref="/MICROSAR/vSet/vSetBswInitialization")
+        init_fn_def = EcucContainerDef("vSetInitFunction", definition_ref="/MICROSAR/vSet/vSetBswInitialization/vSetInitFunction", upper_multiplicity=-1)
+        ref_def = EcucReferenceDef("vSetModuleRef", definition_ref="/MICROSAR/vSet/vSetBswInitialization/vSetInitFunction/vSetModuleRef")
+        ref_def.destination_type = "ECUC-FOREIGN-REFERENCE-DEF"
+        init_fn_def.references["vSetModuleRef"] = ref_def
+        init_list_def.sub_containers["vSetInitFunction"] = init_fn_def
+        vset_def.containers["vSetBswInitialization"] = init_list_def
+
+        vset_mgr = project.add_module(vset_def, Path("vSet.arxml"))
+        init_list = vset_mgr.create_container_instance(init_list_def, instance_name="vSetBswInitialization")
+        init_fn = vset_mgr.create_container_instance(init_fn_def, parent=init_list, instance_name="CanNm_Init")
+        ref_val = EcucReferenceValue(
+            definition_ref=ref_def.definition_ref,
+            value_ref="/ActiveEcuC/CanNm",
+            dest_type="ECUC-FOREIGN-REFERENCE-DEF",
+        )
+        init_fn.reference_values["vSetModuleRef"] = ref_val
+
+        resolved, errors = project.resolve_all_references()
+        assert resolved == 0 and errors == 1
+        assert ref_val.has_error and ref_val.resolution_error.error_type == ResolutionError.MODULE_NOT_LOADED
+
+        cannm_def = EcucModuleDef("CanNm", definition_ref="/MICROSAR/CanNm")
+        project.add_module(cannm_def, Path("CanNm.arxml"))
+
+        resolved, errors = project.resolve_all_references(force=True)
+        assert resolved == 1 and errors == 0
+        assert ref_val.is_resolved is True
+        assert ref_val.has_error is False
+        assert ref_val.resolution_error is None
+
+    def test_force_re_resolve_clears_and_detects_removed_or_replaced_target(self):
+        """force=True clears cached target pointers so removed targets are immediately detected."""
+        from pathlib import Path
+        from autosar_configurator.core.model.definition_model import (
+            EcucContainerDef,
+            EcucModuleDef,
+            EcucReferenceDef,
+        )
+        from autosar_configurator.core.workspace_manager import WorkspaceProject
+
+        project = WorkspaceProject("ForceInvalidateProject")
+
+        def_a = EcucModuleDef("ModA", definition_ref="/AUTOSAR/EcucDefs/ModA")
+        c_a = EcucContainerDef("ContA", definition_ref="/AUTOSAR/EcucDefs/ModA/ContA")
+        r_def = EcucReferenceDef("RefB", definition_ref="/AUTOSAR/EcucDefs/ModA/ContA/RefB", destination_ref="/AUTOSAR/EcucDefs/ModB/ContB")
+        c_a.references["RefB"] = r_def
+        def_a.containers["ContA"] = c_a
+
+        def_b = EcucModuleDef("ModB", definition_ref="/AUTOSAR/EcucDefs/ModB")
+        c_b = EcucContainerDef("ContB", definition_ref="/AUTOSAR/EcucDefs/ModB/ContB", upper_multiplicity=-1)
+        def_b.containers["ContB"] = c_b
+
+        mgr_a = project.add_module(def_a, Path("ModA.arxml"))
+        mgr_b = project.add_module(def_b, Path("ModB.arxml"))
+        inst_a = mgr_a.create_container_instance(c_a, instance_name="InstA")
+        inst_b = mgr_b.create_container_instance(c_b, instance_name="OldTarget")
+        inst_a.set_reference_value("RefB", "/ModB/OldTarget", r_def.definition_ref)
+
+        resolved, errors = project.resolve_all_references(force=True)
+        assert resolved == 1 and errors == 0
+        ref_val = inst_a.reference_values["RefB"]
+        assert ref_val.target is inst_b
+
+        # Replace ModB's configuration with a new container (old target no longer exists)
+        new_b_cfg = EcucModuleConfiguration("ModB", "/AUTOSAR/EcucDefs/ModB")
+        new_b_cfg.add_container(EcucContainerValue("NewTarget", "/AUTOSAR/EcucDefs/ModB/ContB", module_name="ModB"))
+        mgr_b.configuration = new_b_cfg
+
+        # Default force=False skips already-resolved refs; force=True re-checks and flags broken ref
+        project.resolve_all_references(force=False)
+        assert ref_val.is_resolved is True
+
+        resolved, errors = project.resolve_all_references(force=True)
+        assert resolved == 0 and errors == 1
+        assert ref_val.is_resolved is False
+        assert ref_val.has_error is True
+        assert ref_val.resolution_error.error_type == ResolutionError.PATH_NOT_FOUND
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

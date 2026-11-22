@@ -227,6 +227,14 @@ class EcucReferenceValue:
         """Check if resolution failed with an error"""
         return self.resolution_error is not None
 
+    @property
+    def is_foreign_reference(self) -> bool:
+        """True for AUTOSAR foreign/instance references targeting non-ECUC elements."""
+        return self.dest_type in (
+            "ECUC-FOREIGN-REFERENCE-DEF",
+            "ECUC-INSTANCE-REFERENCE-DEF",
+        )
+
 
 @dataclass
 class EcucContainerValue:
@@ -687,7 +695,7 @@ class EcucModuleConfiguration:
         self.is_modified = False
         self.last_saved = datetime.now()
     
-    def resolve_references(self, resolver: callable) -> tuple:
+    def resolve_references(self, resolver: callable, force: bool = False) -> tuple:
         """Resolve all references in this configuration to object pointers
         
         EMF-style reference resolution: converts string paths to object references.
@@ -697,72 +705,81 @@ class EcucModuleConfiguration:
             resolver: A callable that takes a path string and returns the
                       EcucContainerValue object, or None if not found.
                       Signature: (path: str) -> Optional[EcucContainerValue]
+            force: When True, clear any cached target/error and re-resolve every
+                   reference from scratch (e.g. after module add/remove/replace).
         
         Returns:
             Tuple of (resolved_count, error_count)
         """
         resolved_count = 0
         error_count = 0
-        
-        def resolve_container(container: EcucContainerValue):
+
+        def resolve_ref(ref_value: EcucReferenceValue):
             nonlocal resolved_count, error_count
-            
-            for ref_name, ref_value in container.reference_values.items():
-                if ref_value.value_ref and not ref_value.is_resolved:
-                    target = resolver(ref_value.value_ref)
-                    if target is not None:
-                        ref_value.target = target
-                        ref_value.resolution_error = None  # Clear any previous error
-                        resolved_count += 1
+            if not ref_value.value_ref:
+                if force:
+                    ref_value.target = None
+                    ref_value.resolution_error = None
+                return
+            if not force and ref_value.is_resolved:
+                return
+            if force:
+                ref_value.target = None
+                ref_value.resolution_error = None
+            target = resolver(ref_value.value_ref)
+            if target is not None:
+                ref_value.target = target
+                ref_value.resolution_error = None  # Clear any previous error
+                resolved_count += 1
+                return
+
+            path = ref_value.value_ref
+            if not path or not path.startswith('/'):
+                ref_value.resolution_error = ResolutionError(
+                    ResolutionError.INVALID_PATH,
+                    path,
+                )
+                error_count += 1
+                return
+
+            parts = path.split('/')
+            if ref_value.is_foreign_reference:
+                # Foreign/instance refs targeting /ActiveEcuC/... still refer to ECUC modules/containers;
+                # all other targets live outside ECUC (SwAddrMethods, SWC, SystemExtract /PDU/, DataTypes).
+                if len(parts) >= 3 and parts[1] == "ActiveEcuC" and parts[2]:
+                    if len(parts) == 3:
+                        ref_value.resolution_error = ResolutionError(
+                            ResolutionError.MODULE_NOT_LOADED,
+                            path,
+                            suggestion=f"检查 '{parts[2]}' 模块是否已启用并加载到当前工程",
+                        )
                     else:
-                        # Create explainable error with proper categorization
-                        path = ref_value.value_ref
-                        if not path or not path.startswith('/'):
-                            error = ResolutionError(
-                                ResolutionError.INVALID_PATH,
-                                path
-                            )
-                        else:
-                            # Extract module hint for better error messages
-                            parts = path.split('/')
-                            module_hint = parts[2] if len(parts) > 2 else ""
-                            
-                            # Determine if it's a module-not-loaded vs path-not-found
-                            # For now, assume PATH_NOT_FOUND (workspace can upgrade to MODULE_NOT_LOADED)
-                            error = ResolutionError(
-                                ResolutionError.PATH_NOT_FOUND,
-                                path,
-                                suggestion=f"检查 '{module_hint}' 模块是否已加载，或目标容器是否存在"
-                            )
-                        ref_value.resolution_error = error
-                        error_count += 1
+                        ref_value.resolution_error = ResolutionError(
+                            ResolutionError.PATH_NOT_FOUND,
+                            path,
+                            suggestion=f"检查 '{parts[2]}' 模块是否已加载，或目标容器是否存在",
+                        )
+                    error_count += 1
+                else:
+                    ref_value.resolution_error = None
+                return
+
+            module_hint = parts[2] if len(parts) > 2 else ""
+            ref_value.resolution_error = ResolutionError(
+                ResolutionError.PATH_NOT_FOUND,
+                path,
+                suggestion=f"检查 '{module_hint}' 模块是否已加载，或目标容器是否存在",
+            )
+            error_count += 1
+
+        def resolve_container(container: EcucContainerValue):
+            for ref_value in container.reference_values.values():
+                resolve_ref(ref_value)
 
             # Multi-valued references (REFERENCE-VALUE with INDEX or duplicate names)
-            for ref_name, ref_list in container.multi_reference_values.items():
+            for ref_list in container.multi_reference_values.values():
                 for ref_value in ref_list:
-                    if ref_value.value_ref and not ref_value.is_resolved:
-                        target = resolver(ref_value.value_ref)
-                        if target is not None:
-                            ref_value.target = target
-                            ref_value.resolution_error = None  # Clear any previous error
-                            resolved_count += 1
-                        else:
-                            path = ref_value.value_ref
-                            if not path or not path.startswith('/'):
-                                error = ResolutionError(
-                                    ResolutionError.INVALID_PATH,
-                                    path
-                                )
-                            else:
-                                parts = path.split('/')
-                                module_hint = parts[2] if len(parts) > 2 else ""
-                                error = ResolutionError(
-                                    ResolutionError.PATH_NOT_FOUND,
-                                    path,
-                                    suggestion=f"检查 '{module_hint}' 模块是否已加载，或目标容器是否存在"
-                                )
-                            ref_value.resolution_error = error
-                            error_count += 1
+                    resolve_ref(ref_value)
 
             for sub in container.sub_containers:
                 resolve_container(sub)

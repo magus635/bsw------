@@ -1952,7 +1952,7 @@ class ConfigurationManager:
         
         return errors
     
-    def _validate_container_instance(self, container: EcucContainerValue) -> List[str]:
+    def _validate_container_instance(self, container: EcucContainerValue, _evaluator=None) -> List[str]:
         """Validate a single container instance"""
         errors = []
         
@@ -1961,11 +1961,17 @@ class ConfigurationManager:
         if not container_def:
             errors.append(f"{container.short_name}: Definition not found")
             return errors
-        
+
+        if _evaluator is None:
+            from ..generator.eb.enable_conditions import EnableConditionEvaluator
+            _evaluator = EnableConditionEvaluator(self.module_def, self.configuration, self.project_context)
+
         # Validate required parameters
         for param_name, param_def in container_def.parameters.items():
             if param_def.is_required:
                 if param_name not in container.parameter_values:
+                    if param_def.enable_expr and not _evaluator.is_param_enabled(container, param_def):
+                        continue
                     if param_def.has_enable_or_default:
                         errors.append(
                             f"{container.short_name}.{param_name}: Required parameter missing "
@@ -1977,7 +1983,7 @@ class ConfigurationManager:
         
         # Recursively validate sub-containers
         for sub_container in container.sub_containers:
-            errors.extend(self._validate_container_instance(sub_container))
+            errors.extend(self._validate_container_instance(sub_container, _evaluator=_evaluator))
         
         return errors
     

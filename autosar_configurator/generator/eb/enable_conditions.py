@@ -295,3 +295,137 @@ def is_disabled(path: str, topmost: set[str]) -> bool:
     """Whether ``path`` is one of the ``topmost`` disabled container paths or below one."""
     parts = path.split("/")
     return any("/".join(parts[:i]) in topmost for i in range(2, len(parts) + 1))
+
+
+class EnableConditionEvaluator:
+    """Lazy evaluator for XDM ENABLE expressions during configuration validation.
+
+    Evaluates ``enable_expr`` / ``list_enable_expr`` on missing required parameters and
+    sub-containers in the context of the container being validated (including cross-module
+    XPath references when ``project_context`` provides other modules' managers).
+    """
+
+    def __init__(self, module_def: EcucModuleDef, configuration, project_context=None):
+        self._module_def = module_def
+        self._configuration = configuration
+        self._project_context = project_context
+        self._initialized = False
+        self._renderer = None
+        self._root = None
+        self._by_source: dict[int, ConfigurationNode] = {}
+        self._ecu_resources: dict[str, Any] = {}
+
+    def _ensure_initialized(self) -> None:
+        if self._initialized:
+            return
+        self._initialized = True
+        if self._module_def is None or self._configuration is None:
+            return
+
+        from .renderer import Renderer
+
+        renderer = Renderer(strict=False)
+        loaded_modules: list[tuple[EcucModuleDef, Any]] = []
+        seen_names: set[str] = set()
+
+        def _add_module(mdef: EcucModuleDef, cfg) -> None:
+            if mdef is None or cfg is None or mdef.short_name in seen_names:
+                return
+            seen_names.add(mdef.short_name)
+            renderer.load_module(mdef, cfg)
+            loaded_modules.append((mdef, cfg))
+
+        _add_module(self._module_def, self._configuration)
+        managers = getattr(self._project_context, "module_managers", None) or {}
+        for mgr in managers.values():
+            _add_module(getattr(mgr, "module_def", None), getattr(mgr, "configuration", None))
+
+        for mdef, _ in loaded_modules:
+            mod_root = renderer.symbol_table.get_module(mdef.short_name)
+            if mod_root is not None:
+                _lift_single_containers(mod_root, _definitions_by_ref(mdef))
+
+        self._renderer = renderer
+        self._root = renderer.symbol_table.get_module(self._module_def.short_name)
+        if self._root is not None:
+            self._by_source = {
+                id(node.source): node
+                for node in _subtree(self._root)
+                if node.source is not None
+            }
+        self._ecu_resources = dict(getattr(self._project_context, "ecu_resources", None) or {})
+
+    def _eval_at_probe(
+        self,
+        parent_node: ConfigurationNode | None,
+        short_name: str,
+        node_type: str,
+        definition_ref: str,
+        expr: str | None,
+        is_wrapper: bool = False,
+    ) -> bool:
+        if not expr:
+            return True
+        if expr.replace(" ", "") == ALWAYS_FALSE:
+            return False
+        self._ensure_initialized()
+        if self._renderer is None or parent_node is None:
+            return True
+        probe = ConfigurationNode(
+            short_name=short_name,
+            node_type=node_type,
+            path=f"{parent_node.path}/{short_name}",
+            definition_ref=definition_ref,
+            parent=parent_node,
+            is_wrapper=is_wrapper,
+        )
+        try:
+            return bool(self._renderer.evaluate_condition_at(probe, expr, self._ecu_resources))
+        except Exception:  # noqa: BLE001 - fail-safe: unevaluable conditions keep item enabled
+            return True
+
+    def is_param_enabled(self, container, param_def) -> bool:
+        """Whether ``param_def`` is enabled inside ``container`` according to its ``enable_expr``."""
+        expr = getattr(param_def, "enable_expr", None)
+        if not expr:
+            return True
+        if expr.replace(" ", "") == ALWAYS_FALSE:
+            return False
+        self._ensure_initialized()
+        cnode = self._by_source.get(id(container))
+        if cnode is None:
+            return True
+        return self._eval_at_probe(
+            cnode,
+            param_def.short_name,
+            "parameter",
+            getattr(param_def, "definition_ref", "") or "",
+            expr,
+        )
+
+    def is_container_enabled(self, parent_container, container_def: EcucContainerDef) -> bool:
+        """Whether ``container_def`` is enabled under ``parent_container`` (None for module root)."""
+        list_expr = getattr(container_def, "list_enable_expr", None)
+        own_expr = getattr(container_def, "enable_expr", None)
+        in_list = getattr(container_def, "in_list", False)
+        check_own = bool(own_expr and not in_list)
+        if not list_expr and not check_own:
+            return True
+        if list_expr and list_expr.replace(" ", "") == ALWAYS_FALSE:
+            return False
+        if check_own and own_expr and own_expr.replace(" ", "") == ALWAYS_FALSE:
+            return False
+        self._ensure_initialized()
+        parent_node = self._root if parent_container is None else self._by_source.get(id(parent_container))
+        if parent_node is None:
+            return True
+        def_ref = getattr(container_def, "definition_ref", "") or ""
+        if list_expr and not self._eval_at_probe(
+            parent_node, container_def.short_name, "container", def_ref, list_expr, is_wrapper=True
+        ):
+            return False
+        if check_own and not self._eval_at_probe(
+            parent_node, container_def.short_name, "container", def_ref, own_expr, is_wrapper=False
+        ):
+            return False
+        return True

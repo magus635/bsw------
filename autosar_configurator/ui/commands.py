@@ -417,10 +417,17 @@ class DeleteModuleCommand(QUndoCommand):
     def redo(self):
         # remove_module also nulls out dangling cross-module pointers
         self.project.remove_module(self.module_name)
+        if hasattr(self.project, "resolve_all_references"):
+            self.project.resolve_all_references(force=True)
+        if hasattr(self.project, "build_reverse_reference_index"):
+            self.project.build_reverse_reference_index()
 
     def undo(self):
         # Also restores a failed module (no manager) of a format 8 project
         self.project.restore_module(self.snapshot)
         if self.snapshot["manager"] is not None:
             # Re-resolve references so cleared cross-module pointers are restored
-            self.project.resolve_all_references()
+            if hasattr(self.project, "resolve_all_references"):
+                self.project.resolve_all_references(force=True)
+            if hasattr(self.project, "build_reverse_reference_index"):
+                self.project.build_reverse_reference_index()

@@ -749,5 +749,14 @@ class IntegrationWizard(ConfigWizard):
             except Exception as e:
                 result["failed"].append((cand.package.manifest.module, str(e)))
 
+        if result["added"]:
+            try:
+                if hasattr(self.project, "resolve_all_references"):
+                    self.project.resolve_all_references(force=True)
+                if hasattr(self.project, "build_reverse_reference_index"):
+                    self.project.build_reverse_reference_index()
+            except Exception:
+                pass
+
         return result
 

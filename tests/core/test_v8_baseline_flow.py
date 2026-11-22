@@ -6,12 +6,16 @@ Base' is exactly Rec over Pre: the assertions are about the merge, not about def
 which ``tests/core/baseline/test_compose.py`` already covers.
 """
 import json
+import logging
 from pathlib import Path
 
 from autosar_configurator.core.baseline import session
 from autosar_configurator.core.baseline import store
+from autosar_configurator.core.baseline.display import module_note
 from autosar_configurator.core.baseline.values import flatten
+from autosar_configurator.core.model.configuration_model import EcucModuleConfiguration
 from autosar_configurator.core.packages.library import LibraryRef, scan_library
+from autosar_configurator.core.parser.ecuc_def_parser import EcucDefParser
 from autosar_configurator.core.workspace_manager import WorkspaceManager
 
 GEN = "P:/Trk/TrkGeneral."
@@ -676,3 +680,73 @@ def test_chip_switch_reconciles_chip_conditional_pre(tmp_path):
     assert len(seen) == 1 and seen[0].has_changes
     assert flat(project)[GEN + "Level"] == "2"
     assert project.baselines["Trk"].dirty is True
+
+
+def test_empty_pre_rec_collections_do_not_create_baseline(tmp_path):
+    """Empty <CONTAINERS/> Pre/Rec placeholders contribute no baseline layer."""
+    empty_collection = (
+        "        <ECUC-MODULE-CONFIGURATION-VALUES>\n"
+        "          <SHORT-NAME>{name}</SHORT-NAME>\n"
+        "          <DEFINITION-REF DEST=\"ECUC-MODULE-DEF\">/Vendor/Trk</DEFINITION-REF>\n"
+        "          <CONTAINERS/>\n"
+        "        </ECUC-MODULE-CONFIGURATION-VALUES>"
+    )
+    pkg_dir = tmp_path / "lib" / "Trk"
+    _write(pkg_dir, "def/Trk.arxml", _DEF)
+    _write(
+        pkg_dir,
+        "config/Trk_values.arxml",
+        _VALUES.format(
+            collections="\n".join(
+                [empty_collection.format(name="Trk_Rec"), empty_collection.format(name="Trk_Pre")]
+            )
+        ),
+    )
+    (pkg_dir / "module.json").write_text(json.dumps({
+        "schema": 1,
+        "module": "Trk",
+        "definition": "/Vendor/Trk",
+        "files": ["def/Trk.arxml", "config/Trk_values.arxml"],
+        "rec": ["/Vendor/Trk_Rec"],
+        "pre": ["/Vendor/Trk_Pre"],
+    }), encoding="utf-8")
+
+    wm = new_project(tmp_path)
+    [pkg] = scan_library(wm.current_project.module_libraries[0], Path(wm.current_project.path).parent)
+    module_def = EcucDefParser().parse_module_def_file(pkg.definition_file(None))
+    composed = session.compute_new_base(pkg, None, module_def, "Trk")
+    assert composed.has_layers is False
+    assert composed.layers == {}
+    assert composed.pre_keys == set()
+
+    add_trk(wm.current_project)
+    wm.save_project()
+    assert not snapshot(wm.current_project).exists()
+    assert not session.base_layers_path(wm.current_project, "Trk").exists()
+    assert wm.current_project.module_entries["Trk"].base_hash is None
+    assert module_note(wm.current_project.baselines.get("Trk")) is None
+
+    # Legacy project that already wrote an empty snapshot + empty layers.json still loads cleanly
+    empty_cfg = EcucModuleConfiguration(short_name="Trk", definition_ref="/Vendor/Trk")
+    legacy_baseline = session.ModuleBaseline(
+        base_config=empty_cfg, layers={}, pre_keys=set(), module_name="Trk", has_layers=True
+    )
+    wm.current_project.module_entries["Trk"].base_hash = session.write_baseline(
+        wm.current_project, "Trk", legacy_baseline
+    )
+    wm.save_project()
+
+    reloaded, failed = WorkspaceManager().load_project(project_file(tmp_path))
+    assert failed == []
+    assert module_note(reloaded.baselines.get("Trk")) is None
+
+
+def test_load_baseline_missing_both_files_no_hash_is_clean(tmp_path, caplog):
+    """Missing snapshot + missing layers + no hash is a clean no-baseline state with no warnings."""
+    wm = new_project(tmp_path)
+    with caplog.at_level(logging.WARNING, logger="autosar_configurator.core.baseline.session"):
+        loaded = session.load_baseline(wm.current_project, "Trk", None)
+    assert loaded.base_config is None
+    assert loaded.layers_untrusted is False
+    assert loaded.has_layers is False
+    assert caplog.records == []

@@ -515,6 +515,47 @@ def test_no_snapshot_but_no_layers_reports_unavailable():
     assert module_note(ModuleBaseline(pre_keys={"P:/Trk/TrkGeneral.Level"})) == UNAVAILABLE_TEXT
 
 
+def test_empty_snapshot_without_untrusted_flag_has_no_note():
+    """An empty EcucModuleConfiguration snapshot with trusted empty layers does not warn."""
+    from autosar_configurator.core.model.configuration_model import (
+        EcucContainerValue,
+        EcucModuleConfiguration,
+    )
+
+    empty_cfg = EcucModuleConfiguration(short_name="vSet", definition_ref="/MICROSAR/vSet")
+    assert module_note(ModuleBaseline(
+        base_config=empty_cfg,
+        layers={},
+        pre_keys=set(),
+        module_name="vSet",
+        has_layers=True,
+        layers_untrusted=False,
+    )) is None
+
+    assert module_note(ModuleBaseline(
+        base_config=empty_cfg,
+        layers={},
+        pre_keys=set(),
+        module_name="vSet",
+        has_layers=False,
+        layers_untrusted=True,
+    )) == UNAVAILABLE_TEXT
+
+    non_empty_cfg = EcucModuleConfiguration(
+        short_name="vSet",
+        definition_ref="/MICROSAR/vSet",
+        containers=[EcucContainerValue(short_name="General", definition_ref="/MICROSAR/vSet/General")],
+    )
+    assert module_note(ModuleBaseline(
+        base_config=non_empty_cfg,
+        layers={},
+        pre_keys=set(),
+        module_name="vSet",
+        has_layers=False,
+        layers_untrusted=False,
+    )) == UNAVAILABLE_TEXT
+
+
 # --- the lock never blocks a replay -------------------------------------------
 
 def test_undo_redo_survive_a_relock(unlocked_project):

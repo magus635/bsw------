@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QColor
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Tuple
 
 from ...core.model.definition_model import EcucContainerDef, EcucParameterDef, EcucParameterType
 from ...core.model.configuration_model import EcucContainerValue, override_layer
@@ -47,6 +47,8 @@ class DaVinciConfigPanel(QWidget):
     check_impact_requested = Signal(str, str)  # container_path, param_name - request impact analysis
     reference_jump_requested = Signal(str)  # target_path - request navigation to referenced container
     instance_variant_changed = Signal(EcucContainerValue)  # instance - its assigned variant was changed, needs tree refresh
+
+    UNRESOLVED_REF_ROLE = Qt.UserRole + 1
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -556,9 +558,14 @@ class DaVinciConfigPanel(QWidget):
         if not note:
             self.baseline_notice.hide()
             return
-        self.baseline_notice.setText(
-            f"{note}：模块 {module} 的基线层文件与其快照不匹配，已丢弃。\n"
-            "所有值暂按用户值处理，预配置锁定暂停；保存后会自动重建基线层。")
+        if baseline is not None and baseline.layers_untrusted:
+            self.baseline_notice.setText(
+                f"{note}：模块 {module} 的基线层文件与其快照不匹配或无法校验，已丢弃。\n"
+                "所有值暂按用户值处理，预配置锁定暂停；保存后会自动重建基线层。")
+        else:
+            self.baseline_notice.setText(
+                f"{note}：模块 {module} 缺少有效的基线层记录。\n"
+                "所有值暂按用户值处理，预配置锁定暂停；保存后会自动重建基线层。")
         self.baseline_notice.show()
 
     def _pre_files(self) -> list:
@@ -1850,6 +1857,22 @@ class DaVinciConfigPanel(QWidget):
                             return True
         return False
 
+    @staticmethod
+    def _format_destination_display(ref_def) -> Tuple[str, str]:
+        """Format (Destination Type label, tooltip) for a reference definition."""
+        choice_refs = [r for r in (getattr(ref_def, 'choice_destination_refs', None) or []) if r]
+        if len(choice_refs) > 1:
+            dest_type_text = f"Choice ({len(choice_refs)} types)"
+            tooltip_text = (
+                f"Choice Reference ({len(choice_refs)} allowed destinations):\n"
+                + "\n".join(f"• {p}" for p in choice_refs)
+            )
+            return dest_type_text, tooltip_text
+        dest_ref = getattr(ref_def, 'destination_ref', '') or ''
+        dest_parts = dest_ref.split('/')
+        dest_type_text = dest_parts[-1] if dest_parts else dest_ref
+        return dest_type_text, dest_ref
+
     def _populate_references(self, instance: EcucContainerValue, container_def: EcucContainerDef):
         """Populate references table with resolution error display.
         
@@ -1881,9 +1904,15 @@ class DaVinciConfigPanel(QWidget):
         error_count = 0
         
         for row, (display_name, ref_def, ref_val, is_multi) in enumerate(rows_data):
+            dest_type_text, dest_tooltip = self._format_destination_display(ref_def)
+            choice_refs = [r for r in (getattr(ref_def, 'choice_destination_refs', None) or []) if r]
+
             # Column 0: Reference name (store ref_value in UserRole for navigation)
             name_item = QTableWidgetItem(display_name)
-            name_item.setToolTip(f"Destination: {ref_def.destination_ref}")
+            if len(choice_refs) > 1:
+                name_item.setToolTip(dest_tooltip)
+            else:
+                name_item.setToolTip(f"Destination: {ref_def.destination_ref}")
             if ref_val is not None:
                 name_item.setData(Qt.UserRole, ref_val)
             self.refs_table.setItem(row, 0, name_item)
@@ -1920,7 +1949,9 @@ class DaVinciConfigPanel(QWidget):
                     current_value = ref_val.value_ref
                 
                 self.refs_table.setItem(row, 1, QTableWidgetItem(""))
-                selector = self._create_reference_selector(ref_name_base, ref_def, current_value)
+                selector = self._create_reference_selector(
+                    ref_name_base, ref_def, current_value, ref_val=ref_val
+                )
                 self.refs_table.setCellWidget(row, 1, selector)
             
             # Pre lock for a reference: a Pre-owned reference is not editable either, and
@@ -1935,10 +1966,8 @@ class DaVinciConfigPanel(QWidget):
                         widget.setEnabled(False)
 
             # Column 2: Destination type
-            dest_parts = ref_def.destination_ref.split('/')
-            dest_type = dest_parts[-1] if dest_parts else ref_def.destination_ref
-            type_item = QTableWidgetItem(dest_type)
-            type_item.setToolTip(ref_def.destination_ref)
+            type_item = QTableWidgetItem(dest_type_text)
+            type_item.setToolTip(dest_tooltip)
             self.refs_table.setItem(row, 2, type_item)
             
             # Column 3: Required
@@ -1970,6 +1999,9 @@ class DaVinciConfigPanel(QWidget):
                 elif ref_val.is_resolved:
                     status_icon = "✅"
                     status_tooltip = "引用解析成功"
+                elif ref_val.is_foreign_reference:
+                    status_icon = "🌐"
+                    status_tooltip = f"外部非 ECUC 引用 ({ref_val.dest_type}): {ref_val.value_ref}"
                 else:
                     status_icon = "⏳"
                     status_tooltip = "引用尚未解析"
@@ -1994,7 +2026,9 @@ class DaVinciConfigPanel(QWidget):
         # Adjust column widths
         self.refs_table.resizeColumnsToContents()
     
-    def _create_reference_selector(self, ref_name: str, ref_def, current_value: str) -> QComboBox:
+    def _create_reference_selector(
+        self, ref_name: str, ref_def, current_value: str, ref_val=None
+    ) -> QComboBox:
         """Create ComboBox for reference selection"""
         combo = QComboBox()
         combo.addItem("(Not set)", None)
@@ -2042,7 +2076,30 @@ class DaVinciConfigPanel(QWidget):
 
             if index >= 0:
                 combo.setCurrentIndex(index)
-            # If still not found, keep at "Not set" (index 0)
+                combo.setToolTip(str(combo.itemData(index) or current_value))
+            else:
+                if (
+                    ref_val is not None
+                    and getattr(ref_val, "is_foreign_reference", False)
+                    and not getattr(ref_val, "has_error", False)
+                ):
+                    label = f"🌐 {current_value}"
+                    color = QColor("#1d4ed8")
+                    tooltip = f"外部非 ECUC 引用: {current_value}"
+                else:
+                    label = f"⚠️ {current_value} (Missing)"
+                    color = QColor("#b91c1c")
+                    tooltip = (
+                        f"目标容器不存在: {current_value}\n"
+                        "请展开下拉框选择有效目标，或选择 (Not set) 清空"
+                    )
+                combo.addItem(label, current_value)
+                missing_idx = combo.count() - 1
+                combo.setItemData(missing_idx, True, self.UNRESOLVED_REF_ROLE)
+                combo.setItemData(missing_idx, color, Qt.ForegroundRole)
+                combo.setItemData(missing_idx, tooltip, Qt.ToolTipRole)
+                combo.setToolTip(tooltip)
+                combo.setCurrentIndex(missing_idx)
         
         # Connect signal
         combo.currentIndexChanged.connect(

@@ -195,6 +195,8 @@ class ObjectGraphContextBuilder:
                     lines.append(f"- `{ref_name}` → `{target_path}` [❌ {error.error_type}]")
                     lines.append(f"  - **Error**: {error.message}")
                     lines.append(f"  - **Suggestion**: {error.suggestion}")
+                elif ref_val.is_foreign_reference:
+                    lines.append(f"- `{ref_name}` → `{target_path}` [🌐 External Reference]")
                 else:
                     lines.append(f"- `{ref_name}` → `{target_path}` [⏳ Pending]")
             lines.append("")

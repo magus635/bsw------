@@ -1045,3 +1045,468 @@ def test_legacy_davinci_import_and_root_modules_v8_project_still_load(tmp_path):
     assert loaded.module_defs["Dio"] == dio_plugin / "config" / "Dio.xdm"
 
 
+def test_dpa_parser_infers_missing_definition_ref_from_split_ecuc(tmp_path):
+    """DaVinciProject.from_file infers DEFINITION-REF from split ECUC files when omitted from ModuleDefinitionMappings."""
+    from autosar_configurator.core.davinci_importer import DaVinciProject
+
+    dpa_file, eb_root = _create_overlapping_sip_and_eb(tmp_path)
+    app_dir = dpa_file.parent
+    ecuc_dir = app_dir / "Config" / "ECUC"
+
+    # Build a synthetic .dpa with Can & Resource missing from ModuleDefinitionMappings
+    (ecuc_dir / "App_Can_ecuc.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>Can</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/THA6_AS440_FuSa/Can</DEFINITION-REF>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+    (ecuc_dir / "App_Resource_ecuc.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>Resource</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/THA6_AS440_FuSa/Resource</DEFINITION-REF>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+    (ecuc_dir / "App.ecuc.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-VALUE-COLLECTION><SHORT-NAME>ActiveEcuC</SHORT-NAME><ECUC-VALUES>
+      <ECUC-MODULE-CONFIGURATION-VALUES-REF-CONDITIONAL>
+        <ECUC-MODULE-CONFIGURATION-VALUES-REF DEST="ECUC-MODULE-CONFIGURATION-VALUES">/ActiveEcuC/Os</ECUC-MODULE-CONFIGURATION-VALUES-REF>
+      </ECUC-MODULE-CONFIGURATION-VALUES-REF-CONDITIONAL>
+      <ECUC-MODULE-CONFIGURATION-VALUES-REF-CONDITIONAL>
+        <ECUC-MODULE-CONFIGURATION-VALUES-REF DEST="ECUC-MODULE-CONFIGURATION-VALUES">/ActiveEcuC/Can</ECUC-MODULE-CONFIGURATION-VALUES-REF>
+      </ECUC-MODULE-CONFIGURATION-VALUES-REF-CONDITIONAL>
+      <ECUC-MODULE-CONFIGURATION-VALUES-REF-CONDITIONAL>
+        <ECUC-MODULE-CONFIGURATION-VALUES-REF DEST="ECUC-MODULE-CONFIGURATION-VALUES">/ActiveEcuC/Resource</ECUC-MODULE-CONFIGURATION-VALUES-REF>
+      </ECUC-MODULE-CONFIGURATION-VALUES-REF-CONDITIONAL>
+    </ECUC-VALUES></ECUC-VALUE-COLLECTION>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    # Test Case A: explicit .dpa parsing infers /THA6_AS440_FuSa/Can & /THA6_AS440_FuSa/Resource
+    dpa_missing_map = app_dir / "MissingMaps.dpa"
+    dpa_missing_map.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<ProjectAssistant Version="5.30.35 SP2">
+  <Folders><SIP>.\\..\\..</SIP></Folders>
+  <Display>
+    <ModuleDefinitionMappings>
+      <ModuleDefinitionMapping ModuleConfigName="Os" ModuleDefinitionRef="/MICROSAR/Os"/>
+    </ModuleDefinitionMappings>
+  </Display>
+  <EcucSplitter>
+    <Configuration>.\\Config\\ECUC\\App.ecuc.arxml</Configuration>
+    <Splitter File=".\\Config\\ECUC\\MyApp_Os_ecuc.arxml"><Module Name="Os"/></Splitter>
+    <Splitter File=".\\Config\\ECUC\\App_Can_ecuc.arxml"><Module Name="Can"/></Splitter>
+    <Splitter File=".\\Config\\ECUC\\App_Resource_ecuc.arxml"><Module Name="Resource"/></Splitter>
+  </EcucSplitter>
+</ProjectAssistant>""", encoding="utf-8")
+
+    dv = DaVinciProject.from_file(dpa_missing_map)
+    assert dv.module_definitions["Can"] == "/THA6_AS440_FuSa/Can"
+    assert dv.module_definitions["Resource"] == "/THA6_AS440_FuSa/Resource"
+    assert "Can" in dv.mcal_modules()
+    assert "Resource" in dv.mcal_modules()
+
+    # Test Case B: strip Dio from ModuleDefinitionMappings of MyApp.dpa and merge into EB project
+    dpa_text = dpa_file.read_text(encoding="utf-8").replace(
+        '<ModuleDefinitionMapping ModuleConfigName="Dio" ModuleDefinitionRef="/THA6_AS440_FuSa/Dio"/>',
+        "",
+    )
+    dpa_file.write_text(dpa_text, encoding="utf-8")
+    dv2 = DaVinciProject.from_file(dpa_file)
+    assert dv2.module_definitions["Dio"] == "/THA6_AS440_FuSa/Dio"
+    assert "Dio" in dv2.mcal_modules()
+
+    wm = WorkspaceManager()
+    project, _, failed = wm.import_eb_project(
+        eb_root, target_dir=tmp_path / "EbForMissingMap", mode="copy", confirm=lambda *_: True
+    )
+    assert failed == []
+    _, dv_report = wm.import_davinci_project(
+        dpa_path=dpa_file, into_project=project, on_conflict="auto", confirm=lambda *_: True
+    )
+    assert dv_report.failed_modules == []
+    assert any(item["module"] == "Dio" for item in dv_report.skipped_mcal_modules)
+
+
+def _create_sip_and_eb_with_ecuc_stub(root: Path):
+    """Extend _create_overlapping_sip_and_eb with:
+    - SIP /MICROSAR/EcuC (with EcucPduCollection/Pdu_0) & /MICROSAR/CanIf referencing it
+    - EB empty stub plugin Ecuc_THA6_AS440 (0 containers, no EcuC.epc, no Pre/Rec).
+    """
+    dpa_file, eb_root = _create_overlapping_sip_and_eb(root)
+    sip = root / "sip"
+    app_dir = dpa_file.parent
+    ecuc_dir = app_dir / "Config" / "ECUC"
+
+    # SIP EcuC definition
+    ecuc_bswmd = sip / "Components" / "EcuC" / "BSWMD"
+    ecuc_bswmd.mkdir(parents=True)
+    (ecuc_bswmd / "EcuC_bswmd.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-DEF>
+      <SHORT-NAME>EcuC</SHORT-NAME>
+      <CONTAINERS><ECUC-PARAM-CONF-CONTAINER-DEF>
+        <SHORT-NAME>EcucPduCollection</SHORT-NAME>
+        <SUB-CONTAINERS><ECUC-PARAM-CONF-CONTAINER-DEF>
+          <SHORT-NAME>Pdu</SHORT-NAME>
+          <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY-INFINITE>true</UPPER-MULTIPLICITY-INFINITE>
+          <PARAMETERS><ECUC-INTEGER-PARAM-DEF><SHORT-NAME>PduLength</SHORT-NAME></ECUC-INTEGER-PARAM-DEF></PARAMETERS>
+        </ECUC-PARAM-CONF-CONTAINER-DEF></SUB-CONTAINERS>
+      </ECUC-PARAM-CONF-CONTAINER-DEF></CONTAINERS>
+    </ECUC-MODULE-DEF>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    # SIP CanIf definition referencing EcuC Pdu
+    canif_bswmd = sip / "Components" / "CanIf" / "BSWMD"
+    canif_bswmd.mkdir(parents=True)
+    (canif_bswmd / "CanIf_bswmd.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-DEF>
+      <SHORT-NAME>CanIf</SHORT-NAME>
+      <CONTAINERS><ECUC-PARAM-CONF-CONTAINER-DEF>
+        <SHORT-NAME>CanIfTxPduCfg</SHORT-NAME>
+        <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY-INFINITE>true</UPPER-MULTIPLICITY-INFINITE>
+        <REFERENCES><ECUC-REFERENCE-DEF>
+          <SHORT-NAME>CanIfTxPduRef</SHORT-NAME>
+          <DESTINATION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/EcuC/EcucPduCollection/Pdu</DESTINATION-REF>
+        </ECUC-REFERENCE-DEF></REFERENCES>
+      </ECUC-PARAM-CONF-CONTAINER-DEF></CONTAINERS>
+    </ECUC-MODULE-DEF>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    # DaVinci ECUC for EcuC and CanIf
+    (ecuc_dir / "MyApp_EcuC_ecuc.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>EcuC</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/EcuC</DEFINITION-REF>
+      <CONTAINERS><ECUC-CONTAINER-VALUE>
+        <SHORT-NAME>EcucPduCollection</SHORT-NAME>
+        <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/EcuC/EcucPduCollection</DEFINITION-REF>
+        <SUB-CONTAINERS><ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>Pdu_0</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/EcuC/EcucPduCollection/Pdu</DEFINITION-REF>
+          <PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE>
+            <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/MICROSAR/EcuC/EcucPduCollection/Pdu/PduLength</DEFINITION-REF>
+            <VALUE>8</VALUE>
+          </ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES>
+        </ECUC-CONTAINER-VALUE></SUB-CONTAINERS>
+      </ECUC-CONTAINER-VALUE></CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    (ecuc_dir / "MyApp_CanIf_ecuc.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanIf</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/CanIf</DEFINITION-REF>
+      <CONTAINERS><ECUC-CONTAINER-VALUE>
+        <SHORT-NAME>CanIfTxPduCfg_0</SHORT-NAME>
+        <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/CanIf/CanIfTxPduCfg</DEFINITION-REF>
+        <REFERENCE-VALUES><ECUC-REFERENCE-VALUE>
+          <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/MICROSAR/CanIf/CanIfTxPduCfg/CanIfTxPduRef</DEFINITION-REF>
+          <VALUE-REF DEST="ECUC-CONTAINER-VALUE">/ActiveEcuC/EcuC/EcucPduCollection/Pdu_0</VALUE-REF>
+        </ECUC-REFERENCE-VALUE></REFERENCE-VALUES>
+      </ECUC-CONTAINER-VALUE></CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    dpa_text = dpa_file.read_text(encoding="utf-8")
+    dpa_text = dpa_text.replace(
+        "</ModuleDefinitionMappings>",
+        '      <ModuleDefinitionMapping ModuleConfigName="EcuC" ModuleDefinitionRef="/MICROSAR/EcuC"/>\n'
+        '      <ModuleDefinitionMapping ModuleConfigName="CanIf" ModuleDefinitionRef="/MICROSAR/CanIf"/>\n'
+        "    </ModuleDefinitionMappings>",
+    ).replace(
+        "</EcucSplitter>",
+        '    <Splitter File=".\\Config\\ECUC\\MyApp_EcuC_ecuc.arxml"><Module Name="EcuC"/></Splitter>\n'
+        '    <Splitter File=".\\Config\\ECUC\\MyApp_CanIf_ecuc.arxml"><Module Name="CanIf"/></Splitter>\n'
+        "  </EcucSplitter>",
+    )
+    dpa_file.write_text(dpa_text, encoding="utf-8")
+
+    # EB empty stub plugin: Ecuc_THA6_AS440 (no EcuC.epc, optional containers -> 0 containers created)
+    ecuc_plugin = eb_root / "Def" / "plugins" / "Ecuc_THA6_AS440"
+    (ecuc_plugin / "config").mkdir(parents=True)
+    (ecuc_plugin / "plugin.xml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<plugin>
+  <extension point="dreisoft.tresos.launcher2.plugin.module" id="Ecuc_THA6_AS440" name="Ecuc_THA6_AS440">
+    <module id="Ecuc_THA6_AS440" label="EcuC" mandatory="false" allowMultiple="false"
+            swVersionMajor="1" swVersionMinor="0" swVersionPatch="0"
+            specVersionMajor="4" specVersionMinor="4" specVersionPatch="0"/>
+  </extension>
+  <extension point="dreisoft.tresos.launcher2.plugin.configuration" id="Ecuc_Config">
+    <configuration moduleId="Ecuc_THA6_AS440">
+      <schema><resource type="xdm" value="config/EcuC.xdm"/></schema>
+      <data><schemaNode path="ASPath:/THA6_AS440_FuSa/EcuC"/></data>
+    </configuration>
+  </extension>
+</plugin>""", encoding="utf-8")
+    (ecuc_plugin / "config" / "EcuC.xdm").write_text("""<?xml version="1.0"?>
+<datamodel version="7.0"
+           xmlns="http://www.tresos.de/_projects/DataModel2/16/root.xsd"
+           xmlns:a="http://www.tresos.de/_projects/DataModel2/16/attribute.xsd"
+           xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd"
+           xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd">
+  <d:ctr type="AUTOSAR" factory="autosar">
+    <d:lst type="TOP-LEVEL-PACKAGES">
+      <d:ctr name="THA6_AS440_FuSa" type="AR-PACKAGE">
+        <d:lst type="ELEMENTS">
+          <d:chc name="EcuC" type="AR-ELEMENT" value="MODULE-DEF">
+            <v:ctr type="MODULE-DEF"/>
+          </d:chc>
+        </d:lst>
+      </d:ctr>
+    </d:lst>
+  </d:ctr>
+</datamodel>""", encoding="utf-8")
+
+    return dpa_file, eb_root
+
+
+def test_merge_davinci_replaces_empty_eb_ecuc_stub_in_auto_mode(tmp_path):
+    """Order 2 (EB -> DaVinci, on_conflict='auto'): empty EB EcuC stub is replaced by DaVinci /MICROSAR/EcuC."""
+    dpa_file, eb_root = _create_sip_and_eb_with_ecuc_stub(tmp_path)
+
+    wm = WorkspaceManager()
+    project, _, failed = wm.import_eb_project(
+        eb_root, target_dir=tmp_path / "EbWithStub", mode="copy", confirm=lambda *_: True
+    )
+    assert failed == []
+    assert len(project.module_managers["EcuC"].configuration.containers) == 0
+
+    _, dv_report = wm.import_davinci_project(
+        dpa_path=dpa_file, into_project=project, on_conflict="auto", confirm=lambda *_: True
+    )
+    assert dv_report.failed_modules == []
+    assert dv_report.unresolved_references == []
+    assert project.module_entries["Dio"].library == 0
+    assert project.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is True
+    assert project.module_entries["EcuC"].library == 1
+    assert project.module_entries["EcuC"].definition == "/MICROSAR/EcuC"
+    assert "EcucPduCollection" in [c.short_name for c in project.module_managers["EcuC"].configuration.containers]
+    assert project.module_managers["CanIf"].configuration.containers[0].reference_values["CanIfTxPduRef"].is_resolved is True
+
+    reloaded, reload_failed = WorkspaceManager().load_project(project.path, confirm=lambda *_: True)
+    assert reload_failed == []
+    assert "EcucPduCollection" in [c.short_name for c in reloaded.module_managers["EcuC"].configuration.containers]
+    assert reloaded.module_managers["CanIf"].configuration.containers[0].reference_values["CanIfTxPduRef"].is_resolved is True
+
+
+def test_merge_eb_empty_ecuc_stub_does_not_clobber_davinci_ecuc(tmp_path):
+    """Order 1 (DaVinci -> EB, on_conflict='replace'): empty EB EcuC stub without EPC must not overwrite DaVinci EcuC."""
+    dpa_file, eb_root = _create_sip_and_eb_with_ecuc_stub(tmp_path)
+
+    wm = WorkspaceManager()
+    project, dv_report = wm.import_davinci_project(
+        dpa_path=dpa_file, target_dir=tmp_path / "DvWithEcuc", project_name="DvEcuc", confirm=lambda *_: True
+    )
+    assert dv_report.failed_modules == []
+
+    _, loaded, failed = wm.import_eb_project(
+        eb_root, mode="copy", into_project=project, on_conflict="replace", confirm=lambda *_: True
+    )
+    assert failed == []
+    assert "Dio" in loaded
+    assert project.module_managers["Dio"].configuration.containers[0].parameter_values["DioDevErrorDetect"].value is True
+    assert project.module_entries["EcuC"].library == 0
+    assert "EcucPduCollection" in [c.short_name for c in project.module_managers["EcuC"].configuration.containers]
+    assert project.module_managers["CanIf"].configuration.containers[0].reference_values["CanIfTxPduRef"].is_resolved is True
+
+    reloaded, reload_failed = WorkspaceManager().load_project(project.path, confirm=lambda *_: True)
+    assert reload_failed == []
+    assert "EcucPduCollection" in [c.short_name for c in reloaded.module_managers["EcuC"].configuration.containers]
+    assert reloaded.module_managers["CanIf"].configuration.containers[0].reference_values["CanIfTxPduRef"].is_resolved is True
+
+
+def test_sip_multi_variant_module_selects_matching_definition_by_dpa(tmp_path):
+    """Multi-variant SIP module (CanTrcv_GenericCan vs CanTrcv_Tle9255) is partitioned by def path
+    and .dpa binds to the exact variant definition so ValidationEngine finds 0 errors/warnings."""
+    from autosar_configurator.core.validation_engine import ValidationEngine
+
+    dpa_file, _ = _create_sample_sip_and_davinci(tmp_path)
+    sip = tmp_path / "sip"
+
+    # GenericCan variant (earlier alphabetically): has required CanTrcvHwInterface, lacks CanTrcvBaudrateRatio
+    gen_bswmd = sip / "Components" / "CanTrcv_30_Generic" / "BSWMD"
+    gen_bswmd.mkdir(parents=True)
+    (gen_bswmd / "CanTrcv_30_Generic_bswmd.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>CanTrcv_GenericCan</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF>
+        <SHORT-NAME>CanTrcv</SHORT-NAME>
+        <CONTAINERS>
+          <ECUC-PARAM-CONF-CONTAINER-DEF>
+            <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+            <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+            <PARAMETERS><ECUC-STRING-PARAM-DEF>
+              <SHORT-NAME>CanTrcvHwInterface</SHORT-NAME>
+              <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+            </ECUC-STRING-PARAM-DEF></PARAMETERS>
+          </ECUC-PARAM-CONF-CONTAINER-DEF>
+        </CONTAINERS>
+      </ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    # Tle9255 variant: has CanTrcvBaudrateRatio on CanTrcvChannel, does NOT have CanTrcvHwInterface
+    tle_bswmd = sip / "Components" / "CanTrcv_30_Tle9255" / "BSWMD"
+    tle_bswmd.mkdir(parents=True)
+    (tle_bswmd / "CanTrcv_Tle9255CanAsr_bswmd.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>CanTrcv_Tle9255</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF>
+        <SHORT-NAME>CanTrcv</SHORT-NAME>
+        <CONTAINERS>
+          <ECUC-PARAM-CONF-CONTAINER-DEF>
+            <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+            <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+            <PARAMETERS><ECUC-BOOLEAN-PARAM-DEF>
+              <SHORT-NAME>CanTrcvDevErrorDetect</SHORT-NAME>
+              <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+            </ECUC-BOOLEAN-PARAM-DEF></PARAMETERS>
+          </ECUC-PARAM-CONF-CONTAINER-DEF>
+          <ECUC-PARAM-CONF-CONTAINER-DEF>
+            <SHORT-NAME>CanTrcvChannel</SHORT-NAME>
+            <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY-INFINITE>true</UPPER-MULTIPLICITY-INFINITE>
+            <PARAMETERS><ECUC-INTEGER-PARAM-DEF>
+              <SHORT-NAME>CanTrcvBaudrateRatio</SHORT-NAME>
+              <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+            </ECUC-INTEGER-PARAM-DEF></PARAMETERS>
+          </ECUC-PARAM-CONF-CONTAINER-DEF>
+        </CONTAINERS>
+      </ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    # Add CanTrcv ECUC targeting /MICROSAR/CanTrcv_Tle9255/CanTrcv
+    ecuc_dir = dpa_file.parent / "Config" / "ECUC"
+    (ecuc_dir / "MyApp_CanTrcv_ecuc.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/CanTrcv_Tle9255/CanTrcv</DEFINITION-REF>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/CanTrcv_Tle9255/CanTrcv/CanTrcvGeneral</DEFINITION-REF>
+          <PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE>
+            <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/MICROSAR/CanTrcv_Tle9255/CanTrcv/CanTrcvGeneral/CanTrcvDevErrorDetect</DEFINITION-REF>
+            <VALUE>true</VALUE>
+          </ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES>
+        </ECUC-CONTAINER-VALUE>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>CanTrcvChannel_0</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/CanTrcv_Tle9255/CanTrcv/CanTrcvChannel</DEFINITION-REF>
+          <PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE>
+            <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/MICROSAR/CanTrcv_Tle9255/CanTrcv/CanTrcvChannel/CanTrcvBaudrateRatio</DEFINITION-REF>
+            <VALUE>10</VALUE>
+          </ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES>
+        </ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    dpa_text = dpa_file.read_text(encoding="utf-8")
+    dpa_text = dpa_text.replace(
+        "</ModuleDefinitionMappings>",
+        '      <ModuleDefinitionMapping ModuleConfigName="CanTrcv" ModuleDefinitionRef="/MICROSAR/CanTrcv_Tle9255/CanTrcv"/>\n'
+        "    </ModuleDefinitionMappings>",
+    ).replace(
+        "</EcucSplitter>",
+        '    <Splitter File=".\\Config\\ECUC\\MyApp_CanTrcv_ecuc.arxml"><Module Name="CanTrcv"/></Splitter>\n'
+        "  </EcucSplitter>",
+    )
+    dpa_file.write_text(dpa_text, encoding="utf-8")
+
+    wm = WorkspaceManager()
+    project, dv_report = wm.import_davinci_project(
+        dpa_path=dpa_file,
+        target_dir=tmp_path / "can_trcv_out",
+        project_name="CanTrcvVariantApp",
+        confirm=lambda *_: True,
+    )
+    assert dv_report.failed_modules == []
+    dv_lib = tmp_path / "can_trcv_out" / "CanTrcvVariantApp" / "modules" / "davinci"
+    assert (dv_lib / "CanTrcv_GenericCan" / "module.json").is_file()
+    assert (dv_lib / "CanTrcv_Tle9255" / "module.json").is_file()
+    assert project.module_entries["CanTrcv"].definition == "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+
+    cantrcv_mgr = project.module_managers["CanTrcv"]
+    engine = ValidationEngine(cantrcv_mgr.module_def, cantrcv_mgr.configuration, project)
+    engine.register_default_rules()
+    val_res = engine.validate()
+    assert val_res.error_count == 0
+    assert val_res.warning_count == 0
+
+    reloaded, reload_failed = WorkspaceManager().load_project(project.path, confirm=lambda *_: True)
+    assert reload_failed == []
+    rel_mgr = reloaded.module_managers["CanTrcv"]
+    rel_engine = ValidationEngine(rel_mgr.module_def, rel_mgr.configuration, reloaded)
+    rel_engine.register_default_rules()
+    rel_res = rel_engine.validate()
+    assert rel_res.error_count == 0
+    assert rel_res.warning_count == 0
+
+
+def test_sip_package_writer_detects_and_preserves_templates_dir(tmp_path):
+    """SipPackageWriter records 'templates' when present on disk and preserves custom templates."""
+    from autosar_configurator.core.davinci_importer import SipPackageWriter
+
+    # 1. Existing templates/ directory is recorded in module.json
+    pkg_dir = tmp_path / "packages" / "BswM"
+    (pkg_dir / "templates" / "include").mkdir(parents=True)
+    (pkg_dir / "templates" / "include" / "BswM_Cfg.h").write_text("// tpl", encoding="utf-8")
+
+    SipPackageWriter.write_package(
+        module_name="BswM",
+        definition_content=b'<?xml version="1.0"?><AUTOSAR><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS><ECUC-MODULE-DEF><SHORT-NAME>BswM</SHORT-NAME></ECUC-MODULE-DEF></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>',
+        output_dir=tmp_path / "packages",
+    )
+    manifest = json.loads((pkg_dir / "module.json").read_text(encoding="utf-8"))
+    assert manifest.get("templates") == "templates"
+
+    # 2. Custom templates directory recorded in previous module.json is preserved across rewrites
+    custom_pkg = tmp_path / "packages" / "CustomTpl"
+    (custom_pkg / "generate_PB").mkdir(parents=True)
+    (custom_pkg / "module.json").write_text(json.dumps({
+        "schema": 1,
+        "module": "CustomTpl",
+        "definition": "/MICROSAR/CustomTpl",
+        "files": [],
+        "templates": "generate_PB",
+    }), encoding="utf-8")
+
+    SipPackageWriter.write_package(
+        module_name="CustomTpl",
+        definition_content=b'<?xml version="1.0"?><AUTOSAR><AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS><ECUC-MODULE-DEF><SHORT-NAME>CustomTpl</SHORT-NAME></ECUC-MODULE-DEF></ELEMENTS></AR-PACKAGE></AR-PACKAGES></AUTOSAR>',
+        output_dir=tmp_path / "packages",
+    )
+    custom_manifest = json.loads((custom_pkg / "module.json").read_text(encoding="utf-8"))
+    assert custom_manifest.get("templates") == "generate_PB"
+
+
+
+
+

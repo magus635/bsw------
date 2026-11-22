@@ -173,11 +173,13 @@ def compute_new_base(pkg: ModulePackage, chip: Optional[str], module_def: Option
         pre_keys |= set(flatten(config, module_name))
     baseline = ModuleBaseline(base_config=base_config, layers=origins, pre_keys=pre_keys,
                               module_name=module_name)
-    # A package with no value layer at all is not a baseline: the module keeps its Active
-    # untouched, exactly as a format ≤7 project does, instead of being seeded from the
-    # definition's defaults.
-    baseline.has_layers = bool(layers[Layer.REC] or layers[Layer.PRE]
-                               or layers.get(Layer.DERIVED))
+    # A package with no value layer at all (or only empty placeholder Pre/Rec collections)
+    # is not a baseline: the module keeps its Active untouched, exactly as a format ≤7
+    # project does, instead of being seeded from the definition's defaults.
+    baseline.has_layers = (
+        any(layer is not Layer.DEFAULT for layer in origins.values())
+        or bool(pre_keys)
+    )
     return baseline
 
 # --- reconciling ----------------------------------------------------------------
@@ -405,8 +407,17 @@ def load_baseline(project, module: str, expected_hash: Optional[str]) -> ModuleB
     """
     from .store import hash_file, read_base
 
-    layers = read_layers(base_layers_path(project, module))
+    layers_path = base_layers_path(project, module)
     snapshot = base_snapshot_path(project, module)
+    layers_exists = layers_path.is_file()
+    snapshot_exists = snapshot.is_file()
+
+    if not layers_exists and not snapshot_exists and expected_hash is None:
+        return ModuleBaseline(base_config=None, layers={}, pre_keys=set(),
+                              module_name=module, has_layers=False,
+                              layers_untrusted=False)
+
+    layers = read_layers(layers_path)
     base_config = read_base(snapshot, expected_hash)
 
     trusted = layers.snapshot_hash is not None
@@ -416,13 +427,14 @@ def load_baseline(project, module: str, expected_hash: Optional[str]) -> ModuleB
         if not trusted:
             _log.warning("基线快照与层文件不匹配，保留快照、丢弃层文件：%s（层文件记录 %s，快照 %s）",
                          snapshot, layers.snapshot_hash, actual)
-    elif not trusted:
+    elif not trusted and layers_exists:
         _log.warning("基线层文件没有快照哈希，无法确认对应的基线，保留快照、丢弃层文件：%s",
                      snapshot)
 
     if not trusted:
         return ModuleBaseline(base_config=base_config, layers={}, pre_keys=set(),
-                              module_name=module, has_layers=False, layers_untrusted=True)
+                              module_name=module, has_layers=False,
+                              layers_untrusted=(base_config is not None or layers_exists))
     layers.base_config = base_config
     layers.module_name = layers.module_name or module
     return layers

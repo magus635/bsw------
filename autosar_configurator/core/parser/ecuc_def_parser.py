@@ -236,12 +236,15 @@ class EcucDefParser:
                 target_elems = [container_elem] if tag_local == 'ctr' else container_elem.xpath("v:ctr", namespaces=self.NAMESPACES)
                 lst_enable = self._xdm_enable_expr(container_elem) if tag_local == 'lst' else None
                 lst_enable_line = self._xdm_enable_line(container_elem) if lst_enable else None
+                lst_default_disabled = self._xdm_is_default_disabled(container_elem) if tag_local == 'lst' else False
                 for target in target_elems:
                     container_def = self._parse_container_def(target)
                     if container_def:
                         container_def.list_enable_expr = lst_enable
                         container_def.list_enable_line = lst_enable_line
                         container_def.in_list = tag_local == 'lst'
+                        if lst_default_disabled:
+                            container_def.default_disabled = True
                         # Apply v:lst multiplicity to container definition
                         if lst_lower is not None:
                             container_def.lower_multiplicity = lst_lower
@@ -305,6 +308,7 @@ class EcucDefParser:
         )
         container_def.enable_expr = self._xdm_enable_expr(element)
         container_def.enable_line = self._xdm_enable_line(element) if container_def.enable_expr else None
+        container_def.default_disabled = self._xdm_is_default_disabled(element)
 
         # Parse multiplicity (use direct child lookup to avoid finding sub-container's multiplicity)
         container_def.lower_multiplicity = self._get_child_int_value(element, 'LOWER-MULTIPLICITY', 0)
@@ -444,6 +448,7 @@ class EcucDefParser:
                 lst_upper_expr = None
                 lst_enable = self._xdm_enable_expr(sub_elem)
                 lst_enable_line = self._xdm_enable_line(sub_elem) if lst_enable else None
+                lst_default_disabled = self._xdm_is_default_disabled(sub_elem)
                 if min_da:
                     try: lst_lower = int(min_da[0])
                     except ValueError: pass
@@ -465,6 +470,8 @@ class EcucDefParser:
                         sub_container_def.list_enable_expr = lst_enable
                         sub_container_def.list_enable_line = lst_enable_line
                         sub_container_def.in_list = True
+                        if lst_default_disabled:
+                            sub_container_def.default_disabled = True
                         # Apply v:lst multiplicity to the container def
                         if lst_lower is not None:
                             sub_container_def.lower_multiplicity = lst_lower
@@ -516,6 +523,8 @@ class EcucDefParser:
                         sub_container_def.list_enable_expr = lst_enable
                         sub_container_def.list_enable_line = lst_enable_line
                         sub_container_def.in_list = True
+                        if lst_default_disabled:
+                            sub_container_def.default_disabled = True
                         if lst_lower is not None:
                             sub_container_def.lower_multiplicity = lst_lower
                         if lst_upper is not None:
@@ -556,6 +565,14 @@ class EcucDefParser:
                 return f"not ({expr.strip()})"
             return expr.strip()
         return None
+
+    def _xdm_is_default_disabled(self, element: etree._Element) -> bool:
+        """True when an XDM element carries static <a:da name="ENABLE" value="false"/> (no type='XPath')."""
+        ns = {'a': self.NAMESPACES['a']}
+        for attr in element.xpath("a:da[@name='ENABLE'][not(@type='XPath')]", namespaces=ns):
+            if (attr.get('value') or '').strip().lower() == 'false':
+                return True
+        return False
 
     def _xdm_enable_line(self, element: etree._Element) -> Optional[int]:
         """Line of the XDM ENABLE condition of a definition element (see _xdm_enable_expr):

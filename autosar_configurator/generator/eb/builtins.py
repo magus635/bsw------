@@ -69,6 +69,7 @@ class BuiltinFunctions:
             'node:refexists': self.node_refexists,
             'node:current': self.node_current,
             'node:order': self.node_order,
+            'node:isconsecutive': self.node_isconsecutive,
             'node:fallback': self.node_fallback,
             'node:when': self.node_when,
             
@@ -729,6 +730,55 @@ class BuiltinFunctions:
             if str(val).strip() == wanted:
                 return True
         return False
+
+    def node_isconsecutive(self, nodes: Any, start_value: Any = 0) -> bool:
+        """True if numeric values of ``nodes`` form a contiguous range starting at ``start_value`` (EB tresos node:isconsecutive)."""
+        def _to_int(val: Any) -> Optional[int]:
+            if hasattr(val, 'get_value'):
+                val = val.get_value()
+            if val is None or isinstance(val, bool):
+                return None
+            if isinstance(val, int):
+                return val
+            if isinstance(val, float):
+                return int(val) if val.is_integer() else None
+            if isinstance(val, str):
+                text = val.strip()
+                if not text:
+                    return None
+                try:
+                    if text.lower().startswith(('0x', '-0x', '+0x')):
+                        return int(text, 16)
+                    return int(text, 10)
+                except ValueError:
+                    try:
+                        fval = float(text)
+                        return int(fval) if fval.is_integer() else None
+                    except ValueError:
+                        return None
+            return None
+
+        start = _to_int(start_value)
+        if start is None:
+            start = 0
+
+        if nodes is None:
+            return True
+        items = list(nodes) if isinstance(nodes, (list, tuple, set)) else [nodes]
+        if not items:
+            return True
+
+        values: List[int] = []
+        for item in items:
+            if item is None:
+                return False
+            num = _to_int(item)
+            if num is None:
+                return False
+            values.append(num)
+
+        values.sort()
+        return values == list(range(start, start + len(values)))
 
     def node_exists(self, path_or_node) -> bool:
         """Check if a path or node exists.

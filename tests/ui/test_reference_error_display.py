@@ -165,6 +165,67 @@ class TestReferenceErrorDisplay:
         title = panel.references_group.title()
         assert "error" not in title.lower()
 
+    def test_missing_target_shown_in_combo_instead_of_not_set(
+        self, panel, container_def_with_ref, instance_with_error, mock_config_manager, qtbot
+    ):
+        """Unresolved target path is displayed as Missing in Target combo rather than '(Not set)'."""
+        panel.show_instance(instance_with_error, container_def_with_ref, mock_config_manager)
+
+        combo = panel.refs_table.cellWidget(0, 1)
+        assert combo is not None
+        assert combo.currentText() != "(Not set)"
+        assert "/Config/NonExistentTarget" in combo.currentText()
+        assert "Missing" in combo.currentText()
+        assert combo.currentData() == "/Config/NonExistentTarget"
+        assert combo.currentData(DaVinciConfigPanel.UNRESOLVED_REF_ROLE) is True
+        assert combo.itemText(0) == "(Not set)" and combo.itemData(0) is None
+
+    def test_choice_reference_displays_all_types_count_and_tooltip(self, panel, mock_config_manager, qtbot):
+        """Choice references show 'Choice (N types)' in Destination Type and list all targets in tooltips."""
+        choice_paths = [
+            "/AUTOSAR/EcucDefs/Gpt/GptChannelConfigSet/GptChannelConfiguration",
+            "/AUTOSAR/EcucDefs/Can/CanConfigSet/CanController",
+            "/THA6_AS440_FuSa/Spi/SpiDriver/SpiHwUnitConfig",
+        ]
+        cdef = EcucContainerDef(short_name="ResourceAllocation", definition_ref="/Test/ResourceAllocation")
+        cdef.references["ResourceModuleRef"] = EcucReferenceDef(
+            short_name="ResourceModuleRef",
+            definition_ref="/Test/ResourceAllocation/ResourceModuleRef",
+            destination_ref=choice_paths[0],
+            choice_destination_refs=choice_paths,
+        )
+        inst = EcucContainerValue(short_name="ResourceAllocation_2", definition_ref="/Test/ResourceAllocation")
+        panel.show_instance(inst, cdef, mock_config_manager)
+
+        dest_item = panel.refs_table.item(0, 2)
+        name_item = panel.refs_table.item(0, 0)
+        assert dest_item.text() == "Choice (3 types)"
+        for path in choice_paths:
+            assert path in dest_item.toolTip()
+            assert path in name_item.toolTip()
+
+    def test_foreign_reference_displays_globe_badge_in_combo(self, panel, mock_config_manager, qtbot):
+        """External non-ECUC references without error display 🌐 <path> rather than '(Not set)'."""
+        cdef = EcucContainerDef(short_name="SwcMapping", definition_ref="/Test/SwcMapping")
+        cdef.references["MemAddrRef"] = EcucReferenceDef(
+            short_name="MemAddrRef",
+            definition_ref="/Test/SwcMapping/MemAddrRef",
+            destination_ref="/AUTOSAR/EcucDefs/MemMap/SwAddrMethod",
+        )
+        inst = EcucContainerValue(short_name="SwcMapping_0", definition_ref="/Test/SwcMapping")
+        inst.reference_values["MemAddrRef"] = EcucReferenceValue(
+            definition_ref="/Test/SwcMapping/MemAddrRef",
+            value_ref="/MICROSAR/MemMap/SwAddrMethods/VAR_CLEARED",
+            dest_type="ECUC-FOREIGN-REFERENCE-DEF",
+        )
+        panel.show_instance(inst, cdef, mock_config_manager)
+
+        combo = panel.refs_table.cellWidget(0, 1)
+        assert combo is not None
+        assert "🌐" in combo.currentText()
+        assert "/MICROSAR/MemMap/SwAddrMethods/VAR_CLEARED" in combo.currentText()
+        assert combo.currentData(DaVinciConfigPanel.UNRESOLVED_REF_ROLE) is True
+
 
 
 if __name__ == "__main__":

@@ -197,7 +197,9 @@ class ModulePackage:
         return sorted(holders, key=lambda p: p.as_posix())
 
     def template_dir(self) -> Optional[Path]:
-        return self._optional_dir(self.manifest.templates)
+        if self.manifest.templates is not None:
+            return self._optional_dir(self.manifest.templates)
+        return self._optional_dir("templates")
 
     def resource_dir(self) -> Optional[Path]:
         return self._optional_dir(self.manifest.resources)

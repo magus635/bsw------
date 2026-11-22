@@ -453,24 +453,35 @@ class RequiredParameterRule(ValidationRule):
         )
     
     def validate(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration, project_context=None) -> ValidationResult:
+        from ...generator.eb.enable_conditions import EnableConditionEvaluator
+
         result = ValidationResult()
-        
+        evaluator = EnableConditionEvaluator(module_def, configuration, project_context)
+
         for container in configuration.containers:
-            self._validate_container(container, module_def, result)
-        
+            self._validate_container(container, module_def, result, evaluator)
+
         return result
-    
-    def _validate_container(self, container: EcucContainerValue, module_def: EcucModuleDef, result: ValidationResult):
+
+    def _validate_container(
+        self,
+        container: EcucContainerValue,
+        module_def: EcucModuleDef,
+        result: ValidationResult,
+        evaluator=None,
+    ):
         """Recursively validate container parameters"""
         container_def = self._get_container_def(container.definition_ref, module_def)
         if not container_def:
             return
-        
+
         # Check for required parameters
         for param_name, param_def in container_def.parameters.items():
             if param_def.is_required:
                 if param_name not in container.parameter_values \
                         and param_name not in container.multi_parameter_values:
+                    if param_def.enable_expr and evaluator is not None and not evaluator.is_param_enabled(container, param_def):
+                        continue
                     suggested_fix = f"Add parameter '{param_name}'"
                     if param_def.has_enable_or_default:
                         # Definitionally conditional (ENABLE) or defaulted: EB may leave
@@ -490,7 +501,7 @@ class RequiredParameterRule(ValidationRule):
 
         # Recursively validate sub-containers
         for sub_container in container.sub_containers:
-            self._validate_container(sub_container, module_def, result)
+            self._validate_container(sub_container, module_def, result, evaluator)
 
     def _get_container_def(self, definition_ref: str, module_def: EcucModuleDef) -> Optional[EcucContainerDef]:
         """Get container definition from reference path"""

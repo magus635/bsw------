@@ -268,6 +268,50 @@ class DaVinciProject:
         if not active_modules and module_definitions:
             active_modules.update(module_definitions.keys())
 
+        # Fallback: infer missing ModuleDefinitionMapping entries from split/main ECUC files
+        # (some .dpa files omit MCAL entries like Can/Resource from ModuleDefinitionMappings).
+        ecuc_file_entries_cache: Dict[Path, List[Tuple[str, str]]] = {}
+        for mod_name in sorted(active_modules | set(ecuc_split_map.keys())):
+            if mod_name in module_definitions:
+                continue
+            rel = ecuc_split_map.get(mod_name) or main_ecuc_file
+            if not rel:
+                continue
+            norm = rel[2:] if rel.startswith("./") else rel
+            try:
+                ecuc_path = (dpa_path.parent / norm).resolve()
+            except (OSError, ValueError):
+                continue
+            if not ecuc_path.is_file():
+                continue
+            if ecuc_path not in ecuc_file_entries_cache:
+                parsed_entries: List[Tuple[str, str]] = []
+                try:
+                    ecuc_tree = etree.parse(str(ecuc_path), parser)
+                    for elem in ecuc_tree.getroot().iter():
+                        if not isinstance(elem.tag, str) or elem.tag.rsplit("}", 1)[-1] != "ECUC-MODULE-CONFIGURATION-VALUES":
+                            continue
+                        sn = ""
+                        dref = ""
+                        for child in elem:
+                            if not isinstance(child.tag, str):
+                                continue
+                            ctag = child.tag.rsplit("}", 1)[-1]
+                            if ctag == "SHORT-NAME" and child.text:
+                                sn = child.text.strip()
+                            elif ctag == "DEFINITION-REF" and child.text:
+                                dref = child.text.strip()
+                        if dref:
+                            parsed_entries.append((sn, dref))
+                except (etree.XMLSyntaxError, OSError, ValueError):
+                    pass
+                ecuc_file_entries_cache[ecuc_path] = parsed_entries
+            for sn, dref in ecuc_file_entries_cache[ecuc_path]:
+                def_leaf = dref.rstrip("/").rsplit("/", 1)[-1]
+                if sn == mod_name or def_leaf == mod_name:
+                    module_definitions[mod_name] = dref
+                    break
+
         # Extract BswImplSwVersion entries from BswImplVersionPersistor
         bsw_impl_versions: Dict[str, str] = {}
         persistor = root.find(
@@ -573,6 +617,128 @@ class SipScanner:
         """Backward-compatible wrapper that returns module name."""
         name, _ = SipScanner._extract_module_and_role(file_path)
         return name
+
+    @staticmethod
+    def _extract_file_def_and_cfg_refs(sip_file: SipFile) -> Tuple[List[str], List[str]]:
+        """Extract ECUC-MODULE-DEF AR paths and ECUC-MODULE-CONFIGURATION-VALUES DEFINITION-REFs."""
+        if not sip_file.content:
+            return [], []
+        try:
+            parser = etree.XMLParser(resolve_entities=False, no_network=True)
+            root = etree.fromstring(sip_file.content, parser)
+        except (etree.XMLSyntaxError, ValueError):
+            return [], []
+
+        def_paths: List[str] = []
+        cfg_def_refs: List[str] = []
+        for elem in root.iter():
+            if not isinstance(elem.tag, str):
+                continue
+            tag = elem.tag.rsplit("}", 1)[-1]
+            if tag == "ECUC-MODULE-DEF":
+                sn = None
+                for child in elem:
+                    if isinstance(child.tag, str) and child.tag.rsplit("}", 1)[-1] == "SHORT-NAME" and child.text:
+                        sn = child.text.strip()
+                        break
+                if sn:
+                    segments = [sn]
+                    parent = elem.getparent()
+                    while parent is not None:
+                        if isinstance(parent.tag, str) and parent.tag.rsplit("}", 1)[-1] == "AR-PACKAGE":
+                            for child in parent:
+                                if isinstance(child.tag, str) and child.tag.rsplit("}", 1)[-1] == "SHORT-NAME" and child.text:
+                                    segments.append(child.text.strip())
+                                    break
+                        parent = parent.getparent()
+                    ar_path = "/" + "/".join(reversed(segments))
+                    if ar_path not in def_paths:
+                        def_paths.append(ar_path)
+            elif tag == "ECUC-MODULE-CONFIGURATION-VALUES":
+                for child in elem:
+                    if isinstance(child.tag, str) and child.tag.rsplit("}", 1)[-1] == "DEFINITION-REF" and child.text:
+                        ref = child.text.strip().rstrip("/")
+                        if ref and ref not in cfg_def_refs:
+                            cfg_def_refs.append(ref)
+                        break
+        return def_paths, cfg_def_refs
+
+    @staticmethod
+    def _package_dir_name_for_def(mod_name: str, def_path: str, used: Set[str]) -> str:
+        """Choose a filesystem-safe, unique package folder name for a definition AR path."""
+        import re
+
+        segs = [s for s in def_path.strip("/").split("/") if s]
+        if len(segs) >= 3:
+            qual = segs[-2]
+            candidate = qual if qual.lower().startswith(mod_name.lower()) else f"{mod_name}__{qual}"
+        elif len(segs) == 2:
+            candidate = mod_name if segs[0] == "MICROSAR" else f"{mod_name}__{segs[0]}"
+        else:
+            candidate = mod_name
+
+        candidate = re.sub(r"[^A-Za-z0-9_-]", "_", candidate) or mod_name
+        unique = candidate
+        idx = 2
+        while unique in used:
+            unique = f"{candidate}_{idx}"
+            idx += 1
+        used.add(unique)
+        return unique
+
+    @staticmethod
+    def partition_module_files(
+        mod_name: str, files: List[SipFile]
+    ) -> List[Tuple[str, str, List[SipFile]]]:
+        """Partition SIP files of ``mod_name`` into separate packages when multiple distinct
+        ``ECUC-MODULE-DEF`` AR paths exist across different single-def files (e.g. ``CanTrcv``
+        having ``CanTrcv_GenericCan``, ``CanTrcv_Tle9255``, etc.).
+
+        Returns ``[(package_dir_name, module_short_name, files)]``.
+        """
+        meta: List[Tuple[SipFile, List[str], List[str]]] = [
+            (sf, *SipScanner._extract_file_def_and_cfg_refs(sf))
+            for sf in files
+        ]
+
+        def_groups: Dict[str, List[SipFile]] = {}
+        remaining: List[Tuple[SipFile, List[str], List[str]]] = []
+        for sf, def_paths, cfg_refs in meta:
+            if len(def_paths) == 1:
+                def_groups.setdefault(def_paths[0].rstrip("/"), []).append(sf)
+            else:
+                remaining.append((sf, def_paths, cfg_refs))
+
+        if len(def_groups) < 2:
+            return [(mod_name, mod_name, list(files))]
+
+        comp_to_defs: Dict[str, List[str]] = {}
+        for dp, grp_files in def_groups.items():
+            for sf in grp_files:
+                comp = SipMerger._component_name(sf.path)
+                if comp:
+                    lst = comp_to_defs.setdefault(comp, [])
+                    if dp not in lst:
+                        lst.append(dp)
+
+        for sf, _def_paths, cfg_refs in remaining:
+            targets = [dp for dp in sorted(def_groups) if dp in cfg_refs]
+            if not targets:
+                comp = SipMerger._component_name(sf.path)
+                if comp and comp in comp_to_defs:
+                    targets = comp_to_defs[comp]
+            if not targets:
+                targets = sorted(def_groups)
+            for dp in targets:
+                def_groups[dp].append(sf)
+
+        used_dirs: Set[str] = set()
+        partitions: List[Tuple[str, str, List[SipFile]]] = []
+        for dp in sorted(def_groups):
+            pkg_dir = SipScanner._package_dir_name_for_def(mod_name, dp, used_dirs)
+            grp_sorted = sorted(def_groups[dp], key=lambda f: str(f.path))
+            partitions.append((pkg_dir, mod_name, grp_sorted))
+        return partitions
 
 
 class SipMerger:
@@ -1364,6 +1530,7 @@ class SipPackageWriter:
         impl_metadata: Optional[Dict[str, Any]] = None,
         implementation_dir: Optional[str] = None,
         source_kind: str = "davinci",
+        package_dir_name: Optional[str] = None,
     ) -> Path:
         """Write a module package with definition, pre, and rec unified under config/.
 
@@ -1372,19 +1539,22 @@ class SipPackageWriter:
             definition_content: ARXML bytes of ECUC-MODULE-DEF
             pre_config: Optional pre configuration ARXML
             rec_config: Optional rec configuration ARXML
-            output_dir: Output directory; defaults to ./packages/<module_name>
+            output_dir: Output directory; defaults to ./packages/<package_dir_name or module_name>
             source_files: Optional list of contributing SIP source file paths
             impl_metadata: Optional BSW-IMPLEMENTATION metadata dict
             implementation_dir: Optional POSIX path to SIP Implementation/ directory
             source_kind: Origin tag recorded under manifest ``origin.source``
+            package_dir_name: Optional subdirectory name overriding ``module_name`` when
+                multiple variant definitions share a module short name (e.g., ``CanTrcv_Tle9255``)
 
         Returns:
             Path to package root
         """
+        dir_name = package_dir_name or module_name
         if output_dir is None:
-            output_dir = Path.cwd() / "packages" / module_name
+            output_dir = Path.cwd() / "packages" / dir_name
         else:
-            output_dir = Path(output_dir) / module_name
+            output_dir = Path(output_dir) / dir_name
 
         output_dir.mkdir(parents=True, exist_ok=True)
         config_dir = output_dir / "config"
@@ -1424,6 +1594,18 @@ class SipPackageWriter:
                 [SipFile(path=Path(f"{module_name}.arxml"), module=module_name, content=definition_content)]
             )
 
+        manifest_path = output_dir / "module.json"
+        existing_templates: Optional[str] = None
+        if manifest_path.is_file():
+            try:
+                prev_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+                prev_templates = prev_data.get("templates")
+                if isinstance(prev_templates, str) and prev_templates.strip():
+                    if (output_dir / prev_templates).is_dir():
+                        existing_templates = prev_templates
+            except (OSError, ValueError, TypeError):
+                pass
+
         # Write module.json matching load_manifest schema (replaces separate sources.json)
         manifest: Dict[str, Any] = {
             "schema": 1,
@@ -1433,6 +1615,10 @@ class SipPackageWriter:
             "pre": pre_list,
             "rec": rec_list,
         }
+        if existing_templates is not None:
+            manifest["templates"] = existing_templates
+        elif (output_dir / "templates").is_dir():
+            manifest["templates"] = "templates"
         if impl_metadata and impl_metadata.get("ar_path"):
             manifest["implementation_path"] = impl_metadata["ar_path"]
         if impl_metadata and impl_metadata.get("sw_version"):
@@ -1449,7 +1635,6 @@ class SipPackageWriter:
                 origin["sw_version"] = impl_metadata["sw_version"]
         manifest["origin"] = origin
 
-        manifest_path = output_dir / "module.json"
         with open(manifest_path, "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2, sort_keys=True, ensure_ascii=False)
             f.write("\n")
@@ -2146,26 +2331,41 @@ class DaVinciProjectImporter:
                     files = [f for f in files if "Mcal_Tha62x" not in f.path.parts]
                 if not files:
                     continue
-                def_files = [f for f in files if f.role == "def"]
-                try:
-                    def_content = SipMerger.merge_definition(files, mod_name)
-                    if not def_content and not def_files:
+
+                partitions = SipScanner.partition_module_files(mod_name, files)
+                if len(partitions) > 1:
+                    # Clean up stale monolithic package dir from earlier imports so it cannot collide on scan
+                    stale_dir = davinci_import_dir / mod_name
+                    if (
+                        mod_name not in {p[0] for p in partitions}
+                        and stale_dir.is_dir()
+                        and (stale_dir / "module.json").is_file()
+                    ):
+                        import shutil
+                        shutil.rmtree(stale_dir, ignore_errors=True)
+
+                for pkg_dir_name, pkg_mod_name, group_files in partitions:
+                    def_files = [f for f in group_files if f.role == "def"]
+                    try:
+                        def_content = SipMerger.merge_definition(group_files, pkg_mod_name)
+                        if not def_content and not def_files:
+                            continue
+                        value_docs = SipMerger.extract_value_collections(group_files, pkg_mod_name)
+                    except SipMergeError as exc:
+                        report.warnings.append(f"SIP 模块 {pkg_dir_name} 合并冲突，已跳过：{exc}")
                         continue
-                    value_docs = SipMerger.extract_value_collections(files, mod_name)
-                except SipMergeError as exc:
-                    report.warnings.append(f"SIP 模块 {mod_name} 合并冲突，已跳过：{exc}")
-                    continue
-                impl_meta = SipMerger.extract_bsw_implementation_metadata(files)
-                SipPackageWriter.write_package(
-                    module_name=mod_name,
-                    definition_content=def_content or b"",
-                    pre_config=value_docs.get("pre"),
-                    rec_config=value_docs.get("rec"),
-                    output_dir=davinci_import_dir,
-                    source_files=[str(f.path) for f in files],
-                    impl_metadata=impl_meta,
-                    implementation_dir=cls._detect_sip_implementation_dir(files),
-                )
+                    impl_meta = SipMerger.extract_bsw_implementation_metadata(group_files)
+                    SipPackageWriter.write_package(
+                        module_name=pkg_mod_name,
+                        definition_content=def_content or b"",
+                        pre_config=value_docs.get("pre"),
+                        rec_config=value_docs.get("rec"),
+                        output_dir=davinci_import_dir,
+                        source_files=[str(f.path) for f in group_files],
+                        impl_metadata=impl_meta,
+                        implementation_dir=cls._detect_sip_implementation_dir(group_files),
+                        package_dir_name=pkg_dir_name,
+                    )
 
             if include_resources:
                 extractor = McalResourceExtractor(dv.sip_root)
@@ -2182,12 +2382,14 @@ class DaVinciProjectImporter:
 
         bsw_lib_index = new_project.ensure_module_library(bsw_lib_ref)
 
-        bsw_by_name: Dict[str, ModulePackage] = {
-            p.manifest.module: p for p in bsw_packages_list
-        }
         bsw_by_def: Dict[str, ModulePackage] = {
             p.manifest.definition.rstrip("/"): p for p in bsw_packages_list
         }
+        bsw_by_name: Dict[str, ModulePackage] = {}
+        for p in bsw_packages_list:
+            prev = bsw_by_name.get(p.manifest.module)
+            if prev is None or p.manifest.definition.rstrip("/") == f"/MICROSAR/{p.manifest.module}":
+                bsw_by_name[p.manifest.module] = p
 
         # 2. Optional EB MCAL plugin library + chip discovery BEFORE adding modules
         eb_plugins_dir: Optional[Path] = None
@@ -2288,9 +2490,9 @@ class DaVinciProjectImporter:
 
         for mod_name in target_bsw:
             expected_def = dv.module_definitions.get(mod_name)
-            pkg = bsw_by_name.get(mod_name) or (
+            pkg = (
                 bsw_by_def.get(expected_def.rstrip("/")) if expected_def else None
-            )
+            ) or bsw_by_name.get(mod_name)
             if pkg is None:
                 msg = f"Module {mod_name} definition not found: {expected_def or mod_name}"
                 report.failed_modules.append((mod_name, msg))
@@ -2308,10 +2510,25 @@ class DaVinciProjectImporter:
                     and new_project.module_libraries[existing_entry.library].kind == "eb-plugins"
                 )
                 is_mcal = (mod_name in mcal_names) or (target_name in mcal_names)
+                existing_mgr = new_project.module_managers.get(target_name)
+                existing_has_config = (
+                    existing_mgr is None  # conservative if entry exists without loaded manager
+                    or bool(
+                        getattr(existing_mgr.configuration, "containers", None)
+                        or getattr(existing_mgr.configuration, "parameter_values", None)
+                    )
+                )
                 if on_conflict == "keep":
                     keep_existing = True
                 elif on_conflict == "auto":
-                    keep_existing = existing_from_eb or is_mcal
+                    if is_mcal:
+                        keep_existing = True
+                    elif existing_from_eb:
+                        # Keep configured EB modules, but let DaVinci BSW modules (e.g. /MICROSAR/EcuC)
+                        # replace empty unconfigured EB stub plugins (0 containers, 0 parameters).
+                        keep_existing = existing_has_config
+                    else:
+                        keep_existing = False
                 else:
                     keep_existing = False
 
@@ -2473,14 +2690,29 @@ class DaVinciProjectImporter:
                 if pkg.root.name in excluded:
                     continue
                 m_name = pkg.manifest.module
+                epc = epc_values.get(m_name)
                 mcal_backup = None
                 if m_name in new_project.module_managers or m_name in new_project.module_entries:
                     if into_project is not None and on_conflict == "replace":
+                        existing_mgr = new_project.module_managers.get(m_name)
+                        existing_has_config = (
+                            existing_mgr is not None
+                            and bool(
+                                getattr(existing_mgr.configuration, "containers", None)
+                                or getattr(existing_mgr.configuration, "parameter_values", None)
+                            )
+                        )
+                        if (
+                            epc is None
+                            and existing_has_config
+                            and not pkg.manifest.pre
+                            and not pkg.manifest.rec
+                        ):
+                            continue
                         mcal_backup = new_project._capture_module_replace_backup(m_name)
                         new_project._purge_module_for_replace(m_name)
                     else:
                         continue
-                epc = epc_values.get(m_name)
                 written_mcal_cfg: Optional[Path] = None
                 if epc is not None and eb_import.epc_names_definition(epc.definition_ref, pkg.manifest.definition):
                     written_mcal_cfg = project_paths.config_file(new_project, m_name)

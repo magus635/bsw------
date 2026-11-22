@@ -39,6 +39,23 @@ ORIGIN_LABELS: Dict[Origin, str] = {
 }
 
 
+def _has_snapshot_content(base_config: Any) -> bool:
+    """Whether ``base_config`` holds any container or parameter value.
+
+    An empty ``EcucModuleConfiguration`` (0 containers, 0 parameters, e.g. legacy empty
+    snapshots from empty Pre/Rec placeholders) has no values whose origin could be
+    ambiguous. Non-config sentinel objects (e.g. ``object()`` in tests) are treated as
+    non-empty.
+    """
+    if base_config is None:
+        return False
+    containers = getattr(base_config, "containers", None)
+    params = getattr(base_config, "parameter_values", None)
+    if containers is None and params is None:
+        return True
+    return bool(containers or params)
+
+
 def module_note(baseline: Optional[ModuleBaseline]) -> Optional[str]:
     """The module-wide note, or ``None`` when the baseline can speak for its values.
 
@@ -61,7 +78,7 @@ def module_note(baseline: Optional[ModuleBaseline]) -> Optional[str]:
         return None
     if baseline.layers_untrusted:
         return UNAVAILABLE_TEXT
-    if not baseline.layers and (baseline.base_config is not None or baseline.pre_keys):
+    if not baseline.layers and (_has_snapshot_content(baseline.base_config) or baseline.pre_keys):
         # A snapshot with no layers beside it (or Pre keys recorded without them): Base
         # exists, but nothing says which value came from where, so every value would report
         # USER and no key would be known to be Pre. A baseline the package never gave a

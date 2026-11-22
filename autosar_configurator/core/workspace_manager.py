@@ -1549,7 +1549,7 @@ class WorkspaceProject:
         return None
 
     
-    def resolve_all_references(self) -> tuple:
+    def resolve_all_references(self, force: bool = False) -> tuple:
         """Resolve all cross-module references in all loaded configurations
         
         EMF-style reference resolution: converts string paths to object pointers
@@ -1562,7 +1562,9 @@ class WorkspaceProject:
         total_errors = 0
         
         for manager in self.module_managers.values():
-            resolved, errors = manager.configuration.resolve_references(self.get_instance_by_path)
+            resolved, errors = manager.configuration.resolve_references(
+                self.get_instance_by_path, force=force
+            )
             total_resolved += resolved
             total_errors += errors
         
@@ -2910,6 +2912,25 @@ class WorkspaceManager:
                     values.pop(module, None)
                     record.error = str(exc)
                     failed_modules.append((module, f"Failed to load: {exc}"))
+                    continue
+                existing_mgr = project.module_managers.get(module)
+                existing_has_config = (
+                    existing_mgr is not None
+                    and bool(
+                        getattr(existing_mgr.configuration, "containers", None)
+                        or getattr(existing_mgr.configuration, "parameter_values", None)
+                    )
+                )
+                if (
+                    epc is None
+                    and existing_has_config
+                    and not pkg.manifest.pre
+                    and not pkg.manifest.rec
+                ):
+                    taken[module] = definition
+                    report.notices.append(
+                        f"跳过无 EPC 配置的 EB 空壳插件 {module}（保留当前工程已有配置）"
+                    )
                     continue
                 replace_backup = project._capture_module_replace_backup(module)
                 project._purge_module_for_replace(module)

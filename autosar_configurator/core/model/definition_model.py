@@ -238,6 +238,9 @@ class EcucContainerDef:
     # Defined inside an XDM v:lst (instances live in a list node); False for a single
     # v:ctr / v:chc, whose instance sits directly in its parent container
     in_list: bool = False
+    # True when XDM declares static <a:da name="ENABLE" value="false"/> on this container or
+    # its enclosing v:lst (disabled by default / optional unless explicitly enabled).
+    default_disabled: bool = False
 
     @property
     def is_required(self) -> bool:

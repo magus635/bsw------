@@ -46,11 +46,11 @@ def _ref_def(destination):
 
 def _selected(panel, destination, value):
     combo = panel._create_reference_selector("R", _ref_def(destination), value)
-    return combo.currentData(), combo.currentIndex()
+    return combo.currentData(), combo.currentIndex(), combo
 
 
 def test_tool_style_path_is_selected(panel):
-    assert _selected(panel, "/AUTOSAR/EcucDefs/Os/OsTask", "/Os/Task_A")[0] == "/Os/Task_A"
+    assert _selected(panel, "/AUTOSAR/EcucDefs/Os/OsTask", "/Os/Task_A")[:2] == ("/Os/Task_A", 1)
 
 
 @pytest.mark.parametrize("value, expected", [
@@ -66,15 +66,37 @@ def test_eb_style_path_inside_arti_is_selected(panel):
     assert _selected(panel, "/AUTOSAR/EcucDefs/Arti/ArtiValues/ArtiExpression", value)[0] == "/Arti/E_X"
 
 
-def test_missing_target_stays_not_set(panel):
-    assert _selected(panel, "/AUTOSAR/EcucDefs/Os/OsTask", "/Os/Os/Task_Gone") == (None, 0)
+def test_missing_target_shows_unresolved_path_not_unset(panel):
+    data, idx, combo = _selected(panel, "/AUTOSAR/EcucDefs/Os/OsTask", "/Os/Os/Task_Gone")
+    assert idx > 0
+    assert data == "/Os/Os/Task_Gone"
+    assert combo.currentData(DaVinciConfigPanel.UNRESOLVED_REF_ROLE) is True
+    assert "Missing" in combo.currentText()
+    assert "/Os/Os/Task_Gone" in combo.currentText()
+    assert combo.itemText(0) == "(Not set)" and combo.itemData(0) is None
 
 
 def test_path_without_a_loaded_module_is_not_stripped(panel):
     """/Foo/Bar/Task_A: the second segment 'Bar' is not a loaded module, so the first segment is not dropped"""
-    assert _selected(panel, "/AUTOSAR/EcucDefs/Os/OsTask", "/Foo/Bar/Task_A") == (None, 0)
+    data, idx, combo = _selected(panel, "/AUTOSAR/EcucDefs/Os/OsTask", "/Foo/Bar/Task_A")
+    assert idx > 0
+    assert data == "/Foo/Bar/Task_A"
+    assert combo.currentData(DaVinciConfigPanel.UNRESOLVED_REF_ROLE) is True
+    assert "Missing" in combo.currentText()
 
 
 def test_a_target_of_the_wrong_type_is_not_offered(panel):
-    """The expression container is not an OsTask: even with a matching name the reference stays unset."""
-    assert _selected(panel, "/AUTOSAR/EcucDefs/Os/OsTask", "/Arti/Arti/E_X") == (None, 0)
+    """The expression container is not an OsTask: even with a matching name it does not match a candidate"""
+    data, idx, combo = _selected(panel, "/AUTOSAR/EcucDefs/Os/OsTask", "/Arti/Arti/E_X")
+    assert idx > 0
+    assert data == "/Arti/Arti/E_X"
+    assert combo.currentData(DaVinciConfigPanel.UNRESOLVED_REF_ROLE) is True
+    assert "Missing" in combo.currentText()
+
+
+@pytest.mark.parametrize("value", [None, ""])
+def test_empty_value_stays_not_set(panel, value):
+    data, idx, combo = _selected(panel, "/AUTOSAR/EcucDefs/Os/OsTask", value)
+    assert idx == 0
+    assert data is None
+    assert combo.currentText() == "(Not set)"

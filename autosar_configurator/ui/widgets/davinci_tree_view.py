@@ -243,7 +243,11 @@ class DaVinciTreeView(QTreeWidget):
         name_str = self._def_display_name(container_def, self._ambiguous_short_names(config_manager.module_def))
 
         # Check if required but missing
-        is_required_missing = (container_def.lower_multiplicity >= 1 and instance_count == 0)
+        is_required_missing = (
+            container_def.lower_multiplicity >= 1
+            and instance_count == 0
+            and not getattr(container_def, "default_disabled", False)
+        )
 
         if is_required_missing:
             # Required but no instances - show warning

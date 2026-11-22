@@ -385,3 +385,172 @@ class TestCircularDependencyRule:
         result = rule.validate(module_def, config)
         assert not result.is_valid
         assert result.error_count > 0
+
+
+class TestValidationEnableConditions:
+    """Test ENABLE condition evaluation in RequiredParameterRule, ConfigurationManager, and MultiplicityValidationRule."""
+
+    def test_required_parameter_rule_skips_when_enable_expr_is_false(self):
+        """Missing required parameter with falsy XDM ENABLE condition is skipped, while enabled missing param errors."""
+        from autosar_configurator.core.config_manager import ConfigurationManager
+        from autosar_configurator.core.model.definition_model import (
+            EcucContainerDef,
+            EcucModuleDef,
+            EcucParameterDef,
+            EcucParameterType,
+        )
+
+        mod_def = EcucModuleDef(short_name="Gpt", definition_ref="/THA6_AS440_FuSa/Gpt")
+        set_def = EcucContainerDef(
+            short_name="GptChannelConfigSet",
+            definition_ref="/THA6_AS440_FuSa/Gpt/GptChannelConfigSet",
+            lower_multiplicity=1,
+            upper_multiplicity=1,
+        )
+        ch_def = EcucContainerDef(
+            short_name="GptChannelConfiguration",
+            definition_ref="/THA6_AS440_FuSa/Gpt/GptChannelConfigSet/GptChannelConfiguration",
+            lower_multiplicity=0,
+            upper_multiplicity=-1,
+        )
+        ch_def.add_parameter(EcucParameterDef(
+            short_name="GptAssignedHwUnit",
+            param_type=EcucParameterType.ENUMERATION,
+            definition_ref="/THA6_AS440_FuSa/Gpt/GptChannelConfigSet/GptChannelConfiguration/GptAssignedHwUnit",
+            literals=["GTM", "BASETIMER"],
+            lower_multiplicity=1,
+            upper_multiplicity=1,
+        ))
+        ch_def.add_parameter(EcucParameterDef(
+            short_name="BaseTimerUsed",
+            param_type=EcucParameterType.ENUMERATION,
+            definition_ref="/THA6_AS440_FuSa/Gpt/GptChannelConfigSet/GptChannelConfiguration/BaseTimerUsed",
+            literals=["BASETIMER0", "BASETIMER1"],
+            lower_multiplicity=1,
+            upper_multiplicity=1,
+            enable_expr="node:fallback(../GptAssignedHwUnit, 'BASETIMER') = 'BASETIMER'",
+        ))
+        set_def.add_sub_container(ch_def)
+        mod_def.add_container(set_def)
+
+        config = EcucModuleConfiguration(short_name="Gpt", definition_ref="/THA6_AS440_FuSa/Gpt")
+        cfg_set = EcucContainerValue("GptChannelConfigSet", "/THA6_AS440_FuSa/Gpt/GptChannelConfigSet")
+
+        gtm_ch = EcucContainerValue("Ch_GTM", "/THA6_AS440_FuSa/Gpt/GptChannelConfigSet/GptChannelConfiguration")
+        gtm_ch.set_parameter_value("GptAssignedHwUnit", "GTM", ch_def.parameters["GptAssignedHwUnit"].definition_ref)
+        cfg_set.add_sub_container(gtm_ch)
+
+        bt_ch = EcucContainerValue("Ch_BT", "/THA6_AS440_FuSa/Gpt/GptChannelConfigSet/GptChannelConfiguration")
+        bt_ch.set_parameter_value("GptAssignedHwUnit", "BASETIMER", ch_def.parameters["GptAssignedHwUnit"].definition_ref)
+        cfg_set.add_sub_container(bt_ch)
+
+        config.add_container(cfg_set)
+
+        rule = RequiredParameterRule()
+        result = rule.validate(mod_def, config)
+        assert result.error_count == 1
+        assert result.errors[0].parameter_name == "BaseTimerUsed"
+        assert "Ch_BT" in (result.errors[0].container_path or "")
+
+        mgr = ConfigurationManager(mod_def)
+        mgr.configuration = config
+        assert mgr._validate_container_instance(gtm_ch) == []
+        bt_errors = mgr._validate_container_instance(bt_ch)
+        assert len(bt_errors) == 1
+        assert "BaseTimerUsed" in bt_errors[0]
+
+    def test_required_parameter_rule_keeps_error_when_enable_expr_unevaluable(self):
+        """Unevaluable XDM ENABLE expression fails safe and still reports missing required parameter."""
+        from autosar_configurator.core.model.definition_model import (
+            EcucContainerDef,
+            EcucModuleDef,
+            EcucParameterDef,
+            EcucParameterType,
+        )
+
+        mod_def = EcucModuleDef(short_name="TestMod", definition_ref="/V/TestMod")
+        cdef = EcucContainerDef(short_name="C", definition_ref="/V/TestMod/C", lower_multiplicity=0, upper_multiplicity=1)
+        cdef.add_parameter(EcucParameterDef(
+            short_name="ReqBadExpr",
+            param_type=EcucParameterType.INTEGER,
+            definition_ref="/V/TestMod/C/ReqBadExpr",
+            lower_multiplicity=1,
+            upper_multiplicity=1,
+            enable_expr="unknown:func(.)",
+        ))
+        mod_def.add_container(cdef)
+
+        config = EcucModuleConfiguration(short_name="TestMod", definition_ref="/V/TestMod")
+        config.add_container(EcucContainerValue("C", "/V/TestMod/C"))
+
+        result = RequiredParameterRule().validate(mod_def, config)
+        assert result.error_count == 1
+        assert result.errors[0].parameter_name == "ReqBadExpr"
+
+    def test_multiplicity_rule_skips_default_disabled_xdm_list_and_false_enable_expr(self, tmp_path):
+        """Containers marked ENABLE value='false' or with falsy XPath ENABLE expr do not trigger MIN errors."""
+        from autosar_configurator.core.parser.ecuc_def_parser import EcucDefParser
+
+        xdm = tmp_path / "Can.xdm"
+        xdm.write_text("""<?xml version="1.0"?>
+<datamodel version="7.0"
+           xmlns="http://www.tresos.de/_projects/DataModel2/16/root.xsd"
+           xmlns:a="http://www.tresos.de/_projects/DataModel2/16/attribute.xsd"
+           xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd"
+           xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd">
+  <d:ctr type="AUTOSAR" factory="autosar">
+    <d:lst type="TOP-LEVEL-PACKAGES">
+      <d:ctr name="THA6_AS440_FuSa" type="AR-PACKAGE">
+        <d:lst type="ELEMENTS">
+          <d:chc name="Can" type="AR-ELEMENT" value="MODULE-DEF">
+            <v:ctr type="MODULE-DEF">
+              <v:ctr name="CanConfigSet" type="IDENTIFIABLE">
+                <v:var name="FeatureEnabled" type="BOOLEAN"/>
+                <v:ctr name="CanIcom" type="IDENTIFIABLE">
+                  <a:da name="ENABLE" value="false"/>
+                  <a:a name="OPTIONAL" value="true"/>
+                  <v:lst name="CanIcomConfig" type="MAP">
+                    <a:da name="ENABLE" value="false"/>
+                    <a:da name="MIN" value="1"/>
+                    <v:ctr name="CanIcomConfig" type="IDENTIFIABLE"/>
+                  </v:lst>
+                </v:ctr>
+                <v:lst name="ConditionalSub" type="MAP">
+                  <a:da name="MIN" value="1"/>
+                  <a:da name="ENABLE" type="XPath" expr="../FeatureEnabled = 'true'"/>
+                  <v:ctr name="ConditionalSub" type="IDENTIFIABLE"/>
+                </v:lst>
+              </v:ctr>
+            </v:ctr>
+          </d:chc>
+        </d:lst>
+      </d:ctr>
+    </d:lst>
+  </d:ctr>
+</datamodel>""", encoding="utf-8")
+
+        mod_def = EcucDefParser().parse_module_def_file(xdm)
+        cfg_set_def = mod_def.containers["CanConfigSet"]
+        icom_def = cfg_set_def.sub_containers["CanIcom"]
+        icom_cfg_def = icom_def.sub_containers["CanIcomConfig"]
+
+        assert icom_def.default_disabled is True
+        assert icom_cfg_def.default_disabled is True
+        assert icom_cfg_def.list_enable_expr is None
+        assert icom_cfg_def.lower_multiplicity == 1
+
+        # Case 1: FeatureEnabled = false, empty CanIcom, no ConditionalSub -> 0 multiplicity errors
+        cfg = EcucModuleConfiguration("Can", "/THA6_AS440_FuSa/Can")
+        cfg_set = EcucContainerValue("CanConfigSet", cfg_set_def.definition_ref)
+        cfg_set.set_parameter_value("FeatureEnabled", False, cfg_set_def.parameters["FeatureEnabled"].definition_ref)
+        cfg_set.add_sub_container(EcucContainerValue("CanIcom", icom_def.definition_ref))
+        cfg.add_container(cfg_set)
+
+        res1 = MultiplicityValidationRule().validate(mod_def, cfg)
+        assert res1.error_count == 0
+
+        # Case 2: FeatureEnabled = true -> ConditionalSub missing triggers 1 error; CanIcomConfig still skipped
+        cfg_set.parameter_values["FeatureEnabled"].value = True
+        res2 = MultiplicityValidationRule().validate(mod_def, cfg)
+        assert res2.error_count == 1
+        assert "ConditionalSub" in res2.errors[0].message

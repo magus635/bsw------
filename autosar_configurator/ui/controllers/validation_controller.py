@@ -47,6 +47,15 @@ class ValidationController:
                 win.validation_status_label.setStyleSheet("QLabel { color: red; padding: 2px 10px; }")
             return
 
+        # 0. Re-resolve cross-module references so added/removed modules and edited
+        #    targets are reflected immediately without stale cached resolution errors.
+        resolve_fn = getattr(win.current_project, "resolve_all_references", None)
+        if callable(resolve_fn):
+            resolve_fn(force=True)
+        index_fn = getattr(win.current_project, "build_reverse_reference_index", None)
+        if callable(index_fn):
+            index_fn()
+
         # 1. Run validation for each module
         for module_name, manager in win.current_project.module_managers.items():
             if manager.configuration and manager.module_def:
@@ -64,6 +73,11 @@ class ValidationController:
         win.problems_view.set_messages(all_results.messages)
         win.problems_dock.show()
         win.problems_dock.raise_()
+
+        config_panel = getattr(win, "config_panel", None)
+        refresh_refs = getattr(config_panel, "_refresh_reference_status", None)
+        if callable(refresh_refs):
+            refresh_refs()
 
         # 4. Update status bar/icons
         if all_results.is_valid:

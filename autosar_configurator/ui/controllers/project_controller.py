@@ -1177,7 +1177,18 @@ class ProjectController:
             result = self.win.current_project.apply_chip_selectors(modules=[module_def.short_name])
             if result.changed:
                 self.win._has_unsaved_changes = True
+            try:
+                if hasattr(self.win.current_project, "resolve_all_references"):
+                    self.win.current_project.resolve_all_references(force=True)
+                if hasattr(self.win.current_project, "build_reverse_reference_index"):
+                    self.win.current_project.build_reverse_reference_index()
+            except Exception as exc:
+                logger.warning("Reference resolution after add_module failed: %s", exc)
             self.win.tree_view.set_project(self.win.current_project)
+            config_panel = getattr(self.win, "config_panel", None)
+            refresh_refs = getattr(config_panel, "_refresh_reference_status", None)
+            if callable(refresh_refs):
+                refresh_refs()
             selectors = self._selector_result_status(result)
             baseline_error = getattr(manager, "baseline_error", None)
             if baseline_error:
@@ -1259,7 +1270,7 @@ class ProjectController:
                 "imported_at": datetime.now().isoformat(),
             }
             try:
-                win.current_project.resolve_all_references()
+                win.current_project.resolve_all_references(force=True)
                 win.current_project.build_reverse_reference_index()
             except Exception as e:
                 logger.warning("Reference resolution after value import failed: %s", e)

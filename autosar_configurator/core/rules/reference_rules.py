@@ -128,6 +128,8 @@ class ReferenceIntegrityRule(ValidationRule):
         """Recursively validate references in container"""
         # Check each reference
         for ref_name, ref_value in container.reference_values.items():
+            if ref_value.is_foreign_reference:
+                continue
             target_path = ref_value.value_ref
             
             if target_path not in all_paths:
@@ -141,6 +143,8 @@ class ReferenceIntegrityRule(ValidationRule):
         # Check multi-valued references
         for ref_name, ref_list in container.multi_reference_values.items():
             for ref_value in ref_list:
+                if ref_value.is_foreign_reference:
+                    continue
                 target_path = ref_value.value_ref
                 if target_path not in all_paths:
                     result.add_message(self._create_error(
@@ -227,6 +231,8 @@ class DanglingReferenceRule(ValidationRule):
     def _check_dangling(self, container: EcucContainerValue, all_paths: Set[str], result: ValidationResult):
         """Check for dangling references"""
         for ref_name, ref_value in container.reference_values.items():
+            if ref_value.is_foreign_reference:
+                continue
             if ref_value.value_ref not in all_paths:
                 result.add_message(self._create_warning(
                     f"Dangling reference '{ref_name}' detected",
@@ -237,6 +243,8 @@ class DanglingReferenceRule(ValidationRule):
         
         for ref_name, ref_list in container.multi_reference_values.items():
             for ref_value in ref_list:
+                if ref_value.is_foreign_reference:
+                    continue
                 if ref_value.value_ref not in all_paths:
                     result.add_message(self._create_warning(
                         f"Dangling multi-reference '{ref_name}[{ref_value.index}]' detected",

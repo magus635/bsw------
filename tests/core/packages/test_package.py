@@ -202,3 +202,13 @@ def test_template_and_resource_dirs(tmp_path):
     assert pkg.resource_dir() is None
     pkg.manifest.templates = None
     assert pkg.template_dir() is None
+
+
+def test_template_dir_falls_back_to_default_templates_subdir(tmp_path):
+    (tmp_path / "templates").mkdir()
+    pkg = _pkg(tmp_path, [])
+    assert pkg.manifest.templates is None
+    assert pkg.template_dir() == tmp_path / "templates"
+
+    pkg.manifest.templates = ""
+    assert pkg.template_dir() is None
