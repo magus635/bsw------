@@ -471,11 +471,21 @@ class RequiredParameterRule(ValidationRule):
             if param_def.is_required:
                 if param_name not in container.parameter_values \
                         and param_name not in container.multi_parameter_values:
+                    suggested_fix = f"Add parameter '{param_name}'"
+                    if param_def.has_enable_or_default:
+                        # Definitionally conditional (ENABLE) or defaulted: EB may leave
+                        # such a parameter out under its condition, so this may not be
+                        # an oversight in the configuration.
+                        suggested_fix = (
+                            f"Add parameter '{param_name}', or check the definition: "
+                            f"it carries an ENABLE condition/default and may be optional "
+                            f"in this configuration"
+                        )
                     result.add_message(self._create_error(
                         f"Required parameter '{param_name}' is missing",
                         container_path=container.get_path(),
                         parameter_name=param_name,
-                        suggested_fix=f"Add parameter '{param_name}'"
+                        suggested_fix=suggested_fix
                     ))
 
         # Recursively validate sub-containers

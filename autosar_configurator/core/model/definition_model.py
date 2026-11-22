@@ -124,6 +124,18 @@ class EcucParameterDef:
         return self.lower_multiplicity >= 1
 
     @property
+    def has_enable_or_default(self) -> bool:
+        """True when the definition marks the parameter conditionally part of the
+        configuration (XDM ENABLE), or gives it a default.
+
+        EB may leave such parameters out of the configuration (enabled only under
+        their condition; the tool applies their default). Callers that report a
+        missing parameter can use this to say the miss may be definitional rather
+        than an oversight.
+        """
+        return bool(self.enable_expr) or self.default_expr is not None or self.default_value is not None
+
+    @property
     def path(self) -> str:
         """Compatibility property for definition_ref"""
         return self.definition_ref

@@ -1966,7 +1966,14 @@ class ConfigurationManager:
         for param_name, param_def in container_def.parameters.items():
             if param_def.is_required:
                 if param_name not in container.parameter_values:
-                    errors.append(f"{container.short_name}.{param_name}: Required parameter missing")
+                    if param_def.has_enable_or_default:
+                        errors.append(
+                            f"{container.short_name}.{param_name}: Required parameter missing "
+                            f"(definition carries an ENABLE condition/default; may be "
+                            f"conditionally optional)"
+                        )
+                    else:
+                        errors.append(f"{container.short_name}.{param_name}: Required parameter missing")
         
         # Recursively validate sub-containers
         for sub_container in container.sub_containers:
