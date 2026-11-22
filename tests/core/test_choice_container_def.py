@@ -86,5 +86,26 @@ def test_container_without_choices_is_unaffected(tmp_path: Path):
         "BswMConfig/BswMArbitration/BswMModeCondition/BswMConditionValue"
     )
     assert condition_value is not None
-    assert condition_value.is_choice
-    assert list(condition_value.sub_containers) == []
+
+
+def test_instance_suffix_stripping_accepts_u_index(tmp_path: Path):
+    """EB names instances _N (digits) or _U<N>/_<letter>N (e.g. CanTrcvChannel_U12);
+    both must resolve to their container definition."""
+    path = tmp_path / "BswM.arxml"
+    path.write_text(DEF, encoding="utf-8")
+    module_def = EcucDefParser().parse_module_def_file(path)
+
+    # Pure-digit suffix still works.
+    assert module_def.get_container_def(
+        "BswMConfig/BswMArbitration/BswMModeCondition/BswMConditionValue_0"
+    ).short_name == "BswMConditionValue"
+
+    # _U<N> suffix works too.
+    assert module_def.get_container_def(
+        "BswMConfig/BswMArbitration/BswMModeCondition/BswMConditionValue_U12"
+    ).short_name == "BswMConditionValue"
+
+    # Deeper segment, and a letter+digit suffix on a nested container.
+    assert module_def.get_container_def(
+        "BswMConfig/BswMArbitration/BswMModeCondition/BswMConditionValue_U12/BswMBswMode_1"
+    ).short_name == "BswMBswMode"

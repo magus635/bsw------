@@ -339,23 +339,24 @@ class EcucModuleDef:
         import re
         parts = path.split('/')
         current = self.containers.get(parts[0])
-        
-        # EB Tresos fallback: strip trailing _N instance index suffix
+
+        # EB Tresos fallback: strip trailing instance-index suffix.  EB names the
+        # instances _N (pure digits) or _U<N> / _<letter>N (e.g. CanTrcvChannel_U12).
         if current is None:
-            stripped = re.sub(r'_\d+$', '', parts[0])
+            stripped = re.sub(r'_\w*\d+$', '', parts[0])
             if stripped != parts[0]:
                 current = self.containers.get(stripped)
-        
+
         for part in parts[1:]:
             if current is None:
                 return None
             sub = current.sub_containers.get(part)
             if sub is None:
-                # EB Tresos fallback: strip trailing _N instance index suffix
-                stripped = re.sub(r'_\d+$', '', part)
+                # EB Tresos fallback: strip trailing instance-index suffix
+                stripped = re.sub(r'_\w*\d+$', '', part)
                 if stripped != part:
                     sub = current.sub_containers.get(stripped)
             current = sub
-        
+
         return current
 

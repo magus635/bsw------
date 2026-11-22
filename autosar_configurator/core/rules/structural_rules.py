@@ -158,6 +158,6 @@ class MultiplicityValidationRule(ValidationRule):
         if config_short_name == short_name:
             return True
 
-        # EB Tresos: strip trailing instance-index suffix (_0, _1, …)
-        stripped = re.sub(r'_\d+$', '', config_short_name)
+        # EB Tresos: strip trailing instance-index suffix (_0, _U12, _Ch1, …)
+        stripped = re.sub(r'_\w*\d+$', '', config_short_name)
         return stripped == short_name
