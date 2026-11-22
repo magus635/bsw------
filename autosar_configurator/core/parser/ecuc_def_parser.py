@@ -806,7 +806,11 @@ class EcucDefParser:
                 return int(float(lower[0]))
             except ValueError:
                 pass
-        optional = element.xpath("a:a[@name='OPTIONAL']/@value", namespaces={'a': ns_a})
+        # EB XDM stores the OPTIONAL marker on either a:a (older plugins) or
+        # a:da (newer ones); both mean the parameter is not mandatory.
+        optional = element.xpath(
+            "a:a[@name='OPTIONAL']/@value | a:da[@name='OPTIONAL']/@value",
+            namespaces={'a': ns_a})
         return 0 if optional and optional[0].strip().lower() == 'true' else 1
 
     def _parse_choice_reference_def(self, element: etree._Element, parent_path: str = "") -> Optional[EcucReferenceDef]:

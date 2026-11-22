@@ -39,6 +39,13 @@ def test_a_parameter_in_a_list_takes_the_list_minimum(adc):
     assert group.parameters["AdcResultRegisterDefinition"].lower_multiplicity == 0
 
 
+def test_an_optional_parameter_marked_by_a_da_is_not_required(adc):
+    # EB writes the OPTIONAL marker on either a:a or a:da; both must be read
+    group = _hw_unit(adc).sub_containers["AdcGroup"]
+    accumulation = group.parameters["AdcResultAccumulation"]
+    assert not accumulation.is_required
+
+
 def test_a_reference_without_optional_is_required(adc):
     assert adc.containers["AdcConfigSet"].references["AdcAnalogClockSource"].is_required
 
