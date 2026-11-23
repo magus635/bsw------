@@ -2285,9 +2285,18 @@ class DaVinciProjectImporter:
             return None
 
         norm_expected = (expected_def_ref or "").rstrip("/")
-        std_ref = f"/AUTOSAR/EcucDefs/{module_name}" if module_name else ""
+        canonical_module = (
+            norm_expected.rsplit("/", 1)[-1] if norm_expected else module_name
+        ) or module_name
+        std_ref = f"/AUTOSAR/EcucDefs/{canonical_module}" if canonical_module else ""
+        is_specific_def = bool(
+            canonical_module
+            and norm_expected
+            and norm_expected != std_ref
+            and not norm_expected.startswith("/__STUB__/")
+        )
 
-        if norm_expected:
+        if is_specific_def:
             exact_matches = [
                 cfg for cfg in configs
                 if (cfg.definition_ref or "").rstrip("/") == norm_expected
@@ -2296,20 +2305,27 @@ class DaVinciProjectImporter:
                 return merge_module_configurations(exact_matches)
 
         matches = []
+        mismatched_vendor_defs = set()
+        match_names = {n for n in (module_name, canonical_module) if n}
         for cfg in configs:
             cfg_def = (cfg.definition_ref or "").rstrip("/")
             def_leaf = cfg_def.rsplit("/", 1)[-1] if cfg_def else ""
-            if norm_expected:
-                if cfg_def and cfg_def != std_ref:
-                    continue
-                if def_leaf == module_name or cfg.short_name == module_name:
-                    matches.append(cfg)
-            elif def_leaf == module_name or cfg.short_name == module_name:
-                matches.append(cfg)
+            if not (cfg.short_name in match_names or def_leaf in match_names):
+                continue
+            if is_specific_def and cfg_def and cfg_def != std_ref:
+                mismatched_vendor_defs.add(cfg_def)
+                continue
+            matches.append(cfg)
 
-        if not matches:
-            return None
-        return merge_module_configurations(matches)
+        if matches:
+            return merge_module_configurations(matches)
+        if mismatched_vendor_defs:
+            raise ValueError(
+                f"{ecuc_file.name}: no configuration matching variant definition "
+                f"'{norm_expected}' (found incompatible vendor definition(s): "
+                f"{', '.join(sorted(mismatched_vendor_defs))})"
+            )
+        return None
 
     @staticmethod
     def _count_module_items(configuration) -> Dict[str, int]:
@@ -2724,8 +2740,15 @@ class DaVinciProjectImporter:
             written_cfg_path: Optional[Path] = None
             ecuc_file = dv.resolve_ecuc_file(mod_name)
             if ecuc_file is not None:
+                effective_expected_def = expected_def or pkg.manifest.definition
                 try:
-                    extracted_cfg = cls._extract_module_config(ecuc_file, mod_name, expected_def)
+                    extracted_cfg = cls._extract_module_config(
+                        ecuc_file, mod_name, effective_expected_def
+                    )
+                except ValueError as exc:
+                    new_project._restore_module_replace_backup(replace_backup)
+                    report.failed_modules.append((target_name, str(exc)))
+                    continue
                 except Exception as exc:
                     extracted_cfg = None
                     report.warnings.append(f"{mod_name}: 读取 DaVinci 配置 {ecuc_file.name} 失败：{exc}")

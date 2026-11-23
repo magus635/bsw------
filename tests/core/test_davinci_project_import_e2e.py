@@ -1893,6 +1893,180 @@ def test_switch_module_variant_preview_apply_and_rollback(tmp_path):
     assert reloaded.module_managers["CanTrcv"].module_def.ar_path == "/MICROSAR/CanTrcv_GenericCan/CanTrcv"
 
 
+def test_extract_module_config_strict_vendor_mismatch_and_fallbacks(tmp_path):
+    """_extract_module_config matches ConfigurationManager.load_configuration rules:
+    rejects 1 or more incompatible vendor defs with ValueError, allows standard/empty fallbacks,
+    ignores unrelated modules, and treats standard expected_def_ref as permissive."""
+    import pytest
+    from autosar_configurator.core.davinci_importer import DaVinciProjectImporter
+
+    def _write_cfg(filename: str, blocks_xml: str) -> Path:
+        p = tmp_path / filename
+        p.write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+{blocks_xml}
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+        return p
+
+    tle_ref = "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+
+    # 1. Single incompatible vendor variant -> raises ValueError
+    single_wrong = _write_cfg("single_wrong.arxml", """
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/CanTrcv_GenericCan/CanTrcv</DEFINITION-REF>
+      <CONTAINERS/>
+    </ECUC-MODULE-CONFIGURATION-VALUES>""")
+    with pytest.raises(ValueError, match="CanTrcv_GenericCan"):
+        DaVinciProjectImporter._extract_module_config(single_wrong, "CanTrcv", tle_ref)
+
+    # 2. Multiple incompatible vendor variants -> raises ValueError listing all
+    multi_wrong = _write_cfg("multi_wrong.arxml", """
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/CanTrcv_GenericCan/CanTrcv</DEFINITION-REF>
+      <CONTAINERS/>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/VendorB/CanTrcv</DEFINITION-REF>
+      <CONTAINERS/>
+    </ECUC-MODULE-CONFIGURATION-VALUES>""")
+    with pytest.raises(ValueError) as exc_info:
+        DaVinciProjectImporter._extract_module_config(multi_wrong, "CanTrcv", tle_ref)
+    assert "/MICROSAR/CanTrcv_GenericCan/CanTrcv" in str(exc_info.value)
+    assert "/VendorB/CanTrcv" in str(exc_info.value)
+
+    # 3. Unrelated vendor module (Port) + standard CanTrcv -> extracts CanTrcv cleanly
+    mixed_std = _write_cfg("mixed_std.arxml", """
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>Port</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/Vendor/Port</DEFINITION-REF>
+      <CONTAINERS/>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/AUTOSAR/EcucDefs/CanTrcv</DEFINITION-REF>
+      <CONTAINERS/>
+    </ECUC-MODULE-CONFIGURATION-VALUES>""")
+    std_cfg = DaVinciProjectImporter._extract_module_config(mixed_std, "CanTrcv", tle_ref)
+    assert std_cfg is not None
+    assert std_cfg.short_name == "CanTrcv"
+
+    # 4. Empty DEFINITION-REF fallback -> extracts cleanly
+    empty_def = _write_cfg("empty_def.arxml", """
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv</SHORT-NAME>
+      <CONTAINERS/>
+    </ECUC-MODULE-CONFIGURATION-VALUES>""")
+    empty_cfg = DaVinciProjectImporter._extract_module_config(empty_def, "CanTrcv", tle_ref)
+    assert empty_cfg is not None
+    assert empty_cfg.short_name == "CanTrcv"
+
+    # 5. Unrelated module only -> returns None (not ValueError)
+    only_port = _write_cfg("only_port.arxml", """
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>Port</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/Vendor/Port</DEFINITION-REF>
+      <CONTAINERS/>
+    </ECUC-MODULE-CONFIGURATION-VALUES>""")
+    assert DaVinciProjectImporter._extract_module_config(only_port, "CanTrcv", tle_ref) is None
+
+    # 6. Standard expected_def_ref is permissive for vendor-specific ECUC blocks
+    single_tle = _write_cfg("single_tle.arxml", """
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/CanTrcv_Tle9255/CanTrcv</DEFINITION-REF>
+      <CONTAINERS/>
+    </ECUC-MODULE-CONFIGURATION-VALUES>""")
+    permissive = DaVinciProjectImporter._extract_module_config(
+        single_tle, "CanTrcv", "/AUTOSAR/EcucDefs/CanTrcv"
+    )
+    assert permissive is not None
+    assert permissive.definition_ref == "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+
+
+def test_import_project_fails_module_on_ecuc_variant_mismatch_instead_of_silent_baseline(tmp_path):
+    """DaVinci import rejects ECUC files carrying an incompatible vendor variant rather than
+    silently falling back to a blank sip_baseline, both with and without <ModuleDefinitionMapping>."""
+    from autosar_configurator.core.davinci_importer import DaVinciProjectImporter
+
+    def _run_scenario(subdir: str, with_mapping: bool):
+        root = tmp_path / subdir
+        sip = root / "sip"
+        bswmd = sip / "Components" / "CanTrcv_30_Tle9255" / "BSWMD"
+        bswmd.mkdir(parents=True)
+        (bswmd / "CanTrcv_bswmd.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>CanTrcv_Tle9255</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF>
+        <SHORT-NAME>CanTrcv</SHORT-NAME>
+        <CONTAINERS>
+          <ECUC-PARAM-CONF-CONTAINER-DEF>
+            <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+            <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          </ECUC-PARAM-CONF-CONTAINER-DEF>
+        </CONTAINERS>
+      </ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+        app_dir = sip / "Applications" / "MyApp"
+        ecuc_dir = app_dir / "Config" / "ECUC"
+        ecuc_dir.mkdir(parents=True)
+        (ecuc_dir / "CanTrcv_ecuc.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/CanTrcv_GenericCan/CanTrcv</DEFINITION-REF>
+      <CONTAINERS/>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+        mapping_xml = (
+            '      <ModuleDefinitionMapping ModuleConfigName="CanTrcv" '
+            'ModuleDefinitionRef="/MICROSAR/CanTrcv_Tle9255/CanTrcv"/>\n'
+            if with_mapping
+            else ""
+        )
+        dpa_file = app_dir / "MyApp.dpa"
+        dpa_file.write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
+<ProjectAssistant Version="5.30.35 SP2">
+  <Folders>
+    <SIP>.\\..\\..</SIP>
+    <ECUC>.\\Config\\ECUC</ECUC>
+  </Folders>
+  <Display>
+    <ModuleDefinitionMappings>
+{mapping_xml}    </ModuleDefinitionMappings>
+  </Display>
+  <EcucSplitter>
+    <Splitter File=".\\Config\\ECUC\\CanTrcv_ecuc.arxml"><Module Name="CanTrcv"/></Splitter>
+  </EcucSplitter>
+</ProjectAssistant>""", encoding="utf-8")
+
+        wm = WorkspaceManager()
+        project, report = DaVinciProjectImporter.import_project(
+            workspace_manager=wm,
+            dpa_path=dpa_file,
+            target_dir=root / "out",
+            project_name="OutApp",
+            confirm=lambda *_: True,
+        )
+        assert "CanTrcv" not in project.module_managers
+        assert any(mod == "CanTrcv" and "CanTrcv_GenericCan" in err for mod, err in report.failed_modules)
+
+    _run_scenario("with_mapping", with_mapping=True)
+    _run_scenario("without_mapping", with_mapping=False)
+
+
+
 
 
 

@@ -17,3 +17,6 @@
 4. **修改定义路径匹配契约时全库检索所有调用点**
    - 修改 `same_definition()` / `module_relative()` 行为后，需同步检索全部生产代码调用方（包括 `DependencyRule`、`QuickConfigWizard` 等校验规则与辅助向导），确保混合对比厂商多段路径与标准路径时显式传递 `module_name`。
 
+5. **核对多入口一致性时必须逐条核验完整契约（含无匹配返回值/异常行为、标准路径边界与调用方处理）**
+   - 仅看到 `DaVinciProjectImporter._extract_module_config()` 跳过了错厂商块就误判其与 `ConfigurationManager.load_configuration()` 一致，会遗漏“无匹配时静默返回 `None` 导致 `import_project()` 默默退回空白 `sip_baseline`”、“未排除 `expected_def_ref == std_ref`”、以及“无 `<ModuleDefinitionMapping>` 时未回退到 `pkg.manifest.definition`”的差异。今后对照多入口一致性时，必须按完整输入/输出与异常状态表逐项核对，包括外层调用方的错误处理。
+
