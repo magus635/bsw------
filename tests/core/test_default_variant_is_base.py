@@ -167,3 +167,158 @@ def test_eb_template_engine_applies_variant_overrides_and_filters_container_vari
     assert "EcucGeneral_OnlyV2:CPU16Bit:" in out_v2
     assert "vname=V2;vsize=3;v1=true;v9=false" in out_v2
 
+
+def test_supported_config_variants_and_davinci_predefined_variants_import(tmp_path):
+    """EcucDefParser parses SUPPORTED-CONFIG-VARIANTS; DaVinciProject and ArxmlParser extract
+    PREDEFINED-VARIANT, EcucSelectedPostBuildVariantRef, and VARIATION-POINT overrides."""
+    from lxml import etree
+    from autosar_configurator.core.davinci_importer import DaVinciProject, DaVinciProjectImporter
+    from autosar_configurator.core.parser.ecuc_def_parser import EcucDefParser
+
+    def_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-DEF>
+      <SHORT-NAME>Can</SHORT-NAME>
+      <SUPPORTED-CONFIG-VARIANTS>
+        <SUPPORTED-CONFIG-VARIANT>VARIANT-PRE-COMPILE</SUPPORTED-CONFIG-VARIANT>
+        <SUPPORTED-CONFIG-VARIANT>VARIANT-POST-BUILD</SUPPORTED-CONFIG-VARIANT>
+      </SUPPORTED-CONFIG-VARIANTS>
+    </ECUC-MODULE-DEF>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>"""
+    def_path = tmp_path / "Can_bswmd.arxml"
+    def_path.write_text(def_xml, encoding="utf-8")
+    mod_def = EcucDefParser().parse_module_def_file(def_path)
+    assert mod_def.supported_config_variants == ["VARIANT-PRE-COMPILE", "VARIANT-POST-BUILD"]
+
+    # Create a DaVinci project with PREDEFINED-VARIANTs (Left, Right) and VARIATION-POINT values
+    dv_dir = tmp_path / "dv_proj"
+    cfg_dir = dv_dir / "Config" / "ECUC"
+    cfg_dir.mkdir(parents=True)
+    ecuc_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <POST-BUILD-VARIANT-CRITERION>
+      <SHORT-NAME>SideCriterion</SHORT-NAME>
+    </POST-BUILD-VARIANT-CRITERION>
+    <PREDEFINED-VARIANT>
+      <SHORT-NAME>Left</SHORT-NAME>
+      <POST-BUILD-VARIANT-CRITERION-VALUE-SETS>
+        <POST-BUILD-VARIANT-CRITERION-VALUE-SET>
+          <SHORT-NAME>LeftSet</SHORT-NAME>
+          <POST-BUILD-VARIANT-CRITERION-VALUES>
+            <POST-BUILD-VARIANT-CRITERION-VALUE>
+              <VARIANT-CRITERION-REF DEST="POST-BUILD-VARIANT-CRITERION">/ActiveEcuC/SideCriterion</VARIANT-CRITERION-REF>
+              <VALUE>0</VALUE>
+            </POST-BUILD-VARIANT-CRITERION-VALUE>
+          </POST-BUILD-VARIANT-CRITERION-VALUES>
+        </POST-BUILD-VARIANT-CRITERION-VALUE-SET>
+      </POST-BUILD-VARIANT-CRITERION-VALUE-SETS>
+    </PREDEFINED-VARIANT>
+    <PREDEFINED-VARIANT>
+      <SHORT-NAME>Right</SHORT-NAME>
+      <POST-BUILD-VARIANT-CRITERION-VALUE-SETS>
+        <POST-BUILD-VARIANT-CRITERION-VALUE-SET>
+          <SHORT-NAME>RightSet</SHORT-NAME>
+          <POST-BUILD-VARIANT-CRITERION-VALUES>
+            <POST-BUILD-VARIANT-CRITERION-VALUE>
+              <VARIANT-CRITERION-REF DEST="POST-BUILD-VARIANT-CRITERION">/ActiveEcuC/SideCriterion</VARIANT-CRITERION-REF>
+              <VALUE>1</VALUE>
+            </POST-BUILD-VARIANT-CRITERION-VALUE>
+          </POST-BUILD-VARIANT-CRITERION-VALUES>
+        </POST-BUILD-VARIANT-CRITERION-VALUE-SET>
+      </POST-BUILD-VARIANT-CRITERION-VALUE-SETS>
+    </PREDEFINED-VARIANT>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>EcuC</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/EcuC</DEFINITION-REF>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>EcucPostBuildVariants</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/EcuC/EcucPostBuildVariants</DEFINITION-REF>
+          <REFERENCE-VALUES>
+            <ECUC-REFERENCE-VALUE>
+              <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/MICROSAR/EcuC/EcucPostBuildVariants/EcucSelectedPostBuildVariantRef</DEFINITION-REF>
+              <VALUE-REF DEST="PREDEFINED-VARIANT">/ActiveEcuC/Right</VALUE-REF>
+            </ECUC-REFERENCE-VALUE>
+          </REFERENCE-VALUES>
+        </ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>Can</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/Can</DEFINITION-REF>
+      <IMPLEMENTATION-CONFIG-VARIANT>VARIANT-POST-BUILD</IMPLEMENTATION-CONFIG-VARIANT>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>CanGeneral</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/Can/CanGeneral</DEFINITION-REF>
+          <PARAMETER-VALUES>
+            <ECUC-NUMERICAL-PARAM-VALUE>
+              <VARIATION-POINT>
+                <POST-BUILD-VARIANT-CONDITIONS>
+                  <POST-BUILD-VARIANT-CONDITION>
+                    <MATCHING-CRITERION-REF DEST="POST-BUILD-VARIANT-CRITERION">/ActiveEcuC/SideCriterion</MATCHING-CRITERION-REF>
+                    <VALUE>0</VALUE>
+                  </POST-BUILD-VARIANT-CONDITION>
+                </POST-BUILD-VARIANT-CONDITIONS>
+              </VARIATION-POINT>
+              <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/MICROSAR/Can/CanGeneral/CanTimeout</DEFINITION-REF>
+              <VALUE>100</VALUE>
+            </ECUC-NUMERICAL-PARAM-VALUE>
+            <ECUC-NUMERICAL-PARAM-VALUE>
+              <VARIATION-POINT>
+                <POST-BUILD-VARIANT-CONDITIONS>
+                  <POST-BUILD-VARIANT-CONDITION>
+                    <MATCHING-CRITERION-REF DEST="POST-BUILD-VARIANT-CRITERION">/ActiveEcuC/SideCriterion</MATCHING-CRITERION-REF>
+                    <VALUE>1</VALUE>
+                  </POST-BUILD-VARIANT-CONDITION>
+                </POST-BUILD-VARIANT-CONDITIONS>
+              </VARIATION-POINT>
+              <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/MICROSAR/Can/CanGeneral/CanTimeout</DEFINITION-REF>
+              <VALUE>250</VALUE>
+            </ECUC-NUMERICAL-PARAM-VALUE>
+          </PARAMETER-VALUES>
+        </ECUC-CONTAINER-VALUE>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>CanController_RightOnly</SHORT-NAME>
+          <VARIATION-POINT>
+            <SHORT-LABEL>Right</SHORT-LABEL>
+          </VARIATION-POINT>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/Can/CanController</DEFINITION-REF>
+        </ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>"""
+    ecuc_path = cfg_dir / "Demo.ecuc.arxml"
+    ecuc_path.write_text(ecuc_xml, encoding="utf-8")
+
+    dpa_path = dv_dir / "Demo.dpa"
+    dpa_path.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<ProjectAssistant>
+  <ECUC><Active>Config/ECUC/Demo.ecuc.arxml</Active></ECUC>
+</ProjectAssistant>""", encoding="utf-8")
+
+    dv = DaVinciProject.from_file(dpa_path)
+    assert dv.predefined_variants == ["Left", "Right"]
+    assert dv.active_variant == "Right"
+
+    extracted = DaVinciProjectImporter._extract_module_config(
+        ecuc_path,
+        "Can",
+        "/MICROSAR/Can",
+        predefined_variants=dv.predefined_variants,
+        criterion_variant_map=dv.criterion_variant_map,
+    )
+    assert extracted is not None
+    assert extracted.implementation_config_variant == "VARIANT-POST-BUILD"
+    can_gen = next(c for c in extracted.containers if c.short_name == "CanGeneral")
+    assert can_gen.parameter_values["CanTimeout"].value == 100
+    assert extracted.variant_overrides["Left"]["/Can/CanGeneral.CanTimeout"] == 100
+    assert extracted.variant_overrides["Right"]["/Can/CanGeneral.CanTimeout"] == 250
+    right_ctrl = next(c for c in extracted.containers if c.short_name == "CanController_RightOnly")
+    assert right_ctrl.variant == "Right"
+
+

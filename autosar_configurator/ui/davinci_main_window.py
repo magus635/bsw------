@@ -163,6 +163,7 @@ class DaVinciMainWindow(QMainWindow):
         self.tree_view.move_instance_requested.connect(self.edit_controller.handle_move_container)
         self.tree_view.rename_instance_requested.connect(self.edit_controller.handle_rename_container)
         self.tree_view.view_references_requested.connect(self.nav_controller._show_reverse_references)
+        self.tree_view.change_module_config_variant_requested.connect(self._on_tree_module_config_variant_requested)
         splitter.addWidget(self.tree_view)
         
         # Right: Config panel
@@ -173,6 +174,7 @@ class DaVinciMainWindow(QMainWindow):
         self.config_panel.check_impact_requested.connect(self.impact_problems_controller._handle_check_impact)
         self.config_panel.reference_jump_requested.connect(self.nav_controller._on_reference_jump_requested)
         self.config_panel.instance_variant_changed.connect(self._on_instance_variant_changed)
+        self.config_panel.module_config_variant_changed.connect(self._on_module_config_variant_changed)
         splitter.addWidget(self.config_panel)
         
         # Set splitter proportions
@@ -827,6 +829,62 @@ class DaVinciMainWindow(QMainWindow):
             )
         else:
             self.statusbar.showMessage(f"Instance '{instance.short_name}' variant updated, tree refreshed", 3000)
+
+    def _on_module_config_variant_changed(self, module_config, new_variant: str):
+        """Handle change of a module's IMPLEMENTATION-CONFIG-VARIANT from the config panel."""
+        from .commands import SetModuleConfigVariantCommand
+
+        panel = getattr(self, "config_panel", None)
+        consume = getattr(panel, "_consume_pending_module_icv_undo", None)
+        pending = consume(module_config) if callable(consume) else None
+        mgr = None
+        if self.current_project and hasattr(self.current_project, "module_managers"):
+            mgr = self.current_project.module_managers.get(getattr(module_config, "short_name", ""))
+        if mgr is None:
+            mgr = self.config_manager
+        if pending is not None and hasattr(self, "undo_stack") and self.undo_stack is not None:
+            old_icv, new_icv = pending
+            cmd = SetModuleConfigVariantCommand(mgr, module_config, new_icv, old_variant=old_icv)
+            self.undo_stack.push(cmd)
+        self._has_unsaved_changes = True
+        self.tree_view.refresh()
+        self.statusbar.showMessage(
+            f"Module '{module_config.short_name}' IMPLEMENTATION-CONFIG-VARIANT → {new_variant}",
+            3000,
+        )
+
+    def _on_tree_module_config_variant_requested(self, module_name: str, new_variant: str):
+        """Handle change of a module's IMPLEMENTATION-CONFIG-VARIANT from the tree context menu."""
+        from .commands import SetModuleConfigVariantCommand
+        from ..core.model.configuration_model import normalize_config_variant
+
+        mgr = None
+        if self.current_project and hasattr(self.current_project, "module_managers"):
+            mgr = self.current_project.module_managers.get(module_name)
+        elif self.config_manager and getattr(getattr(self.config_manager, "module_def", None), "short_name", None) == module_name:
+            mgr = self.config_manager
+        if mgr is None or getattr(mgr, "configuration", None) is None:
+            return
+        cfg = mgr.configuration
+        new_icv = normalize_config_variant(new_variant)
+        old_icv = normalize_config_variant(getattr(cfg, "implementation_config_variant", None))
+        if old_icv == new_icv:
+            return
+        cmd = SetModuleConfigVariantCommand(mgr, cfg, new_icv, old_variant=old_icv)
+        if hasattr(self, "undo_stack") and self.undo_stack is not None:
+            self.undo_stack.push(cmd)
+        else:
+            cmd.redo()
+        if self.current_project:
+            self.current_project.is_modified = True
+        self._has_unsaved_changes = True
+        self.tree_view.refresh()
+        if hasattr(self, "config_panel") and self.config_panel and self.config_panel.current_instance:
+            self.config_panel.refresh()
+        self.statusbar.showMessage(
+            f"Module '{module_name}' IMPLEMENTATION-CONFIG-VARIANT → {new_icv}",
+            3000,
+        )
     
     def _show_user_manual(self):
         """Show user manual dialog"""

@@ -30,6 +30,7 @@ class DaVinciTreeView(QTreeWidget):
     delete_instances_requested = Signal(list)  # list of (instance, parent_instance) tuples for batch delete
     delete_module_requested = Signal(str)  # module_name - to remove module from project
     switch_module_variant_requested = Signal(str)  # module_name - to switch module variant package
+    change_module_config_variant_requested = Signal(str, str)  # module_name, new IMPLEMENTATION-CONFIG-VARIANT
     move_instance_requested = Signal(EcucContainerValue, object, int)  # instance, new_parent, new_index
     rename_instance_requested = Signal(EcucContainerValue, str)  # instance, new_name
     view_references_requested = Signal(EcucContainerValue)  # instance - show who references this container
@@ -204,6 +205,9 @@ class DaVinciTreeView(QTreeWidget):
             tooltip_lines.append(f"Definition: {active_def}")
         if package_dir_name:
             tooltip_lines.append(f"Package: {package_dir_name}")
+        icv = getattr(getattr(config_manager, "configuration", None), "implementation_config_variant", None)
+        if icv:
+            tooltip_lines.append(f"Config Variant: {icv}")
         tooltip_lines.extend([
             f"Primary Engine: {engine_desc}",
             "\nTemplates:",
@@ -976,6 +980,39 @@ class DaVinciTreeView(QTreeWidget):
 
     def _populate_module_menu(self, menu: QMenu, module_name: str) -> None:
         """Populate context menu actions for a top-level module node."""
+        from ...core.model.configuration_model import (
+            DEFAULT_CONFIG_VARIANT,
+            STANDARD_CONFIG_VARIANTS,
+            normalize_config_variant,
+        )
+
+        mgr = None
+        if self.project and hasattr(self.project, "module_managers"):
+            mgr = self.project.module_managers.get(module_name)
+        elif self.config_manager and getattr(getattr(self.config_manager, "module_def", None), "short_name", None) == module_name:
+            mgr = self.config_manager
+
+        if mgr is not None and getattr(mgr, "configuration", None) is not None:
+            cfg = mgr.configuration
+            mod_def = getattr(mgr, "module_def", None)
+            supported = list(getattr(mod_def, "supported_config_variants", None) or [])
+            options = supported if supported else list(STANDARD_CONFIG_VARIANTS[:5])
+            cur_icv = normalize_config_variant(
+                getattr(cfg, "implementation_config_variant", DEFAULT_CONFIG_VARIANT)
+            )
+            if cur_icv not in options:
+                options.append(cur_icv)
+            icv_menu = QMenu(f"⚙️ 实现配置变体 ({cur_icv})", menu)
+            menu.addMenu(icv_menu)
+            for opt in options:
+                act = icv_menu.addAction(opt)
+                act.setCheckable(True)
+                act.setChecked(opt == cur_icv)
+                act.triggered.connect(
+                    lambda _checked=False, m=module_name, v=opt: self.change_module_config_variant_requested.emit(m, v)
+                )
+            menu.addSeparator()
+
         if self._has_alternative_variants(module_name):
             switch_action = menu.addAction("🔀 切换模块变体 (Switch Variant)...")
             switch_action.triggered.connect(

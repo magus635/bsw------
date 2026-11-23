@@ -552,6 +552,40 @@ class SetContainerVariantCommand(QUndoCommand):
         self._apply(self.old_variant)
 
 
+class SetModuleConfigVariantCommand(QUndoCommand):
+    """Command to change a module's IMPLEMENTATION-CONFIG-VARIANT."""
+
+    def __init__(
+        self,
+        config_manager: Optional[ConfigurationManager],
+        configuration: EcucModuleConfiguration,
+        new_variant: str,
+        old_variant: Optional[str] = None,
+    ):
+        super().__init__()
+        from ..core.model.configuration_model import normalize_config_variant
+
+        self.config_manager = config_manager
+        self.configuration = configuration
+        self.old_variant = normalize_config_variant(
+            old_variant if old_variant is not None else getattr(configuration, "implementation_config_variant", None)
+        )
+        self.new_variant = normalize_config_variant(new_variant)
+        self.setText(f"Set Config Variant {configuration.short_name} → {self.new_variant}")
+
+    def _apply(self, variant_val: str):
+        self.configuration.implementation_config_variant = variant_val
+        self.configuration.is_modified = True
+        if self.config_manager and getattr(self.config_manager, "project_context", None) is not None:
+            self.config_manager.project_context.is_modified = True
+
+    def redo(self):
+        self._apply(self.new_variant)
+
+    def undo(self):
+        self._apply(self.old_variant)
+
+
 class DeleteModuleCommand(QUndoCommand):
     """Delete a whole module (manager + def) from a project, supporting undo."""
 

@@ -176,6 +176,11 @@ def merge_module_configurations(configs: List[EcucModuleConfiguration]) -> Optio
             else:
                 result.parameter_values[name] = value
 
+        # Variant overrides: union per variant
+        for var_name, ov_map in (getattr(cfg, "variant_overrides", None) or {}).items():
+            if isinstance(ov_map, dict) and ov_map:
+                result.variant_overrides.setdefault(var_name, {}).update(ov_map)
+
     return result
 
 

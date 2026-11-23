@@ -179,6 +179,16 @@ class EcucDefParser:
             short_name=short_name,
             description=self._get_description(element)
         )
+
+        # Parse SUPPORTED-CONFIG-VARIANTS (ARXML BSWMD)
+        from ..model.configuration_model import normalize_config_variant
+        scv_parent = self._find_child(element, 'SUPPORTED-CONFIG-VARIANTS')
+        if scv_parent is not None:
+            for scv_elem in self._findall_children(scv_parent, 'SUPPORTED-CONFIG-VARIANT'):
+                if scv_elem.text and scv_elem.text.strip():
+                    norm_v = normalize_config_variant(scv_elem.text.strip())
+                    if norm_v and norm_v not in module_def.supported_config_variants:
+                        module_def.supported_config_variants.append(norm_v)
         
         # Parse CONTAINERS
         containers_elem = self._find_descendant(element, 'CONTAINERS')
@@ -266,6 +276,11 @@ class EcucDefParser:
                 if param_def:
                     param_def.definition_ref = f"/AUTOSAR/EcucDefs/{module_def.short_name}/{param_def.short_name}"
                     module_def.parameters[param_def.short_name] = param_def
+                    if param_def.short_name == "IMPLEMENTATION_CONFIG_VARIANT" and param_def.literals:
+                        for lit in param_def.literals:
+                            norm_v = normalize_config_variant(lit)
+                            if norm_v and norm_v not in module_def.supported_config_variants:
+                                module_def.supported_config_variants.append(norm_v)
         
         # Set module definition reference
         module_def.definition_ref = f"/AUTOSAR/EcucDefs/{module_def.short_name}"

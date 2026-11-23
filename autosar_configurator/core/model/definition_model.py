@@ -322,6 +322,9 @@ class EcucModuleDef:
     # Default variant for this module
     default_variant: VariantType = VariantType.POSTBUILD
 
+    # Supported ECUC IMPLEMENTATION-CONFIG-VARIANT values declared by the module definition
+    supported_config_variants: List[str] = field(default_factory=list)
+
     @property
     def path(self) -> str:
         """Compatibility property for definition_ref"""

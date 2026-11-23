@@ -47,6 +47,7 @@ class DaVinciConfigPanel(QWidget):
     check_impact_requested = Signal(str, str)  # container_path, param_name - request impact analysis
     reference_jump_requested = Signal(str)  # target_path - request navigation to referenced container
     instance_variant_changed = Signal(EcucContainerValue)  # instance - its assigned variant was changed, needs tree refresh
+    module_config_variant_changed = Signal(object, str)  # (EcucModuleConfiguration, new_config_variant)
 
     UNRESOLVED_REF_ROLE = Qt.UserRole + 1
     
@@ -141,6 +142,14 @@ class DaVinciConfigPanel(QWidget):
         self.variant_combo.setToolTip("Assign this container instance to a specific variant (or None for all variants)")
         self.variant_combo.currentTextChanged.connect(self._on_instance_variant_changed)
         general_layout.addRow(self.variant_label_tag, self.variant_combo)
+
+        self.impl_config_variant_label = QLabel("Config Variant (实现配置变体):")
+        self.impl_config_variant_combo = QComboBox()
+        self.impl_config_variant_combo.setToolTip(
+            "Module IMPLEMENTATION-CONFIG-VARIANT (e.g. VARIANT-PRE-COMPILE, VARIANT-LINK-TIME, VARIANT-POST-BUILD)"
+        )
+        self.impl_config_variant_combo.currentTextChanged.connect(self._on_impl_config_variant_changed)
+        general_layout.addRow(self.impl_config_variant_label, self.impl_config_variant_combo)
         
         self.content_layout.addWidget(self.general_group)
 
@@ -1160,6 +1169,68 @@ class DaVinciConfigPanel(QWidget):
             self.variant_combo.setCurrentIndex(0)
             
         self.variant_combo.blockSignals(False)
+        self._update_impl_config_variant_selector(instance)
+
+    def _update_impl_config_variant_selector(self, instance: Optional[EcucContainerValue]):
+        """Populate the module IMPLEMENTATION-CONFIG-VARIANT combo box."""
+        from ...core.model.configuration_model import (
+            DEFAULT_CONFIG_VARIANT,
+            STANDARD_CONFIG_VARIANTS,
+            normalize_config_variant,
+        )
+
+        self.impl_config_variant_combo.blockSignals(True)
+        self.impl_config_variant_combo.clear()
+
+        module_config = (
+            getattr(instance, "module_config", None)
+            or (getattr(self.config_manager, "configuration", None) if self.config_manager else None)
+        )
+        module_def = getattr(self.config_manager, "module_def", None)
+        supported = list(getattr(module_def, "supported_config_variants", None) or [])
+        options = supported if supported else list(STANDARD_CONFIG_VARIANTS[:5])
+
+        current_icv = normalize_config_variant(
+            getattr(module_config, "implementation_config_variant", DEFAULT_CONFIG_VARIANT)
+            if module_config is not None
+            else DEFAULT_CONFIG_VARIANT
+        )
+        for opt in options:
+            self.impl_config_variant_combo.addItem(opt)
+        if self.impl_config_variant_combo.findText(current_icv) < 0:
+            self.impl_config_variant_combo.addItem(current_icv)
+        self.impl_config_variant_combo.setCurrentText(current_icv)
+        self.impl_config_variant_combo.setEnabled(module_config is not None)
+        self.impl_config_variant_combo.blockSignals(False)
+
+    def _on_impl_config_variant_changed(self, variant_text: str):
+        """Handle user changing the module's IMPLEMENTATION-CONFIG-VARIANT."""
+        from ...core.model.configuration_model import normalize_config_variant
+
+        if not variant_text:
+            return
+        module_config = (
+            getattr(self.current_instance, "module_config", None)
+            or (getattr(self.config_manager, "configuration", None) if self.config_manager else None)
+        )
+        if module_config is None:
+            return
+        new_icv = normalize_config_variant(variant_text)
+        old_icv = normalize_config_variant(getattr(module_config, "implementation_config_variant", None))
+        if old_icv != new_icv:
+            self._pending_module_icv_undo = (module_config, old_icv, new_icv)
+            module_config.implementation_config_variant = new_icv
+            module_config.is_modified = True
+            if self.project:
+                self.project.is_modified = True
+            self.module_config_variant_changed.emit(module_config, new_icv)
+
+    def _consume_pending_module_icv_undo(self, module_config):
+        pending = getattr(self, "_pending_module_icv_undo", None)
+        self._pending_module_icv_undo = None
+        if pending and pending[0] is module_config:
+            return pending[1], pending[2]
+        return None
 
     def _on_instance_variant_changed(self, variant_text: str):
         """Handle change of variant for the current instance"""
