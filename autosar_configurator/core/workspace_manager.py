@@ -82,6 +82,7 @@ class VariantSwitchPlan:
     unknown_references: List[str] = field(default_factory=list)
     missing_required_containers: List[str] = field(default_factory=list)
     missing_required_parameters: List[str] = field(default_factory=list)
+    stale_variant_overrides: List[str] = field(default_factory=list)
     baseline_result: Optional[MergeResult] = None
     baseline_has_changes: bool = False
     baseline_preview: str = ""
@@ -115,6 +116,9 @@ class VariantSwitchPlan:
         if self.missing_required_parameters:
             lines += ["", f"## 目标变体缺少的必需参数（{len(self.missing_required_parameters)}）", ""]
             lines.extend(f"- `{p}`" for p in self.missing_required_parameters)
+        if self.stale_variant_overrides:
+            lines += ["", f"## 可能失效的变体覆盖项（{len(self.stale_variant_overrides)}，保留数据不删除）", ""]
+            lines.extend(f"- `{item}`" for item in self.stale_variant_overrides)
         if self.baseline_preview:
             lines += ["", self.baseline_preview]
         return "\n".join(lines)
@@ -809,6 +813,7 @@ class WorkspaceProject:
             "overrides": self.unloaded_variant_overrides.get(name, self._MISSING),
             "baseline": self.baselines.get(name, self._MISSING),
             "provenance": self.module_provenance.get(name, self._MISSING),
+            "last_merge_result": self.last_merge_results.get(name, self._MISSING),
             "pending_baseline_delete": name in self._pending_baseline_deletes,
         }
 
@@ -817,18 +822,36 @@ class WorkspaceProject:
         name = snapshot["name"]
         if snapshot["manager"] is not None:
             self.module_managers[name] = snapshot["manager"]
+        else:
+            self.module_managers.pop(name, None)
         if snapshot["def_path"] is not None:
             self.module_defs[name] = snapshot["def_path"]
+        else:
+            self.module_defs.pop(name, None)
         if snapshot["entry"] is not None:
             self.module_entries[name] = snapshot["entry"]
+        else:
+            self.module_entries.pop(name, None)
         if snapshot["package"] is not None:
             self.packages[name] = snapshot["package"]
+        else:
+            self.packages.pop(name, None)
         if snapshot["overrides"] is not self._MISSING:
             self.unloaded_variant_overrides[name] = snapshot["overrides"]
+        else:
+            self.unloaded_variant_overrides.pop(name, None)
         if snapshot.get("baseline", self._MISSING) is not self._MISSING:
             self.baselines[name] = snapshot["baseline"]
+        else:
+            self.baselines.pop(name, None)
         if snapshot.get("provenance", self._MISSING) is not self._MISSING:
             self.module_provenance[name] = snapshot["provenance"]
+        else:
+            self.module_provenance.pop(name, None)
+        if snapshot.get("last_merge_result", self._MISSING) is not self._MISSING:
+            self.last_merge_results[name] = snapshot["last_merge_result"]
+        else:
+            self.last_merge_results.pop(name, None)
         if "pending_baseline_delete" in snapshot:
             if snapshot["pending_baseline_delete"]:
                 self._pending_baseline_deletes.add(name)
@@ -860,7 +883,8 @@ class WorkspaceProject:
                 baseline_session.base_layers_path(self, module_name),
             ):
                 files[fpath] = fpath.read_bytes() if fpath.is_file() else None
-        return {"snapshot": snapshot, "files": files}
+        library_excludes = [(lib, list(lib.exclude)) for lib in self.module_libraries]
+        return {"snapshot": snapshot, "files": files, "library_excludes": library_excludes}
 
     def _restore_module_replace_backup(self, backup: Optional[Dict[str, Any]]) -> None:
         """Restore a module and its on-disk files captured by ``_capture_module_replace_backup``."""
@@ -872,6 +896,8 @@ class WorkspaceProject:
             else:
                 fpath.parent.mkdir(parents=True, exist_ok=True)
                 fpath.write_bytes(content)
+        for lib, saved_exclude in backup.get("library_excludes", ()):
+            lib.exclude = list(saved_exclude)
         self.restore_module(backup["snapshot"])
 
     def _purge_module_for_replace(self, module_name: str) -> None:
@@ -1597,6 +1623,9 @@ class WorkspaceProject:
         unknown_references: List[str] = []
         missing_required_containers: List[str] = []
         missing_required_parameters: List[str] = []
+        stale_variant_overrides: List[str] = []
+        known_container_defs: Dict[str, Any] = {}
+        short_name_container_defs: Dict[str, List[Any]] = {}
 
         baseline_result: Optional[MergeResult] = None
         baseline_has_changes = False
@@ -1658,6 +1687,8 @@ class WorkspaceProject:
                     unknown_references.append(f"{c_path}.{rname}")
             else:
                 kept_containers.append(c_path)
+                known_container_defs[c_path] = c_def
+                short_name_container_defs.setdefault(c.short_name, []).append(c_def)
                 for pname in sorted(c.parameter_values):
                     if pname in c_def.parameters:
                         kept_parameters.append(f"{c_path}.{pname}")
@@ -1703,6 +1734,40 @@ class WorkspaceProject:
                 if cnt < top_def.lower_multiplicity:
                     missing_required_containers.append(f"/{effective_name}/{top_name}")
 
+        unknown_container_set = set(unknown_containers)
+        unknown_param_set = set(unknown_parameters)
+        unknown_ref_set = set(unknown_references)
+        for var_name, overrides in sorted((temp_cfg.variant_overrides or {}).items()):
+            if not isinstance(overrides, dict):
+                continue
+            for ov_key in sorted(overrides):
+                if "." not in ov_key:
+                    continue
+                prefix, leaf = ov_key.rsplit(".", 1)
+                is_ref = leaf.startswith("ref:")
+                member_name = leaf[4:] if is_ref else leaf
+                is_stale = False
+                if prefix in unknown_container_set:
+                    is_stale = True
+                elif is_ref and f"{prefix}.{member_name}" in unknown_ref_set:
+                    is_stale = True
+                elif not is_ref and f"{prefix}.{member_name}" in unknown_param_set:
+                    is_stale = True
+                elif prefix in known_container_defs:
+                    c_def = known_container_defs[prefix]
+                    if is_ref:
+                        is_stale = member_name not in c_def.references
+                    else:
+                        is_stale = member_name not in c_def.parameters
+                elif prefix in short_name_container_defs:
+                    c_defs = short_name_container_defs[prefix]
+                    if is_ref:
+                        is_stale = not any(member_name in d.references for d in c_defs)
+                    else:
+                        is_stale = not any(member_name in d.parameters for d in c_defs)
+                if is_stale:
+                    stale_variant_overrides.append(f"[{var_name}] {ov_key}")
+
         plan = VariantSwitchPlan(
             module_name=module_name,
             source_definition=source_definition,
@@ -1716,6 +1781,7 @@ class WorkspaceProject:
             unknown_references=unknown_references,
             missing_required_containers=missing_required_containers,
             missing_required_parameters=missing_required_parameters,
+            stale_variant_overrides=stale_variant_overrides,
             baseline_result=baseline_result,
             baseline_has_changes=baseline_has_changes,
             baseline_preview=baseline_preview,

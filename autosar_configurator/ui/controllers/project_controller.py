@@ -2343,6 +2343,8 @@ class ProjectController:
             return False
 
         self.win._has_unsaved_changes = True
+        if hasattr(project, "apply_chip_selectors"):
+            project.apply_chip_selectors(modules=[module_name])
         undo_stack = getattr(self.win, "undo_stack", None)
         if undo_stack is not None and hasattr(undo_stack, "clear"):
             undo_stack.clear()
@@ -2360,6 +2362,9 @@ class ProjectController:
             config_panel.clear()
         if hasattr(self.win, "_update_mode_actions"):
             self.win._update_mode_actions()
+        dep_ctrl = getattr(self.win, "dep_graph_controller", None)
+        if dep_ctrl is not None and hasattr(dep_ctrl, "_update_dependency_graph_if_open"):
+            dep_ctrl._update_dependency_graph_if_open()
         self.win.statusbar.showMessage(
             f"Switched {module_name} to {plan.target_definition}",
             5000,

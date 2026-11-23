@@ -2281,6 +2281,59 @@ def test_variant_switch_preserves_unknown_params_after_reload_and_defers_baselin
     assert not base_layers.exists()
 
 
+def test_variant_switch_rollback_removes_added_baseline_and_restores_library_excludes(tmp_path, monkeypatch):
+    """When switching from a baseline-less variant to one with Pre layers fails late (e.g. during
+    resolve_all_references), rollback must remove newly added baseline/merge state and restore
+    module_libraries[*].exclude mutated by deduplicate_library_definitions."""
+    import pytest
+
+    wm, project, gen_pkg, _tle_pkg = _setup_cantrcv_variant_project(tmp_path)
+    assert "CanTrcv" not in project.baselines
+    assert "CanTrcv" not in project.last_merge_results
+    original_excludes = [list(lib.exclude) for lib in project.module_libraries]
+
+    def _mutate_excludes_and_keep():
+        project.module_libraries[0].exclude.append("CanTrcv_Tle9255")
+
+    def _fail_resolve(force: bool = False):
+        raise RuntimeError("boom during resolve_all_references")
+
+    monkeypatch.setattr(project, "deduplicate_library_definitions", _mutate_excludes_and_keep)
+    monkeypatch.setattr(project, "resolve_all_references", _fail_resolve)
+
+    with pytest.raises(RuntimeError, match="boom during resolve_all_references"):
+        project.switch_module_variant(
+            "CanTrcv", gen_pkg, target_lib_index=0, preview_only=False, confirm=lambda *_: True
+        )
+
+    assert project.module_entries["CanTrcv"].definition == "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+    assert "CanTrcv" not in project.baselines
+    assert "CanTrcv" not in project.last_merge_results
+    assert [list(lib.exclude) for lib in project.module_libraries] == original_excludes
+
+
+def test_variant_switch_plan_reports_stale_variant_overrides(tmp_path):
+    """VariantSwitchPlan surfaces ECU variant_overrides keys that reference containers/parameters
+    dropped in the target implementation variant."""
+    _wm, project, gen_pkg, _tle_pkg = _setup_cantrcv_variant_project(tmp_path)
+    cfg = project.module_managers["CanTrcv"].configuration
+    cfg.variant_overrides = {
+        "V2": {
+            "/CanTrcv/CanTrcvGeneral.CanTrcvDevErrorDetect": False,
+            "/CanTrcv/CanTrcvChannel_0.CanTrcvBaudrateRatio": 20,
+        }
+    }
+
+    plan = project.switch_module_variant(
+        "CanTrcv", gen_pkg, target_lib_index=0, preview_only=True
+    )
+    assert plan.applied is False
+    assert plan.stale_variant_overrides == ["[V2] /CanTrcv/CanTrcvChannel_0.CanTrcvBaudrateRatio"]
+    assert "可能失效的变体覆盖项" in plan.to_markdown()
+    assert "[V2] /CanTrcv/CanTrcvChannel_0.CanTrcvBaudrateRatio" in plan.to_markdown()
+
+
+
 
 
 

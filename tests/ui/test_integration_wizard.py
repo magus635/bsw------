@@ -888,3 +888,61 @@ def test_tree_menu_variant_switch_visibility_matches_alternative_definitions(qtb
     tree2._populate_module_menu(menu2, "CanTrcv")
     assert len([a for a in menu2.actions() if "Switch Variant" in a.text()]) == 1
 
+
+def test_integration_wizard_replace_prunes_stale_pre_unlocked_and_controller_syncs_chip(qtbot, monkeypatch, tmp_path):
+    """Cross-variant replace prunes pre_unlocked keys absent in the target baseline;
+    ProjectController.switch_module_variant applies chip selectors and refreshes dep graph."""
+    from types import SimpleNamespace
+    from PySide6.QtWidgets import QInputDialog, QMessageBox
+    from autosar_configurator.core.packages.library import find_package, scan_library
+    from autosar_configurator.ui.controllers.project_controller import ProjectController
+
+    proj_dir = tmp_path / "prune_proj"
+    _make_pre_and_plain_cantrcv_lib(proj_dir / "modules")
+    wm = WorkspaceManager()
+    project = wm.create_project("PruneVar", proj_dir / "PruneVar.dpa", format_version=8)
+    lib_ref = LibraryRef(path="modules", kind="package")
+    project.module_libraries.append(lib_ref)
+    pkgs = scan_library(lib_ref, proj_dir)
+    _, tle_pkg = find_package([(0, pkgs)], "/MICROSAR/CanTrcv_Tle9255/CanTrcv")
+    project.add_module_from_package(tle_pkg, lib_index=0, persist=True, confirm=lambda *_: True)
+    project.module_entries["CanTrcv"].pre_unlocked = [
+        "P:/CanTrcv/CanTrcvChannel_0.CanTrcvBaudrateRatio",
+        "P:/CanTrcv/CanTrcvGeneral.CanTrcvHwInterface",
+    ]
+    wm.save_project()
+
+    # Replace Tle9255 -> GenericCan (which has Pre for CanTrcvHwInterface only)
+    _select_wizard_variant_and_accept(qtbot, project, "/MICROSAR/CanTrcv_GenericCan/CanTrcv", "replace")
+    assert project.module_entries["CanTrcv"].pre_unlocked == [
+        "P:/CanTrcv/CanTrcvGeneral.CanTrcvHwInterface"
+    ]
+
+    # Controller switch back GenericCan -> Tle9255 calls apply_chip_selectors and refreshes dep graph
+    chip_calls = []
+    dep_refreshed = []
+    monkeypatch.setattr(project, "apply_chip_selectors", lambda modules=None: chip_calls.append(modules))
+
+    fake_win = SimpleNamespace(
+        current_project=project,
+        config_manager=project.module_managers["CanTrcv"],
+        module_def=project.module_managers["CanTrcv"].module_def,
+        undo_stack=SimpleNamespace(clear=lambda: None),
+        tree_view=SimpleNamespace(set_project=lambda _p: None),
+        config_panel=SimpleNamespace(clear=lambda: None),
+        statusbar=SimpleNamespace(showMessage=lambda *_a, **_kw: None),
+        dep_graph_controller=SimpleNamespace(
+            _update_dependency_graph_if_open=lambda: dep_refreshed.append(True)
+        ),
+        _has_unsaved_changes=False,
+        _update_mode_actions=lambda: None,
+    )
+    ctrl = ProjectController(fake_win)
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *_a, **_kw: (_a[3][0], True))
+    monkeypatch.setattr(QMessageBox, "information", lambda *_a, **_kw: QMessageBox.Ok)
+
+    assert ctrl.switch_module_variant("CanTrcv", confirm=lambda *_: True) is True
+    assert chip_calls == [["CanTrcv"]]
+    assert dep_refreshed == [True]
+
+

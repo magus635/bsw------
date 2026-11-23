@@ -797,6 +797,8 @@ class IntegrationWizard(ConfigWizard):
         entry = self.project.module_entries.get(mod_name)
         if baseline.has_layers:
             baseline_session.adopt_base(mgr, baseline.base_config)
+            if entry is not None:
+                entry.pre_unlocked = [k for k in entry.pre_unlocked if k in baseline.pre_keys]
             if can_persist and entry is not None:
                 entry.base_hash = baseline_session.write_baseline(
                     self.project, mod_name, baseline
