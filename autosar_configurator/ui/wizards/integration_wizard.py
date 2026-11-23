@@ -62,6 +62,7 @@ class LibrarySelectionPage(WizardPage):
     def __init__(self, project: WorkspaceProject):
         self.project = project
         self._libraries: List[LibraryRef] = list(project.module_libraries)
+        self._orig_indices: List[Optional[int]] = list(range(len(self._libraries)))
         self.lib_table = QTableWidget()
         self.add_btn = QPushButton()
         self.remove_btn = QPushButton()
@@ -125,6 +126,18 @@ class LibrarySelectionPage(WizardPage):
                 count = "—"
             self.lib_table.setItem(row, 2, QTableWidgetItem(count))
 
+    def _normalized_lib_key(self, lib: LibraryRef) -> tuple:
+        """Canonical identity key for deduplicating libraries."""
+        project_root = self.project.path.parent if self.project.path else Path.cwd()
+        p = Path(lib.path)
+        if not p.is_absolute():
+            p = project_root / p
+        try:
+            norm_path = p.resolve().as_posix()
+        except Exception:
+            norm_path = p.as_posix()
+        return (norm_path, lib.kind)
+
     def _add_library(self):
         """Add a new library (package or EB plugins)."""
         start_dir = str(self.project.path.parent) if self.project.path else str(Path.home())
@@ -159,15 +172,42 @@ class LibrarySelectionPage(WizardPage):
                 pass
 
         lib = LibraryRef(path=stored_path, kind=kind, exclude=[])
+        new_key = self._normalized_lib_key(lib)
+        if any(self._normalized_lib_key(existing) == new_key for existing in self._libraries):
+            QMessageBox.information(
+                self,
+                "Duplicate Library",
+                f"Library '{stored_path}' ({kind}) is already in the list.",
+            )
+            return
+
         self._libraries.append(lib)
+        self._orig_indices.append(None)
         self._refresh_table()
         self.libraries_changed.emit(list(self._libraries))
 
     def _remove_library(self):
-        """Remove selected library."""
+        """Remove selected library (blocked if referenced by installed modules)."""
         row = self.lib_table.currentRow()
         if 0 <= row < len(self._libraries):
+            orig_idx = self._orig_indices[row] if row < len(self._orig_indices) else None
+            if orig_idx is not None:
+                module_entries = getattr(self.project, "module_entries", None) or {}
+                in_use = sorted(
+                    name for name, entry in module_entries.items()
+                    if entry.library == orig_idx
+                )
+                if in_use:
+                    QMessageBox.warning(
+                        self,
+                        "Library In Use",
+                        "Cannot remove this library because it is referenced by installed module(s):\n"
+                        + ", ".join(in_use),
+                    )
+                    return
             self._libraries.pop(row)
+            if row < len(self._orig_indices):
+                self._orig_indices.pop(row)
             self._refresh_table()
             self.libraries_changed.emit(list(self._libraries))
 
@@ -175,7 +215,10 @@ class LibrarySelectionPage(WizardPage):
         self.remove_btn.setEnabled(len(self.lib_table.selectedItems()) > 0)
 
     def get_data(self) -> Dict[str, Any]:
-        return {"libraries": list(self._libraries)}
+        return {
+            "libraries": list(self._libraries),
+            "orig_indices": list(self._orig_indices),
+        }
 
 
 class ModuleSelectionPage(WizardPage):
@@ -264,11 +307,13 @@ class ModuleSelectionPage(WizardPage):
             entry = module_entries.get(mod_name)
             pkg = project_pkgs.get(mod_name)
             mdef = getattr(mgr, "module_def", None)
+            cfg = getattr(mgr, "configuration", None)
             def_ref = (
                 (entry.definition if entry is not None and entry.definition else None)
                 or (pkg.manifest.definition if pkg is not None else None)
                 or getattr(mdef, "ar_path", None)
                 or getattr(mdef, "definition_ref", None)
+                or getattr(cfg, "definition_ref", None)
                 or ""
             )
             installed_defs[mod_name] = def_ref.rstrip("/")
@@ -283,12 +328,24 @@ class ModuleSelectionPage(WizardPage):
         project_root = self.project.path.parent if self.project.path else Path.cwd()
 
         all_packages = []
+        seen_pkg_keys: Set[tuple] = set()
         for lib_idx, lib in enumerate(libraries):
             try:
                 packages = scan_library(lib, project_root)
-                all_packages.extend((pkg, lib_idx) for pkg in packages)
+                for pkg in packages:
+                    key = (pkg.manifest.module, (pkg.manifest.definition or "").rstrip("/"))
+                    if key in seen_pkg_keys:
+                        continue
+                    seen_pkg_keys.add(key)
+                    all_packages.append((pkg, lib_idx))
             except Exception as e:
                 print(f"Warning: Failed to scan {lib.path}: {e}")
+
+        defs_by_mod: Dict[str, Set[str]] = {}
+        for pkg, _ in all_packages:
+            defs_by_mod.setdefault(pkg.manifest.module, set()).add(
+                (pkg.manifest.definition or "").rstrip("/")
+            )
 
         # Build candidates
         for pkg, lib_idx in all_packages:
@@ -300,7 +357,11 @@ class ModuleSelectionPage(WizardPage):
                 is_other_variant = False
             else:
                 active_def = installed_defs[mod_name]
-                is_installed = (not active_def) or (cand_def == active_def)
+                if active_def:
+                    is_installed = cand_def == active_def
+                else:
+                    # Only assume match when a single unambiguous definition exists
+                    is_installed = len(defs_by_mod.get(mod_name, set())) <= 1
                 is_other_variant = not is_installed
             category = self._infer_category(mod_name)
 
@@ -331,7 +392,10 @@ class ModuleSelectionPage(WizardPage):
             ):
                 if cand.category not in categories:
                     cat_item = QTreeWidgetItem(self.tree, [cand.category])
-                    cat_item.setFlags(cat_item.flags() | Qt.ItemIsAutoTristate)
+                    cat_item.setFlags(
+                        cat_item.flags() | Qt.ItemIsUserCheckable | Qt.ItemIsAutoTristate
+                    )
+                    cat_item.setCheckState(0, Qt.Unchecked)
                     cat_item.setExpanded(True)
                     categories[cand.category] = cat_item
 
@@ -468,7 +532,11 @@ class ModuleSelectionPage(WizardPage):
                         if other_cand and other_cand.package.manifest.module == target_mod:
                             other.setCheckState(0, Qt.Unchecked)
             elif changed_cand is None and item.checkState(0) == Qt.Checked:
-                # Category checkbox toggled: keep at most one variant per module name
+                # Category checkbox toggled: do not check hidden rows, and keep at most one variant per module
+                for j in range(item.childCount()):
+                    child = item.child(j)
+                    if child.isHidden() and child.checkState(0) == Qt.Checked:
+                        child.setCheckState(0, Qt.Unchecked)
                 seen_mods: Set[str] = set()
                 for i in range(self.tree.topLevelItemCount()):
                     cat_item = self.tree.topLevelItem(i)
@@ -496,12 +564,15 @@ class ModuleSelectionPage(WizardPage):
         self.selected_count_label.setText(text)
 
     def _select_all(self):
-        """Check all compatible, not-installed, unambiguous modules (skip multi-variant modules)."""
+        """Check all visible, compatible, not-installed, unambiguous modules (skip multi-variant modules)."""
         compat_counts: Dict[str, int] = {}
         for i in range(self.tree.topLevelItemCount()):
             cat_item = self.tree.topLevelItem(i)
             for j in range(cat_item.childCount()):
-                cand = cat_item.child(j).data(0, Qt.UserRole)
+                item = cat_item.child(j)
+                if item.isHidden():
+                    continue
+                cand = item.data(0, Qt.UserRole)
                 if cand and cand.is_compatible and not cand.is_installed and not cand.is_other_variant:
                     mname = cand.package.manifest.module
                     compat_counts[mname] = compat_counts.get(mname, 0) + 1
@@ -515,6 +586,8 @@ class ModuleSelectionPage(WizardPage):
                 cat_item = self.tree.topLevelItem(i)
                 for j in range(cat_item.childCount()):
                     item = cat_item.child(j)
+                    if item.isHidden():
+                        continue
                     cand = item.data(0, Qt.UserRole)
                     if (
                         cand
@@ -772,14 +845,40 @@ class IntegrationWizard(ConfigWizard):
         mod_data = self.page(page_ids[1]).get_data() if len(page_ids) > 1 else {}
         conf_data = self.page(page_ids[2]).get_data() if len(page_ids) > 2 else {}
 
+        prev_libraries = list(self.project.module_libraries)
+        module_entries = getattr(self.project, "module_entries", None) or {}
+        prev_entry_libs = {name: entry.library for name, entry in module_entries.items()}
+
         if "libraries" in lib_data:
-            self.project.module_libraries = list(lib_data["libraries"])
+            new_libraries = list(lib_data["libraries"])
+            orig_indices = lib_data.get("orig_indices")
+            old_to_new: Dict[int, int] = {}
+            if orig_indices is not None and len(orig_indices) == len(new_libraries):
+                for new_idx, orig_idx in enumerate(orig_indices):
+                    if orig_idx is not None:
+                        old_to_new[orig_idx] = new_idx
+            else:
+                prev_keys = {(lib.path, lib.kind): idx for idx, lib in enumerate(prev_libraries)}
+                for new_idx, lib in enumerate(new_libraries):
+                    old_idx = prev_keys.get((lib.path, lib.kind))
+                    if old_idx is not None and old_idx not in old_to_new:
+                        old_to_new[old_idx] = new_idx
+            self.project.module_libraries = new_libraries
+            for entry in module_entries.values():
+                if entry.library in old_to_new:
+                    entry.library = old_to_new[entry.library]
 
         selected: List[ModuleCandidate] = mod_data.get("selected", [])
         merge_strategy = conf_data.get("merge_strategy", "merge")
 
         # Perform integration
         self._result = self._integrate_modules(selected, merge_strategy)
+        if not self._result.get("added"):
+            # Roll back library list & index remapping if nothing was integrated
+            self.project.module_libraries = prev_libraries
+            for name, old_lib_idx in prev_entry_libs.items():
+                if name in module_entries:
+                    module_entries[name].library = old_lib_idx
         self.collected_data = self._result
 
         # Emit once and call QWizard.accept directly so ConfigWizard.accept does not
@@ -788,7 +887,11 @@ class IntegrationWizard(ConfigWizard):
         QWizard.accept(self)
 
     def _apply_replace_baseline(self, mgr, pkg: ModulePackage, mod_name: str, can_persist: bool) -> None:
-        """Replace a module's Active configuration and baseline snapshot with the package baseline."""
+        """Replace a module's Active configuration and baseline snapshot with the package baseline.
+
+        Disk persistence is intentionally deferred until ``save_project()`` (``baseline.dirty = True``),
+        consistent with ``reconcile_baseline()`` and ``switch_module_variant()``.
+        """
         if self.project.format_version < 8:
             return
         baseline = baseline_session.compute_new_base(
@@ -799,12 +902,7 @@ class IntegrationWizard(ConfigWizard):
             baseline_session.adopt_base(mgr, baseline.base_config)
             if entry is not None:
                 entry.pre_unlocked = [k for k in entry.pre_unlocked if k in baseline.pre_keys]
-            if can_persist and entry is not None:
-                entry.base_hash = baseline_session.write_baseline(
-                    self.project, mod_name, baseline
-                )
-            else:
-                baseline.dirty = True
+            baseline.dirty = True
             self.project.baselines[mod_name] = baseline
             if hasattr(self.project, "_pending_baseline_deletes"):
                 self.project._pending_baseline_deletes.discard(mod_name)
@@ -931,7 +1029,6 @@ class IntegrationWizard(ConfigWizard):
                         self.project.module_defs[mod_name] = def_file
                         self.project.packages[mod_name] = cand.package
 
-                        entry = None
                         if old_entry is not None:
                             entry = ModuleEntry(
                                 name=old_entry.name,
@@ -946,7 +1043,21 @@ class IntegrationWizard(ConfigWizard):
                                 ),
                                 base_hash=old_entry.base_hash,
                             )
-                            self.project.module_entries[mod_name] = entry
+                        else:
+                            entry = ModuleEntry(
+                                name=mod_name,
+                                definition=cand.package.manifest.definition,
+                                library=cand.lib_index,
+                                config_path=f"Config/ECUC/{mod_name}.arxml",
+                                pre_unlocked=[],
+                                package_record=(
+                                    eb_import.package_record(cand.package)
+                                    if self.project.format_version >= 8
+                                    else {}
+                                ),
+                                base_hash=None,
+                            )
+                        self.project.module_entries[mod_name] = entry
 
                         if merge_strategy == "replace":
                             self._apply_replace_baseline(mgr, cand.package, mod_name, can_persist)
@@ -968,9 +1079,17 @@ class IntegrationWizard(ConfigWizard):
                                 self.project.baselines.pop(mod_name, None)
                                 mgr.baseline_error = str(exc)
 
-                        if hasattr(self.project, "deduplicate_library_definitions"):
-                            self.project.deduplicate_library_definitions()
-                        self.project.is_modified = True
+                        if rejected_flag[0]:
+                            # Roll back metadata/definition mutations when user rejects the merge
+                            if callable(restore_backup) and backup is not None:
+                                restore_backup(backup)
+                            if not cand.is_other_variant and prev_config is not None:
+                                old_mgr.module_def = prev_module_def
+                                old_mgr.configuration = prev_config
+                        else:
+                            if hasattr(self.project, "deduplicate_library_definitions"):
+                                self.project.deduplicate_library_definitions()
+                            self.project.is_modified = True
                     except Exception:
                         if callable(restore_backup) and backup is not None:
                             restore_backup(backup)
@@ -1003,10 +1122,10 @@ class IntegrationWizard(ConfigWizard):
                     mgr = self.project.add_module_from_package(
                         cand.package,
                         lib_index=cand.lib_index,
-                        persist=can_persist,
+                        persist=False,
                         confirm=None,
                         reconcile=False,
-                        init_baseline=True,
+                        init_baseline=False,
                     )
                     self._apply_replace_baseline(mgr, cand.package, mgr.module_def.short_name, can_persist)
                 else:

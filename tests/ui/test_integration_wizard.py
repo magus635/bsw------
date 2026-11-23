@@ -946,3 +946,334 @@ def test_integration_wizard_replace_prunes_stale_pre_unlocked_and_controller_syn
     assert dep_refreshed == [True]
 
 
+def test_cross_variant_merge_via_confirm_merge_preview_delegates_to_variant_switch(qtbot, monkeypatch, tmp_path):
+    """P0 regression: cross-variant merge via ProjectController._confirm_merge_preview must
+    delegate VariantSwitchPlan to _confirm_variant_switch instead of crashing in MergePreviewDialog;
+    MergePreviewDialog itself must also tolerate VariantSwitchPlan and None."""
+    from types import SimpleNamespace
+    from autosar_configurator.core.packages.library import find_package, scan_library
+    from autosar_configurator.ui.controllers.project_controller import ProjectController
+    from autosar_configurator.ui.dialogs.merge_preview_dialog import MergePreviewDialog
+
+    proj_dir = tmp_path / "p0_proj"
+    _make_pre_and_plain_cantrcv_lib(proj_dir / "modules")
+    wm = WorkspaceManager()
+    project = wm.create_project("P0Var", proj_dir / "P0Var.dpa", format_version=8)
+    lib_ref = LibraryRef(path="modules", kind="package")
+    project.module_libraries.append(lib_ref)
+    pkgs = scan_library(lib_ref, proj_dir)
+    _, tle_pkg = find_package([(0, pkgs)], "/MICROSAR/CanTrcv_Tle9255/CanTrcv")
+    project.add_module_from_package(tle_pkg, lib_index=0, persist=True, confirm=lambda *_: True)
+    wm.save_project()
+
+    fake_win = SimpleNamespace(current_project=project)
+    ctrl = ProjectController(fake_win)
+    captured_plans = []
+
+    def _fake_confirm_variant_switch(preview_md, plan):
+        captured_plans.append(plan)
+        # Also verify MergePreviewDialog itself tolerates VariantSwitchPlan and None
+        dlg_plan = MergePreviewDialog(None, plan.module_name, preview_md, plan)
+        qtbot.addWidget(dlg_plan)
+        dlg_none = MergePreviewDialog(None, plan.module_name, preview_md, None)
+        qtbot.addWidget(dlg_none)
+        return True
+
+    monkeypatch.setattr(ctrl, "_confirm_variant_switch", _fake_confirm_variant_switch)
+
+    wizard = IntegrationWizard(project, confirm_merge=ctrl._confirm_merge_preview)
+    qtbot.addWidget(wizard)
+    mod_page = wizard.page(wizard.pageIds()[1])
+    mod_page.initializePage()
+
+    target_found = False
+    for i in range(mod_page.tree.topLevelItemCount()):
+        cat = mod_page.tree.topLevelItem(i)
+        for j in range(cat.childCount()):
+            item = cat.child(j)
+            cand = item.data(0, Qt.UserRole)
+            if cand and cand.package.manifest.definition == "/MICROSAR/CanTrcv_GenericCan/CanTrcv":
+                item.setCheckState(0, Qt.Checked)
+                target_found = True
+    assert target_found
+
+    conf_page = wizard.page(wizard.pageIds()[2])
+    conf_page.initializePage()
+    conf_page.merge_strategy_merge.setChecked(True)
+    wizard.accept()
+
+    assert len(captured_plans) == 1
+    assert captured_plans[0].target_definition == "/MICROSAR/CanTrcv_GenericCan/CanTrcv"
+    assert wizard._result["added"] == ["CanTrcv"]
+    assert project.module_entries["CanTrcv"].definition == "/MICROSAR/CanTrcv_GenericCan/CanTrcv"
+
+
+def test_library_dedup_in_use_removal_block_index_remap_and_rollback(qtbot, monkeypatch, tmp_path):
+    """LibrarySelectionPage deduplicates libraries, blocks removing in-use libraries,
+    remaps entry.library on unused library removal, and rolls back on empty/failed integration."""
+    from PySide6.QtWidgets import QFileDialog, QInputDialog, QMessageBox
+    from autosar_configurator.core.packages.library import scan_library
+
+    proj_dir = tmp_path / "lib_proj"
+    unused_lib_dir = _make_package_lib(proj_dir / "unused_lib", "ModUnused", "Fast")
+    active_lib_dir = _make_package_lib(proj_dir / "active_lib", "ModA", "Fast")
+    _make_package_lib(active_lib_dir, "ModB", "Eco")
+
+    wm = WorkspaceManager()
+    project = wm.create_project("LibProj", proj_dir / "LibProj.dpa", format_version=8)
+    project.module_libraries = [
+        LibraryRef(path="unused_lib", kind="package"),
+        LibraryRef(path="active_lib", kind="package"),
+    ]
+    pkgs = scan_library(project.module_libraries[1], proj_dir)
+    pkg_a = next(p for p in pkgs if p.manifest.module == "ModA")
+    project.add_module_from_package(pkg_a, lib_index=1, persist=True, confirm=lambda *_: True)
+    assert project.module_entries["ModA"].library == 1
+
+    infos = []
+    warnings = []
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **kw: (infos.append(a[2]), QMessageBox.Ok)[1])
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **kw: (warnings.append(a[2]), QMessageBox.Ok)[1])
+
+    wizard = IntegrationWizard(project)
+    qtbot.addWidget(wizard)
+    lib_page = wizard.page(wizard.pageIds()[0])
+
+    # 1. Duplicate add is ignored with info message
+    monkeypatch.setattr(QFileDialog, "getExistingDirectory", lambda *a, **kw: str(active_lib_dir))
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *a, **kw: ("package", True))
+    lib_page._add_library()
+    assert len(lib_page._libraries) == 2
+    assert len(infos) == 1
+
+    # 2. Removing in-use library (row 1) is blocked with warning
+    lib_page.lib_table.selectRow(1)
+    lib_page._remove_library()
+    assert len(lib_page._libraries) == 2
+    assert any("ModA" in w for w in warnings)
+
+    # 3. Removing unused earlier library (row 0) succeeds; if nothing is integrated, project rolls back
+    lib_page.lib_table.selectRow(0)
+    lib_page._remove_library()
+    assert len(lib_page._libraries) == 1
+    wizard.accept()
+    assert wizard._result["added"] == []
+    assert len(project.module_libraries) == 2
+    assert project.module_entries["ModA"].library == 1
+
+    # 4. Removing unused earlier library (row 0) AND integrating ModB remaps ModA.library from 1 -> 0
+    wizard2 = IntegrationWizard(project)
+    qtbot.addWidget(wizard2)
+    lib_page2 = wizard2.page(wizard2.pageIds()[0])
+    lib_page2.lib_table.selectRow(0)
+    lib_page2._remove_library()
+    mod_page2 = wizard2.page(wizard2.pageIds()[1])
+    mod_page2.initializePage()
+    for i in range(mod_page2.tree.topLevelItemCount()):
+        cat = mod_page2.tree.topLevelItem(i)
+        for j in range(cat.childCount()):
+            item = cat.child(j)
+            cand = item.data(0, Qt.UserRole)
+            if cand and cand.package.manifest.module == "ModB":
+                item.setCheckState(0, Qt.Checked)
+    wizard2.accept()
+    assert wizard2._result["added"] == ["ModB"]
+    assert len(project.module_libraries) == 1
+    assert project.module_entries["ModA"].library == 0
+    assert project.module_entries["ModB"].library == 0
+
+
+def test_same_variant_merge_rejection_rolls_back_state_and_is_modified(qtbot, tmp_path):
+    """Rejecting a same-variant baseline merge must roll back module_entries/packages/module_def
+    and must not mark the project as modified."""
+    proj_dir = tmp_path / "rej_proj"
+    lib_dir = _make_package_lib(proj_dir / "lib", "ModA", "Fast")
+
+    wm = WorkspaceManager()
+    project = wm.create_project("RejProj", proj_dir / "RejProj.dpa", format_version=8)
+    project.module_libraries = [LibraryRef(path="lib", kind="package")]
+
+    # Initial install via wizard
+    w1 = IntegrationWizard(project, confirm_merge=lambda *_: True)
+    qtbot.addWidget(w1)
+    mp1 = w1.page(w1.pageIds()[1])
+    mp1.initializePage()
+    mp1._select_all()
+    w1.accept()
+    wm.save_project()
+    project.is_modified = False
+
+    orig_pkg_record = dict(project.module_entries["ModA"].package_record)
+    orig_mode = (
+        project.module_managers["ModA"]
+        .configuration.containers[0]
+        .parameter_values["Mode"]
+        .value
+    )
+    assert orig_mode == "Fast"
+
+    # Update package Rec on disk so reconcile_baseline prompts user
+    _make_package_lib(lib_dir, "ModA", "Ultra")
+
+    w2 = IntegrationWizard(project, confirm_merge=lambda *_: False)
+    qtbot.addWidget(w2)
+    mp2 = w2.page(w2.pageIds()[1])
+    mp2.initializePage()
+    for i in range(mp2.tree.topLevelItemCount()):
+        cat = mp2.tree.topLevelItem(i)
+        for j in range(cat.childCount()):
+            item = cat.child(j)
+            cand = item.data(0, Qt.UserRole)
+            if cand and cand.package.manifest.module == "ModA":
+                item.setCheckState(0, Qt.Checked)
+    cp2 = w2.page(w2.pageIds()[2])
+    cp2.initializePage()
+    cp2.merge_strategy_merge.setChecked(True)
+    w2.accept()
+
+    assert w2._result["merge_rejected"] == ["ModA"]
+    assert w2._result["added"] == []
+    assert project.is_modified is False
+    assert project.module_entries["ModA"].package_record == orig_pkg_record
+    assert (
+        project.module_managers["ModA"]
+        .configuration.containers[0]
+        .parameter_values["Mode"]
+        .value
+        == "Fast"
+    )
+
+
+def test_replace_strategy_defers_baseline_disk_write_until_save_project(qtbot, tmp_path):
+    """Replace strategy must mark baseline dirty in memory instead of writing .baseline/ immediately."""
+    from autosar_configurator.core.baseline import session as baseline_session
+
+    proj_dir = tmp_path / "defer_proj"
+    lib_dir = _make_package_lib(proj_dir / "lib", "ModA", "Fast")
+
+    wm = WorkspaceManager()
+    project = wm.create_project("DeferProj", proj_dir / "DeferProj.dpa", format_version=8)
+    project.module_libraries = [LibraryRef(path="lib", kind="package")]
+    wm.save_project()
+
+    snap_path = baseline_session.base_snapshot_path(project, "ModA")
+    assert not snap_path.exists()
+
+    # 1. New module with replace strategy: no disk write before save_project()
+    w1 = IntegrationWizard(project)
+    qtbot.addWidget(w1)
+    mp1 = w1.page(w1.pageIds()[1])
+    mp1.initializePage()
+    mp1._select_all()
+    cp1 = w1.page(w1.pageIds()[2])
+    cp1.initializePage()
+    cp1.merge_strategy_replace.setChecked(True)
+    w1.accept()
+
+    assert project.baselines["ModA"].dirty is True
+    assert not snap_path.exists()
+
+    wm.save_project()
+    assert snap_path.exists()
+    old_bytes = snap_path.read_bytes()
+
+    # 2. Existing module with replace strategy after package update: still deferred until save_project()
+    _make_package_lib(lib_dir, "ModA", "Turbo")
+    w2 = IntegrationWizard(project)
+    qtbot.addWidget(w2)
+    mp2 = w2.page(w2.pageIds()[1])
+    mp2.initializePage()
+    for i in range(mp2.tree.topLevelItemCount()):
+        cat = mp2.tree.topLevelItem(i)
+        for j in range(cat.childCount()):
+            item = cat.child(j)
+            cand = item.data(0, Qt.UserRole)
+            if cand and cand.package.manifest.module == "ModA":
+                item.setCheckState(0, Qt.Checked)
+    cp2 = w2.page(w2.pageIds()[2])
+    cp2.initializePage()
+    cp2.merge_strategy_replace.setChecked(True)
+    w2.accept()
+
+    assert project.baselines["ModA"].dirty is True
+    assert snap_path.read_bytes() == old_bytes
+
+    wm.save_project()
+    assert snap_path.read_bytes() != old_bytes
+
+
+def test_filtered_select_all_and_cross_library_duplicate_dedup(qtbot, tmp_path):
+    """ModuleSelectionPage deduplicates identical (module, definition) across libraries,
+    and _select_all only selects visible matching items when a filter is active."""
+    proj_dir = tmp_path / "filter_proj"
+    lib1 = _make_package_lib(proj_dir / "lib1", "ModAlpha", "Fast")
+    _make_package_lib(lib1, "ModBeta", "Eco")
+    # Same (ModAlpha, /Vendor/ModAlpha) duplicated in second library
+    _make_package_lib(proj_dir / "lib2", "ModAlpha", "Fast")
+
+    wm = WorkspaceManager()
+    project = wm.create_project("FilterProj", proj_dir / "FilterProj.dpa", format_version=8)
+    project.module_libraries = [
+        LibraryRef(path="lib1", kind="package"),
+        LibraryRef(path="lib2", kind="package"),
+    ]
+
+    wizard = IntegrationWizard(project)
+    qtbot.addWidget(wizard)
+    mod_page = wizard.page(wizard.pageIds()[1])
+    mod_page.initializePage()
+
+    # Cross-library duplicate of ModAlpha should be deduplicated into 1 candidate
+    alpha_cands = [c for c in mod_page.candidates if c.package.manifest.module == "ModAlpha"]
+    assert len(alpha_cands) == 1
+
+    # Filter to only ModAlpha and click Select All -> only ModAlpha should be selected
+    mod_page.filter_edit.setText("ModAlpha")
+    mod_page._select_all()
+    selected = [c.package.manifest.module for c in mod_page._get_selected_candidates()]
+    assert selected == ["ModAlpha"]
+    assert mod_page.last_skipped_ambiguous == []
+
+
+def test_on_integration_complete_updates_title_dep_graph_and_resolves_references(monkeypatch):
+    """ProjectController._on_integration_complete re-resolves references after chip selectors
+    and refreshes window title and dependency graph."""
+    from types import SimpleNamespace
+    from PySide6.QtWidgets import QMessageBox
+    from autosar_configurator.ui.controllers.project_controller import ProjectController
+
+    events = []
+    fake_proj = SimpleNamespace(
+        module_managers={},
+        load_ecu_resources=lambda: events.append("load_ecu"),
+        apply_chip_selectors=lambda modules=None: events.append(("apply_chip", modules)),
+        resolve_all_references=lambda force=False: events.append(("resolve_refs", force)),
+        build_reverse_reference_index=lambda: events.append("reverse_index"),
+    )
+    fake_win = SimpleNamespace(
+        current_project=fake_proj,
+        module_def=None,
+        config_manager=None,
+        undo_stack=SimpleNamespace(clear=lambda: events.append("clear_undo")),
+        tree_view=SimpleNamespace(set_project=lambda _p: events.append("set_project")),
+        statusbar=SimpleNamespace(showMessage=lambda msg: events.append(("status", msg))),
+        _update_window_title=lambda: events.append("update_title"),
+        dep_graph_controller=SimpleNamespace(
+            _update_dependency_graph_if_open=lambda: events.append("update_dep_graph")
+        ),
+        _has_unsaved_changes=False,
+    )
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **kw: QMessageBox.Ok)
+
+    ctrl = ProjectController(fake_win)
+    ctrl._on_integration_complete({"added": ["Can"], "failed": [], "merge_conflicts": [], "merge_rejected": []})
+
+    assert ("apply_chip", ["Can"]) in events
+    assert ("resolve_refs", True) in events
+    assert "reverse_index" in events
+    assert events.index(("apply_chip", ["Can"])) < events.index(("resolve_refs", True))
+    assert "update_title" in events
+    assert "update_dep_graph" in events
+
+
+

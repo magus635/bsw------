@@ -145,21 +145,29 @@ class ProjectController:
             "（“保留当前”不改配置，下次打开会再次询问。）")
 
     def _confirm_merge_preview(self, preview_text: str, merge_result) -> bool:
-        """Show ``MergePreviewDialog`` for a baseline merge and return user acceptance."""
+        """Show ``MergePreviewDialog`` (or variant-switch confirmation) and return user acceptance."""
         from PySide6.QtWidgets import QApplication
         from ..dialogs.merge_preview_dialog import MergePreviewDialog
 
-        module_name = "Module"
-        if preview_text:
-            first_line = preview_text.split('\n')[0]
-            if '基线合并预演' in first_line:
-                module_name = first_line.replace('#', '').replace('基线合并预演', '').strip()
-
-        dialog = MergePreviewDialog(self.win, module_name, preview_text, merge_result)
         busy = QApplication.overrideCursor() is not None
         if busy:
             QApplication.restoreOverrideCursor()
         try:
+            # Cross-variant merge passes a VariantSwitchPlan instead of MergeResult
+            if (
+                merge_result is not None
+                and hasattr(merge_result, "source_definition")
+                and hasattr(merge_result, "baseline_result")
+            ):
+                return self._confirm_variant_switch(preview_text, merge_result)
+
+            module_name = "Module"
+            if preview_text:
+                first_line = preview_text.split('\n')[0]
+                if '基线合并预演' in first_line:
+                    module_name = first_line.replace('#', '').replace('基线合并预演', '').strip()
+
+            dialog = MergePreviewDialog(self.win, module_name, preview_text, merge_result)
             return dialog.exec() == QDialog.Accepted
         finally:
             if busy:
@@ -2146,6 +2154,13 @@ class ProjectController:
             self.win._has_unsaved_changes = True
             self.win.current_project.load_ecu_resources()
             self.win.current_project.apply_chip_selectors(modules=added)
+            try:
+                if hasattr(self.win.current_project, "resolve_all_references"):
+                    self.win.current_project.resolve_all_references(force=True)
+                if hasattr(self.win.current_project, "build_reverse_reference_index"):
+                    self.win.current_project.build_reverse_reference_index()
+            except Exception:
+                pass
             undo_stack = getattr(self.win, "undo_stack", None)
             if undo_stack is not None and hasattr(undo_stack, "clear"):
                 undo_stack.clear()
@@ -2162,6 +2177,12 @@ class ProjectController:
                 if callable(clear_panel):
                     clear_panel()
             self.win.tree_view.set_project(self.win.current_project)
+            update_title = getattr(self.win, "_update_window_title", None)
+            if callable(update_title):
+                update_title()
+            dep_ctrl = getattr(self.win, "dep_graph_controller", None)
+            if dep_ctrl is not None and hasattr(dep_ctrl, "_update_dependency_graph_if_open"):
+                dep_ctrl._update_dependency_graph_if_open()
 
             msg = f"Successfully added {len(added)} module(s):\n"
             msg += "\n".join(f"  • {m}" for m in added[:10])

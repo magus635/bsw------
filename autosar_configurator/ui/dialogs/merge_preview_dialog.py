@@ -32,14 +32,14 @@ class MergePreviewDialog(QDialog):
         layout.addWidget(QLabel("合并内容预览："))
         layout.addWidget(preview)
 
-        # Summary
+        # Summary (also tolerate VariantSwitchPlan or None defensively)
+        actual_result = getattr(self.merge_result, "baseline_result", self.merge_result)
         summary_lines = []
-        if self.merge_result.items:
-            from ...core.baseline.merge import MergeKind
+        if actual_result is not None and getattr(actual_result, "items", None):
+            from ...core.baseline.merge import MergeKind, _KIND_LABELS
             for kind in MergeKind:
-                items = self.merge_result.of_kind(kind)
+                items = actual_result.of_kind(kind)
                 if items:
-                    from ...core.baseline.merge import _KIND_LABELS
                     count = len(items)
                     summary_lines.append(f"{_KIND_LABELS[kind]}: {count} 项")
 
