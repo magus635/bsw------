@@ -63,8 +63,9 @@ class Renderer:
             include_search_paths: Optional additional paths to search for INCLUDE files
         """
         self.strict = strict
-        self.template_dir = template_dir or Path(".")
-        self.include_search_paths = list(include_search_paths) if include_search_paths else []
+        tpl_path = Path(template_dir) if template_dir else None
+        self.template_dir = tpl_path or Path(".")
+        self.include_search_paths = [Path(p) for p in include_search_paths if p] if include_search_paths else []
 
         def _path_key(p: Path) -> Path:
             try:
@@ -75,11 +76,11 @@ class Renderer:
         # Ensure include_search_paths includes explicit template_dir (using resolved
         # paths so equivalent Paths do not re-insert ahead of higher-priority layers).
         # Never inject Path(".") ahead of caller-supplied search paths when template_dir is None.
-        if template_dir is not None:
-            tpl_key = _path_key(template_dir)
-            existing_keys = {_path_key(p) for p in self.include_search_paths if p is not None}
+        if tpl_path is not None:
+            tpl_key = _path_key(tpl_path)
+            existing_keys = {_path_key(p) for p in self.include_search_paths}
             if tpl_key not in existing_keys:
-                self.include_search_paths.insert(0, template_dir)
+                self.include_search_paths.insert(0, tpl_path)
         elif not self.include_search_paths:
             self.include_search_paths.append(self.template_dir)
         

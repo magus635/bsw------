@@ -1402,7 +1402,13 @@ class ConfigurationManager:
                     or ""
                 ).rstrip("/")
                 std_ref = f"/AUTOSAR/EcucDefs/{module_name}" if module_name else ""
-                is_specific_def = bool(module_name and module_ar_path and module_ar_path != std_ref)
+                is_specific_def = bool(
+                    not self.def_missing
+                    and module_name
+                    and module_ar_path
+                    and module_ar_path != std_ref
+                    and not module_ar_path.startswith("/__STUB__/")
+                )
 
                 matching_configs = []
                 if is_specific_def:

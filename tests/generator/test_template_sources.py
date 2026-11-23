@@ -553,3 +553,21 @@ def test_build_include_search_paths_does_not_expose_package_parent_or_duplicate_
     from_variant = [p.resolve() for p in gen._build_include_search_paths("CanTrcv", variant_dir.resolve())]
     assert from_variant.index(pkg_tpl_dir.resolve()) < from_variant.index(overlay_root.resolve())
     assert len(from_variant) == len(set(from_variant))
+
+
+def test_renderer_normalizes_str_template_dir_and_search_paths(tmp_path):
+    """Direct Renderer callers passing str template_dir/include_search_paths should work cleanly."""
+    from autosar_configurator.generator.eb.renderer import Renderer
+
+    tpl_dir = tmp_path / "tpl"
+    extra_dir = tmp_path / "extra"
+    _write(tpl_dir / "M.m", '[!VAR "VM" = "\'TPL\'"!]\n')
+    _write(extra_dir / "E.m", '[!VAR "VE" = "\'EXTRA\'"!]\n')
+
+    r = Renderer(strict=False, template_dir=str(tpl_dir), include_search_paths=[str(extra_dir)])
+    assert isinstance(r.template_dir, Path)
+    assert all(isinstance(p, Path) for p in r.include_search_paths)
+    r.load_module(_module_def(), _config())
+    rendered = r.render('[!INCLUDE "M.m"!][!INCLUDE "E.m"!][!"$VM"!]:[!"$VE"!]', module_name="Dio")
+    assert rendered.strip() == "TPL:EXTRA"
+

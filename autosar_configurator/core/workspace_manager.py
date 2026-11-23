@@ -1463,9 +1463,10 @@ class WorkspaceProject:
         libraries = scan_libraries(self)
         std_ref = f"/AUTOSAR/EcucDefs/{module_name}" if module_name else ""
         norm_def_ref = archived_def_ref.rstrip("/") if archived_def_ref else ""
+        has_specific_archived_def = bool(norm_def_ref and norm_def_ref != std_ref)
 
         match = None
-        if norm_def_ref and norm_def_ref != std_ref:
+        if has_specific_archived_def:
             try:
                 match = find_package(libraries, norm_def_ref)
             except PackageError:
@@ -1479,17 +1480,24 @@ class WorkspaceProject:
                     if pkg.manifest.module == module_name or def_leaf == module_name:
                         candidates.append((idx, pkg))
             candidates.sort(key=lambda item: (item[1].manifest.definition, item[0]))
-            if len(candidates) == 1:
+            if has_specific_archived_def:
+                if candidates:
+                    options = ", ".join(pkg.manifest.definition for _idx, pkg in candidates)
+                    prefix = (
+                        f"Ambiguous restore for '{module_name}'"
+                        if len(candidates) > 1
+                        else f"Cannot restore '{module_name}'"
+                    )
+                    raise ValueError(
+                        f"{prefix} (definition '{norm_def_ref}' was not found); "
+                        f"matching variant packages: {options}"
+                    )
+            elif len(candidates) == 1:
                 match = candidates[0]
             elif len(candidates) > 1:
                 options = ", ".join(pkg.manifest.definition for _idx, pkg in candidates)
-                reason = (
-                    f"definition '{norm_def_ref}' is not specific"
-                    if not norm_def_ref or norm_def_ref == std_ref
-                    else f"definition '{norm_def_ref}' was not found"
-                )
                 raise ValueError(
-                    f"Ambiguous restore for '{module_name}' ({reason}); "
+                    f"Ambiguous restore for '{module_name}' (definition '{norm_def_ref}' is not specific); "
                     f"matching variant packages: {options}"
                 )
 
@@ -1503,11 +1511,19 @@ class WorkspaceProject:
                 "remove it first before restoring an archive"
             )
         target_cfg = project_paths.config_file(self, pkg.manifest.module)
+        prev_bytes = target_cfg.read_bytes() if target_cfg.is_file() else None
         target_cfg.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(archive_path, target_cfg)
-        return self.add_module_from_package(
-            pkg, lib_index, persist=True, confirm=confirm, reconcile=True
-        )
+        try:
+            shutil.copy2(archive_path, target_cfg)
+            return self.add_module_from_package(
+                pkg, lib_index, persist=True, confirm=confirm, reconcile=True
+            )
+        except Exception:
+            if prev_bytes is None:
+                target_cfg.unlink(missing_ok=True)
+            else:
+                target_cfg.write_bytes(prev_bytes)
+            raise
 
     def list_module_variant_packages(self, module_name: str) -> List[Tuple[int, ModulePackage]]:
         """List all available variant packages for ``module_name`` across registered libraries."""

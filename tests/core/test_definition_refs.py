@@ -519,3 +519,135 @@ def test_parameter_dependency_rule_passes_module_name_for_vendor_paths():
     res = rule.validate(module_def, cfg)
     assert res.error_count == 1
 
+
+def test_load_configuration_allows_vendor_config_for_stub_def_missing(tmp_path):
+    """Stub module definitions (def_missing=True / /__STUB__/...) must still load vendor configs."""
+    from autosar_configurator.core.model.definition_model import EcucModuleDef
+
+    stub_def = EcucModuleDef(
+        short_name="CanTrcv",
+        definition_ref="/__STUB__/AUTOSAR/EcucDefs/CanTrcv",
+    )
+    vendor_arxml = tmp_path / "CanTrcv_stub.arxml"
+    vendor_arxml.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/CanTrcv_GenericCan/CanTrcv</DEFINITION-REF>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/CanTrcv_GenericCan/CanTrcv/CanTrcvGeneral</DEFINITION-REF>
+          <PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE>
+            <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/MICROSAR/CanTrcv_GenericCan/CanTrcv/CanTrcvGeneral/CanTrcvDevErrorDetect</DEFINITION-REF>
+            <VALUE>true</VALUE>
+          </ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES>
+        </ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    mgr = ConfigurationManager(stub_def, def_missing=True)
+    mgr.load_configuration(vendor_arxml, skip_cleanup=True)
+    assert len(mgr.configuration.containers) == 1
+    gen = mgr.configuration.containers[0]
+    assert gen.short_name == "CanTrcvGeneral"
+    assert gen.parameter_values["CanTrcvDevErrorDetect"].value is True
+
+
+def test_restore_deleted_module_rejects_mismatched_single_variant_and_cleans_up_disk(tmp_path, monkeypatch):
+    """restore_deleted_module rejects mismatched vendor variant even when only 1 other variant exists,
+    and cleans up config/<M>.arxml if post-copy module loading fails."""
+    import json
+    from autosar_configurator.core.packages.library import LibraryRef
+    from autosar_configurator.core.workspace_manager import WorkspaceManager
+
+    proj_dir = tmp_path / "SingleVarProj"
+    tle_cfg_dir = proj_dir / "modules" / "CanTrcv_Tle9255" / "config"
+    tle_cfg_dir.mkdir(parents=True)
+    (tle_cfg_dir / "CanTrcv.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>CanTrcv_Tle9255</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF>
+        <SHORT-NAME>CanTrcv</SHORT-NAME>
+        <CONTAINERS>
+          <ECUC-PARAM-CONF-CONTAINER-DEF>
+            <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+            <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          </ECUC-PARAM-CONF-CONTAINER-DEF>
+        </CONTAINERS>
+      </ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+    (proj_dir / "modules" / "CanTrcv_Tle9255" / "module.json").write_text(json.dumps({
+        "schema": 1,
+        "module": "CanTrcv",
+        "definition": "/MICROSAR/CanTrcv_Tle9255/CanTrcv",
+        "files": ["config/CanTrcv.arxml"],
+        "pre": [],
+        "rec": [],
+    }), encoding="utf-8")
+
+    wm = WorkspaceManager()
+    project = wm.create_project("SingleVarProj", proj_dir / "SingleVarProj.dpa", format_version=8)
+    project.module_libraries.append(LibraryRef(path="modules", kind="package"))
+    wm.save_project()
+
+    deleted_dir = proj_dir / ".history" / "deleted"
+    deleted_dir.mkdir(parents=True, exist_ok=True)
+    mismatched_archive = deleted_dir / "CanTrcv_20260101T000000.arxml"
+    mismatched_archive.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/CanTrcv_GenericCan/CanTrcv</DEFINITION-REF>
+      <CONTAINERS/>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    target_cfg = proj_dir / "config" / "CanTrcv.arxml"
+    assert not target_cfg.exists()
+
+    with pytest.raises(ValueError) as exc_info:
+        project.restore_deleted_module(mismatched_archive, confirm=lambda *_: True)
+    msg = str(exc_info.value)
+    assert "CanTrcv_GenericCan" in msg
+    assert "/MICROSAR/CanTrcv_Tle9255/CanTrcv" in msg
+    assert not target_cfg.exists()
+
+    # Standard archive matches single candidate; simulate failure after copy to verify disk cleanup/rollback
+    std_archive = deleted_dir / "CanTrcv_20260101T000001.arxml"
+    std_archive.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/AUTOSAR/EcucDefs/CanTrcv</DEFINITION-REF>
+      <CONTAINERS/>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    def _boom(*_args, **_kwargs):
+        assert target_cfg.is_file()
+        raise ValueError("simulated load failure")
+
+    monkeypatch.setattr(project, "add_module_from_package", _boom)
+    with pytest.raises(ValueError, match="simulated load failure"):
+        project.restore_deleted_module(std_archive, confirm=lambda *_: True)
+    assert not target_cfg.exists()
+
+    # Also preserves any pre-existing file bytes on disk if an error happens after copy
+    target_cfg.parent.mkdir(parents=True, exist_ok=True)
+    target_cfg.write_bytes(b"PREVIOUS_CONTENT")
+    with pytest.raises(ValueError, match="simulated load failure"):
+        project.restore_deleted_module(std_archive, confirm=lambda *_: True)
+    assert target_cfg.read_bytes() == b"PREVIOUS_CONTENT"
+
+
