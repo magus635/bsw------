@@ -26,44 +26,40 @@ def _resolve_container_def(definition_ref: str, module_def: EcucModuleDef) -> Op
 
     Handles various path formats:
     - /AUTOSAR/EcucDefs/Module/Container (standard AUTOSAR)
-    - /PackageName/Module/Container (custom package like THA6_AS440_FuSa)
+    - /PackageName/Variant/Module/Container (multi-segment vendor package)
     - Container/SubContainer (relative paths)
     """
     if not definition_ref:
         return None
 
-    # Method 1: strip module_def.definition_ref prefix (most reliable)
-    module_def_ref = getattr(module_def, 'definition_ref', '') or ''
-    if module_def_ref and definition_ref.startswith(module_def_ref + '/'):
-        relative_path = definition_ref[len(module_def_ref) + 1:]
-        if relative_path:
-            result = module_def.get_container_def(relative_path)
-            if result is not None:
-                return result
-
-    parts = definition_ref.split('/')
-
-    # Handle absolute paths (starts with /)
-    if parts[0] == '' and len(parts) >= 3:
-        # Try to find module name in path
-        module_name = module_def.short_name
-        try:
-            module_idx = parts.index(module_name)
-            relative_path = '/'.join(parts[module_idx + 1:])
-            if relative_path:
-                return module_def.get_container_def(relative_path)
-        except ValueError:
-            pass
-
-        # Fallback: assume format /Package/Module/Container...
-        if len(parts) >= 4:
-            relative_path = '/'.join(parts[3:])
-            if relative_path:
-                return module_def.get_container_def(relative_path)
-
     # Handle relative paths
     if not definition_ref.startswith('/'):
         return module_def.get_container_def(definition_ref)
+
+    # Method 1: strip exact module_def.ar_path / definition_ref prefix (handles custom/3-segment paths)
+    for base_attr in ('ar_path', 'definition_ref'):
+        base_ref = (getattr(module_def, base_attr, '') or '').rstrip('/')
+        if base_ref and definition_ref.startswith(base_ref + '/'):
+            relative_path = definition_ref[len(base_ref) + 1:]
+            if relative_path:
+                result = module_def.get_container_def(relative_path)
+                if result is not None:
+                    return result
+
+    # Method 2: resolve relative path via module_relative with module_def.short_name
+    from ..model.definition_refs import module_relative
+    rel = module_relative(definition_ref, getattr(module_def, 'short_name', None))
+    if rel:
+        result = module_def.get_container_def(rel)
+        if result is not None:
+            return result
+
+    # Method 3: legacy fallback assuming /Package/Module/Container...
+    parts = definition_ref.split('/')
+    if len(parts) >= 4:
+        relative_path = '/'.join(parts[3:])
+        if relative_path:
+            return module_def.get_container_def(relative_path)
 
     return None
 

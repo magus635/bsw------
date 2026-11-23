@@ -186,26 +186,64 @@ class CodeGenerator:
             # Also check the template sources for embedded properties. One precedence
             # with the templates: the project overlay is scanned LAST so that its
             # values override the package's and the user's (later files override
-            # earlier ones below). A source without a directory only skips itself, so
-            # a package-only project still scans.
-            for template_root in (self.package_template_dir, self.user_template_dir,
-                                  self.project_template_dir):
+            # earlier ones below). Inactive sibling variant directories under
+            # overlay roots are excluded, while the active variant overlay subdir
+            # overrides the generic templates/<Module>/ dir.
+            def _scan_overlay_properties(
+                root: Path, active_mod: str, pkg_dir_name: Optional[str]
+            ) -> List[Path]:
+                if not active_mod:
+                    return sorted(root.glob("**/*.properties"), key=lambda p: p.as_posix())
+                mod_lower = active_mod.lower()
+                pkg_lower = pkg_dir_name.lower() if pkg_dir_name else ""
+                other_mods = {
+                    k.lower() for k in (getattr(self, "all_configurations", None) or {})
+                }
+                regular: List[Path] = []
+                deferred_variant: List[Path] = []
+                for item in sorted(root.iterdir(), key=lambda p: p.as_posix()):
+                    if item.is_file() and item.suffix.lower() == ".properties":
+                        regular.append(item)
+                        continue
+                    if not item.is_dir():
+                        continue
+                    name_lower = item.name.lower()
+                    if pkg_lower and pkg_lower != mod_lower and name_lower == pkg_lower:
+                        deferred_variant.extend(
+                            sorted(item.glob("**/*.properties"), key=lambda p: p.as_posix())
+                        )
+                    elif (
+                        name_lower.startswith(f"{mod_lower}_")
+                        and name_lower != pkg_lower
+                        and name_lower not in other_mods
+                    ):
+                        continue
+                    else:
+                        regular.extend(
+                            sorted(item.glob("**/*.properties"), key=lambda p: p.as_posix())
+                        )
+                return regular + deferred_variant
+
+            pkg_tpl = getattr(self, "package_template_dir", None)
+            if pkg_tpl and Path(pkg_tpl).is_dir():
+                props_files.extend(
+                    sorted(Path(pkg_tpl).glob("**/*.properties"), key=lambda p: p.as_posix())
+                )
+
+            cfg = getattr(self, "configuration", None)
+            mdef = getattr(self, "module_def", None)
+            mod_name = (
+                cfg.short_name if cfg is not None else (mdef.short_name if mdef is not None else "")
+            )
+            pkg_dir_name = getattr(self, "package_dir_name", None)
+            for template_root in (
+                getattr(self, "user_template_dir", None),
+                self.project_template_dir,
+            ):
                 if template_root and Path(template_root).is_dir():
                     props_files.extend(
-                        sorted(Path(template_root).glob("**/*.properties"), key=lambda p: p.as_posix())
+                        _scan_overlay_properties(Path(template_root), mod_name, pkg_dir_name)
                     )
-            if self.project_template_dir and self.package_dir_name:
-                mod_name = (
-                    self.configuration.short_name
-                    if self.configuration is not None
-                    else (self.module_def.short_name if self.module_def is not None else "")
-                )
-                if self.package_dir_name.lower() != mod_name.lower():
-                    variant_overlay_dir = Path(self.project_template_dir) / self.package_dir_name
-                    if variant_overlay_dir.is_dir():
-                        props_files.extend(
-                            sorted(variant_overlay_dir.glob("**/*.properties"), key=lambda p: p.as_posix())
-                        )
         except Exception as e:
             logger.warning(f"Error scanning for properties files: {e}")
 

@@ -554,3 +554,72 @@ class TestValidationEnableConditions:
         res2 = MultiplicityValidationRule().validate(mod_def, cfg)
         assert res2.error_count == 1
         assert "ConditionalSub" in res2.errors[0].message
+
+
+def test_base_and_reference_rules_resolve_three_segment_vendor_ar_path():
+    """Type, Range, RequiredParameter, and RequiredReference rules resolve containers using
+    module_def.ar_path / module_relative without mis-slicing 3-segment vendor paths."""
+    module_def = EcucModuleDef(
+        short_name="CanTrcv",
+        definition_ref="/AUTOSAR/EcucDefs/CanTrcv",
+        ar_path="/CustomPkg/CanTrcv_Tle9255/CanTrcv_Custom",
+    )
+    gen_def = EcucContainerDef(
+        short_name="CanTrcvGeneral",
+        definition_ref="/AUTOSAR/EcucDefs/CanTrcv/CanTrcvGeneral",
+    )
+    gen_def.add_parameter(EcucParameterDef(
+        short_name="BaudRatio",
+        param_type=EcucParameterType.INTEGER,
+        min_value=1,
+        max_value=16,
+        definition_ref="/AUTOSAR/EcucDefs/CanTrcv/CanTrcvGeneral/BaudRatio",
+    ))
+    gen_def.add_parameter(EcucParameterDef(
+        short_name="RequiredFlag",
+        param_type=EcucParameterType.BOOLEAN,
+        lower_multiplicity=1,
+        upper_multiplicity=1,
+        definition_ref="/AUTOSAR/EcucDefs/CanTrcv/CanTrcvGeneral/RequiredFlag",
+    ))
+    gen_def.add_reference(EcucReferenceDef(
+        short_name="CanTrcvWakeupSourceRef",
+        lower_multiplicity=1,
+        upper_multiplicity=1,
+        destination_ref="/AUTOSAR/EcucDefs/EcuM/EcuMConfiguration/EcuMWakeupSource",
+        definition_ref="/AUTOSAR/EcucDefs/CanTrcv/CanTrcvGeneral/CanTrcvWakeupSourceRef",
+    ))
+    module_def.add_container(gen_def)
+
+    config = EcucModuleConfiguration(
+        short_name="CanTrcv",
+        definition_ref="/CustomPkg/CanTrcv_Tle9255/CanTrcv_Custom",
+    )
+    gen_val = EcucContainerValue(
+        short_name="CanTrcvGeneral",
+        definition_ref="/CustomPkg/CanTrcv_Tle9255/CanTrcv_Custom/CanTrcvGeneral",
+    )
+    # Out-of-range BaudRatio (99), missing RequiredFlag, missing Required CanTrcvWakeupSourceRef
+    gen_val.set_parameter_value(
+        "BaudRatio",
+        99,
+        "/CustomPkg/CanTrcv_Tle9255/CanTrcv_Custom/CanTrcvGeneral/BaudRatio",
+    )
+    config.add_container(gen_val)
+
+    type_res = TypeValidationRule().validate(module_def, config)
+    assert type_res.is_valid, [m.message for m in type_res.errors]
+
+    range_res = RangeValidationRule().validate(module_def, config)
+    assert range_res.error_count == 1
+    assert range_res.errors[0].parameter_name == "BaudRatio"
+    assert "above maximum 16" in range_res.errors[0].message
+
+    req_param_res = RequiredParameterRule().validate(module_def, config)
+    assert req_param_res.error_count == 1
+    assert "RequiredFlag" in req_param_res.errors[0].message
+
+    req_ref_res = RequiredReferenceRule().validate(module_def, config)
+    assert req_ref_res.error_count == 1
+    assert "CanTrcvWakeupSourceRef" in req_ref_res.errors[0].message
+

@@ -14,7 +14,7 @@ On a conflicting key the chip YAML wins and the difference is logged.
 """
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from .. import project_paths
 from .chip_database import ChipDatabase, get_default_chip_database
@@ -60,8 +60,93 @@ def _search_dirs(project, project_dir: Path) -> List[Path]:
         resource_dir = pkg.resource_dir()
         if resource_dir is not None:
             add(resource_dir)
-    add(project_dir / project_paths.dirs(project).templates)
     return dirs
+
+
+def _iter_template_properties(project, project_dir: Path, templates_dir: Path) -> List[Path]:
+    """Collect ``.properties`` under ``templates_dir``, excluding inactive variant dirs
+    and placing active variant overlay dirs after generic ``templates/<Module>/`` dirs."""
+    if not templates_dir.is_dir():
+        return []
+
+    packages = getattr(project, "packages", None) or {}
+    managers = getattr(project, "module_managers", None) or {}
+    libraries = getattr(project, "module_libraries", None) or []
+
+    active_names: Set[str] = {mod.lower() for mod in managers}
+    active_variant_dirs: Set[str] = set()
+    for mod, pkg in packages.items():
+        active_names.add(mod.lower())
+        if getattr(pkg, "root", None) is not None:
+            pkg_dir_lower = Path(pkg.root).name.lower()
+            active_names.add(pkg_dir_lower)
+            if pkg_dir_lower != mod.lower():
+                active_variant_dirs.add(pkg_dir_lower)
+
+    inactive_dirs: Set[str] = set()
+    if libraries:
+        from ..packages.errors import PackageError
+        from ..packages.library import scan_library
+
+        for ref in libraries:
+            try:
+                pkgs = scan_library(ref, project_dir)
+            except PackageError:
+                continue
+            for pkg in pkgs:
+                pkg_dir_lower = Path(pkg.root).name.lower()
+                if pkg_dir_lower not in active_names and pkg_dir_lower != pkg.manifest.module.lower():
+                    inactive_dirs.add(pkg_dir_lower)
+
+    active_prefixes = tuple(f"{mod.lower()}_" for mod in (set(managers) | set(packages)))
+
+    regular_props: List[Path] = []
+    variant_props: List[Path] = []
+    try:
+        entries = sorted(templates_dir.iterdir(), key=lambda p: p.as_posix())
+    except OSError:
+        return []
+
+    for item in entries:
+        if item.is_file() and item.suffix.lower() == ".properties":
+            regular_props.append(item)
+            continue
+        if not item.is_dir():
+            continue
+        name_lower = item.name.lower()
+        if name_lower in active_variant_dirs:
+            variant_props.extend(
+                sorted(item.rglob("*.properties"), key=lambda p: p.as_posix())
+            )
+            continue
+        if name_lower in inactive_dirs:
+            continue
+        if name_lower not in active_names and active_prefixes and name_lower.startswith(active_prefixes):
+            continue
+        regular_props.extend(
+            sorted(item.rglob("*.properties"), key=lambda p: p.as_posix())
+        )
+
+    return regular_props + variant_props
+
+
+def _collect_all_property_files(project, project_dir: Path) -> List[Path]:
+    """Collect deduplicated ``.properties`` files in resolver precedence order."""
+    all_props: List[Path] = []
+    seen: Set[Path] = set()
+    for d in _search_dirs(project, project_dir):
+        for pf in sorted(d.rglob("*.properties"), key=lambda p: p.as_posix()):
+            resolved = pf.resolve()
+            if resolved not in seen:
+                seen.add(resolved)
+                all_props.append(pf)
+    templates_dir = project_dir / project_paths.dirs(project).templates
+    for pf in _iter_template_properties(project, project_dir, templates_dir):
+        resolved = pf.resolve()
+        if resolved not in seen:
+            seen.add(resolved)
+            all_props.append(pf)
+    return all_props
 
 
 def scan_properties(project, resource_only: bool = False) -> Dict[str, Any]:
@@ -76,18 +161,9 @@ def scan_properties(project, resource_only: bool = False) -> Dict[str, Any]:
     if project_dir is None:
         return {}
 
-    search_dirs = _search_dirs(project, project_dir)
-    if not search_dirs:
+    all_props = _collect_all_property_files(project, project_dir)
+    if not all_props:
         return {}
-
-    all_props: List[Path] = []
-    seen = set()
-    for d in search_dirs:
-        for pf in d.rglob("*.properties"):
-            resolved = pf.resolve()
-            if resolved not in seen:
-                seen.add(resolved)
-                all_props.append(pf)
 
     selected_chip = getattr(project, "selected_chip", None)
     if selected_chip:
@@ -129,22 +205,18 @@ def other_chip_keys(project, chip_database: Optional[ChipDatabase] = None) -> Di
     project_dir = _project_dir(project)
     if selected and project_dir is not None:
         parser = TresosPropertiesParser()
-        seen = set()
-        for d in _search_dirs(project, project_dir):
-            for pf in d.rglob("*.properties"):
-                resolved = pf.resolve()
-                if resolved in seen or "resource" not in str(pf.parent).lower():
-                    continue
-                seen.add(resolved)
-                if resource_file_matches_chip(pf.stem, selected.lower()):
-                    continue
-                try:
-                    keys = parser.parse_file(pf).properties
-                except Exception as e:  # noqa: BLE001 - an unreadable file only means less information
-                    logger.debug("Skipping unreadable properties file %s: %s", pf, e)
-                    continue
-                for key in keys:
-                    result.setdefault(key.lower(), set()).add(pf.stem)
+        for pf in _collect_all_property_files(project, project_dir):
+            if "resource" not in str(pf.parent).lower():
+                continue
+            if resource_file_matches_chip(pf.stem, selected.lower()):
+                continue
+            try:
+                keys = parser.parse_file(pf).properties
+            except Exception as e:  # noqa: BLE001 - an unreadable file only means less information
+                logger.debug("Skipping unreadable properties file %s: %s", pf, e)
+                continue
+            for key in keys:
+                result.setdefault(key.lower(), set()).add(pf.stem)
 
     db = chip_database or getattr(project, "chip_database", None) or get_default_chip_database()
     other_chips = {}

@@ -571,3 +571,26 @@ def test_renderer_normalizes_str_template_dir_and_search_paths(tmp_path):
     rendered = r.render('[!INCLUDE "M.m"!][!INCLUDE "E.m"!][!"$VM"!]:[!"$VE"!]', module_name="Dio")
     assert rendered.strip() == "TPL:EXTRA"
 
+
+def test_generator_ecu_resources_excludes_inactive_variant_overlay_properties(tmp_path):
+    """CodeGenerator._load_ecu_resources skips .properties in inactive sibling variant dirs under templates/
+    while keeping generic module, active variant, and unrelated module .properties."""
+    overlay_root = tmp_path / "templates"
+    _write(overlay_root / "CanTrcv" / "common.properties", "CanTrcv.Shared=FROM_GENERIC\nCanTrcv.CommonOnly=1\n")
+    _write(overlay_root / "CanTrcv_Tle9255" / "active.properties", "CanTrcv.Shared=FROM_TLE\nCanTrcv.TleOnly=2\n")
+    _write(overlay_root / "CanTrcv_GenericCan" / "inactive.properties", "CanTrcv.Shared=FROM_INACTIVE\nCanTrcv.InactiveOnly=99\n")
+    _write(overlay_root / "Os" / "os.properties", "Os.CrossMod=5\n")
+
+    gen = CodeGenerator(
+        _cantrcv_module_def(),
+        _cantrcv_config(),
+        project_template_dir=overlay_root,
+        package_dir_name="CanTrcv_Tle9255",
+    )
+    assert gen.ecu_resources["CanTrcv.Shared"] == "FROM_TLE"
+    assert gen.ecu_resources["CanTrcv.CommonOnly"] == 1
+    assert gen.ecu_resources["CanTrcv.TleOnly"] == 2
+    assert gen.ecu_resources["Os.CrossMod"] == 5
+    assert "CanTrcv.InactiveOnly" not in gen.ecu_resources
+
+

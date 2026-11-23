@@ -126,3 +126,61 @@ def test_template_renders_chip_value_without_def_directory(tmp_path):
         "[!\"num:i(count(ecu:list('OsResource.AvailableCores')))\"!]",   # count() is a Double
         {"module_name": "Os"}, ecu_resources=resources)
     assert out.strip() == "4 2"
+
+
+def test_resolver_excludes_inactive_variant_template_properties_and_prefers_active_variant(tmp_path):
+    """EcuResourceResolver skips .properties inside inactive sibling variant dirs under templates/
+    and ensures the active variant overlay directory wins over templates/<Module>/."""
+    import json
+    from autosar_configurator.core.packages.library import LibraryRef, find_package, scan_library
+    from autosar_configurator.core.workspace_manager import WorkspaceManager
+
+    proj_dir = tmp_path / "Proj"
+    for pkg_sub in ("CanTrcv_GenericCan", "CanTrcv_Tle9255"):
+        cfg_dir = proj_dir / "modules" / pkg_sub / "config"
+        cfg_dir.mkdir(parents=True, exist_ok=True)
+        (cfg_dir / "CanTrcv.arxml").write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>{pkg_sub}</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF><SHORT-NAME>CanTrcv</SHORT-NAME></ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+        (proj_dir / "modules" / pkg_sub / "module.json").write_text(json.dumps({
+            "schema": 1,
+            "module": "CanTrcv",
+            "definition": f"/MICROSAR/{pkg_sub}/CanTrcv",
+            "files": ["config/CanTrcv.arxml"],
+            "pre": [],
+            "rec": [],
+        }), encoding="utf-8")
+
+    wm = WorkspaceManager()
+    project = wm.create_project("VarRes", proj_dir / "VarRes.dpa", format_version=8)
+    lib_ref = LibraryRef(path="modules", kind="package")
+    project.module_libraries.append(lib_ref)
+    pkgs = scan_library(lib_ref, proj_dir)
+    _, tle_pkg = find_package([(0, pkgs)], "/MICROSAR/CanTrcv_Tle9255/CanTrcv")
+    project.add_module_from_package(tle_pkg, lib_index=0, persist=True, confirm=lambda *_: True)
+
+    tpl_dir = proj_dir / "templates"
+    (tpl_dir / "CanTrcv").mkdir(parents=True)
+    (tpl_dir / "CanTrcv_Tle9255").mkdir(parents=True)
+    (tpl_dir / "CanTrcv_GenericCan").mkdir(parents=True)
+    (tpl_dir / "CanTrcv" / "common.properties").write_text(
+        "CanTrcv.Shared: FROM_GENERIC\nCanTrcv.CommonOnly: 1\n", encoding="utf-8"
+    )
+    (tpl_dir / "CanTrcv_Tle9255" / "active.properties").write_text(
+        "CanTrcv.Shared: FROM_TLE\nCanTrcv.TleOnly: 2\n", encoding="utf-8"
+    )
+    (tpl_dir / "CanTrcv_GenericCan" / "inactive.properties").write_text(
+        "CanTrcv.Shared: FROM_INACTIVE\nCanTrcv.InactiveOnly: 99\n", encoding="utf-8"
+    )
+
+    resources = project.load_ecu_resources()
+    assert resources["CanTrcv.Shared"] == "FROM_TLE"
+    assert resources["CanTrcv.CommonOnly"] == 1
+    assert resources["CanTrcv.TleOnly"] == 2
+    assert "CanTrcv.InactiveOnly" not in resources
+
