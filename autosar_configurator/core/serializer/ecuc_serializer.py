@@ -186,7 +186,16 @@ class EcucValueSerializer:
         # Short name
         short_name = etree.SubElement(container_elem, 'SHORT-NAME')
         short_name.text = container.short_name
-        
+
+        # Container-level variant assignment (if set): ADMIN-DATA/SDG
+        if getattr(container, 'variant', None):
+            from ..parser.arxml_parser import CONTAINER_VARIANT_GID
+            admin = etree.SubElement(container_elem, 'ADMIN-DATA')
+            sdgs = etree.SubElement(admin, 'SDGS')
+            sdg = etree.SubElement(sdgs, 'SDG', GID=CONTAINER_VARIANT_GID)
+            sd = etree.SubElement(sdg, 'SD', GID='variant')
+            sd.text = str(container.variant)
+
         # Definition reference
         container_dest = getattr(container, 'def_dest_type', None) or 'ECUC-PARAM-CONF-CONTAINER-DEF'
         def_ref = etree.SubElement(container_elem, 'DEFINITION-REF', DEST=container_dest)

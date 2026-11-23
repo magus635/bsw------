@@ -665,6 +665,7 @@ class CodeGenerator:
             'module_name': module_name,
             'resolve_ref': self.resolve_ref,
             'active_variant': variant or self.variant_name,
+            'variant_overrides': self.variant_overrides,
             'enums': self._get_enums(),
             'precompile_params': self._get_params_by_config_class(ConfigClass.PRE_COMPILE) if self.configuration else [],
             'linktime_params': self._get_params_by_config_class(ConfigClass.LINK_TIME) if self.configuration else [],
@@ -991,9 +992,13 @@ class CodeGenerator:
         if variant:
             parts.append(f"Variant:{variant}")
         
+        consumed_overrides = set()
+
         # Recursively add containers (sorted for stability)
         def process_container(container: EcucContainerValue):
             parts.append(f"C:{container.short_name}")
+            if getattr(container, 'variant', None):
+                parts.append(f"CV:{container.variant}")
             
             # Parameters
             for name in sorted(container.parameter_values.keys()):
@@ -1002,13 +1007,19 @@ class CodeGenerator:
                 param_path = f"{container.get_path()}.{name}"
                 if param_path in self.variant_overrides:
                     parts.append(f"P:{name}={self.variant_overrides[param_path]}")
+                    consumed_overrides.add(param_path)
                 else:
                     parts.append(f"P:{name}={val.value}")
                 
             # References
             for name in sorted(container.reference_values.keys()):
                 ref = container.reference_values[name]
-                parts.append(f"R:{name}={ref.value_ref}")
+                ref_path = f"{container.get_path()}.ref:{name}"
+                if ref_path in self.variant_overrides:
+                    parts.append(f"R:{name}={self.variant_overrides[ref_path]}")
+                    consumed_overrides.add(ref_path)
+                else:
+                    parts.append(f"R:{name}={ref.value_ref}")
                 
             # Multi-valued parameters
             for name in sorted(container.multi_parameter_values.keys()):
@@ -1016,6 +1027,7 @@ class CodeGenerator:
                     param_path = f"{container.get_path()}.{name}[{i}]"
                     if param_path in self.variant_overrides:
                         parts.append(f"MP:{name}[{i}]={self.variant_overrides[param_path]}")
+                        consumed_overrides.add(param_path)
                     else:
                         parts.append(f"MP:{name}[{i}]={val.value}")
 
@@ -1031,6 +1043,9 @@ class CodeGenerator:
         # Top level containers
         for container in self.configuration.containers:
             process_container(container)
+
+        for k in sorted(set(self.variant_overrides.keys()) - consumed_overrides):
+            parts.append(f"VO:{k}={self.variant_overrides[k]}")
             
         # Hash the result
         content = "|".join(parts)
@@ -1040,7 +1055,15 @@ class CodeGenerator:
         """Get parameters filtered by config_class, applying variant overrides"""
         params = []
 
+        def _matches_active_variant(c: EcucContainerValue) -> bool:
+            c_var = getattr(c, 'variant', None)
+            if not self.variant_name or not c_var:
+                return True
+            return c_var == self.variant_name
+
         def collect_from_container(container: EcucContainerValue, container_def: EcucContainerDef, path: str):
+            if not _matches_active_variant(container):
+                return
             for param_name in sorted(container_def.parameters.keys()):
                 param_def = container_def.parameters[param_name]
 
@@ -1134,10 +1157,21 @@ class CodeGenerator:
         """Collect all references from the configuration"""
         refs = []
         def collect_from_container(container: EcucContainerValue, path: str):
+            c_var = getattr(container, 'variant', None)
+            if self.variant_name and c_var and c_var != self.variant_name:
+                return
             for ref_name in sorted(container.reference_values.keys()):
                 ref_val = container.reference_values[ref_name]
-                if ref_val.value_ref:
-                    refs.append((path, ref_name, ref_val.value_ref))
+                ref_path = f"{container.get_path()}.ref:{ref_name}"
+                short_ref_path = f"{container.short_name}.ref:{ref_name}"
+                if ref_path in self.variant_overrides:
+                    target = self.variant_overrides[ref_path]
+                elif short_ref_path in self.variant_overrides:
+                    target = self.variant_overrides[short_ref_path]
+                else:
+                    target = ref_val.value_ref
+                if target:
+                    refs.append((path, ref_name, target))
             for sub in sorted(container.sub_containers, key=lambda x: x.short_name):
                 collect_from_container(sub, f"{path}_{sub.short_name}")
         for container in sorted(self.configuration.containers, key=lambda x: x.short_name):

@@ -57,13 +57,21 @@ class EBTemplateEngine:
         # Result of the definition ENABLE conditions (applied once, before the first render)
         self.enable_result = None
         
-    def add_module(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration, variant: Optional[str] = None):
+    def add_module(
+        self,
+        module_def: EcucModuleDef,
+        configuration: EcucModuleConfiguration,
+        variant: Optional[str] = None,
+        variant_overrides: Optional[Dict[str, Any]] = None,
+    ):
         """Add a module to the engine's symbol table for cross-module access."""
         module_name = module_def.short_name
         
         cache_key = (module_name, variant)
         if cache_key not in self.initialized_modules:
-            self.renderer.load_module(module_def, configuration, variant=variant)
+            self.renderer.load_module(
+                module_def, configuration, variant=variant, variant_overrides=variant_overrides
+            )
             self.initialized_modules.add(cache_key)
 
     def render(self, template: str, context: Dict[str, Any], ecu_resources: Optional[Dict[str, Any]] = None, template_file: Optional[str] = None) -> str:
@@ -92,10 +100,13 @@ class EBTemplateEngine:
         # Load all modules if provided, for cross-module lookup
         all_modules = context.get('all_modules', {})
         active_variant = context.get('active_variant')
+        variant_overrides = context.get('variant_overrides')
+        project_variants = context.get('project_variants')
         
         if all_modules:
             for m_name, (m_def, m_config) in all_modules.items():
-                self.add_module(m_def, m_config, variant=active_variant)
+                mod_ov = variant_overrides if m_name == module_name else None
+                self.add_module(m_def, m_config, variant=active_variant, variant_overrides=mod_ov)
 
         # Mark modules that have templates as MODULE-DEFs for XDM enumeration
         template_module_names = context.get('template_module_names')
@@ -107,7 +118,9 @@ class EBTemplateEngine:
         module_def = context.get('module_def')
         configuration = context.get('configuration')
         if configuration and module_def:
-            self.add_module(module_def, configuration, variant=active_variant)
+            self.add_module(
+                module_def, configuration, variant=active_variant, variant_overrides=variant_overrides
+            )
 
         # Items whose definition ENABLE condition is false are not visible to templates
         if self.enable_result is None:
@@ -136,6 +149,10 @@ class EBTemplateEngine:
             # Also set on builtins if already initialized
             if hasattr(self.renderer, '_builtins') and self.renderer._builtins:
                 self.renderer._builtins.set_variant(active_variant)
+        if project_variants:
+            self.renderer._variants = list(project_variants)
+            if hasattr(self.renderer, '_builtins') and self.renderer._builtins:
+                self.renderer._builtins.set_variants(project_variants)
 
         return self.renderer.render(template, module_name=module_name, initial_variables=extra_vars, ecu_resources=ecu_resources, template_file=template_file)
 

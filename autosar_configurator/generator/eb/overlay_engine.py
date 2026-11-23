@@ -38,12 +38,50 @@ class OverlayEngine:
         """
         self.symbol_table = symbol_table or SymbolTable()
         self.strict = strict
+        self._active_variant: Optional[str] = None
+        self._active_overrides: Dict[str, Any] = {}
+
+    def _container_matches_variant(self, container, active_variant: Optional[str] = None) -> bool:
+        """True when ``container`` is active in ``active_variant`` (or global with variant=None)."""
+        var = active_variant if active_variant is not None else self._active_variant
+        c_var = getattr(container, 'variant', None)
+        if not var or not c_var:
+            return True
+        return c_var == var
+
+    def _lookup_variant_override(
+        self, config_instance, node_path: str, member_name: str, is_ref: bool = False
+    ) -> tuple:
+        """Look up a parameter or reference override for ``config_instance`` in ``self._active_overrides``."""
+        if not self._active_overrides or config_instance is None:
+            return (None, False)
+        tag = f"ref:{member_name}" if is_ref else member_name
+        candidates = []
+        get_path = getattr(config_instance, 'get_path', None)
+        if callable(get_path):
+            try:
+                p = get_path()
+                if p:
+                    candidates.append(p)
+            except Exception:
+                pass
+        if node_path and node_path not in candidates:
+            candidates.append(node_path)
+        short_name = getattr(config_instance, 'short_name', None)
+        if short_name and short_name not in candidates:
+            candidates.append(short_name)
+        for prefix in candidates:
+            key = f"{prefix}.{tag}"
+            if key in self._active_overrides:
+                return (self._active_overrides[key], True)
+        return (None, False)
     
     def build_configuration_tree(
         self, 
         module_def: EcucModuleDef, 
         configuration: Optional[EcucModuleConfiguration] = None,
-        variant: Optional[str] = None
+        variant: Optional[str] = None,
+        variant_overrides: Optional[Dict[str, Any]] = None,
     ) -> ConfigurationNode:
         """Build unified ConfigurationNode tree from definition and configuration.
         
@@ -55,6 +93,19 @@ class OverlayEngine:
         Returns:
             Root ConfigurationNode for the module
         """
+        from ...core.model.configuration_model import override_layer
+
+        self._active_variant = variant
+        layer = override_layer(variant)
+        merged_overrides: Dict[str, Any] = {}
+        if layer and configuration is not None:
+            cfg_ov = getattr(configuration, 'variant_overrides', None)
+            if isinstance(cfg_ov, dict) and isinstance(cfg_ov.get(layer), dict):
+                merged_overrides.update(cfg_ov[layer])
+        if isinstance(variant_overrides, dict) and variant_overrides:
+            merged_overrides.update(variant_overrides)
+        self._active_overrides = merged_overrides
+
         module_name = module_def.short_name
         
         # Create module root node
@@ -93,6 +144,9 @@ class OverlayEngine:
             if configuration:
                 for c in configuration.containers:
                     if id(c) in processed_instances:
+                        continue
+                    if not self._container_matches_variant(c):
+                        processed_instances.add(id(c))
                         continue
                         
                     # 1. Direct match or endswith match (standard AUTOSAR)
@@ -184,6 +238,8 @@ class OverlayEngine:
             for container in configuration.containers:
                 # Skip containers already handled by standard processing (prefix/numeric/vote match)
                 if id(container) in processed_instances:
+                    continue
+                if not self._container_matches_variant(container):
                     continue
                 is_processed = False
                 for c_def_ref in processed_refs:
@@ -317,7 +373,8 @@ class OverlayEngine:
             for sub_def_name, sub_def in container_def.sub_containers.items():
                 # Find matching sub-container instances by definition reference
                 matching_subs = [s for s in all_subs 
-                                 if matches_def(getattr(s, 'definition_ref', ''), sub_def_name)]
+                                 if self._container_matches_variant(s)
+                                 and matches_def(getattr(s, 'definition_ref', ''), sub_def_name)]
                 
                 if matching_subs:
                     # ALWAYS create a wrapper/group node for sub-containers
@@ -383,11 +440,12 @@ class OverlayEngine:
         
         for sub_def_name, sub_def in container_def.sub_containers.items():
             matching_subs = [s for s in all_subs 
-                             if getattr(s, 'short_name', None) == sub_def_name or 
+                             if self._container_matches_variant(s) and (
+                             getattr(s, 'short_name', None) == sub_def_name or 
                              getattr(s, 'definition_ref', '') == sub_def_name or
                              getattr(s, 'definition_ref', '').endswith(f"/{sub_def_name}") or
                              _re.sub(r'_\d+$', '', (getattr(s, 'definition_ref', '') or '').split('/')[-1]) == sub_def_name or
-                             _re.sub(r'_\d+$', '', getattr(s, 'short_name', '') or '') == sub_def_name]
+                             _re.sub(r'_\d+$', '', getattr(s, 'short_name', '') or '') == sub_def_name)]
 
             if matching_subs:
                 # ALWAYS create wrapper node for sub-containers
@@ -441,22 +499,24 @@ class OverlayEngine:
             
             # Add parameters from config
             for param_name, param_val in config_instance.parameter_values.items():
+                ov_val, has_ov = self._lookup_variant_override(config_instance, path, param_name, is_ref=False)
                 p_node = ConfigurationNode(
                     short_name=param_name,
                     node_type='parameter',
                     path=f"{path}/{param_name}",
-                    value=param_val.value,
+                    value=ov_val if has_ov else param_val.value,
                     definition_ref=param_val.definition_ref
                 )
                 node.add_child(p_node)
             
             # Add references from config
             for ref_name, ref_val in config_instance.reference_values.items():
+                ov_ref, has_ov = self._lookup_variant_override(config_instance, path, ref_name, is_ref=True)
                 r_node = ConfigurationNode(
                     short_name=ref_name,
                     node_type='reference',
                     path=f"{path}/{ref_name}",
-                    value=ref_val.value_ref,
+                    value=ov_ref if has_ov else ref_val.value_ref,
                     definition_ref=ref_val.definition_ref
                 )
                 node.add_child(r_node)
@@ -487,6 +547,8 @@ class OverlayEngine:
             # Add sub-containers (grouped by definition name for wrappers)
             subs_by_def = {}
             for sub in config_instance.sub_containers:
+                if not self._container_matches_variant(sub):
+                    continue
                 raw_def_name = sub.definition_ref.split('/')[-1] if sub.definition_ref else "Unknown"
                 # Strip instance numeric suffix for grouping: OsScheduleTableExpiryPoint_0 -> OsScheduleTableExpiryPoint
                 # This ensures same-type instances are grouped under a single wrapper node,
@@ -621,18 +683,22 @@ class OverlayEngine:
                     param_val,
                     f"{path}/{param_name}"
                 )
+                ov_val, has_ov = self._lookup_variant_override(config_instance, path, param_name, is_ref=False)
+                if has_ov:
+                    param_node.value = ov_val
                 node.add_child(param_node)
         
         # Add unknown parameters from config (if strict=False)
         if not self.strict:
             for param_name, param_val in params_source.items():
                 if param_name not in container_def.parameters:
+                    ov_val, has_ov = self._lookup_variant_override(config_instance, path, param_name, is_ref=False)
                     # Parameter exists in config but not definition
                     p_node = ConfigurationNode(
                         short_name=param_name,
                         node_type='parameter',
                         path=f"{path}/{param_name}",
-                        value=param_val.value,
+                        value=ov_val if has_ov else param_val.value,
                         definition_ref=param_val.definition_ref
                     )
                     node.add_child(p_node)
@@ -697,17 +763,21 @@ class OverlayEngine:
                     ref_val_obj,
                     f"{path}/{ref_name}"
                 )
+                ov_ref, has_ov = self._lookup_variant_override(config_instance, path, ref_name, is_ref=True)
+                if has_ov:
+                    ref_node.value = ov_ref
                 node.add_child(ref_node)
 
         # Add unknown references from config (if strict=False)
         if not self.strict:
             for ref_name, ref_val in refs_source.items():
                 if ref_name not in container_def.references:
+                    ov_ref, has_ov = self._lookup_variant_override(config_instance, path, ref_name, is_ref=True)
                     r_node = ConfigurationNode(
                         short_name=ref_name,
                         node_type='reference',
                         path=f"{path}/{ref_name}",
-                        value=getattr(ref_val, 'value_ref', None),
+                        value=ov_ref if has_ov else getattr(ref_val, 'value_ref', None),
                         definition_ref=getattr(ref_val, 'definition_ref', ''),
                         source=ref_val,
                     )
@@ -891,9 +961,14 @@ class OverlayEngine:
 
         active_instance_node = None
         
-        # 1. Try variant match if provided (placeholder)
-        if variant:
-            pass
+        # 1. Try variant match if provided
+        eff_variant = variant or self._active_variant
+        if eff_variant:
+            for child in wrapper_node.children:
+                src = getattr(child, 'source', None)
+                if src is not None and getattr(src, 'variant', None) == eff_variant:
+                    active_instance_node = child
+                    break
 
         # 2. Heuristic: Pick the instance with the MOST sub-container instances
         if not active_instance_node:

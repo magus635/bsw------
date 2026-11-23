@@ -14,11 +14,12 @@ from PySide6.QtWidgets import QMessageBox
 
 from ..commands import (
     SetParameterCommand, SetReferenceCommand,
+    SetVariantOverrideCommand, SetContainerVariantCommand,
     CreateContainerCommand, DeleteContainerCommand,
     MoveContainerCommand, PasteContainerCommand,
 )
 from ...core.config_manager import PreLockedError, ValidationError
-from ...core.model.configuration_model import EcucContainerValue
+from ...core.model.configuration_model import EcucContainerValue, override_layer
 from ...core.model.definition_model import EcucContainerDef
 
 logger = logging.getLogger(__name__)
@@ -122,8 +123,23 @@ class EditController:
         config_manager = self._resolve_config_manager_for_instance(instance)
         if not config_manager:
             return
-            
-        if param_name.startswith('ref:'):
+
+        project = getattr(self.win, "current_project", None)
+        variant = override_layer(getattr(project, "active_variant", None)) if project else None
+        if variant:
+            panel = getattr(self.win, "config_panel", None)
+            prev_state = None
+            consume = getattr(panel, "_consume_pending_variant_undo", None)
+            if callable(consume):
+                prev_state = consume(instance, param_name, variant)
+            try:
+                command = SetVariantOverrideCommand(
+                    config_manager, instance, param_name, value, variant, prev_state=prev_state
+                )
+            except PreLockedError as exc:
+                _report_pre_locked(self.win, exc)
+                return
+        elif param_name.startswith('ref:'):
             # Reference change
             ref_name = param_name[4:]
             try:

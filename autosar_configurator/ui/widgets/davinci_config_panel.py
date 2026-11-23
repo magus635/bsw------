@@ -480,25 +480,22 @@ class DaVinciConfigPanel(QWidget):
                     current_value = override
 
             # 3. Get reference value
-            # Priority: reference_variant > "Base" variant > parameter_values/default
+            # Priority: reference_variant > base configuration ("Default")
             reference_value = base_value
+            ref_layer = (
+                None
+                if self.reference_variant in (None, "", "Default", "Default (默认)", "Base (基础)")
+                else override_layer(self.reference_variant)
+            )
             
-            if self.reference_variant and module_config:
+            if ref_layer and module_config:
                 # Reference is another variant (e.g., compare v1 vs v2)
-                ref_override, is_ref = module_config.get_value_for_variant(param_path, self.reference_variant)
+                ref_override, is_ref = module_config.get_value_for_variant(param_path, ref_layer)
                 if not is_ref:
                     short_path = f"{instance.short_name}.{param_name}"
-                    ref_override, is_ref = module_config.get_value_for_variant(short_path, self.reference_variant)
+                    ref_override, is_ref = module_config.get_value_for_variant(short_path, ref_layer)
                 if is_ref:
                     reference_value = ref_override
-            elif module_config:
-                # No reference_variant selected - try to read from "Base" variant
-                base_override, is_base = module_config.get_value_for_variant(param_path, "Base")
-                if not is_base:
-                    short_path = f"{instance.short_name}.{param_name}"
-                    base_override, is_base = module_config.get_value_for_variant(short_path, "Base")
-                if is_base:
-                    reference_value = base_override
 
             # 4. Compare values (robust)
             if self._values_differ(current_value, reference_value):
@@ -1171,12 +1168,23 @@ class DaVinciConfigPanel(QWidget):
             
         new_variant = None if variant_text == "None (All Variants)" else variant_text
         if self.current_instance.variant != new_variant:
+            old_variant = self.current_instance.variant
+            self._pending_instance_variant_undo = (self.current_instance, old_variant, new_variant)
             self.current_instance.variant = new_variant
             self.current_instance.mark_modified()
+            if self.current_instance.module_config is not None:
+                self.current_instance.module_config.is_modified = True
             if self.project:
                 self.project.is_modified = True
             # Emit signal to notify the main window to refresh the tree
             self.instance_variant_changed.emit(self.current_instance)
+
+    def _consume_pending_instance_variant_undo(self, instance: EcucContainerValue):
+        pending = getattr(self, "_pending_instance_variant_undo", None)
+        self._pending_instance_variant_undo = None
+        if pending and pending[0] is instance:
+            return pending[1], pending[2]
+        return None
 
 
     
@@ -1483,6 +1491,30 @@ class DaVinciConfigPanel(QWidget):
         
         return "\n".join(lines)
     
+    def _capture_pending_variant_undo(self, instance: EcucContainerValue, key_name: str, variant: str):
+        module_config = instance.module_config
+        full_key = f"{instance.get_path()}.{key_name}"
+        short_key = f"{instance.short_name}.{key_name}"
+        overrides = (
+            (module_config.variant_overrides.get(variant) or {})
+            if module_config and isinstance(getattr(module_config, "variant_overrides", None), dict)
+            else {}
+        )
+        state = (
+            full_key in overrides,
+            overrides.get(full_key),
+            short_key in overrides,
+            overrides.get(short_key),
+        )
+        self._pending_variant_undo = (instance, key_name, variant, state)
+
+    def _consume_pending_variant_undo(self, instance: EcucContainerValue, key_name: str, variant: str):
+        pending = getattr(self, "_pending_variant_undo", None)
+        self._pending_variant_undo = None
+        if pending and pending[0] is instance and pending[1] == key_name and pending[2] == variant:
+            return pending[3]
+        return None
+
     def _on_value_changed(self, param_name: str, value: Any):
         """Handle parameter value change"""
         if not self.current_instance or not self.config_manager:
@@ -1494,28 +1526,37 @@ class DaVinciConfigPanel(QWidget):
         if not self._editable(param_name):
             return
 
+        # Check if we should write to variant override instead of base config ("Default" is the base)
+        variant = override_layer(getattr(self.project, 'active_variant', None)) if self.project else None
+        if variant:
+            module_config = self.current_instance.module_config
+            eff_value = None if value == "(未配置)" else value
+
+            if module_config:
+                self._capture_pending_variant_undo(self.current_instance, param_name, variant)
+                param_path = f"{self.current_instance.get_path()}.{param_name}"
+                short_path = f"{self.current_instance.short_name}.{param_name}"
+                if eff_value is None:
+                    module_config.clear_variant_override(param_path, variant)
+                    module_config.clear_variant_override(short_path, variant)
+                else:
+                    module_config.set_value_for_variant(param_path, eff_value, variant)
+                if self.project:
+                    self.project.is_modified = True
+
+                # NOTE: In explicit comparison mode, we do NOT refresh automatically.
+                # User must click "Check Diff" to see updated highlights.
+
+                # Still emit signal for UI updates (status bar, undo stack, etc.)
+                self.parameter_changed.emit(self.current_instance, param_name, eff_value)
+                return
+
         # Handle "(未配置)" selection: the command removes the value (undoably)
         if value == "(未配置)":
             if self.project:
                 self.project.is_modified = True
             self.parameter_changed.emit(self.current_instance, param_name, None)
             return
-
-        # Check if we should write to variant override instead of base config ("Default" is the base)
-        variant = override_layer(getattr(self.project, 'active_variant', None)) if self.project else None
-        if variant:
-            module_config = self.current_instance.module_config
-
-            if module_config:
-                param_path = f"{self.current_instance.get_path()}.{param_name}"
-                module_config.set_value_for_variant(param_path, value, variant)
-
-                # NOTE: In explicit comparison mode, we do NOT refresh automatically.
-                # User must click "Check Diff" to see updated highlights.
-
-                # Still emit signal for UI updates (status bar, etc.)
-                self.parameter_changed.emit(self.current_instance, param_name, value)
-                return
 
         # No variant active - emit signal for base config modification
         self.parameter_changed.emit(self.current_instance, param_name, value)
@@ -2266,8 +2307,8 @@ class DaVinciConfigPanel(QWidget):
         if self.current_instance:
             self.check_impact_requested.emit(self.current_instance.get_path(), param_name)
 
-    def _revert_to_base_value(self, param_name: str):
-        """Revert a variant-overridden parameter to its base value
+    def _revert_to_base_value(self, param_name: str, is_ref: bool = False):
+        """Revert a variant-overridden parameter or reference to its base value
         
         Removes the variant override entry and refreshes the panel to show the base value.
         """
@@ -2282,13 +2323,19 @@ class DaVinciConfigPanel(QWidget):
         if not module_config:
             return
         
+        key_name = f"ref:{param_name}" if is_ref else param_name
+        self._capture_pending_variant_undo(self.current_instance, key_name, variant)
+
         # Try both path formats
-        param_path = f"{self.current_instance.get_path()}.{param_name}"
-        short_path = f"{self.current_instance.short_name}.{param_name}"
+        param_path = f"{self.current_instance.get_path()}.{key_name}"
+        short_path = f"{self.current_instance.short_name}.{key_name}"
         
         # Clear the override
         module_config.clear_variant_override(param_path, variant)
         module_config.clear_variant_override(short_path, variant)
+        if self.project:
+            self.project.is_modified = True
+        self.parameter_changed.emit(self.current_instance, key_name, None)
         
         # Refresh the panel to show base value
         self.refresh()
@@ -2324,12 +2371,21 @@ class DaVinciConfigPanel(QWidget):
                 module_config = self.current_instance.module_config
                 
                 if module_config:
+                    key_name = f"ref:{ref_name}"
+                    self._capture_pending_variant_undo(self.current_instance, key_name, variant)
                     # Use ref: prefix to distinguish from parameters
-                    ref_path = f"{self.current_instance.get_path()}.ref:{ref_name}"
-                    module_config.set_value_for_variant(ref_path, target_path, variant)
+                    ref_path = f"{self.current_instance.get_path()}.{key_name}"
+                    short_ref_path = f"{self.current_instance.short_name}.{key_name}"
+                    if target_path:
+                        module_config.set_value_for_variant(ref_path, target_path, variant)
+                    else:
+                        module_config.clear_variant_override(ref_path, variant)
+                        module_config.clear_variant_override(short_ref_path, variant)
+                    if self.project:
+                        self.project.is_modified = True
                     
-                    # Emit signal for UI updates
-                    self.parameter_changed.emit(self.current_instance, f"ref:{ref_name}", target_path)
+                    # Emit signal for UI updates (and undo stack)
+                    self.parameter_changed.emit(self.current_instance, key_name, target_path)
                     
                     # Refresh the Status column after a short delay
                     from PySide6.QtCore import QTimer

@@ -613,8 +613,12 @@ class DaVinciMainWindow(QMainWindow):
         if not self.current_project:
             return
         
-        # Set reference variant on config panel (None = Base)
-        ref_variant = None if reference_name == "Base (基础)" else reference_name
+        # Set reference variant on config panel (None = Base / Default)
+        ref_variant = (
+            None
+            if reference_name in ("Default (默认)", "Base (基础)", "Default", "")
+            else reference_name
+        )
         
         if hasattr(self, 'config_panel') and self.config_panel:
             self.config_panel.reference_variant = ref_variant
@@ -655,11 +659,9 @@ class DaVinciMainWindow(QMainWindow):
             self.variant_label.setText(f"Variant: {active}")
         else:
             self.variant_selector.addItem("Default")
-            self.variant_selector.setEnabled(True)
-            self.reference_variant_selector.setEnabled(True)
-            self.manage_variants_btn.setEnabled(True)
-            self.variant_label.setText("Variant: Default")
+            self.variant_selector.setEnabled(False)
             self.reference_variant_selector.setEnabled(False)
+            self.manage_variants_btn.setEnabled(False)
             self.variant_label.setText("Variant: None")
         
         self.variant_selector.blockSignals(False)
@@ -796,6 +798,20 @@ class DaVinciMainWindow(QMainWindow):
     
     def _on_instance_variant_changed(self, instance: EcucContainerValue):
         """Handle when an instance's assigned variant changes - refresh tree to update filtering"""
+        from .commands import SetContainerVariantCommand
+
+        panel = getattr(self, "config_panel", None)
+        consume = getattr(panel, "_consume_pending_instance_variant_undo", None)
+        pending = consume(instance) if callable(consume) else None
+        mgr = self.edit_controller._resolve_config_manager_for_instance(instance)
+        if pending is not None and hasattr(self, "undo_stack") and self.undo_stack is not None:
+            old_var, new_var = pending
+            cmd = SetContainerVariantCommand(
+                mgr, instance, new_var, old_variant=old_var, has_old_variant=True
+            )
+            self.undo_stack.push(cmd)
+        self._has_unsaved_changes = True
+
         # Refresh tree to show/hide the instance based on the current view variant
         self.tree_view.refresh()
         

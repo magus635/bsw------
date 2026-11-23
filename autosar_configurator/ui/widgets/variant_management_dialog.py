@@ -1,3 +1,5 @@
+import copy
+import re
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem,
     QPushButton, QDialogButtonBox, QInputDialog, QMessageBox,
@@ -5,6 +7,16 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QIcon
+from ...core.model.configuration_model import DEFAULT_VARIANT
+
+_INVALID_VARIANT_CHARS = re.compile(r'[/\\:*?"<>|]')
+
+
+def _is_valid_variant_name(name: str) -> bool:
+    if not name or name in (".", "..") or ".." in name:
+        return False
+    return not bool(_INVALID_VARIANT_CHARS.search(name))
+
 
 class VariantManagementDialog(QDialog):
     """
@@ -14,12 +26,60 @@ class VariantManagementDialog(QDialog):
     def __init__(self, project, parent=None):
         super().__init__(parent)
         self.project = project
+        self._snapshot = self._capture_snapshot()
         self.setWindowTitle("Manage Project Variants")
         self.setMinimumWidth(500)
         self.setMinimumHeight(400)
         
         self._setup_ui()
         self._load_variants()
+
+    def _capture_snapshot(self):
+        container_variants = []
+
+        def walk(c):
+            container_variants.append((c, getattr(c, "variant", None), getattr(c, "is_modified", False)))
+            for sub in getattr(c, "sub_containers", []) or []:
+                walk(sub)
+
+        mod_overrides = {}
+        mod_modified = {}
+        for name, mgr in (getattr(self.project, "module_managers", None) or {}).items():
+            cfg = getattr(mgr, "configuration", None)
+            if cfg is not None:
+                mod_overrides[name] = copy.deepcopy(getattr(cfg, "variant_overrides", {}))
+                mod_modified[name] = getattr(cfg, "is_modified", False)
+                for top in getattr(cfg, "containers", []) or []:
+                    walk(top)
+        return {
+            "variants": list(getattr(self.project, "variants", []) or []),
+            "active_variant": getattr(self.project, "active_variant", DEFAULT_VARIANT),
+            "is_modified": getattr(self.project, "is_modified", False),
+            "unloaded_overrides": copy.deepcopy(getattr(self.project, "unloaded_variant_overrides", {})),
+            "mod_overrides": mod_overrides,
+            "mod_modified": mod_modified,
+            "container_variants": container_variants,
+        }
+
+    def _restore_snapshot(self):
+        snap = self._snapshot
+        self.project.variants = list(snap["variants"])
+        self.project.active_variant = snap["active_variant"]
+        self.project.is_modified = snap["is_modified"]
+        if hasattr(self.project, "unloaded_variant_overrides"):
+            self.project.unloaded_variant_overrides = copy.deepcopy(snap["unloaded_overrides"])
+        for name, mgr in (getattr(self.project, "module_managers", None) or {}).items():
+            cfg = getattr(mgr, "configuration", None)
+            if cfg is not None and name in snap["mod_overrides"]:
+                cfg.variant_overrides = copy.deepcopy(snap["mod_overrides"][name])
+                cfg.is_modified = snap["mod_modified"][name]
+        for c, var_val, c_mod in snap["container_variants"]:
+            c.variant = var_val
+            c.is_modified = c_mod
+
+    def reject(self):
+        self._restore_snapshot()
+        super().reject()
         
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -111,10 +171,12 @@ class VariantManagementDialog(QDialog):
         if index < 0:
             self.variant_title.setText("Select a variant")
             self.stats_label.setText("")
+            self.remove_btn.setEnabled(False)
             return
             
         variant_name = self.list_widget.item(index).text()
         self.variant_title.setText(f"Variant: {variant_name}")
+        self.remove_btn.setEnabled(variant_name != DEFAULT_VARIANT)
         
         # Calculate stats
         total_overrides = 0
@@ -141,10 +203,14 @@ class VariantManagementDialog(QDialog):
         name, ok = QInputDialog.getText(self, "Add Variant", "Enter unique variant name:")
         if ok and name.strip():
             name = name.strip()
+            if not _is_valid_variant_name(name):
+                QMessageBox.warning(self, "Error", "Invalid variant name (path characters are not allowed)!")
+                return
             if name in self.project.variants:
                 QMessageBox.warning(self, "Error", "Variant already exists!")
                 return
             self.project.variants.append(name)
+            self.project.is_modified = True
             self._load_variants()
             
     def _clone_variant(self):
@@ -156,18 +222,26 @@ class VariantManagementDialog(QDialog):
         new_name, ok = QInputDialog.getText(self, "Clone Variant", f"New name for clone of '{src_name}':")
         if ok and new_name.strip():
             new_name = new_name.strip()
+            if not _is_valid_variant_name(new_name):
+                QMessageBox.warning(self, "Error", "Invalid variant name (path characters are not allowed)!")
+                return
             if new_name in self.project.variants:
                 QMessageBox.warning(self, "Error", "Variant already exists!")
                 return
                 
             # Add to list
             self.project.variants.append(new_name)
+            self.project.is_modified = True
             
             # Clone overrides across all modules
             for manager in self.project.module_managers.values():
                 config = manager.configuration
                 if src_name in config.variant_overrides:
-                    config.variant_overrides[new_name] = config.variant_overrides[src_name].copy()
+                    config.variant_overrides[new_name] = copy.deepcopy(config.variant_overrides[src_name])
+                    config.is_modified = True
+            for unloaded_ov in (getattr(self.project, "unloaded_variant_overrides", None) or {}).values():
+                if isinstance(unloaded_ov, dict) and src_name in unloaded_ov:
+                    unloaded_ov[new_name] = copy.deepcopy(unloaded_ov[src_name])
             
             self._load_variants()
             
@@ -177,14 +251,35 @@ class VariantManagementDialog(QDialog):
             return
             
         name = current.text()
+        if name == DEFAULT_VARIANT:
+            QMessageBox.warning(self, "Cannot Delete Default", "The 'Default' base variant cannot be deleted.")
+            return
         if QMessageBox.question(self, "Confirm", f"Delete variant '{name}' and all its overrides?") == QMessageBox.Yes:
             self.project.variants.remove(name)
             if self.project.active_variant == name:
-                self.project.active_variant = None
+                self.project.active_variant = DEFAULT_VARIANT if DEFAULT_VARIANT in self.project.variants else (
+                    self.project.variants[0] if self.project.variants else DEFAULT_VARIANT
+                )
+            self.project.is_modified = True
+
+            def clear_container_variant(c, cfg):
+                if getattr(c, "variant", None) == name:
+                    c.variant = None
+                    c.mark_modified()
+                    cfg.is_modified = True
+                for sub in getattr(c, "sub_containers", []) or []:
+                    clear_container_variant(sub, cfg)
             
-            # Remove from all modules
+            # Remove from all modules and clear container.variant assignments
             for manager in self.project.module_managers.values():
-                if name in manager.configuration.variant_overrides:
-                    del manager.configuration.variant_overrides[name]
+                cfg = manager.configuration
+                if name in cfg.variant_overrides:
+                    del cfg.variant_overrides[name]
+                    cfg.is_modified = True
+                for top in getattr(cfg, "containers", []) or []:
+                    clear_container_variant(top, cfg)
+            for unloaded_ov in (getattr(self.project, "unloaded_variant_overrides", None) or {}).values():
+                if isinstance(unloaded_ov, dict) and name in unloaded_ov:
+                    del unloaded_ov[name]
                     
             self._load_variants()

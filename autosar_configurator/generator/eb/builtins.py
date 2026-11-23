@@ -42,8 +42,9 @@ class BuiltinFunctions:
         self._ecu_resources_ci = None
         self._ecu_resources_ci_src = None
 
-        # Variant name (will be set by renderer)
+        # Variant name and project variant list (will be set by renderer)
         self._variant_name = ""
+        self._variants: List[str] = []
         self.renderer = None
         self.unimplemented_calls = set()
 
@@ -1714,6 +1715,10 @@ class BuiltinFunctions:
         """Set the current variant name."""
         self._variant_name = variant or ""
 
+    def set_variants(self, variants: Optional[List[str]]):
+        """Set the full list of variants defined in the project."""
+        self._variants = [v for v in (variants or []) if v]
+
     def _is_real_variant(self) -> bool:
         """Whether a variant is defined in the project."""
         return bool(self._variant_name)
@@ -2385,10 +2390,18 @@ class BuiltinFunctions:
         
         Per spec 4.4: If Project has no Variant information,
         all Variant judgments return true.
-        
-        This is a compatibility fuse.
         """
-        # Currently no variant info loaded -> always return true
+        cond = (condition or "").strip()
+        if not cond or (not self._variants and not self._is_real_variant()):
+            return True
+        if cond in ("true", "True", "1"):
+            return True
+        if cond in ("false", "False", "0"):
+            return False
+        if self._variant_name and cond == self._variant_name:
+            return True
+        if self._variants and cond in self._variants:
+            return cond == self._variant_name if self._variant_name else True
         return True
     
     def variant_exists(self, variant_name: str = "") -> bool:
@@ -2396,14 +2409,24 @@ class BuiltinFunctions:
 
         Returns true if no variant info (compatibility mode).
         """
+        vname = (variant_name or "").strip()
+        if not vname:
+            return True
+        if self._variants:
+            return vname in self._variants
+        if self._is_real_variant():
+            return vname == self._variant_name
         return True
 
     def variant_all(self) -> List[str]:
         """Get all variant names defined in the project.
 
-        Returns a list of all variant names. If a variant is set,
-        returns a list containing that variant name.
+        Returns a list of all variant names. If an explicit variant list is set,
+        returns that list; otherwise if a variant is set, returns a list
+        containing that variant name.
         """
+        if self._variants:
+            return list(self._variants)
         if self._is_real_variant():
             return [self._variant_name]
         return []
@@ -2934,6 +2957,8 @@ class BuiltinFunctions:
         Returns:
             Number of variants (0 if no variants defined)
         """
+        if self._variants:
+            return len(self._variants)
         if self._is_real_variant():
             return 1
         return 0

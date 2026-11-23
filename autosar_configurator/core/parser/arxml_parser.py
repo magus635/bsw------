@@ -473,6 +473,17 @@ class ArxmlParser:
         if uuid_val:
             container.uuid = uuid_val
 
+        # Parse container-level variant stored in ADMIN-DATA/SDG (if present)
+        admin = self._find_child(element, 'ADMIN-DATA')
+        if admin is not None:
+            for sdg in self._findall_descendants(admin, 'SDG'):
+                if sdg.get('GID') != CONTAINER_VARIANT_GID:
+                    continue
+                for sd in self._findall_children(sdg, 'SD'):
+                    if sd.get('GID') == 'variant' and sd.text and sd.text.strip():
+                        container.variant = sd.text.strip()
+                        break
+
         # Parse DEFINITION-REF DEST attribute
         def_dest = self._get_def_ref_dest(element)
         if def_dest:
@@ -859,6 +870,8 @@ class ArxmlParser:
 
 # GID of the ADMIN-DATA SDG that holds module-level parameter values
 MODULE_PARAMETERS_GID = "ModuleParameters"
+# GID of the ADMIN-DATA SDG that holds a container instance's assigned project variant
+CONTAINER_VARIANT_GID = "ContainerVariant"
 
 
 def _module_parameter_value(text):

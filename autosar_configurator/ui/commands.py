@@ -246,10 +246,28 @@ class DeleteContainerCommand(QUndoCommand):
         self.config_manager = config_manager
         self.instance = instance
         self.parent_instance = parent_instance
+        self._removed_overrides = {}
         
         self.setText(f"Delete {instance.short_name}")
 
     def redo(self):
+        # Capture and remove variant overrides belonging to this container subtree
+        self._removed_overrides = {}
+        cfg = getattr(self.config_manager, 'configuration', None) if self.config_manager else None
+        if cfg is not None and getattr(cfg, 'variant_overrides', None):
+            inst_path = self.instance.get_path()
+            dot_prefix = f"{inst_path}."
+            slash_prefix = f"{inst_path}/"
+            short_prefix = f"{self.instance.short_name}."
+            for var_name, ov_map in list(cfg.variant_overrides.items()):
+                if not isinstance(ov_map, dict):
+                    continue
+                for k in list(ov_map.keys()):
+                    if k.startswith(dot_prefix) or k.startswith(slash_prefix) or (
+                        self.parent_instance is None and k.startswith(short_prefix)
+                    ):
+                        self._removed_overrides.setdefault(var_name, {})[k] = ov_map.pop(k)
+
         # Update reverse references if in project context (unregister)
         if hasattr(self.config_manager, 'project_context') and self.config_manager.project_context:
             self.config_manager.project_context.unregister_container_references(self.instance)
@@ -262,6 +280,12 @@ class DeleteContainerCommand(QUndoCommand):
     def undo(self):
         # Restore the instance
         self.config_manager.add_container_instance(self.instance, self.parent_instance)
+
+        # Restore variant overrides belonging to this container subtree
+        cfg = getattr(self.config_manager, 'configuration', None) if self.config_manager else None
+        if cfg is not None and self._removed_overrides:
+            for var_name, items in self._removed_overrides.items():
+                cfg.variant_overrides.setdefault(var_name, {}).update(items)
         
         # Update reverse references if in project context (register)
         if hasattr(self.config_manager, 'project_context') and self.config_manager.project_context:
@@ -388,9 +412,33 @@ class RenameContainerCommand(QUndoCommand):
         self.setText(f"Rename {self.old_name} → {new_name}")
 
     def _apply(self, name: str):
+        old_path = self.instance.get_path()
+        old_short = self.instance.short_name
         self.instance.short_name = name
+        new_path = self.instance.get_path()
         self.instance.mark_modified()
         self.config_manager.configuration.is_modified = True
+
+        # Migrate variant_overrides keys referencing the renamed container or its descendants
+        cfg = getattr(self.config_manager, 'configuration', None)
+        if cfg is not None and getattr(cfg, 'variant_overrides', None) and old_path != new_path:
+            old_dot = f"{old_path}."
+            old_slash = f"{old_path}/"
+            old_short_dot = f"{old_short}."
+            for _var_name, ov_map in cfg.variant_overrides.items():
+                if not isinstance(ov_map, dict):
+                    continue
+                migrated = {}
+                for k in list(ov_map.keys()):
+                    if k.startswith(old_dot):
+                        migrated[f"{new_path}.{k[len(old_dot):]}"] = ov_map.pop(k)
+                    elif k.startswith(old_slash):
+                        migrated[f"{new_path}/{k[len(old_slash):]}"] = ov_map.pop(k)
+                    elif self.instance.parent is None and k.startswith(old_short_dot):
+                        migrated[f"{name}.{k[len(old_short_dot):]}"] = ov_map.pop(k)
+                if migrated:
+                    ov_map.update(migrated)
+
         # Rebuild instance registry so path-based lookups stay consistent
         if hasattr(self.config_manager, '_rebuild_instance_registry'):
             self.config_manager._rebuild_instance_registry()
@@ -400,6 +448,108 @@ class RenameContainerCommand(QUndoCommand):
 
     def undo(self):
         self._apply(self.old_name)
+
+
+class SetVariantOverrideCommand(QUndoCommand):
+    """Command to set or clear a parameter/reference override for an active project variant."""
+
+    def __init__(
+        self,
+        config_manager: ConfigurationManager,
+        instance: EcucContainerValue,
+        param_name: str,
+        new_value: Any,
+        variant: str,
+        prev_state: Optional[tuple] = None,
+    ):
+        super().__init__()
+        is_ref = param_name.startswith("ref:")
+        lock_name = param_name[4:] if is_ref else param_name
+        _check_editable(config_manager, instance, lock_name)
+        self.config_manager = config_manager
+        self.instance = instance
+        self.param_name = param_name
+        self.new_value = new_value
+        self.variant = variant
+        self.full_key = f"{instance.get_path()}.{param_name}"
+        self.short_key = f"{instance.short_name}.{param_name}"
+
+        module_config = instance.module_config or (
+            getattr(config_manager, "configuration", None) if config_manager else None
+        )
+        self.module_config = module_config
+
+        if prev_state is not None:
+            self.had_full, self.old_full_val, self.had_short, self.old_short_val = prev_state
+        else:
+            overrides = (
+                (module_config.variant_overrides.get(variant) or {})
+                if module_config and isinstance(getattr(module_config, "variant_overrides", None), dict)
+                else {}
+            )
+            self.had_full = self.full_key in overrides
+            self.old_full_val = overrides.get(self.full_key)
+            self.had_short = self.short_key in overrides
+            self.old_short_val = overrides.get(self.short_key)
+
+        action = "Clear" if (new_value is None or (is_ref and new_value == "")) else "Set"
+        self.setText(f"{action} {param_name} [{variant}]")
+
+    def redo(self):
+        if not self.module_config:
+            return
+        is_clear = self.new_value is None or (self.param_name.startswith("ref:") and self.new_value == "")
+        if is_clear:
+            self.module_config.clear_variant_override(self.full_key, self.variant)
+            self.module_config.clear_variant_override(self.short_key, self.variant)
+        else:
+            self.module_config.set_value_for_variant(self.full_key, self.new_value, self.variant)
+
+    def undo(self):
+        if not self.module_config:
+            return
+        if self.had_full:
+            self.module_config.set_value_for_variant(self.full_key, self.old_full_val, self.variant)
+        else:
+            self.module_config.clear_variant_override(self.full_key, self.variant)
+        if self.had_short and self.short_key != self.full_key:
+            self.module_config.set_value_for_variant(self.short_key, self.old_short_val, self.variant)
+        elif self.short_key != self.full_key:
+            self.module_config.clear_variant_override(self.short_key, self.variant)
+
+
+class SetContainerVariantCommand(QUndoCommand):
+    """Command to change a container instance's assigned project variant."""
+
+    def __init__(
+        self,
+        config_manager: Optional[ConfigurationManager],
+        instance: EcucContainerValue,
+        new_variant: Optional[str],
+        old_variant: Optional[str] = None,
+        has_old_variant: bool = False,
+    ):
+        super().__init__()
+        _check_editable(config_manager, instance)
+        self.config_manager = config_manager
+        self.instance = instance
+        self.old_variant = old_variant if has_old_variant else instance.variant
+        self.new_variant = new_variant
+        self.setText(f"Set Variant {instance.short_name} → {new_variant or 'All'}")
+
+    def _apply(self, variant_val: Optional[str]):
+        self.instance.variant = variant_val
+        self.instance.mark_modified()
+        if self.instance.module_config is not None:
+            self.instance.module_config.is_modified = True
+        if self.config_manager and getattr(self.config_manager, "configuration", None) is not None:
+            self.config_manager.configuration.is_modified = True
+
+    def redo(self):
+        self._apply(self.new_variant)
+
+    def undo(self):
+        self._apply(self.old_variant)
 
 
 class DeleteModuleCommand(QUndoCommand):

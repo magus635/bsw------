@@ -1298,23 +1298,18 @@ class WorkspaceProject:
         return self.ecu_resource_report
 
     def ensure_default_variant(self):
-        """Ensure Default variant exists for all modules
-
-        Called when loading projects or adding modules to ensure
-        the Default variant is properly initialized.
-        """
-        for name, manager in self.module_managers.items():
+        """Ensure Default variant exists in project variants without creating a Default override layer."""
+        for _name, manager in self.module_managers.items():
             config = manager.configuration
-            if "Default" not in config.variant_overrides:
-                config.variant_overrides["Default"] = {}
+            config.variant_overrides.pop(DEFAULT_VARIANT, None)
         
         # Ensure Default is in variants list
-        if "Default" not in self.variants:
-            self.variants.insert(0, "Default")
+        if DEFAULT_VARIANT not in self.variants:
+            self.variants.insert(0, DEFAULT_VARIANT)
         
         # Set active variant to Default if not set
         if not self.active_variant:
-            self.active_variant = "Default"
+            self.active_variant = DEFAULT_VARIANT
 
     def fold_default_overrides(self) -> List[Tuple[str, str, Any, Any]]:
         """Drop the "Default" variant's override layer: Default is the base configuration.

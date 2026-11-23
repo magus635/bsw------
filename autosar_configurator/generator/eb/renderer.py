@@ -91,6 +91,7 @@ class Renderer:
         # Execution context per spec Section 3
         self._module_name: str = ""
         self._variant: str = ""  # Default variant (no variant)
+        self._variants: List[str] = []
         self._generation_target: str = ""
         self._template_file: str = ""
         self._current_token = None
@@ -133,7 +134,8 @@ class Renderer:
         self,
         module_def: EcucModuleDef,
         configuration: Optional[EcucModuleConfiguration] = None,
-        variant: Optional[str] = None
+        variant: Optional[str] = None,
+        variant_overrides: Optional[Dict[str, Any]] = None,
     ):
         """Load a module's definition and configuration.
 
@@ -143,9 +145,12 @@ class Renderer:
             module_def: Module definition from EcucDefParser
             configuration: Module configuration from ConfigurationManager
             variant: Active variant for container selection
+            variant_overrides: Optional explicit override dict for this module/variant
         """
         module_name = module_def.short_name if module_def else "Unknown"
-        self.overlay_engine.build_configuration_tree(module_def, configuration, variant=variant)
+        self.overlay_engine.build_configuration_tree(
+            module_def, configuration, variant=variant, variant_overrides=variant_overrides
+        )
 
         # Store variant for later use by builtins
         if variant:
@@ -186,6 +191,8 @@ class Renderer:
         self._builtins.renderer = self
         if self._variant:
             self._builtins.set_variant(self._variant)
+        if self._variants:
+            self._builtins.set_variants(self._variants)
         self._xpath_engine = XPathEngine(self.symbol_table, self._context_stack, function_handler=self._builtins)
 
         # collect this expression's unsupported calls in a fresh set (the set persists
@@ -284,6 +291,8 @@ class Renderer:
         # Set variant for builtins
         if self._variant:
             self._builtins.set_variant(self._variant)
+        if self._variants:
+            self._builtins.set_variants(self._variants)
 
         self._xpath_engine = XPathEngine(self.symbol_table, self._context_stack, function_handler=self._builtins)
 
