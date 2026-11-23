@@ -121,9 +121,6 @@ class DaVinciProject:
         main_ecuc_file: Optional[str],
         active_modules: Optional[Set[str]] = None,
         bsw_impl_versions: Optional[Dict[str, str]] = None,
-        predefined_variants: Optional[List[str]] = None,
-        active_variant: Optional[str] = None,
-        criterion_variant_map: Optional[Dict[tuple, str]] = None,
     ):
         self.dpa_path = Path(dpa_path)
         self.derivative_uuid = derivative_uuid
@@ -134,9 +131,6 @@ class DaVinciProject:
         self.main_ecuc_file = main_ecuc_file
         self.active_modules = active_modules or set()
         self.bsw_impl_versions = bsw_impl_versions or {}
-        self.predefined_variants: List[str] = list(predefined_variants or [])
-        self.active_variant: Optional[str] = active_variant
-        self.criterion_variant_map: Dict[tuple, str] = dict(criterion_variant_map or {})
 
     @classmethod
     def from_file(cls, dpa_path: Path) -> "DaVinciProject":
@@ -338,95 +332,6 @@ class DaVinciProject:
                             bsw_impl_versions[ar_path] = val
                         break
 
-        # Extract Predefined / Post-Build Variants from .dpa and Config ARXML files
-        predefined_variants: List[str] = []
-        active_variant: Optional[str] = None
-        criterion_variant_map: Dict[tuple, str] = {}
-
-        def _add_pvar(vname: Optional[str], is_active: bool = False):
-            nonlocal active_variant
-            v = (vname or "").strip()
-            if not v:
-                return
-            if v not in predefined_variants:
-                predefined_variants.append(v)
-            if is_active and not active_variant:
-                active_variant = v
-
-        # 1. From .dpa XML (<Variants>/<Variant>, <PostBuildVariants>/<Variant>, Settings)
-        for v_elem in root.findall(".//Variants/Variant") + root.findall(".//PostBuildVariants/Variant"):
-            vname = v_elem.get("Name") or v_elem.get("name") or (v_elem.text or "")
-            is_act = (v_elem.get("Active") or v_elem.get("active") or "").strip().lower() == "true"
-            _add_pvar(vname, is_active=is_act)
-        for setting in root.findall(".//Setting"):
-            sname = (setting.get("Name") or "").strip()
-            sval = (setting.get("Value") or setting.text or "").strip()
-            if sname in ("ActiveVariant", "SelectedPostBuildVariant", "DefaultPostBuildVariant") and sval:
-                _add_pvar(sval, is_active=True)
-            elif sname in ("PredefinedVariant", "PostBuildVariant") and sval:
-                _add_pvar(sval)
-
-        # 2. From main_ecuc_file, split ECUC files, and Config/**/*.arxml
-        from .parser.arxml_parser import ArxmlParser
-        ar_helper = ArxmlParser()
-        candidate_arxmls: List[Path] = []
-        seen_arxmls: Set[Path] = set()
-
-        def _queue_arxml(p: Optional[Path]):
-            if p is None:
-                return
-            try:
-                rp = p.resolve()
-            except OSError:
-                return
-            if rp not in seen_arxmls and rp.is_file():
-                seen_arxmls.add(rp)
-                candidate_arxmls.append(rp)
-
-        if main_ecuc_file:
-            mn = main_ecuc_file[2:] if main_ecuc_file.startswith("./") else main_ecuc_file
-            _queue_arxml(dpa_path.parent / mn)
-        for rel in ecuc_split_map.values():
-            rn = rel[2:] if rel.startswith("./") else rel
-            _queue_arxml(dpa_path.parent / rn)
-        cfg_dir = dpa_path.parent / "Config"
-        if cfg_dir.is_dir():
-            for ar_file in sorted(cfg_dir.rglob("*.arxml")):
-                _queue_arxml(ar_file)
-
-        for ar_file in candidate_arxmls:
-            try:
-                ar_root = etree.parse(str(ar_file), parser).getroot()
-            except Exception:
-                continue
-            pvs, cmap = ar_helper.parse_predefined_variants(ar_root)
-            for pv in pvs:
-                _add_pvar(pv)
-            if cmap:
-                criterion_variant_map.update(cmap)
-            # Also inspect EcuC EcucPostBuildVariantRef / EcucSelectedPostBuildVariantRef
-            for elem in ar_root.iter():
-                if not isinstance(elem.tag, str) or elem.tag.rsplit("}", 1)[-1] != "ECUC-REFERENCE-VALUE":
-                    continue
-                dref = ""
-                vref = ""
-                for child in elem:
-                    if not isinstance(child.tag, str):
-                        continue
-                    ctag = child.tag.rsplit("}", 1)[-1]
-                    if ctag == "DEFINITION-REF" and child.text:
-                        dref = child.text.strip().rstrip("/")
-                    elif ctag == "VALUE-REF" and child.text:
-                        vref = child.text.strip().rstrip("/")
-                if not dref or not vref:
-                    continue
-                dleaf = dref.rsplit("/", 1)[-1]
-                vleaf = vref.rsplit("/", 1)[-1]
-                if dleaf == "EcucPostBuildVariantRef":
-                    _add_pvar(vleaf)
-                elif dleaf == "EcucSelectedPostBuildVariantRef":
-                    _add_pvar(vleaf, is_active=True)
-
         return cls(
             dpa_path=dpa_path,
             derivative_uuid=derivative_uuid,
@@ -437,9 +342,6 @@ class DaVinciProject:
             main_ecuc_file=main_ecuc_file,
             active_modules=active_modules,
             bsw_impl_versions=bsw_impl_versions,
-            predefined_variants=predefined_variants,
-            active_variant=active_variant,
-            criterion_variant_map=criterion_variant_map,
         )
 
     def resolve_ecuc_file(self, module_name: str) -> Optional[Path]:
@@ -2371,8 +2273,6 @@ class DaVinciProjectImporter:
         ecuc_file: Path,
         module_name: str,
         expected_def_ref: Optional[str],
-        predefined_variants: Optional[List[str]] = None,
-        criterion_variant_map: Optional[Dict[tuple, str]] = None,
     ):
         """Parse ``ecuc_file`` and extract the configuration block(s) for ``module_name``."""
         from .parser.arxml_parser import ArxmlParser
@@ -2380,12 +2280,7 @@ class DaVinciProjectImporter:
 
         parser = etree.XMLParser(resolve_entities=False, no_network=True)
         root = etree.parse(str(ecuc_file), parser).getroot()
-        ar_parser = ArxmlParser()
-        if predefined_variants:
-            ar_parser._predefined_variants = list(predefined_variants)
-        if criterion_variant_map:
-            ar_parser._criterion_variant_map = dict(criterion_variant_map)
-        configs = ar_parser.parse_all_module_configurations(root)
+        configs = ArxmlParser().parse_all_module_configurations(root)
         if not configs:
             return None
 
@@ -2886,16 +2781,11 @@ class DaVinciProjectImporter:
 
             config_source = "sip_baseline"
             written_cfg_path: Optional[Path] = None
-            extracted_cfg = None
             if ecuc_file is not None:
                 effective_expected_def = norm_expected if has_specific_expected else pkg.manifest.definition
                 try:
                     extracted_cfg = cls._extract_module_config(
-                        ecuc_file,
-                        mod_name,
-                        effective_expected_def,
-                        predefined_variants=dv.predefined_variants,
-                        criterion_variant_map=dv.criterion_variant_map,
+                        ecuc_file, mod_name, effective_expected_def
                     )
                 except ValueError as exc:
                     new_project._restore_module_replace_backup(replace_backup)
@@ -2946,11 +2836,6 @@ class DaVinciProjectImporter:
                 new_project._restore_module_replace_backup(replace_backup)
                 report.rejected_modules.append(target_name)
                 continue
-
-            if extracted_cfg is not None and getattr(extracted_cfg, "variant_overrides", None):
-                for var_name, ov_map in extracted_cfg.variant_overrides.items():
-                    if isinstance(ov_map, dict) and ov_map:
-                        mgr.configuration.variant_overrides.setdefault(var_name, {}).update(ov_map)
 
             actual_name = mgr.module_def.short_name
             new_project.module_provenance[actual_name] = {
@@ -3173,39 +3058,6 @@ class DaVinciProjectImporter:
                         "target": err.path,
                         "message": err.message,
                     })
-
-        # 6b. Populate project Predefined / Post-Build Variants discovered from DaVinci .dpa and ECUC ARXML
-        discovered_variants: List[str] = ["Default"]
-        for v in getattr(new_project, "variants", []) or []:
-            if v and v not in discovered_variants:
-                discovered_variants.append(v)
-        for v in getattr(dv, "predefined_variants", []) or []:
-            if v and v not in discovered_variants:
-                discovered_variants.append(v)
-
-        def _collect_container_variants(c):
-            c_var = getattr(c, "variant", None)
-            if c_var and c_var not in discovered_variants:
-                discovered_variants.append(c_var)
-            for sub in getattr(c, "sub_containers", []) or []:
-                _collect_container_variants(sub)
-
-        for mgr in new_project.module_managers.values():
-            cfg = getattr(mgr, "configuration", None)
-            if cfg is None:
-                continue
-            for v in (getattr(cfg, "variant_overrides", None) or {}).keys():
-                if v and v != "Default" and v not in discovered_variants:
-                    discovered_variants.append(v)
-            for top in getattr(cfg, "containers", []) or []:
-                _collect_container_variants(top)
-
-        new_project.variants = discovered_variants
-        if getattr(dv, "active_variant", None) and dv.active_variant in new_project.variants:
-            new_project.active_variant = dv.active_variant
-        elif not new_project.active_variant or new_project.active_variant not in new_project.variants:
-            new_project.active_variant = "Default"
-        new_project.fold_default_overrides()
 
         # 7. Write a single timestamped Markdown report under .history/reports/ and persist project
         md_text = report.to_markdown()

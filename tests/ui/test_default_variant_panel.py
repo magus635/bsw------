@@ -225,9 +225,10 @@ def test_variant_management_dialog_protects_default_validates_names_and_cancels_
     assert general.variant == "V2"
 
 
-def test_module_implementation_config_variant_selectable_in_panel_and_tree_menu(qtbot):
-    """Module IMPLEMENTATION-CONFIG-VARIANT can be viewed and changed from both DaVinciConfigPanel
-    and DaVinciTreeView's module context menu, with undo/redo via SetModuleConfigVariantCommand."""
+def test_module_implementation_config_variant_in_tree_menu_and_not_on_container_panel(qtbot):
+    """Module IMPLEMENTATION-CONFIG-VARIANT is controlled at the module level (DaVinciTreeView context menu,
+    read-only when single SUPPORTED-CONFIG-VARIANT, switchable with undo/redo when multiple) and not exposed
+    on individual container instances in DaVinciConfigPanel."""
     from PySide6.QtGui import QUndoStack
     from PySide6.QtWidgets import QMenu
     from autosar_configurator.ui.commands import SetModuleConfigVariantCommand
@@ -235,51 +236,71 @@ def test_module_implementation_config_variant_selectable_in_panel_and_tree_menu(
 
     project = WorkspaceProject("demo")
     mod_def = _ecuc_def()
-    mod_def.supported_config_variants = ["VARIANT-PRE-COMPILE", "VARIANT-POST-BUILD"]
+    mod_def.supported_config_variants = ["VARIANT-PRE-COMPILE"]
     manager = project.add_module(mod_def, Path("EcuC.arxml"))
     general = manager.create_container_instance(mod_def.containers["EcucGeneral"])
 
     panel = DaVinciConfigPanel()
     qtbot.addWidget(panel)
-    undo_stack = QUndoStack()
-
-    def _on_panel_icv_changed(module_config, new_icv):
-        pending = panel._consume_pending_module_icv_undo(module_config)
-        if pending is not None:
-            old_icv, cur_icv = pending
-            undo_stack.push(SetModuleConfigVariantCommand(manager, module_config, cur_icv, old_variant=old_icv))
-
-    panel.module_config_variant_changed.connect(_on_panel_icv_changed)
     panel.show_instance(general, mod_def.containers["EcucGeneral"], manager, project)
+    assert not hasattr(panel, "impl_config_variant_combo")
+    assert panel.variant_combo.isHidden() is True
+    assert panel.compare_btn.isHidden() is True
 
-    assert [panel.impl_config_variant_combo.itemText(i) for i in range(panel.impl_config_variant_combo.count())] == [
-        "VARIANT-PRE-COMPILE",
-        "VARIANT-POST-BUILD",
-    ]
-    assert panel.impl_config_variant_combo.currentText() == "VARIANT-PRE-COMPILE"
+    tree = DaVinciTreeView()
+    qtbot.addWidget(tree)
+    tree.set_project(project)
 
-    panel.impl_config_variant_combo.setCurrentText("VARIANT-POST-BUILD")
+    # 1. Single SUPPORTED-CONFIG-VARIANT -> menu item is checked but disabled (read-only)
+    menu_single = QMenu(tree)
+    tree._populate_module_menu(menu_single, "EcuC")
+    icv_submenus = [a.menu() for a in menu_single.actions() if a.menu() and "实现配置变体" in a.text()]
+    assert len(icv_submenus) == 1
+    single_actions = icv_submenus[0].actions()
+    assert [a.text() for a in single_actions] == ["VARIANT-PRE-COMPILE"]
+    assert single_actions[0].isChecked() is True
+    assert single_actions[0].isEnabled() is False
+
+    # 2. Multiple SUPPORTED-CONFIG-VARIANTS -> menu items are enabled and switchable with undo/redo
+    mod_def.supported_config_variants = ["VARIANT-PRE-COMPILE", "VARIANT-POST-BUILD"]
+    undo_stack = QUndoStack()
+    triggered = []
+    tree.change_module_config_variant_requested.connect(lambda m, v: triggered.append((m, v)))
+    menu_multi = QMenu(tree)
+    tree._populate_module_menu(menu_multi, "EcuC")
+    icv_submenus_multi = [a.menu() for a in menu_multi.actions() if a.menu() and "实现配置变体" in a.text()]
+    sub_actions = icv_submenus_multi[0].actions()
+    assert [a.text() for a in sub_actions] == ["VARIANT-PRE-COMPILE", "VARIANT-POST-BUILD"]
+    assert all(a.isEnabled() for a in sub_actions)
+    sub_actions[1].trigger()
+    assert triggered == [("EcuC", "VARIANT-POST-BUILD")]
+
+    cmd = SetModuleConfigVariantCommand(manager, manager.configuration, "VARIANT-POST-BUILD")
+    undo_stack.push(cmd)
     assert manager.configuration.implementation_config_variant == "VARIANT-POST-BUILD"
-
     undo_stack.undo()
     assert manager.configuration.implementation_config_variant == "VARIANT-PRE-COMPILE"
     undo_stack.redo()
     assert manager.configuration.implementation_config_variant == "VARIANT-POST-BUILD"
 
-    # Also verify DaVinciTreeView module menu lists the supported config variants and triggers signal
-    tree = DaVinciTreeView()
-    qtbot.addWidget(tree)
-    tree.set_project(project)
-    triggered = []
-    tree.change_module_config_variant_requested.connect(lambda m, v: triggered.append((m, v)))
-    menu = QMenu(tree)
-    tree._populate_module_menu(menu, "EcuC")
-    icv_submenus = [a.menu() for a in menu.actions() if a.menu() and "实现配置变体" in a.text()]
-    assert len(icv_submenus) == 1
-    sub_actions = icv_submenus[0].actions()
-    assert [a.text() for a in sub_actions] == ["VARIANT-PRE-COMPILE", "VARIANT-POST-BUILD"]
-    assert [a.isChecked() for a in sub_actions] == [False, True]
-    sub_actions[0].trigger()
-    assert triggered == [("EcuC", "VARIANT-PRE-COMPILE")]
+    # 3. Main window handler updates window title dirty indicator
+    from types import SimpleNamespace
+    from autosar_configurator.ui.davinci_main_window import DaVinciMainWindow
+
+    title_updated = []
+    fake_win = SimpleNamespace(
+        current_project=project,
+        config_manager=manager,
+        undo_stack=undo_stack,
+        _has_unsaved_changes=False,
+        _update_window_title=lambda: title_updated.append(True),
+        tree_view=SimpleNamespace(refresh=lambda: None),
+        config_panel=None,
+        statusbar=SimpleNamespace(showMessage=lambda *_a, **_kw: None),
+    )
+    DaVinciMainWindow._on_tree_module_config_variant_requested(fake_win, "EcuC", "VARIANT-PRE-COMPILE")
+    assert manager.configuration.implementation_config_variant == "VARIANT-PRE-COMPILE"
+    assert fake_win._has_unsaved_changes is True
+    assert title_updated == [True]
 
 

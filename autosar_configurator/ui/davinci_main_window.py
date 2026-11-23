@@ -174,7 +174,6 @@ class DaVinciMainWindow(QMainWindow):
         self.config_panel.check_impact_requested.connect(self.impact_problems_controller._handle_check_impact)
         self.config_panel.reference_jump_requested.connect(self.nav_controller._on_reference_jump_requested)
         self.config_panel.instance_variant_changed.connect(self._on_instance_variant_changed)
-        self.config_panel.module_config_variant_changed.connect(self._on_module_config_variant_changed)
         splitter.addWidget(self.config_panel)
         
         # Set splitter proportions
@@ -222,6 +221,7 @@ class DaVinciMainWindow(QMainWindow):
         
         self.manage_variants_action = QAction("Manage Variants...", self)
         self.manage_variants_action.setEnabled(False)
+        self.manage_variants_action.setVisible(False)
         self.manage_variants_action.triggered.connect(self.project_controller.manage_variants)
         
         self.add_module_action = QAction("Add Module to Project...", self)
@@ -501,16 +501,18 @@ class DaVinciMainWindow(QMainWindow):
         toolbar.addAction(self.generate_action)
         toolbar.addSeparator()
         
-        # Global variant selector (no more Base button - using pure variant model)
+        # Legacy project-variant controls are kept hidden for backward compatibility
         variant_view_label = QLabel("Variant:")
         variant_view_label.setToolTip("Select the active variant for configuration and code generation.")
-        toolbar.addWidget(variant_view_label)
+        v_lbl_act = toolbar.addWidget(variant_view_label)
+        v_lbl_act.setVisible(False)
         self.variant_selector = QComboBox()
         self.variant_selector.setMinimumWidth(150)
         self.variant_selector.addItem("Default")
         self.variant_selector.setEnabled(True)
         self.variant_selector.currentTextChanged.connect(self._on_variant_changed)
-        toolbar.addWidget(self.variant_selector)
+        v_sel_act = toolbar.addWidget(self.variant_selector)
+        v_sel_act.setVisible(False)
         
         # Quick manage button
         self.manage_variants_btn = QPushButton()
@@ -519,19 +521,20 @@ class DaVinciMainWindow(QMainWindow):
         self.manage_variants_btn.setFixedWidth(30)
         self.manage_variants_btn.clicked.connect(self.project_controller.manage_variants)
         self.manage_variants_btn.setEnabled(False)
-        toolbar.addWidget(self.manage_variants_btn)
+        v_btn_act = toolbar.addWidget(self.manage_variants_btn)
+        v_btn_act.setVisible(False)
         
         # Reference variant selector for comparison
-        toolbar.addWidget(QLabel(" vs "))
+        vs_act = toolbar.addWidget(QLabel(" vs "))
+        vs_act.setVisible(False)
         self.reference_variant_selector = QComboBox()
         self.reference_variant_selector.setMinimumWidth(120)
         self.reference_variant_selector.addItem("Base (基础)")
         self.reference_variant_selector.setToolTip("选择参考变体进行对比 (高亮显示差异)")
         self.reference_variant_selector.setEnabled(False)
         self.reference_variant_selector.currentTextChanged.connect(self._on_reference_variant_changed)
-        toolbar.addWidget(self.reference_variant_selector)
-        
-        toolbar.addSeparator()
+        ref_sel_act = toolbar.addWidget(self.reference_variant_selector)
+        ref_sel_act.setVisible(False)
         
         # AI Assistant toggle button
         self.ai_toggle_btn = QPushButton()
@@ -553,10 +556,11 @@ class DaVinciMainWindow(QMainWindow):
         self.mode_label.setStyleSheet("QLabel { padding: 2px 10px; }")
         self.statusbar.addPermanentWidget(self.mode_label)
         
-        # Variant indicator
+        # Variant indicator (hidden with legacy project-variant UI)
         self.variant_label = QLabel("Variant: None")
         self.variant_label.setStyleSheet("QLabel { padding: 2px 10px; }")
         self.statusbar.addPermanentWidget(self.variant_label)
+        self.variant_label.setVisible(False)
         
         # Validation status (right side - permanent)
         self.validation_status_label = QLabel("Not validated")
@@ -830,29 +834,6 @@ class DaVinciMainWindow(QMainWindow):
         else:
             self.statusbar.showMessage(f"Instance '{instance.short_name}' variant updated, tree refreshed", 3000)
 
-    def _on_module_config_variant_changed(self, module_config, new_variant: str):
-        """Handle change of a module's IMPLEMENTATION-CONFIG-VARIANT from the config panel."""
-        from .commands import SetModuleConfigVariantCommand
-
-        panel = getattr(self, "config_panel", None)
-        consume = getattr(panel, "_consume_pending_module_icv_undo", None)
-        pending = consume(module_config) if callable(consume) else None
-        mgr = None
-        if self.current_project and hasattr(self.current_project, "module_managers"):
-            mgr = self.current_project.module_managers.get(getattr(module_config, "short_name", ""))
-        if mgr is None:
-            mgr = self.config_manager
-        if pending is not None and hasattr(self, "undo_stack") and self.undo_stack is not None:
-            old_icv, new_icv = pending
-            cmd = SetModuleConfigVariantCommand(mgr, module_config, new_icv, old_variant=old_icv)
-            self.undo_stack.push(cmd)
-        self._has_unsaved_changes = True
-        self.tree_view.refresh()
-        self.statusbar.showMessage(
-            f"Module '{module_config.short_name}' IMPLEMENTATION-CONFIG-VARIANT → {new_variant}",
-            3000,
-        )
-
     def _on_tree_module_config_variant_requested(self, module_name: str, new_variant: str):
         """Handle change of a module's IMPLEMENTATION-CONFIG-VARIANT from the tree context menu."""
         from .commands import SetModuleConfigVariantCommand
@@ -878,6 +859,9 @@ class DaVinciMainWindow(QMainWindow):
         if self.current_project:
             self.current_project.is_modified = True
         self._has_unsaved_changes = True
+        update_title = getattr(self, "_update_window_title", None)
+        if callable(update_title):
+            update_title()
         self.tree_view.refresh()
         if hasattr(self, "config_panel") and self.config_panel and self.config_panel.current_instance:
             self.config_panel.refresh()

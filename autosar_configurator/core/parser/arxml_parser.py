@@ -367,80 +367,6 @@ class ArxmlParser:
 
         return modules
 
-    def parse_predefined_variants(self, root: etree._Element):
-        """Extract PREDEFINED-VARIANT names and criterion->variant mappings from an ARXML tree."""
-        variants: List[str] = []
-        crit_map: Dict[tuple, str] = {}
-        set_map: Dict[str, List[tuple]] = {}
-
-        if root is None:
-            return variants, crit_map
-
-        # 1. Index POST-BUILD-VARIANT-CRITERION-VALUE-SET definitions by short name
-        for vset_elem in self._findall_descendants(root, 'POST-BUILD-VARIANT-CRITERION-VALUE-SET'):
-            set_sn = self._get_short_name(vset_elem)
-            if not set_sn:
-                continue
-            pairs = []
-            for cv in self._findall_descendants(vset_elem, 'POST-BUILD-VARIANT-CRITERION-VALUE'):
-                cref = (self._get_text_value(cv, 'VARIANT-CRITERION-REF') or "").strip().rstrip("/")
-                cval = (self._get_text_value(cv, 'VALUE') or "").strip()
-                if cref and cval:
-                    pairs.append((cref, cval))
-                    pairs.append((cref.rsplit("/", 1)[-1], cval))
-            if pairs:
-                set_map[set_sn] = pairs
-
-        # 2. Parse PREDEFINED-VARIANT elements
-        for pv_elem in self._findall_descendants(root, 'PREDEFINED-VARIANT'):
-            vname = self._get_short_name(pv_elem)
-            if not vname:
-                continue
-            if vname not in variants:
-                variants.append(vname)
-            for cv in self._findall_descendants(pv_elem, 'POST-BUILD-VARIANT-CRITERION-VALUE'):
-                cref = (self._get_text_value(cv, 'VARIANT-CRITERION-REF') or "").strip().rstrip("/")
-                cval = (self._get_text_value(cv, 'VALUE') or "").strip()
-                if cref and cval:
-                    crit_map[(cref, cval)] = vname
-                    crit_map[(cref.rsplit("/", 1)[-1], cval)] = vname
-            for sref_elem in self._findall_descendants(pv_elem, 'POST-BUILD-VARIANT-CRITERION-VALUE-SET-REF'):
-                if sref_elem.text and sref_elem.text.strip():
-                    sleaf = sref_elem.text.strip().rstrip("/").rsplit("/", 1)[-1]
-                    for pair in set_map.get(sleaf, ()):
-                        crit_map[pair] = vname
-
-        return variants, crit_map
-
-    def _extract_variation_point_variant(self, element: etree._Element) -> Optional[str]:
-        """Extract the Predefined Variant name from a direct <VARIATION-POINT> child, if present."""
-        vp = self._find_child(element, 'VARIATION-POINT')
-        if vp is None:
-            return None
-        crit_map = getattr(self, '_criterion_variant_map', None) or {}
-        known_variants = set(getattr(self, '_predefined_variants', None) or ())
-
-        for cond in self._findall_descendants(vp, 'POST-BUILD-VARIANT-CONDITION'):
-            mref = (self._get_text_value(cond, 'MATCHING-CRITERION-REF') or "").strip().rstrip("/")
-            mval = (self._get_text_value(cond, 'VALUE') or "").strip()
-            if mref and mval:
-                hit = crit_map.get((mref, mval)) or crit_map.get((mref.rsplit("/", 1)[-1], mval))
-                if hit:
-                    return hit
-                if mval in known_variants:
-                    return mval
-
-        pv_ref = self._get_text_value(vp, 'PREDEFINED-VARIANT-REF')
-        if pv_ref and pv_ref.strip():
-            return pv_ref.strip().rstrip("/").rsplit("/", 1)[-1]
-
-        short_label = (self._get_text_value(vp, 'SHORT-LABEL') or "").strip()
-        if short_label:
-            if short_label.startswith("VP_") and short_label[3:] in known_variants:
-                return short_label[3:]
-            return short_label
-        return None
-
     def parse_all_module_configurations(self, root: etree._Element) -> List[EcucModuleConfiguration]:
         """Parse every ECUC-MODULE-CONFIGURATION-VALUES element under *root*.
 
@@ -454,17 +380,6 @@ class ArxmlParser:
             List of EcucModuleConfiguration (package_name populated from the
             enclosing AR-PACKAGE when available)
         """
-        pvs, cmap = self.parse_predefined_variants(root)
-        if pvs:
-            existing_pvs = list(getattr(self, '_predefined_variants', None) or [])
-            for pv in pvs:
-                if pv not in existing_pvs:
-                    existing_pvs.append(pv)
-            self._predefined_variants = existing_pvs
-        if cmap:
-            existing_map = dict(getattr(self, '_criterion_variant_map', None) or {})
-            existing_map.update(cmap)
-            self._criterion_variant_map = existing_map
         configs = []
         for config_elem in self._findall_descendants(root, 'ECUC-MODULE-CONFIGURATION-VALUES'):
             config = self.parse_ecuc_configuration_values(config_elem)
@@ -521,16 +436,6 @@ class ArxmlParser:
                             name, _module_parameter_value(sd.text), f"{definition_ref}/{name}")
         
         # Parse containers
-        prev_pending_vp = getattr(self, '_pending_vp_overrides', None)
-        self._pending_vp_overrides = []
-        if not hasattr(self, '_criterion_variant_map'):
-            try:
-                doc_root = element.getroottree().getroot()
-                pvs, cmap = self.parse_predefined_variants(doc_root)
-                self._predefined_variants = pvs
-                self._criterion_variant_map = cmap
-            except Exception:
-                pass
         containers_elem = self._find_descendant(element, 'CONTAINERS')
         if containers_elem is not None:
             # Initialize global definition counts mapping for unique auto-indexing
@@ -546,13 +451,6 @@ class ArxmlParser:
                         container.index = self._def_counts.get(d_ref, 0)
                         self._def_counts[d_ref] = container.index + 1
                     config.add_container(container)
-
-        for cont, key_name, val, vp_var in self._pending_vp_overrides:
-            if vp_var and vp_var != "Default":
-                config.set_value_for_variant(f"{cont.get_path()}.{key_name}", val, vp_var)
-        if self._pending_vp_overrides:
-            config.is_modified = False
-        self._pending_vp_overrides = prev_pending_vp
                     
         return config
 
@@ -585,11 +483,6 @@ class ArxmlParser:
                     if sd.get('GID') == 'variant' and sd.text and sd.text.strip():
                         container.variant = sd.text.strip()
                         break
-
-        if container.variant is None:
-            vp_var = self._extract_variation_point_variant(element)
-            if vp_var:
-                container.variant = vp_var
 
         # Parse DEFINITION-REF DEST attribute
         def_dest = self._get_def_ref_dest(element)
@@ -657,21 +550,20 @@ class ArxmlParser:
         dest_type = self._get_def_ref_dest(element)
 
         # Get value (prefer direct child <VALUE> so a <VARIATION-POINT>'s nested <VALUE> is not picked)
+        has_variation_point = self._find_child(element, 'VARIATION-POINT') is not None
         raw_val_text = self._get_child_text_value(element, 'VALUE')
-        if raw_val_text is None and self._find_child(element, 'VARIATION-POINT') is None:
+        if raw_val_text is None and not has_variation_point:
             raw_val_text = self._get_text_value(element, 'VALUE')
         value = self.typed_value(raw_val_text, dest_type,
                                  'NUMERICAL-PARAM-VALUE' in element.tag)
 
-        # Check for VARIATION-POINT variant override
-        vp_var = self._extract_variation_point_variant(element)
-        if vp_var and hasattr(self, '_pending_vp_overrides') and self._pending_vp_overrides is not None:
-            self._pending_vp_overrides.append((container, param_name, value, vp_var))
-            if param_name in container.parameter_values:
-                return
-
         # Check for INDEX (multi-valued parameters)
         index_text = self._get_text_value(element, 'INDEX')
+
+        # Multiple <VARIATION-POINT> alternatives for the same unindexed parameter should not
+        # be promoted to multi_parameter_values; keep the first parsed value.
+        if index_text is None and has_variation_point and param_name in container.parameter_values:
+            return
 
         if index_text is not None:
             try:
@@ -805,14 +697,10 @@ class ArxmlParser:
         # or if it was found but has leading/trailing whitespace.
         target_ref = target_ref.strip()
 
-        # Check for VARIATION-POINT variant override
-        vp_var = self._extract_variation_point_variant(element)
-        if vp_var and hasattr(self, '_pending_vp_overrides') and self._pending_vp_overrides is not None:
-            self._pending_vp_overrides.append((container, f"ref:{ref_name}", target_ref, vp_var))
-            if ref_name in container.reference_values:
-                return
-
         # Route to multi-valued or single-valued storage
+        has_variation_point = self._find_child(element, 'VARIATION-POINT') is not None
+        if index_text is None and has_variation_point and ref_name in container.reference_values:
+            return
         if index_text is not None:
             try:
                 index_val = int(index_text)

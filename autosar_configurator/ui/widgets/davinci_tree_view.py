@@ -1004,13 +1004,16 @@ class DaVinciTreeView(QTreeWidget):
                 options.append(cur_icv)
             icv_menu = QMenu(f"⚙️ 实现配置变体 ({cur_icv})", menu)
             menu.addMenu(icv_menu)
+            is_switchable = len(options) > 1
             for opt in options:
                 act = icv_menu.addAction(opt)
                 act.setCheckable(True)
                 act.setChecked(opt == cur_icv)
-                act.triggered.connect(
-                    lambda _checked=False, m=module_name, v=opt: self.change_module_config_variant_requested.emit(m, v)
-                )
+                act.setEnabled(is_switchable)
+                if is_switchable:
+                    act.triggered.connect(
+                        lambda _checked=False, m=module_name, v=opt: self.change_module_config_variant_requested.emit(m, v)
+                    )
             menu.addSeparator()
 
         if self._has_alternative_variants(module_name):
