@@ -64,14 +64,16 @@ class CodeGenerator:
                  all_configurations: Optional[Dict[str, Any]] = None,
                  selected_chip: Optional[str] = None,
                  ecu_resources: Optional[Dict[str, Any]] = None,
-                 project_root: Optional[Path] = None):
+                 project_root: Optional[Path] = None,
+                 package_dir_name: Optional[str] = None):
         """Initialize generator
 
         Args:
             module_def: Module definition
             configuration: Configuration instance
             project_template_dir: Optional project-specific template root; the module's
-                templates live in its ``<Module>/`` subdirectory (highest priority)
+                templates live in its ``<Module>/`` subdirectory (or ``<package_dir_name>/``
+                variant overlay subdirectory when set)
             package_template_dir: Optional module package template directory.  This IS
                 the module's template dir (no ``<Module>/`` subdirectory inside it);
                 searched after the project overlay and before the user directory.
@@ -84,6 +86,8 @@ class CodeGenerator:
             project_root: Optional project directory (where the .dpa lives). When given,
                 the .properties scan uses it directly; when None the root is guessed by
                 searching upwards from project_template_dir (legacy behaviour).
+            package_dir_name: Optional Format 8 package directory name (e.g. ``CanTrcv_Tle9255``)
+                for variant-scoped overlay resolution under ``project_template_dir``.
         """
         self.module_def = module_def
         self.project_root = Path(project_root) if project_root is not None else None
@@ -95,6 +99,7 @@ class CodeGenerator:
         self.variant_name = variant_name
         self.all_configurations = all_configurations or {}
         self.selected_chip = selected_chip
+        self.package_dir_name = package_dir_name
 
         # Outcome of the last generate_all() call:
         # 'generated' | 'skipped' (no templates) | 'failed' | None (not run yet)
@@ -186,7 +191,21 @@ class CodeGenerator:
             for template_root in (self.package_template_dir, self.user_template_dir,
                                   self.project_template_dir):
                 if template_root and Path(template_root).is_dir():
-                    props_files.extend(list(Path(template_root).glob("**/*.properties")))
+                    props_files.extend(
+                        sorted(Path(template_root).glob("**/*.properties"), key=lambda p: p.as_posix())
+                    )
+            if self.project_template_dir and self.package_dir_name:
+                mod_name = (
+                    self.configuration.short_name
+                    if self.configuration is not None
+                    else (self.module_def.short_name if self.module_def is not None else "")
+                )
+                if self.package_dir_name.lower() != mod_name.lower():
+                    variant_overlay_dir = Path(self.project_template_dir) / self.package_dir_name
+                    if variant_overlay_dir.is_dir():
+                        props_files.extend(
+                            sorted(variant_overlay_dir.glob("**/*.properties"), key=lambda p: p.as_posix())
+                        )
         except Exception as e:
             logger.warning(f"Error scanning for properties files: {e}")
 
@@ -354,6 +373,15 @@ class CodeGenerator:
         self.last_status = 'generated'
         return True
 
+    def _overlay_subdir_names(self, module_name: str) -> List[str]:
+        """Return overlay directory names in precedence order: variant-specific first, then module."""
+        if (
+            self.package_dir_name
+            and self.package_dir_name.lower() != module_name.lower()
+        ):
+            return [self.package_dir_name, module_name]
+        return [module_name]
+
     def _discover_template_types(self, module_name: str) -> List[Dict[str, Any]]:
         """Find all templates and their relative paths.
 
@@ -375,17 +403,17 @@ class CodeGenerator:
         ]
         """
 
-        def find_module_dir(base_dir: Path) -> Optional[Path]:
-            """``<base_dir>/<Module>`` (exact, then case-insensitive)."""
+        def find_named_dir(base_dir: Path, dir_name: str) -> Optional[Path]:
+            """``<base_dir>/<dir_name>`` (exact, then case-insensitive)."""
             try:
-                mod_dir = base_dir / module_name
-                if mod_dir.exists():
-                    return mod_dir
-                for item in base_dir.iterdir():
+                named_dir = base_dir / dir_name
+                if named_dir.exists():
+                    return named_dir
+                for item in sorted(base_dir.iterdir(), key=lambda p: p.name):
                     if item.name == '.DS_Store' or item.name.startswith('._'):
                         continue
                     try:
-                        if item.is_dir() and item.name.lower() == module_name.lower():
+                        if item.is_dir() and item.name.lower() == dir_name.lower():
                             return item
                     except PermissionError:
                         continue
@@ -517,11 +545,11 @@ class CodeGenerator:
                 scan_module_dir(md, found)
             return finalize(found)
 
-        def module_dirs_unless_root(base_dir: Path) -> List[Path]:
-            """``<base_dir>/<Module>`` (+ variant) of an overlay/user source."""
+        def module_dirs_for(base_dir: Path, dir_name: str) -> List[Path]:
+            """``<base_dir>/<dir_name>`` (+ variant) of an overlay/user source."""
             if not base_dir or not base_dir.exists() or not base_dir.is_dir():
                 return []
-            mod_dir = find_module_dir(base_dir)
+            mod_dir = find_named_dir(base_dir, dir_name)
             if mod_dir is None:
                 return []
             dirs_to_scan = [mod_dir]
@@ -536,7 +564,8 @@ class CodeGenerator:
         # dir (an EB plugin points at e.g. generate_PB): no <Module>/ inside it.
         sources: List[List[Path]] = []
         if self.project_template_dir:
-            sources.append(module_dirs_unless_root(self.project_template_dir))
+            for sub_name in self._overlay_subdir_names(module_name):
+                sources.append(module_dirs_for(self.project_template_dir, sub_name))
         if self.package_template_dir:
             package_dir = Path(self.package_template_dir)
             if package_dir.is_dir():
@@ -547,7 +576,8 @@ class CodeGenerator:
                         dirs_to_scan.append(var_dir)
                 sources.append(dirs_to_scan)
         if self.user_template_dir:
-            sources.append(module_dirs_unless_root(self.user_template_dir))
+            for sub_name in self._overlay_subdir_names(module_name):
+                sources.append(module_dirs_for(self.user_template_dir, sub_name))
 
         # No built-in default templates and no string fallbacks: a module
         # without templates generates nothing and is reported as skipped.
@@ -698,19 +728,21 @@ class CodeGenerator:
             return f'"{value}"'
         return str(value)
 
-    def _build_include_search_paths(
+    def _split_include_search_paths(
         self, module_name: str, template_source_dir: Optional[Path]
-    ) -> List[Path]:
-        """Collect permitted INCLUDE directories across overlay, package and user templates.
+    ) -> Tuple[List[Path], List[Path]]:
+        """Collect permitted INCLUDE directories split into priority overlays and fallbacks.
 
-        Keeping package_template_dir (and its subdirectories, without exposing its parent)
-        allows an overlay file in ``templates/<Module>/`` to ``[!INCLUDE "Mod.m"!]`` macro
-        files that live only in the module package's ``generate_PB/`` directory.
+        Priority paths (``templates/<pkg_dir_name>/`` then ``templates/<Module>/``) are
+        searched before ``template_source_dir``, and fallback paths (``template_source_dir``,
+        ``package_template_dir`` and subdirs, ``user_template_dir``, overlay roots) are
+        searched after ``template_source_dir``. Never exposes ``package_template_dir.parent``.
         """
-        search_paths: List[Path] = []
+        priority_paths: List[Path] = []
+        fallback_paths: List[Path] = []
         seen = set()
 
-        def add_dir(d: Optional[Path]) -> None:
+        def add_dir(target: List[Path], d: Optional[Path]) -> None:
             if not d:
                 return
             try:
@@ -722,52 +754,67 @@ class CodeGenerator:
                 return
             if resolved not in seen:
                 seen.add(resolved)
-                search_paths.append(p)
+                target.append(resolved)
 
-        def add_module_root_and_subdirs(base_dir: Optional[Path]) -> None:
+        def add_named_dir_and_subdirs(
+            target: List[Path], base_dir: Optional[Path], dir_name: str
+        ) -> None:
             if not base_dir:
                 return
             base = Path(base_dir)
             if not base.is_dir():
                 return
-            mod_dir = base / module_name
+            mod_dir = base / dir_name
             if not mod_dir.is_dir():
+                mod_dir = None
                 try:
                     for item in sorted(base.iterdir(), key=lambda p: p.name):
-                        if item.is_dir() and item.name.lower() == module_name.lower():
+                        if item.is_dir() and item.name.lower() == dir_name.lower():
                             mod_dir = item
                             break
                 except OSError:
                     mod_dir = None
             if mod_dir is not None and mod_dir.is_dir():
-                add_dir(mod_dir)
+                add_dir(target, mod_dir)
                 try:
                     for sub in sorted(mod_dir.iterdir(), key=lambda p: p.name):
                         if sub.is_dir():
-                            add_dir(sub)
+                            add_dir(target, sub)
                 except OSError:
                     pass
-            add_dir(base)
+
+        for sub_name in self._overlay_subdir_names(module_name):
+            add_named_dir_and_subdirs(priority_paths, self.project_template_dir, sub_name)
 
         if template_source_dir:
-            add_dir(template_source_dir)
-            add_dir(Path(template_source_dir).parent)
-
-        add_module_root_and_subdirs(self.project_template_dir)
+            add_dir(fallback_paths, template_source_dir)
 
         if self.package_template_dir:
             pkg_dir = Path(self.package_template_dir)
-            add_dir(pkg_dir)
+            add_dir(fallback_paths, pkg_dir)
             if pkg_dir.is_dir():
                 try:
                     for sub in sorted(pkg_dir.iterdir(), key=lambda p: p.name):
                         if sub.is_dir():
-                            add_dir(sub)
+                            add_dir(fallback_paths, sub)
                 except OSError:
                     pass
 
-        add_module_root_and_subdirs(self.user_template_dir)
-        return search_paths
+        for sub_name in self._overlay_subdir_names(module_name):
+            add_named_dir_and_subdirs(fallback_paths, self.user_template_dir, sub_name)
+
+        add_dir(fallback_paths, self.project_template_dir)
+        add_dir(fallback_paths, self.user_template_dir)
+        return priority_paths, fallback_paths
+
+    def _build_include_search_paths(
+        self, module_name: str, template_source_dir: Optional[Path]
+    ) -> List[Path]:
+        """Collect permitted INCLUDE directories across overlay, package and user templates."""
+        priority_paths, fallback_paths = self._split_include_search_paths(
+            module_name, template_source_dir
+        )
+        return priority_paths + fallback_paths
 
     def _generate_single_file(self, t_info: Dict[str, Any], output_parent: Path) -> bool:
         """Generate a single file from a template type"""
@@ -796,11 +843,15 @@ class CodeGenerator:
             # Automatic engine selection: EB syntax [! ... !] vs Standard
             if "[!" in template_content:
                 logger.debug(f"Detected EB syntax in {template_name}, using EBTemplateEngine")
-                include_paths = self._build_include_search_paths(module_name, template_source_dir)
+                priority_paths, fallback_paths = self._split_include_search_paths(
+                    module_name, template_source_dir
+                )
                 eb_engine = EBTemplateEngine(
                     strict=False,
                     template_dir=template_source_dir,
-                    include_search_paths=include_paths,
+                    include_search_paths=fallback_paths,
+                    priority_include_paths=priority_paths,
+                    include_template_parent=False,
                 )
                 context['all_modules'] = self.all_configurations
                 try:

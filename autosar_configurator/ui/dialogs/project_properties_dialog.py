@@ -262,11 +262,24 @@ class ProjectPropertiesDialog(QDialog):
         self.created_label.setText(str(created))
         
         module_managers = getattr(self.project, 'module_managers', {}) or {}
+        module_entries = getattr(self.project, 'module_entries', {}) or {}
         module_count = len(module_managers)
         sorted_modules = sorted(module_managers.keys())
         self.modules_label.setText(f"{module_count} modules configured:")
         if sorted_modules:
-            self.modules_text.setPlainText(', '.join(sorted_modules))
+            module_lines = []
+            for mod_name in sorted_modules:
+                mgr = module_managers[mod_name]
+                entry = module_entries.get(mod_name)
+                def_path = (
+                    (entry.definition if entry is not None and getattr(entry, 'definition', None) else None)
+                    or getattr(getattr(mgr, 'module_def', None), 'ar_path', None)
+                    or getattr(getattr(mgr, 'module_def', None), 'definition_ref', None)
+                    or getattr(getattr(mgr, 'configuration', None), 'definition_ref', None)
+                    or ""
+                )
+                module_lines.append(f"{mod_name}  ({def_path})" if def_path else mod_name)
+            self.modules_text.setPlainText('\n'.join(module_lines))
         else:
             self.modules_text.setPlainText("No modules configured")
         
@@ -305,13 +318,15 @@ class ProjectPropertiesDialog(QDialog):
                 
             overlay_root, package_template_dir = project_paths.template_sources(
                 self.project, module_name)
+            pkg_dir_name = project_paths.package_dir_name(self.project, module_name)
             generator = CodeGenerator(
                 manager.module_def,
                 manager.configuration,
                 project_template_dir=overlay_root if overlay_root and overlay_root.exists() else None,
                 package_template_dir=package_template_dir,
                 ecu_resources=self.project.ecu_resources or None,
-                project_root=project_root
+                project_root=project_root,
+                package_dir_name=pkg_dir_name,
             )
             
             infos = generator.get_template_info(module_name)

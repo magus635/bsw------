@@ -336,3 +336,220 @@ def test_per_module_gen_layout_default_and_custom_variant(tmp_path):
 
     assert generator.generate_all(tmp_path / "gen", variant="VariantA", flat=False) is True
     assert (tmp_path / "gen" / "Dio" / "VariantA" / "include" / "Dio_Cfg.h").is_file()
+
+
+# --- Step 3: variant-scoped overlay (templates/<pkg_dir_name>/) -----------------
+
+def _cantrcv_module_def():
+    from autosar_configurator.core.model.definition_model import EcucModuleDef
+    return EcucModuleDef(short_name="CanTrcv", definition_ref="/MICROSAR/CanTrcv_Tle9255/CanTrcv")
+
+
+def _cantrcv_config():
+    from autosar_configurator.core.model.configuration_model import EcucModuleConfiguration
+    return EcucModuleConfiguration(short_name="CanTrcv", definition_ref="/MICROSAR/CanTrcv_Tle9255/CanTrcv")
+
+
+def test_package_dir_name_v8_and_legacy(tmp_path):
+    pkg_root = tmp_path / "modules" / "davinci" / "CanTrcv_Tle9255"
+    (pkg_root / "templates").mkdir(parents=True)
+    pkg = ModulePackage(
+        pkg_root,
+        ModuleManifest(
+            module="CanTrcv",
+            definition="/MICROSAR/CanTrcv_Tle9255/CanTrcv",
+            templates="templates",
+        ),
+    )
+    _, v8_project = _v8_project(tmp_path, packages={"CanTrcv": pkg})
+    assert project_paths.package_dir_name(v8_project, "CanTrcv") == "CanTrcv_Tle9255"
+    assert project_paths.package_dir_name(v8_project, "Missing") is None
+    sources = project_paths.template_sources(v8_project, "CanTrcv")
+    assert isinstance(sources, tuple) and len(sources) == 2
+
+    v7_project = WorkspaceManager().create_project("V7", tmp_path / "V7.dpa", format_version=7)
+    v7_project.packages = {"CanTrcv": pkg}
+    assert project_paths.package_dir_name(v7_project, "CanTrcv") is None
+
+
+def test_variant_overlay_precedence_and_fallback(tmp_path):
+    overlay_root = tmp_path / "templates"
+    _write(overlay_root / "CanTrcv_Tle9255" / "CanTrcv_Cfg.h", "/* variant overlay */\n")
+    _write(overlay_root / "CanTrcv_GenericCan" / "CanTrcv_Cfg.h", "/* sibling variant */\n")
+    _write(overlay_root / "CanTrcv" / "CanTrcv_Cfg.h", "/* generic overlay */\n")
+    _write(overlay_root / "CanTrcv" / "CanTrcv_Lcfg.c", "/* generic lcfg */\n")
+
+    pkg_dir = tmp_path / "pkg" / "templates"
+    _write(pkg_dir / "CanTrcv_Cfg.h", "/* package cfg */\n")
+    _write(pkg_dir / "CanTrcv_Lcfg.c", "/* package lcfg */\n")
+    _write(pkg_dir / "CanTrcv_PBcfg.c", "/* package pbcfg */\n")
+
+    generator = CodeGenerator(
+        _cantrcv_module_def(),
+        _cantrcv_config(),
+        project_template_dir=overlay_root,
+        package_template_dir=pkg_dir,
+        package_dir_name="CanTrcv_Tle9255",
+    )
+    assert generator.generate_all(tmp_path / "out") is True
+
+    assert (tmp_path / "out" / "CanTrcv" / "include" / "CanTrcv_Cfg.h").read_text(encoding="utf-8") == "/* variant overlay */\n"
+    assert (tmp_path / "out" / "CanTrcv" / "src" / "CanTrcv_Lcfg.c").read_text(encoding="utf-8") == "/* generic lcfg */\n"
+    assert (tmp_path / "out" / "CanTrcv" / "src" / "CanTrcv_PBcfg.c").read_text(encoding="utf-8") == "/* package pbcfg */\n"
+
+
+def test_variant_overlay_include_macro_precedence(tmp_path):
+    overlay_root = tmp_path / "templates"
+    variant_macro = _write(
+        overlay_root / "CanTrcv_Tle9255" / "CanTrcv.m",
+        '[!VAR "MacroVal" = "\'FROM_VARIANT\'"!]\n',
+    )
+    generic_macro = _write(
+        overlay_root / "CanTrcv" / "CanTrcv.m",
+        '[!VAR "MacroVal" = "\'FROM_GENERIC\'"!]\n',
+    )
+    pkg_dir = tmp_path / "pkg" / "templates"
+    _write(pkg_dir / "CanTrcv.m", '[!VAR "MacroVal" = "\'FROM_PKG\'"!]\n')
+    _write(pkg_dir / "CanTrcv_PBcfg.c", '[!INCLUDE "CanTrcv.m"!]\n/* val=[!"$MacroVal"!] */\n')
+
+    generator = CodeGenerator(
+        _cantrcv_module_def(),
+        _cantrcv_config(),
+        project_template_dir=overlay_root,
+        package_template_dir=pkg_dir,
+        package_dir_name="CanTrcv_Tle9255",
+    )
+    out_file = tmp_path / "out" / "CanTrcv" / "src" / "CanTrcv_PBcfg.c"
+
+    assert generator.generate_all(tmp_path / "out") is True
+    assert "/* val=FROM_VARIANT */" in out_file.read_text(encoding="utf-8")
+
+    variant_macro.unlink()
+    assert generator.generate_all(tmp_path / "out") is True
+    assert "/* val=FROM_GENERIC */" in out_file.read_text(encoding="utf-8")
+
+    generic_macro.unlink()
+    assert generator.generate_all(tmp_path / "out") is True
+    assert "/* val=FROM_PKG */" in out_file.read_text(encoding="utf-8")
+
+
+def test_variant_overlay_fingerprint_matches_generic_and_package(tmp_path):
+    content = "/* identical template content */\n"
+    overlay_root = tmp_path / "templates"
+    _write(overlay_root / "CanTrcv_Tle9255" / "CanTrcv_Cfg.h", content)
+    generic_overlay = tmp_path / "generic_templates"
+    _write(generic_overlay / "CanTrcv" / "CanTrcv_Cfg.h", content)
+    pkg_dir = tmp_path / "pkg" / "templates"
+    _write(pkg_dir / "CanTrcv_Cfg.h", content)
+
+    from_variant = CodeGenerator(
+        _cantrcv_module_def(),
+        _cantrcv_config(),
+        project_template_dir=overlay_root,
+        package_dir_name="CanTrcv_Tle9255",
+    )
+    from_generic = CodeGenerator(
+        _cantrcv_module_def(),
+        _cantrcv_config(),
+        project_template_dir=generic_overlay,
+    )
+    from_package = CodeGenerator(
+        _cantrcv_module_def(),
+        _cantrcv_config(),
+        package_template_dir=pkg_dir,
+    )
+
+    fp_variant = from_variant._calculate_fingerprint(
+        template_types=from_variant._discover_template_types("CanTrcv")
+    )
+    fp_generic = from_generic._calculate_fingerprint(
+        template_types=from_generic._discover_template_types("CanTrcv")
+    )
+    fp_package = from_package._calculate_fingerprint(
+        template_types=from_package._discover_template_types("CanTrcv")
+    )
+    assert fp_variant == fp_generic == fp_package
+
+
+def test_eb_template_engine_preserves_template_dir_over_fallback_and_supports_priority(tmp_path):
+    """Direct EBTemplateEngine keeps template_dir ahead of fallback include_search_paths,
+    allows explicit priority_include_paths ahead of template_dir, and never inserts Path('.') ahead
+    of explicit search paths when template_dir=None."""
+    from autosar_configurator.generator.eb_template_engine import EBTemplateEngine
+
+    prio_dir = tmp_path / "prio"
+    tpl_dir = tmp_path / "tpl"
+    extra_dir = tmp_path / "extra"
+    _write(prio_dir / "M.m", '[!VAR "V" = "\'PRIO\'"!]\n')
+    _write(tpl_dir / "M.m", '[!VAR "V" = "\'TPL\'"!]\n')
+    _write(extra_dir / "M.m", '[!VAR "V" = "\'EXTRA\'"!]\n')
+
+    tpl_text = '[!INCLUDE "M.m"!][!"$V"!]'
+    ctx = {"module_def": _module_def(), "configuration": _config()}
+
+    # Direct caller without priority_include_paths: template_dir > include_search_paths
+    direct = EBTemplateEngine(strict=False, template_dir=tpl_dir, include_search_paths=[extra_dir])
+    assert direct.render(tpl_text, ctx).strip() == "TPL"
+
+    # Caller with priority_include_paths: priority > template_dir > include_search_paths
+    layered = EBTemplateEngine(
+        strict=False,
+        template_dir=tpl_dir,
+        include_search_paths=[extra_dir],
+        priority_include_paths=[prio_dir],
+    )
+    assert layered.render(tpl_text, ctx).strip() == "PRIO"
+
+    (prio_dir / "M.m").unlink()
+    layered_after_prio = EBTemplateEngine(
+        strict=False,
+        template_dir=tpl_dir,
+        include_search_paths=[extra_dir],
+        priority_include_paths=[prio_dir],
+    )
+    assert layered_after_prio.render(tpl_text, ctx).strip() == "TPL"
+
+    (tpl_dir / "M.m").unlink()
+    layered_after_tpl = EBTemplateEngine(
+        strict=False,
+        template_dir=tpl_dir,
+        include_search_paths=[extra_dir],
+        priority_include_paths=[prio_dir],
+    )
+    assert layered_after_tpl.render(tpl_text, ctx).strip() == "EXTRA"
+
+    # template_dir=None must NOT put Path('.') at index 0 over explicit include_search_paths
+    no_tpl = EBTemplateEngine(strict=False, template_dir=None, include_search_paths=[extra_dir])
+    assert no_tpl.renderer.include_search_paths[0].resolve() == extra_dir.resolve()
+    assert Path(".") not in no_tpl.renderer.include_search_paths
+
+
+def test_build_include_search_paths_does_not_expose_package_parent_or_duplicate_overlay_root(tmp_path):
+    """_build_include_search_paths keeps pkg_root private and keeps overlay_root behind package_dir."""
+    overlay_root = tmp_path / "templates"
+    variant_dir = overlay_root / "CanTrcv_Tle9255"
+    generic_dir = overlay_root / "CanTrcv"
+    variant_dir.mkdir(parents=True)
+    generic_dir.mkdir(parents=True)
+
+    pkg_root = tmp_path / "pkg_root"
+    pkg_tpl_dir = pkg_root / "templates"
+    (pkg_tpl_dir / "sub").mkdir(parents=True)
+
+    gen = CodeGenerator(
+        _cantrcv_module_def(),
+        _cantrcv_config(),
+        project_template_dir=overlay_root,
+        package_template_dir=pkg_tpl_dir,
+        package_dir_name="CanTrcv_Tle9255",
+    )
+
+    from_pkg = [p.resolve() for p in gen._build_include_search_paths("CanTrcv", pkg_tpl_dir.resolve())]
+    assert pkg_root.resolve() not in from_pkg
+    assert variant_dir.resolve() in from_pkg
+    assert generic_dir.resolve() in from_pkg
+    assert from_pkg.index(variant_dir.resolve()) < from_pkg.index(pkg_tpl_dir.resolve())
+
+    from_variant = [p.resolve() for p in gen._build_include_search_paths("CanTrcv", variant_dir.resolve())]
+    assert from_variant.index(pkg_tpl_dir.resolve()) < from_variant.index(overlay_root.resolve())
+    assert len(from_variant) == len(set(from_variant))

@@ -317,3 +317,253 @@ def test_project_controller_integrate_modules_passes_confirm_merge_preview(monke
     assert captured["project"] is project
     assert captured["parent"] is win
     assert captured["confirm_merge"] == ctrl._confirm_merge_preview
+
+
+def _make_variant_package_lib(lib_dir: Path) -> Path:
+    """Create a package library containing two sibling CanTrcv variants plus Dio."""
+    cantrcv_tpl = """<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>{pkg_sub}</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF>
+        <SHORT-NAME>CanTrcv</SHORT-NAME>
+        <CONTAINERS>
+          <ECUC-PARAM-CONF-CONTAINER-DEF>
+            <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+            <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY>
+            <UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          </ECUC-PARAM-CONF-CONTAINER-DEF>
+        </CONTAINERS>
+      </ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>"""
+
+    for pkg_dir_name, sw_ver, infix in (
+        ("CanTrcv_GenericCan", "1.0.0", "GenericCan"),
+        ("CanTrcv_Tle9255", "2.3.0", "Tle9255"),
+    ):
+        pkg_dir = lib_dir / pkg_dir_name
+        (pkg_dir / "config").mkdir(parents=True, exist_ok=True)
+        (pkg_dir / "config" / "CanTrcv.arxml").write_text(
+            cantrcv_tpl.format(pkg_sub=pkg_dir_name), encoding="utf-8"
+        )
+        (pkg_dir / "module.json").write_text(
+            json.dumps({
+                "schema": 1,
+                "module": "CanTrcv",
+                "definition": f"/MICROSAR/{pkg_dir_name}/CanTrcv",
+                "files": ["config/CanTrcv.arxml"],
+                "pre": [],
+                "rec": [],
+                "origin": {
+                    "source": "davinci",
+                    "sw_version": sw_ver,
+                    "implementation": {
+                        "sw_version": sw_ver,
+                        "vendor_api_infix": infix,
+                    },
+                },
+            }),
+            encoding="utf-8",
+        )
+
+    dio_dir = lib_dir / "Dio"
+    (dio_dir / "config").mkdir(parents=True, exist_ok=True)
+    (dio_dir / "config" / "Dio.arxml").write_text(_DEF_XML.format(module="Dio"), encoding="utf-8")
+    (dio_dir / "module.json").write_text(
+        json.dumps({
+            "schema": 1,
+            "module": "Dio",
+            "definition": "/MICROSAR/Dio",
+            "files": ["config/Dio.arxml"],
+            "pre": [],
+            "rec": [],
+        }),
+        encoding="utf-8",
+    )
+    return lib_dir
+
+
+def test_integration_wizard_distinguishes_variants_and_mutual_exclusion(qtbot, monkeypatch, tmp_path):
+    """IntegrationWizard distinguishes sibling variants, enforces mutual exclusion, and skips ambiguous Select All."""
+    from autosar_configurator.core.packages.library import find_package, scan_library
+
+    lib_dir = _make_variant_package_lib(tmp_path / "lib")
+
+    # Case 1: project has CanTrcv_Tle9255 installed
+    wm = WorkspaceManager()
+    project = wm.create_project("VarProj", tmp_path / "proj" / "VarProj.dpa", format_version=8)
+    lib_ref = LibraryRef(path=lib_dir.as_posix(), kind="package")
+    project.module_libraries.append(lib_ref)
+    pkgs = scan_library(lib_ref, tmp_path / "proj")
+    lib_idx, tle_pkg = find_package([(0, pkgs)], "/MICROSAR/CanTrcv_Tle9255/CanTrcv")
+    project.add_module_from_package(tle_pkg, lib_index=lib_idx, persist=True, confirm=lambda *_: True)
+
+    wizard = IntegrationWizard(project)
+    qtbot.addWidget(wizard)
+    mod_page = wizard.page(wizard.pageIds()[1])
+    mod_page.initializePage()
+
+    assert mod_page.tree.columnCount() == 5
+
+    items_by_def = {}
+    for i in range(mod_page.tree.topLevelItemCount()):
+        cat_item = mod_page.tree.topLevelItem(i)
+        for j in range(cat_item.childCount()):
+            child = cat_item.child(j)
+            cand = child.data(0, Qt.UserRole)
+            if cand is not None:
+                items_by_def[cand.package.manifest.definition] = (child, cand)
+
+    tle_item, tle_cand = items_by_def["/MICROSAR/CanTrcv_Tle9255/CanTrcv"]
+    gen_item, gen_cand = items_by_def["/MICROSAR/CanTrcv_GenericCan/CanTrcv"]
+
+    assert tle_cand.is_installed is True
+    assert tle_cand.is_other_variant is False
+    assert tle_item.text(4) == "Installed"
+
+    assert gen_cand.is_installed is False
+    assert gen_cand.is_other_variant is True
+    assert gen_item.text(4) == "Other Variant"
+
+    mod_page.tree.setCurrentItem(tle_item)
+    html = mod_page.detail_browser.toHtml()
+    assert "2.3.0" in html
+    assert "Tle9255" in html
+    assert "/MICROSAR/CanTrcv_Tle9255/CanTrcv" in html
+
+    mod_page._apply_filter("Tle9255")
+    assert gen_item.isHidden() is True
+    assert tle_item.isHidden() is False
+    mod_page._apply_filter("")
+    assert gen_item.isHidden() is False
+    assert tle_item.isHidden() is False
+
+    # Mutual exclusion: checking CanTrcv_GenericCan then CanTrcv_Tle9255 unchecks GenericCan
+    gen_item.setCheckState(0, Qt.Checked)
+    tle_item.setCheckState(0, Qt.Checked)
+    assert gen_item.checkState(0) == Qt.Unchecked
+    assert tle_item.checkState(0) == Qt.Checked
+    assert [c.package.manifest.definition for c in mod_page._get_selected_candidates()] == [
+        "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+    ]
+
+    # Case 2: fresh project -> Select All skips ambiguous CanTrcv variants, checks Dio only
+    wm2 = WorkspaceManager()
+    fresh_project = wm2.create_project("FreshProj", tmp_path / "fresh" / "FreshProj.dpa", format_version=8)
+    fresh_project.module_libraries.append(lib_ref)
+
+    wizard2 = IntegrationWizard(fresh_project)
+    qtbot.addWidget(wizard2)
+    mod_page2 = wizard2.page(wizard2.pageIds()[1])
+    conf_page2 = wizard2.page(wizard2.pageIds()[2])
+    mod_page2.initializePage()
+    mod_page2._select_all()
+
+    selected_mods = [c.package.manifest.module for c in mod_page2._get_selected_candidates()]
+    assert selected_mods == ["Dio"]
+    assert "CanTrcv" in mod_page2.last_skipped_ambiguous
+
+    # ConfirmationPage blocks duplicate module candidates
+    fresh_items = {}
+    for i in range(mod_page2.tree.topLevelItemCount()):
+        cat_item = mod_page2.tree.topLevelItem(i)
+        for j in range(cat_item.childCount()):
+            child = cat_item.child(j)
+            cand = child.data(0, Qt.UserRole)
+            if cand is not None:
+                fresh_items[cand.package.manifest.definition] = cand
+    dup_cands = [
+        fresh_items["/MICROSAR/CanTrcv_GenericCan/CanTrcv"],
+        fresh_items["/MICROSAR/CanTrcv_Tle9255/CanTrcv"],
+    ]
+    monkeypatch.setattr(mod_page2, "get_data", lambda: {"selected": dup_cands})
+    warn_calls = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: warn_calls.append(a) or QMessageBox.Ok)
+    conf_page2.initializePage()
+    assert conf_page2.validatePage() is False
+    assert len(warn_calls) == 1
+
+
+def test_tree_view_and_properties_dialog_show_variant_and_switch_flow(qtbot, monkeypatch, tmp_path):
+    """DaVinciTreeView, ProjectPropertiesDialog, and ProjectController support variant display and switching."""
+    from PySide6.QtWidgets import QMenu
+    from autosar_configurator.core.packages.library import find_package, scan_library
+    from autosar_configurator.ui.dialogs.project_properties_dialog import ProjectPropertiesDialog
+    from autosar_configurator.ui.widgets.davinci_tree_view import DaVinciTreeView
+
+    proj_dir = tmp_path / "Proj"
+    _make_variant_package_lib(proj_dir / "modules")
+
+    wm = WorkspaceManager()
+    project = wm.create_project("Proj", proj_dir / "Proj.dpa", format_version=8)
+    lib_ref = LibraryRef(path="modules", kind="package")
+    project.module_libraries.append(lib_ref)
+    pkgs = scan_library(lib_ref, proj_dir)
+    lib_idx, tle_pkg = find_package([(0, pkgs)], "/MICROSAR/CanTrcv_Tle9255/CanTrcv")
+    project.add_module_from_package(tle_pkg, lib_index=lib_idx, persist=True, confirm=lambda *_: True)
+    wm.save_project()
+
+    variant_tpl = proj_dir / "templates" / "CanTrcv_Tle9255" / "CanTrcv_Cfg.h"
+    variant_tpl.parent.mkdir(parents=True, exist_ok=True)
+    variant_tpl.write_text("/* tle overlay */\n", encoding="utf-8")
+
+    # 1. DaVinciTreeView label, tooltip, and Switch Variant context menu signal
+    tree = DaVinciTreeView()
+    qtbot.addWidget(tree)
+    tree.set_project(project)
+    cantrcv_item = next(
+        tree.topLevelItem(i)
+        for i in range(tree.topLevelItemCount())
+        if tree.topLevelItem(i).data(0, Qt.UserRole)["def"].short_name == "CanTrcv"
+    )
+    assert "CanTrcv_Tle9255" in cantrcv_item.text(0)
+    assert "/MICROSAR/CanTrcv_Tle9255/CanTrcv" in cantrcv_item.toolTip(0)
+
+    menu = QMenu(tree)
+    tree._populate_module_menu(menu, "CanTrcv")
+    switch_actions = [a for a in menu.actions() if "Switch Variant" in a.text()]
+    assert len(switch_actions) == 1
+    emitted = []
+    tree.switch_module_variant_requested.connect(emitted.append)
+    switch_actions[0].trigger()
+    assert emitted == ["CanTrcv"]
+
+    # 2. ProjectPropertiesDialog displays module definition path and variant overlay template
+    dlg = ProjectPropertiesDialog(project, None)
+    qtbot.addWidget(dlg)
+    assert "/MICROSAR/CanTrcv_Tle9255/CanTrcv" in dlg.modules_text.toPlainText()
+    assert dlg.templates_table.rowCount() >= 1
+    source_paths = [
+        dlg.templates_table.item(r, 3).text()
+        for r in range(dlg.templates_table.rowCount())
+    ]
+    assert any("CanTrcv_Tle9255" in p and "CanTrcv_Cfg.h" in p for p in source_paths)
+
+    # 3. ProjectController.switch_module_variant flow (rejection then confirmed switch)
+    win = MagicMock()
+    win.current_project = project
+    win.config_manager = project.module_managers["CanTrcv"]
+    win.module_def = win.config_manager.module_def
+    ctrl = ProjectController(win)
+
+    monkeypatch.setattr(
+        QInputDialog,
+        "getItem",
+        lambda parent, title, label, items, *a, **k: (
+            next(item for item in items if "/MICROSAR/CanTrcv_GenericCan/CanTrcv" in item),
+            True,
+        ),
+    )
+    info_calls = []
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: info_calls.append(a) or QMessageBox.Ok)
+
+    assert ctrl.switch_module_variant("CanTrcv", confirm=lambda *_: False) is False
+    assert project.module_entries["CanTrcv"].definition == "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+
+    assert ctrl.switch_module_variant("CanTrcv", confirm=lambda *_: True) is True
+    assert project.module_entries["CanTrcv"].definition == "/MICROSAR/CanTrcv_GenericCan/CanTrcv"
+    assert win._has_unsaved_changes is True
+    win.tree_view.set_project.assert_called_with(project)
+    assert len(info_calls) == 1

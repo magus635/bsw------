@@ -1507,6 +1507,393 @@ def test_sip_package_writer_detects_and_preserves_templates_dir(tmp_path):
     assert custom_manifest.get("templates") == "generate_PB"
 
 
+def test_sip_infixed_memmap_bsw_implementation_attributed_to_variant(tmp_path):
+    """Infixed BSW-IMPLEMENTATION MemMap files belong to their VENDOR-SPECIFIC-MODULE-DEF-REF
+    variant partition, and unmatched fragments are never broadcast across all variants."""
+    from autosar_configurator.core.davinci_importer import SipMerger, SipScanner
+
+    sip = tmp_path / "sip"
+
+    gen_bswmd = sip / "Components" / "CanTrcv_30_Generic" / "BSWMD"
+    gen_bswmd.mkdir(parents=True)
+    (gen_bswmd / "CanTrcv_30_Generic_bswmd.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>CanTrcv_GenericCan</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF><SHORT-NAME>CanTrcv</SHORT-NAME></ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    tle_bswmd = sip / "Components" / "CanTrcv_30_Tle9255" / "BSWMD"
+    tle_bswmd.mkdir(parents=True)
+    (tle_bswmd / "CanTrcv_Tle9255CanAsr_bswmd.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>CanTrcv_Tle9255</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF><SHORT-NAME>CanTrcv</SHORT-NAME></ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+    (tle_bswmd / "CanTrcv_30_Tle9255_MemMap.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>CanTrcv_Tle9255</SHORT-NAME><ELEMENTS>
+      <BSW-IMPLEMENTATION>
+        <SHORT-NAME>CanTrcv_30_Tle9255_Impl</SHORT-NAME>
+        <VENDOR-SPECIFIC-MODULE-DEF-REFS>
+          <VENDOR-SPECIFIC-MODULE-DEF-REF DEST="ECUC-MODULE-DEF">/MICROSAR/CanTrcv_Tle9255/CanTrcv</VENDOR-SPECIFIC-MODULE-DEF-REF>
+        </VENDOR-SPECIFIC-MODULE-DEF-REFS>
+        <RESOURCE-CONSUMPTION>
+          <MEMORY-SECTIONS>
+            <MEMORY-SECTION><SHORT-NAME>CANTRCV_30_TLE9255_CODE</SHORT-NAME></MEMORY-SECTION>
+          </MEMORY-SECTIONS>
+        </RESOURCE-CONSUMPTION>
+      </BSW-IMPLEMENTATION>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    other_bswmd = sip / "Components" / "CanTrcv_30_Other" / "BSWMD"
+    other_bswmd.mkdir(parents=True)
+    (other_bswmd / "CanTrcv_Other_pre.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv_Other_Pre</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/CanTrcv_Other/CanTrcv</DEFINITION-REF>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    all_modules = SipScanner(sip).scan_all_modules()
+    assert "CanTrcv_30_Tle9255" not in all_modules
+    assert "CanTrcv" in all_modules
+
+    partitions = SipScanner.partition_module_files("CanTrcv", all_modules["CanTrcv"])
+    by_dir = {pkg_dir: files for pkg_dir, _mod, files in partitions}
+    assert "CanTrcv_GenericCan" in by_dir
+    assert "CanTrcv_Tle9255" in by_dir
+
+    gen_names = {f.path.name for f in by_dir["CanTrcv_GenericCan"]}
+    tle_names = {f.path.name for f in by_dir["CanTrcv_Tle9255"]}
+
+    assert "CanTrcv_30_Tle9255_MemMap.arxml" in tle_names
+    assert "CanTrcv_30_Tle9255_MemMap.arxml" not in gen_names
+    assert "CanTrcv_Other_pre.arxml" not in gen_names
+    assert "CanTrcv_Other_pre.arxml" not in tle_names
+
+    impl_meta = SipMerger.extract_bsw_implementation_metadata(by_dir["CanTrcv_Tle9255"])
+    sec_names = {s["short_name"] for s in impl_meta.get("memory_sections", [])}
+    assert "CANTRCV_30_TLE9255_CODE" in sec_names
+
+
+def test_extract_and_load_single_file_with_two_variant_blocks(tmp_path):
+    """When one ARXML holds two sibling variant blocks, exact DEFINITION-REF selects only the matching one."""
+    from autosar_configurator.core.config_manager import ConfigurationManager
+    from autosar_configurator.core.davinci_importer import DaVinciProjectImporter
+    from autosar_configurator.core.parser.ecuc_def_parser import EcucDefParser
+
+    def_arxml = tmp_path / "CanTrcv_Tle9255_bswmd.arxml"
+    def_arxml.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>CanTrcv_Tle9255</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF>
+        <SHORT-NAME>CanTrcv</SHORT-NAME>
+        <CONTAINERS>
+          <ECUC-PARAM-CONF-CONTAINER-DEF>
+            <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+            <PARAMETERS><ECUC-BOOLEAN-PARAM-DEF><SHORT-NAME>CanTrcvDevErrorDetect</SHORT-NAME></ECUC-BOOLEAN-PARAM-DEF></PARAMETERS>
+          </ECUC-PARAM-CONF-CONTAINER-DEF>
+          <ECUC-PARAM-CONF-CONTAINER-DEF>
+            <SHORT-NAME>CanTrcvChannel</SHORT-NAME>
+            <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY-INFINITE>true</UPPER-MULTIPLICITY-INFINITE>
+            <PARAMETERS><ECUC-INTEGER-PARAM-DEF><SHORT-NAME>CanTrcvBaudrateRatio</SHORT-NAME></ECUC-INTEGER-PARAM-DEF></PARAMETERS>
+          </ECUC-PARAM-CONF-CONTAINER-DEF>
+        </CONTAINERS>
+      </ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+    tle_def = EcucDefParser().parse_module_def_file(def_arxml)
+
+    multi_cfg = tmp_path / "MultiVariant_CanTrcv.arxml"
+    multi_cfg.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/CanTrcv_GenericCan/CanTrcv</DEFINITION-REF>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/CanTrcv_GenericCan/CanTrcv/CanTrcvGeneral</DEFINITION-REF>
+          <PARAMETER-VALUES><ECUC-TEXTUAL-PARAM-VALUE>
+            <DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">/MICROSAR/CanTrcv_GenericCan/CanTrcv/CanTrcvGeneral/CanTrcvHwInterface</DEFINITION-REF>
+            <VALUE>SPI</VALUE>
+          </ECUC-TEXTUAL-PARAM-VALUE></PARAMETER-VALUES>
+        </ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/CanTrcv_Tle9255/CanTrcv</DEFINITION-REF>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/CanTrcv_Tle9255/CanTrcv/CanTrcvGeneral</DEFINITION-REF>
+          <PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE>
+            <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/MICROSAR/CanTrcv_Tle9255/CanTrcv/CanTrcvGeneral/CanTrcvDevErrorDetect</DEFINITION-REF>
+            <VALUE>true</VALUE>
+          </ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES>
+        </ECUC-CONTAINER-VALUE>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>CanTrcvChannel_0</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/CanTrcv_Tle9255/CanTrcv/CanTrcvChannel</DEFINITION-REF>
+          <PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE>
+            <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/MICROSAR/CanTrcv_Tle9255/CanTrcv/CanTrcvChannel/CanTrcvBaudrateRatio</DEFINITION-REF>
+            <VALUE>10</VALUE>
+          </ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES>
+        </ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    extracted = DaVinciProjectImporter._extract_module_config(
+        multi_cfg, "CanTrcv", "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+    )
+    assert extracted is not None
+    assert extracted.definition_ref == "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+    gen_c = next(c for c in extracted.containers if c.short_name == "CanTrcvGeneral")
+    assert "CanTrcvHwInterface" not in gen_c.parameter_values
+    assert gen_c.parameter_values["CanTrcvDevErrorDetect"].value is True
+
+    mgr = ConfigurationManager(tle_def)
+    mgr.load_configuration(multi_cfg)
+    assert mgr.configuration.definition_ref == "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+    loaded_gen = next(c for c in mgr.configuration.containers if c.short_name == "CanTrcvGeneral")
+    assert "CanTrcvHwInterface" not in loaded_gen.parameter_values
+    assert loaded_gen.parameter_values["CanTrcvDevErrorDetect"].value is True
+
+
+def _setup_cantrcv_variant_project(tmp_path: Path):
+    """Create a saved Format 8 project whose modules/ library contains CanTrcv_GenericCan and CanTrcv_Tle9255."""
+    from autosar_configurator.core.packages.library import LibraryRef, scan_library
+
+    proj_dir = tmp_path / "VariantProj"
+    mods_dir = proj_dir / "modules"
+
+    gen_dir = mods_dir / "CanTrcv_GenericCan" / "config"
+    gen_dir.mkdir(parents=True)
+    (gen_dir / "CanTrcv.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>CanTrcv_GenericCan</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF>
+        <SHORT-NAME>CanTrcv</SHORT-NAME>
+        <CONTAINERS>
+          <ECUC-PARAM-CONF-CONTAINER-DEF>
+            <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+            <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+            <PARAMETERS>
+              <ECUC-STRING-PARAM-DEF>
+                <SHORT-NAME>CanTrcvHwInterface</SHORT-NAME>
+                <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+              </ECUC-STRING-PARAM-DEF>
+              <ECUC-BOOLEAN-PARAM-DEF>
+                <SHORT-NAME>CanTrcvDevErrorDetect</SHORT-NAME>
+                <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+              </ECUC-BOOLEAN-PARAM-DEF>
+              <ECUC-BOOLEAN-PARAM-DEF>
+                <SHORT-NAME>CanTrcvPreFlag</SHORT-NAME>
+                <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+              </ECUC-BOOLEAN-PARAM-DEF>
+            </PARAMETERS>
+          </ECUC-PARAM-CONF-CONTAINER-DEF>
+        </CONTAINERS>
+      </ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+    (gen_dir / "CanTrcv_Pre.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv_GenericCan_Pre</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/CanTrcv_GenericCan/CanTrcv</DEFINITION-REF>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/CanTrcv_GenericCan/CanTrcv/CanTrcvGeneral</DEFINITION-REF>
+          <PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE>
+            <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/MICROSAR/CanTrcv_GenericCan/CanTrcv/CanTrcvGeneral/CanTrcvPreFlag</DEFINITION-REF>
+            <VALUE>true</VALUE>
+          </ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES>
+        </ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+    (mods_dir / "CanTrcv_GenericCan" / "module.json").write_text(json.dumps({
+        "schema": 1,
+        "module": "CanTrcv",
+        "definition": "/MICROSAR/CanTrcv_GenericCan/CanTrcv",
+        "files": ["config/CanTrcv.arxml", "config/CanTrcv_Pre.arxml"],
+        "pre": ["/MICROSAR/CanTrcv_GenericCan_Pre"],
+        "rec": [],
+    }), encoding="utf-8")
+
+    tle_dir = mods_dir / "CanTrcv_Tle9255" / "config"
+    tle_dir.mkdir(parents=True)
+    (tle_dir / "CanTrcv.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>CanTrcv_Tle9255</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF>
+        <SHORT-NAME>CanTrcv</SHORT-NAME>
+        <CONTAINERS>
+          <ECUC-PARAM-CONF-CONTAINER-DEF>
+            <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+            <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+            <PARAMETERS><ECUC-BOOLEAN-PARAM-DEF>
+              <SHORT-NAME>CanTrcvDevErrorDetect</SHORT-NAME>
+              <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+            </ECUC-BOOLEAN-PARAM-DEF></PARAMETERS>
+          </ECUC-PARAM-CONF-CONTAINER-DEF>
+          <ECUC-PARAM-CONF-CONTAINER-DEF>
+            <SHORT-NAME>CanTrcvChannel</SHORT-NAME>
+            <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY-INFINITE>true</UPPER-MULTIPLICITY-INFINITE>
+            <PARAMETERS><ECUC-INTEGER-PARAM-DEF>
+              <SHORT-NAME>CanTrcvBaudrateRatio</SHORT-NAME>
+              <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+            </ECUC-INTEGER-PARAM-DEF></PARAMETERS>
+          </ECUC-PARAM-CONF-CONTAINER-DEF>
+        </CONTAINERS>
+      </ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+    (mods_dir / "CanTrcv_Tle9255" / "module.json").write_text(json.dumps({
+        "schema": 1,
+        "module": "CanTrcv",
+        "definition": "/MICROSAR/CanTrcv_Tle9255/CanTrcv",
+        "files": ["config/CanTrcv.arxml"],
+        "pre": [],
+        "rec": [],
+    }), encoding="utf-8")
+
+    wm = WorkspaceManager()
+    project = wm.create_project("VariantProj", proj_dir / "VariantProj.dpa", format_version=8)
+    lib_ref = LibraryRef(path="modules", kind="package")
+    project.module_libraries.append(lib_ref)
+
+    pkgs = {p.manifest.definition: p for p in scan_library(lib_ref, proj_dir)}
+    tle_pkg = pkgs["/MICROSAR/CanTrcv_Tle9255/CanTrcv"]
+    gen_pkg = pkgs["/MICROSAR/CanTrcv_GenericCan/CanTrcv"]
+
+    mgr = project.add_module_from_package(tle_pkg, lib_index=0, persist=True, confirm=lambda *_: True)
+    gen_c = mgr.create_container_instance(mgr.module_def.containers["CanTrcvGeneral"], None, "CanTrcvGeneral")
+    mgr.set_parameter_value(gen_c, "CanTrcvDevErrorDetect", True)
+    ch_c = mgr.create_container_instance(mgr.module_def.containers["CanTrcvChannel"], None, "CanTrcvChannel_0")
+    mgr.set_parameter_value(ch_c, "CanTrcvBaudrateRatio", 10)
+    wm.save_project()
+    return wm, project, gen_pkg, tle_pkg
+
+
+def test_restore_deleted_module_preserves_exact_variant_and_rejects_ambiguous(tmp_path):
+    """Restoring a deleted module selects the archived DEFINITION-REF variant and rejects ambiguous archives."""
+    import pytest
+
+    wm, project, _gen_pkg, _tle_pkg = _setup_cantrcv_variant_project(tmp_path)
+    project.remove_module("CanTrcv", archive=True)
+    archives = project.list_deleted_archives("CanTrcv")
+    assert len(archives) == 1
+
+    restored_mgr = project.restore_deleted_module(archives[0], confirm=lambda *_: True)
+    assert project.module_entries["CanTrcv"].definition == "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+    assert restored_mgr.module_def.ar_path == "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+    ch = next(c for c in restored_mgr.configuration.containers if c.short_name == "CanTrcvChannel_0")
+    assert ch.parameter_values["CanTrcvBaudrateRatio"].value == 10
+    assert ch.unknown_parameters == {}
+
+    # Remove again and try restoring an ambiguous archive with generic /AUTOSAR/EcucDefs/CanTrcv
+    project.remove_module("CanTrcv", archive=False)
+    ambig_archive = tmp_path / "ambig_CanTrcv.arxml"
+    ambig_archive.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>CanTrcv_Config</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/AUTOSAR/EcucDefs/CanTrcv</DEFINITION-REF>
+      <CONTAINERS/>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    with pytest.raises(ValueError) as exc_info:
+        project.restore_deleted_module(ambig_archive, confirm=lambda *_: True)
+    msg = str(exc_info.value)
+    assert "/MICROSAR/CanTrcv_GenericCan/CanTrcv" in msg
+    assert "/MICROSAR/CanTrcv_Tle9255/CanTrcv" in msg
+
+
+def test_switch_module_variant_preview_apply_and_rollback(tmp_path):
+    """switch_module_variant previews compatibility, rolls back on rejection, and switches atomically on confirm."""
+    wm, project, gen_pkg, _tle_pkg = _setup_cantrcv_variant_project(tmp_path)
+
+    variants = project.list_module_variant_packages("CanTrcv")
+    assert [pkg.manifest.definition for _idx, pkg in variants] == [
+        "/MICROSAR/CanTrcv_GenericCan/CanTrcv",
+        "/MICROSAR/CanTrcv_Tle9255/CanTrcv",
+    ]
+
+    # 1. Preview only: reports kept, unknown, missing required, and baseline changes without mutating project
+    plan = project.switch_module_variant("CanTrcv", gen_pkg, target_lib_index=0, preview_only=True)
+    assert plan.applied is False
+    assert any("CanTrcvGeneral" in c for c in plan.kept_containers)
+    assert any("CanTrcvDevErrorDetect" in p for p in plan.kept_parameters)
+    assert any("CanTrcvChannel_0" in c for c in plan.unknown_containers)
+    assert any("CanTrcvBaudrateRatio" in p for p in plan.unknown_parameters)
+    assert any("CanTrcvHwInterface" in p for p in plan.missing_required_parameters)
+    assert plan.baseline_has_changes is True
+    assert project.module_entries["CanTrcv"].definition == "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+
+    # 2. Rejection: full atomic rollback to Tle9255
+    rejected = project.switch_module_variant(
+        "CanTrcv", gen_pkg, target_lib_index=0, preview_only=False, confirm=lambda *_: False
+    )
+    assert rejected.applied is False
+    assert project.module_entries["CanTrcv"].definition == "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+    assert project.module_managers["CanTrcv"].module_def.ar_path == "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+    assert project.packages["CanTrcv"].manifest.definition == "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+    ch = next(c for c in project.module_managers["CanTrcv"].configuration.containers if c.short_name == "CanTrcvChannel_0")
+    assert ch.parameter_values["CanTrcvBaudrateRatio"].value == 10
+    assert ch.unknown_parameters == {}
+
+    # 3. Confirmed apply: switches to GenericCan, preserves incompatible values in unknown_parameters, applies Pre
+    applied = project.switch_module_variant(
+        "CanTrcv", gen_pkg, target_lib_index=0, preview_only=False, confirm=lambda *_: True
+    )
+    assert applied.applied is True
+    assert project.module_entries["CanTrcv"].definition == "/MICROSAR/CanTrcv_GenericCan/CanTrcv"
+    new_mgr = project.module_managers["CanTrcv"]
+    assert new_mgr.module_def.ar_path == "/MICROSAR/CanTrcv_GenericCan/CanTrcv"
+    new_gen = next(c for c in new_mgr.configuration.containers if c.short_name == "CanTrcvGeneral")
+    assert new_gen.parameter_values["CanTrcvDevErrorDetect"].value is True
+    assert new_gen.parameter_values["CanTrcvPreFlag"].value is True
+    old_ch = next(c for c in new_mgr.configuration.containers if c.short_name == "CanTrcvChannel_0")
+    assert "CanTrcvBaudrateRatio" in old_ch.unknown_parameters
+
+    wm.save_project()
+    reloaded, failed = WorkspaceManager().load_project(project.path, confirm=lambda *_: True)
+    assert failed == []
+    assert reloaded.module_entries["CanTrcv"].definition == "/MICROSAR/CanTrcv_GenericCan/CanTrcv"
+    assert reloaded.module_managers["CanTrcv"].module_def.ar_path == "/MICROSAR/CanTrcv_GenericCan/CanTrcv"
+
+
+
 
 
 

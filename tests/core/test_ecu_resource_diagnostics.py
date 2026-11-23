@@ -174,3 +174,31 @@ def test_same_findings_are_not_logged_twice(tmp_path, caplog):
         project.diagnose_ecu_resources()
         project.diagnose_ecu_resources()
     assert sum("Os.Missing" in r.message for r in caplog.records) == 1
+
+
+def test_collect_referenced_keys_scans_variant_overlay(tmp_path):
+    from autosar_configurator.core.packages.package import ModulePackage
+    from autosar_configurator.core.packages.types import ModuleManifest
+    from autosar_configurator.core.project_paths import ProjectDirectories
+
+    pkg_root = tmp_path / "modules" / "davinci" / "CanTrcv_Tle9255"
+    (pkg_root / "config").mkdir(parents=True)
+    def_file = pkg_root / "config" / "CanTrcv.arxml"
+    def_file.write_text("<AUTOSAR/>", encoding="utf-8")
+
+    variant_tpl = tmp_path / "templates" / "CanTrcv_Tle9255" / "CanTrcv_Cfg.h"
+    variant_tpl.parent.mkdir(parents=True)
+    variant_tpl.write_text('[!"ecu:get(\'CanTrcv.Tle9255SpiChannel\')"!]', encoding="utf-8")
+
+    project = WorkspaceProject("p", tmp_path / "p.dpa", format_version=8)
+    project.directories = ProjectDirectories.default_v8()
+    project.packages = {
+        "CanTrcv": ModulePackage(
+            pkg_root,
+            ModuleManifest(module="CanTrcv", definition="/MICROSAR/CanTrcv_Tle9255/CanTrcv"),
+        )
+    }
+    project.module_defs = {"CanTrcv": def_file}
+
+    keys = collect_referenced_keys(project)
+    assert keys.get("CanTrcv.Tle9255SpiChannel") == {"CanTrcv"}

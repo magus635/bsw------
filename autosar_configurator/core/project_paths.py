@@ -144,6 +144,16 @@ def package_template_dir(project, module: str) -> Optional[Path]:
     return pkg.template_dir() if pkg is not None else None
 
 
+def package_dir_name(project, module: str) -> Optional[str]:
+    """Directory name of ``module``'s format-8 package root (e.g. ``CanTrcv_Tle9255``), or None."""
+    if getattr(project, "format_version", 0) < 8:
+        return None
+    pkg = (getattr(project, "packages", None) or {}).get(module)
+    if pkg is None or getattr(pkg, "root", None) is None:
+        return None
+    return Path(pkg.root).name or None
+
+
 def template_sources(project, module: str) -> Tuple[Optional[Path], Optional[Path]]:
     """Where ``module``'s templates come from: ``(overlay root, package template dir)``.
 

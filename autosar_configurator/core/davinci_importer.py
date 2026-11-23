@@ -431,6 +431,45 @@ class SipScanner:
                     except (OSError, etree.XMLSyntaxError, AttributeError):
                         pass
 
+        # Re-home IMPL-only modules (e.g. infixed MemMap ARXMLs without ECUC-MODULE-DEF
+        # and without VENDOR-SPECIFIC-MODULE-DEF-REF) when their BSW-IMPLEMENTATION AR
+        # path or unique package prefix matches a module that defines an ECUC-MODULE-DEF.
+        def_modules: Dict[str, Dict[str, Set[str]]] = {}
+        orphan_modules: Dict[str, Dict[str, Set[str]]] = {}
+        for mod_name, sfiles in result.items():
+            metas = [self._extract_file_partition_meta(sf) for sf in sfiles]
+            has_def = any(m["def_paths"] for m in metas)
+            info = {
+                "def_paths": {dp for m in metas for dp in m["def_paths"]},
+                "impl_ar_paths": {p for m in metas for p in m["impl_ar_paths"]},
+                "impl_def_refs": {r for m in metas for r in m["impl_def_refs"]},
+                "pkg_prefixes": {
+                    dp.rsplit("/", 1)[0] for m in metas for dp in m["def_paths"] if "/" in dp
+                },
+            }
+            if has_def:
+                def_modules[mod_name] = info
+            elif info["impl_ar_paths"] or info["impl_def_refs"]:
+                orphan_modules[mod_name] = info
+
+        for orphan_mod, oinfo in sorted(orphan_modules.items()):
+            candidates: Set[str] = set()
+            for def_mod, dinfo in def_modules.items():
+                if (oinfo["impl_ar_paths"] & dinfo["impl_ar_paths"]) or (
+                    oinfo["impl_def_refs"] & dinfo["def_paths"]
+                ):
+                    candidates.add(def_mod)
+            if not candidates and oinfo["impl_ar_paths"]:
+                orphan_prefixes = {
+                    p.rsplit("/", 1)[0] for p in oinfo["impl_ar_paths"] if "/" in p
+                }
+                for def_mod, dinfo in def_modules.items():
+                    if orphan_prefixes & dinfo["pkg_prefixes"]:
+                        candidates.add(def_mod)
+            if len(candidates) == 1:
+                target_mod = next(iter(candidates))
+                result[target_mod].extend(result.pop(orphan_mod))
+
         for module in list(result.keys()):
             result[module].sort(key=lambda f: str(f.path))
             if derivative_uuid:
@@ -581,12 +620,22 @@ class SipScanner:
                             break
 
                 elif tag == "BSW-IMPLEMENTATION" and not module_from_impl:
+                    vsmd_ref = None
+                    impl_sn = None
                     for child in elem:
                         c_tag = child.tag.split('}')[-1] if isinstance(child.tag, str) and '}' in child.tag else child.tag
-                        if c_tag == "SHORT-NAME" and child.text:
-                            sn = child.text.strip()
-                            module_from_impl = sn[:-5] if sn.endswith("_Impl") else sn
-                            break
+                        if c_tag == "VENDOR-SPECIFIC-MODULE-DEF-REFS":
+                            for ref_child in child:
+                                rc_tag = ref_child.tag.split('}')[-1] if isinstance(ref_child.tag, str) and '}' in ref_child.tag else ref_child.tag
+                                if rc_tag == "VENDOR-SPECIFIC-MODULE-DEF-REF" and ref_child.text:
+                                    vsmd_ref = ref_child.text.strip().rstrip("/")
+                                    break
+                        elif c_tag == "SHORT-NAME" and child.text:
+                            impl_sn = child.text.strip()
+                    if vsmd_ref:
+                        module_from_impl = vsmd_ref.rsplit("/", 1)[-1]
+                    elif impl_sn:
+                        module_from_impl = impl_sn[:-5] if impl_sn.endswith("_Impl") else impl_sn
 
                 elif tag == "ECUC-MODULE-CONFIGURATION-VALUES" and not module_from_config:
                     for child in elem:
@@ -619,49 +668,87 @@ class SipScanner:
         return name
 
     @staticmethod
-    def _extract_file_def_and_cfg_refs(sip_file: SipFile) -> Tuple[List[str], List[str]]:
-        """Extract ECUC-MODULE-DEF AR paths and ECUC-MODULE-CONFIGURATION-VALUES DEFINITION-REFs."""
+    def _element_ar_path(elem) -> Optional[str]:
+        """Compute full AUTOSAR path ``/Pkg/.../ShortName`` for an ARXML element."""
+        sn = None
+        for child in elem:
+            if isinstance(child.tag, str) and child.tag.rsplit("}", 1)[-1] == "SHORT-NAME" and child.text:
+                sn = child.text.strip()
+                break
+        if not sn:
+            return None
+        segments = [sn]
+        parent = elem.getparent()
+        while parent is not None:
+            if isinstance(parent.tag, str) and parent.tag.rsplit("}", 1)[-1] == "AR-PACKAGE":
+                for child in parent:
+                    if isinstance(child.tag, str) and child.tag.rsplit("}", 1)[-1] == "SHORT-NAME" and child.text:
+                        segments.append(child.text.strip())
+                        break
+            parent = parent.getparent()
+        return "/" + "/".join(reversed(segments))
+
+    @staticmethod
+    def _extract_file_partition_meta(sip_file: SipFile) -> Dict[str, List[str]]:
+        """Extract definition, config, and BSW-IMPLEMENTATION paths/refs for variant partitioning."""
+        empty: Dict[str, List[str]] = {
+            "def_paths": [],
+            "cfg_def_refs": [],
+            "cfg_ar_paths": [],
+            "impl_def_refs": [],
+            "impl_ar_paths": [],
+            "impl_cfg_refs": [],
+        }
         if not sip_file.content:
-            return [], []
+            return empty
         try:
             parser = etree.XMLParser(resolve_entities=False, no_network=True)
             root = etree.fromstring(sip_file.content, parser)
         except (etree.XMLSyntaxError, ValueError):
-            return [], []
+            return empty
 
-        def_paths: List[str] = []
-        cfg_def_refs: List[str] = []
+        def _append_unique(lst: List[str], value: Optional[str]) -> None:
+            norm = value.strip().rstrip("/") if value else ""
+            if norm and norm not in lst:
+                lst.append(norm)
+
+        meta = {k: [] for k in empty}
         for elem in root.iter():
             if not isinstance(elem.tag, str):
                 continue
             tag = elem.tag.rsplit("}", 1)[-1]
             if tag == "ECUC-MODULE-DEF":
-                sn = None
-                for child in elem:
-                    if isinstance(child.tag, str) and child.tag.rsplit("}", 1)[-1] == "SHORT-NAME" and child.text:
-                        sn = child.text.strip()
-                        break
-                if sn:
-                    segments = [sn]
-                    parent = elem.getparent()
-                    while parent is not None:
-                        if isinstance(parent.tag, str) and parent.tag.rsplit("}", 1)[-1] == "AR-PACKAGE":
-                            for child in parent:
-                                if isinstance(child.tag, str) and child.tag.rsplit("}", 1)[-1] == "SHORT-NAME" and child.text:
-                                    segments.append(child.text.strip())
-                                    break
-                        parent = parent.getparent()
-                    ar_path = "/" + "/".join(reversed(segments))
-                    if ar_path not in def_paths:
-                        def_paths.append(ar_path)
+                _append_unique(meta["def_paths"], SipScanner._element_ar_path(elem))
             elif tag == "ECUC-MODULE-CONFIGURATION-VALUES":
+                _append_unique(meta["cfg_ar_paths"], SipScanner._element_ar_path(elem))
                 for child in elem:
                     if isinstance(child.tag, str) and child.tag.rsplit("}", 1)[-1] == "DEFINITION-REF" and child.text:
-                        ref = child.text.strip().rstrip("/")
-                        if ref and ref not in cfg_def_refs:
-                            cfg_def_refs.append(ref)
+                        _append_unique(meta["cfg_def_refs"], child.text)
                         break
-        return def_paths, cfg_def_refs
+            elif tag == "BSW-IMPLEMENTATION":
+                _append_unique(meta["impl_ar_paths"], SipScanner._element_ar_path(elem))
+                for child in elem:
+                    if not isinstance(child.tag, str):
+                        continue
+                    c_tag = child.tag.rsplit("}", 1)[-1]
+                    if c_tag == "VENDOR-SPECIFIC-MODULE-DEF-REFS":
+                        for ref_child in child:
+                            if isinstance(ref_child.tag, str) and ref_child.tag.rsplit("}", 1)[-1] == "VENDOR-SPECIFIC-MODULE-DEF-REF" and ref_child.text:
+                                _append_unique(meta["impl_def_refs"], ref_child.text)
+                    elif c_tag in ("PRECONFIGURED-CONFIGURATION-REFS", "RECOMMENDED-CONFIGURATION-REFS"):
+                        for ref_child in child:
+                            if isinstance(ref_child.tag, str) and ref_child.tag.rsplit("}", 1)[-1] in (
+                                "PRECONFIGURED-CONFIGURATION-REF",
+                                "RECOMMENDED-CONFIGURATION-REF",
+                            ) and ref_child.text:
+                                _append_unique(meta["impl_cfg_refs"], ref_child.text)
+        return meta
+
+    @staticmethod
+    def _extract_file_def_and_cfg_refs(sip_file: SipFile) -> Tuple[List[str], List[str]]:
+        """Extract ECUC-MODULE-DEF AR paths and ECUC-MODULE-CONFIGURATION-VALUES DEFINITION-REFs."""
+        meta = SipScanner._extract_file_partition_meta(sip_file)
+        return meta["def_paths"], meta["cfg_def_refs"]
 
     @staticmethod
     def _package_dir_name_for_def(mod_name: str, def_path: str, used: Set[str]) -> str:
@@ -696,41 +783,115 @@ class SipScanner:
 
         Returns ``[(package_dir_name, module_short_name, files)]``.
         """
-        meta: List[Tuple[SipFile, List[str], List[str]]] = [
-            (sf, *SipScanner._extract_file_def_and_cfg_refs(sf))
+        meta: List[Tuple[SipFile, Dict[str, List[str]]]] = [
+            (sf, SipScanner._extract_file_partition_meta(sf))
             for sf in files
         ]
 
         def_groups: Dict[str, List[SipFile]] = {}
-        remaining: List[Tuple[SipFile, List[str], List[str]]] = []
-        for sf, def_paths, cfg_refs in meta:
-            if len(def_paths) == 1:
-                def_groups.setdefault(def_paths[0].rstrip("/"), []).append(sf)
+        def_group_metas: Dict[str, List[Dict[str, List[str]]]] = {}
+        remaining: List[Tuple[SipFile, Dict[str, List[str]]]] = []
+        for sf, m in meta:
+            if len(m["def_paths"]) == 1:
+                dp = m["def_paths"][0].rstrip("/")
+                def_groups.setdefault(dp, []).append(sf)
+                def_group_metas.setdefault(dp, []).append(m)
             else:
-                remaining.append((sf, def_paths, cfg_refs))
+                remaining.append((sf, m))
 
         if len(def_groups) < 2:
             return [(mod_name, mod_name, list(files))]
 
         comp_to_defs: Dict[str, List[str]] = {}
-        for dp, grp_files in def_groups.items():
-            for sf in grp_files:
+        pkg_prefix_to_defs: Dict[str, List[str]] = {}
+        impl_ar_to_defs: Dict[str, Set[str]] = {}
+        impl_cfg_to_defs: Dict[str, Set[str]] = {}
+
+        def _index_meta(dp: str, m: Dict[str, List[str]]) -> None:
+            for ia in m["impl_ar_paths"]:
+                impl_ar_to_defs.setdefault(ia, set()).add(dp)
+            for cr in m["impl_cfg_refs"]:
+                impl_cfg_to_defs.setdefault(cr, set()).add(dp)
+
+        for dp in sorted(def_groups):
+            if "/" in dp:
+                pkg_prefix = dp.rsplit("/", 1)[0]
+                pkg_prefix_to_defs.setdefault(pkg_prefix, [])
+                if dp not in pkg_prefix_to_defs[pkg_prefix]:
+                    pkg_prefix_to_defs[pkg_prefix].append(dp)
+            for sf, m in zip(def_groups[dp], def_group_metas[dp]):
+                _index_meta(dp, m)
                 comp = SipMerger._component_name(sf.path)
                 if comp:
                     lst = comp_to_defs.setdefault(comp, [])
                     if dp not in lst:
                         lst.append(dp)
 
-        for sf, _def_paths, cfg_refs in remaining:
-            targets = [dp for dp in sorted(def_groups) if dp in cfg_refs]
-            if not targets:
-                comp = SipMerger._component_name(sf.path)
-                if comp and comp in comp_to_defs:
-                    targets = comp_to_defs[comp]
-            if not targets:
-                targets = sorted(def_groups)
-            for dp in targets:
-                def_groups[dp].append(sf)
+        std_ref = f"/AUTOSAR/EcucDefs/{mod_name}"
+
+        def _resolve_targets(sf: SipFile, m: Dict[str, List[str]], allow_fallback: bool) -> Tuple[List[str], bool]:
+            explicit_refs = (set(m["cfg_def_refs"]) | set(m["impl_def_refs"])) - {std_ref}
+            if explicit_refs:
+                return [dp for dp in sorted(def_groups) if dp in explicit_refs], True
+
+            matched: Set[str] = set()
+            for ia in m["impl_ar_paths"]:
+                matched.update(impl_ar_to_defs.get(ia, ()))
+            for ca in m["cfg_ar_paths"]:
+                matched.update(impl_cfg_to_defs.get(ca, ()))
+            if matched:
+                return sorted(matched), False
+
+            if not allow_fallback:
+                return [], False
+
+            # Unique AR-package prefix match (e.g. /MICROSAR/CanTrcv_Tle9255)
+            prefix_targets: Set[str] = set()
+            for ar in m["impl_ar_paths"] + m["cfg_ar_paths"]:
+                if "/" in ar:
+                    prefix = ar.rsplit("/", 1)[0]
+                    dps = pkg_prefix_to_defs.get(prefix, [])
+                    if len(dps) == 1:
+                        prefix_targets.add(dps[0])
+            if prefix_targets:
+                return sorted(prefix_targets), False
+
+            comp = SipMerger._component_name(sf.path)
+            if comp and comp in comp_to_defs:
+                return list(comp_to_defs[comp]), False
+            return [], False
+
+        # Pass 1: assign explicitly-attributed fragments first so their BSW-IMPLEMENTATION
+        # PRE/REC refs can inform Pass 2 for remaining fragments without explicit DEFINITION-REF.
+        unresolved: List[Tuple[SipFile, Dict[str, List[str]]]] = []
+        for sf, m in remaining:
+            targets, had_explicit = _resolve_targets(sf, m, allow_fallback=False)
+            if targets:
+                for dp in targets:
+                    def_groups[dp].append(sf)
+                    _index_meta(dp, m)
+            elif had_explicit:
+                logger.warning(
+                    "SIP partition for %s: skipping file %s with explicit ref(s) not matching any variant %s",
+                    mod_name,
+                    sf.path.name,
+                    sorted((set(m["cfg_def_refs"]) | set(m["impl_def_refs"])) - {std_ref}),
+                )
+            else:
+                unresolved.append((sf, m))
+
+        for sf, m in unresolved:
+            targets, _ = _resolve_targets(sf, m, allow_fallback=True)
+            if targets:
+                for dp in targets:
+                    def_groups[dp].append(sf)
+                    _index_meta(dp, m)
+            else:
+                logger.warning(
+                    "SIP partition for %s: unmatched fragment %s left out of variant packages",
+                    mod_name,
+                    sf.path.name,
+                )
 
         used_dirs: Set[str] = set()
         partitions: List[Tuple[str, str, List[SipFile]]] = []
@@ -2123,16 +2284,27 @@ class DaVinciProjectImporter:
         if not configs:
             return None
 
-        matches = []
         norm_expected = (expected_def_ref or "").rstrip("/")
+        std_ref = f"/AUTOSAR/EcucDefs/{module_name}" if module_name else ""
+
+        if norm_expected:
+            exact_matches = [
+                cfg for cfg in configs
+                if (cfg.definition_ref or "").rstrip("/") == norm_expected
+            ]
+            if exact_matches:
+                return merge_module_configurations(exact_matches)
+
+        matches = []
         for cfg in configs:
             cfg_def = (cfg.definition_ref or "").rstrip("/")
             def_leaf = cfg_def.rsplit("/", 1)[-1] if cfg_def else ""
-            if (
-                (norm_expected and cfg_def == norm_expected)
-                or def_leaf == module_name
-                or cfg.short_name == module_name
-            ):
+            if norm_expected:
+                if cfg_def and cfg_def != std_ref:
+                    continue
+                if def_leaf == module_name or cfg.short_name == module_name:
+                    matches.append(cfg)
+            elif def_leaf == module_name or cfg.short_name == module_name:
                 matches.append(cfg)
 
         if not matches:

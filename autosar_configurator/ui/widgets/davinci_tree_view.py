@@ -29,6 +29,7 @@ class DaVinciTreeView(QTreeWidget):
     delete_instance_requested = Signal(EcucContainerValue, object)  # instance, parent_instance
     delete_instances_requested = Signal(list)  # list of (instance, parent_instance) tuples for batch delete
     delete_module_requested = Signal(str)  # module_name - to remove module from project
+    switch_module_variant_requested = Signal(str)  # module_name - to switch module variant package
     move_instance_requested = Signal(EcucContainerValue, object, int)  # instance, new_parent, new_index
     rename_instance_requested = Signal(EcucContainerValue, str)  # instance, new_name
     view_references_requested = Signal(EcucContainerValue)  # instance - show who references this container
@@ -132,10 +133,16 @@ class DaVinciTreeView(QTreeWidget):
 
         overlay_root = None
         package_template_dir = None
+        package_dir_name = None
         project_root = None
         if self.project and self.project.path:
             project_root = project_paths.project_root(self.project)
             overlay_root, package_template_dir = project_paths.template_sources(
+                self.project, module_def.short_name)
+            package_dir_name = project_paths.package_dir_name(
+                self.project, module_def.short_name)
+        elif self.project:
+            package_dir_name = project_paths.package_dir_name(
                 self.project, module_def.short_name)
 
         generator = CodeGenerator(
@@ -144,7 +151,8 @@ class DaVinciTreeView(QTreeWidget):
             project_template_dir=overlay_root if overlay_root and overlay_root.exists() else None,
             package_template_dir=package_template_dir,
             ecu_resources=(self.project.ecu_resources or None) if self.project else None,
-            project_root=project_root
+            project_root=project_root,
+            package_dir_name=package_dir_name,
         )
         
         infos = generator.get_template_info(module_def.short_name)
@@ -163,8 +171,27 @@ class DaVinciTreeView(QTreeWidget):
             badge = " [Std]"
             color = "#4B5563"  # Dark gray for Standard
             engine_desc = "Standard Jinja2"
-        
-        display_name = f"📦 {module_def.short_name}{badge}"
+
+        entry = (
+            (getattr(self.project, "module_entries", None) or {}).get(module_def.short_name)
+            if self.project is not None
+            else None
+        )
+        active_def = (
+            (entry.definition if entry is not None and entry.definition else None)
+            or getattr(module_def, "ar_path", None)
+            or getattr(module_def, "definition_ref", None)
+            or getattr(config_manager.configuration, "definition_ref", None)
+            or ""
+        )
+        def_segs = [s for s in active_def.strip("/").split("/") if s]
+        variant_tag = ""
+        if len(def_segs) >= 3 and def_segs[:2] != ["AUTOSAR", "EcucDefs"]:
+            variant_tag = f" ({def_segs[-2]})"
+        elif package_dir_name and package_dir_name != module_def.short_name:
+            variant_tag = f" ({package_dir_name})"
+
+        display_name = f"📦 {module_def.short_name}{variant_tag}{badge}"
         
         # Create module root
         root_item = QTreeWidgetItem([display_name])
@@ -172,11 +199,15 @@ class DaVinciTreeView(QTreeWidget):
         root_item.setForeground(0, QBrush(QColor(color)))
         
         # Build detailed tooltip
-        tooltip_lines = [
-            f"Module: {module_def.short_name}",
+        tooltip_lines = [f"Module: {module_def.short_name}"]
+        if active_def:
+            tooltip_lines.append(f"Definition: {active_def}")
+        if package_dir_name:
+            tooltip_lines.append(f"Package: {package_dir_name}")
+        tooltip_lines.extend([
             f"Primary Engine: {engine_desc}",
-            "\nTemplates:"
-        ]
+            "\nTemplates:",
+        ])
         for info in infos:
             engine_hint = "EB" if info['engine'] == "EB" else "Std"
             source_hint = "fallback" if "Fallback" in info['path'] else "custom"
@@ -487,11 +518,10 @@ class DaVinciTreeView(QTreeWidget):
         item_type = data.get("type")
         
         if item_type == "MODULE":
-            # Right-click on module node - offer "Delete Module"
+            # Right-click on module node - offer variant switching (when alternatives exist) and module deletion
             module_def = data["def"]
             module_name = module_def.short_name
-            delete_action = menu.addAction("🗑️ 删除模块 (Remove Module)")
-            delete_action.triggered.connect(lambda: self._delete_module(module_name))
+            self._populate_module_menu(menu, module_name)
         
         elif item_type == "DEF" or item_type == "ADD_PROMPT":
             # Right-click on DEF node - offer "Add Instance"
@@ -546,10 +576,11 @@ class DaVinciTreeView(QTreeWidget):
             return
         
         # Pre-validation: Check multiplicity limit before showing dialog
+        mod_name = manager.module_def.short_name if getattr(manager, "module_def", None) else None
         if parent_instance:
-            current_count = sum(1 for c in parent_instance.sub_containers if same_definition(c.definition_ref, container_def.definition_ref))
+            current_count = sum(1 for c in parent_instance.sub_containers if same_definition(c.definition_ref, container_def.definition_ref, mod_name))
         else:
-            current_count = sum(1 for c in manager.configuration.containers if same_definition(c.definition_ref, container_def.definition_ref))
+            current_count = sum(1 for c in manager.configuration.containers if same_definition(c.definition_ref, container_def.definition_ref, mod_name))
         
         if container_def.upper_multiplicity != -1 and current_count >= container_def.upper_multiplicity:
             QMessageBox.information(
@@ -812,7 +843,9 @@ class DaVinciTreeView(QTreeWidget):
         def traverse(item):
             data = item.data(0, Qt.UserRole)
             if data and data.get("type") == "DEF":
-                if same_definition(data["def"].definition_ref, definition_ref):
+                mgr = data.get("manager")
+                mod_name = mgr.module_def.short_name if mgr and getattr(mgr, "module_def", None) else None
+                if same_definition(data["def"].definition_ref, definition_ref, mod_name):
                     # Found it!
                     self.setCurrentItem(item)
                     self.scrollToItem(item)
@@ -923,6 +956,21 @@ class DaVinciTreeView(QTreeWidget):
         # Emit rename signal
         self.rename_instance_requested.emit(instance, new_name)
     
+    def _populate_module_menu(self, menu: QMenu, module_name: str) -> None:
+        """Populate context menu actions for a top-level module node."""
+        if (
+            self.project is not None
+            and hasattr(self.project, "list_module_variant_packages")
+            and len(self.project.list_module_variant_packages(module_name)) > 1
+        ):
+            switch_action = menu.addAction("🔀 切换模块变体 (Switch Variant)...")
+            switch_action.triggered.connect(
+                lambda: self.switch_module_variant_requested.emit(module_name)
+            )
+            menu.addSeparator()
+        delete_action = menu.addAction("🗑️ 删除模块 (Remove Module)")
+        delete_action.triggered.connect(lambda: self._delete_module(module_name))
+
     def _delete_module(self, module_name: str):
         """Delete a module from the project"""
         reply = QMessageBox.question(
@@ -1048,7 +1096,9 @@ class DaVinciTreeView(QTreeWidget):
                 if target_type == "DEF":
                     # Dropped on a definition -> Add as child (if definition matches)
                     # Logic needs to check if this definition matches the instance
-                    if same_definition(target_data["def"].definition_ref, instance.definition_ref):
+                    mgr = target_data.get("manager") or self.config_manager
+                    mod_name = mgr.module_def.short_name if mgr and getattr(mgr, "module_def", None) else None
+                    if same_definition(target_data["def"].definition_ref, instance.definition_ref, mod_name):
                         # Should go to parent of this DEF node? No, DEF node usually groups instances.
                         pass
                 elif target_type == "VALUE":

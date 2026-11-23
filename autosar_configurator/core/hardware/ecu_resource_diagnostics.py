@@ -89,11 +89,14 @@ def _module_sources(project, module: str, def_path: Path) -> List[Path]:
     plugin_dir = def_path.parent.parent
     files.extend(_files_under(plugin_dir / "generate_PB"))
     files.extend(_files_under(plugin_dir / "generate_PC"))
-    # Templates: project overlay (<templates>/<Module>/) then the package's dir
+    # Templates: variant overlay (<templates>/<pkg_dir_name>/), generic overlay (<templates>/<Module>/), then package dir
     template_files: List[Path] = []
-    if getattr(project, "path", None):
+    if project is not None and getattr(project, "path", None):
         overlay_root, package_dir = project_paths.template_sources(project, module)
         if overlay_root is not None:
+            pkg_dir_name = project_paths.package_dir_name(project, module)
+            if pkg_dir_name and pkg_dir_name.lower() != module.lower():
+                template_files.extend(_files_under(overlay_root / pkg_dir_name))
             template_files.extend(_files_under(overlay_root / module))
         if package_dir is not None:
             template_files.extend(_files_under(package_dir))

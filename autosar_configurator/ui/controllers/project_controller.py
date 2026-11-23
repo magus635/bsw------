@@ -15,6 +15,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QFileDialog, QMessageBox, QInputDialog, QLineEdit, QDialog,
+    QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton, QLabel,
 )
 
 import logging
@@ -2226,6 +2227,129 @@ class ProjectController:
                 "Restore Failed",
                 f"恢复已删除模块失败：\n{exc}",
             )
+
+    def _confirm_variant_switch(self, preview_markdown: str, plan) -> bool:
+        """Show compatibility and baseline-merge preview before switching module variant."""
+        dialog = QDialog(self.win)
+        dialog.setWindowTitle(f"切换模块变体确认 — {plan.module_name}")
+        dialog.resize(700, 520)
+
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(QLabel(f"确认将模块 <b>{plan.module_name}</b> 切换到新的实现变体："))
+
+        preview = QTextEdit()
+        preview.setReadOnly(True)
+        preview.setMarkdown(preview_markdown)
+        layout.addWidget(preview)
+
+        buttons = QHBoxLayout()
+        buttons.addStretch()
+        cancel_btn = QPushButton("取消")
+        cancel_btn.clicked.connect(dialog.reject)
+        buttons.addWidget(cancel_btn)
+
+        confirm_btn = QPushButton("确认切换")
+        confirm_btn.setDefault(True)
+        confirm_btn.clicked.connect(dialog.accept)
+        buttons.addWidget(confirm_btn)
+        layout.addLayout(buttons)
+
+        return dialog.exec() == QDialog.Accepted
+
+    def switch_module_variant(self, module_name: str, confirm=None) -> bool:
+        """Pick an alternative variant package for ``module_name`` and apply a previewed atomic switch."""
+        project = self.win.current_project
+        if not project or module_name not in project.module_managers:
+            QMessageBox.warning(
+                self.win,
+                "Cannot Switch Variant",
+                f"模块 '{module_name}' 当前未加载。",
+            )
+            return False
+
+        entry = (getattr(project, "module_entries", None) or {}).get(module_name)
+        mgr = project.module_managers[module_name]
+        current_def = (
+            (entry.definition if entry is not None and entry.definition else None)
+            or getattr(getattr(mgr, "module_def", None), "ar_path", None)
+            or getattr(getattr(mgr, "module_def", None), "definition_ref", None)
+            or ""
+        ).rstrip("/")
+
+        variants = project.list_module_variant_packages(module_name)
+        alternatives = [
+            (lib_idx, pkg)
+            for lib_idx, pkg in variants
+            if (pkg.manifest.definition or "").rstrip("/") != current_def
+        ]
+        if not alternatives:
+            QMessageBox.information(
+                self.win,
+                "Switch Variant",
+                f"已注册的模块库中没有发现 '{module_name}' 的其他可用变体。",
+            )
+            return False
+
+        labels = [f"{pkg.manifest.definition}  ({pkg.root.name})" for _idx, pkg in alternatives]
+        chosen, ok = QInputDialog.getItem(
+            self.win,
+            f"Switch Variant — {module_name}",
+            f"当前定义：{current_def or '（未知）'}\n选择要切换到的目标变体包：",
+            labels,
+            0,
+            False,
+        )
+        if not ok or not chosen:
+            return False
+
+        target_lib_idx, target_pkg = alternatives[labels.index(chosen)]
+        try:
+            plan = project.switch_module_variant(
+                module_name,
+                target_pkg,
+                target_lib_idx,
+                preview_only=False,
+                confirm=confirm or self._confirm_variant_switch,
+            )
+        except Exception as exc:
+            QMessageBox.critical(
+                self.win,
+                "Switch Variant Failed",
+                f"切换模块 '{module_name}' 变体失败：\n{exc}",
+            )
+            return False
+
+        if not plan.applied:
+            return False
+
+        self.win._has_unsaved_changes = True
+        new_mgr = project.module_managers[module_name]
+        if (
+            self.win.module_def is None
+            or getattr(self.win.module_def, "short_name", None) == module_name
+        ):
+            self.win.config_manager = new_mgr
+            self.win.module_def = new_mgr.module_def
+
+        self.win.tree_view.set_project(project)
+        config_panel = getattr(self.win, "config_panel", None)
+        if hasattr(config_panel, "clear"):
+            config_panel.clear()
+        if hasattr(self.win, "_update_mode_actions"):
+            self.win._update_mode_actions()
+        self.win.statusbar.showMessage(
+            f"Switched {module_name} to {plan.target_definition}",
+            5000,
+        )
+        QMessageBox.information(
+            self.win,
+            "Variant Switched",
+            f"已将模块 '{module_name}' 切换到：\n{plan.target_definition}\n\n"
+            f"保留容器 {len(plan.kept_containers)} 个，"
+            f"保留参数 {len(plan.kept_parameters)} 个，"
+            f"不兼容参数 {len(plan.unknown_parameters)} 个（已保留在 unknown_parameters）。",
+        )
+        return True
 
     def upgrade_project_structure(self):
         """Explicitly upgrade a legacy (format <= 7) project to Format 8 (W8)."""

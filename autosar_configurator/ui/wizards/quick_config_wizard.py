@@ -45,17 +45,18 @@ class ContainerSelectionPage(WizardPage):
             defs = self.module_def.containers.values()
 
         # Populate container types
+        mod_name = self.module_def.short_name if getattr(self, "module_def", None) else None
         for container_def in defs:
             # Check if we can add more instances
             if self.parent_instance:
                 current_count = sum(
                     1 for c in self.parent_instance.sub_containers
-                    if same_definition(c.definition_ref, container_def.definition_ref)
+                    if same_definition(c.definition_ref, container_def.definition_ref, mod_name)
                 )
             else:
                 current_count = sum(
                     1 for c in self.config_manager.configuration.containers
-                    if same_definition(c.definition_ref, container_def.definition_ref)
+                    if same_definition(c.definition_ref, container_def.definition_ref, mod_name)
                 )
             
             label = f"{container_def.short_name} ({container_def.multiplicity_str})"
@@ -98,15 +99,16 @@ class ContainerSelectionPage(WizardPage):
         if not container_def:
             return False
             
+        mod_name = self.module_def.short_name if getattr(self, "module_def", None) else None
         if self.parent_instance:
             current_count = sum(
                 1 for c in self.parent_instance.sub_containers
-                if same_definition(c.definition_ref, container_def.definition_ref)
+                if same_definition(c.definition_ref, container_def.definition_ref, mod_name)
             )
         else:
             current_count = sum(
                 1 for c in self.config_manager.configuration.containers
-                if same_definition(c.definition_ref, container_def.definition_ref)
+                if same_definition(c.definition_ref, container_def.definition_ref, mod_name)
             )
         
         if container_def.upper_multiplicity != -1 and current_count >= container_def.upper_multiplicity:

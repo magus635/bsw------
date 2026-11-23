@@ -64,11 +64,24 @@ class Renderer:
         """
         self.strict = strict
         self.template_dir = template_dir or Path(".")
-        self.include_search_paths = include_search_paths or []
-        
-        # Ensure include_search_paths contains template_dir
-        if self.template_dir not in self.include_search_paths:
-            self.include_search_paths.insert(0, self.template_dir)
+        self.include_search_paths = list(include_search_paths) if include_search_paths else []
+
+        def _path_key(p: Path) -> Path:
+            try:
+                return Path(p).resolve()
+            except OSError:
+                return Path(p)
+
+        # Ensure include_search_paths includes explicit template_dir (using resolved
+        # paths so equivalent Paths do not re-insert ahead of higher-priority layers).
+        # Never inject Path(".") ahead of caller-supplied search paths when template_dir is None.
+        if template_dir is not None:
+            tpl_key = _path_key(template_dir)
+            existing_keys = {_path_key(p) for p in self.include_search_paths if p is not None}
+            if tpl_key not in existing_keys:
+                self.include_search_paths.insert(0, template_dir)
+        elif not self.include_search_paths:
+            self.include_search_paths.append(self.template_dir)
         
         # Core components
         self.symbol_table = SymbolTable()

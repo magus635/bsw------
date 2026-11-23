@@ -123,6 +123,7 @@ class GenerationController:
             project_template_dir = None
             package_template_dir = None
             project_dir = None
+            package_dir_name = None
 
             if win.current_project:
                 variant_name = win.current_project.active_variant
@@ -130,11 +131,12 @@ class GenerationController:
                 if layer and win.config_manager.configuration:
                     variant_overrides = win.config_manager.configuration.variant_overrides.get(layer, {})
 
-                # Overlay root: templates/<Module>/ (user-editable, highest priority);
+                # Overlay root: templates/<pkg_dir_name>/ -> templates/<Module>/ (highest priority);
                 # the module package's template dir is the fallback (design §6.6).
                 module_name = win.config_manager.configuration.short_name
                 project_template_dir, package_template_dir, project_dir = _template_sources(
                     win, module_name)
+                package_dir_name = project_paths.package_dir_name(win.current_project, module_name)
                 if package_template_dir:
                     logger.info(f"Using package template directory: {package_template_dir}")
 
@@ -147,7 +149,8 @@ class GenerationController:
                 all_configurations=self._get_all_project_configurations(),
                 selected_chip=win.current_project.selected_chip if win.current_project else None,
                 ecu_resources=self._project_ecu_resources(),
-                project_root=project_dir
+                project_root=project_dir,
+                package_dir_name=package_dir_name,
             )
 
             # Pass parent output directory; generator.generate_all() handles the ModuleName/ subdir
@@ -215,7 +218,7 @@ class GenerationController:
             finished = Signal(str, str, str)  # module_name, status (GEN/SKIP/FAIL), message
 
         class GenWorker(QRunnable):
-            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None, project_template_dir=None, package_template_dir=None, all_configs=None, selected_chip=None, ecu_resources=None, project_root=None, flat=False):
+            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None, project_template_dir=None, package_template_dir=None, all_configs=None, selected_chip=None, ecu_resources=None, project_root=None, flat=False, package_dir_name=None):
                 super().__init__()
                 self.name = name
                 self.manager = manager
@@ -229,6 +232,7 @@ class GenerationController:
                 self.ecu_resources = ecu_resources
                 self.project_root = project_root
                 self.flat = flat
+                self.package_dir_name = package_dir_name
                 self.signals = GenSignals()
 
             @Slot()
@@ -249,7 +253,8 @@ class GenerationController:
                         all_configurations=self.all_configs,
                         selected_chip=self.selected_chip,
                         ecu_resources=self.ecu_resources,
-                        project_root=self.project_root
+                        project_root=self.project_root,
+                        package_dir_name=self.package_dir_name,
                     )
                     variant_to_use = self.variant_name if self.variant_name else "Default"
                     generated = generator.generate_all(
@@ -391,6 +396,7 @@ class GenerationController:
                 mod_variant_overrides = manager.configuration.variant_overrides.get(variant_name, {})
 
             overlay_root, package_dir, project_root = _template_sources(win, name)
+            pkg_dir_name = project_paths.package_dir_name(win.current_project, name)
             mod_out_path = project_paths.gen_dir(win.current_project, name) if is_flat else output_path
 
             worker = GenWorker(
@@ -404,6 +410,7 @@ class GenerationController:
                 ecu_resources=ecu_resources,
                 project_root=project_root,
                 flat=is_flat,
+                package_dir_name=pkg_dir_name,
             )
             worker.setAutoDelete(False)  # Prevent automatic deletion
             # Use QueuedConnection for cross-thread signal delivery

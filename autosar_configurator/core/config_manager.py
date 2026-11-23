@@ -1231,9 +1231,10 @@ class ConfigurationManager:
     
     def _check_multiplicity_before_add_toplevel(self, container_def: EcucContainerDef):
         """Check multiplicity for top-level containers"""
+        mod_name = self.module_def.short_name if self.module_def else None
         current_count = sum(
             1 for c in self.configuration.containers
-            if defrefs.same_definition(c.definition_ref, container_def.definition_ref)
+            if defrefs.same_definition(c.definition_ref, container_def.definition_ref, mod_name)
         )
         
         if container_def.upper_multiplicity != -1:
@@ -1245,9 +1246,10 @@ class ConfigurationManager:
     
     def _count_instances_in_parent(self, container_def: EcucContainerDef, parent: EcucContainerValue) -> int:
         """Count existing instances of a container definition in parent"""
+        mod_name = self.module_def.short_name if self.module_def else None
         return sum(
             1 for c in parent.sub_containers
-            if defrefs.same_definition(c.definition_ref, container_def.definition_ref)
+            if defrefs.same_definition(c.definition_ref, container_def.definition_ref, mod_name)
         )
     
     def _generate_instance_name(self, container_def: EcucContainerDef, parent: Optional[EcucContainerValue] = None) -> str:
@@ -1394,19 +1396,45 @@ class ConfigurationManager:
 
             if all_configs:
                 module_name = self.module_def.short_name if self.module_def else None
+                module_ar_path = (
+                    getattr(self.module_def, "ar_path", None)
+                    or getattr(self.module_def, "definition_ref", None)
+                    or ""
+                ).rstrip("/")
+                std_ref = f"/AUTOSAR/EcucDefs/{module_name}" if module_name else ""
+                is_specific_def = bool(module_name and module_ar_path and module_ar_path != std_ref)
+
                 matching_configs = []
-                if module_name:
+                if is_specific_def:
+                    matching_configs = [
+                        cfg for cfg in all_configs
+                        if (cfg.definition_ref or "").rstrip("/") == module_ar_path
+                    ]
+
+                mismatched_vendor_defs = set()
+                if not matching_configs and module_name:
                     for cfg in all_configs:
+                        cfg_def = (cfg.definition_ref or "").rstrip("/")
                         # Match by config short-name or by the module segment
                         # of its DEFINITION-REF (/Pkg/Module)
-                        def_module = cfg.definition_ref.rstrip('/').rsplit('/', 1)[-1]
-                        if cfg.short_name == module_name or def_module == module_name:
-                            matching_configs.append(cfg)
+                        def_module = cfg_def.rsplit('/', 1)[-1]
+                        if not (cfg.short_name == module_name or def_module == module_name):
+                            continue
+                        if is_specific_def and cfg_def and cfg_def != std_ref:
+                            mismatched_vendor_defs.add(cfg_def)
+                            continue
+                        matching_configs.append(cfg)
 
                 if matching_configs:
                     # Task 2 改法：多块自动合并
                     new_config = merge_module_configurations(matching_configs)
                     skipped = [c.short_name for c in all_configs if c not in matching_configs]
+                elif mismatched_vendor_defs:
+                    raise ValueError(
+                        f"{file_path.name}: no configuration matching variant definition "
+                        f"'{module_ar_path}' (found incompatible vendor definition(s): "
+                        f"{', '.join(sorted(mismatched_vendor_defs))})"
+                    )
                 else:
                     new_config = all_configs[0]
                     skipped = [c.short_name for c in all_configs if c is not new_config]
@@ -1933,9 +1961,10 @@ class ConfigurationManager:
         if parent:
             count = self._count_instances_in_parent(container_def, parent)
         else:
+            mod_name = self.module_def.short_name if self.module_def else None
             count = sum(
                 1 for c in self.configuration.containers
-                if defrefs.same_definition(c.definition_ref, container_def.definition_ref)
+                if defrefs.same_definition(c.definition_ref, container_def.definition_ref, mod_name)
             )
         
         if count < container_def.lower_multiplicity:

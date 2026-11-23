@@ -682,7 +682,12 @@ class EcucModuleConfiguration:
     def _find_instances_by_def(self, container: EcucContainerValue, definition_ref: str) -> List[EcucContainerValue]:
         """Recursively find all instances matching a definition"""
         instances = []
-        if same_definition(container.definition_ref, definition_ref):
+        mod_name = (
+            self.definition_ref.rstrip('/').rsplit('/', 1)[-1]
+            if self.definition_ref
+            else self.short_name
+        ) or None
+        if same_definition(container.definition_ref, definition_ref, mod_name):
             instances.append(container)
         
         for sub_container in container.sub_containers:

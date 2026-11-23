@@ -32,11 +32,26 @@ class ModuleCandidate:
     package: ModulePackage
     lib_index: int
     is_compatible: bool  # chip filter passed
-    is_installed: bool   # already in project
+    is_installed: bool   # already in project (exact same definition)
     category: str        # "MCAL", "Communication", "System", "Diagnostic", etc.
     has_pre: bool
     has_rec: bool
+    is_other_variant: bool = False  # same module short_name installed with different definition
     conflict: Optional[str] = None  # if incompatible with selection
+
+
+def _variant_label(pkg: ModulePackage) -> str:
+    """Short human-readable identifier for a module package's variant."""
+    definition = (pkg.manifest.definition or "").strip("/")
+    segs = [s for s in definition.split("/") if s]
+    if len(segs) >= 3:
+        return segs[-2]
+    dir_name = pkg.root.name if getattr(pkg, "root", None) else ""
+    if dir_name and dir_name != pkg.manifest.module:
+        return dir_name
+    if len(segs) == 2:
+        return segs[0]
+    return pkg.manifest.definition or ""
 
 
 class LibrarySelectionPage(WizardPage):
@@ -175,6 +190,8 @@ class ModuleSelectionPage(WizardPage):
         self.deselect_all_btn = QPushButton()
         self.filter_edit = QLineEdit()
         self.selected_count_label = QLabel()
+        self._updating_checks = False
+        self.last_skipped_ambiguous: List[str] = []
 
         super().__init__(
             "Select Modules",
@@ -185,7 +202,7 @@ class ModuleSelectionPage(WizardPage):
         # Filter bar
         filter_layout = QHBoxLayout()
         filter_layout.addWidget(QLabel("Filter:"))
-        self.filter_edit.setPlaceholderText("Type to filter by name or category...")
+        self.filter_edit.setPlaceholderText("Filter by module, definition path, package dir, or category...")
         self.filter_edit.textChanged.connect(self._apply_filter)
         filter_layout.addWidget(self.filter_edit)
         self.layout.addLayout(filter_layout)
@@ -194,8 +211,9 @@ class ModuleSelectionPage(WizardPage):
         splitter = QSplitter(Qt.Horizontal)
 
         # Tree: categories with module children
-        self.tree.setHeaderLabels(["Module", "Pre", "Rec", "Status"])
-        self.tree.setColumnWidth(0, 200)
+        self.tree.setHeaderLabels(["Module", "Variant / Definition", "Pre", "Rec", "Status"])
+        self.tree.setColumnWidth(0, 150)
+        self.tree.setColumnWidth(1, 220)
         self.tree.itemSelectionChanged.connect(self._on_selection_changed)
         self.tree.itemChanged.connect(self._on_item_checked)
         splitter.addWidget(self.tree)
@@ -235,10 +253,25 @@ class ModuleSelectionPage(WizardPage):
     def _scan_modules(self):
         """Scan all libraries and populate tree."""
         self.candidates.clear()
+        self.last_skipped_ambiguous.clear()
         self.tree.clear()
 
         chip_name = self.project.selected_chip
-        installed = set(self.project.module_managers.keys())
+        module_entries = getattr(self.project, "module_entries", None) or {}
+        project_pkgs = getattr(self.project, "packages", None) or {}
+        installed_defs: Dict[str, str] = {}
+        for mod_name, mgr in self.project.module_managers.items():
+            entry = module_entries.get(mod_name)
+            pkg = project_pkgs.get(mod_name)
+            mdef = getattr(mgr, "module_def", None)
+            def_ref = (
+                (entry.definition if entry is not None and entry.definition else None)
+                or (pkg.manifest.definition if pkg is not None else None)
+                or getattr(mdef, "ar_path", None)
+                or getattr(mdef, "definition_ref", None)
+                or ""
+            )
+            installed_defs[mod_name] = def_ref.rstrip("/")
 
         libraries = self.project.module_libraries
         wizard = self.wizard()
@@ -259,9 +292,17 @@ class ModuleSelectionPage(WizardPage):
 
         # Build candidates
         for pkg, lib_idx in all_packages:
+            mod_name = pkg.manifest.module
+            cand_def = (pkg.manifest.definition or "").rstrip("/")
             is_compatible = self._check_chip_compatibility(pkg, chip_name)
-            is_installed = pkg.manifest.module in installed
-            category = self._infer_category(pkg.manifest.module)
+            if mod_name not in installed_defs:
+                is_installed = False
+                is_other_variant = False
+            else:
+                active_def = installed_defs[mod_name]
+                is_installed = (not active_def) or (cand_def == active_def)
+                is_other_variant = not is_installed
+            category = self._infer_category(mod_name)
 
             candidate = ModuleCandidate(
                 package=pkg,
@@ -271,6 +312,7 @@ class ModuleSelectionPage(WizardPage):
                 category=category,
                 has_pre=len(pkg.manifest.pre) > 0,
                 has_rec=len(pkg.manifest.rec) > 0,
+                is_other_variant=is_other_variant,
             )
             self.candidates.append(candidate)
 
@@ -278,7 +320,15 @@ class ModuleSelectionPage(WizardPage):
         categories = {}
         self.tree.blockSignals(True)
         try:
-            for cand in sorted(self.candidates, key=lambda c: (c.category, c.package.manifest.module)):
+            for cand in sorted(
+                self.candidates,
+                key=lambda c: (
+                    c.category,
+                    c.package.manifest.module,
+                    c.package.manifest.definition,
+                    c.lib_index,
+                ),
+            ):
                 if cand.category not in categories:
                     cat_item = QTreeWidgetItem(self.tree, [cand.category])
                     cat_item.setFlags(cat_item.flags() | Qt.ItemIsAutoTristate)
@@ -288,17 +338,25 @@ class ModuleSelectionPage(WizardPage):
                 status = self._status_text(cand)
                 item = QTreeWidgetItem(categories[cand.category], [
                     cand.package.manifest.module,
+                    cand.package.manifest.definition,
                     "✓" if cand.has_pre else "",
                     "✓" if cand.has_rec else "",
                     status,
                 ])
+                pkg_dir_name = cand.package.root.name if getattr(cand.package, "root", None) else ""
+                tip = f"Definition: {cand.package.manifest.definition}\nPackage Dir: {pkg_dir_name}"
+                item.setToolTip(0, tip)
+                item.setToolTip(1, tip)
                 item.setData(0, Qt.UserRole, cand)
                 item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
                 item.setCheckState(0, Qt.Unchecked)
 
-                # Color-code (keep installed modules enabled so user can replace/merge)
+                # Color-code (keep installed/sibling variants enabled so user can merge/replace/switch)
                 if cand.is_installed:
                     item.setForeground(0, QBrush(QColor("gray")))
+                elif cand.is_other_variant:
+                    item.setForeground(0, QBrush(QColor("#7C3AED")))
+                    item.setForeground(4, QBrush(QColor("#7C3AED")))
                 elif not cand.is_compatible:
                     item.setForeground(0, QBrush(QColor("orange")))
         finally:
@@ -320,7 +378,7 @@ class ModuleSelectionPage(WizardPage):
         """Categorize module by name prefix."""
         CATEGORIES = {
             "MCAL": ["Adc", "Can", "Dio", "Gpt", "Icu", "Mcu", "Port", "Pwm", "Spi", "Wdg", "Fls", "Eth"],
-            "Communication": ["CanIf", "CanTp", "Com", "PduR", "CanSM", "CanNm", "FrIf", "FrTp", "LinIf", "EthIf"],
+            "Communication": ["CanIf", "CanTp", "CanTrcv", "Com", "PduR", "CanSM", "CanNm", "FrIf", "FrTp", "LinIf", "LinTrcv", "EthIf", "EthTrcv"],
             "System": ["Os", "EcuC", "Rte", "SchM", "BswM", "ComM", "EcuM"],
             "Diagnostic": ["Dcm", "Dem", "Det", "Fim"],
             "Memory": ["Ea", "Fee", "Fls", "MemIf", "NvM"],
@@ -335,6 +393,8 @@ class ModuleSelectionPage(WizardPage):
     def _status_text(self, cand: ModuleCandidate) -> str:
         if cand.is_installed:
             return "Installed"
+        if cand.is_other_variant:
+            return "Other Variant"
         if not cand.is_compatible:
             return "Incompatible"
         return "Available"
@@ -352,11 +412,34 @@ class ModuleSelectionPage(WizardPage):
             self.detail_browser.clear()
             return
 
+        origin = getattr(cand.package.manifest, "origin", None) or {}
+        impl_meta = dict(origin.get("implementation") or {}) if isinstance(origin, dict) else {}
+        if not (impl_meta.get("sw_version") or impl_meta.get("vendor_api_infix")):
+            try:
+                disk_impl = cand.package.read_impl_metadata() or {}
+                for k, v in disk_impl.items():
+                    impl_meta.setdefault(k, v)
+            except Exception:
+                pass
+        sw_version = (
+            impl_meta.get("sw_version")
+            or (origin.get("sw_version") if isinstance(origin, dict) else None)
+            or "—"
+        )
+        vendor_infix = impl_meta.get("vendor_api_infix") or "—"
+        variant_label = _variant_label(cand.package)
+        pkg_dir_name = cand.package.root.name if getattr(cand.package, "root", None) else ""
+
         html = f"""
-        <h3>{cand.package.manifest.module}</h3>
+        <h3>{cand.package.manifest.module} ({variant_label})</h3>
         <table>
         <tr><td><b>Category:</b></td><td>{cand.category}</td></tr>
+        <tr><td><b>Variant:</b></td><td>{variant_label}</td></tr>
         <tr><td><b>Definition:</b></td><td><code>{cand.package.manifest.definition}</code></td></tr>
+        <tr><td><b>Package Dir:</b></td><td><code>{pkg_dir_name}</code></td></tr>
+        <tr><td><b>SW Version:</b></td><td>{sw_version}</td></tr>
+        <tr><td><b>Vendor API Infix:</b></td><td>{vendor_infix}</td></tr>
+        <tr><td><b>Status:</b></td><td>{self._status_text(cand)}</td></tr>
         <tr><td><b>Library:</b></td><td>{cand.package.root}</td></tr>
         <tr><td><b>Chip Compatible:</b></td><td>{'Yes' if cand.is_compatible else 'No'}</td></tr>
         <tr><td><b>Pre Config:</b></td><td>{'Yes' if cand.has_pre else 'No'}</td></tr>
@@ -367,34 +450,100 @@ class ModuleSelectionPage(WizardPage):
         self.detail_browser.setHtml(html)
 
     def _on_item_checked(self, item: QTreeWidgetItem, column: int):
-        """Update count when checkbox changes."""
+        """Enforce single-variant selection per module and update count."""
+        if self._updating_checks or column != 0:
+            return
+        self._updating_checks = True
+        try:
+            changed_cand = item.data(0, Qt.UserRole)
+            if changed_cand is not None and item.checkState(0) == Qt.Checked:
+                target_mod = changed_cand.package.manifest.module
+                for i in range(self.tree.topLevelItemCount()):
+                    cat_item = self.tree.topLevelItem(i)
+                    for j in range(cat_item.childCount()):
+                        other = cat_item.child(j)
+                        if other is item or other.checkState(0) != Qt.Checked:
+                            continue
+                        other_cand = other.data(0, Qt.UserRole)
+                        if other_cand and other_cand.package.manifest.module == target_mod:
+                            other.setCheckState(0, Qt.Unchecked)
+            elif changed_cand is None and item.checkState(0) == Qt.Checked:
+                # Category checkbox toggled: keep at most one variant per module name
+                seen_mods: Set[str] = set()
+                for i in range(self.tree.topLevelItemCount()):
+                    cat_item = self.tree.topLevelItem(i)
+                    for j in range(cat_item.childCount()):
+                        child = cat_item.child(j)
+                        if child.checkState(0) != Qt.Checked:
+                            continue
+                        cand = child.data(0, Qt.UserRole)
+                        if cand:
+                            mname = cand.package.manifest.module
+                            if mname in seen_mods:
+                                child.setCheckState(0, Qt.Unchecked)
+                            else:
+                                seen_mods.add(mname)
+        finally:
+            self._updating_checks = False
         self._update_count()
 
     def _update_count(self):
         """Update selected count label."""
         selected = self._get_selected_candidates()
-        self.selected_count_label.setText(f"{len(selected)} module(s) selected")
+        text = f"{len(selected)} module(s) selected"
+        if self.last_skipped_ambiguous:
+            text += f" (skipped multi-variant: {', '.join(self.last_skipped_ambiguous)})"
+        self.selected_count_label.setText(text)
 
     def _select_all(self):
-        """Check all compatible, not-installed modules."""
+        """Check all compatible, not-installed, unambiguous modules (skip multi-variant modules)."""
+        compat_counts: Dict[str, int] = {}
         for i in range(self.tree.topLevelItemCount()):
             cat_item = self.tree.topLevelItem(i)
             for j in range(cat_item.childCount()):
-                item = cat_item.child(j)
-                cand = item.data(0, Qt.UserRole)
-                if cand and cand.is_compatible and not cand.is_installed:
-                    item.setCheckState(0, Qt.Checked)
+                cand = cat_item.child(j).data(0, Qt.UserRole)
+                if cand and cand.is_compatible and not cand.is_installed and not cand.is_other_variant:
+                    mname = cand.package.manifest.module
+                    compat_counts[mname] = compat_counts.get(mname, 0) + 1
+
+        self.last_skipped_ambiguous = sorted(
+            mname for mname, cnt in compat_counts.items() if cnt > 1
+        )
+        self._updating_checks = True
+        try:
+            for i in range(self.tree.topLevelItemCount()):
+                cat_item = self.tree.topLevelItem(i)
+                for j in range(cat_item.childCount()):
+                    item = cat_item.child(j)
+                    cand = item.data(0, Qt.UserRole)
+                    if (
+                        cand
+                        and cand.is_compatible
+                        and not cand.is_installed
+                        and not cand.is_other_variant
+                        and compat_counts.get(cand.package.manifest.module, 0) == 1
+                    ):
+                        item.setCheckState(0, Qt.Checked)
+        finally:
+            self._updating_checks = False
+        self._update_count()
 
     def _deselect_all(self):
         """Uncheck all."""
-        for i in range(self.tree.topLevelItemCount()):
-            cat_item = self.tree.topLevelItem(i)
-            for j in range(cat_item.childCount()):
-                item = cat_item.child(j)
-                item.setCheckState(0, Qt.Unchecked)
+        self.last_skipped_ambiguous.clear()
+        self._updating_checks = True
+        try:
+            for i in range(self.tree.topLevelItemCount()):
+                cat_item = self.tree.topLevelItem(i)
+                for j in range(cat_item.childCount()):
+                    item = cat_item.child(j)
+                    item.setCheckState(0, Qt.Unchecked)
+        finally:
+            self._updating_checks = False
+        self._update_count()
 
     def _apply_filter(self, text: str):
-        """Filter tree by module name or category."""
+        """Filter tree by module name, definition path, package dir name, or category."""
         text = text.lower()
         for i in range(self.tree.topLevelItemCount()):
             cat_item = self.tree.topLevelItem(i)
@@ -403,8 +552,14 @@ class ModuleSelectionPage(WizardPage):
             for j in range(cat_item.childCount()):
                 item = cat_item.child(j)
                 cand = item.data(0, Qt.UserRole)
-                match = (not text or cat_match or
-                         text in cand.package.manifest.module.lower())
+                pkg_dir = cand.package.root.name.lower() if getattr(cand.package, "root", None) else ""
+                match = (
+                    not text
+                    or cat_match
+                    or text in cand.package.manifest.module.lower()
+                    or text in (cand.package.manifest.definition or "").lower()
+                    or text in pkg_dir
+                )
                 item.setHidden(not match)
                 if match:
                     any_child_visible = True
@@ -461,8 +616,8 @@ class ConfirmationPage(WizardPage):
         group = QGroupBox("Modules to Add")
         layout = QVBoxLayout()
 
-        self.module_list.setColumnCount(5)
-        self.module_list.setHorizontalHeaderLabels(["Module", "Category", "Pre", "Rec", "Library"])
+        self.module_list.setColumnCount(6)
+        self.module_list.setHorizontalHeaderLabels(["Module", "Definition", "Category", "Pre", "Rec", "Library"])
         self.module_list.horizontalHeader().setStretchLastSection(True)
         self.module_list.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.module_list.setMaximumHeight(150)
@@ -525,15 +680,30 @@ class ConfirmationPage(WizardPage):
         self.module_list.setRowCount(len(selected))
         for row, cand in enumerate(selected):
             self.module_list.setItem(row, 0, QTableWidgetItem(cand.package.manifest.module))
-            self.module_list.setItem(row, 1, QTableWidgetItem(cand.category))
-            self.module_list.setItem(row, 2, QTableWidgetItem("Yes" if cand.has_pre else ""))
-            self.module_list.setItem(row, 3, QTableWidgetItem("Yes" if cand.has_rec else ""))
-            self.module_list.setItem(row, 4, QTableWidgetItem(str(cand.package.root.parent.name)))
+            self.module_list.setItem(row, 1, QTableWidgetItem(cand.package.manifest.definition))
+            self.module_list.setItem(row, 2, QTableWidgetItem(cand.category))
+            self.module_list.setItem(row, 3, QTableWidgetItem("Yes" if cand.has_pre else ""))
+            self.module_list.setItem(row, 4, QTableWidgetItem("Yes" if cand.has_rec else ""))
+            self.module_list.setItem(row, 5, QTableWidgetItem(str(cand.package.root.parent.name)))
 
-        # Check for conflicts
-        conflicts = []
+        # Check for duplicate module selections and variant/install conflicts
+        mod_counts: Dict[str, int] = {}
         for cand in selected:
-            if cand.package.manifest.module in self.project.module_managers:
+            mod_name = cand.package.manifest.module
+            mod_counts[mod_name] = mod_counts.get(mod_name, 0) + 1
+
+        conflicts = []
+        for mod_name in sorted(mod_counts):
+            if mod_counts[mod_name] > 1:
+                conflicts.append(
+                    f"• {mod_name}: Multiple variants selected ({mod_counts[mod_name]}); select only one"
+                )
+        for cand in selected:
+            if cand.is_other_variant:
+                conflicts.append(
+                    f"• {cand.package.manifest.module}: Variant switch -> {cand.package.manifest.definition}"
+                )
+            elif cand.package.manifest.module in self.project.module_managers:
                 conflicts.append(f"• {cand.package.manifest.module}: Already installed")
 
         if conflicts:
@@ -555,6 +725,22 @@ class ConfirmationPage(WizardPage):
         return {"merge_strategy": strategy}
 
     def validatePage(self) -> bool:
+        selected = self.wizard().page(self.wizard().pageIds()[1]).get_data()["selected"]
+        seen: Set[str] = set()
+        dups: List[str] = []
+        for cand in selected:
+            mod_name = cand.package.manifest.module
+            if mod_name in seen and mod_name not in dups:
+                dups.append(mod_name)
+            seen.add(mod_name)
+        if dups:
+            QMessageBox.warning(
+                self,
+                "Duplicate Module Variants",
+                "Cannot integrate multiple implementation variants for the same module:\n"
+                + ", ".join(sorted(dups)),
+            )
+            return False
         return True
 
 
@@ -665,6 +851,26 @@ class IntegrationWizard(ConfigWizard):
                 confirm_merge = _make_confirm(mod_name, rejected_flag)
 
                 if mod_name in self.project.module_managers:
+                    if cand.is_other_variant and merge_strategy == "merge":
+                        plan = self.project.switch_module_variant(
+                            mod_name,
+                            cand.package,
+                            cand.lib_index,
+                            preview_only=False,
+                            confirm=confirm_merge,
+                        )
+                        if not plan.applied:
+                            result["merge_rejected"].append(mod_name)
+                        else:
+                            result["added"].append(mod_name)
+                        mgr = self.project.module_managers.get(mod_name)
+                        if mgr is not None and getattr(mgr, "baseline_error", None):
+                            result["merge_conflicts"].append({
+                                "module": mod_name,
+                                "error": mgr.baseline_error,
+                            })
+                        continue
+
                     from ...core.parser.ecuc_def_parser import EcucDefParser
                     from ...core.workspace_manager import _chip_selector_values
                     from ...core import eb_import
@@ -676,6 +882,9 @@ class IntegrationWizard(ConfigWizard):
                     module_def = parser.parse_module_def_file(def_file)
                     mod_name = module_def.short_name
                     mgr.module_def = module_def
+                    if cand.is_other_variant:
+                        mgr.repair_definition_refs()
+                        mgr._cleanup_invalid_parameters()
                     self.project.module_defs[mod_name] = def_file
                     self.project.packages[mod_name] = cand.package
                     entry = self.project.module_entries.get(mod_name)

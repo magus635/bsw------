@@ -39,12 +39,25 @@ def module_relative(ref: Optional[str], module_name: Optional[str] = None) -> st
     return '/'.join(parts[2:])
 
 
+def _infer_module_name(*refs: Optional[str]) -> Optional[str]:
+    """Infer module short name from a standard /AUTOSAR/EcucDefs/<Module>(/...) path."""
+    for ref in refs:
+        if not ref or not ref.startswith('/'):
+            continue
+        parts = [p for p in ref.split('/') if p]
+        if len(parts) >= 3 and parts[:2] == ['AUTOSAR', 'EcucDefs']:
+            return parts[2]
+    return None
+
+
 def same_definition(ref_a: Optional[str], ref_b: Optional[str], module_name: Optional[str] = None) -> bool:
     """True when two definition references name the same element, whatever their form."""
     if ref_a == ref_b:
         return True
     if not ref_a or not ref_b:
         return False
+    if module_name is None:
+        module_name = _infer_module_name(ref_a, ref_b)
     return module_relative(ref_a, module_name) == module_relative(ref_b, module_name)
 
 

@@ -91,7 +91,8 @@ def _conditions(node: ConfigurationNode, parent: ConfigurationNode,
     definition = defs.get(node.definition_ref) if node.definition_ref else None
     if definition is None:
         return []
-    in_wrapper_of_same_def = parent.is_wrapper and same_definition(parent.definition_ref, node.definition_ref)
+    mod_name = getattr(defs, 'module_name', None)
+    in_wrapper_of_same_def = parent.is_wrapper and same_definition(parent.definition_ref, node.definition_ref, mod_name)
     own = (definition.enable_expr, getattr(definition, 'enable_line', None))
     if isinstance(definition, EcucContainerDef):
         listed = (definition.list_enable_expr, getattr(definition, 'list_enable_line', None))
@@ -136,7 +137,11 @@ def _lift_single_containers(root: ConfigurationNode, defs: dict[str, Any]) -> li
         if not isinstance(definition, EcucContainerDef) or definition.in_list:
             continue
         for child in wrapper.children:
-            if child.parent is wrapper and same_definition(child.definition_ref, wrapper.definition_ref):
+            if child.parent is wrapper and same_definition(
+                child.definition_ref,
+                wrapper.definition_ref,
+                getattr(defs, "module_name", None) if hasattr(defs, "module_name") else None,
+            ):
                 lifted.append((child, wrapper))
                 child.parent = wrapper.parent
     return lifted

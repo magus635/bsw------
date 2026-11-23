@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
 
 from .config_manager import ConfigurationManager
+from .model import definition_refs as defrefs
 from .model.configuration_model import DEFAULT_VARIANT
 from .model.definition_model import EcucModuleDef
 from .parser.ecuc_def_parser import EcucDefParser
@@ -18,9 +19,10 @@ from .project_paths import ProjectDirectories
 from .packages.errors import PackageError
 from .packages.library import LibraryRef, find_package, scan_library
 from .packages.package import ModulePackage
-from .baseline.values import values_equal
+from .baseline.values import flatten, values_equal
 from .baseline import session as baseline_session
-from .baseline.merge import MergeResult
+from .baseline.compose import Layer
+from .baseline.merge import MergeResult, three_way_merge
 from .baseline.session import ModuleBaseline
 
 
@@ -62,6 +64,151 @@ class ModuleEntry:
             package_record=d.get("package_record", {}),
             base_hash=d.get("base_hash"),
         )
+
+
+@dataclass
+class VariantSwitchPlan:
+    """Compatibility analysis and baseline merge preview for switching a module's variant."""
+
+    module_name: str
+    source_definition: str
+    target_definition: str
+    applied: bool = False
+    kept_containers: List[str] = field(default_factory=list)
+    kept_parameters: List[str] = field(default_factory=list)
+    kept_references: List[str] = field(default_factory=list)
+    unknown_containers: List[str] = field(default_factory=list)
+    unknown_parameters: List[str] = field(default_factory=list)
+    unknown_references: List[str] = field(default_factory=list)
+    missing_required_containers: List[str] = field(default_factory=list)
+    missing_required_parameters: List[str] = field(default_factory=list)
+    baseline_result: Optional[MergeResult] = None
+    baseline_has_changes: bool = False
+    baseline_preview: str = ""
+
+    def to_markdown(self) -> str:
+        """Render a Markdown summary for confirmation prompts."""
+        lines = [
+            f"# {self.module_name} 模块变体切换预览",
+            "",
+            f"- 当前定义: `{self.source_definition or '（未知）'}`",
+            f"- 目标定义: `{self.target_definition}`",
+            "",
+            (
+                f"保留容器 {len(self.kept_containers)} 个，"
+                f"保留参数 {len(self.kept_parameters)} 个，"
+                f"保留引用 {len(self.kept_references)} 个。"
+            ),
+        ]
+        if self.unknown_containers:
+            lines += ["", f"## 目标变体不支持的容器（{len(self.unknown_containers)}，保留数据不删除）", ""]
+            lines.extend(f"- `{c}`" for c in self.unknown_containers)
+        if self.unknown_parameters:
+            lines += ["", f"## 目标变体不支持的参数（{len(self.unknown_parameters)}，转入 unknown_parameters）", ""]
+            lines.extend(f"- `{p}`" for p in self.unknown_parameters)
+        if self.unknown_references:
+            lines += ["", f"## 目标变体不支持的引用（{len(self.unknown_references)}）", ""]
+            lines.extend(f"- `{r}`" for r in self.unknown_references)
+        if self.missing_required_containers:
+            lines += ["", f"## 目标变体缺少的必需容器（{len(self.missing_required_containers)}）", ""]
+            lines.extend(f"- `{c}`" for c in self.missing_required_containers)
+        if self.missing_required_parameters:
+            lines += ["", f"## 目标变体缺少的必需参数（{len(self.missing_required_parameters)}）", ""]
+            lines.extend(f"- `{p}`" for p in self.missing_required_parameters)
+        if self.baseline_preview:
+            lines += ["", self.baseline_preview]
+        return "\n".join(lines)
+
+
+def _clone_container_for_switch(container):
+    """Deep-clone an EcucContainerValue without touching other modules' reference targets."""
+    from .model.configuration_model import (
+        EcucContainerValue,
+        EcucParameterValue,
+        EcucReferenceValue,
+    )
+
+    new_c = EcucContainerValue(
+        short_name=container.short_name,
+        definition_ref=container.definition_ref,
+        index=container.index,
+        variant=container.variant,
+        uuid=container.uuid,
+        is_modified=container.is_modified,
+        last_modified=container.last_modified,
+    )
+    new_c.def_dest_type = getattr(container, "def_dest_type", None)
+    for pname, pval in container.parameter_values.items():
+        new_c.parameter_values[pname] = EcucParameterValue(
+            definition_ref=pval.definition_ref,
+            value=pval.value[:] if isinstance(pval.value, list) else pval.value,
+            index=pval.index,
+            dest_type=pval.dest_type,
+            is_modified=pval.is_modified,
+            last_modified=pval.last_modified,
+        )
+    for pname, plist in container.multi_parameter_values.items():
+        new_c.multi_parameter_values[pname] = [
+            EcucParameterValue(
+                definition_ref=p.definition_ref,
+                value=p.value[:] if isinstance(p.value, list) else p.value,
+                index=p.index,
+                dest_type=p.dest_type,
+                is_modified=p.is_modified,
+                last_modified=p.last_modified,
+            )
+            for p in plist
+        ]
+    for rname, rval in container.reference_values.items():
+        new_c.reference_values[rname] = EcucReferenceValue(
+            definition_ref=rval.definition_ref,
+            value_ref=rval.value_ref,
+            index=rval.index,
+            dest_type=rval.dest_type,
+            is_modified=rval.is_modified,
+        )
+    for rname, rlist in container.multi_reference_values.items():
+        new_c.multi_reference_values[rname] = [
+            EcucReferenceValue(
+                definition_ref=r.definition_ref,
+                value_ref=r.value_ref,
+                index=r.index,
+                dest_type=r.dest_type,
+                is_modified=r.is_modified,
+            )
+            for r in rlist
+        ]
+    for sub in container.sub_containers:
+        new_c.add_sub_container(_clone_container_for_switch(sub))
+    return new_c
+
+
+def _clone_module_configuration(src):
+    """Deep-clone an EcucModuleConfiguration for dry-run and rollback-safe variant switching."""
+    import copy
+    from .model.configuration_model import EcucModuleConfiguration, EcucParameterValue
+
+    dst = EcucModuleConfiguration(
+        short_name=src.short_name,
+        definition_ref=src.definition_ref,
+        implementation_config_variant=src.implementation_config_variant,
+        package_name=src.package_name,
+        is_modified=src.is_modified,
+        last_saved=src.last_saved,
+        variant_overrides=copy.deepcopy(src.variant_overrides),
+    )
+    for pname, pval in src.parameter_values.items():
+        dst.parameter_values[pname] = EcucParameterValue(
+            definition_ref=pval.definition_ref,
+            value=pval.value[:] if isinstance(pval.value, list) else pval.value,
+            index=pval.index,
+            dest_type=pval.dest_type,
+            is_modified=pval.is_modified,
+            last_modified=pval.last_modified,
+        )
+    for container in src.containers:
+        dst.add_container(_clone_container_for_switch(container))
+    return dst
 
 def _chip_selector_values(project):
     """Selector values declared by the chip library and the project's chips/ (never raises)."""
@@ -1287,31 +1434,64 @@ class WorkspaceProject:
         confirm=None,
     ) -> ConfigurationManager:
         """Restore a previously deleted module from ``<history>/deleted/`` (W7)."""
-        from .config_manager import EpcFileScanner
+        from . import eb_import
 
         archive_path = Path(archive_path)
         if not archive_path.is_file():
             raise FileNotFoundError(f"Deleted archive not found: {archive_path}")
 
+        archived_configs = eb_import.module_configs_in(archive_path)
+        archived_def_ref: Optional[str] = None
         if not module_name:
-            names = EpcFileScanner.list_module_names(archive_path)
-            if names:
-                module_name = names[0]
+            if archived_configs:
+                sn, archived_def_ref = archived_configs[0]
+                if archived_def_ref:
+                    module_name = archived_def_ref.rstrip("/").rsplit("/", 1)[-1]
+                else:
+                    module_name = sn
             else:
                 import re
                 m = re.match(r"^(.+?)_\d{8}T\d{6}(?:-\d+)?$", archive_path.stem)
                 module_name = m.group(1) if m else archive_path.stem.rsplit("_", 1)[0]
+        elif archived_configs:
+            for sn, dref in archived_configs:
+                dleaf = dref.rstrip("/").rsplit("/", 1)[-1] if dref else ""
+                if dleaf == module_name or sn == module_name:
+                    archived_def_ref = dref
+                    break
 
         libraries = scan_libraries(self)
+        std_ref = f"/AUTOSAR/EcucDefs/{module_name}" if module_name else ""
+        norm_def_ref = archived_def_ref.rstrip("/") if archived_def_ref else ""
+
         match = None
-        for idx, pkgs in libraries:
-            for pkg in pkgs:
-                def_leaf = pkg.manifest.definition.rstrip("/").rsplit("/", 1)[-1]
-                if pkg.manifest.module == module_name or def_leaf == module_name:
-                    match = (idx, pkg)
-                    break
-            if match is not None:
-                break
+        if norm_def_ref and norm_def_ref != std_ref:
+            try:
+                match = find_package(libraries, norm_def_ref)
+            except PackageError:
+                match = None
+
+        if match is None:
+            candidates: List[Tuple[int, ModulePackage]] = []
+            for idx, pkgs in libraries:
+                for pkg in pkgs:
+                    def_leaf = pkg.manifest.definition.rstrip("/").rsplit("/", 1)[-1]
+                    if pkg.manifest.module == module_name or def_leaf == module_name:
+                        candidates.append((idx, pkg))
+            candidates.sort(key=lambda item: (item[1].manifest.definition, item[0]))
+            if len(candidates) == 1:
+                match = candidates[0]
+            elif len(candidates) > 1:
+                options = ", ".join(pkg.manifest.definition for _idx, pkg in candidates)
+                reason = (
+                    f"definition '{norm_def_ref}' is not specific"
+                    if not norm_def_ref or norm_def_ref == std_ref
+                    else f"definition '{norm_def_ref}' was not found"
+                )
+                raise ValueError(
+                    f"Ambiguous restore for '{module_name}' ({reason}); "
+                    f"matching variant packages: {options}"
+                )
 
         if match is None:
             raise ValueError(f"No module package found for '{module_name}' in registered libraries")
@@ -1328,6 +1508,275 @@ class WorkspaceProject:
         return self.add_module_from_package(
             pkg, lib_index, persist=True, confirm=confirm, reconcile=True
         )
+
+    def list_module_variant_packages(self, module_name: str) -> List[Tuple[int, ModulePackage]]:
+        """List all available variant packages for ``module_name`` across registered libraries."""
+        variants: List[Tuple[int, ModulePackage]] = []
+        for idx, pkgs in scan_libraries(self):
+            for pkg in pkgs:
+                def_leaf = pkg.manifest.definition.rstrip("/").rsplit("/", 1)[-1]
+                if pkg.manifest.module == module_name or def_leaf == module_name:
+                    variants.append((idx, pkg))
+        variants.sort(key=lambda item: (item[1].manifest.definition, item[0]))
+        return variants
+
+    def switch_module_variant(
+        self,
+        module_name: str,
+        target_pkg: ModulePackage,
+        target_lib_index: int,
+        preview_only: bool = False,
+        confirm=None,
+    ) -> VariantSwitchPlan:
+        """Preview and atomically switch an active module to another implementation variant package."""
+        from . import eb_import
+        from .parser.xdm_expression_resolver import apply_chip_expressions
+
+        if module_name not in self.module_managers:
+            raise ValueError(f"Module '{module_name}' is not loaded in project")
+
+        old_mgr = self.module_managers[module_name]
+        old_entry = self.module_entries.get(module_name)
+        source_definition = (
+            (old_entry.definition if old_entry is not None else None)
+            or getattr(old_mgr.module_def, "ar_path", None)
+            or getattr(old_mgr.module_def, "definition_ref", None)
+            or old_mgr.configuration.definition_ref
+            or ""
+        )
+        target_definition = target_pkg.manifest.definition
+
+        def_file = target_pkg.definition_file(self.selected_chip)
+        parser = EcucDefParser()
+        parser.set_selector_values(_chip_selector_values(self))
+        target_module_def = parser.parse_module_def_file(def_file)
+        if self.ecu_resources:
+            apply_chip_expressions(target_module_def, self.ecu_resources)
+        effective_name = target_module_def.short_name
+
+        temp_cfg = _clone_module_configuration(old_mgr.configuration)
+        temp_mgr = ConfigurationManager(target_module_def, project_context=self)
+        temp_mgr.configuration = temp_cfg
+        for c in temp_cfg.containers:
+            temp_mgr._update_counters_recursive(c)
+
+        temp_mgr.repair_definition_refs()
+        temp_mgr._cleanup_invalid_parameters()
+
+        kept_containers: List[str] = []
+        kept_parameters: List[str] = []
+        kept_references: List[str] = []
+        unknown_containers: List[str] = []
+        unknown_parameters: List[str] = []
+        unknown_references: List[str] = []
+        missing_required_containers: List[str] = []
+        missing_required_parameters: List[str] = []
+
+        baseline_result: Optional[MergeResult] = None
+        baseline_has_changes = False
+        baseline_preview = ""
+        new_baseline: Optional[ModuleBaseline] = None
+        if self.format_version >= 8:
+            new_baseline = baseline_session.compute_new_base(
+                target_pkg, self.selected_chip, target_module_def, effective_name
+            )
+            if new_baseline.has_layers:
+                old_bl = self.baselines.get(module_name)
+                old_hash = old_entry.base_hash if old_entry is not None else None
+                if (
+                    old_bl is None
+                    or not old_bl.dirty
+                    or old_bl.base_config is None
+                    or old_bl.layers_untrusted
+                ):
+                    old_bl = baseline_session.load_baseline(self, module_name, old_hash)
+                old_flat = (
+                    None
+                    if old_bl.base_config is None
+                    else flatten(old_bl.base_config, effective_name)
+                )
+                unlocked = set(old_entry.pre_unlocked) if old_entry is not None else set()
+                baseline_result = three_way_merge(
+                    old_flat,
+                    flatten(new_baseline.base_config, effective_name),
+                    flatten(temp_cfg, effective_name),
+                    new_baseline.layers,
+                    unlocked,
+                    pre_keys=new_baseline.pre_keys,
+                )
+                baseline_has_changes = baseline_result.has_changes
+                baseline_preview = baseline_result.to_markdown(effective_name)
+
+        def _baseline_provides(key: str) -> bool:
+            if new_baseline is None:
+                return False
+            layer = new_baseline.layers.get(key)
+            return layer in (Layer.PRE, Layer.REC, Layer.DERIVED)
+
+        def _walk_container(c) -> None:
+            c_path = c.get_path()
+            c_def = temp_mgr.get_container_def(c.definition_ref)
+            if c_def is None:
+                unknown_containers.append(c_path)
+                # _cleanup_invalid_parameters skips unknown containers; flag their
+                # parameters explicitly while preserving values in parameter_values.
+                for pname in sorted(c.parameter_values):
+                    pval = c.parameter_values[pname]
+                    c.unknown_parameters[pname] = pval
+                    unknown_parameters.append(f"{c_path}.{pname}")
+                for pname in sorted(c.multi_parameter_values):
+                    plist = c.multi_parameter_values[pname]
+                    c.unknown_parameters[pname] = plist
+                    unknown_parameters.append(f"{c_path}.{pname}")
+                for rname in sorted(set(c.reference_values) | set(c.multi_reference_values)):
+                    unknown_references.append(f"{c_path}.{rname}")
+            else:
+                kept_containers.append(c_path)
+                for pname in sorted(c.parameter_values):
+                    if pname in c_def.parameters:
+                        kept_parameters.append(f"{c_path}.{pname}")
+                    else:
+                        unknown_parameters.append(f"{c_path}.{pname}")
+                for pname in sorted(c.multi_parameter_values):
+                    if pname in c_def.parameters:
+                        kept_parameters.append(f"{c_path}.{pname}")
+                    else:
+                        unknown_parameters.append(f"{c_path}.{pname}")
+                for rname in sorted(set(c.reference_values) | set(c.multi_reference_values)):
+                    if rname in c_def.references:
+                        kept_references.append(f"{c_path}.{rname}")
+                    else:
+                        unknown_references.append(f"{c_path}.{rname}")
+                for pname, pdef in sorted(c_def.parameters.items()):
+                    if pdef.lower_multiplicity > 0 and not c.has_parameter_value(pname):
+                        key = f"P:{c_path}.{pname}"
+                        if not _baseline_provides(key):
+                            missing_required_parameters.append(f"{c_path}.{pname}")
+                for sub_name, sub_def in sorted(c_def.sub_containers.items()):
+                    if sub_def.lower_multiplicity > 0:
+                        cnt = sum(
+                            1
+                            for sub in c.sub_containers
+                            if defrefs.same_definition(sub.definition_ref, sub_def.definition_ref, effective_name)
+                        )
+                        if cnt < sub_def.lower_multiplicity:
+                            missing_required_containers.append(f"{c_path}/{sub_name}")
+            for sub in c.sub_containers:
+                _walk_container(sub)
+
+        for container in temp_cfg.containers:
+            _walk_container(container)
+
+        for top_name, top_def in sorted(target_module_def.containers.items()):
+            if top_def.lower_multiplicity > 0:
+                cnt = sum(
+                    1
+                    for c in temp_cfg.containers
+                    if defrefs.same_definition(c.definition_ref, top_def.definition_ref, effective_name)
+                )
+                if cnt < top_def.lower_multiplicity:
+                    missing_required_containers.append(f"/{effective_name}/{top_name}")
+
+        plan = VariantSwitchPlan(
+            module_name=module_name,
+            source_definition=source_definition,
+            target_definition=target_definition,
+            applied=False,
+            kept_containers=kept_containers,
+            kept_parameters=kept_parameters,
+            kept_references=kept_references,
+            unknown_containers=unknown_containers,
+            unknown_parameters=unknown_parameters,
+            unknown_references=unknown_references,
+            missing_required_containers=missing_required_containers,
+            missing_required_parameters=missing_required_parameters,
+            baseline_result=baseline_result,
+            baseline_has_changes=baseline_has_changes,
+            baseline_preview=baseline_preview,
+        )
+
+        if preview_only:
+            return plan
+        if confirm is not None:
+            if not confirm(plan.to_markdown(), plan):
+                return plan
+        elif baseline_has_changes:
+            return plan
+
+        backup = self._capture_module_replace_backup(module_name)
+        try:
+            if (
+                new_baseline is not None
+                and new_baseline.has_layers
+                and baseline_result is not None
+                and baseline_result.has_changes
+            ):
+                baseline_session.apply_merge(
+                    temp_cfg, target_module_def, new_baseline.base_config, baseline_result
+                )
+
+            temp_mgr.repair_definition_refs()
+            temp_mgr._instance_counters.clear()
+            for c in temp_cfg.containers:
+                temp_mgr._update_counters_recursive(c)
+            temp_cfg.is_modified = True
+
+            self.module_managers[module_name] = temp_mgr
+            self.module_defs[module_name] = def_file
+            self.packages[module_name] = target_pkg
+
+            cfg_rel = project_paths.config_file(self, module_name)
+            if self.path is not None:
+                try:
+                    cfg_rel = cfg_rel.relative_to(project_paths.project_root(self))
+                except ValueError:
+                    pass
+            pre_unlocked = (
+                [
+                    k
+                    for k in old_entry.pre_unlocked
+                    if new_baseline is None or k in new_baseline.pre_keys
+                ]
+                if old_entry is not None
+                else []
+            )
+            new_entry = ModuleEntry(
+                name=module_name,
+                definition=target_definition,
+                library=target_lib_index,
+                config_path=old_entry.config_path if old_entry is not None else cfg_rel.as_posix(),
+                pre_unlocked=pre_unlocked,
+                package_record=eb_import.package_record(target_pkg) if self.format_version >= 8 else {},
+                base_hash=old_entry.base_hash if old_entry is not None else None,
+            )
+            self.module_entries[module_name] = new_entry
+
+            if self.format_version >= 8:
+                if new_baseline is not None and new_baseline.has_layers:
+                    new_baseline.dirty = True
+                    self.baselines[module_name] = new_baseline
+                    if baseline_result is not None:
+                        self.last_merge_results[module_name] = baseline_result
+                else:
+                    self.baselines.pop(module_name, None)
+                    self.last_merge_results.pop(module_name, None)
+                    new_entry.base_hash = None
+                    if self.path is not None:
+                        baseline_session.base_snapshot_path(self, module_name).unlink(missing_ok=True)
+                        baseline_session.base_layers_path(self, module_name).unlink(missing_ok=True)
+
+            self.deduplicate_library_definitions()
+            if self.ecu_resources:
+                self.load_ecu_resources()
+            self.resolve_all_references(force=True)
+            self.build_reverse_reference_index()
+            self.is_modified = True
+        except Exception:
+            self._restore_module_replace_backup(backup)
+            raise
+
+        plan.applied = True
+        return plan
 
     def upgrade_to_v8(self, confirm=None) -> Dict[str, Any]:
         """Upgrade a format <= 7 project structure in-place to Format 8 (W8)."""
@@ -1375,15 +1824,34 @@ class WorkspaceProject:
                 hit = ensure_package_for_path(self, def_path)
                 if hit is not None:
                     libraries = scan_libraries(self)
+            def_ar_current = (
+                getattr(mgr.module_def, "ar_path", None)
+                or getattr(mgr.module_def, "definition_ref", None)
+                or ""
+            ).rstrip("/")
+            std_ref = f"/AUTOSAR/EcucDefs/{mod_name}"
+            if hit is None and def_ar_current and def_ar_current != std_ref:
+                try:
+                    hit = find_package(libraries, def_ar_current)
+                except PackageError:
+                    hit = None
             if hit is None:
+                candidates = []
                 for idx, pkgs in libraries:
                     for pkg in pkgs:
                         def_leaf = pkg.manifest.definition.rstrip("/").rsplit("/", 1)[-1]
                         if pkg.manifest.module == mod_name or def_leaf == mod_name:
-                            hit = (idx, pkg)
-                            break
-                    if hit is not None:
-                        break
+                            candidates.append((idx, pkg))
+                candidates.sort(key=lambda item: (item[1].manifest.definition, item[0]))
+                if len(candidates) == 1:
+                    hit = candidates[0]
+                elif len(candidates) > 1:
+                    _log_warning(
+                        "升级模块 %s 到 Format 8 时存在多个候选包且定义路径 '%s' 不明确，跳过包绑定：%s",
+                        mod_name,
+                        def_ar_current or std_ref,
+                        ", ".join(p.manifest.definition for _, p in candidates),
+                    )
 
             if hit is not None:
                 lib_idx, pkg = hit

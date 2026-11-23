@@ -127,29 +127,33 @@ class MultiplicityValidationRule(ValidationRule):
         if not definition_ref:
             return None
 
-        parts = definition_ref.split('/')
-
-        # Handle absolute paths (starts with /)
-        if parts[0] == '' and len(parts) >= 3:
-            # Try to find module name in path
-            module_name = module_def.short_name
-            try:
-                module_idx = parts.index(module_name)
-                relative_path = '/'.join(parts[module_idx + 1:])
-                if relative_path:
-                    return module_def.get_container_def(relative_path)
-            except ValueError:
-                pass
-
-            # Fallback: assume format /Package/Module/Container...
-            if len(parts) >= 4:
-                relative_path = '/'.join(parts[3:])
-                if relative_path:
-                    return module_def.get_container_def(relative_path)
-
         # Handle relative paths
         if not definition_ref.startswith('/'):
             return module_def.get_container_def(definition_ref)
+
+        from ..model.definition_refs import module_relative
+
+        # Exact prefix match against the module's actual AR path (handles multi-segment vendor packages)
+        ar_path = (getattr(module_def, 'ar_path', '') or '').rstrip('/')
+        if ar_path and definition_ref.startswith(ar_path + '/'):
+            rel_exact = definition_ref[len(ar_path) + 1:]
+            if rel_exact:
+                hit = module_def.get_container_def(rel_exact)
+                if hit is not None:
+                    return hit
+
+        rel = module_relative(definition_ref, module_def.short_name)
+        if rel:
+            hit = module_def.get_container_def(rel)
+            if hit is not None:
+                return hit
+
+        parts = definition_ref.split('/')
+        # Fallback: assume format /Package/Module/Container...
+        if len(parts) >= 4:
+            relative_path = '/'.join(parts[3:])
+            if relative_path:
+                return module_def.get_container_def(relative_path)
 
         return None
     

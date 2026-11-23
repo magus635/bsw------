@@ -332,3 +332,190 @@ def test_none_text_is_read_as_no_value(os_def, tmp_path):
     reloaded = ConfigurationManager(os_def)
     reloaded.load_configuration(out)
     assert reloaded.configuration.containers[0].parameter_values["OsTimeBudget"].value is None
+
+
+def test_same_definition_handles_three_segment_vendor_paths_without_module_name():
+    """3-segment vendor paths (/Pkg/Variant/Module/...) match /AUTOSAR/EcucDefs/<Module>/... even without module_name."""
+    assert defrefs.same_definition(
+        "/MICROSAR/CanTrcv_Tle9255/CanTrcv/CanTrcvGeneral",
+        "/AUTOSAR/EcucDefs/CanTrcv/CanTrcvGeneral",
+    ) is True
+    assert defrefs.same_definition(
+        "/AUTOSAR/EcucDefs/CanTrcv/CanTrcvGeneral",
+        "/MICROSAR/CanTrcv_Tle9255/CanTrcv/CanTrcvGeneral",
+    ) is True
+    assert defrefs.same_definition(
+        "/MICROSAR/CanTrcv_Tle9255/CanTrcv/CanTrcvGeneral",
+        "/AUTOSAR/EcucDefs/CanTrcv/CanTrcvChannel",
+    ) is False
+    assert defrefs.same_definition(
+        "/MICROSAR/CanTrcv_Tle9255/CanTrcv/CanTrcvGeneral",
+        "/AUTOSAR/EcucDefs/CanIf/CanTrcvGeneral",
+    ) is False
+
+
+def test_multiplicity_validation_rule_handles_three_segment_vendor_def():
+    """MultiplicityValidationRule validates nested container multiplicity under a 3-segment vendor module def."""
+    from autosar_configurator.core.model.configuration_model import (
+        EcucContainerValue,
+        EcucModuleConfiguration,
+    )
+    from autosar_configurator.core.model.definition_model import (
+        EcucContainerDef,
+        EcucModuleDef,
+    )
+    from autosar_configurator.core.rules.structural_rules import MultiplicityValidationRule
+
+    module_def = EcucModuleDef(
+        short_name="CanTrcv",
+        definition_ref="/AUTOSAR/EcucDefs/CanTrcv",
+        ar_path="/MICROSAR/CanTrcv_Tle9255/CanTrcv",
+    )
+    general_def = EcucContainerDef(
+        short_name="CanTrcvGeneral",
+        lower_multiplicity=1,
+        upper_multiplicity=1,
+        definition_ref="/AUTOSAR/EcucDefs/CanTrcv/CanTrcvGeneral",
+    )
+    sub_def = EcucContainerDef(
+        short_name="CanTrcvSub",
+        lower_multiplicity=1,
+        upper_multiplicity=1,
+        definition_ref="/AUTOSAR/EcucDefs/CanTrcv/CanTrcvGeneral/CanTrcvSub",
+    )
+    general_def.add_sub_container(sub_def)
+    module_def.add_container(general_def)
+
+    config = EcucModuleConfiguration(
+        short_name="CanTrcv",
+        definition_ref="/MICROSAR/CanTrcv_Tle9255/CanTrcv",
+    )
+    general = EcucContainerValue(
+        short_name="CanTrcvGeneral",
+        definition_ref="/MICROSAR/CanTrcv_Tle9255/CanTrcv/CanTrcvGeneral",
+    )
+    config.add_container(general)
+
+    rule = MultiplicityValidationRule()
+    res_missing = rule.validate(module_def, config)
+    assert res_missing.error_count == 1
+    assert "CanTrcvSub" in res_missing.errors[0].message
+
+    sub = EcucContainerValue(
+        short_name="CanTrcvSub",
+        definition_ref="/MICROSAR/CanTrcv_Tle9255/CanTrcv/CanTrcvGeneral/CanTrcvSub",
+    )
+    general.add_sub_container(sub)
+    res_ok = rule.validate(module_def, config)
+    assert res_ok.error_count == 0
+
+
+def test_load_configuration_rejects_single_mismatched_vendor_variant_but_allows_bundle_and_standard(tmp_path):
+    """Specific variant def rejects even a single wrong-variant block, while multi-module bundles and standard defs load."""
+    from autosar_configurator.core.model.definition_model import (
+        EcucContainerDef,
+        EcucModuleDef,
+        EcucParameterDef,
+        EcucParameterType,
+    )
+
+    tle_def = EcucModuleDef(
+        short_name="CanTrcv",
+        definition_ref="/AUTOSAR/EcucDefs/CanTrcv",
+        ar_path="/MICROSAR/CanTrcv_Tle9255/CanTrcv",
+    )
+    gen_def = EcucContainerDef(short_name="CanTrcvGeneral")
+    gen_def.parameters["CanTrcvDevErrorDetect"] = EcucParameterDef(
+        short_name="CanTrcvDevErrorDetect",
+        param_type=EcucParameterType.BOOLEAN,
+    )
+    tle_def.add_container(gen_def)
+
+    # 1. Single block for a DIFFERENT vendor variant must be rejected
+    wrong_single = tmp_path / "wrong_single.arxml"
+    wrong_single.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/CanTrcv_GenericCan/CanTrcv</DEFINITION-REF>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/CanTrcv_GenericCan/CanTrcv/CanTrcvGeneral</DEFINITION-REF>
+        </ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+    mgr1 = ConfigurationManager(tle_def)
+    with pytest.raises(ValueError, match="CanTrcv_GenericCan"):
+        mgr1.load_configuration(wrong_single)
+
+    # 2. Standard /AUTOSAR/EcucDefs/CanTrcv inside a multi-module bundle loads cleanly
+    std_bundle = tmp_path / "std_bundle.arxml"
+    std_bundle.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>Port</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/Vendor/Port</DEFINITION-REF>
+      <CONTAINERS/>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/AUTOSAR/EcucDefs/CanTrcv</DEFINITION-REF>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR/EcucDefs/CanTrcv/CanTrcvGeneral</DEFINITION-REF>
+          <PARAMETER-VALUES><ECUC-NUMERICAL-PARAM-VALUE>
+            <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/AUTOSAR/EcucDefs/CanTrcv/CanTrcvGeneral/CanTrcvDevErrorDetect</DEFINITION-REF>
+            <VALUE>true</VALUE>
+          </ECUC-NUMERICAL-PARAM-VALUE></PARAMETER-VALUES>
+        </ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+    mgr2 = ConfigurationManager(tle_def)
+    mgr2.load_configuration(std_bundle)
+    assert mgr2.configuration.definition_ref == "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+    assert mgr2.configuration.containers[0].parameter_values["CanTrcvDevErrorDetect"].value is True
+
+
+def test_parameter_dependency_rule_passes_module_name_for_vendor_paths():
+    """DependencyRule passes module_name to same_definition so 3-segment and 2-segment vendor paths match."""
+    from autosar_configurator.core.model.configuration_model import (
+        EcucContainerValue,
+        EcucModuleConfiguration,
+    )
+    from autosar_configurator.core.model.definition_model import EcucModuleDef
+    from autosar_configurator.core.rules.dependency_rules import DependencyRule
+
+    module_def = EcucModuleDef(
+        short_name="CanTrcv",
+        definition_ref="/MICROSAR/CanTrcv_Tle9255/CanTrcv",
+        ar_path="/MICROSAR/CanTrcv_Tle9255/CanTrcv",
+    )
+    cfg = EcucModuleConfiguration(
+        short_name="CanTrcv",
+        definition_ref="/MICROSAR/CanTrcv_Tle9255/CanTrcv",
+    )
+    gen = EcucContainerValue(
+        short_name="CanTrcvGeneral",
+        definition_ref="/MICROSAR/CanTrcv_Tle9255/CanTrcv/CanTrcvGeneral",
+    )
+    gen.set_parameter_value("Enable", True, "/MICROSAR/CanTrcv_Tle9255/CanTrcv/CanTrcvGeneral/Enable")
+    cfg.add_container(gen)
+
+    rule = DependencyRule()
+    rule.add_parameter_dependency(
+        "Enable",
+        True,
+        "Target",
+        "/VendorOther/CanTrcv/CanTrcvGeneral",
+    )
+    res = rule.validate(module_def, cfg)
+    assert res.error_count == 1
+

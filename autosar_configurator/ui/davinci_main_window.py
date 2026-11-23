@@ -159,6 +159,7 @@ class DaVinciMainWindow(QMainWindow):
         self.tree_view.delete_instance_requested.connect(self.edit_controller.handle_delete_container)
         self.tree_view.delete_instances_requested.connect(self.edit_controller.handle_delete_containers_batch)
         self.tree_view.delete_module_requested.connect(self.edit_controller.handle_delete_module)
+        self.tree_view.switch_module_variant_requested.connect(self.project_controller.switch_module_variant)
         self.tree_view.move_instance_requested.connect(self.edit_controller.handle_move_container)
         self.tree_view.rename_instance_requested.connect(self.edit_controller.handle_rename_container)
         self.tree_view.view_references_requested.connect(self.nav_controller._show_reverse_references)

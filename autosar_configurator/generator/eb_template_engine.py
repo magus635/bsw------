@@ -18,19 +18,40 @@ class EBTemplateEngine:
     """
     
     def __init__(self, strict: bool = True, template_dir: Optional[Path] = None,
-                 include_search_paths: Optional[list] = None):
+                 include_search_paths: Optional[list] = None,
+                 priority_include_paths: Optional[list] = None,
+                 include_template_parent: bool = True):
         self.template_dir = template_dir
-        
-        # Build include search paths
+
+        # Build include search paths:
+        # 1. explicit priority_include_paths (e.g. variant/project overlays)
+        # 2. template_dir (and optional parent)
+        # 3. include_search_paths (additional fallback directories)
         search_paths = []
+        seen = set()
+
+        def _append_unique(path_item) -> None:
+            if not path_item:
+                return
+            p = Path(path_item)
+            try:
+                key = p.resolve()
+            except OSError:
+                key = p
+            if key not in seen:
+                seen.add(key)
+                search_paths.append(p)
+
+        for prio in priority_include_paths or []:
+            _append_unique(prio)
         if template_dir:
-            search_paths.append(template_dir)
-            # Add parent directory to allow includes from module root (e.g., from include/ to root)
-            search_paths.append(template_dir.parent)
+            _append_unique(template_dir)
+            if include_template_parent:
+                # Add parent directory to allow includes from module root (e.g., from include/ to root)
+                _append_unique(Path(template_dir).parent)
         for extra in include_search_paths or []:
-            if extra and extra not in search_paths:
-                search_paths.append(extra)
-            
+            _append_unique(extra)
+
         self.renderer = Renderer(strict=strict, template_dir=template_dir, include_search_paths=search_paths)
         self.initialized_modules = set()
         # Result of the definition ENABLE conditions (applied once, before the first render)

@@ -140,18 +140,24 @@ class DependencyRule(ValidationRule):
     
     def validate(self, module_def: EcucModuleDef, configuration: EcucModuleConfiguration) -> ValidationResult:
         result = ValidationResult()
-        
+        module_name = module_def.short_name if module_def else None
+
         # Validate parameter dependencies
         for container in configuration.containers:
-            self._validate_container_dependencies(container, result)
-        
+            self._validate_container_dependencies(container, result, module_name)
+
         return result
-    
-    def _validate_container_dependencies(self, container: EcucContainerValue, result: ValidationResult):
+
+    def _validate_container_dependencies(
+        self,
+        container: EcucContainerValue,
+        result: ValidationResult,
+        module_name: Optional[str] = None,
+    ):
         """Validate dependencies in a container"""
         # Check parameter dependencies
         for dep in self.param_dependencies:
-            if same_definition(container.definition_ref, dep['container_def']):
+            if same_definition(container.definition_ref, dep['container_def'], module_name):
                 source_param = dep['source_param']
                 if source_param in container.parameter_values:
                     param_value = container.parameter_values[source_param].value
@@ -165,7 +171,7 @@ class DependencyRule(ValidationRule):
                                 container_path=container.get_path(),
                                 suggested_fix=f"Set parameter '{target_param}'"
                             ))
-        
+
         # Recursively check sub-containers
         for sub_container in container.sub_containers:
-            self._validate_container_dependencies(sub_container, result)
+            self._validate_container_dependencies(sub_container, result, module_name)
