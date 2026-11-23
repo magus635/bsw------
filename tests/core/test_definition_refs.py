@@ -651,3 +651,71 @@ def test_restore_deleted_module_rejects_mismatched_single_variant_and_cleans_up_
     assert target_cfg.read_bytes() == b"PREVIOUS_CONTENT"
 
 
+def test_upgrade_to_v8_does_not_bind_specific_vendor_module_to_single_mismatched_variant(tmp_path):
+    """upgrade_to_v8 must not bind a module with a specific vendor definition (/MICROSAR/CanTrcv_Old/CanTrcv)
+    to a different variant package even when only 1 other variant exists in libraries."""
+    import json
+    from autosar_configurator.core.packages.library import LibraryRef
+    from autosar_configurator.core.workspace_manager import WorkspaceManager
+
+    proj_dir = tmp_path / "v7proj"
+    proj_dir.mkdir(parents=True)
+
+    ext_def = tmp_path / "external_defs" / "CanTrcv.arxml"
+    ext_def.parent.mkdir(parents=True)
+    ext_def.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>CanTrcv_Old</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF>
+        <SHORT-NAME>CanTrcv</SHORT-NAME>
+        <CONTAINERS>
+          <ECUC-PARAM-CONF-CONTAINER-DEF>
+            <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+            <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          </ECUC-PARAM-CONF-CONTAINER-DEF>
+        </CONTAINERS>
+      </ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    tle_cfg_dir = proj_dir / "modules" / "CanTrcv_Tle9255" / "config"
+    tle_cfg_dir.mkdir(parents=True)
+    (tle_cfg_dir / "CanTrcv.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>CanTrcv_Tle9255</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF>
+        <SHORT-NAME>CanTrcv</SHORT-NAME>
+        <CONTAINERS>
+          <ECUC-PARAM-CONF-CONTAINER-DEF>
+            <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+            <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          </ECUC-PARAM-CONF-CONTAINER-DEF>
+        </CONTAINERS>
+      </ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+    (proj_dir / "modules" / "CanTrcv_Tle9255" / "module.json").write_text(json.dumps({
+        "schema": 1,
+        "module": "CanTrcv",
+        "definition": "/MICROSAR/CanTrcv_Tle9255/CanTrcv",
+        "files": ["config/CanTrcv.arxml"],
+        "pre": [],
+        "rec": [],
+    }), encoding="utf-8")
+
+    wm = WorkspaceManager()
+    project = wm.create_project("LegacyV7", proj_dir / "LegacyV7.dpa", format_version=7)
+    mdef = EcucDefParser().parse_module_def_file(ext_def)
+    project.add_module(mdef, ext_def)
+    project.module_libraries.append(LibraryRef(path="modules", kind="package"))
+
+    project.upgrade_to_v8()
+    assert "CanTrcv" not in project.packages
+    assert project.module_entries["CanTrcv"].definition == "/MICROSAR/CanTrcv_Old/CanTrcv"
+
+
+

@@ -6,7 +6,7 @@ import json
 import os
 import shutil
 from dataclasses import dataclass, field, asdict
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from pathlib import Path
 
 from .config_manager import ConfigurationManager
@@ -466,6 +466,7 @@ class WorkspaceProject:
         # is what the value origins and the Pre lock read; a module without an entry has no
         # baseline of its own (format ≤7, or an entry that never loaded).
         self.baselines: Dict[str, ModuleBaseline] = {}
+        self._pending_baseline_deletes: Set[str] = set()
 
     def add_module_from_package(self, pkg: "ModulePackage", lib_index: int,
                                 persist: bool = True, confirm=None,
@@ -602,6 +603,7 @@ class WorkspaceProject:
                 else:
                     baseline.dirty = True
                 self.baselines[name] = baseline
+                self._pending_baseline_deletes.discard(name)
         except Exception as exc:  # noqa: BLE001 - same rollback as a failed config load
             self._rollback_added_module(name, stashed)
             raise ValueError(
@@ -762,6 +764,7 @@ class WorkspaceProject:
             from . import eb_import
             new.dirty = True                       # written by the next save
             self.baselines[name] = new
+            self._pending_baseline_deletes.discard(name)
             entry.package_record = eb_import.package_record(pkg)
         elif old.base_config is None and not result.has_changes:
             # A project with no snapshot whose active values already agree with Base' (a
@@ -770,6 +773,7 @@ class WorkspaceProject:
             # merge that had something to change and was rejected writes nothing.
             new.dirty = True
             self.baselines[name] = new
+            self._pending_baseline_deletes.discard(name)
         elif old.layers_untrusted and not result.items:
             # The snapshot verified but its layers could not be trusted (a half-written
             # update, a legacy file) and the merge is completely empty: nothing to adopt,
@@ -805,6 +809,7 @@ class WorkspaceProject:
             "overrides": self.unloaded_variant_overrides.get(name, self._MISSING),
             "baseline": self.baselines.get(name, self._MISSING),
             "provenance": self.module_provenance.get(name, self._MISSING),
+            "pending_baseline_delete": name in self._pending_baseline_deletes,
         }
 
     def restore_module(self, snapshot: Dict[str, Any]) -> None:
@@ -824,6 +829,11 @@ class WorkspaceProject:
             self.baselines[name] = snapshot["baseline"]
         if snapshot.get("provenance", self._MISSING) is not self._MISSING:
             self.module_provenance[name] = snapshot["provenance"]
+        if "pending_baseline_delete" in snapshot:
+            if snapshot["pending_baseline_delete"]:
+                self._pending_baseline_deletes.add(name)
+            else:
+                self._pending_baseline_deletes.discard(name)
 
     @staticmethod
     def _relative_pkg_dir(proj_root: Path, lib_ref: LibraryRef, pkg_root: Path) -> str:
@@ -1771,15 +1781,16 @@ class WorkspaceProject:
                 if new_baseline is not None and new_baseline.has_layers:
                     new_baseline.dirty = True
                     self.baselines[module_name] = new_baseline
+                    self._pending_baseline_deletes.discard(module_name)
                     if baseline_result is not None:
                         self.last_merge_results[module_name] = baseline_result
                 else:
                     self.baselines.pop(module_name, None)
                     self.last_merge_results.pop(module_name, None)
                     new_entry.base_hash = None
+                    # Defer disk snapshot deletion until save_project() so unsaved switches stay revertible
                     if self.path is not None:
-                        baseline_session.base_snapshot_path(self, module_name).unlink(missing_ok=True)
-                        baseline_session.base_layers_path(self, module_name).unlink(missing_ok=True)
+                        self._pending_baseline_deletes.add(module_name)
 
             self.deduplicate_library_definitions()
             if self.ecu_resources:
@@ -1846,7 +1857,12 @@ class WorkspaceProject:
                 or ""
             ).rstrip("/")
             std_ref = f"/AUTOSAR/EcucDefs/{mod_name}"
-            if hit is None and def_ar_current and def_ar_current != std_ref:
+            has_specific_current = bool(
+                def_ar_current
+                and def_ar_current != std_ref
+                and not def_ar_current.startswith("/__STUB__/")
+            )
+            if hit is None and has_specific_current:
                 try:
                     hit = find_package(libraries, def_ar_current)
                 except PackageError:
@@ -1859,7 +1875,15 @@ class WorkspaceProject:
                         if pkg.manifest.module == mod_name or def_leaf == mod_name:
                             candidates.append((idx, pkg))
                 candidates.sort(key=lambda item: (item[1].manifest.definition, item[0]))
-                if len(candidates) == 1:
+                if has_specific_current:
+                    if candidates:
+                        _log_warning(
+                            "升级模块 %s 到 Format 8 时未找到匹配定义 '%s' 的模块包，跳过包绑定（可用变体：%s）",
+                            mod_name,
+                            def_ar_current,
+                            ", ".join(p.manifest.definition for _, p in candidates),
+                        )
+                elif len(candidates) == 1:
                     hit = candidates[0]
                 elif len(candidates) > 1:
                     _log_warning(
@@ -2458,6 +2482,15 @@ class WorkspaceManager:
                 continue
             entry.base_hash = digest
             modules_out[name]["base_hash"] = digest
+        for name in sorted(list(project._pending_baseline_deletes)):
+            if name not in project.baselines:
+                try:
+                    baseline_session.base_snapshot_path(project, name).unlink(missing_ok=True)
+                    baseline_session.base_layers_path(project, name).unlink(missing_ok=True)
+                except OSError as exc:
+                    _log_warning("旧基线快照清理失败：%s（%s）", name, exc)
+                    continue
+            project._pending_baseline_deletes.discard(name)
         return data
 
     def relocate_project(self, new_path: Path) -> None:
@@ -3313,13 +3346,18 @@ class WorkspaceManager:
         # every plugin of that module name equally. With two or more such plugins and none
         # named exactly, any choice would be a guess: the EPC binds to none of them, its
         # values are kept, and every candidate is reported (below, with the EPC-only entry).
-        ambiguous: Dict[str, List[str]] = {}     # module name -> candidate plugins
+        # The same holds when there is no EPC at all and two or more variants exist.
+        ambiguous: Dict[str, List[str]] = {}     # module name -> candidate plugins (ambiguous EPC)
+        no_epc_ambiguous: Dict[str, List[str]] = {}  # module name -> candidate plugins (no EPC)
         by_name: Dict[str, List[str]] = {}
         for definition, module in modules.items():
             by_name.setdefault(module, []).append(definition)
         for module, definitions in sorted(by_name.items()):
+            if len(definitions) < 2:
+                continue
             epc = values.get(module)
-            if epc is None or len(definitions) < 2:
+            if epc is None:
+                no_epc_ambiguous[module] = sorted(definitions)
                 continue
             exact = [d for d in definitions
                      if epc.definition_ref and epc.definition_ref.rstrip("/") == d.rstrip("/")]
@@ -3358,8 +3396,8 @@ class WorkspaceManager:
             _progress(f"({position}/{len(ordered)}) Loading {module}..." + (" + EPC" if epc else ""))
             record = eb_import.ModuleImport(name=module, definition=definition)
 
-            if module in ambiguous:
-                # Not imported here; reported once with the EPC-only entry below
+            if module in ambiguous or module in no_epc_ambiguous:
+                # Not imported here; reported below with candidate plugins
                 continue
 
             if module in taken:
@@ -3516,6 +3554,29 @@ class WorkspaceManager:
                 report.modules.append(eb_import.ModuleImport(
                     name=module, definition=definition, error=reason))
                 failed_modules.append((module, reason))
+
+        for module in sorted(no_epc_ambiguous):
+            if merge_into_existing and on_conflict == "keep" and (
+                module in project.module_managers or module in project.module_entries
+            ):
+                report.notices.append(
+                    f"跳过 EB 模块 {module}（当前工程已存在同名模块，策略：保留已有）"
+                )
+                continue
+            plugins = []
+            for candidate in no_epc_ambiguous[module]:
+                try:
+                    plugins.append(f"{candidate}（插件 {find_package(libraries, candidate)[1].root.name}）")
+                except PackageError:
+                    plugins.append(candidate)
+            reason = (
+                f"无 EPC 值文件，且存在 {len(plugins)} 个同名变体插件，无法确定选哪一个，未导入："
+                + "、".join(plugins)
+                + "；请在插件库的 exclude 中排除多余插件后重新导入或手动添加所需变体"
+            )
+            report.modules.append(eb_import.ModuleImport(
+                name=module, definition=no_epc_ambiguous[module][0], error=reason))
+            failed_modules.append((module, reason))
 
         # EPC values no plugin provides a definition for: kept, reported, failing
         for module in sorted(values):

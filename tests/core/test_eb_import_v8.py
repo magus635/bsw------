@@ -789,3 +789,22 @@ def test_old_v7_imported_project_still_opens(tmp_path):
     assert "module_libraries" not in data
     assert data["modules"][0]["def_path"].replace("\\", "/") == (
         "Def/plugins/Dio_TS_T40D11M7I0R0/autosar/Dio_THA6206_LFBGA292.arxml")
+
+
+def test_no_epc_two_variant_plugins_reported_ambiguous_not_guessed(dio_tree, tmp_path):
+    """When two EB plugins share a module name and there is NO EPC file, import must reject
+    both with an ambiguity error instead of silently picking the alphabetically first plugin."""
+    plugins = dio_tree / "Define" / "EbPlugins" / "eclipse"
+    write_dio_plugin(plugins / "Dio_Vendor", package="Vendor")
+    epc = dio_tree / "Config" / "THA6206" / "output" / "Dio.epc"
+    epc.unlink()
+
+    manager, project, loaded, failed, target = _import(dio_tree, tmp_path, "link")
+
+    assert loaded == []
+    assert "Dio" not in project.module_managers
+    reasons = [reason for name, reason in failed if name == "Dio"]
+    assert len(reasons) == 1
+    assert "/THA6_AS440_FuSa/Dio" in reasons[0]
+    assert "/Vendor/Dio" in reasons[0]
+

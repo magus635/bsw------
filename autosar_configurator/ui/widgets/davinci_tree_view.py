@@ -956,13 +956,27 @@ class DaVinciTreeView(QTreeWidget):
         # Emit rename signal
         self.rename_instance_requested.emit(instance, new_name)
     
+    def _has_alternative_variants(self, module_name: str) -> bool:
+        """Whether registered libraries contain at least one variant definition differing from active."""
+        if self.project is None or not hasattr(self.project, "list_module_variant_packages"):
+            return False
+        entry = (getattr(self.project, "module_entries", None) or {}).get(module_name)
+        mgr = (getattr(self.project, "module_managers", None) or {}).get(module_name)
+        mdef = getattr(mgr, "module_def", None) if mgr is not None else None
+        current_def = (
+            (entry.definition if entry is not None and entry.definition else None)
+            or getattr(mdef, "ar_path", None)
+            or getattr(mdef, "definition_ref", None)
+            or ""
+        ).rstrip("/")
+        return any(
+            (pkg.manifest.definition or "").rstrip("/") != current_def
+            for _lib_idx, pkg in self.project.list_module_variant_packages(module_name)
+        )
+
     def _populate_module_menu(self, menu: QMenu, module_name: str) -> None:
         """Populate context menu actions for a top-level module node."""
-        if (
-            self.project is not None
-            and hasattr(self.project, "list_module_variant_packages")
-            and len(self.project.list_module_variant_packages(module_name)) > 1
-        ):
+        if self._has_alternative_variants(module_name):
             switch_action = menu.addAction("🔀 切换模块变体 (Switch Variant)...")
             switch_action.triggered.connect(
                 lambda: self.switch_module_variant_requested.emit(module_name)

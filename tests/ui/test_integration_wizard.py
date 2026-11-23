@@ -567,3 +567,324 @@ def test_tree_view_and_properties_dialog_show_variant_and_switch_flow(qtbot, mon
     assert win._has_unsaved_changes is True
     win.tree_view.set_project.assert_called_with(project)
     assert len(info_calls) == 1
+
+
+def _make_pre_and_plain_cantrcv_lib(lib_dir: Path):
+    """Build GenericCan (with Pre + CanTrcvHwInterface) and Tle9255 (no Pre/Rec, no HwInterface)."""
+    gen_dir = lib_dir / "CanTrcv_GenericCan" / "config"
+    gen_dir.mkdir(parents=True, exist_ok=True)
+    (gen_dir / "CanTrcv.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>CanTrcv_GenericCan</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF>
+        <SHORT-NAME>CanTrcv</SHORT-NAME>
+        <CONTAINERS>
+          <ECUC-PARAM-CONF-CONTAINER-DEF>
+            <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+            <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+            <PARAMETERS>
+              <ECUC-STRING-PARAM-DEF><SHORT-NAME>CanTrcvHwInterface</SHORT-NAME></ECUC-STRING-PARAM-DEF>
+              <ECUC-BOOLEAN-PARAM-DEF><SHORT-NAME>CanTrcvDevErrorDetect</SHORT-NAME></ECUC-BOOLEAN-PARAM-DEF>
+            </PARAMETERS>
+          </ECUC-PARAM-CONF-CONTAINER-DEF>
+        </CONTAINERS>
+      </ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+    (gen_dir / "CanTrcv_Pre.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv_GenericCan_Pre</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/CanTrcv_GenericCan/CanTrcv</DEFINITION-REF>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/CanTrcv_GenericCan/CanTrcv/CanTrcvGeneral</DEFINITION-REF>
+          <PARAMETER-VALUES>
+            <ECUC-TEXTUAL-PARAM-VALUE>
+              <DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">/MICROSAR/CanTrcv_GenericCan/CanTrcv/CanTrcvGeneral/CanTrcvHwInterface</DEFINITION-REF>
+              <VALUE>SPI</VALUE>
+            </ECUC-TEXTUAL-PARAM-VALUE>
+            <ECUC-NUMERICAL-PARAM-VALUE>
+              <DEFINITION-REF DEST="ECUC-BOOLEAN-PARAM-DEF">/MICROSAR/CanTrcv_GenericCan/CanTrcv/CanTrcvGeneral/CanTrcvDevErrorDetect</DEFINITION-REF>
+              <VALUE>true</VALUE>
+            </ECUC-NUMERICAL-PARAM-VALUE>
+          </PARAMETER-VALUES>
+        </ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+    (lib_dir / "CanTrcv_GenericCan" / "module.json").write_text(json.dumps({
+        "schema": 1,
+        "module": "CanTrcv",
+        "definition": "/MICROSAR/CanTrcv_GenericCan/CanTrcv",
+        "files": ["config/CanTrcv.arxml", "config/CanTrcv_Pre.arxml"],
+        "pre": ["/MICROSAR/CanTrcv_GenericCan_Pre"],
+        "rec": [],
+    }), encoding="utf-8")
+
+    tle_dir = lib_dir / "CanTrcv_Tle9255" / "config"
+    tle_dir.mkdir(parents=True, exist_ok=True)
+    (tle_dir / "CanTrcv.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>CanTrcv_Tle9255</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF>
+        <SHORT-NAME>CanTrcv</SHORT-NAME>
+        <CONTAINERS>
+          <ECUC-PARAM-CONF-CONTAINER-DEF>
+            <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+            <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+            <PARAMETERS>
+              <ECUC-BOOLEAN-PARAM-DEF><SHORT-NAME>CanTrcvDevErrorDetect</SHORT-NAME></ECUC-BOOLEAN-PARAM-DEF>
+            </PARAMETERS>
+          </ECUC-PARAM-CONF-CONTAINER-DEF>
+        </CONTAINERS>
+      </ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+    (lib_dir / "CanTrcv_Tle9255" / "module.json").write_text(json.dumps({
+        "schema": 1,
+        "module": "CanTrcv",
+        "definition": "/MICROSAR/CanTrcv_Tle9255/CanTrcv",
+        "files": ["config/CanTrcv.arxml"],
+        "pre": [],
+        "rec": [],
+    }), encoding="utf-8")
+
+
+def _select_wizard_variant_and_accept(qtbot, project, target_def: str, strategy: str, monkeypatch=None, fail_replace=False):
+    wiz = IntegrationWizard(project, confirm_merge=lambda *_: True)
+    qtbot.addWidget(wiz)
+    mp = wiz.page(wiz.pageIds()[1])
+    cp = wiz.page(wiz.pageIds()[2])
+    mp.initializePage()
+    for i in range(mp.tree.topLevelItemCount()):
+        cat_item = mp.tree.topLevelItem(i)
+        for j in range(cat_item.childCount()):
+            child = cat_item.child(j)
+            cand = child.data(0, Qt.UserRole)
+            if cand and cand.package.manifest.definition == target_def:
+                child.setCheckState(0, Qt.Checked)
+    cp.initializePage()
+    if strategy == "skip":
+        cp.merge_strategy_skip.setChecked(True)
+    elif strategy == "replace":
+        cp.merge_strategy_replace.setChecked(True)
+    else:
+        cp.merge_strategy_merge.setChecked(True)
+    if fail_replace and monkeypatch is not None:
+        def _boom(*_args, **_kwargs):
+            raise RuntimeError("boom")
+        monkeypatch.setattr(wiz, "_apply_replace_baseline", _boom)
+    wiz.accept()
+    return wiz
+
+
+def test_integration_wizard_cross_variant_replace_and_skip_cleanup_and_rollback(qtbot, monkeypatch, tmp_path):
+    """Cross-variant skip/replace cleans up stale baseline state safely and rolls back on failure."""
+    from autosar_configurator.core.packages.library import find_package, scan_library
+
+    # Scenario A: GenericCan (with Pre) -> Tle9255 (no Pre/Rec) via SKIP
+    proj_skip_dir = tmp_path / "skip_proj"
+    _make_pre_and_plain_cantrcv_lib(proj_skip_dir / "modules")
+    wm_skip = WorkspaceManager()
+    proj_skip = wm_skip.create_project("SkipVar", proj_skip_dir / "SkipVar.dpa", format_version=8)
+    lib_ref_a = LibraryRef(path="modules", kind="package")
+    proj_skip.module_libraries.append(lib_ref_a)
+    pkgs_a = scan_library(lib_ref_a, proj_skip_dir)
+    _, gen_pkg_a = find_package([(0, pkgs_a)], "/MICROSAR/CanTrcv_GenericCan/CanTrcv")
+    proj_skip.add_module_from_package(gen_pkg_a, lib_index=0, persist=True, confirm=lambda *_: True)
+    wm_skip.save_project()
+
+    snap_a = proj_skip_dir / "config" / "base" / "CanTrcv.arxml"
+    layers_a = proj_skip_dir / "config" / "base" / "CanTrcv.layers.json"
+    assert snap_a.is_file() and layers_a.is_file()
+
+    _select_wizard_variant_and_accept(qtbot, proj_skip, "/MICROSAR/CanTrcv_Tle9255/CanTrcv", "skip")
+    assert proj_skip.module_entries["CanTrcv"].definition == "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+    assert "CanTrcv" not in proj_skip.baselines
+    assert proj_skip.module_entries["CanTrcv"].base_hash is None
+    gen_c = proj_skip.module_managers["CanTrcv"].configuration.containers[0]
+    assert gen_c.parameter_values["CanTrcvHwInterface"].value == "SPI"
+    assert "CanTrcvHwInterface" in gen_c.unknown_parameters
+    assert snap_a.is_file()  # deferred until save
+    wm_skip.save_project()
+    assert not snap_a.exists()
+    assert not layers_a.exists()
+
+    # Scenario B: GenericCan (with Pre) -> Tle9255 (no Pre/Rec) via REPLACE
+    proj_rep_dir = tmp_path / "rep_proj"
+    _make_pre_and_plain_cantrcv_lib(proj_rep_dir / "modules")
+    wm_rep = WorkspaceManager()
+    proj_rep = wm_rep.create_project("RepVar", proj_rep_dir / "RepVar.dpa", format_version=8)
+    lib_ref_b = LibraryRef(path="modules", kind="package")
+    proj_rep.module_libraries.append(lib_ref_b)
+    pkgs_b = scan_library(lib_ref_b, proj_rep_dir)
+    _, gen_pkg_b = find_package([(0, pkgs_b)], "/MICROSAR/CanTrcv_GenericCan/CanTrcv")
+    proj_rep.add_module_from_package(gen_pkg_b, lib_index=0, persist=True, confirm=lambda *_: True)
+    wm_rep.save_project()
+
+    _select_wizard_variant_and_accept(qtbot, proj_rep, "/MICROSAR/CanTrcv_Tle9255/CanTrcv", "replace")
+    rep_mgr = proj_rep.module_managers["CanTrcv"]
+    assert rep_mgr.configuration.containers == []
+    assert rep_mgr.configuration.definition_ref == "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+    assert "CanTrcv" not in proj_rep.baselines
+    assert proj_rep.module_entries["CanTrcv"].base_hash is None
+    wm_rep.save_project()
+    assert not (proj_rep_dir / "config" / "base" / "CanTrcv.arxml").exists()
+
+    # Scenario C: Failure during cross-variant replace rolls back cleanly
+    proj_rb_dir = tmp_path / "rb_proj"
+    _make_pre_and_plain_cantrcv_lib(proj_rb_dir / "modules")
+    wm_rb = WorkspaceManager()
+    proj_rb = wm_rb.create_project("RbVar", proj_rb_dir / "RbVar.dpa", format_version=8)
+    lib_ref_c = LibraryRef(path="modules", kind="package")
+    proj_rb.module_libraries.append(lib_ref_c)
+    pkgs_c = scan_library(lib_ref_c, proj_rb_dir)
+    _, gen_pkg_c = find_package([(0, pkgs_c)], "/MICROSAR/CanTrcv_GenericCan/CanTrcv")
+    proj_rb.add_module_from_package(gen_pkg_c, lib_index=0, persist=True, confirm=lambda *_: True)
+    wm_rb.save_project()
+
+    wiz_err = _select_wizard_variant_and_accept(
+        qtbot, proj_rb, "/MICROSAR/CanTrcv_Tle9255/CanTrcv", "replace",
+        monkeypatch=monkeypatch, fail_replace=True,
+    )
+    assert any(m == "CanTrcv" for m, _err in wiz_err._result["failed"])
+    assert proj_rb.module_entries["CanTrcv"].definition == "/MICROSAR/CanTrcv_GenericCan/CanTrcv"
+    assert proj_rb.module_managers["CanTrcv"].module_def.ar_path == "/MICROSAR/CanTrcv_GenericCan/CanTrcv"
+    assert "CanTrcv" in proj_rb.baselines
+
+
+def test_controller_clears_undo_stack_refreshes_active_mgr_and_disambiguates_duplicate_labels(qtbot, monkeypatch, tmp_path):
+    """switch_module_variant distinguishes identical directory names across libraries and clears undo_stack;
+    _on_integration_complete also clears undo_stack and refreshes active window module references."""
+    from autosar_configurator.core.packages.library import find_package, scan_library
+
+    proj_dir = tmp_path / "DualLibProj"
+    lib_a = proj_dir / "lib_a"
+    lib_b = proj_dir / "lib_b"
+    _make_variant_package_lib(lib_a)
+    _make_variant_package_lib(lib_b)
+
+    wm = WorkspaceManager()
+    project = wm.create_project("DualLibProj", proj_dir / "DualLibProj.dpa", format_version=8)
+    project.module_libraries = [
+        LibraryRef(path="lib_a", kind="package"),
+        LibraryRef(path="lib_b", kind="package"),
+    ]
+    pkgs_a = scan_library(project.module_libraries[0], proj_dir)
+    _, tle_pkg = find_package([(0, pkgs_a)], "/MICROSAR/CanTrcv_Tle9255/CanTrcv")
+    project.add_module_from_package(tle_pkg, lib_index=0, persist=True, confirm=lambda *_: True)
+
+    stale_mgr = project.module_managers["CanTrcv"]
+    win = MagicMock()
+    win.current_project = project
+    win.config_manager = stale_mgr
+    win.module_def = stale_mgr.module_def
+    ctrl = ProjectController(win)
+
+    seen_items = []
+
+    def _pick_lib_b(_parent, _title, _label, items, *_args, **_kwargs):
+        seen_items.extend(items)
+        chosen = next(item for item in items if "/MICROSAR/CanTrcv_GenericCan/CanTrcv" in item and "lib_b" in item)
+        return chosen, True
+
+    monkeypatch.setattr(QInputDialog, "getItem", _pick_lib_b)
+    monkeypatch.setattr(QMessageBox, "information", lambda *a, **k: QMessageBox.Ok)
+
+    assert ctrl.switch_module_variant("CanTrcv", confirm=lambda *_: True) is True
+    assert len(seen_items) == len(set(seen_items))
+    assert project.module_entries["CanTrcv"].library == 1
+    win.undo_stack.clear.assert_called_once()
+
+    # Now simulate wizard completion while main window still held stale_mgr/module_def
+    win.undo_stack.clear.reset_mock()
+    win.config_panel.clear.reset_mock()
+    win.config_manager = stale_mgr
+    win.module_def = stale_mgr.module_def
+    new_mgr = project.module_managers["CanTrcv"]
+    assert new_mgr is not stale_mgr
+
+    ctrl._on_integration_complete({
+        "added": ["CanTrcv"],
+        "failed": [],
+        "merge_conflicts": [],
+        "merge_rejected": [],
+    })
+    win.undo_stack.clear.assert_called_once()
+    assert win.config_manager is new_mgr
+    assert win.module_def is new_mgr.module_def
+    win.config_panel.clear.assert_called_once()
+
+
+def test_tree_menu_variant_switch_visibility_matches_alternative_definitions(qtbot, tmp_path):
+    """Tree context menu shows Switch Variant iff registered libraries contain an alternative definition."""
+    from PySide6.QtWidgets import QMenu
+    from autosar_configurator.core.model.definition_model import EcucModuleDef
+    from autosar_configurator.core.packages.library import find_package, scan_library
+    from autosar_configurator.ui.widgets.davinci_tree_view import DaVinciTreeView
+
+    # Case 1: two libraries both provide only /MICROSAR/CanTrcv_Tle9255/CanTrcv -> no Switch Variant
+    proj1_dir = tmp_path / "same_def_proj"
+    for lib_name in ("lib_1", "lib_2"):
+        tle_dir = proj1_dir / lib_name / "CanTrcv_Tle9255" / "config"
+        tle_dir.mkdir(parents=True)
+        (tle_dir / "CanTrcv.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>CanTrcv_Tle9255</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF><SHORT-NAME>CanTrcv</SHORT-NAME></ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+        (proj1_dir / lib_name / "CanTrcv_Tle9255" / "module.json").write_text(json.dumps({
+            "schema": 1,
+            "module": "CanTrcv",
+            "definition": "/MICROSAR/CanTrcv_Tle9255/CanTrcv",
+            "files": ["config/CanTrcv.arxml"],
+            "pre": [],
+            "rec": [],
+        }), encoding="utf-8")
+
+    wm1 = WorkspaceManager()
+    proj1 = wm1.create_project("SameDef", proj1_dir / "SameDef.dpa", format_version=8)
+    proj1.module_libraries = [
+        LibraryRef(path="lib_1", kind="package"),
+        LibraryRef(path="lib_2", kind="package"),
+    ]
+    pkgs1 = scan_library(proj1.module_libraries[0], proj1_dir)
+    _, tle_pkg1 = find_package([(0, pkgs1)], "/MICROSAR/CanTrcv_Tle9255/CanTrcv")
+    proj1.add_module_from_package(tle_pkg1, lib_index=0, persist=True, confirm=lambda *_: True)
+
+    tree1 = DaVinciTreeView()
+    qtbot.addWidget(tree1)
+    tree1.set_project(proj1)
+    menu1 = QMenu(tree1)
+    tree1._populate_module_menu(menu1, "CanTrcv")
+    assert [a for a in menu1.actions() if "Switch Variant" in a.text()] == []
+
+    # Case 2: active module has /MICROSAR/CanTrcv_Old/CanTrcv, library has 1 package /MICROSAR/CanTrcv_Tle9255/CanTrcv -> show Switch Variant
+    wm2 = WorkspaceManager()
+    proj2 = wm2.create_project("OneAlt", proj1_dir / "OneAlt.dpa", format_version=8)
+    proj2.module_libraries = [LibraryRef(path="lib_1", kind="package")]
+    old_def = EcucModuleDef(
+        short_name="CanTrcv",
+        definition_ref="/AUTOSAR/EcucDefs/CanTrcv",
+        ar_path="/MICROSAR/CanTrcv_Old/CanTrcv",
+    )
+    proj2.add_module(old_def, proj1_dir / "old_def.arxml")
+
+    tree2 = DaVinciTreeView()
+    qtbot.addWidget(tree2)
+    tree2.set_project(proj2)
+    menu2 = QMenu(tree2)
+    tree2._populate_module_menu(menu2, "CanTrcv")
+    assert len([a for a in menu2.actions() if "Switch Variant" in a.text()]) == 1
+

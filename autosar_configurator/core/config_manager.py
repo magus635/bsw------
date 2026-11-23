@@ -1682,6 +1682,19 @@ class ConfigurationManager:
                             logger.warning(
                                 "multi-param '%s' in '%s' is not in DEF '%s' — flagged in unknown_parameters (kept)",
                                 param_name, container.short_name, container_def.short_name)
+            else:
+                for param_name, param_val in container.parameter_values.items():
+                    container.unknown_parameters[param_name] = param_val
+                    preserved += 1
+                    logger.warning(
+                        "'%s' in unknown container '%s' is not in active DEF — flagged in unknown_parameters (kept)",
+                        param_name, container.short_name)
+                for param_name, param_list in container.multi_parameter_values.items():
+                    container.unknown_parameters[param_name] = param_list
+                    preserved += 1
+                    logger.warning(
+                        "multi-param '%s' in unknown container '%s' is not in active DEF — flagged in unknown_parameters (kept)",
+                        param_name, container.short_name)
 
             # Recursively process sub-containers
             for sub in container.sub_containers:

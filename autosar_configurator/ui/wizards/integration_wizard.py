@@ -804,11 +804,22 @@ class IntegrationWizard(ConfigWizard):
             else:
                 baseline.dirty = True
             self.project.baselines[mod_name] = baseline
+            if hasattr(self.project, "_pending_baseline_deletes"):
+                self.project._pending_baseline_deletes.discard(mod_name)
         else:
             mgr.configuration.containers.clear()
             mgr.configuration._instance_registry.clear()
             mgr.configuration.parameter_values.clear()
+            mgr.repair_definition_refs()
+            mgr._instance_counters.clear()
             self.project.baselines.pop(mod_name, None)
+            if hasattr(self.project, "last_merge_results"):
+                self.project.last_merge_results.pop(mod_name, None)
+            if entry is not None:
+                entry.base_hash = None
+                entry.pre_unlocked = []
+            if self.project.path is not None and hasattr(self.project, "_pending_baseline_deletes"):
+                self.project._pending_baseline_deletes.add(mod_name)
         mgr.baseline_error = None
 
     def _integrate_modules(self, candidates: List[ModuleCandidate], merge_strategy: str) -> Dict[str, Any]:
@@ -871,39 +882,100 @@ class IntegrationWizard(ConfigWizard):
                             })
                         continue
 
+                    from ...core.config_manager import ConfigurationManager
                     from ...core.parser.ecuc_def_parser import EcucDefParser
-                    from ...core.workspace_manager import _chip_selector_values
+                    from ...core.parser.xdm_expression_resolver import apply_chip_expressions
+                    from ...core.workspace_manager import (
+                        ModuleEntry,
+                        _chip_selector_values,
+                        _clone_module_configuration,
+                    )
                     from ...core import eb_import
 
-                    mgr = self.project.module_managers[mod_name]
-                    def_file = cand.package.definition_file(self.project.selected_chip)
-                    parser = EcucDefParser()
-                    parser.set_selector_values(_chip_selector_values(self.project))
-                    module_def = parser.parse_module_def_file(def_file)
-                    mod_name = module_def.short_name
-                    mgr.module_def = module_def
-                    if cand.is_other_variant:
-                        mgr.repair_definition_refs()
-                        mgr._cleanup_invalid_parameters()
-                    self.project.module_defs[mod_name] = def_file
-                    self.project.packages[mod_name] = cand.package
-                    entry = self.project.module_entries.get(mod_name)
-                    if entry is not None:
-                        entry.definition = cand.package.manifest.definition
-                        entry.library = cand.lib_index
-                        if self.project.format_version >= 8:
-                            entry.package_record = eb_import.package_record(cand.package)
+                    capture_backup = getattr(self.project, "_capture_module_replace_backup", None)
+                    restore_backup = getattr(self.project, "_restore_module_replace_backup", None)
+                    backup = capture_backup(mod_name) if callable(capture_backup) else None
+                    old_mgr = self.project.module_managers[mod_name]
+                    prev_module_def = old_mgr.module_def
+                    prev_config = (
+                        _clone_module_configuration(old_mgr.configuration)
+                        if not cand.is_other_variant
+                        else None
+                    )
+                    try:
+                        def_file = cand.package.definition_file(self.project.selected_chip)
+                        parser = EcucDefParser()
+                        parser.set_selector_values(_chip_selector_values(self.project))
+                        module_def = parser.parse_module_def_file(def_file)
+                        if getattr(self.project, "ecu_resources", None):
+                            apply_chip_expressions(module_def, self.project.ecu_resources)
+                        mod_name = module_def.short_name
 
-                    if merge_strategy == "replace":
-                        self._apply_replace_baseline(mgr, cand.package, mod_name, can_persist)
-                    elif merge_strategy == "merge" and self.project.format_version >= 8 and entry is not None:
-                        try:
-                            self.project.reconcile_baseline(
-                                mgr, entry, cand.package, confirm_merge
+                        old_entry = self.project.module_entries.get(mod_name)
+                        if cand.is_other_variant:
+                            temp_cfg = _clone_module_configuration(old_mgr.configuration)
+                            mgr = ConfigurationManager(module_def, project_context=self.project)
+                            mgr.configuration = temp_cfg
+                            for c in temp_cfg.containers:
+                                mgr._update_counters_recursive(c)
+                            mgr.repair_definition_refs()
+                            mgr._cleanup_invalid_parameters()
+                            temp_cfg.is_modified = True
+                            self.project.module_managers[mod_name] = mgr
+                        else:
+                            mgr = old_mgr
+                            mgr.module_def = module_def
+
+                        self.project.module_defs[mod_name] = def_file
+                        self.project.packages[mod_name] = cand.package
+
+                        entry = None
+                        if old_entry is not None:
+                            entry = ModuleEntry(
+                                name=old_entry.name,
+                                definition=cand.package.manifest.definition,
+                                library=cand.lib_index,
+                                config_path=old_entry.config_path,
+                                pre_unlocked=list(old_entry.pre_unlocked),
+                                package_record=(
+                                    eb_import.package_record(cand.package)
+                                    if self.project.format_version >= 8
+                                    else dict(old_entry.package_record)
+                                ),
+                                base_hash=old_entry.base_hash,
                             )
-                        except Exception as exc:
+                            self.project.module_entries[mod_name] = entry
+
+                        if merge_strategy == "replace":
+                            self._apply_replace_baseline(mgr, cand.package, mod_name, can_persist)
+                        elif merge_strategy == "skip" and cand.is_other_variant:
                             self.project.baselines.pop(mod_name, None)
-                            mgr.baseline_error = str(exc)
+                            if hasattr(self.project, "last_merge_results"):
+                                self.project.last_merge_results.pop(mod_name, None)
+                            if entry is not None:
+                                entry.base_hash = None
+                                entry.pre_unlocked = []
+                            if self.project.path is not None and hasattr(self.project, "_pending_baseline_deletes"):
+                                self.project._pending_baseline_deletes.add(mod_name)
+                        elif merge_strategy == "merge" and self.project.format_version >= 8 and entry is not None:
+                            try:
+                                self.project.reconcile_baseline(
+                                    mgr, entry, cand.package, confirm_merge
+                                )
+                            except Exception as exc:
+                                self.project.baselines.pop(mod_name, None)
+                                mgr.baseline_error = str(exc)
+
+                        if hasattr(self.project, "deduplicate_library_definitions"):
+                            self.project.deduplicate_library_definitions()
+                        self.project.is_modified = True
+                    except Exception:
+                        if callable(restore_backup) and backup is not None:
+                            restore_backup(backup)
+                        if not cand.is_other_variant and prev_config is not None:
+                            old_mgr.module_def = prev_module_def
+                            old_mgr.configuration = prev_config
+                        raise
 
                     if rejected_flag[0]:
                         result["merge_rejected"].append(mod_name)

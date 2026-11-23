@@ -2066,6 +2066,222 @@ def test_import_project_fails_module_on_ecuc_variant_mismatch_instead_of_silent_
     _run_scenario("without_mapping", with_mapping=False)
 
 
+def test_import_project_missing_mapped_variant_does_not_fallback_to_other_variant(tmp_path):
+    """Explicit <ModuleDefinitionMapping> must not silently fall back to another variant package
+    even if another variant of the same module exists in the SIP."""
+    from autosar_configurator.core.davinci_importer import DaVinciProjectImporter
+
+    root = tmp_path / "missing_mapped"
+    sip = root / "sip"
+    bswmd = sip / "Components" / "CanTrcv_30_Generic" / "BSWMD"
+    bswmd.mkdir(parents=True)
+    (bswmd / "CanTrcv_bswmd.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>CanTrcv_GenericCan</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF>
+        <SHORT-NAME>CanTrcv</SHORT-NAME>
+        <CONTAINERS>
+          <ECUC-PARAM-CONF-CONTAINER-DEF>
+            <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+            <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          </ECUC-PARAM-CONF-CONTAINER-DEF>
+        </CONTAINERS>
+      </ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    app_dir = sip / "Applications" / "MyApp"
+    ecuc_dir = app_dir / "Config" / "ECUC"
+    ecuc_dir.mkdir(parents=True)
+    (ecuc_dir / "CanTrcv_ecuc.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/AUTOSAR/EcucDefs/CanTrcv</DEFINITION-REF>
+      <CONTAINERS/>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    dpa_file = app_dir / "MyApp.dpa"
+    dpa_file.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<ProjectAssistant Version="5.30.35 SP2">
+  <Folders>
+    <SIP>.\\..\\..</SIP>
+    <ECUC>.\\Config\\ECUC</ECUC>
+  </Folders>
+  <Display>
+    <ModuleDefinitionMappings>
+      <ModuleDefinitionMapping ModuleConfigName="CanTrcv" ModuleDefinitionRef="/MICROSAR/CanTrcv_Tle9255/CanTrcv"/>
+    </ModuleDefinitionMappings>
+  </Display>
+  <EcucSplitter>
+    <Splitter File=".\\Config\\ECUC\\CanTrcv_ecuc.arxml"><Module Name="CanTrcv"/></Splitter>
+  </EcucSplitter>
+</ProjectAssistant>""", encoding="utf-8")
+
+    wm = WorkspaceManager()
+    project, report = DaVinciProjectImporter.import_project(
+        workspace_manager=wm,
+        dpa_path=dpa_file,
+        target_dir=root / "out",
+        project_name="OutApp",
+        confirm=lambda *_: True,
+    )
+    assert "CanTrcv" not in project.module_managers
+    assert any(
+        mod == "CanTrcv"
+        and "/MICROSAR/CanTrcv_Tle9255/CanTrcv" in err
+        and "/MICROSAR/CanTrcv_GenericCan/CanTrcv" in err
+        for mod, err in report.failed_modules
+    )
+
+
+def test_import_project_unmapped_multi_variant_disambiguates_by_ecuc_or_fails_ambiguous(tmp_path):
+    """Without <ModuleDefinitionMapping>, multi-variant SIP modules use ECUC DEFINITION-REF to
+    disambiguate; if ECUC lacks a specific variant def (or is missing), import fails unambiguously."""
+    from autosar_configurator.core.davinci_importer import DaVinciProjectImporter
+
+    def _run_unmapped(subdir: str, ecuc_def_ref: str):
+        root = tmp_path / subdir
+        sip = root / "sip"
+
+        gen_bswmd = sip / "Components" / "CanTrcv_30_Generic" / "BSWMD"
+        gen_bswmd.mkdir(parents=True)
+        (gen_bswmd / "CanTrcv_30_Generic_bswmd.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>CanTrcv_GenericCan</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF>
+        <SHORT-NAME>CanTrcv</SHORT-NAME>
+        <CONTAINERS>
+          <ECUC-PARAM-CONF-CONTAINER-DEF>
+            <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+            <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          </ECUC-PARAM-CONF-CONTAINER-DEF>
+        </CONTAINERS>
+      </ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+        tle_bswmd = sip / "Components" / "CanTrcv_30_Tle9255" / "BSWMD"
+        tle_bswmd.mkdir(parents=True)
+        (tle_bswmd / "CanTrcv_30_Tle9255_bswmd.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>CanTrcv_Tle9255</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF>
+        <SHORT-NAME>CanTrcv</SHORT-NAME>
+        <CONTAINERS>
+          <ECUC-PARAM-CONF-CONTAINER-DEF>
+            <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+            <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          </ECUC-PARAM-CONF-CONTAINER-DEF>
+        </CONTAINERS>
+      </ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+        app_dir = sip / "Applications" / "MyApp"
+        ecuc_dir = app_dir / "Config" / "ECUC"
+        ecuc_dir.mkdir(parents=True)
+        (ecuc_dir / "CanTrcv_ecuc.arxml").write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">{ecuc_def_ref}</DEFINITION-REF>
+      <CONTAINERS/>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+        dpa_file = app_dir / "MyApp.dpa"
+        dpa_file.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<ProjectAssistant Version="5.30.35 SP2">
+  <Folders>
+    <SIP>.\\..\\..</SIP>
+    <ECUC>.\\Config\\ECUC</ECUC>
+  </Folders>
+  <Display><ModuleDefinitionMappings/></Display>
+  <EcucSplitter>
+    <Splitter File=".\\Config\\ECUC\\CanTrcv_ecuc.arxml"><Module Name="CanTrcv"/></Splitter>
+  </EcucSplitter>
+</ProjectAssistant>""", encoding="utf-8")
+
+        wm = WorkspaceManager()
+        return DaVinciProjectImporter.import_project(
+            workspace_manager=wm,
+            dpa_path=dpa_file,
+            target_dir=root / "out",
+            project_name="OutApp",
+            confirm=lambda *_: True,
+        )
+
+    # Scenario A: ECUC explicitly selects Tle9255 -> disambiguates cleanly
+    proj_a, rep_a = _run_unmapped("ecuc_specific", "/MICROSAR/CanTrcv_Tle9255/CanTrcv")
+    assert rep_a.failed_modules == []
+    assert proj_a.module_entries["CanTrcv"].definition == "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+
+    # Scenario B: ECUC only has standard AUTOSAR path -> ambiguous, reported as failed
+    proj_b, rep_b = _run_unmapped("ecuc_ambiguous", "/AUTOSAR/EcucDefs/CanTrcv")
+    assert "CanTrcv" not in proj_b.module_managers
+    assert any(
+        mod == "CanTrcv"
+        and "/MICROSAR/CanTrcv_GenericCan/CanTrcv" in err
+        and "/MICROSAR/CanTrcv_Tle9255/CanTrcv" in err
+        for mod, err in rep_b.failed_modules
+    )
+
+
+def test_variant_switch_preserves_unknown_params_after_reload_and_defers_baseline_delete(tmp_path):
+    """After switching variant and reloading, parameters inside unknown containers retain their
+    unknown_parameters marker; switching back to a baseline-less variant defers snapshot deletion until save."""
+    wm, project, gen_pkg, tle_pkg = _setup_cantrcv_variant_project(tmp_path)
+    proj_dir = project.path.parent
+
+    # 1. Switch Tle9255 -> GenericCan (has Pre baseline; CanTrcvChannel_0 becomes unknown container)
+    applied = project.switch_module_variant(
+        "CanTrcv", gen_pkg, target_lib_index=0, preview_only=False, confirm=lambda *_: True
+    )
+    assert applied.applied is True
+    wm.save_project()
+
+    base_snapshot = proj_dir / "config" / "base" / "CanTrcv.arxml"
+    base_layers = proj_dir / "config" / "base" / "CanTrcv.layers.json"
+    assert base_snapshot.is_file()
+    assert base_layers.is_file()
+
+    # 2. Reload project: CanTrcvBaudrateRatio inside unknown CanTrcvChannel_0 must stay flagged
+    reloaded_wm = WorkspaceManager()
+    reloaded, reload_failed = reloaded_wm.load_project(project.path, confirm=lambda *_: True)
+    assert reload_failed == []
+    reloaded_ch = next(
+        c for c in reloaded.module_managers["CanTrcv"].configuration.containers
+        if c.short_name == "CanTrcvChannel_0"
+    )
+    assert reloaded_ch.parameter_values["CanTrcvBaudrateRatio"].value == 10
+    assert "CanTrcvBaudrateRatio" in reloaded_ch.unknown_parameters
+
+    # 3. Switch back GenericCan -> Tle9255 (no Pre/Rec layers): disk snapshot stays until save_project()
+    reverted = reloaded.switch_module_variant(
+        "CanTrcv", tle_pkg, target_lib_index=0, preview_only=False, confirm=lambda *_: True
+    )
+    assert reverted.applied is True
+    assert base_snapshot.is_file()
+    assert base_layers.is_file()
+
+    reloaded_wm.save_project()
+    assert not base_snapshot.exists()
+    assert not base_layers.exists()
+
+
+
 
 
 

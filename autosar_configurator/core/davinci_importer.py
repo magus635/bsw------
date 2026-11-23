@@ -2573,11 +2573,12 @@ class DaVinciProjectImporter:
         bsw_by_def: Dict[str, ModulePackage] = {
             p.manifest.definition.rstrip("/"): p for p in bsw_packages_list
         }
-        bsw_by_name: Dict[str, ModulePackage] = {}
-        for p in bsw_packages_list:
-            prev = bsw_by_name.get(p.manifest.module)
-            if prev is None or p.manifest.definition.rstrip("/") == f"/MICROSAR/{p.manifest.module}":
-                bsw_by_name[p.manifest.module] = p
+        bsw_candidates_by_name: Dict[str, List[ModulePackage]] = {}
+        for p in sorted(
+            bsw_packages_list,
+            key=lambda pkg: (pkg.manifest.module, pkg.manifest.definition.rstrip("/")),
+        ):
+            bsw_candidates_by_name.setdefault(p.manifest.module, []).append(p)
 
         # 2. Optional EB MCAL plugin library + chip discovery BEFORE adding modules
         eb_plugins_dir: Optional[Path] = None
@@ -2659,7 +2660,7 @@ class DaVinciProjectImporter:
                             "module": mod_name,
                             "reason": "保留当前工程中已有的 MCAL 模块，跳过 DaVinci 同名 MCAL 模块",
                         })
-                    elif mod_name in bsw_by_name or dv.module_definitions.get(mod_name, "").rstrip("/") in bsw_by_def:
+                    elif mod_name in bsw_candidates_by_name or dv.module_definitions.get(mod_name, "").rstrip("/") in bsw_by_def:
                         target_bsw.append(mod_name)
                     else:
                         report.skipped_mcal_modules.append({
@@ -2670,7 +2671,7 @@ class DaVinciProjectImporter:
                     target_bsw.append(mod_name)
         else:
             # Minimal .dpa without <ModuleDefinitionMappings> or <EcucSplitter>: import all SIP packages
-            target_bsw = sorted(bsw_by_name.keys())
+            target_bsw = sorted(bsw_candidates_by_name.keys())
 
         # 4. Import BSW modules with actual DaVinci ECUC configuration values
         serializer = EcucValueSerializer()
@@ -2678,13 +2679,55 @@ class DaVinciProjectImporter:
 
         for mod_name in target_bsw:
             expected_def = dv.module_definitions.get(mod_name)
-            pkg = (
-                bsw_by_def.get(expected_def.rstrip("/")) if expected_def else None
-            ) or bsw_by_name.get(mod_name)
-            if pkg is None:
-                msg = f"Module {mod_name} definition not found: {expected_def or mod_name}"
-                report.failed_modules.append((mod_name, msg))
-                continue
+            norm_expected = (expected_def or "").rstrip("/")
+            std_ref = f"/AUTOSAR/EcucDefs/{mod_name}"
+            has_specific_expected = bool(norm_expected and norm_expected != std_ref)
+            ecuc_file = dv.resolve_ecuc_file(mod_name)
+
+            pkg: Optional[ModulePackage] = None
+            if has_specific_expected:
+                pkg = bsw_by_def.get(norm_expected)
+                if pkg is None:
+                    avail = bsw_candidates_by_name.get(mod_name, [])
+                    if avail:
+                        avail_defs = ", ".join(p.manifest.definition for p in avail)
+                        msg = (
+                            f"Module {mod_name} definition not found: {norm_expected} "
+                            f"(available variant(s): {avail_defs})"
+                        )
+                    else:
+                        msg = f"Module {mod_name} definition not found: {norm_expected}"
+                    report.failed_modules.append((mod_name, msg))
+                    continue
+            else:
+                candidates = bsw_candidates_by_name.get(mod_name, [])
+                if len(candidates) == 1:
+                    pkg = candidates[0]
+                elif len(candidates) > 1:
+                    ecuc_defs: Set[str] = set()
+                    if ecuc_file is not None:
+                        try:
+                            for sn, dref in eb_import.module_configs_in(ecuc_file):
+                                norm_dref = (dref or "").rstrip("/")
+                                leaf = norm_dref.rsplit("/", 1)[-1] if norm_dref else ""
+                                if (leaf == mod_name or sn == mod_name) and norm_dref in bsw_by_def:
+                                    ecuc_defs.add(norm_dref)
+                        except Exception:
+                            ecuc_defs = set()
+                    if len(ecuc_defs) == 1:
+                        pkg = bsw_by_def[next(iter(ecuc_defs))]
+                    else:
+                        cand_defs = ", ".join(p.manifest.definition for p in candidates)
+                        msg = (
+                            f"Ambiguous variant selection for '{mod_name}' "
+                            f"(no specific <ModuleDefinitionMapping>; candidates: {cand_defs})"
+                        )
+                        report.failed_modules.append((mod_name, msg))
+                        continue
+                else:
+                    msg = f"Module {mod_name} definition not found: {norm_expected or mod_name}"
+                    report.failed_modules.append((mod_name, msg))
+                    continue
 
             target_name = pkg.manifest.module or mod_name
             replace_backup = None
@@ -2738,9 +2781,8 @@ class DaVinciProjectImporter:
 
             config_source = "sip_baseline"
             written_cfg_path: Optional[Path] = None
-            ecuc_file = dv.resolve_ecuc_file(mod_name)
             if ecuc_file is not None:
-                effective_expected_def = expected_def or pkg.manifest.definition
+                effective_expected_def = norm_expected if has_specific_expected else pkg.manifest.definition
                 try:
                     extracted_cfg = cls._extract_module_config(
                         ecuc_file, mod_name, effective_expected_def

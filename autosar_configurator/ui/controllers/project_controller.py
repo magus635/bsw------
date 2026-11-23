@@ -2146,6 +2146,21 @@ class ProjectController:
             self.win._has_unsaved_changes = True
             self.win.current_project.load_ecu_resources()
             self.win.current_project.apply_chip_selectors(modules=added)
+            undo_stack = getattr(self.win, "undo_stack", None)
+            if undo_stack is not None and hasattr(undo_stack, "clear"):
+                undo_stack.clear()
+            active_mod = (
+                getattr(getattr(self.win, "module_def", None), "short_name", None)
+                or getattr(getattr(getattr(self.win, "config_manager", None), "module_def", None), "short_name", None)
+            )
+            if active_mod in added and active_mod in self.win.current_project.module_managers:
+                new_mgr = self.win.current_project.module_managers[active_mod]
+                self.win.config_manager = new_mgr
+                self.win.module_def = new_mgr.module_def
+                config_panel = getattr(self.win, "config_panel", None)
+                clear_panel = getattr(config_panel, "clear", None)
+                if callable(clear_panel):
+                    clear_panel()
             self.win.tree_view.set_project(self.win.current_project)
 
             msg = f"Successfully added {len(added)} module(s):\n"
@@ -2290,7 +2305,12 @@ class ProjectController:
             )
             return False
 
-        labels = [f"{pkg.manifest.definition}  ({pkg.root.name})" for _idx, pkg in alternatives]
+        lib_refs = getattr(project, "module_libraries", None) or []
+        labels = [
+            f"{pkg.manifest.definition}  ({pkg.root.name} @ [{lib_idx}] "
+            f"{lib_refs[lib_idx].path if 0 <= lib_idx < len(lib_refs) else f'lib#{lib_idx}'})"
+            for lib_idx, pkg in alternatives
+        ]
         chosen, ok = QInputDialog.getItem(
             self.win,
             f"Switch Variant — {module_name}",
@@ -2323,6 +2343,9 @@ class ProjectController:
             return False
 
         self.win._has_unsaved_changes = True
+        undo_stack = getattr(self.win, "undo_stack", None)
+        if undo_stack is not None and hasattr(undo_stack, "clear"):
+            undo_stack.clear()
         new_mgr = project.module_managers[module_name]
         if (
             self.win.module_def is None
