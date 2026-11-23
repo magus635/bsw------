@@ -698,7 +698,43 @@ class OverlayEngine:
                     f"{path}/{ref_name}"
                 )
                 node.add_child(ref_node)
-        
+
+        # Add unknown references from config (if strict=False)
+        if not self.strict:
+            for ref_name, ref_val in refs_source.items():
+                if ref_name not in container_def.references:
+                    r_node = ConfigurationNode(
+                        short_name=ref_name,
+                        node_type='reference',
+                        path=f"{path}/{ref_name}",
+                        value=getattr(ref_val, 'value_ref', None),
+                        definition_ref=getattr(ref_val, 'definition_ref', ''),
+                        source=ref_val,
+                    )
+                    node.add_child(r_node)
+            for ref_name, ref_list in multi_refs_source.items():
+                if ref_name not in container_def.references and ref_list:
+                    wrapper_node = ConfigurationNode(
+                        short_name=ref_name,
+                        node_type='container',
+                        path=f"{path}/{ref_name}",
+                        definition_ref=getattr(ref_list[0], 'definition_ref', ''),
+                        is_wrapper=True,
+                    )
+                    for ref_val in sorted(ref_list, key=lambda r: r.index if r.index is not None else 0):
+                        idx = ref_val.index if ref_val.index is not None else 0
+                        child_node = ConfigurationNode(
+                            short_name=str(idx),
+                            node_type='reference',
+                            path=f"{path}/{ref_name}/{idx}",
+                            value=getattr(ref_val, 'value_ref', None),
+                            definition_ref=getattr(ref_val, 'definition_ref', ''),
+                            index=idx,
+                            source=ref_val,
+                        )
+                        wrapper_node.add_child(child_node)
+                    node.add_child(wrapper_node)
+
         return node
     
     def _create_default_container_node(

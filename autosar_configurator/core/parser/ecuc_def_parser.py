@@ -389,6 +389,11 @@ class EcucDefParser:
                 ref_def = self._parse_choice_reference_def(ref_elem, current_path)
                 if ref_def:
                     container_def.add_reference(ref_def)
+            # Also parse ECUC-SYMBOLIC-NAME-REFERENCE-DEF (symbolic-name references)
+            for ref_elem in self._findall_children(refs_elem, 'ECUC-SYMBOLIC-NAME-REFERENCE-DEF'):
+                ref_def = self._parse_reference_def(ref_elem, current_path)
+                if ref_def:
+                    container_def.add_reference(ref_def)
         
         # Parse SUB-CONTAINERS (recursive, only direct children)
         sub_conts_elem = self._find_child(element, 'SUB-CONTAINERS')
