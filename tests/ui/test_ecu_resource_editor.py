@@ -327,14 +327,14 @@ def test_saving_with_entries_to_fill_in_asks_first(qtbot, tmp_path, monkeypatch)
 
 def test_preview_page_labels_the_fallback_and_shows_consistency(qtbot, tmp_path, messages):
     dialog, _ = _designer(qtbot, tmp_path)
-    dialog.tabs.setCurrentIndex(4)
+    dialog.tabs.setCurrentIndex(5)
     assert dialog.prop_preview.toPlainText().startswith("# 兜底推导，非权威数据")
 
     dialog.ecu_editor.set_resources({
         "OsResource": {"NumOfCores": 4, "AvailableCores": ["CORE0", "CORE1", "CORE2"]}})
     dialog.ecu_editor.changed.emit()
     dialog.tabs.setCurrentIndex(0)
-    dialog.tabs.setCurrentIndex(4)
+    dialog.tabs.setCurrentIndex(5)
     assert not dialog.prop_preview.toPlainText().startswith("# 兜底推导")
     assert "OsResource.NumOfCores" in dialog.consistency_label.text()
     assert "OsResource.NumOfCores" in dialog.ecu_editor.hint_label.text()
@@ -388,3 +388,38 @@ def test_needed_keys_dialog_returns_the_checked_keys(qtbot):
     assert dialog.selected_keys() == ["Os.B"]
     dialog._check_all(Qt.Checked)
     assert dialog.selected_keys() == ["Mcu.A", "Os.B"]
+
+
+def test_designer_chip_saved_reloads_project_ecu_resources(tmp_path):
+    from types import SimpleNamespace
+    from autosar_configurator.ui.davinci_main_window import DaVinciMainWindow
+
+    events = []
+    fake_project = SimpleNamespace(
+        path=tmp_path / "proj.dpa",
+        selected_chip="THA6206_LFBGA292",
+        load_ecu_resources=lambda: events.append("load_ecu_resources"),
+    )
+    fake_service = SimpleNamespace(
+        set_project=lambda p: events.append(("set_project", p)),
+        constraints_changed=SimpleNamespace(emit=lambda c: events.append(("constraints_changed", c))),
+    )
+    fake_panel = SimpleNamespace(
+        current_instance=object(),
+        refresh=lambda: events.append("panel_refresh"),
+    )
+    fake_win = SimpleNamespace(
+        statusbar=SimpleNamespace(showMessage=lambda msg, ms: events.append(("status", msg))),
+        current_project=fake_project,
+        chip_constraint_service=fake_service,
+        config_panel=fake_panel,
+    )
+
+    DaVinciMainWindow._on_designer_chip_saved(fake_win, "THA6206_LFBGA292")
+
+    assert "load_ecu_resources" in events
+    assert ("set_project", fake_project) in events
+    assert ("constraints_changed", "THA6206_LFBGA292") in events
+    assert "panel_refresh" in events
+    assert events.index("load_ecu_resources") < events.index(("set_project", fake_project))
+

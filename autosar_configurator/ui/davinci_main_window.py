@@ -991,10 +991,23 @@ class DaVinciMainWindow(QMainWindow):
     def _on_designer_chip_saved(self, chip_name: str):
         """Handle new chip saved from designer"""
         self.statusbar.showMessage(f"芯片库已更新: {chip_name}", 5000)
+        project = self.current_project
+        if project is not None and hasattr(project, "load_ecu_resources"):
+            project.load_ecu_resources()
         # Update chip constraint service if available
         if hasattr(self, 'chip_constraint_service') and self.chip_constraint_service:
-            if self.current_project and self.current_project.path:
-                self.chip_constraint_service.set_project(self.current_project)
+            if project and project.path:
+                self.chip_constraint_service.set_project(project)
+                if getattr(project, "selected_chip", None) == chip_name:
+                    self.chip_constraint_service.constraints_changed.emit(chip_name)
+        if (
+            project is not None
+            and getattr(project, "selected_chip", None) == chip_name
+            and hasattr(self, "config_panel")
+            and self.config_panel is not None
+            and getattr(self.config_panel, "current_instance", None) is not None
+        ):
+            self.config_panel.refresh()
 
     def closeEvent(self, event):
         """Handle window close event - check for unsaved changes"""
