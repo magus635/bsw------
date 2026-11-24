@@ -2387,22 +2387,21 @@ class BuiltinFunctions:
     
     def variant_check(self, condition: str = "") -> bool:
         """Check a Variant condition.
-        
+
         Per spec 4.4: If Project has no Variant information,
         all Variant judgments return true.
         """
         cond = (condition or "").strip()
-        if not cond or (not self._variants and not self._is_real_variant()):
-            return True
-        if cond in ("true", "True", "1"):
-            return True
         if cond in ("false", "False", "0"):
             return False
-        if self._variant_name and cond == self._variant_name:
+        if not cond or cond in ("true", "True", "1"):
             return True
-        if self._variants and cond in self._variants:
-            return cond == self._variant_name if self._variant_name else True
-        return True
+        if not self._variants and not self._is_real_variant():
+            return True
+        eff_active = self._variant_name or ("Default" if "Default" in self._variants else "")
+        if eff_active:
+            return cond == eff_active
+        return cond in self._variants
     
     def variant_exists(self, variant_name: str = "") -> bool:
         """Check if a Variant exists.

@@ -53,10 +53,11 @@ class EBTemplateEngine:
             _append_unique(extra)
 
         self.renderer = Renderer(strict=strict, template_dir=template_dir, include_search_paths=search_paths)
-        self.initialized_modules = set()
-        # Result of the definition ENABLE conditions (applied once, before the first render)
+        self.initialized_modules: Dict[str, Any] = {}
+        # Result of the definition ENABLE conditions (computed per active variant state)
         self.enable_result = None
-        
+        self._enable_result_key = None
+
     def add_module(
         self,
         module_def: EcucModuleDef,
@@ -66,13 +67,18 @@ class EBTemplateEngine:
     ):
         """Add a module to the engine's symbol table for cross-module access."""
         module_name = module_def.short_name
-        
-        cache_key = (module_name, variant)
-        if cache_key not in self.initialized_modules:
+        ov_sig = (
+            tuple(sorted((k, repr(v)) for k, v in variant_overrides.items()))
+            if isinstance(variant_overrides, dict) and variant_overrides
+            else ()
+        )
+        state_key = (id(module_def), id(configuration), variant, ov_sig)
+        if self.initialized_modules.get(module_name) != state_key:
             self.renderer.load_module(
                 module_def, configuration, variant=variant, variant_overrides=variant_overrides
             )
-            self.initialized_modules.add(cache_key)
+            self.initialized_modules[module_name] = state_key
+            self.enable_result = None
 
     def render(self, template: str, context: Dict[str, Any], ecu_resources: Optional[Dict[str, Any]] = None, template_file: Optional[str] = None) -> str:
         """Render template with given context.
@@ -102,7 +108,23 @@ class EBTemplateEngine:
         active_variant = context.get('active_variant')
         variant_overrides = context.get('variant_overrides')
         project_variants = context.get('project_variants')
-        
+
+        # Inject variant state before loading modules and evaluating ENABLE conditions so
+        # variant:* functions resolve consistently in both ENABLE expressions and templates.
+        eff_variant = active_variant or ""
+        eff_variants = [v for v in (project_variants or []) if v]
+        self.renderer._variant = eff_variant
+        self.renderer._variants = eff_variants
+        if hasattr(self.renderer, '_builtins') and self.renderer._builtins:
+            self.renderer._builtins.set_variant(eff_variant)
+            self.renderer._builtins.set_variants(eff_variants)
+
+        enable_key = (eff_variant, tuple(eff_variants))
+        if self._enable_result_key is not None and self._enable_result_key != enable_key:
+            # Force clean tree reload because apply_enable_conditions prunes disabled nodes in-place
+            self.enable_result = None
+            self.initialized_modules.clear()
+
         if all_modules:
             for m_name, (m_def, m_config) in all_modules.items():
                 mod_ov = variant_overrides if m_name == module_name else None
@@ -123,11 +145,12 @@ class EBTemplateEngine:
             )
 
         # Items whose definition ENABLE condition is false are not visible to templates
-        if self.enable_result is None:
+        if self.enable_result is None or self._enable_result_key != enable_key:
             from .eb.enable_conditions import apply_enable_conditions
             defs = [m_def for m_def, _ in (all_modules or {}).values()] + [module_def]
             self.enable_result = apply_enable_conditions(
                 self.renderer, [d for d in defs if d is not None], ecu_resources)
+            self._enable_result_key = enable_key
 
         # Extract extra variables from context (excluding model objects)
         # Keep 'configuration' if 'module_def' is not present (e.g. mock context in unit tests)
@@ -141,18 +164,6 @@ class EBTemplateEngine:
             extra_vars['moduleReleaseVer'] = "AR 4.4.0" 
         if 'moduleSoftwareVer' not in extra_vars:
             extra_vars['moduleSoftwareVer'] = "1.2.0"
-
-        # Ensure variant is set on renderer before rendering
-        # This is needed because each template file may get a fresh EBTemplateEngine
-        if active_variant:
-            self.renderer._variant = active_variant
-            # Also set on builtins if already initialized
-            if hasattr(self.renderer, '_builtins') and self.renderer._builtins:
-                self.renderer._builtins.set_variant(active_variant)
-        if project_variants:
-            self.renderer._variants = list(project_variants)
-            if hasattr(self.renderer, '_builtins') and self.renderer._builtins:
-                self.renderer._builtins.set_variants(project_variants)
 
         return self.renderer.render(template, module_name=module_name, initial_variables=extra_vars, ecu_resources=ecu_resources, template_file=template_file)
 

@@ -2333,6 +2333,315 @@ def test_variant_switch_plan_reports_stale_variant_overrides(tmp_path):
     assert "[V2] /CanTrcv/CanTrcvChannel_0.CanTrcvBaudrateRatio" in plan.to_markdown()
 
 
+def _write_minimal_eb_can_plugin(plugin_dir: Path, package: str, param_name: str = "CanParam"):
+    """Write an EB plugin for module 'Can' under package/<package>/Can."""
+    (plugin_dir / "config").mkdir(parents=True, exist_ok=True)
+    (plugin_dir / "plugin.xml").write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
+<plugin>
+  <extension point="dreisoft.tresos.launcher2.plugin.module" id="Can_{package}_Mod">
+    <module id="Can_{package}" label="Can" swVersionMajor="1" swVersionMinor="0" swVersionPatch="0"/>
+  </extension>
+  <extension point="dreisoft.tresos.launcher2.plugin.configuration" id="Can_{package}_Cfg">
+    <configuration moduleId="Can_{package}">
+      <schema><resource type="xdm" value="config/Can.arxml"/></schema>
+      <data><schemaNode path="ASPath:/{package}/Can"/></data>
+    </configuration>
+  </extension>
+</plugin>""", encoding="utf-8")
+    (plugin_dir / "config" / "Can.arxml").write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>{package}</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-DEF>
+      <SHORT-NAME>Can</SHORT-NAME>
+      <CONTAINERS>
+        <ECUC-PARAM-CONF-CONTAINER-DEF>
+          <SHORT-NAME>CanGeneral</SHORT-NAME>
+          <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          <PARAMETERS>
+            <ECUC-STRING-PARAM-DEF><SHORT-NAME>{param_name}</SHORT-NAME></ECUC-STRING-PARAM-DEF>
+          </PARAMETERS>
+        </ECUC-PARAM-CONF-CONTAINER-DEF>
+      </CONTAINERS>
+    </ECUC-MODULE-DEF>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+
+def _create_minimal_davinci_dpa(root: Path, dpa_body: str, sip_modules: dict = None) -> Path:
+    """Create a minimal SIP + DaVinci .dpa for focused Step 4/Step 5 tests."""
+    sip = root / "sip"
+    (sip / "Components").mkdir(parents=True, exist_ok=True)
+    for mod_name, pkg_prefix in (sip_modules or {}).items():
+        bswmd = sip / "Components" / mod_name / "BSWMD"
+        bswmd.mkdir(parents=True, exist_ok=True)
+        (bswmd / f"{mod_name}_bswmd.arxml").write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>{pkg_prefix}<ELEMENTS>
+    <ECUC-MODULE-DEF>
+      <SHORT-NAME>{mod_name}</SHORT-NAME>
+      <CONTAINERS>
+        <ECUC-PARAM-CONF-CONTAINER-DEF>
+          <SHORT-NAME>{mod_name}General</SHORT-NAME>
+          <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+        </ECUC-PARAM-CONF-CONTAINER-DEF>
+      </CONTAINERS>
+    </ECUC-MODULE-DEF>
+  </ELEMENTS>{'</AR-PACKAGE>' * pkg_prefix.count('<AR-PACKAGE>')}</AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+    app_dir = sip / "Applications" / "MyApp"
+    (app_dir / "Config" / "ECUC").mkdir(parents=True, exist_ok=True)
+    dpa_file = app_dir / "MyApp.dpa"
+    dpa_file.write_text(dpa_body, encoding="utf-8")
+    return dpa_file
+
+
+def test_davinci_import_step5_eb_mcal_selects_matching_variant_and_rejects_ambiguity(tmp_path):
+    """Step 5 EB MCAL import must select the plugin matching Can.epc even when an incompatible
+    variant plugin sorts first alphabetically, reject multi-variant plugins with no/generic EPC,
+    and reject an incompatible EPC instead of installing an empty wrong variant."""
+    from autosar_configurator.core.davinci_importer import DaVinciProjectImporter
+
+    dpa_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<ProjectAssistant Version="5.30.35 SP2">
+  <Folders><SIP>.\\..\\..</SIP><ECUC>.\\Config\\ECUC</ECUC></Folders>
+  <Display><ModuleDefinitionMappings/></Display>
+</ProjectAssistant>"""
+
+    # Scenario 1: Can_VendorA + Can_VendorB, Can.epc names /VendorB/Can -> VendorB selected + EPC preserved
+    s1 = tmp_path / "s1_exact"
+    dpa1 = _create_minimal_davinci_dpa(s1, dpa_xml)
+    eb1 = s1 / "eb_mcal"
+    plugins1 = eb1 / "Define" / "EbPlugins" / "eclipse"
+    _write_minimal_eb_can_plugin(plugins1 / "Can_VendorA", "VendorA", param_name="ParamA")
+    _write_minimal_eb_can_plugin(plugins1 / "Can_VendorB", "VendorB", param_name="ParamB")
+    out1 = eb1 / "Config" / "THA6206" / "output"
+    out1.mkdir(parents=True)
+    (out1 / "Can.epc").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Can</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>Can</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/VendorB/Can</DEFINITION-REF>
+      <CONTAINERS><ECUC-CONTAINER-VALUE>
+        <SHORT-NAME>CanGeneral</SHORT-NAME>
+        <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/VendorB/Can/CanGeneral</DEFINITION-REF>
+        <PARAMETER-VALUES><ECUC-TEXTUAL-PARAM-VALUE>
+          <DEFINITION-REF DEST="ECUC-STRING-PARAM-DEF">/VendorB/Can/CanGeneral/ParamB</DEFINITION-REF>
+          <VALUE>FROM_VENDOR_B</VALUE>
+        </ECUC-TEXTUAL-PARAM-VALUE></PARAMETER-VALUES>
+      </ECUC-CONTAINER-VALUE></CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    proj1, rep1 = DaVinciProjectImporter.import_project(
+        workspace_manager=WorkspaceManager(),
+        dpa_path=dpa1,
+        target_dir=s1 / "out",
+        project_name="Out1",
+        mcal_source_dir=eb1,
+        confirm=lambda *_: True,
+    )
+    assert rep1.failed_modules == []
+    assert proj1.module_entries["Can"].definition == "/VendorB/Can"
+    gen1 = next(c for c in proj1.module_managers["Can"].configuration.containers if c.short_name == "CanGeneral")
+    assert gen1.parameter_values["ParamB"].value == "FROM_VENDOR_B"
+
+    # Scenario 2: Can_VendorA + Can_VendorB without any EPC -> fail ambiguously, neither installed
+    s2 = tmp_path / "s2_no_epc"
+    dpa2 = _create_minimal_davinci_dpa(s2, dpa_xml)
+    eb2 = s2 / "eb_mcal"
+    plugins2 = eb2 / "Define" / "EbPlugins" / "eclipse"
+    _write_minimal_eb_can_plugin(plugins2 / "Can_VendorA", "VendorA")
+    _write_minimal_eb_can_plugin(plugins2 / "Can_VendorB", "VendorB")
+
+    proj2, rep2 = DaVinciProjectImporter.import_project(
+        workspace_manager=WorkspaceManager(),
+        dpa_path=dpa2,
+        target_dir=s2 / "out",
+        project_name="Out2",
+        mcal_source_dir=eb2,
+        confirm=lambda *_: True,
+    )
+    assert "Can" not in proj2.module_managers
+    reasons2 = [err for mod, err in rep2.failed_modules if mod == "Can"]
+    assert len(reasons2) == 1
+    assert "/VendorA/Can" in reasons2[0]
+    assert "/VendorB/Can" in reasons2[0]
+
+    # Scenario 3: Single plugin Can_VendorA, but Can.epc points to /VendorC/Can -> fail, never install blank VendorA
+    s3 = tmp_path / "s3_mismatch"
+    dpa3 = _create_minimal_davinci_dpa(s3, dpa_xml)
+    eb3 = s3 / "eb_mcal"
+    plugins3 = eb3 / "Define" / "EbPlugins" / "eclipse"
+    _write_minimal_eb_can_plugin(plugins3 / "Can_VendorA", "VendorA")
+    out3 = eb3 / "Config" / "THA6206" / "output"
+    out3.mkdir(parents=True)
+    (out3 / "Can.epc").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>Can</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>Can</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/VendorC/Can</DEFINITION-REF>
+      <CONTAINERS/>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    proj3, rep3 = DaVinciProjectImporter.import_project(
+        workspace_manager=WorkspaceManager(),
+        dpa_path=dpa3,
+        target_dir=s3 / "out",
+        project_name="Out3",
+        mcal_source_dir=eb3,
+        confirm=lambda *_: True,
+    )
+    assert "Can" not in proj3.module_managers
+    reasons3 = [err for mod, err in rep3.failed_modules if mod == "Can"]
+    assert len(reasons3) == 1
+    assert "/VendorC/Can" in reasons3[0]
+
+
+def test_davinci_import_step4_instance_named_mapping_with_standard_ecuc_def(tmp_path):
+    """When .dpa maps ModuleConfigName='CanTrcv_30_Inst' to /AUTOSAR/EcucDefs/CanTrcv,
+    Step 4 must treat it as standard non-specific mapping and fall back to canonical module 'CanTrcv'."""
+    from autosar_configurator.core.davinci_importer import DaVinciProjectImporter
+
+    dpa_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<ProjectAssistant Version="5.30.35 SP2">
+  <Folders><SIP>.\\..\\..</SIP><ECUC>.\\Config\\ECUC</ECUC></Folders>
+  <Display>
+    <ModuleDefinitionMappings>
+      <ModuleDefinitionMapping ModuleConfigName="CanTrcv_30_Inst" ModuleDefinitionRef="/AUTOSAR/EcucDefs/CanTrcv"/>
+    </ModuleDefinitionMappings>
+  </Display>
+  <EcucSplitter>
+    <Splitter File=".\\Config\\ECUC\\CanTrcv_ecuc.arxml"><Module Name="CanTrcv_30_Inst"/></Splitter>
+  </EcucSplitter>
+</ProjectAssistant>"""
+    dpa_file = _create_minimal_davinci_dpa(
+        tmp_path,
+        dpa_xml,
+        sip_modules={"CanTrcv": "<AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGE><SHORT-NAME>CanTrcv_Tle9255</SHORT-NAME>"},
+    )
+    # Wait: simplify nested AR-PACKAGE XML carefully
+    bswmd_file = tmp_path / "sip" / "Components" / "CanTrcv" / "BSWMD" / "CanTrcv_bswmd.arxml"
+    bswmd_file.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>CanTrcv_Tle9255</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF>
+        <SHORT-NAME>CanTrcv</SHORT-NAME>
+        <CONTAINERS>
+          <ECUC-PARAM-CONF-CONTAINER-DEF>
+            <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+            <LOWER-MULTIPLICITY>0</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          </ECUC-PARAM-CONF-CONTAINER-DEF>
+        </CONTAINERS>
+      </ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    (dpa_file.parent / "Config" / "ECUC" / "CanTrcv_ecuc.arxml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>CanTrcv_30_Inst</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/AUTOSAR/EcucDefs/CanTrcv</DEFINITION-REF>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>CanTrcvGeneral</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/AUTOSAR/EcucDefs/CanTrcv/CanTrcvGeneral</DEFINITION-REF>
+        </ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    project, report = DaVinciProjectImporter.import_project(
+        workspace_manager=WorkspaceManager(),
+        dpa_path=dpa_file,
+        target_dir=tmp_path / "out",
+        project_name="OutInst",
+        confirm=lambda *_: True,
+    )
+    assert report.failed_modules == []
+    assert "CanTrcv" in project.module_managers
+    assert project.module_entries["CanTrcv"].definition == "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+    assert any(c.short_name == "CanTrcvGeneral" for c in project.module_managers["CanTrcv"].configuration.containers)
+
+
+def test_remove_variant_then_add_different_variant_not_blocked_by_leftover_config(tmp_path):
+    """Removing a module (leaving config/<M>.arxml and base/<M>.arxml on disk) and then adding
+    a DIFFERENT implementation variant must ignore the stale other-variant disk config/baseline."""
+    wm, project, gen_pkg, tle_pkg = _setup_cantrcv_variant_project(tmp_path)
+    proj_dir = project.path.parent
+
+    # Switch to GenericCan (has Pre baseline) and save so config/CanTrcv.arxml + base/CanTrcv.arxml exist
+    sw = project.switch_module_variant(
+        "CanTrcv", gen_pkg, target_lib_index=0, preview_only=False, confirm=lambda *_: True
+    )
+    assert sw.applied is True
+    wm.save_project()
+
+    base_snapshot = proj_dir / "config" / "base" / "CanTrcv.arxml"
+    base_layers = proj_dir / "config" / "base" / "CanTrcv.layers.json"
+    assert (proj_dir / "config" / "CanTrcv.arxml").is_file()
+    assert base_snapshot.is_file()
+
+    # Remove CanTrcv with default archive_move=False (files stay on disk)
+    project.remove_module("CanTrcv")
+    assert (proj_dir / "config" / "CanTrcv.arxml").is_file()
+
+    # Now add the other variant Tle9255: must NOT fail with vendor mismatch or inherit GenericCan baseline
+    mgr = project.add_module_from_package(tle_pkg, lib_index=0, persist=False, confirm=lambda *_: True)
+    assert project.module_entries["CanTrcv"].definition == "/MICROSAR/CanTrcv_Tle9255/CanTrcv"
+    assert project.module_entries["CanTrcv"].base_hash is None
+    assert "CanTrcv" not in project.baselines
+    for c in mgr.configuration.containers:
+        assert "CanTrcvPreFlag" not in c.parameter_values
+
+    wm.save_project()
+    assert not base_snapshot.exists()
+    assert not base_layers.exists()
+
+
+def test_switch_module_variant_loads_ecu_resources_from_empty_and_flags_missing_container_overrides(tmp_path):
+    """switch_module_variant reloads ECU resources even when ecu_resources starts empty, and
+    stale_variant_overrides flags missing-container overrides without false-positiving indexed params."""
+    import json as _json
+
+    wm, project, gen_pkg, _tle_pkg = _setup_cantrcv_variant_project(tmp_path)
+    res_dir = gen_pkg.root / "resource"
+    res_dir.mkdir(parents=True, exist_ok=True)
+    (res_dir / "GenChip.properties").write_text("CanTrcv.MaxChannels: 4\n", encoding="utf-8")
+    gen_pkg.manifest.resources = "resource"
+    manifest_data = _json.loads((gen_pkg.root / "module.json").read_text(encoding="utf-8"))
+    manifest_data["resources"] = "resource"
+    (gen_pkg.root / "module.json").write_text(_json.dumps(manifest_data), encoding="utf-8")
+
+    project.ecu_resources = {}
+    cfg = project.module_managers["CanTrcv"].configuration
+    cfg.variant_overrides = {
+        "V2": {
+            "/CanTrcv/GhostContainer.GhostParam": 1,
+            "/CanTrcv/CanTrcvGeneral.CanTrcvDevErrorDetect[0]": True,
+        }
+    }
+
+    plan = project.switch_module_variant("CanTrcv", gen_pkg, target_lib_index=0, preview_only=True)
+    assert "[V2] /CanTrcv/GhostContainer.GhostParam" in plan.stale_variant_overrides
+    assert "[V2] /CanTrcv/CanTrcvGeneral.CanTrcvDevErrorDetect[0]" not in plan.stale_variant_overrides
+
+    applied = project.switch_module_variant(
+        "CanTrcv", gen_pkg, target_lib_index=0, preview_only=False, confirm=lambda *_: True
+    )
+    assert applied.applied is True
+    assert project.ecu_resources.get("CanTrcv.MaxChannels") == 4
+
+
+
 
 
 

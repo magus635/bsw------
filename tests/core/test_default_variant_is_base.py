@@ -258,3 +258,253 @@ def test_supported_config_variants_parsing_and_direct_child_param_value(tmp_path
     assert configs[0].variant_overrides == {}
 
 
+def test_code_generator_forwards_project_variants_and_pulls_configuration_variant_overrides(tmp_path):
+    """CodeGenerator forwards project_variants to EB templates and pulls configuration.variant_overrides
+    for active variant without requiring explicit variant_overrides in __init__."""
+    from autosar_configurator.core.model.definition_model import EcucReferenceDef
+    from autosar_configurator.generator.generator import CodeGenerator
+
+    mod_def = EcucModuleDef(short_name="Can", definition_ref="/Vendor/Can")
+    general_def = EcucContainerDef(
+        short_name="CanGeneral",
+        definition_ref="/Vendor/Can/CanGeneral",
+        lower_multiplicity=1,
+        upper_multiplicity=1,
+    )
+    general_def.add_parameter(
+        EcucParameterDef(
+            short_name="CanBaud",
+            param_type=EcucParameterType.INTEGER,
+            definition_ref="/Vendor/Can/CanGeneral/CanBaud",
+            config_class="PRE-COMPILE",
+        )
+    )
+    general_def.add_parameter(
+        EcucParameterDef(
+            short_name="CanRates",
+            param_type=EcucParameterType.INTEGER,
+            definition_ref="/Vendor/Can/CanGeneral/CanRates",
+            lower_multiplicity=0,
+            upper_multiplicity=-1,
+        )
+    )
+    general_def.add_reference(
+        EcucReferenceDef(
+            short_name="CanClockRef",
+            definition_ref="/Vendor/Can/CanGeneral/CanClockRef",
+            destination_ref="/Vendor/Mcu/Clk",
+        )
+    )
+    mod_def.add_container(general_def)
+
+    project = WorkspaceProject("demo")
+    mgr = project.add_module(mod_def, Path("Can.arxml"))
+    general = mgr.create_container_instance(general_def)
+    mgr.set_parameter_value(general, "CanBaud", 500)
+    general.add_multi_parameter_value("CanRates", 125, "/Vendor/Can/CanGeneral/CanRates", 0)
+    general.add_multi_parameter_value("CanRates", 250, "/Vendor/Can/CanGeneral/CanRates", 1)
+    general.set_reference_value("CanClockRef", "/Mcu/ClkA", "/Vendor/Can/CanGeneral/CanClockRef")
+
+    mgr.configuration.variant_overrides = {
+        "V2": {
+            "/Can/CanGeneral.CanBaud": 1000,
+            "/Can/CanGeneral.CanRates[1]": 500,
+            "/Can/CanGeneral.ref:CanClockRef": "/Mcu/ClkB",
+        }
+    }
+
+    tpl_dir = tmp_path / "templates" / "Can"
+    tpl_dir.mkdir(parents=True)
+    (tpl_dir / "Can_Cfg.h.tpl").write_text(
+        'baud=[!"num:i(node:value(CanGeneral/CanBaud))"!];'
+        'rate1=[!"num:i(node:value(CanGeneral/CanRates/*[2]))"!];'
+        'ref=[!"CanGeneral/CanClockRef"!];'
+        'vsize=[!"num:i(variant:size())"!];'
+        'vc1=[!"variant:check(\'V1\')"!];'
+        'vc2=[!"variant:check(\'V2\')"!];'
+        'vc9=[!"variant:check(\'V9\')"!]',
+        encoding="utf-8",
+    )
+
+    gen = CodeGenerator(
+        mod_def,
+        mgr.configuration,
+        project_template_dir=tmp_path / "templates",
+        project_variants=["Default", "V1", "V2"],
+    )
+    out_dir = tmp_path / "out"
+    assert gen.generate_all(out_dir, variant="V2") is True
+    rendered = (out_dir / "Can" / "V2" / "include" / "Can_Cfg.h").read_text(encoding="utf-8")
+    assert "baud=1000;rate1=500;ref=/Mcu/ClkB;vsize=3;vc1=false;vc2=true;vc9=false" in rendered
+
+    ctx_v2 = gen._prepare_context(variant="V2")
+    assert ("CanGeneral", "CanBaud", "1000") in ctx_v2["precompile_params"]
+    assert ("CanGeneral", "CanClockRef", "/Mcu/ClkB") in ctx_v2["references"]
+    assert gen._calculate_fingerprint(variant="V2") != gen._calculate_fingerprint(variant="Default")
+
+
+def test_overlay_engine_excludes_other_variant_when_none_prevents_phantom_required_and_isolates_nested_short_name():
+    """OverlayEngine treats active_variant=None as Default (excluding V2-only instances),
+    never synthesizes a phantom default container for required defs hidden by another variant,
+    and isolates bare short-name override keys from nested sub-containers."""
+    from autosar_configurator.generator.eb_template_engine import EBTemplateEngine
+
+    mod_def = EcucModuleDef(short_name="Can", definition_ref="/Vendor/Can")
+    req_def = EcucContainerDef(
+        short_name="ReqOnlyV2",
+        definition_ref="/Vendor/Can/ReqOnlyV2",
+        lower_multiplicity=1,
+        upper_multiplicity=1,
+    )
+    req_def.add_parameter(
+        EcucParameterDef(
+            short_name="Tag",
+            param_type=EcucParameterType.STRING,
+            definition_ref="/Vendor/Can/ReqOnlyV2/Tag",
+            default_value="GHOST",
+        )
+    )
+    mod_def.add_container(req_def)
+
+    ctrl_def = EcucContainerDef(
+        short_name="Ctrl",
+        definition_ref="/Vendor/Can/Ctrl",
+        lower_multiplicity=0,
+        upper_multiplicity=-1,
+    )
+    filter_def = EcucContainerDef(
+        short_name="Filter",
+        definition_ref="/Vendor/Can/Ctrl/Filter",
+        lower_multiplicity=0,
+        upper_multiplicity=1,
+    )
+    filter_def.add_parameter(
+        EcucParameterDef(
+            short_name="Mask",
+            param_type=EcucParameterType.INTEGER,
+            definition_ref="/Vendor/Can/Ctrl/Filter/Mask",
+        )
+    )
+    ctrl_def.add_sub_container(filter_def)
+    mod_def.add_container(ctrl_def)
+
+    project = WorkspaceProject("demo")
+    mgr = project.add_module(mod_def, Path("Can.arxml"))
+    req_inst = mgr.create_container_instance(req_def)
+    req_inst.variant = "V2"
+    mgr.set_parameter_value(req_inst, "Tag", "REAL_V2")
+
+    ctrl0 = mgr.create_container_instance(ctrl_def, instance_name="Ctrl_0")
+    flt0 = mgr.create_container_instance(filter_def, parent=ctrl0, instance_name="Filter")
+    mgr.set_parameter_value(flt0, "Mask", 1)
+
+    ctrl1 = mgr.create_container_instance(ctrl_def, instance_name="Ctrl_1")
+    flt1 = mgr.create_container_instance(filter_def, parent=ctrl1, instance_name="Filter")
+    mgr.set_parameter_value(flt1, "Mask", 2)
+
+    mgr.configuration.variant_overrides = {"V2": {"Filter.Mask": 99}}
+
+    tpl = (
+        'cnt=[!"num:i(count(ReqOnlyV2/*))"!];'
+        'exists=[!"node:exists(ReqOnlyV2/Tag)"!];'
+        'tag=[!IF "node:exists(ReqOnlyV2/Tag)"!][!"node:value(ReqOnlyV2/Tag)"!][!ELSE!]NONE[!ENDIF!];'
+        'masks=[!LOOP "Ctrl/*"!][!"node:value(Filter/Mask)"!],[!ENDLOOP!]'
+    )
+
+    out_none = EBTemplateEngine(strict=False).render(
+        tpl, {"module_def": mod_def, "configuration": mgr.configuration, "module_name": "Can"}
+    )
+    assert out_none == "cnt=0;exists=false;tag=NONE;masks=1,2,"
+
+    out_default = EBTemplateEngine(strict=False).render(
+        tpl,
+        {
+            "module_def": mod_def,
+            "configuration": mgr.configuration,
+            "module_name": "Can",
+            "active_variant": "Default",
+        },
+    )
+    assert out_default == "cnt=0;exists=false;tag=NONE;masks=1,2,"
+
+    out_v2 = EBTemplateEngine(strict=False).render(
+        tpl,
+        {
+            "module_def": mod_def,
+            "configuration": mgr.configuration,
+            "module_name": "Can",
+            "active_variant": "V2",
+        },
+    )
+    assert out_v2 == "cnt=1;exists=true;tag=REAL_V2;masks=1,2,"
+
+
+def test_eb_template_engine_evaluates_enable_conditions_with_active_variant_and_recomputes_on_reuse():
+    """EBTemplateEngine injects active_variant/project_variants before apply_enable_conditions()
+    and recomputes enable_result when the same engine instance is reused across variants."""
+    from autosar_configurator.generator.eb_template_engine import EBTemplateEngine
+
+    mod_def = EcucModuleDef(short_name="EcuC", definition_ref="/MICROSAR/EcuC")
+    general_def = EcucContainerDef(
+        short_name="EcucGeneral",
+        definition_ref="/MICROSAR/EcuC/EcucGeneral",
+        lower_multiplicity=1,
+        upper_multiplicity=1,
+    )
+    general_def.add_parameter(
+        EcucParameterDef(
+            short_name="V2OnlyFlag",
+            param_type=EcucParameterType.BOOLEAN,
+            definition_ref="/MICROSAR/EcuC/EcucGeneral/V2OnlyFlag",
+            default_value=True,
+            enable_expr="variant:name() = 'V2'",
+        )
+    )
+    mod_def.add_container(general_def)
+
+    project = WorkspaceProject("demo")
+    mgr = project.add_module(mod_def, Path("EcuC.arxml"))
+    general = mgr.create_container_instance(general_def)
+    mgr.set_parameter_value(general, "V2OnlyFlag", True)
+
+    engine = EBTemplateEngine(strict=False)
+    tpl = '[!"node:exists(EcucGeneral/V2OnlyFlag)"!]:[!"variant:name()"!]'
+
+    out1 = engine.render(
+        tpl,
+        {
+            "module_def": mod_def,
+            "configuration": mgr.configuration,
+            "module_name": "EcuC",
+            "active_variant": "Default",
+            "project_variants": ["Default", "V2"],
+        },
+    )
+    assert out1 == "false:"
+
+    out2 = engine.render(
+        tpl,
+        {
+            "module_def": mod_def,
+            "configuration": mgr.configuration,
+            "module_name": "EcuC",
+            "active_variant": "V2",
+            "project_variants": ["Default", "V2"],
+        },
+    )
+    assert out2 == "true:V2"
+
+    out3 = engine.render(
+        tpl,
+        {
+            "module_def": mod_def,
+            "configuration": mgr.configuration,
+            "module_name": "EcuC",
+            "active_variant": "Default",
+            "project_variants": ["Default", "V2"],
+        },
+    )
+    assert out3 == "false:"
+
+
+

@@ -756,7 +756,12 @@ def _module_section(m: ModuleImport) -> List[str]:
         lines.append(f"- 定义：`{m.definition}`")
     if m.error is not None:
         lines.append(f"- **失败**：{m.error}")
-    lines.append(f"- EPC：`{m.source_epc}`" if m.source_epc else "- EPC：无（按新模块用基线初始化）")
+    if m.source_epc:
+        lines.append(f"- EPC：`{m.source_epc}`")
+    elif m.error is not None:
+        lines.append("- EPC：无")
+    else:
+        lines.append("- EPC：无（按新模块用基线初始化）")
     if m.counts is not None:
         line = (f"- 导入：容器 {m.counts['containers']}，参数 {m.counts['parameters']}，"
                 f"引用 {m.counts['references']}")

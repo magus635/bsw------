@@ -2660,7 +2660,13 @@ class DaVinciProjectImporter:
                             "module": mod_name,
                             "reason": "保留当前工程中已有的 MCAL 模块，跳过 DaVinci 同名 MCAL 模块",
                         })
-                    elif mod_name in bsw_candidates_by_name or dv.module_definitions.get(mod_name, "").rstrip("/") in bsw_by_def:
+                    mapped_def = dv.module_definitions.get(mod_name, "").rstrip("/")
+                    mapped_canon = mapped_def.rsplit("/", 1)[-1] if mapped_def else ""
+                    if (
+                        mod_name in bsw_candidates_by_name
+                        or mapped_canon in bsw_candidates_by_name
+                        or mapped_def in bsw_by_def
+                    ):
                         target_bsw.append(mod_name)
                     else:
                         report.skipped_mcal_modules.append({
@@ -2680,15 +2686,22 @@ class DaVinciProjectImporter:
         for mod_name in target_bsw:
             expected_def = dv.module_definitions.get(mod_name)
             norm_expected = (expected_def or "").rstrip("/")
-            std_ref = f"/AUTOSAR/EcucDefs/{mod_name}"
+            canonical_module = (
+                norm_expected.rsplit("/", 1)[-1] if norm_expected else mod_name
+            ) or mod_name
+            std_ref = f"/AUTOSAR/EcucDefs/{canonical_module}"
             has_specific_expected = bool(norm_expected and norm_expected != std_ref)
             ecuc_file = dv.resolve_ecuc_file(mod_name)
+            candidates_for_mod = (
+                bsw_candidates_by_name.get(mod_name)
+                or bsw_candidates_by_name.get(canonical_module, [])
+            )
 
             pkg: Optional[ModulePackage] = None
             if has_specific_expected:
                 pkg = bsw_by_def.get(norm_expected)
                 if pkg is None:
-                    avail = bsw_candidates_by_name.get(mod_name, [])
+                    avail = candidates_for_mod
                     if avail:
                         avail_defs = ", ".join(p.manifest.definition for p in avail)
                         msg = (
@@ -2700,7 +2713,7 @@ class DaVinciProjectImporter:
                     report.failed_modules.append((mod_name, msg))
                     continue
             else:
-                candidates = bsw_candidates_by_name.get(mod_name, [])
+                candidates = candidates_for_mod
                 if len(candidates) == 1:
                     pkg = candidates[0]
                 elif len(candidates) > 1:
@@ -2710,7 +2723,10 @@ class DaVinciProjectImporter:
                             for sn, dref in eb_import.module_configs_in(ecuc_file):
                                 norm_dref = (dref or "").rstrip("/")
                                 leaf = norm_dref.rsplit("/", 1)[-1] if norm_dref else ""
-                                if (leaf == mod_name or sn == mod_name) and norm_dref in bsw_by_def:
+                                if (
+                                    leaf in (mod_name, canonical_module)
+                                    or sn in (mod_name, canonical_module)
+                                ) and norm_dref in bsw_by_def:
                                     ecuc_defs.add(norm_dref)
                         except Exception:
                             ecuc_defs = set()
@@ -2902,7 +2918,8 @@ class DaVinciProjectImporter:
         if eb_plugins_dir is not None and eb_lib_index is not None and eb_survey is not None:
             for skipped_dir in eb_survey.skipped:
                 report.warnings.append(f"EB 插件目录跳过：{skipped_dir.name}（{skipped_dir.reason}）")
-            epc_values: Dict[str, Any] = {}
+            epc_by_module: Dict[str, List[Any]] = {}
+            epc_seen: Dict[str, Set[Tuple[Path, str, str]]] = {}
             epc_candidates = sorted(
                 set(EpcFileScanner.find_epc_files(Path(mcal_source_dir), new_project.selected_chip).values()),
                 key=lambda p: p.as_posix(),
@@ -2912,44 +2929,147 @@ class DaVinciProjectImporter:
                 for xdm_path in sorted(Path(mcal_source_dir).glob("*.xdm")):
                     epc_candidates.append(xdm_path)
 
-            for epc in epc_candidates:
+            for epc_path in epc_candidates:
                 try:
-                    configs = eb_import.module_configs_in(epc)
+                    configs = eb_import.module_configs_in(epc_path)
                 except Exception:
                     continue
                 for sn, def_ref in configs:
                     m_name = def_ref.rstrip("/").rsplit("/", 1)[-1] if def_ref else sn
-                    if m_name not in epc_values:
-                        epc_values[m_name] = eb_import.EpcValues(epc, sn, def_ref)
+                    norm_ref = (def_ref or "").rstrip("/")
+                    dedup_key = (epc_path.resolve(), sn, norm_ref)
+                    seen_set = epc_seen.setdefault(m_name, set())
+                    if dedup_key not in seen_set:
+                        seen_set.add(dedup_key)
+                        epc_by_module.setdefault(m_name, []).append(
+                            eb_import.EpcValues(epc_path, sn, def_ref)
+                        )
 
             excluded = set(eb_survey.exclude)
+            eb_pkgs_by_module: Dict[str, List[ModulePackage]] = {}
             for pkg in eb_survey.packages:
                 if pkg.root.name in excluded:
                     continue
-                m_name = pkg.manifest.module
-                epc = epc_values.get(m_name)
+                eb_pkgs_by_module.setdefault(pkg.manifest.module, []).append(pkg)
+
+            for m_name, cand_pkgs in sorted(eb_pkgs_by_module.items()):
+                if m_name in new_project.module_managers or m_name in new_project.module_entries:
+                    if not (into_project is not None and on_conflict == "replace"):
+                        continue
+
+                epcs = epc_by_module.get(m_name, [])
+                pkg: Optional[ModulePackage] = None
+                epc = None
+
+                if not epcs:
+                    if len(cand_pkgs) > 1:
+                        cand_desc = ", ".join(
+                            f"{p.manifest.definition} ({p.root.name})" for p in cand_pkgs
+                        )
+                        report.failed_modules.append((
+                            m_name,
+                            f"Ambiguous EB MCAL variant plugins for '{m_name}' without EPC values: {cand_desc}",
+                        ))
+                        continue
+                    pkg = cand_pkgs[0]
+                else:
+                    exact_pairs = [
+                        (e, p)
+                        for e in epcs
+                        for p in cand_pkgs
+                        if e.definition_ref
+                        and e.definition_ref.rstrip("/") == p.manifest.definition.rstrip("/")
+                    ]
+                    exact_by_def: Dict[str, List[Tuple[Any, ModulePackage]]] = {}
+                    for e, p in exact_pairs:
+                        exact_by_def.setdefault(p.manifest.definition.rstrip("/"), []).append((e, p))
+
+                    if exact_by_def:
+                        if len(exact_by_def) > 1:
+                            cand_desc = ", ".join(
+                                f"{p.manifest.definition} ({p.root.name})"
+                                for pairs in exact_by_def.values()
+                                for _e, p in pairs[:1]
+                            )
+                            report.failed_modules.append((
+                                m_name,
+                                f"Ambiguous exact EPC definitions for EB MCAL '{m_name}': {cand_desc}",
+                            ))
+                            continue
+                        epc, pkg = next(iter(exact_by_def.values()))[0]
+                    else:
+                        fitting_pairs = [
+                            (e, p)
+                            for e in epcs
+                            for p in cand_pkgs
+                            if eb_import.epc_names_definition(e.definition_ref, p.manifest.definition)
+                        ]
+                        fitting_by_def: Dict[str, List[Tuple[Any, ModulePackage]]] = {}
+                        for e, p in fitting_pairs:
+                            fitting_by_def.setdefault(p.manifest.definition.rstrip("/"), []).append((e, p))
+
+                        if len(fitting_by_def) == 1 and len(cand_pkgs) == 1:
+                            epc, pkg = next(iter(fitting_by_def.values()))[0]
+                        elif fitting_by_def:
+                            epc_defs = ", ".join(
+                                sorted({(e.definition_ref or "（未写明）") for e in epcs})
+                            )
+                            cand_desc = ", ".join(
+                                f"{p.manifest.definition} ({p.root.name})" for p in cand_pkgs
+                            )
+                            report.failed_modules.append((
+                                m_name,
+                                f"Ambiguous EB MCAL variant plugins for '{m_name}' "
+                                f"(EPC DEFINITION-REF: {epc_defs}; candidates: {cand_desc})",
+                            ))
+                            continue
+                        else:
+                            epc_defs = ", ".join(
+                                sorted({(e.definition_ref or "（未写明）") for e in epcs})
+                            )
+                            cand_desc = ", ".join(
+                                f"{p.manifest.definition} ({p.root.name})" for p in cand_pkgs
+                            )
+                            report.failed_modules.append((
+                                m_name,
+                                f"EB MCAL '{m_name}' EPC definition mismatch: EPC uses {epc_defs}, "
+                                f"available plugin(s): {cand_desc}",
+                            ))
+                            continue
+
+                same_def_pkgs = [
+                    p
+                    for p in cand_pkgs
+                    if p.manifest.definition.rstrip("/") == pkg.manifest.definition.rstrip("/")
+                ]
+                if len(same_def_pkgs) > 1:
+                    plugin_names = ", ".join(p.root.name for p in same_def_pkgs)
+                    report.failed_modules.append((
+                        m_name,
+                        f"Multiple EB MCAL plugins provide {pkg.manifest.definition}: {plugin_names}",
+                    ))
+                    continue
+
                 mcal_backup = None
                 if m_name in new_project.module_managers or m_name in new_project.module_entries:
-                    if into_project is not None and on_conflict == "replace":
-                        existing_mgr = new_project.module_managers.get(m_name)
-                        existing_has_config = (
-                            existing_mgr is not None
-                            and bool(
-                                getattr(existing_mgr.configuration, "containers", None)
-                                or getattr(existing_mgr.configuration, "parameter_values", None)
-                            )
+                    existing_mgr = new_project.module_managers.get(m_name)
+                    existing_has_config = (
+                        existing_mgr is not None
+                        and bool(
+                            getattr(existing_mgr.configuration, "containers", None)
+                            or getattr(existing_mgr.configuration, "parameter_values", None)
                         )
-                        if (
-                            epc is None
-                            and existing_has_config
-                            and not pkg.manifest.pre
-                            and not pkg.manifest.rec
-                        ):
-                            continue
-                        mcal_backup = new_project._capture_module_replace_backup(m_name)
-                        new_project._purge_module_for_replace(m_name)
-                    else:
+                    )
+                    if (
+                        epc is None
+                        and existing_has_config
+                        and not pkg.manifest.pre
+                        and not pkg.manifest.rec
+                    ):
                         continue
+                    mcal_backup = new_project._capture_module_replace_backup(m_name)
+                    new_project._purge_module_for_replace(m_name)
+
                 written_mcal_cfg: Optional[Path] = None
                 if epc is not None and eb_import.epc_names_definition(epc.definition_ref, pkg.manifest.definition):
                     written_mcal_cfg = project_paths.config_file(new_project, m_name)

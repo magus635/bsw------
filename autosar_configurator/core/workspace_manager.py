@@ -4,6 +4,7 @@ Manages the overall project workspace, including multiple BSW module configurati
 """
 import json
 import os
+import re
 import shutil
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -545,21 +546,29 @@ class WorkspaceProject:
             )
 
         config_loaded = False
+        stale_other_variant_disk = False
         if entry.config_path and self.path:
             config_path = Path(entry.config_path)
             if not config_path.is_absolute():
                 config_path = project_paths.project_root(self) / config_path
             if config_path.is_file():
-                try:
-                    manager.load_configuration(config_path)
-                except Exception as exc:  # noqa: BLE001 - roll back, then report
-                    self._rollback_added_module(name, stashed)
-                    raise ValueError(
-                        f"Failed to load configuration {entry.config_path}: {exc}") from exc
-                config_loaded = True
-                if stashed is not None:
-                    # load_configuration replaces the configuration object
-                    manager.configuration.variant_overrides = stashed
+                if new_entry and self._is_stale_other_variant_config_file(
+                    config_path, name, pkg.manifest.definition
+                ):
+                    # Removing a module leaves config/<M>.arxml on disk; adding a different
+                    # implementation variant later must ignore that stale other-variant file.
+                    stale_other_variant_disk = True
+                else:
+                    try:
+                        manager.load_configuration(config_path)
+                    except Exception as exc:  # noqa: BLE001 - roll back, then report
+                        self._rollback_added_module(name, stashed)
+                        raise ValueError(
+                            f"Failed to load configuration {entry.config_path}: {exc}") from exc
+                    config_loaded = True
+                    if stashed is not None:
+                        # load_configuration replaces the configuration object
+                        manager.configuration.variant_overrides = stashed
 
         if new_entry:
             self.module_entries[name] = entry
@@ -580,10 +589,17 @@ class WorkspaceProject:
             # An existing Active: merge Base' into it, never replace its Base
             if new_entry:
                 # The entry was created by this call (re-add after a removal): the snapshot
-                # on disk is still the Base the user accepted, if it is intact. Adoption is
-                # limited to a genuinely new entry — an entry that merely lacks a hash in
-                # .dpa must stay a migrated project (every value USER).
-                entry.base_hash = _snapshot_hash(baseline_session.base_snapshot_path(self, name))
+                # on disk is still the Base the user accepted, unless it belongs to another
+                # vendor variant left behind by remove_module().
+                snap_path = baseline_session.base_snapshot_path(self, name)
+                if self._is_stale_other_variant_config_file(
+                    snap_path, name, pkg.manifest.definition
+                ):
+                    entry.base_hash = None
+                    if self.path is not None:
+                        self._pending_baseline_deletes.add(name)
+                else:
+                    entry.base_hash = _snapshot_hash(snap_path)
             try:
                 self.reconcile_baseline(manager, entry, pkg, confirm)
             except Exception as exc:  # noqa: BLE001 - one module's baseline must not abort the project
@@ -594,6 +610,8 @@ class WorkspaceProject:
 
         if not init_baseline:
             self.baselines.pop(name, None)
+            if stale_other_variant_disk and self.path is not None:
+                self._pending_baseline_deletes.add(name)
             return manager
 
         # A new module: Active = Base' (D8), snapshot written at once
@@ -608,11 +626,55 @@ class WorkspaceProject:
                     baseline.dirty = True
                 self.baselines[name] = baseline
                 self._pending_baseline_deletes.discard(name)
+            else:
+                self.baselines.pop(name, None)
+                entry.base_hash = None
+                snap_path = baseline_session.base_snapshot_path(self, name)
+                if (
+                    stale_other_variant_disk
+                    or self._is_stale_other_variant_config_file(
+                        snap_path, name, pkg.manifest.definition
+                    )
+                ) and self.path is not None:
+                    self._pending_baseline_deletes.add(name)
         except Exception as exc:  # noqa: BLE001 - same rollback as a failed config load
             self._rollback_added_module(name, stashed)
             raise ValueError(
                 f"Failed to initialise the baseline of {name}: {exc}") from exc
         return manager
+
+    @staticmethod
+    def _is_stale_other_variant_config_file(
+        arxml_path: Path, module_name: str, target_definition: str
+    ) -> bool:
+        """Return True when ``arxml_path`` only contains blocks of another vendor variant."""
+        if not arxml_path.is_file():
+            return False
+        norm_target = (target_definition or "").rstrip("/")
+        std_ref = f"/AUTOSAR/EcucDefs/{module_name}" if module_name else ""
+        if (
+            not module_name
+            or not norm_target
+            or norm_target == std_ref
+            or norm_target.startswith("/__STUB__/")
+        ):
+            return False
+        from . import eb_import
+
+        try:
+            configs = eb_import.module_configs_in(arxml_path)
+        except Exception:
+            return False
+        matching = [
+            (sn, (dref or "").rstrip("/"))
+            for sn, dref in configs
+            if sn == module_name or (dref and dref.rstrip("/").rsplit("/", 1)[-1] == module_name)
+        ]
+        if not matching:
+            return False
+        return not any(
+            eb_import.epc_names_definition(dref, norm_target) for _sn, dref in matching
+        )
 
     def _rollback_added_module(self, name: str, stashed: Any) -> None:
         """Undo the parts of ``add_module_from_package`` done before it failed."""
@@ -643,7 +705,8 @@ class WorkspaceProject:
         if not def_src.is_file():
             raise FileNotFoundError(f"Module definition file not found: {def_src}")
 
-        from .packages.manifest import write_manifest
+        from .packages.errors import PackageError
+        from .packages.manifest import load_manifest, write_manifest
         from .packages.types import ModuleManifest, PackageFile
         from .packages.value_index import index_value_collections
 
@@ -654,8 +717,38 @@ class WorkspaceProject:
 
         raw_def = (module_def.ar_path or module_def.definition_ref or f"/{module_name}").strip()
         def_ar_path = raw_def if raw_def.startswith("/") else f"/{raw_def}"
+        norm_def_ar_path = def_ar_path.rstrip("/")
 
-        pkg_dir = project_paths.module_source_dir(self, project_paths.MODULE_SOURCE_CUSTOM) / module_name
+        custom_root = project_paths.module_source_dir(self, project_paths.MODULE_SOURCE_CUSTOM)
+        custom_root.mkdir(parents=True, exist_ok=True)
+        pkg_dir: Optional[Path] = None
+        for sub in sorted(custom_root.iterdir(), key=lambda p: p.name):
+            if not sub.is_dir() or not (sub / "module.json").is_file():
+                continue
+            try:
+                existing_manifest = load_manifest(sub)
+            except (PackageError, OSError, ValueError, KeyError):
+                continue
+            if (
+                existing_manifest.module == module_name
+                and (existing_manifest.definition or "").rstrip("/") == norm_def_ar_path
+            ):
+                pkg_dir = sub
+                break
+
+        if pkg_dir is None:
+            default_dir = custom_root / module_name
+            if not default_dir.exists() or not (default_dir / "module.json").is_file():
+                pkg_dir = default_dir
+            else:
+                from .davinci_importer import SipScanner
+
+                existing_names = {p.name for p in custom_root.iterdir() if p.is_dir()}
+                dir_name = SipScanner._package_dir_name_for_def(
+                    module_name, def_ar_path, existing_names
+                )
+                pkg_dir = custom_root / dir_name
+
         config_dir = pkg_dir / "config"
         config_dir.mkdir(parents=True, exist_ok=True)
 
@@ -717,8 +810,8 @@ class WorkspaceProject:
         )
         lib_index = self.ensure_module_library(custom_lib_ref)
         lib_ref = self.module_libraries[lib_index]
-        if module_name in lib_ref.exclude:
-            lib_ref.exclude = [item for item in lib_ref.exclude if item != module_name]
+        if lib_ref.exclude:
+            lib_ref.exclude = [item for item in lib_ref.exclude if item not in (module_name, pkg_dir.name)]
 
         manager = self.add_module_from_package(
             ModulePackage(pkg_dir, manifest),
@@ -1741,25 +1834,30 @@ class WorkspaceProject:
                 prefix, leaf = ov_key.rsplit(".", 1)
                 is_ref = leaf.startswith("ref:")
                 member_name = leaf[4:] if is_ref else leaf
+                base_member = re.sub(r"\[\d+\]$", "", member_name)
                 is_stale = False
                 if prefix in unknown_container_set:
                     is_stale = True
-                elif is_ref and f"{prefix}.{member_name}" in unknown_ref_set:
+                elif is_ref and f"{prefix}.{base_member}" in unknown_ref_set:
                     is_stale = True
-                elif not is_ref and f"{prefix}.{member_name}" in unknown_param_set:
+                elif not is_ref and f"{prefix}.{base_member}" in unknown_param_set:
                     is_stale = True
+                elif prefix == f"/{effective_name}":
+                    is_stale = is_ref or (base_member not in target_module_def.parameters)
                 elif prefix in known_container_defs:
                     c_def = known_container_defs[prefix]
                     if is_ref:
-                        is_stale = member_name not in c_def.references
+                        is_stale = base_member not in c_def.references
                     else:
-                        is_stale = member_name not in c_def.parameters
+                        is_stale = base_member not in c_def.parameters
                 elif prefix in short_name_container_defs:
                     c_defs = short_name_container_defs[prefix]
                     if is_ref:
-                        is_stale = not any(member_name in d.references for d in c_defs)
+                        is_stale = not any(base_member in d.references for d in c_defs)
                     else:
-                        is_stale = not any(member_name in d.parameters for d in c_defs)
+                        is_stale = not any(base_member in d.parameters for d in c_defs)
+                else:
+                    is_stale = True
                 if is_stale:
                     stale_variant_overrides.append(f"[{var_name}] {ov_key}")
 
@@ -1854,7 +1952,12 @@ class WorkspaceProject:
                         self._pending_baseline_deletes.add(module_name)
 
             self.deduplicate_library_definitions()
-            if self.ecu_resources:
+            if (
+                self.ecu_resources
+                or self.selected_chip
+                or self.path is not None
+                or target_pkg.resource_dir() is not None
+            ):
                 self.load_ecu_resources()
             self.resolve_all_references(force=True)
             self.build_reverse_reference_index()
@@ -3636,7 +3739,7 @@ class WorkspaceManager:
                 + "；请在插件库的 exclude 中排除多余插件后重新导入或手动添加所需变体"
             )
             report.modules.append(eb_import.ModuleImport(
-                name=module, definition=no_epc_ambiguous[module][0], error=reason))
+                name=module, definition="", error=reason))
             failed_modules.append((module, reason))
 
         # EPC values no plugin provides a definition for: kept, reported, failing
