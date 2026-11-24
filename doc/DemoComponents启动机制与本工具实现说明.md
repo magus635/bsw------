@@ -227,3 +227,164 @@ flowchart TD
 5. **`memmap` 扩展与 `vLinkGen_*` 同源生成**：扩展 `Plan` 与 ADS 符号表，同步产出 `scatter.scat` + `vLinkGen_Cfg.h` / `vLinkGen_Lcfg.h/.c`，通过覆盖率与对齐检查。
 6. **ADS 自动化链接检查**：新增 `tools/brs_link_check` 编译链接并解析 `.map` 文件，断言所有符号已解析、每条初始化表项起止/加载地址与区域边界一致、每核启动栈顶等于 `STACK_C<n>` 上界。
 
+
+Analyzed startup.c:L1-800
+Analyzed startup.c:L801-1158
+Analyzed startup.h:L1-36
+Analyzed startup_ads.h:L1-699
+Analyzed ARMStartup_Platform.h:L1-119
+Ran inspect OS project directory layout
+Ran search OS kernel for stack, StartCore, VBAR, and init APIs
+Analyzed ARMStartup_CortexR52.c:L101-654
+Analyzed Os_link_Lcfg.c:L1-503
+Ran list OS project make/ads and startup files
+Analyzed Os_kernel.c:L850-1100
+Analyzed exception.s:L1-220
+Analyzed startup_optimize.c:L1-42
+Analyzed Build_Config_ads.mak:L1-80
+Ran check OS kernel stack/VBAR/init/CNTKCTL references
+Analyzed exception.s:L221-369
+Analyzed startup.c:L1-400
+Analyzed startup.c:L401-686
+Analyzing Os.h:L1400-1470
+Analyzed Os_kernel.c:L830-860
+Ran check BrsHw.c for slave core ctrl, TCM, CNTKCTL, XIP MPU
+Analyzed BrsHw.c:L6220-6296
+Analyzed BrsHw.c:L4870-4980
+
+已完成 **Task 2**（逐行对照厂商 [startup.c](file:///d:/bsw-------main/bsw------/doc/THA6XXX_MC_AS440/DemoWorkspace/CodeProject/Startup/startup.c)、自研 OS 工程 [Os_kernel.c](file:///D:/Test001_tr002_THA6_OS_Project/Os/kernel/Os_kernel.c) / [exception.s](file:///D:/Test001_tr002_THA6_OS_Project/SDK/platform/startup/exception.s) 与 Vector `BrsHw`/`BrsMain` 静态源码）。
+
+---
+
+## 一、启动步骤逐项对照表（Task 2.1 & 2.2）
+
+> 落点优先级：**① 初始化表（`vLinkGen_*`） → ② 用户回调（`BrsMain_Callout_Stubs.c`） → ③ 需确认/改内核或静态代码（标记“待用户决策”）**
+
+| # | 厂商 `startup.c` 步骤与源码位置 | Vector `BrsHw` / `BrsMain` 现状 | 差异与实证风险 | 归属与落点 |
+| --- | --- | --- | --- | --- |
+| **1** | **EL1 六模式独立栈**<br>[startup.c#L932-L1032](file:///d:/bsw-------main/bsw------/doc/THA6XXX_MC_AS440/DemoWorkspace/CodeProject/Startup/startup.c#L932-L1032)：设 `CORE<n>_{USER,FIQ,IRQ,UNDEFINED,ABORT,KERNEL}_STACK`（每块 4 KB） | [ARMStartup_CortexR52.c#L605-L623](file:///D:/davinci/mcuapp/Applications/SipAddon/StartApplication/Appl/Source/ARMStartup_CortexR52.c#L605-L623) 仅从 `STACK_C<n>` 切出 `MODE_STACK_SIZE = 0x40`（**64 B**）/模式 | **严重崩溃风险**：实查 [Os_kernel.c](file:///D:/Test001_tr002_THA6_OS_Project/Os/kernel/Os_kernel.c) 全库，**自研 OS 从未重设 `sp_irq`/`sp_svc`/`sp_abt`/`sp_und`/`sp_fiq`**；且 [exception.s#L274-L296](file:///D:/Test001_tr002_THA6_OS_Project/SDK/platform/startup/exception.s#L274-L296) 的 `EL1_IRQHandler` 仅保存现场+VFP 就压栈 **312 字节**，`EL1_FIQHandler` 向 `sp_svc` 压栈 >300 字节。64 B 栈首次中断即踩爆内存 | **② `BrsMain_Callout_Stubs.c`**<br>在 `BrsMain_PreMainHook(coreId)` 中，用 `MSR sp_abt/sp_und/sp_irq/sp_fiq/sp_svc` 重设为 `CORE<n>_*_STACK` 栈顶（保持当前 `sp_sys` 留在 `STACK_C<n>` 供 `main()` 运行至 `StartOS`） |
+| **2** | **TCM 基址寄存器（ARM 勘误 5.2 CPU.H001）**<br>[startup.c#L109-L120](file:///d:/bsw-------main/bsw------/doc/THA6XXX_MC_AS440/DemoWorkspace/CodeProject/Startup/startup.c#L109-L120), [startup_ads.h#L308-L316](file:///d:/bsw-------main/bsw------/doc/THA6XXX_MC_AS440/DemoWorkspace/CodeProject/Startup/startup_ads.h#L308-L316)：`BTCM = 0x30100027/0x30500027`（AXI 全局地址），`CTCM = 0x0020001F`（别名），`ATCM` 保持复位默认 `0x0`（别名） | [ARMStartup_CortexR52.c#L384-L404](file:///D:/davinci/mcuapp/Applications/SipAddon/StartApplication/Appl/Source/ARMStartup_CortexR52.c#L384-L404) 写 `IMP_xTCMREGIONR`（EL1/0 使能）。<br>• `StartApplication` 版 [ARMStartup_Platform.h#L107-L116](file:///D:/davinci/mcuapp/Applications/SipAddon/StartApplication/Appl/Include/ARMStartup_Platform.h#L107-L116)：`ATCM=0x1C`、`BTCM=0x30100024/0x30500024`、`CTCM=0x0020001C`（与厂商一致）<br>• `DemoComponents` 新版 [_ARMStartup_Platform.h#L123-L132](file:///D:/davinci/mcuapp/DemoComponents/vBaseEnv/Implementation/_ARMStartup_Platform.h#L123-L132)：`ATCM=0x3000001C/0x3040001C`、`CTCM=0x3020001C/0x3060001C`（**取消本地别名**） | 使用 `StartApplication` 版即已覆盖 CPU.H001；**若换用 `DemoComponents` 新版且布局含 `CPUXATCM`/`CPUXCTCM` Clone 窗口，访问 `0x0`/`0x00200000` 会直接 Abort** | **已覆盖（版本强约束）**<br>锁定采用 `StartApplication` 版 `brsTcmBase`（或将 TCM 布局与所选版本强一致校验） |
+| **3** | **EL2 Hyp 栈与临时 SVC 栈**<br>[startup.c#L818-L870](file:///d:/bsw-------main/bsw------/doc/THA6XXX_MC_AS440/DemoWorkspace/CodeProject/Startup/startup.c#L818-L870), [#L1107-L1153](file:///d:/bsw-------main/bsw------/doc/THA6XXX_MC_AS440/DemoWorkspace/CodeProject/Startup/startup.c#L1107-L1153)：`0x10000200/0x10000400` 临时栈 + `CORE<n>_HYP_STACK` | [ARMStartup_CortexR52.c#L104-L162](file:///D:/davinci/mcuapp/Applications/SipAddon/StartApplication/Appl/Source/ARMStartup_CortexR52.c#L104-L162) 在 EL2 全程纯汇编无函数调用，直接 `ERET` 进 EL1；EL1 建栈前也全程无栈 | 非虚拟化场景运行时不再陷入 EL2，**不需要**硬编码 GMU 临时栈，也无需为启动配置 `CORE<n>_HYP_STACK` | **无需补充**（已由纯汇编降权替代） |
+| **4** | **从核硬件拉起与多核同步**<br>[startup.c#L296-L364](file:///d:/bsw-------main/bsw------/doc/THA6XXX_MC_AS440/DemoWorkspace/CodeProject/Startup/startup.c#L296-L364)：Core 0 写 `CORE1_CTRL_ADDR (0xC0020C5C) |= 1`（解锁 Endinit）释放 Core 1 | • `StartApplication` 版 [BrsHw.c#L4965-L4976](file:///D:/davinci/mcuapp/Applications/SipAddon/StartApplication/Appl/Source/BrsHw.c#L4965-L4976)：`BrsHwEarlyInitPowerOn()` **已写 `CORE_CTRL_ADDR |= 1`**，Core 1 在 `coreWaitLoop` 等待至 `BrsHw_UnlockCores()`<br>• `DemoComponents` 新版 [_BrsHw.c#L4968-L4972](file:///D:/davinci/mcuapp/DemoComponents/vBaseEnv/Implementation/_BrsHw.c#L4968-L4972)：**删掉了 `CORE_CTRL_ADDR |= 1`**，改为写 `*(0x40080080) = 0` 关 SMPU | 实查 [Os_kernel.c#L1043-L1084](file:///D:/Test001_tr002_THA6_OS_Project/Os/kernel/Os_kernel.c#L1043-L1084)：**自研 OS `StartCore()` 只置软件同步位图 `OsKernel_StartCore_SyncPoint_1`，不写硬件寄存器 `0xC0020C5C`**。<br>• 用 `StartApplication` 版 `BrsHw.c` 时两套机制**无冲突且刚好衔接**（硬件释放 → `BrsHw_UnlockCores` → `StartOS` 等 `StartCore` 位图）。<br>• 若升级到 `DemoComponents` 新版 `_BrsHw.c`，Core 1 将永远停在 Halt | **已覆盖（`StartApplication` 版）**；<br>若用新版 `_BrsHw.c` 或后续扩展 THA6412（Core2/3），须在 **② `BrsMain_Callout_Stubs.c`**（`StageZero_Hook`）补写 `CORE<n>_CTRL_ADDR`；另需确认是否使用 HSM（若用 HSM，v01.01.03 缺关 SMPU `0x40080080 = 0`） |
+| **5** | **`UNCLEAR_RAM_BSS` 特殊清零**<br>[startup.c#L262-L269](file:///d:/bsw-------main/bsw------/doc/THA6XXX_MC_AS440/DemoWorkspace/CodeProject/Startup/startup.c#L262-L269)：`if (RST_POWERON == RSTSTAT)` 才清零（`RSTSTAT=0xC0000800`, `RST_POWERON=0x00800000`） | `BrsMainStartup.c` 提供两套阶段：<br>• `HardReset` 阶段仅在 `brsMain_ResetReason != BRSMAIN_RESET_SW` 时清零（软复位保持，外部/看门狗/POR 均清）<br>• `PowerOn` 阶段默认无条件清零（注释要求项目自定义条件） | 若业务语义允许“软复位保持、硬复位/POR 清零”，可直接入 `HardReset` 表；若要求**严格仅 POR 清零**，必须做条件清零 | **① 初始化表（`HARD_RESET`）或 ② `StagePowerOn_Hook`**（**待用户决策 Q1**） |
+| **6** | **ITMU 硬件清 RAM（ECC 初始化）**<br>[startup.c#L589-L679](file:///d:/bsw-------main/bsw------/doc/THA6XXX_MC_AS440/DemoWorkspace/CodeProject/Startup/startup.c#L589-L679)：每核清各自 ATCM/BTCM0/BTCM1/CTCM，Core 0 另清 LMU1/2/3；**不清 GMU** | [ARMStartup_CortexR52.c#L425-L473](file:///D:/davinci/mcuapp/Applications/SipAddon/StartApplication/Appl/Source/ARMStartup_CortexR52.c#L425-L473)：无栈遍历 `vLinkGen_ZeroInit_Early_Blocks`，`Alignment=8` 时用 `STMIA` 64 位写满足 ECC | 完全可替代 ITMU 且无 GIPC 锁依赖；**切记 Early Blocks 不可包含 GMU**（否则会冲掉 `.brsSharedVar` 的 `BrsHw_CoreStart[]` 及 `UNCLEAR_RAM_BSS`） | **① 初始化表**<br>由芯片 YAML 窗口 `early_zero_init_core` 派生 `vLinkGen_ZeroInit_Early_Blocks`（仅 TCM + LMU1/2/3） |
+| **7** | **段拷贝与 BSS 清零**<br>Clone 区（`INT_VECTOR_TABLE`/`CODE_CLONE`/`DATA_CLONE`）、每核私有 `PRIVATE_CODE/DATA_CORE<n>`、全局 `UNDEFINE_RAM_*` / `GLOBAL_UNCACHED_*` / `LMU1..3_*` | `Brs_ApplicationEntry()` 按核遍历 `vLinkGen_ZeroInit_One_Groups` 和 `vLinkGen_Init_One_Groups` | Clone 区位于本地别名窗口（`CPUXATCM`/`CPUXCTCM`），必须对每个核生成 1 条同地址不同 `Core` 字段的表项 | **① 初始化表**<br>由 `core/memmap/plan.py` 统一派生 `vLinkGen_Lcfg.c`，覆盖率强制校验 |
+| **8** | **【新发现】`CNTKCTL.PL0PCTEN = 1`**<br>[startup.c#L1061-L1066](file:///d:/bsw-------main/bsw------/doc/THA6XXX_MC_AS440/DemoWorkspace/CodeProject/Startup/startup.c#L1061-L1066)：允许 EL0（非信任任务）读物理计数器（`Stm_Hal_GetValue`） | `BrsHw` **完全缺失** | 若工程含非信任 EL0 任务读取 STM/物理计数器，缺失该位会直接触发 Undefined Instruction 异常 | **② `BrsMain_Callout_Stubs.c`**<br>在 `BrsMain_PreMainHook(coreId)` 中每核置位 `CNTKCTL.PL0PCTEN` |
+| **9** | **【新发现】XIP MPU 保护与 Cache/BusTimeout**<br>[startup.c#L905-L925](file:///d:/bsw-------main/bsw------/doc/THA6XXX_MC_AS440/DemoWorkspace/CodeProject/Startup/startup.c#L905-L925)（MPU 0/1 护 `0x50000000`/`0xA0000000` XIP）、[#L569-L580](file:///d:/bsw-------main/bsw------/doc/THA6XXX_MC_AS440/DemoWorkspace/CodeProject/Startup/startup.c#L569-L580)（`IMP_CSCTLR`/`BUSTIMEOUT`）、[#L1056-L1059](file:///d:/bsw-------main/bsw------/doc/THA6XXX_MC_AS440/DemoWorkspace/CodeProject/Startup/startup.c#L1056-L1059)（D-Cache） | `StartApplication` 版 `ARMStartup_Platform.h` 的 `MPU_CODE/DATA/TCM_REGION` 均为 `STD_OFF`、`BRS_ENABLE_CACHE = STD_OFF`、`MAIR0 Attr0 = 0x44`（Non-Cacheable）；自研 OS 的 `Os_PreInit()` 在配置了 `MpuConfigSetRef` 时会重配 MPU | 若不启用 OS MPU，启动期无 XIP 保护；若需开 Cache，需同步调整 `MAIR0` 与 MPU 属性 | **② `BrsMain_Callout_Stubs.c`（可选宏控）**或由 **OS MPU 配置接管**（**待用户决策 Q2**） |
+| **10** | **【新发现】进 `main` 前开全局中断 `cpsie if`**<br>[startup.c#L1072](file:///d:/bsw-------main/bsw------/doc/THA6XXX_MC_AS440/DemoWorkspace/CodeProject/Startup/startup.c#L1072) | [BrsMain.c#L1101](file:///D:/davinci/mcuapp/DemoComponents/vBRS/Implementation/_BrsMain.c#L1101) 在 `main()` 入口显式关中断，延后到 OS `Default_Init_Task_Trusted` 使能 | Vector 策略更符合 AUTOSAR 规范，避免 OS 未就绪时误进 ISR | **无需补充**（遵循 Vector 行为） |
+| **11** | **【集成前置项】OS 接口与异常向量表**<br>`BrsMain.c` 调用 `Os_InitMemory()`、`Os_Init()`、`Os_InitialEnableInterruptSources()`；`BrsHw_ExceptionTable_Init` 写 `VBAR = _OS_EXCVEC_CORE<n>_CODE_START` | 实查自研 OS：仅定义 [Os_PreInit()](file:///D:/Test001_tr002_THA6_OS_Project/Os/kernel/Os_kernel.c#L846)，未定义上述 3 个 MICROSAR Os API；EL1 异常向量表 `Startup_EL1ExceptionTable` 原本寄居在 [startup_ads.h#L188](file:///d:/bsw-------main/bsw------/doc/THA6XXX_MC_AS440/DemoWorkspace/CodeProject/Startup/startup_ads.h#L188) 中 | `startup.c` 退出后，需把 OS EL1 异常向量表迁出到独立文件并放入 `.OS_EXCVEC_CORE<n>_CODE` 段，并薄封装 3 个 OS 初始化接口 | **③ 整机集成适配层（待用户决策 Q3）**（不改 Vector 核心源码） |
+
+---
+
+## 二、`BrsMain_Callout_Stubs.c` 补丁草稿（Task 2.2）
+
+> 说明：仅利用 Vector 预留的用户回调文件 `BrsMain_Callout_Stubs.c`，**不修改任何 Vector 静态核心文件**；遵循 MISRA-C:2012 风格，针对 ADS (`armclang`) 语法编写。
+
+```c
+/* --- 置于 BrsMain_Callout_Stubs.c 顶部 --- */
+#include "BrsMain.h"
+
+/* THA6206 复位状态寄存器（用于严格 POR 判定，仅在 Q1 选择严格 POR 清零时启用） */
+#define THA6_RCC_RSTSTAT_REG     (*(volatile uint32 *)(0xC0000800UL))
+#define THA6_RCC_RST_POWERON_MSK (0x00800000UL)
+
+/* 每核 EL1 异常/内核模式栈顶（由 ADS scatter 的 CORE<n>_*_STACK 区域提供） */
+extern uint8 Image$$CORE0_ABORT_STACK$$ZI$$Limit[];
+extern uint8 Image$$CORE0_UNDEFINED_STACK$$ZI$$Limit[];
+extern uint8 Image$$CORE0_IRQ_STACK$$ZI$$Limit[];
+extern uint8 Image$$CORE0_FIQ_STACK$$ZI$$Limit[];
+extern uint8 Image$$CORE0_KERNEL_STACK$$ZI$$Limit[];
+
+#if (BRS_CPU_CORE_AMOUNT > 1u)
+extern uint8 Image$$CORE1_ABORT_STACK$$ZI$$Limit[];
+extern uint8 Image$$CORE1_UNDEFINED_STACK$$ZI$$Limit[];
+extern uint8 Image$$CORE1_IRQ_STACK$$ZI$$Limit[];
+extern uint8 Image$$CORE1_FIQ_STACK$$ZI$$Limit[];
+extern uint8 Image$$CORE1_KERNEL_STACK$$ZI$$Limit[];
+#endif
+
+static inline void BrsCallout_SetModeStacks(
+    uint32 abtTop, uint32 undTop, uint32 irqTop, uint32 fiqTop, uint32 svcTop)
+{
+  /* 自研 OS 不重设非 SYS 模式栈，且 EL1_IRQHandler/EL1_FIQHandler 现场压栈 >300B，
+     必须将 BrsHw 切出的 64B 临时模式栈切换为内核配置的独立栈区。
+     不能触碰当前正在使用的 SP_sys（STACK_C<n>），直到 StartOS 切入 Task 栈。 */
+  __asm volatile(
+      "msr sp_abt, %0 \n"
+      "msr sp_und, %1 \n"
+      "msr sp_irq, %2 \n"
+      "msr sp_fiq, %3 \n"
+      "msr sp_svc, %4 \n"
+      "isb            \n"
+      :
+      : "r"(abtTop), "r"(undTop), "r"(irqTop), "r"(fiqTop), "r"(svcTop)
+      : "memory");
+}
+
+static inline void BrsCallout_EnablePl0PhysicalCounter(void)
+{
+  uint32 cntkctl = 0u;
+  /* 允许 EL0 非信任任务读取物理计数器（对应厂商 startup.c:1064-1066 Stm_Hal_GetValue 需求） */
+  __asm volatile("mrc p15, 0, %0, c14, c1, 0" : "=r"(cntkctl) : : "memory");
+  cntkctl |= 0x1UL;
+  __asm volatile("mcr p15, 0, %0, c14, c1, 0\n isb" : : "r"(cntkctl) : "memory");
+}
+
+/* 若 Q1 确认 UNCLEAR_RAM_BSS 必须严格仅 POR 清零（而非 HardReset 清零），可启用此钩子： */
+#if defined(BRS_CALLOUT_STRICT_POR_UNCLEAR_BSS)
+extern uint8 Image$$UNCLEAR_RAM_BSS$$Base[];
+extern uint8 Image$$UNCLEAR_RAM_BSS_LIMIT$$ZI$$Base[];
+
+void BrsMain_MemoryInit_StagePowerOn_Hook(uint32 coreId)
+{
+  if ((coreId == BRSHW_INIT_CORE_ID) && (THA6_RCC_RSTSTAT_REG == THA6_RCC_RST_POWERON_MSK))
+  {
+    volatile uint32 *ptr = (volatile uint32 *)Image$$UNCLEAR_RAM_BSS$$Base;
+    volatile uint32 *end = (volatile uint32 *)Image$$UNCLEAR_RAM_BSS_LIMIT$$ZI$$Base;
+    while (ptr < end)
+    {
+      *ptr = 0UL;
+      ptr++;
+    }
+  }
+}
+#endif
+
+void BrsMain_PreMainHook(uint32 coreId)
+{
+  if (coreId == 0u)
+  {
+    BrsCallout_SetModeStacks(
+        (uint32)Image$$CORE0_ABORT_STACK$$ZI$$Limit,
+        (uint32)Image$$CORE0_UNDEFINED_STACK$$ZI$$Limit,
+        (uint32)Image$$CORE0_IRQ_STACK$$ZI$$Limit,
+        (uint32)Image$$CORE0_FIQ_STACK$$ZI$$Limit,
+        (uint32)Image$$CORE0_KERNEL_STACK$$ZI$$Limit);
+  }
+#if (BRS_CPU_CORE_AMOUNT > 1u)
+  else if (coreId == 1u)
+  {
+    BrsCallout_SetModeStacks(
+        (uint32)Image$$CORE1_ABORT_STACK$$ZI$$Limit,
+        (uint32)Image$$CORE1_UNDEFINED_STACK$$ZI$$Limit,
+        (uint32)Image$$CORE1_IRQ_STACK$$ZI$$Limit,
+        (uint32)Image$$CORE1_FIQ_STACK$$ZI$$Limit,
+        (uint32)Image$$CORE1_KERNEL_STACK$$ZI$$Limit);
+  }
+#endif
+  else
+  {
+    BrsMainExceptionHandler(kBrsInvalidCoreConfig, BRSERROR_MODULE_BRSMAIN, (uint16)(__LINE__));
+  }
+
+  BrsCallout_EnablePl0PhysicalCounter();
+}
+```
+
+---
+
+## 三、需要你确认的 3 个决策问题
+
+1. **Q1（`UNCLEAR_RAM_BSS` 语义）**：采用方案 A（放入 `vLinkGen_ZeroInit_HardReset_Groups`，软复位保持、硬复位/POR 清零，零手写清零代码），还是方案 B（严格等价厂商 `startup.c`，设为 `NO_INIT` 并在 `StagePowerOn_Hook` 仅在 `RSTSTAT == 0x00800000` 时清零）？
+2. **Q2（XIP MPU 保护 & HSM SMPU）**：当前目标工程是否启用 OS MPU（从而接管 XIP 保护），以及是否启用 HSM（决定是否需要在 `BrsHw.c` v01.01.03 外额外补写 `*(0x40080080) = 0` 关 SMPU）？
+3. **Q3（落盘与继续推进）**：是否批准将本 Task 2 对照表与回调草稿写入 [openspec/changes/add-vbrs-eb-templates/startup-comparison.md](file:///d:/bsw-------main/bsw------/openspec/changes/add-vbrs-eb-templates/startup-comparison.md)（并勾选 [tasks.md](file:///d:/bsw-------main/bsw------/openspec/changes/add-vbrs-eb-templates/tasks.md) 的 2.1/2.2），然后继续推进 **Task 3（芯片数据字段）** 或 **Task 4（多行字符串参数）**？
