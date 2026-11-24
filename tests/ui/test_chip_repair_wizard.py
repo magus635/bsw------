@@ -460,3 +460,53 @@ def test_hardware_mapping_wizard_repair_button(qtbot, tmp_path, library, message
     assert wizard.initial_chip == "C" and wizard.project is project
     assert page.chip_combo.currentData() == "C"
     assert library.get_chip("C").resource_version != "1.0.0"
+
+
+def test_os_only_chip_defaults_only_chip_modules_and_save_to_project_copy_protects_library(
+    qtbot, tmp_path, monkeypatch, messages
+):
+    """Os-only chips default to scanning only their own modules, and SavePage allows saving
+    to the project's local chips/ copy without modifying the chip library."""
+    from autosar_configurator.core.hardware import ecu_resource_diagnostics
+
+    lib_dir = tmp_path / "chips"
+    lib_dir.mkdir()
+    sc = ChipDefinition(
+        name="SC300",
+        resource_version="1.0.0",
+        ecu_resources={"OsResource": {"NumOfCores": 1}, "Os": {"A": 1}},
+    )
+    ChipDefinitionExporter().save_yaml(sc, lib_dir / "SC300.yaml")
+    db = ChipDatabase(lib_dir)
+    project = _project(tmp_path, db, chip="SC300")
+
+    monkeypatch.setattr(
+        ecu_resource_diagnostics,
+        "collect_referenced_keys_in_dirs",
+        lambda dirs: {"Os.Missing": {"Os"}, "Adc.MaxControllers": {"Adc"}},
+    )
+    os_props = tmp_path / "Os.properties"
+    os_props.write_text("Os.A: 2\n", encoding="utf-8")
+
+    wizard = _wizard(qtbot, db, chip="SC300", project=project)
+    wizard.next()
+    assert wizard.sources_page.only_chip_modules.isChecked() is True
+    wizard.sources_page.add_file(os_props)
+    wizard.sources_page.add_dir(tmp_path)
+    wizard.next()
+
+    listed_keys = {i.data(0, Qt.UserRole) for i in wizard.changes_page.key_items()}
+    assert "Os.A" in listed_keys
+    assert "Os.Missing" in listed_keys
+    assert "Adc.MaxControllers" not in listed_keys
+
+    wizard.next()
+    wizard.next()
+    wizard.next()
+    assert not wizard.save_page.save_to_project_check.isHidden()
+    wizard.save_page.save_to_project_check.setChecked(True)
+    _finish(wizard, messages)
+
+    assert project.chip_store.load("SC300").ecu_resources["Os"]["A"] == 2
+    assert db.get_chip("SC300").ecu_resources["Os"]["A"] == 1
+

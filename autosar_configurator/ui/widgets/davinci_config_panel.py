@@ -20,9 +20,27 @@ from ...core.baseline.display import module_note, origin_text, pre_file_names
 from ...core.baseline.origin import Origin
 import inspect
 import logging
+import re
 from PySide6.QtCore import QSettings
 
 _log = logging.getLogger(__name__)
+
+# 弃用判断只认描述里明确的弃用句式。先剔除“说的是别的参数”的句子，再匹配。
+_DEPRECATION_EXCLUSIONS = [
+    # "This parameter replaces the deprecated parameter X" —— deprecated 指被取代的那个
+    re.compile(r"replaces the deprecated\b", re.IGNORECASE),
+]
+_DEPRECATION_PATTERNS = [
+    # "This parameter is not used(.| and| ,)"；排除 "not used by X, but used by Y" 的限定用法
+    re.compile(r"parameter is not used\b(?!\s+by\b)", re.IGNORECASE),
+    # "has been/is replaced by X"；不含 "can be replaced by" 这类可选替换
+    re.compile(r"\b(?:has been|have been|is|are|was|were)\s+replaced by\b", re.IGNORECASE),
+    re.compile(r"\bdeprecated\b", re.IGNORECASE),
+    # 词边界排除 "obsoletes X"（使别的参数失效的活参数，如 PwmChannelCoherentSelection）
+    re.compile(r"\bobsolete\b", re.IGNORECASE),
+    # 祈使句 "Do not use ..."；排除 "Internal Flash drivers do not use ..." 的陈述句
+    re.compile(r"(?:^|[.!?:;>]\s*)do not use\b", re.IGNORECASE),
+]
 
 
 def _accepts_origins(fn) -> bool:
@@ -761,9 +779,6 @@ class DaVinciConfigPanel(QWidget):
             try:
                 editor = self._create_parameter_editor(param_name, param_def, current_value, instance)
                 self.params_table.setCellWidget(row, 1, editor)
-                # Disable editor for deprecated parameters
-                if is_deprecated:
-                    editor.setEnabled(False)
                 # Chip selector parameters follow the project's chip
                 if param_name in selector_params:
                     editor.setEnabled(False)
@@ -847,18 +862,19 @@ class DaVinciConfigPanel(QWidget):
         self.params_table.resizeColumnsToContents()
 
     def _is_deprecated_parameter(self, param_def: EcucParameterDef) -> bool:
-        """Check if a parameter is deprecated based on its description"""
-        if not param_def.description:
+        """Whether the description explicitly says the parameter is deprecated.
+
+        Vendor arxml carries no formal lifecycle state, so the wording of the note
+        is all there is; sentences about other parameters or other users stay
+        unflagged (see _DEPRECATION_PATTERNS). A flagged row is greyed as a hint
+        but stays editable, so a residual miss here never blocks configuration.
+        """
+        description = param_def.description
+        if not description:
             return False
-        desc_lower = param_def.description.lower()
-        deprecated_keywords = [
-            "not used",
-            "deprecated",
-            "replaced by",
-            "obsolete",
-            "do not use"
-        ]
-        return any(keyword in desc_lower for keyword in deprecated_keywords)
+        for exclusion in _DEPRECATION_EXCLUSIONS:
+            description = exclusion.sub("", description)
+        return any(pattern.search(description) for pattern in _DEPRECATION_PATTERNS)
 
     def _is_list_parameter(self, param_def: EcucParameterDef) -> bool:
         """Check if parameter supports multiple values"""

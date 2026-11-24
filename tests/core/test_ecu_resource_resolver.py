@@ -11,6 +11,12 @@ from autosar_configurator.core.hardware.ecu_resource_resolver import (
     EcuResourceResolver,
     scan_properties,
 )
+from autosar_configurator.core.hardware.project_chip_store import (
+    SOURCE_LIBRARY,
+    SOURCE_PROJECT,
+    SOURCE_PROPERTIES,
+    ProjectChipStore,
+)
 from autosar_configurator.core.workspace_manager import WorkspaceProject
 from autosar_configurator.generator.eb_template_engine import EBTemplateEngine
 from autosar_configurator.generator.generator import CodeGenerator
@@ -51,14 +57,107 @@ def test_no_chip_and_no_files_gives_empty_resources(tmp_path):
     assert _project(tmp_path).load_ecu_resources() == {}
 
 
-def test_chip_yaml_overrides_properties_and_logs(tmp_path, caplog):
+def test_project_chip_yaml_overrides_properties_and_logs(tmp_path, caplog):
     _write_resource_file(tmp_path, "OsResource.NumOfCores: 2\nOsResource.Other: x\n")
     db = _db(THA6412_BGA516={"OsResource": {"NumOfCores": 4}})
     project = _project(tmp_path, "THA6412_BGA516", db)
+    ProjectChipStore(tmp_path).save(db.get_chip("THA6412_BGA516"))
     with caplog.at_level(logging.INFO):
         resources = project.load_ecu_resources()
     assert resources == {"OsResource.NumOfCores": 4, "OsResource.Other": "x"}
-    assert any("OsResource.NumOfCores" in r.message for r in caplog.records)
+    assert any(
+        "OsResource.NumOfCores" in r.message and "project chip YAML" in r.message
+        for r in caplog.records
+    )
+
+
+def test_properties_override_library_chip_yaml_and_logs(tmp_path, caplog):
+    _write_resource_file(tmp_path, "OsResource.NumOfCores: 2\nOsResource.FromProp: x\n")
+    db = _db(THA6412_BGA516={"OsResource": {"NumOfCores": 4, "FromLib": 8}})
+    project = _project(tmp_path, "THA6412_BGA516", db)
+    with caplog.at_level(logging.INFO):
+        resources = project.load_ecu_resources()
+    assert resources == {
+        "OsResource.NumOfCores": 2,
+        "OsResource.FromProp": "x",
+        "OsResource.FromLib": 8,
+    }
+    assert any(
+        "OsResource.NumOfCores" in r.message and "library chip YAML" in r.message
+        for r in caplog.records
+    )
+
+
+def test_none_placeholder_in_higher_layer_does_not_override_valid_value(tmp_path, caplog):
+    _write_resource_file(tmp_path, "OsResource.NumOfCores: 2\nOsResource.EmptyProp:\n")
+    db = _db(
+        THA6412_BGA516={
+            "OsResource": {
+                "NumOfCores": None,
+                "OnlyPlaceholder": None,
+                "EmptyProp": 4,
+            }
+        }
+    )
+    project = _project(tmp_path, "THA6412_BGA516", db)
+    # Without project copy: library has NumOfCores=None, EmptyProp=4; properties has NumOfCores=2, EmptyProp=None
+    res_lib = project.load_ecu_resources()
+    assert res_lib["OsResource.NumOfCores"] == 2
+    assert res_lib["OsResource.EmptyProp"] == 4
+    assert res_lib["OsResource.OnlyPlaceholder"] is None
+
+    # With project copy: project copy has NumOfCores=None, OnlyPlaceholder=None; must not wipe properties value 2
+    ProjectChipStore(tmp_path).save(db.get_chip("THA6412_BGA516"))
+    with caplog.at_level(logging.INFO):
+        res_proj = project.load_ecu_resources()
+    assert res_proj["OsResource.NumOfCores"] == 2
+    assert res_proj["OsResource.EmptyProp"] == 4
+    assert res_proj["OsResource.OnlyPlaceholder"] is None
+    assert any("OsResource.NumOfCores" in r.message and "None" in r.message for r in caplog.records)
+
+
+def test_resolve_with_sources_tracks_winning_layer(tmp_path):
+    _write_resource_file(tmp_path, "OsResource.Shared: prop\nOsResource.PropOnly: p\n")
+    db = _db(
+        THA6412_BGA516={
+            "OsResource": {
+                "Shared": "lib",
+                "LibOnly": "l",
+            }
+        }
+    )
+    project = _project(tmp_path, "THA6412_BGA516", db)
+    resolver = EcuResourceResolver(db)
+
+    merged, sources = resolver.resolve_with_sources(project)
+    assert merged == {
+        "OsResource.Shared": "prop",
+        "OsResource.PropOnly": "p",
+        "OsResource.LibOnly": "l",
+    }
+    assert sources == {
+        "OsResource.Shared": SOURCE_PROPERTIES,
+        "OsResource.PropOnly": SOURCE_PROPERTIES,
+        "OsResource.LibOnly": SOURCE_LIBRARY,
+    }
+
+    ProjectChipStore(tmp_path).save(
+        ChipDefinition(
+            name="THA6412_BGA516",
+            ecu_resources={"OsResource": {"Shared": "proj", "ProjOnly": "pj"}},
+        )
+    )
+    merged2, sources2 = resolver.resolve_with_sources(project)
+    assert merged2 == {
+        "OsResource.Shared": "proj",
+        "OsResource.PropOnly": "p",
+        "OsResource.ProjOnly": "pj",
+    }
+    assert sources2 == {
+        "OsResource.Shared": SOURCE_PROJECT,
+        "OsResource.PropOnly": SOURCE_PROPERTIES,
+        "OsResource.ProjOnly": SOURCE_PROJECT,
+    }
 
 
 def test_chip_change_recomputes_and_drops_old_keys(tmp_path):

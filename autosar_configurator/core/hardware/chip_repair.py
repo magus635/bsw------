@@ -41,12 +41,20 @@ _METADATA_FIELD = "metadata."
 
 __all__ = [
     "ADDED", "REMOVED", "CHANGED", "UNCHANGED", "UPDATED", "NOT_DERIVED", "TO_FILL_IN",
-    "PLACEHOLDER", "view_text", "KeyChange", "EcuDiff", "ViewStatus", "RepairRecord", "SaveResult", "ChipFileChanged",
+    "PLACEHOLDER", "is_os_only_chip", "view_text", "KeyChange", "EcuDiff", "ViewStatus", "RepairRecord", "SaveResult", "ChipFileChanged",
     "ecu_resources_from_properties", "diff_ecu_resources", "diff_from_source", "missing_key_changes",
     "apply_changes", "derive_views", "confirm_fields", "mark_unconfirmed",
     "mark_to_fill_in", "drop_filled_marks", "to_fill_in_keys",
     "next_version", "git_author", "history_path", "save_repaired_chip", "read_history", "RepairSession",
 ]
+
+_OS_ONLY_MODULES = frozenset({"Os", "OsResource"})
+
+
+def is_os_only_chip(chip: ChipDefinition) -> bool:
+    """Return True when ``chip`` only declares Os/OsResource ECU resources (no MCAL modules)."""
+    modules = set((getattr(chip, "ecu_resources", None) or {}).keys())
+    return bool(modules) and modules.issubset(_OS_ONLY_MODULES)
 
 
 # --- difference -------------------------------------------------------------------
@@ -113,13 +121,21 @@ def diff_from_source(current: EcuResources, source: EcuResources) -> EcuDiff:
     return diff_ecu_resources({m: e for m, e in (current or {}).items() if m in source}, source)
 
 
-def missing_key_changes(chip: ChipDefinition, referenced_keys: Iterable[str]) -> EcuDiff:
-    """Keys the modules reference but the chip lacks, as added entries still to fill in."""
+def missing_key_changes(chip: ChipDefinition, referenced_keys: Iterable[str],
+                        scope_to_chip_modules: bool = False) -> EcuDiff:
+    """Keys the modules reference but the chip lacks, as added entries still to fill in.
+
+    When ``scope_to_chip_modules`` is True and the chip already declares ECU resources,
+    only keys whose module prefix is already present in ``chip.ecu_resources`` are listed.
+    """
     flat = flatten_ecu_resources(chip.ecu_resources)
+    allowed_modules = set(chip.ecu_resources.keys()) if (scope_to_chip_modules and chip.ecu_resources) else None
     changes = []
     for key in sorted(set(referenced_keys)):
         if "." not in key:
             logger.warning("referenced ECU resource key '%s' has no module prefix and is skipped", key)
+        elif allowed_modules is not None and key.split(".", 1)[0] not in allowed_modules:
+            continue
         elif key not in flat:
             changes.append(KeyChange(key, ADDED, new=PLACEHOLDER, to_fill_in=True))
     return EcuDiff(changes)
@@ -531,6 +547,8 @@ class RepairSession:
         self.properties: List[Path] = []
         self.scan_project = False
         self.scan_dirs: List[Path] = []
+        self.scope_to_chip_modules = False
+        self.save_to_project = False
         self.diff = EcuDiff()
         self.selected: set = set()
         self.confirm_notes: Dict[str, str] = {}     # field -> confirmation note
@@ -540,6 +558,15 @@ class RepairSession:
     def chip_file(self) -> Optional[Path]:
         data_dir = self.database.data_dir
         return None if data_dir is None else Path(data_dir) / f"{self.base.name}.yaml"
+
+    @property
+    def target_file(self) -> Optional[Path]:
+        """Actual YAML path that save() will write to (project copy or library file)."""
+        if self.save_to_project and self.project is not None:
+            store = getattr(self.project, "chip_store", None)
+            if store is not None:
+                return store.path_for(self.base.name)
+        return self.chip_file
 
     def load_sources(self) -> EcuDiff:
         """Difference to the chosen sources; the selection is reset to the default.
@@ -557,7 +584,9 @@ class RepairSession:
             referenced |= set(collect_referenced_keys(self.project))
         if self.scan_dirs:
             referenced |= set(collect_referenced_keys_in_dirs([Path(d) for d in self.scan_dirs]))
-        for c in missing_key_changes(self.base, referenced).changes:
+        for c in missing_key_changes(
+            self.base, referenced, scope_to_chip_modules=self.scope_to_chip_modules
+        ).changes:
             changes.setdefault(c.key, c)
         self.diff = EcuDiff([changes[k] for k in sorted(changes)])
         self.selected = set(self.default_selection())
@@ -608,4 +637,56 @@ class RepairSession:
         if not record.views:
             record.views = views
         record.confirm_notes = dict(self.confirm_notes)
+        if self.save_to_project:
+            return self._save_to_project_store(chip, record)
         return save_repaired_chip(self.database, chip, self.base, record)
+
+    def _save_to_project_store(self, chip: ChipDefinition, record: RepairRecord) -> SaveResult:
+        """Write repaired chip into the project's local chip_store without mutating the library."""
+        from .chip_exporter import chip_checksum
+
+        store = getattr(self.project, "chip_store", None) if self.project is not None else None
+        if store is None:
+            raise ValueError("当前没有可写入芯片副本的项目目录")
+        path = store.path_for(chip.name)
+        if chip_checksum(chip) == chip_checksum(self.base):
+            return SaveResult(
+                saved=False,
+                path=path,
+                version=self.base.resource_version,
+                checksum=chip_checksum(self.base),
+            )
+        saved = copy.deepcopy(chip)
+        saved.resource_version = record.version or next_version(self.base.resource_version)
+        saved.checksum = chip_checksum(saved)
+        saved.content_modified = False
+
+        backup: Optional[Path] = None
+        if path.exists():
+            backup = path.with_name(path.name + ".bak")
+            shutil.copy2(path, backup)
+        store.save(saved)
+
+        author = record.author or git_author(path.parent)
+        hist = history_path(path)
+        _append_history(hist, saved.name, _history_entry(self.base, saved, record, author, saved.checksum))
+
+        if getattr(self.project, "selected_chip", None) == saved.name and hasattr(
+            self.project, "load_ecu_resources"
+        ):
+            self.project.load_ecu_resources()
+
+        logger.info(
+            "repaired chip %s saved to project store %s (resource_version %s)",
+            saved.name,
+            path,
+            saved.resource_version,
+        )
+        return SaveResult(
+            saved=True,
+            path=path,
+            backup=backup,
+            history=hist,
+            version=saved.resource_version,
+            checksum=saved.checksum,
+        )
