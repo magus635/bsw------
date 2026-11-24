@@ -476,7 +476,7 @@ class DaVinciConfigPanel(QWidget):
             
             if variant and module_config:
                 override, is_override = module_config.get_value_for_variant(param_path, variant)
-                if not is_override:
+                if not is_override and instance.parent is None:
                     short_path = f"{instance.short_name}.{param_name}"
                     override, is_override = module_config.get_value_for_variant(short_path, variant)
                 if is_override:
@@ -494,7 +494,7 @@ class DaVinciConfigPanel(QWidget):
             if ref_layer and module_config:
                 # Reference is another variant (e.g., compare v1 vs v2)
                 ref_override, is_ref = module_config.get_value_for_variant(param_path, ref_layer)
-                if not is_ref:
+                if not is_ref and instance.parent is None:
                     short_path = f"{instance.short_name}.{param_name}"
                     ref_override, is_ref = module_config.get_value_for_variant(short_path, ref_layer)
                 if is_ref:
@@ -591,8 +591,8 @@ class DaVinciConfigPanel(QWidget):
             return None
         return state(self.current_instance, name)
 
-    def _editable(self, name: str) -> bool:
-        """Whether the panel may write this value; says so in the status bar when not.
+    def _editable(self, name: Optional[str] = None) -> bool:
+        """Whether the panel may write this value or container; says so in the status bar when not.
 
         The check happens before the write, not after it failed, so nothing — a variant
         override included — has been written by the time the lock refuses the edit.
@@ -606,9 +606,14 @@ class DaVinciConfigPanel(QWidget):
             window = self.window()
             statusbar = getattr(window, 'statusbar', None)
             if statusbar is not None:
-                statusbar.showMessage(
-                    f"该参数是预配置（PRE），已锁定：{exc.key}。如需修改请右键选择“解锁此参数”。",
-                    5000)
+                if name is None:
+                    statusbar.showMessage(
+                        f"该容器是预配置（PRE），已锁定：{exc.key}。",
+                        5000)
+                else:
+                    statusbar.showMessage(
+                        f"该参数是预配置（PRE），已锁定：{exc.key}。如需修改请右键选择“解锁此参数”。",
+                        5000)
             return False
         return True
 
@@ -726,8 +731,8 @@ class DaVinciConfigPanel(QWidget):
                     param_path = f"{instance.get_path()}.{param_name}"
                     override_value, is_override = module_config.get_value_for_variant(param_path, variant)
 
-                    # Fallback to short path for backward compatibility with old saved data
-                    if not is_override:
+                    # Fallback to short path for backward compatibility with old saved data (top-level only)
+                    if not is_override and instance.parent is None:
                         short_path = f"{instance.short_name}.{param_name}"
                         override_value, is_override = module_config.get_value_for_variant(short_path, variant)
 
@@ -1171,6 +1176,9 @@ class DaVinciConfigPanel(QWidget):
             
         new_variant = None if variant_text == "None (All Variants)" else variant_text
         if self.current_instance.variant != new_variant:
+            if not self._editable(None):
+                self._update_variant_selector(self.current_instance)
+                return
             old_variant = self.current_instance.variant
             self._pending_instance_variant_undo = (self.current_instance, old_variant, new_variant)
             self.current_instance.variant = new_variant
@@ -1497,7 +1505,7 @@ class DaVinciConfigPanel(QWidget):
     def _capture_pending_variant_undo(self, instance: EcucContainerValue, key_name: str, variant: str):
         module_config = instance.module_config
         full_key = f"{instance.get_path()}.{key_name}"
-        short_key = f"{instance.short_name}.{key_name}"
+        short_key = f"{instance.short_name}.{key_name}" if instance.parent is None else None
         overrides = (
             (module_config.variant_overrides.get(variant) or {})
             if module_config and isinstance(getattr(module_config, "variant_overrides", None), dict)
@@ -1506,8 +1514,8 @@ class DaVinciConfigPanel(QWidget):
         state = (
             full_key in overrides,
             overrides.get(full_key),
-            short_key in overrides,
-            overrides.get(short_key),
+            bool(short_key and short_key in overrides),
+            overrides.get(short_key) if short_key else None,
         )
         self._pending_variant_undo = (instance, key_name, variant, state)
 
@@ -1536,12 +1544,25 @@ class DaVinciConfigPanel(QWidget):
             eff_value = None if value == "(未配置)" else value
 
             if module_config:
+                convert_fn = getattr(self.config_manager, "convert_parameter_value", None)
+                if eff_value is not None and callable(convert_fn):
+                    try:
+                        if isinstance(eff_value, list):
+                            eff_value = [convert_fn(self.current_instance, param_name, v) for v in eff_value]
+                        else:
+                            eff_value = convert_fn(self.current_instance, param_name, eff_value)
+                    except Exception:
+                        # Defer rejection and user feedback to EditController / SetVariantOverrideCommand
+                        self.parameter_changed.emit(self.current_instance, param_name, eff_value)
+                        return
+
                 self._capture_pending_variant_undo(self.current_instance, param_name, variant)
                 param_path = f"{self.current_instance.get_path()}.{param_name}"
-                short_path = f"{self.current_instance.short_name}.{param_name}"
                 if eff_value is None:
                     module_config.clear_variant_override(param_path, variant)
-                    module_config.clear_variant_override(short_path, variant)
+                    if self.current_instance.parent is None:
+                        short_path = f"{self.current_instance.short_name}.{param_name}"
+                        module_config.clear_variant_override(short_path, variant)
                 else:
                     module_config.set_value_for_variant(param_path, eff_value, variant)
                 if self.project:
@@ -1985,6 +2006,9 @@ class DaVinciConfigPanel(QWidget):
                     if module_config:
                         ref_path = f"{instance.get_path()}.ref:{ref_name_base}"
                         override_value, is_override = module_config.get_value_for_variant(ref_path, variant)
+                        if not is_override and instance.parent is None:
+                            short_ref_path = f"{instance.short_name}.ref:{ref_name_base}"
+                            override_value, is_override = module_config.get_value_for_variant(short_ref_path, variant)
                         if is_override:
                             current_value = override_value
                             is_variant_override = True
@@ -2378,12 +2402,13 @@ class DaVinciConfigPanel(QWidget):
                     self._capture_pending_variant_undo(self.current_instance, key_name, variant)
                     # Use ref: prefix to distinguish from parameters
                     ref_path = f"{self.current_instance.get_path()}.{key_name}"
-                    short_ref_path = f"{self.current_instance.short_name}.{key_name}"
                     if target_path:
                         module_config.set_value_for_variant(ref_path, target_path, variant)
                     else:
                         module_config.clear_variant_override(ref_path, variant)
-                        module_config.clear_variant_override(short_ref_path, variant)
+                        if self.current_instance.parent is None:
+                            short_ref_path = f"{self.current_instance.short_name}.{key_name}"
+                            module_config.clear_variant_override(short_ref_path, variant)
                     if self.project:
                         self.project.is_modified = True
                     

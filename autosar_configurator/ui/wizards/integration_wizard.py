@@ -990,7 +990,7 @@ class IntegrationWizard(ConfigWizard):
                         _chip_selector_values,
                         _clone_module_configuration,
                     )
-                    from ...core import eb_import
+                    from ...core import eb_import, project_paths
 
                     capture_backup = getattr(self.project, "_capture_module_replace_backup", None)
                     restore_backup = getattr(self.project, "_restore_module_replace_backup", None)
@@ -1044,11 +1044,26 @@ class IntegrationWizard(ConfigWizard):
                                 base_hash=old_entry.base_hash,
                             )
                         else:
+                            if self.project.path is not None:
+                                cfg_rel = project_paths.config_file(self.project, mod_name)
+                                try:
+                                    cfg_rel = cfg_rel.relative_to(project_paths.project_root(self.project))
+                                except ValueError:
+                                    pass
+                                default_cfg_path = cfg_rel.as_posix()
+                            else:
+                                cfg_dir = project_paths.dirs(self.project).config
+                                cfg_filename = (
+                                    f"{mod_name}_Config.arxml"
+                                    if getattr(self.project, "directories", None) is None
+                                    else f"{mod_name}.arxml"
+                                )
+                                default_cfg_path = f"{cfg_dir}/{cfg_filename}"
                             entry = ModuleEntry(
                                 name=mod_name,
                                 definition=cand.package.manifest.definition,
                                 library=cand.lib_index,
-                                config_path=f"Config/ECUC/{mod_name}.arxml",
+                                config_path=default_cfg_path,
                                 pre_unlocked=[],
                                 package_record=(
                                     eb_import.package_record(cand.package)
@@ -1153,6 +1168,26 @@ class IntegrationWizard(ConfigWizard):
 
         if result["added"]:
             try:
+                has_pkg_resources = any(
+                    (self.project.packages.get(m).resource_dir() is not None)
+                    for m in result["added"]
+                    if getattr(self.project, "packages", None)
+                    and self.project.packages.get(m) is not None
+                    and hasattr(self.project.packages.get(m), "resource_dir")
+                )
+                if (
+                    getattr(self.project, "ecu_resources", None)
+                    or getattr(self.project, "selected_chip", None)
+                    or getattr(self.project, "path", None) is not None
+                    or has_pkg_resources
+                ) and hasattr(self.project, "load_ecu_resources"):
+                    self.project.load_ecu_resources()
+                if getattr(self.project, "ecu_resources", None):
+                    from ...core.parser.xdm_expression_resolver import apply_chip_expressions
+                    for added_mod in result["added"]:
+                        added_mgr = self.project.module_managers.get(added_mod)
+                        if added_mgr is not None and getattr(added_mgr, "module_def", None) is not None:
+                            apply_chip_expressions(added_mgr.module_def, self.project.ecu_resources)
                 if hasattr(self.project, "resolve_all_references"):
                     self.project.resolve_all_references(force=True)
                 if hasattr(self.project, "build_reverse_reference_index"):

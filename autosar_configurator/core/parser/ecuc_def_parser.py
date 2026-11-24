@@ -14,7 +14,6 @@ from ..model.definition_model import (
     EcucParameterDef,
     EcucReferenceDef,
     EcucParameterType,
-    VariantType
 )
 
 
@@ -247,6 +246,7 @@ class EcucDefParser:
                 lst_enable = self._xdm_enable_expr(container_elem) if tag_local == 'lst' else None
                 lst_enable_line = self._xdm_enable_line(container_elem) if lst_enable else None
                 lst_default_disabled = self._xdm_is_default_disabled(container_elem) if tag_local == 'lst' else False
+                lst_pb_mult = self._xdm_post_build_variant_multiplicity(container_elem) if tag_local == 'lst' else None
                 for target in target_elems:
                     container_def = self._parse_container_def(target)
                     if container_def:
@@ -255,6 +255,8 @@ class EcucDefParser:
                         container_def.in_list = tag_local == 'lst'
                         if lst_default_disabled:
                             container_def.default_disabled = True
+                        if lst_pb_mult is not None:
+                            container_def.post_build_variant_multiplicity = lst_pb_mult
                         # Apply v:lst multiplicity to container definition
                         if lst_lower is not None:
                             container_def.lower_multiplicity = lst_lower
@@ -359,10 +361,14 @@ class EcucDefParser:
                 except ValueError:
                     pass
 
-        # Parse Post-Build Variant Multiplicity
+        # Parse Post-Build Variant Multiplicity (ARXML element or XDM a:a attribute)
         pb_mult = self._get_child_text_value(element, 'POST-BUILD-VARIANT-MULTIPLICITY')
         if pb_mult:
             container_def.post_build_variant_multiplicity = (pb_mult.lower() == 'true')
+        else:
+            xdm_pb_mult = self._xdm_post_build_variant_multiplicity(element)
+            if xdm_pb_mult is not None:
+                container_def.post_build_variant_multiplicity = xdm_pb_mult
         
         # Build full path
         current_path = f"{parent_path}/{short_name}" if parent_path else short_name
@@ -469,6 +475,7 @@ class EcucDefParser:
                 lst_enable = self._xdm_enable_expr(sub_elem)
                 lst_enable_line = self._xdm_enable_line(sub_elem) if lst_enable else None
                 lst_default_disabled = self._xdm_is_default_disabled(sub_elem)
+                lst_pb_mult = self._xdm_post_build_variant_multiplicity(sub_elem)
                 if min_da:
                     try: lst_lower = int(min_da[0])
                     except ValueError: pass
@@ -492,6 +499,8 @@ class EcucDefParser:
                         sub_container_def.in_list = True
                         if lst_default_disabled:
                             sub_container_def.default_disabled = True
+                        if lst_pb_mult is not None:
+                            sub_container_def.post_build_variant_multiplicity = lst_pb_mult
                         # Apply v:lst multiplicity to the container def
                         if lst_lower is not None:
                             sub_container_def.lower_multiplicity = lst_lower
@@ -908,6 +917,17 @@ class EcucDefParser:
         ref_def.definition_ref = f"{parent_path}/{short_name}"
 
         return ref_def
+
+    def _xdm_post_build_variant_multiplicity(self, element: etree._Element) -> Optional[bool]:
+        """Parse XDM ``<a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true|false"/>`` if present."""
+        ns_a = self.NAMESPACES['a']
+        vals = element.xpath(
+            "a:a[@name='POSTBUILDVARIANTMULTIPLICITY']/@value",
+            namespaces={'a': ns_a},
+        )
+        if vals:
+            return vals[0].strip().lower() == 'true'
+        return None
 
     def _parse_xdm_attributes(self, element, target_def):
         """Parse a:a attribute elements for SCOPE, ORIGIN, SYMBOLICNAMEVALUE, multiplicity.

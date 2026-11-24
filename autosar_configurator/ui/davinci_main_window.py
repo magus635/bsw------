@@ -46,6 +46,39 @@ from .controllers.project_controller import ProjectController
 from .controllers.edit_controller import EditController
 
 
+def _project_uses_ecu_variants(project) -> bool:
+    """Return True when a project actively uses legacy project-level ECU variants."""
+    if project is None:
+        return False
+    variants = getattr(project, "variants", None) or []
+    if len(variants) > 1:
+        return True
+    if (getattr(project, "active_variant", None) or "Default") != "Default":
+        return True
+    for ov in (getattr(project, "unloaded_variant_overrides", None) or {}).values():
+        if isinstance(ov, dict) and any(bool(v) for k, v in ov.items() if k != "Default"):
+            return True
+
+    def _has_container_variant(containers) -> bool:
+        for c in containers or ():
+            if getattr(c, "variant", None) not in (None, "", "Default"):
+                return True
+            if _has_container_variant(getattr(c, "sub_containers", None)):
+                return True
+        return False
+
+    for mgr in (getattr(project, "module_managers", None) or {}).values():
+        cfg = getattr(mgr, "configuration", None)
+        if cfg is None:
+            continue
+        ov_map = getattr(cfg, "variant_overrides", None) or {}
+        if any(bool(v) for k, v in ov_map.items() if k != "Default"):
+            return True
+        if _has_container_variant(getattr(cfg, "containers", None)):
+            return True
+    return False
+
+
 class DaVinciMainWindow(QMainWindow):
     """DaVinci Configurator-style main window"""
     
@@ -535,6 +568,7 @@ class DaVinciMainWindow(QMainWindow):
         self.reference_variant_selector.currentTextChanged.connect(self._on_reference_variant_changed)
         ref_sel_act = toolbar.addWidget(self.reference_variant_selector)
         ref_sel_act.setVisible(False)
+        self._variant_toolbar_actions = [v_lbl_act, v_sel_act, v_btn_act, vs_act, ref_sel_act]
         
         # AI Assistant toggle button
         self.ai_toggle_btn = QPushButton()
@@ -637,6 +671,12 @@ class DaVinciMainWindow(QMainWindow):
     
     def _update_variant_selector(self):
         """Update the Variant selector dropdown with project variants"""
+        show_variants = _project_uses_ecu_variants(self.current_project)
+        for act in getattr(self, "_variant_toolbar_actions", ()):
+            act.setVisible(show_variants)
+        if hasattr(self, "variant_label") and self.variant_label is not None:
+            self.variant_label.setVisible(show_variants)
+
         self.variant_selector.blockSignals(True)
         self.variant_selector.clear()
         
@@ -663,12 +703,16 @@ class DaVinciMainWindow(QMainWindow):
                 self.variant_selector.setCurrentIndex(idx)
             
             self.variant_label.setText(f"Variant: {active}")
+            if hasattr(self, "tree_view") and self.tree_view is not None:
+                self.tree_view.set_active_variant(active)
         else:
             self.variant_selector.addItem("Default")
             self.variant_selector.setEnabled(False)
             self.reference_variant_selector.setEnabled(False)
             self.manage_variants_btn.setEnabled(False)
             self.variant_label.setText("Variant: None")
+            if hasattr(self, "tree_view") and self.tree_view is not None:
+                self.tree_view.set_active_variant(None)
         
         self.variant_selector.blockSignals(False)
         self.reference_variant_selector.blockSignals(False)
@@ -804,19 +848,41 @@ class DaVinciMainWindow(QMainWindow):
     
     def _on_instance_variant_changed(self, instance: EcucContainerValue):
         """Handle when an instance's assigned variant changes - refresh tree to update filtering"""
+        from ..core.config_manager import PreLockedError
         from .commands import SetContainerVariantCommand
+        from .controllers.edit_controller import _report_pre_locked
 
         panel = getattr(self, "config_panel", None)
         consume = getattr(panel, "_consume_pending_instance_variant_undo", None)
         pending = consume(instance) if callable(consume) else None
         mgr = self.edit_controller._resolve_config_manager_for_instance(instance)
-        if pending is not None and hasattr(self, "undo_stack") and self.undo_stack is not None:
+        if pending is not None:
             old_var, new_var = pending
-            cmd = SetContainerVariantCommand(
-                mgr, instance, new_var, old_variant=old_var, has_old_variant=True
-            )
-            self.undo_stack.push(cmd)
+            try:
+                cmd = SetContainerVariantCommand(
+                    mgr, instance, new_var, old_variant=old_var, has_old_variant=True
+                )
+            except PreLockedError as exc:
+                instance.variant = old_var
+                if (
+                    panel is not None
+                    and getattr(panel, "current_instance", None) is instance
+                    and hasattr(panel, "_update_variant_selector")
+                ):
+                    panel._update_variant_selector(instance)
+                _report_pre_locked(self, exc)
+                return
+            if hasattr(self, "undo_stack") and self.undo_stack is not None:
+                self.undo_stack.push(cmd)
+        elif mgr is not None and hasattr(mgr, "check_editable"):
+            try:
+                mgr.check_editable(instance)
+            except PreLockedError as exc:
+                _report_pre_locked(self, exc)
+                return
         self._has_unsaved_changes = True
+        if hasattr(self, "_update_window_title"):
+            self._update_window_title()
 
         # Refresh tree to show/hide the instance based on the current view variant
         self.tree_view.refresh()

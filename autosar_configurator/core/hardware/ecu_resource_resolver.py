@@ -50,11 +50,22 @@ def _search_dirs(project, project_dir: Path) -> List[Path]:
     add(project_paths.legacy_plugins_dir(project_dir))  # project-local EB plugins
     add(project_paths.legacy_def_dir(project_dir))
     add(project_dir / "Define")
-    # Plugin roots of the loaded modules (handles external plugins such as Os):
-    # typical EB layout is plugin_dir/config/module.xdm
-    for def_path in getattr(project, "module_defs", {}).values():
-        if def_path:
-            add(Path(def_path).parent.parent)
+    # Plugin/package roots of the loaded modules:
+    # - Format 8 package modules stay strictly bounded to pkg.root so flat packages
+    #   (modules/<Variant>/<Mod>.arxml) never escape into modules/ and leak sibling variants.
+    # - Non-package modules step up two levels only when def_path sits inside a config/defs
+    #   subdirectory (typical EB layout: plugin_dir/config/module.xdm).
+    packages = getattr(project, "packages", None) or {}
+    for mod_name, def_path in sorted((getattr(project, "module_defs", None) or {}).items()):
+        pkg = packages.get(mod_name)
+        if pkg is not None and getattr(pkg, "root", None) is not None:
+            add(Path(pkg.root))
+        elif def_path:
+            def_p = Path(def_path)
+            if def_p.parent.name.lower() in ("config", "bswmd", "defs", "definition", "definitions"):
+                add(def_p.parent.parent)
+            else:
+                add(def_p.parent)
     # Resource directories of the module packages (format 8 projects)
     for _, pkg in sorted(getattr(project, "packages", {}).items()):
         resource_dir = pkg.resource_dir()

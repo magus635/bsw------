@@ -4,10 +4,13 @@ ARXML Parser for AUTOSAR configuration files
 from lxml import etree
 from typing import Optional, Dict, List, Any
 from pathlib import Path
+import logging
 import re
 from ..model.container import Container, Parameter
 from ..model.base import ArxmlElement
 from ..model.configuration_model import EcucModuleConfiguration, EcucContainerValue, normalize_config_variant
+
+logger = logging.getLogger(__name__)
 
 
 # AUTOSAR element naming convention: uppercase letter followed by uppercase
@@ -563,6 +566,11 @@ class ArxmlParser:
         # Multiple <VARIATION-POINT> alternatives for the same unindexed parameter should not
         # be promoted to multi_parameter_values; keep the first parsed value.
         if index_text is None and has_variation_point and param_name in container.parameter_values:
+            logger.warning(
+                "Ignoring additional <VARIATION-POINT> branch for unindexed parameter '%s' in container '%s'",
+                param_name,
+                container.short_name,
+            )
             return
 
         if index_text is not None:
@@ -674,17 +682,23 @@ class ArxmlParser:
 
         # Check for INDEX (multi-valued references)
         index_text = self._get_text_value(element, 'INDEX')
+        has_variation_point = self._find_child(element, 'VARIATION-POINT') is not None
 
-        # Get target reference
-        # Standard: VALUE-REF
-        target_ref = self._get_text_value(element, 'VALUE-REF')
+        # Get target reference (prefer direct children / VALUE-IREF so a <VARIATION-POINT>'s nested
+        # reference cannot shadow the real VALUE-REF or TARGET-REF)
+        target_ref = self._get_child_text_value(element, 'VALUE-REF')
+        if target_ref is None and not has_variation_point:
+            target_ref = self._get_text_value(element, 'VALUE-REF')
 
-        # Instance Reference: TARGET-REF inside VALUE-IREF or directly
+        # Instance Reference: direct child TARGET-REF or inside direct child VALUE-IREF
         if target_ref is None:
-            target_ref = self._get_text_value(element, 'TARGET-REF')
-
+            target_ref = self._get_child_text_value(element, 'TARGET-REF')
         if target_ref is None:
-            # Try finding descendant TARGET-REF (for IREF structure)
+            value_iref = self._find_child(element, 'VALUE-IREF')
+            if value_iref is not None:
+                target_ref = self._get_text_value(value_iref, 'TARGET-REF')
+        if target_ref is None and not has_variation_point:
+            # Try finding descendant TARGET-REF (for IREF structure without enclosing VALUE-IREF)
             iref_target = self._find_descendant(element, 'TARGET-REF')
             if iref_target is not None:
                 target_ref = iref_target.text
@@ -698,8 +712,12 @@ class ArxmlParser:
         target_ref = target_ref.strip()
 
         # Route to multi-valued or single-valued storage
-        has_variation_point = self._find_child(element, 'VARIATION-POINT') is not None
         if index_text is None and has_variation_point and ref_name in container.reference_values:
+            logger.warning(
+                "Ignoring additional <VARIATION-POINT> branch for unindexed reference '%s' in container '%s'",
+                ref_name,
+                container.short_name,
+            )
             return
         if index_text is not None:
             try:

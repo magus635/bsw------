@@ -466,13 +466,20 @@ class SetVariantOverrideCommand(QUndoCommand):
         is_ref = param_name.startswith("ref:")
         lock_name = param_name[4:] if is_ref else param_name
         _check_editable(config_manager, instance, lock_name)
+        if not is_ref and new_value is not None and config_manager is not None:
+            convert_fn = getattr(config_manager, "convert_parameter_value", None)
+            if callable(convert_fn):
+                if isinstance(new_value, list):
+                    new_value = [convert_fn(instance, param_name, v) for v in new_value]
+                else:
+                    new_value = convert_fn(instance, param_name, new_value)
         self.config_manager = config_manager
         self.instance = instance
         self.param_name = param_name
         self.new_value = new_value
         self.variant = variant
         self.full_key = f"{instance.get_path()}.{param_name}"
-        self.short_key = f"{instance.short_name}.{param_name}"
+        self.short_key = f"{instance.short_name}.{param_name}" if instance.parent is None else None
 
         module_config = instance.module_config or (
             getattr(config_manager, "configuration", None) if config_manager else None
@@ -489,8 +496,8 @@ class SetVariantOverrideCommand(QUndoCommand):
             )
             self.had_full = self.full_key in overrides
             self.old_full_val = overrides.get(self.full_key)
-            self.had_short = self.short_key in overrides
-            self.old_short_val = overrides.get(self.short_key)
+            self.had_short = bool(self.short_key and self.short_key in overrides)
+            self.old_short_val = overrides.get(self.short_key) if self.short_key else None
 
         action = "Clear" if (new_value is None or (is_ref and new_value == "")) else "Set"
         self.setText(f"{action} {param_name} [{variant}]")
@@ -501,7 +508,8 @@ class SetVariantOverrideCommand(QUndoCommand):
         is_clear = self.new_value is None or (self.param_name.startswith("ref:") and self.new_value == "")
         if is_clear:
             self.module_config.clear_variant_override(self.full_key, self.variant)
-            self.module_config.clear_variant_override(self.short_key, self.variant)
+            if self.short_key:
+                self.module_config.clear_variant_override(self.short_key, self.variant)
         else:
             self.module_config.set_value_for_variant(self.full_key, self.new_value, self.variant)
 
@@ -512,10 +520,11 @@ class SetVariantOverrideCommand(QUndoCommand):
             self.module_config.set_value_for_variant(self.full_key, self.old_full_val, self.variant)
         else:
             self.module_config.clear_variant_override(self.full_key, self.variant)
-        if self.had_short and self.short_key != self.full_key:
-            self.module_config.set_value_for_variant(self.short_key, self.old_short_val, self.variant)
-        elif self.short_key != self.full_key:
-            self.module_config.clear_variant_override(self.short_key, self.variant)
+        if self.short_key and self.short_key != self.full_key:
+            if self.had_short:
+                self.module_config.set_value_for_variant(self.short_key, self.old_short_val, self.variant)
+            else:
+                self.module_config.clear_variant_override(self.short_key, self.variant)
 
 
 class SetContainerVariantCommand(QUndoCommand):

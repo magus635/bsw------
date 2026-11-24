@@ -1133,6 +1133,28 @@ class ProjectController:
         if dialog.exec() == QDialog.Accepted:
             # Update UI
             self.win._update_variant_selector()
+            active = getattr(self.win.current_project, "active_variant", None) or "Default"
+            tree_view = getattr(self.win, "tree_view", None)
+            if tree_view is not None:
+                if hasattr(tree_view, "set_active_variant"):
+                    tree_view.set_active_variant(active)
+                elif hasattr(tree_view, "refresh"):
+                    tree_view.refresh()
+
+            panel = getattr(self.win, "config_panel", None)
+            if panel is not None and getattr(panel, "current_instance", None) is not None:
+                inst = panel.current_instance
+                inst_var = getattr(inst, "variant", None)
+                if inst_var not in (None, "", active):
+                    panel.clear()
+                else:
+                    panel.refresh()
+
+            if getattr(dialog, "changed", False):
+                self.win._has_unsaved_changes = True
+                if hasattr(self.win, "_update_window_title"):
+                    self.win._update_window_title()
+
             self.win.statusbar.showMessage(f"Variants updated: {len(self.win.current_project.variants)} defined", 3000)
     
     def add_module_to_project(self):

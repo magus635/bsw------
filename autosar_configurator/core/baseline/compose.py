@@ -236,6 +236,8 @@ def compose_base(module_def: Optional[EcucModuleDef], module_name: str,
     base = EcucModuleConfiguration(short_name=module_name, definition_ref=definition_ref)
     if variant:
         base.implementation_config_variant = variant
+    elif module_def is not None and hasattr(module_def, "default_config_variant"):
+        base.implementation_config_variant = module_def.default_config_variant()
     base.package_name = package_name
     base.parameter_values.update(module_params)
     for container in top:

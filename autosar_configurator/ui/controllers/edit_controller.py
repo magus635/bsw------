@@ -118,6 +118,32 @@ class EditController:
 
         return self.win.config_manager
 
+    @staticmethod
+    def _restore_variant_override_state(
+        instance: EcucContainerValue,
+        param_name: str,
+        variant: str,
+        prev_state: Optional[tuple],
+    ) -> None:
+        if prev_state is None or instance is None:
+            return
+        module_config = getattr(instance, "module_config", None)
+        if module_config is None:
+            return
+        had_full, old_full_val, had_short, old_short_val = prev_state
+        full_key = f"{instance.get_path()}.{param_name}"
+        if had_full:
+            module_config.set_value_for_variant(full_key, old_full_val, variant)
+        else:
+            module_config.clear_variant_override(full_key, variant)
+        if instance.parent is None:
+            short_key = f"{instance.short_name}.{param_name}"
+            if short_key != full_key:
+                if had_short:
+                    module_config.set_value_for_variant(short_key, old_short_val, variant)
+                else:
+                    module_config.clear_variant_override(short_key, variant)
+
     def handle_parameter_change(self, instance: EcucContainerValue, param_name: str, value: Any):
         """Handle parameter change request via command"""
         config_manager = self._resolve_config_manager_for_instance(instance)
@@ -137,7 +163,13 @@ class EditController:
                     config_manager, instance, param_name, value, variant, prev_state=prev_state
                 )
             except PreLockedError as exc:
+                self._restore_variant_override_state(instance, param_name, variant, prev_state)
                 _report_pre_locked(self.win, exc)
+                return
+            except ValidationError as exc:
+                self._restore_variant_override_state(instance, param_name, variant, prev_state)
+                QMessageBox.warning(self.win, "验证失败", f"参数值无效:\n{exc}")
+                self.win.statusbar.showMessage(f"验证失败: {param_name}", 3000)
                 return
         elif param_name.startswith('ref:'):
             # Reference change

@@ -184,3 +184,51 @@ def test_resolver_excludes_inactive_variant_template_properties_and_prefers_acti
     assert resources["CanTrcv.TleOnly"] == 2
     assert "CanTrcv.InactiveOnly" not in resources
 
+
+def test_resolver_flat_package_layout_does_not_leak_sibling_variant_properties(tmp_path):
+    """Flat Format 8 packages (modules/<Variant>/<Mod>.arxml, no config/ subdir) must stay
+    bounded to pkg.root rather than stepping up to modules/ and scanning inactive siblings."""
+    import json
+    from autosar_configurator.core.packages.library import LibraryRef, find_package, scan_library
+    from autosar_configurator.core.workspace_manager import WorkspaceManager
+
+    proj_dir = tmp_path / "FlatProj"
+    for pkg_sub, prop_text in (
+        ("CanTrcv_GenericCan", "CanTrcv.ActiveProp: GENERIC\nCanTrcv.InactiveLeak: 1\n"),
+        ("CanTrcv_Tle9255", "CanTrcv.ActiveProp: TLE\n"),
+    ):
+        pkg_dir = proj_dir / "modules" / pkg_sub
+        res_dir = pkg_dir / "resource"
+        res_dir.mkdir(parents=True, exist_ok=True)
+        (pkg_dir / "CanTrcv.arxml").write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>MICROSAR</SHORT-NAME><AR-PACKAGES>
+    <AR-PACKAGE><SHORT-NAME>{pkg_sub}</SHORT-NAME><ELEMENTS>
+      <ECUC-MODULE-DEF><SHORT-NAME>CanTrcv</SHORT-NAME></ECUC-MODULE-DEF>
+    </ELEMENTS></AR-PACKAGE>
+  </AR-PACKAGES></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+        (res_dir / f"{pkg_sub.lower()}.properties").write_text(prop_text, encoding="utf-8")
+        (pkg_dir / "module.json").write_text(json.dumps({
+            "schema": 1,
+            "module": "CanTrcv",
+            "definition": f"/MICROSAR/{pkg_sub}/CanTrcv",
+            "files": ["CanTrcv.arxml"],
+            "pre": [],
+            "rec": [],
+            "resources": "resource",
+        }), encoding="utf-8")
+
+    wm = WorkspaceManager()
+    project = wm.create_project("VarFlat", proj_dir / "VarFlat.dpa", format_version=8)
+    lib_ref = LibraryRef(path="modules", kind="package")
+    project.module_libraries.append(lib_ref)
+    pkgs = scan_library(lib_ref, proj_dir)
+    _, tle_pkg = find_package([(0, pkgs)], "/MICROSAR/CanTrcv_Tle9255/CanTrcv")
+    project.add_module_from_package(tle_pkg, lib_index=0, persist=True, confirm=lambda *_: True)
+
+    resources = project.load_ecu_resources()
+    assert resources["CanTrcv.ActiveProp"] == "TLE"
+    assert "CanTrcv.InactiveLeak" not in resources
+
+

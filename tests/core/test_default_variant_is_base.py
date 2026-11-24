@@ -507,4 +507,351 @@ def test_eb_template_engine_evaluates_enable_conditions_with_active_variant_and_
     assert out3 == "false:"
 
 
+def test_arxml_parser_reference_ignores_nested_variation_point_value_ref_and_logs_warning_on_dropped_branch(
+    caplog,
+):
+    """_parse_ecuc_reference_value prefers direct children / VALUE-IREF over <VARIATION-POINT>'s nested
+    VALUE-REF, and dropping repeated <VARIATION-POINT> branches emits a warning."""
+    import logging
+    from lxml import etree
+    from autosar_configurator.core.parser.arxml_parser import ArxmlParser
+
+    ecuc_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>ActiveEcuC</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-CONFIGURATION-VALUES>
+      <SHORT-NAME>Can</SHORT-NAME>
+      <DEFINITION-REF DEST="ECUC-MODULE-DEF">/MICROSAR/Can</DEFINITION-REF>
+      <IMPLEMENTATION-CONFIG-VARIANT>VARIANT-POST-BUILD</IMPLEMENTATION-CONFIG-VARIANT>
+      <CONTAINERS>
+        <ECUC-CONTAINER-VALUE>
+          <SHORT-NAME>CanGeneral</SHORT-NAME>
+          <DEFINITION-REF DEST="ECUC-PARAM-CONF-CONTAINER-DEF">/MICROSAR/Can/CanGeneral</DEFINITION-REF>
+          <PARAMETER-VALUES>
+            <ECUC-NUMERICAL-PARAM-VALUE>
+              <VARIATION-POINT><SHORT-LABEL>VP_P1</SHORT-LABEL></VARIATION-POINT>
+              <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/MICROSAR/Can/CanGeneral/CanTimeout</DEFINITION-REF>
+              <VALUE>100</VALUE>
+            </ECUC-NUMERICAL-PARAM-VALUE>
+            <ECUC-NUMERICAL-PARAM-VALUE>
+              <VARIATION-POINT><SHORT-LABEL>VP_P2</SHORT-LABEL></VARIATION-POINT>
+              <DEFINITION-REF DEST="ECUC-INTEGER-PARAM-DEF">/MICROSAR/Can/CanGeneral/CanTimeout</DEFINITION-REF>
+              <VALUE>200</VALUE>
+            </ECUC-NUMERICAL-PARAM-VALUE>
+          </PARAMETER-VALUES>
+          <REFERENCE-VALUES>
+            <ECUC-INSTANCE-REFERENCE-VALUE>
+              <VARIATION-POINT>
+                <SW-SYSCOND>
+                  <VALUE-REF DEST="SW-SYSTEMCONST">/Bogus/NestedInVP</VALUE-REF>
+                </SW-SYSCOND>
+              </VARIATION-POINT>
+              <DEFINITION-REF DEST="ECUC-INSTANCE-REFERENCE-DEF">/MICROSAR/Can/CanGeneral/CanIref</DEFINITION-REF>
+              <VALUE-IREF>
+                <TARGET-REF DEST="SW-COMPONENT-PROTOTYPE">/Real/IrefTarget</TARGET-REF>
+              </VALUE-IREF>
+            </ECUC-INSTANCE-REFERENCE-VALUE>
+            <ECUC-REFERENCE-VALUE>
+              <VARIATION-POINT><SHORT-LABEL>VP_R1</SHORT-LABEL></VARIATION-POINT>
+              <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/MICROSAR/Can/CanGeneral/CanClockRef</DEFINITION-REF>
+              <VALUE-REF DEST="ECUC-CONTAINER-VALUE">/ActiveEcuC/Mcu/ClockA</VALUE-REF>
+            </ECUC-REFERENCE-VALUE>
+            <ECUC-REFERENCE-VALUE>
+              <VARIATION-POINT><SHORT-LABEL>VP_R2</SHORT-LABEL></VARIATION-POINT>
+              <DEFINITION-REF DEST="ECUC-REFERENCE-DEF">/MICROSAR/Can/CanGeneral/CanClockRef</DEFINITION-REF>
+              <VALUE-REF DEST="ECUC-CONTAINER-VALUE">/ActiveEcuC/Mcu/ClockB</VALUE-REF>
+            </ECUC-REFERENCE-VALUE>
+          </REFERENCE-VALUES>
+        </ECUC-CONTAINER-VALUE>
+      </CONTAINERS>
+    </ECUC-MODULE-CONFIGURATION-VALUES>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>"""
+    root = etree.fromstring(ecuc_xml.encode("utf-8"))
+    with caplog.at_level(logging.WARNING, logger="autosar_configurator.core.parser.arxml_parser"):
+        configs = ArxmlParser().parse_all_module_configurations(root)
+
+    c = configs[0].containers[0]
+    assert c.reference_values["CanIref"].value_ref == "/Real/IrefTarget"
+    warnings = "\n".join(r.message for r in caplog.records)
+    assert "CanTimeout" in warnings
+    assert "CanClockRef" in warnings
+
+
+def test_export_epc_omits_private_container_variant_sdg_and_supports_optional_active_variant(tmp_path):
+    """export_epc() never emits tool-private ContainerVariant SDG (keeping serialize_to_file()
+    round-trip intact) and supports optional active_variant filtering & override materialization."""
+    from lxml import etree
+    from autosar_configurator.core.parser.arxml_parser import ArxmlParser
+    from autosar_configurator.core.serializer.ecuc_serializer import EcucValueSerializer
+
+    project = WorkspaceProject("demo")
+    project.variants = ["Default", "V2"]
+    mgr = project.add_module(_ecuc_def(), tmp_path / "EcuC.arxml")
+    general_def = mgr.module_def.containers["EcucGeneral"]
+    general_def.upper_multiplicity = -1
+
+    inst_all = mgr.create_container_instance(general_def, instance_name="EcucGeneral_All")
+    mgr.set_parameter_value(inst_all, "ByteOrder", "BIG_ENDIAN")
+
+    inst_v2 = mgr.create_container_instance(general_def, instance_name="EcucGeneral_V2")
+    inst_v2.variant = "V2"
+    mgr.set_parameter_value(inst_v2, "ByteOrder", "LITTLE_ENDIAN")
+
+    mgr.configuration.variant_overrides = {
+        "V2": {f"{inst_all.get_path()}.ByteOrder": "LITTLE_ENDIAN"}
+    }
+
+    serializer = EcucValueSerializer()
+    native_path = tmp_path / "native.arxml"
+    epc_path = tmp_path / "plain.epc"
+    epc_def_path = tmp_path / "default.epc"
+    epc_v2_path = tmp_path / "v2.epc"
+
+    serializer.serialize_to_file(mgr.configuration, native_path)
+    serializer.export_epc(mgr.configuration, epc_path)
+    serializer.export_epc(mgr.configuration, epc_def_path, active_variant="Default")
+    serializer.export_epc(mgr.configuration, epc_v2_path, active_variant="V2")
+
+    assert "ContainerVariant" in native_path.read_text(encoding="utf-8")
+    assert "ContainerVariant" not in epc_path.read_text(encoding="utf-8")
+    assert "ContainerVariant" not in epc_v2_path.read_text(encoding="utf-8")
+
+    parser = ArxmlParser()
+    def_cfg = parser.parse_all_module_configurations(
+        etree.fromstring(epc_def_path.read_bytes())
+    )[0]
+    assert [c.short_name for c in def_cfg.containers] == ["EcucGeneral_All"]
+    assert def_cfg.containers[0].parameter_values["ByteOrder"].value == "BIG_ENDIAN"
+
+    v2_cfg = parser.parse_all_module_configurations(
+        etree.fromstring(epc_v2_path.read_bytes())
+    )[0]
+    assert [c.short_name for c in v2_cfg.containers] == ["EcucGeneral_All", "EcucGeneral_V2"]
+    by_name = {c.short_name: c for c in v2_cfg.containers}
+    assert by_name["EcucGeneral_All"].parameter_values["ByteOrder"].value == "LITTLE_ENDIAN"
+    assert by_name["EcucGeneral_V2"].parameter_values["ByteOrder"].value == "LITTLE_ENDIAN"
+    # In-memory base config must stay untouched
+    assert inst_all.parameter_values["ByteOrder"].value == "BIG_ENDIAN"
+
+
+def test_removed_dead_variant_type_and_default_variant_fields():
+    """Dead VariantType enum, EcucParameterDef.variant_type, and EcucModuleDef.default_variant are removed."""
+    from autosar_configurator.core.model import definition_model
+
+    assert not hasattr(definition_model, "VariantType")
+    assert not hasattr(
+        EcucParameterDef(short_name="P", param_type=EcucParameterType.STRING),
+        "variant_type",
+    )
+    assert not hasattr(EcucModuleDef(short_name="M"), "default_variant")
+
+
+def test_module_default_config_variant_derivation_and_baseline_adoption():
+    """EcucModuleDef.default_config_variant() drives ConfigurationManager, compose_base, and adopt_base."""
+    from autosar_configurator.core.baseline.compose import compose_base
+    from autosar_configurator.core.baseline.session import adopt_base
+
+    # 1. Post-build-only module derives VARIANT-POST-BUILD
+    pb_only = EcucModuleDef(
+        short_name="Adc",
+        definition_ref="/Vendor/Adc",
+        supported_config_variants=["VARIANT-POST-BUILD"],
+    )
+    assert pb_only.default_config_variant() == "VARIANT-POST-BUILD"
+    mgr_pb = ConfigurationManager(pb_only)
+    assert mgr_pb.configuration.implementation_config_variant == "VARIANT-POST-BUILD"
+
+    # 2. XDM module with explicit IMPLEMENTATION_CONFIG_VARIANT default honors normalized default
+    xdm_mod = EcucModuleDef(
+        short_name="Can",
+        definition_ref="/Vendor/Can",
+        supported_config_variants=["VARIANT-PRE-COMPILE", "VARIANT-POST-BUILD"],
+    )
+    xdm_mod.parameters["IMPLEMENTATION_CONFIG_VARIANT"] = EcucParameterDef(
+        short_name="IMPLEMENTATION_CONFIG_VARIANT",
+        param_type=EcucParameterType.ENUMERATION,
+        default_value="VariantPostBuild",
+    )
+    assert xdm_mod.default_config_variant() == "VARIANT-POST-BUILD"
+
+    # 3. Multi-variant ARXML without explicit default keeps VARIANT-PRE-COMPILE
+    multi_mod = EcucModuleDef(
+        short_name="Dio",
+        definition_ref="/Vendor/Dio",
+        supported_config_variants=["VARIANT-PRE-COMPILE", "VARIANT-POST-BUILD"],
+    )
+    assert multi_mod.default_config_variant() == "VARIANT-PRE-COMPILE"
+
+    # 4. compose_base falls back to module_def.default_config_variant(); adopt_base copies it
+    base_cfg, _ = compose_base(pb_only, "Adc", {})
+    assert base_cfg.implementation_config_variant == "VARIANT-POST-BUILD"
+
+    mgr_adopt = ConfigurationManager(multi_mod)
+    assert mgr_adopt.configuration.implementation_config_variant == "VARIANT-PRE-COMPILE"
+    adopt_base(mgr_adopt, base_cfg)
+    assert mgr_adopt.configuration.implementation_config_variant == "VARIANT-POST-BUILD"
+
+
+def test_xdm_parser_populates_post_build_variant_multiplicity_for_ctr_and_lst(tmp_path):
+    """EcucDefParser parses XDM a:a[@name='POSTBUILDVARIANTMULTIPLICITY'] on v:ctr and v:lst."""
+    from autosar_configurator.core.parser.ecuc_def_parser import EcucDefParser
+
+    xdm_xml = """<?xml version="1.0" encoding="UTF-8"?>
+<datamodel version="7.0"
+  xmlns="http://www.tresos.de/_projects/DataModel2/16/root.xsd"
+  xmlns:a="http://www.tresos.de/_projects/DataModel2/16/attribute.xsd"
+  xmlns:v="http://www.tresos.de/_projects/DataModel2/06/schema.xsd"
+  xmlns:d="http://www.tresos.de/_projects/DataModel2/06/data.xsd">
+  <d:ctr type="AUTOSAR" factory="autosar">
+    <d:lst type="TOP-LEVEL-PACKAGES">
+      <d:ctr name="Vendor" type="AR-PACKAGE">
+        <d:lst type="ELEMENTS">
+          <d:chc name="Can" type="AR-ELEMENT" value="MODULE-DEF">
+            <v:ctr type="MODULE-DEF">
+              <v:ctr name="SingleCtr" type="IDENTIFIABLE">
+                <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true"/>
+              </v:ctr>
+              <v:lst name="ListCtr" type="MAP">
+                <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true"/>
+                <a:da name="MIN" value="0"/>
+                <v:ctr name="ListCtr" type="IDENTIFIABLE">
+                  <v:lst name="NestedFalse" type="MAP">
+                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="false"/>
+                    <v:ctr name="NestedFalse" type="IDENTIFIABLE"/>
+                  </v:lst>
+                  <v:lst name="NestedTrue" type="MAP">
+                    <a:a name="POSTBUILDVARIANTMULTIPLICITY" value="true"/>
+                    <v:ctr name="NestedTrue" type="IDENTIFIABLE"/>
+                  </v:lst>
+                </v:ctr>
+              </v:lst>
+            </v:ctr>
+          </d:chc>
+        </d:lst>
+      </d:ctr>
+    </d:lst>
+  </d:ctr>
+</datamodel>"""
+    xdm_path = tmp_path / "Can.xdm"
+    xdm_path.write_text(xdm_xml, encoding="utf-8")
+
+    mod_def = EcucDefParser().parse_module_def_file(xdm_path)
+    assert mod_def.containers["SingleCtr"].post_build_variant_multiplicity is True
+    assert mod_def.containers["ListCtr"].post_build_variant_multiplicity is True
+    assert mod_def.containers["ListCtr"].sub_containers["NestedFalse"].post_build_variant_multiplicity is False
+    assert mod_def.containers["ListCtr"].sub_containers["NestedTrue"].post_build_variant_multiplicity is True
+
+
+def test_multiplicity_validation_checks_per_variant_and_warns_on_post_build_variant_multiplicity_false():
+    """MultiplicityValidationRule counts instances per variant view and warns when a
+    VARIANT-POST-BUILD module assigns container.variant on a definition with
+    post_build_variant_multiplicity=False."""
+    from autosar_configurator.core.model.configuration_model import EcucContainerValue
+    from autosar_configurator.core.rules.structural_rules import MultiplicityValidationRule
+
+    mod_def = EcucModuleDef(short_name="Can", definition_ref="/Vendor/Can")
+    chan_def = EcucContainerDef(
+        short_name="CanChannel",
+        definition_ref="/Vendor/Can/CanChannel",
+        lower_multiplicity=0,
+        upper_multiplicity=1,
+        post_build_variant_multiplicity=False,
+    )
+    pb_def = EcucContainerDef(
+        short_name="CanPbItem",
+        definition_ref="/Vendor/Can/CanPbItem",
+        lower_multiplicity=0,
+        upper_multiplicity=1,
+        post_build_variant_multiplicity=True,
+    )
+    mod_def.add_container(chan_def)
+    mod_def.add_container(pb_def)
+
+    project = WorkspaceProject("demo")
+    project.variants = ["Default", "V1", "V2"]
+    mgr = project.add_module(mod_def, Path("Can.arxml"))
+
+    c1 = EcucContainerValue(short_name="CanChannel_V1", definition_ref=chan_def.definition_ref, variant="V1")
+    c2 = EcucContainerValue(short_name="CanChannel_V2", definition_ref=chan_def.definition_ref, variant="V2")
+    pb1 = EcucContainerValue(short_name="CanPbItem_V1", definition_ref=pb_def.definition_ref, variant="V1")
+    mgr.configuration.add_container(c1)
+    mgr.configuration.add_container(c2)
+    mgr.configuration.add_container(pb1)
+
+    rule = MultiplicityValidationRule()
+
+    # Pre-Compile: mutually exclusive V1/V2 instances satisfy 0..1 per variant, zero warnings
+    mgr.configuration.implementation_config_variant = "VARIANT-PRE-COMPILE"
+    res_pc = rule.validate(mod_def, mgr.configuration, project)
+    assert res_pc.error_count == 0
+    assert res_pc.warning_count == 0
+
+    # Post-Build: still 0 multiplicity errors, but 2 warnings for CanChannel (pb_mult=False), 0 for CanPbItem
+    mgr.configuration.implementation_config_variant = "VARIANT-POST-BUILD"
+    res_pb = rule.validate(mod_def, mgr.configuration, project)
+    assert res_pb.error_count == 0
+    warn_msgs = [m.message for m in res_pb.messages if m.severity.name == "WARNING"]
+    assert len(warn_msgs) == 2
+    assert any("CanChannel_V1" in msg for msg in warn_msgs)
+    assert any("CanChannel_V2" in msg for msg in warn_msgs)
+    assert not any("CanPbItem_V1" in msg for msg in warn_msgs)
+
+
+def test_config_manager_multiplicity_check_before_add_scopes_to_active_variant():
+    """ConfigurationManager._check_multiplicity_before_add* counts only instances visible in active_variant."""
+    import pytest
+    from autosar_configurator.core.config_manager import ValidationError
+
+    mod_def = EcucModuleDef(short_name="Can", definition_ref="/Vendor/Can")
+    chan_def = EcucContainerDef(
+        short_name="CanChannel",
+        definition_ref="/Vendor/Can/CanChannel",
+        lower_multiplicity=0,
+        upper_multiplicity=1,
+    )
+    parent_def = EcucContainerDef(
+        short_name="CanGroup",
+        definition_ref="/Vendor/Can/CanGroup",
+        lower_multiplicity=0,
+        upper_multiplicity=1,
+    )
+    flt_def = EcucContainerDef(
+        short_name="CanFilter",
+        definition_ref="/Vendor/Can/CanGroup/CanFilter",
+        lower_multiplicity=0,
+        upper_multiplicity=1,
+    )
+    parent_def.add_sub_container(flt_def)
+    mod_def.add_container(chan_def)
+    mod_def.add_container(parent_def)
+
+    project = WorkspaceProject("demo")
+    project.variants = ["Default", "V1", "V2"]
+    project.active_variant = "V1"
+    mgr = project.add_module(mod_def, Path("Can.arxml"))
+
+    ch_v1 = mgr.create_container_instance(chan_def, instance_name="CanChannel_V1")
+    ch_v1.variant = "V1"
+    grp = mgr.create_container_instance(parent_def, instance_name="CanGroup_Shared")
+    flt_v1 = mgr.create_container_instance(flt_def, parent=grp, instance_name="CanFilter_V1")
+    flt_v1.variant = "V1"
+
+    # Switching active_variant to V2 allows creating 1 instance for V2
+    project.active_variant = "V2"
+    ch_v2 = mgr.create_container_instance(chan_def, instance_name="CanChannel_V2")
+    ch_v2.variant = "V2"
+    flt_v2 = mgr.create_container_instance(flt_def, parent=grp, instance_name="CanFilter_V2")
+    flt_v2.variant = "V2"
+
+    # A second instance in the same V2 view still violates upper_multiplicity=1
+    with pytest.raises(ValidationError):
+        mgr.create_container_instance(chan_def, instance_name="CanChannel_V2_Extra")
+    with pytest.raises(ValidationError):
+        mgr.create_container_instance(flt_def, parent=grp, instance_name="CanFilter_V2_Extra")
+
+
+
+
+
 

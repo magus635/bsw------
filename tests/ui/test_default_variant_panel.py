@@ -304,3 +304,355 @@ def test_module_implementation_config_variant_in_tree_menu_and_not_on_container_
     assert title_updated == [True]
 
 
+def test_nested_subcontainer_variant_override_isolates_bare_short_name_keys(qtbot):
+    """Nested sub-containers with the same short_name as a top-level container must never read
+    or delete the top-level container's legacy bare ``<ShortName>.<Param>`` override key."""
+    from types import SimpleNamespace
+    from PySide6.QtGui import QUndoStack
+    from PySide6.QtWidgets import QLineEdit
+    from autosar_configurator.core.model.definition_model import EcucReferenceDef
+    from autosar_configurator.ui.controllers.edit_controller import EditController
+
+    mod_def = EcucModuleDef(short_name="Can", definition_ref="/MICROSAR/Can")
+
+    top_sub_def = EcucContainerDef(
+        short_name="SubItem",
+        definition_ref="/MICROSAR/Can/SubItem",
+        lower_multiplicity=0,
+        upper_multiplicity=1,
+    )
+    top_sub_def.add_parameter(EcucParameterDef(
+        short_name="Mode",
+        param_type=EcucParameterType.STRING,
+        definition_ref="/MICROSAR/Can/SubItem/Mode",
+    ))
+    top_sub_def.references["TargetRef"] = EcucReferenceDef(
+        short_name="TargetRef",
+        definition_ref="/MICROSAR/Can/SubItem/TargetRef",
+        destination_ref="/MICROSAR/Can/Target",
+    )
+    mod_def.add_container(top_sub_def)
+
+    parent_def = EcucContainerDef(
+        short_name="ParentBox",
+        definition_ref="/MICROSAR/Can/ParentBox",
+        lower_multiplicity=0,
+        upper_multiplicity=1,
+    )
+    nested_sub_def = EcucContainerDef(
+        short_name="SubItem",
+        definition_ref="/MICROSAR/Can/ParentBox/SubItem",
+        lower_multiplicity=0,
+        upper_multiplicity=1,
+    )
+    nested_sub_def.add_parameter(EcucParameterDef(
+        short_name="Mode",
+        param_type=EcucParameterType.STRING,
+        definition_ref="/MICROSAR/Can/ParentBox/SubItem/Mode",
+    ))
+    nested_sub_def.references["TargetRef"] = EcucReferenceDef(
+        short_name="TargetRef",
+        definition_ref="/MICROSAR/Can/ParentBox/SubItem/TargetRef",
+        destination_ref="/MICROSAR/Can/Target",
+    )
+    parent_def.sub_containers["SubItem"] = nested_sub_def
+    mod_def.add_container(parent_def)
+
+    project = WorkspaceProject("demo")
+    project.variants = ["Default", "V2"]
+    project.active_variant = "V2"
+    manager = project.add_module(mod_def, Path("Can.arxml"))
+    parent_box = manager.create_container_instance(parent_def)
+    nested_sub = manager.create_container_instance(nested_sub_def, parent=parent_box)
+    manager.set_parameter_value(nested_sub, "Mode", "NESTED_BASE")
+
+    manager.configuration.variant_overrides = {
+        "V2": {
+            "SubItem.Mode": "TOP_LEGACY",
+            "SubItem.ref:TargetRef": "/Can/TopTarget",
+        }
+    }
+
+    panel = DaVinciConfigPanel()
+    qtbot.addWidget(panel)
+    undo_stack = QUndoStack()
+    fake_win = SimpleNamespace(
+        current_project=project,
+        config_manager=manager,
+        config_panel=panel,
+        undo_stack=undo_stack,
+        statusbar=SimpleNamespace(showMessage=lambda *_a, **_kw: None),
+        dep_graph_controller=SimpleNamespace(_update_dependency_graph_if_open=lambda: None),
+        _has_unsaved_changes=False,
+    )
+    edit_ctrl = EditController(fake_win)
+    panel.parameter_changed.connect(edit_ctrl.handle_parameter_change)
+
+    panel.show_instance(nested_sub, nested_sub_def, manager, project)
+    mode_row = next(
+        r for r in range(panel.params_table.rowCount())
+        if panel.params_table.item(r, 0).data(0x0100) == "Mode"
+    )
+    mode_widget = panel.params_table.cellWidget(mode_row, 1)
+    assert isinstance(mode_widget, QLineEdit)
+    assert mode_widget.text() == "NESTED_BASE"
+
+    # Comparison must not pick up top-level bare "SubItem.Mode" override
+    panel.reference_variant = None
+    panel.compare_btn.setChecked(True)
+    panel._run_comparison()
+    assert "Mode" not in panel.comparison_results
+
+    # Setting then clearing nested Mode/ref must keep top-level bare keys untouched
+    panel._on_value_changed("Mode", "NESTED_V2")
+    assert manager.configuration.variant_overrides["V2"]["/Can/ParentBox/SubItem.Mode"] == "NESTED_V2"
+    assert manager.configuration.variant_overrides["V2"]["SubItem.Mode"] == "TOP_LEGACY"
+
+    panel._on_value_changed("Mode", "(未配置)")
+    assert "/Can/ParentBox/SubItem.Mode" not in manager.configuration.variant_overrides["V2"]
+    assert manager.configuration.variant_overrides["V2"]["SubItem.Mode"] == "TOP_LEGACY"
+    undo_stack.undo()
+    assert manager.configuration.variant_overrides["V2"]["/Can/ParentBox/SubItem.Mode"] == "NESTED_V2"
+    assert manager.configuration.variant_overrides["V2"]["SubItem.Mode"] == "TOP_LEGACY"
+    undo_stack.redo()
+    assert manager.configuration.variant_overrides["V2"]["SubItem.Mode"] == "TOP_LEGACY"
+
+    panel._on_reference_changed("TargetRef", None)
+    assert manager.configuration.variant_overrides["V2"]["SubItem.ref:TargetRef"] == "/Can/TopTarget"
+
+
+def test_invalid_variant_override_value_rejected_without_corrupting_overrides_or_undo_stack(qtbot, monkeypatch):
+    """Out-of-range integer or invalid enum value in non-Default variant is rejected,
+    leaving existing variant_overrides and undo_stack uncorrupted."""
+    from types import SimpleNamespace
+    from PySide6.QtGui import QUndoStack
+    from PySide6.QtWidgets import QMessageBox
+    from autosar_configurator.ui.controllers.edit_controller import EditController
+
+    mod_def = _ecuc_def()
+    mod_def.containers["EcucGeneral"].add_parameter(EcucParameterDef(
+        short_name="MaxChannels",
+        param_type=EcucParameterType.INTEGER,
+        definition_ref="/MICROSAR/EcuC/EcucGeneral/MaxChannels",
+        min_value=1,
+        max_value=8,
+    ))
+
+    project = WorkspaceProject("demo")
+    project.variants = ["Default", "V2"]
+    project.active_variant = "V2"
+    manager = project.add_module(mod_def, Path("EcuC.arxml"))
+    general = manager.create_container_instance(mod_def.containers["EcucGeneral"])
+
+    panel = DaVinciConfigPanel()
+    qtbot.addWidget(panel)
+    undo_stack = QUndoStack()
+    fake_win = SimpleNamespace(
+        current_project=project,
+        config_manager=manager,
+        config_panel=panel,
+        undo_stack=undo_stack,
+        statusbar=SimpleNamespace(showMessage=lambda *_a, **_kw: None),
+        dep_graph_controller=SimpleNamespace(_update_dependency_graph_if_open=lambda: None),
+        _has_unsaved_changes=False,
+    )
+    edit_ctrl = EditController(fake_win)
+    panel.parameter_changed.connect(edit_ctrl.handle_parameter_change)
+
+    warnings = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *_a, **_kw: warnings.append(_a[2]))
+
+    panel.show_instance(general, mod_def.containers["EcucGeneral"], manager, project)
+    panel._on_value_changed("MaxChannels", "4")
+    assert manager.configuration.variant_overrides["V2"][f"{general.get_path()}.MaxChannels"] == 4
+    assert undo_stack.count() == 1
+
+    panel._on_value_changed("MaxChannels", "99")
+    panel._on_value_changed("CPUType", "INVALID_CPU")
+
+    assert len(warnings) == 2
+    assert manager.configuration.variant_overrides["V2"][f"{general.get_path()}.MaxChannels"] == 4
+    assert f"{general.get_path()}.CPUType" not in manager.configuration.variant_overrides["V2"]
+    assert undo_stack.count() == 1
+
+
+def test_locked_pre_container_blocks_instance_variant_change_in_panel(qtbot):
+    """A locked Pre container cannot have instance.variant changed from DaVinciConfigPanel."""
+    from autosar_configurator.core.config_manager import PreLockedError
+
+    mod_def = _ecuc_def()
+    project = WorkspaceProject("demo")
+    project.variants = ["Default", "V2"]
+    manager = project.add_module(mod_def, Path("EcuC.arxml"))
+    general = manager.create_container_instance(mod_def.containers["EcucGeneral"])
+
+    def _check_editable(inst, name=None):
+        if name is None:
+            raise PreLockedError("P:/EcuC/EcucGeneral")
+
+    manager.check_editable = _check_editable
+
+    panel = DaVinciConfigPanel()
+    qtbot.addWidget(panel)
+    panel.show_instance(general, mod_def.containers["EcucGeneral"], manager, project)
+
+    panel._on_instance_variant_changed("V2")
+    assert general.variant is None
+    assert panel.variant_combo.currentText() == "None (All Variants)"
+
+
+def test_main_window_variant_selector_stays_hidden_for_single_default_and_reveals_for_multivariant_project(
+    qtbot, monkeypatch
+):
+    """Project variant toolbar controls stay hidden for single-Default projects, auto-reveal
+    when a multi-variant (or non-Default active) project is loaded, and sync tree active_variant."""
+    from PySide6.QtWidgets import QMessageBox
+    from autosar_configurator.ui.controllers.project_controller import ProjectController
+    from autosar_configurator.ui.davinci_main_window import DaVinciMainWindow
+
+    monkeypatch.setattr(ProjectController, "_auto_load_last_project", lambda self: None)
+    monkeypatch.setattr(ProjectController, "_load_last_session", lambda self: None)
+    monkeypatch.setattr(QMessageBox, "question", lambda *_a, **_kw: QMessageBox.Discard)
+    win = DaVinciMainWindow()
+    qtbot.addWidget(win)
+
+    proj = WorkspaceProject("single")
+    mgr = proj.add_module(_ecuc_def(), Path("EcuC.arxml"))
+    mgr.create_container_instance(mgr.module_def.containers["EcucGeneral"])
+    win.current_project = proj
+    win.tree_view.set_project(proj)
+    win._update_variant_selector()
+
+    variant_actions = getattr(win, "_variant_toolbar_actions", None)
+    assert variant_actions is not None and len(variant_actions) > 0
+    assert all(not act.isVisible() for act in variant_actions)
+    assert win.variant_label.isHidden() is True
+    assert win.tree_view.active_variant == "Default"
+
+    proj.variants = ["Default", "V2"]
+    proj.active_variant = "V2"
+    win._update_variant_selector()
+
+    assert all(act.isVisible() for act in variant_actions)
+    assert win.variant_label.isHidden() is False
+    assert win.variant_selector.currentText() == "V2"
+    assert win.tree_view.active_variant == "V2"
+
+
+def test_main_window_instance_variant_changed_catches_pre_locked_and_rolls_back(qtbot):
+    """DaVinciMainWindow._on_instance_variant_changed handles PreLockedError gracefully
+    without raising, rolls back instance.variant, and leaves undo stack untouched."""
+    from types import SimpleNamespace
+    from PySide6.QtGui import QUndoStack
+    from autosar_configurator.core.config_manager import PreLockedError
+    from autosar_configurator.ui.controllers.edit_controller import EditController
+    from autosar_configurator.ui.davinci_main_window import DaVinciMainWindow
+
+    mod_def = _ecuc_def()
+    project = WorkspaceProject("demo")
+    project.variants = ["Default", "V2"]
+    manager = project.add_module(mod_def, Path("EcuC.arxml"))
+    general = manager.create_container_instance(mod_def.containers["EcucGeneral"])
+
+    def _check_editable(inst, name=None):
+        if name is None:
+            raise PreLockedError("P:/EcuC/EcucGeneral")
+
+    manager.check_editable = _check_editable
+
+    panel = DaVinciConfigPanel()
+    qtbot.addWidget(panel)
+    panel.show_instance(general, mod_def.containers["EcucGeneral"], manager, project)
+    # Simulate an unguarded caller mutating variant & capturing undo state before main window handler runs
+    panel._pending_instance_variant_undo = (general, None, "V2")
+    general.variant = "V2"
+
+    messages = []
+    undo_stack = QUndoStack()
+    fake_win = SimpleNamespace(
+        current_project=project,
+        config_manager=manager,
+        config_panel=panel,
+        undo_stack=undo_stack,
+        tree_view=SimpleNamespace(refresh=lambda: None),
+        statusbar=SimpleNamespace(showMessage=lambda msg, *_a: messages.append(msg)),
+        _has_unsaved_changes=False,
+        _update_window_title=lambda: None,
+    )
+    fake_win.edit_controller = EditController(fake_win)
+
+    DaVinciMainWindow._on_instance_variant_changed(fake_win, general)
+
+    assert general.variant is None
+    assert undo_stack.count() == 0
+    assert fake_win._has_unsaved_changes is False
+    assert any("预配置" in m for m in messages)
+
+
+def test_manage_variants_refreshes_tree_panel_dirty_flag_and_dialog_counts_assigned_containers(
+    qtbot, monkeypatch
+):
+    """VariantManagementDialog reports container.variant counts and ProjectController.manage_variants
+    syncs tree active_variant, refreshes/clears config_panel, and marks window dirty on accept."""
+    from types import SimpleNamespace
+    from PySide6.QtWidgets import QDialog
+    from autosar_configurator.ui.controllers.project_controller import ProjectController
+    from autosar_configurator.ui.widgets.variant_management_dialog import VariantManagementDialog
+
+    mod_def = _ecuc_def()
+    project = WorkspaceProject("demo")
+    project.variants = ["Default", "V2"]
+    project.active_variant = "V2"
+    manager = project.add_module(mod_def, Path("EcuC.arxml"))
+    general = manager.create_container_instance(mod_def.containers["EcucGeneral"])
+    general.variant = "V2"
+
+    dlg = VariantManagementDialog(project)
+    qtbot.addWidget(dlg)
+    dlg.list_widget.setCurrentRow(1)
+    assert "Total Assigned Containers: 1" in dlg.stats_label.text()
+    assert "EcuC" in dlg.stats_label.text()
+
+    events = []
+
+    class _FakeDialog:
+        def __init__(self, proj, parent=None):
+            self.proj = proj
+            self.changed = False
+
+        def exec(self):
+            self.proj.variants = ["Default"]
+            self.proj.active_variant = "Default"
+            self.changed = True
+            return QDialog.Accepted
+
+    monkeypatch.setattr(
+        "autosar_configurator.ui.widgets.variant_management_dialog.VariantManagementDialog",
+        _FakeDialog,
+    )
+
+    fake_win = SimpleNamespace(
+        current_project=project,
+        tree_view=SimpleNamespace(set_active_variant=lambda v: events.append(("tree_active", v))),
+        config_panel=SimpleNamespace(
+            current_instance=general,
+            clear=lambda: events.append(("panel", "clear")),
+            refresh=lambda: events.append(("panel", "refresh")),
+        ),
+        statusbar=SimpleNamespace(showMessage=lambda msg, *_a: events.append(("status", msg))),
+        _update_variant_selector=lambda: events.append(("update_selector", True)),
+        _update_window_title=lambda: events.append(("update_title", True)),
+        _has_unsaved_changes=False,
+    )
+
+    ProjectController(fake_win).manage_variants()
+
+    assert ("update_selector", True) in events
+    assert ("tree_active", "Default") in events
+    assert ("panel", "clear") in events
+    assert ("update_title", True) in events
+    assert fake_win._has_unsaved_changes is True
+
+
+
+

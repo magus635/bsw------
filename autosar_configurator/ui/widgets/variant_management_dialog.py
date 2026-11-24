@@ -26,6 +26,7 @@ class VariantManagementDialog(QDialog):
     def __init__(self, project, parent=None):
         super().__init__(parent)
         self.project = project
+        self.changed = False
         self._snapshot = self._capture_snapshot()
         self.setWindowTitle("Manage Project Variants")
         self.setMinimumWidth(500)
@@ -66,6 +67,7 @@ class VariantManagementDialog(QDialog):
         self.project.variants = list(snap["variants"])
         self.project.active_variant = snap["active_variant"]
         self.project.is_modified = snap["is_modified"]
+        self.changed = False
         if hasattr(self.project, "unloaded_variant_overrides"):
             self.project.unloaded_variant_overrides = copy.deepcopy(snap["unloaded_overrides"])
         for name, mgr in (getattr(self.project, "module_managers", None) or {}).items():
@@ -177,25 +179,45 @@ class VariantManagementDialog(QDialog):
         variant_name = self.list_widget.item(index).text()
         self.variant_title.setText(f"Variant: {variant_name}")
         self.remove_btn.setEnabled(variant_name != DEFAULT_VARIANT)
+
+        def _count_assigned(containers) -> int:
+            cnt = 0
+            for c in containers or ():
+                if getattr(c, "variant", None) == variant_name:
+                    cnt += 1
+                cnt += _count_assigned(getattr(c, "sub_containers", None))
+            return cnt
         
         # Calculate stats
         total_overrides = 0
+        total_containers = 0
         module_stats = []
         
         for name, manager in self.project.module_managers.items():
-            count = manager.configuration.get_variant_overrides_count(variant_name)
-            if count > 0:
+            cfg = getattr(manager, "configuration", None)
+            if cfg is None:
+                continue
+            count = cfg.get_variant_overrides_count(variant_name)
+            c_count = _count_assigned(getattr(cfg, "containers", None))
+            if count > 0 or c_count > 0:
                 total_overrides += count
-                module_stats.append(f" - {name}: {count} overrides")
+                total_containers += c_count
+                parts = []
+                if count > 0:
+                    parts.append(f"{count} overrides")
+                if c_count > 0:
+                    parts.append(f"{c_count} assigned containers")
+                module_stats.append(f" - {name}: {', '.join(parts)}")
                 
         status = "Active" if variant_name == self.project.active_variant else "Inactive"
         
         stats_text = f"Status: {status}\n\n"
         stats_text += f"Total Parameter Overrides: {total_overrides}\n"
+        stats_text += f"Total Assigned Containers: {total_containers}\n"
         if module_stats:
             stats_text += "\nModule Breakdown:\n" + "\n".join(module_stats)
         else:
-            stats_text += "\nNo overrides defined for this variant."
+            stats_text += "\nNo overrides or assigned containers defined for this variant."
             
         self.stats_label.setText(stats_text)
         
@@ -211,6 +233,7 @@ class VariantManagementDialog(QDialog):
                 return
             self.project.variants.append(name)
             self.project.is_modified = True
+            self.changed = True
             self._load_variants()
             
     def _clone_variant(self):
@@ -232,6 +255,7 @@ class VariantManagementDialog(QDialog):
             # Add to list
             self.project.variants.append(new_name)
             self.project.is_modified = True
+            self.changed = True
             
             # Clone overrides across all modules
             for manager in self.project.module_managers.values():
@@ -261,6 +285,7 @@ class VariantManagementDialog(QDialog):
                     self.project.variants[0] if self.project.variants else DEFAULT_VARIANT
                 )
             self.project.is_modified = True
+            self.changed = True
 
             def clear_container_variant(c, cfg):
                 if getattr(c, "variant", None) == name:
