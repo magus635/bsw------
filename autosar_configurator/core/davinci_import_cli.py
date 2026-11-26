@@ -98,7 +98,9 @@ class DaVinciImportCLI:
                     value_docs = SipMerger.extract_value_collections(all_files, pkg_mod_name)
                     pre_config = value_docs.get("pre")
                     rec_config = value_docs.get("rec")
-                    impl_meta = SipMerger.extract_bsw_implementation_metadata(all_files)
+                    impl_meta = SipMerger.extract_bsw_implementation_metadata(
+                        all_files, module_name=pkg_mod_name
+                    )
                     source_paths = [str(f.path) for f in all_files]
 
                     logger.info("Importing %s... def=%s pre=%s rec=%s values=%s",

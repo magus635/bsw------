@@ -13,6 +13,7 @@ from lxml import etree
 import json
 import logging
 import io
+import shutil
 
 logger = logging.getLogger(__name__)
 
@@ -603,18 +604,19 @@ class SipScanner:
 
                 for arxml_file in bswmd_dir.rglob("*.arxml"):
                     try:
-                        module, role = self._extract_module_and_role(arxml_file)
-                        if module:
+                        entries = self._extract_modules_and_roles(arxml_file)
+                        if entries:
                             content = arxml_file.read_bytes()
-                            sip_file = SipFile(
-                                path=arxml_file,
-                                module=module,
-                                content=content,
-                                role=role,
-                            )
-                            if module not in result:
-                                result[module] = []
-                            result[module].append(sip_file)
+                            for module, role in entries:
+                                sip_file = SipFile(
+                                    path=arxml_file,
+                                    module=module,
+                                    content=content,
+                                    role=role,
+                                )
+                                if module not in result:
+                                    result[module] = []
+                                result[module].append(sip_file)
                     except (OSError, etree.XMLSyntaxError, AttributeError):
                         pass
 
@@ -624,7 +626,7 @@ class SipScanner:
         def_modules: Dict[str, Dict[str, Set[str]]] = {}
         orphan_modules: Dict[str, Dict[str, Set[str]]] = {}
         for mod_name, sfiles in result.items():
-            metas = [self._extract_file_partition_meta(sf) for sf in sfiles]
+            metas = [self._extract_file_partition_meta(sf, module_name=mod_name) for sf in sfiles]
             has_def = any(m["def_paths"] for m in metas)
             info = {
                 "def_paths": {dp for m in metas for dp in m["def_paths"]},
@@ -774,23 +776,26 @@ class SipScanner:
         return None
 
     @staticmethod
-    def _extract_module_and_role(file_path: Path) -> tuple[Optional[str], str]:
-        """Extract module name and classify the file's role.
+    def _extract_modules_and_roles(file_path: Path) -> List[Tuple[str, str]]:
+        """Extract all module names present in an ARXML file with their role.
 
-        Returns:
-            (module_name, role) where role is "def" if the file contains
-            ECUC-MODULE-DEF or BSW-IMPLEMENTATION, or "config" if it only has
-            CONFIGURATION-VALUES. Returns (None, "unknown") if no relevant elements.
+        Multi-definition BSWMD files such as ``Rte_bswmd.arxml`` (defining
+        ``Rte``, ``RteCalculation``, ``RteChecks``) or ``LinIf_bswmd.arxml``
+        (defining ``LinIf``, ``LinTp``) return every module they define in
+        document order so callers can register and slice per module cleanly.
         """
         try:
             parser = etree.XMLParser(resolve_entities=False, no_network=True)
             tree = etree.parse(str(file_path), parser)
             root = tree.getroot()
 
-            has_def = False
-            module_from_def = None
-            module_from_impl = None
-            module_from_config = None
+            def_modules: List[str] = []
+            impl_modules: List[str] = []
+            cfg_modules: List[str] = []
+
+            def _add_unique(lst: List[str], name: Optional[str]) -> None:
+                if name and name not in lst:
+                    lst.append(name)
 
             for elem in root.iter():
                 if not isinstance(elem.tag, str):
@@ -799,14 +804,13 @@ class SipScanner:
                 tag = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
 
                 if tag == "ECUC-MODULE-DEF":
-                    has_def = True
                     for child in elem:
                         c_tag = child.tag.split('}')[-1] if isinstance(child.tag, str) and '}' in child.tag else child.tag
                         if c_tag == "SHORT-NAME" and child.text:
-                            module_from_def = child.text.strip()
+                            _add_unique(def_modules, child.text.strip())
                             break
 
-                elif tag == "BSW-IMPLEMENTATION" and not module_from_impl:
+                elif tag == "BSW-IMPLEMENTATION":
                     vsmd_ref = None
                     impl_sn = None
                     for child in elem:
@@ -820,33 +824,49 @@ class SipScanner:
                         elif c_tag == "SHORT-NAME" and child.text:
                             impl_sn = child.text.strip()
                     if vsmd_ref:
-                        module_from_impl = vsmd_ref.rsplit("/", 1)[-1]
+                        _add_unique(impl_modules, vsmd_ref.rsplit("/", 1)[-1])
                     elif impl_sn:
-                        module_from_impl = impl_sn[:-5] if impl_sn.endswith("_Impl") else impl_sn
+                        _add_unique(impl_modules, impl_sn[:-5] if impl_sn.endswith("_Impl") else impl_sn)
 
-                elif tag == "ECUC-MODULE-CONFIGURATION-VALUES" and not module_from_config:
+                elif tag == "ECUC-MODULE-CONFIGURATION-VALUES":
+                    cfg_mod = None
                     for child in elem:
                         c_tag = child.tag.split('}')[-1] if isinstance(child.tag, str) and '}' in child.tag else child.tag
                         if c_tag == "DEFINITION-REF" and child.text:
-                            module_from_config = child.text.rstrip("/").rsplit("/", 1)[-1]
+                            cfg_mod = child.text.strip().rstrip("/").rsplit("/", 1)[-1]
                             break
-                    if not module_from_config:
+                    if not cfg_mod:
                         for child in elem:
                             c_tag = child.tag.split('}')[-1] if isinstance(child.tag, str) and '}' in child.tag else child.tag
                             if c_tag == "SHORT-NAME" and child.text:
-                                module_from_config = child.text.strip()
+                                cfg_mod = child.text.strip()
                                 break
+                    _add_unique(cfg_modules, cfg_mod)
 
-            if has_def and module_from_def:
-                return module_from_def, "def"
-            if module_from_impl and not module_from_config:
-                return module_from_impl, "def"
-            if module_from_config:
-                return module_from_config, "config"
-            return None, "unknown"
+            if def_modules:
+                return [(m, "def") for m in def_modules]
+            if impl_modules and not cfg_modules:
+                return [(m, "def") for m in impl_modules]
+            if cfg_modules:
+                # Preserve first-module attribution for config-only multi-module files
+                # (e.g. mutually-exclusive SLP4 overlays) so unrelated pre configs are not merged.
+                return [(cfg_modules[0], "config")]
+            return []
 
         except (etree.XMLSyntaxError, OSError, AttributeError):
-            return None, "unknown"
+            return []
+
+    @staticmethod
+    def _extract_module_and_role(file_path: Path) -> tuple[Optional[str], str]:
+        """Extract module name and classify the file's role.
+
+        Returns:
+            (module_name, role) where role is "def" if the file contains
+            ECUC-MODULE-DEF or BSW-IMPLEMENTATION, or "config" if it only has
+            CONFIGURATION-VALUES. Returns (None, "unknown") if no relevant elements.
+        """
+        entries = SipScanner._extract_modules_and_roles(file_path)
+        return entries[0] if entries else (None, "unknown")
 
     @staticmethod
     def _extract_module_from_file(file_path: Path) -> Optional[str]:
@@ -876,7 +896,9 @@ class SipScanner:
         return "/" + "/".join(reversed(segments))
 
     @staticmethod
-    def _extract_file_partition_meta(sip_file: SipFile) -> Dict[str, List[str]]:
+    def _extract_file_partition_meta(
+        sip_file: SipFile, module_name: Optional[str] = None
+    ) -> Dict[str, List[str]]:
         """Extract definition, config, and BSW-IMPLEMENTATION paths/refs for variant partitioning."""
         empty: Dict[str, List[str]] = {
             "def_paths": [],
@@ -894,6 +916,13 @@ class SipScanner:
         except (etree.XMLSyntaxError, ValueError):
             return empty
 
+        filter_def_impl = False
+        filter_cfg = False
+        if module_name:
+            def_mods, impl_mods, cfg_mods = SipMerger._file_module_sets(root)
+            filter_def_impl = len(def_mods) > 1 or (not def_mods and len(impl_mods) > 1)
+            filter_cfg = filter_def_impl or len(cfg_mods) > 1
+
         def _append_unique(lst: List[str], value: Optional[str]) -> None:
             norm = value.strip().rstrip("/") if value else ""
             if norm and norm not in lst:
@@ -905,14 +934,29 @@ class SipScanner:
                 continue
             tag = elem.tag.rsplit("}", 1)[-1]
             if tag == "ECUC-MODULE-DEF":
+                if filter_def_impl and SipMerger._child_text(elem, "SHORT-NAME") != module_name:
+                    continue
                 _append_unique(meta["def_paths"], SipScanner._element_ar_path(elem))
             elif tag == "ECUC-MODULE-CONFIGURATION-VALUES":
-                _append_unique(meta["cfg_ar_paths"], SipScanner._element_ar_path(elem))
+                dref = None
                 for child in elem:
                     if isinstance(child.tag, str) and child.tag.rsplit("}", 1)[-1] == "DEFINITION-REF" and child.text:
-                        _append_unique(meta["cfg_def_refs"], child.text)
+                        dref = child.text
                         break
+                if filter_cfg:
+                    cfg_mod = (
+                        dref.strip().rstrip("/").rsplit("/", 1)[-1]
+                        if dref and dref.strip()
+                        else SipMerger._child_text(elem, "SHORT-NAME")
+                    )
+                    if cfg_mod != module_name:
+                        continue
+                _append_unique(meta["cfg_ar_paths"], SipScanner._element_ar_path(elem))
+                if dref:
+                    _append_unique(meta["cfg_def_refs"], dref)
             elif tag == "BSW-IMPLEMENTATION":
+                if filter_def_impl and not SipMerger._impl_belongs_to_module(elem, module_name or ""):
+                    continue
                 _append_unique(meta["impl_ar_paths"], SipScanner._element_ar_path(elem))
                 for child in elem:
                     if not isinstance(child.tag, str):
@@ -971,7 +1015,7 @@ class SipScanner:
         Returns ``[(package_dir_name, module_short_name, files)]``.
         """
         meta: List[Tuple[SipFile, Dict[str, List[str]]]] = [
-            (sf, SipScanner._extract_file_partition_meta(sf))
+            (sf, SipScanner._extract_file_partition_meta(sf, module_name=mod_name))
             for sf in files
         ]
 
@@ -1291,6 +1335,72 @@ class SipMerger:
         return files[0].content
 
     @staticmethod
+    def _impl_vsmd_refs(impl_elem) -> List[str]:
+        """Return normalized VENDOR-SPECIFIC-MODULE-DEF-REF strings for a BSW-IMPLEMENTATION."""
+        refs: List[str] = []
+        for child in impl_elem:
+            if not isinstance(child.tag, str) or SipMerger._local(child.tag) != "VENDOR-SPECIFIC-MODULE-DEF-REFS":
+                continue
+            for ref_child in child:
+                if (
+                    isinstance(ref_child.tag, str)
+                    and SipMerger._local(ref_child.tag) == "VENDOR-SPECIFIC-MODULE-DEF-REF"
+                    and ref_child.text
+                    and ref_child.text.strip()
+                ):
+                    refs.append(ref_child.text.strip().rstrip("/"))
+        return refs
+
+    @staticmethod
+    def _impl_module_name(impl_elem) -> Optional[str]:
+        """Derive the owning module short name for a BSW-IMPLEMENTATION element."""
+        refs = SipMerger._impl_vsmd_refs(impl_elem)
+        if refs:
+            return refs[0].rsplit("/", 1)[-1] or None
+        sn = SipMerger._child_text(impl_elem, "SHORT-NAME")
+        if not sn:
+            return None
+        return sn[:-5] if sn.endswith("_Impl") else sn
+
+    @staticmethod
+    def _impl_belongs_to_module(impl_elem, module_name: str) -> bool:
+        """Return True when a BSW-IMPLEMENTATION belongs to ``module_name``."""
+        refs = SipMerger._impl_vsmd_refs(impl_elem)
+        if refs:
+            return any(r.rsplit("/", 1)[-1] == module_name for r in refs)
+        sn = SipMerger._child_text(impl_elem, "SHORT-NAME")
+        if not sn:
+            return False
+        derived = sn[:-5] if sn.endswith("_Impl") else sn
+        return derived == module_name
+
+    @staticmethod
+    def _file_module_sets(root) -> Tuple[Set[str], Set[str], Set[str]]:
+        """Collect distinct module names across defs, impls, and configs in one ARXML tree."""
+        def_mods: Set[str] = set()
+        impl_mods: Set[str] = set()
+        cfg_mods: Set[str] = set()
+        for elem in root.iter():
+            if not isinstance(elem.tag, str):
+                continue
+            tag = SipMerger._local(elem.tag)
+            if tag == "ECUC-MODULE-DEF":
+                sn = SipMerger._child_text(elem, "SHORT-NAME")
+                if sn:
+                    def_mods.add(sn)
+            elif tag == "BSW-IMPLEMENTATION":
+                mod = SipMerger._impl_module_name(elem)
+                if mod:
+                    impl_mods.add(mod)
+            elif tag == "ECUC-MODULE-CONFIGURATION-VALUES":
+                dref = SipMerger._child_text(elem, "DEFINITION-REF")
+                if dref:
+                    leaf = dref.rstrip("/").rsplit("/", 1)[-1]
+                    if leaf:
+                        cfg_mods.add(leaf)
+        return def_mods, impl_mods, cfg_mods
+
+    @staticmethod
     def merge_definition(files: List[SipFile], module_name: str) -> Optional[bytes]:
         """Merge ECUC-MODULE-DEF / BSW-IMPLEMENTATION elements by AUTOSAR path.
 
@@ -1317,6 +1427,9 @@ class SipMerger:
                 nsmap = root.nsmap
                 root_tag = root.tag
 
+            def_mods, impl_mods, _ = SipMerger._file_module_sets(root)
+            is_multi = len(def_mods) > 1 or (not def_mods and len(impl_mods) > 1)
+
             for pkg in SipMerger._walk_packages(root):
                 pkg_path = SipMerger._package_path(pkg)
                 elements_el = None
@@ -1333,6 +1446,15 @@ class SipMerger:
                     elem_tag = SipMerger._local(elem.tag)
                     if elem_tag == "ECUC-MODULE-CONFIGURATION-VALUES":
                         continue
+                    if is_multi:
+                        if elem_tag == "ECUC-MODULE-DEF":
+                            if SipMerger._child_text(elem, "SHORT-NAME") != module_name:
+                                continue
+                        elif elem_tag == "BSW-IMPLEMENTATION":
+                            if not SipMerger._impl_belongs_to_module(elem, module_name):
+                                continue
+                        else:
+                            continue
                     if elem_tag not in SipMerger._DEF_ELEMENT_TAGS and not SipMerger._package_has_definition(pkg):
                         continue
 
@@ -1545,12 +1667,17 @@ class SipMerger:
                 nsmap = root.nsmap
                 root_tag = root.tag
 
-            # Learn the Pre/Rec paths from every BSW-IMPLEMENTATION in the module
+            def_mods, impl_mods, cfg_mods = SipMerger._file_module_sets(root)
+            is_multi = len(def_mods) > 1 or len(cfg_mods) > 1 or (not def_mods and len(impl_mods) > 1)
+
+            # Learn the Pre/Rec paths from every matching BSW-IMPLEMENTATION in the module
             for elem in root.iter():
                 if not isinstance(elem.tag, str):
                     continue
                 tag = SipMerger._local(elem.tag)
                 if tag == "BSW-IMPLEMENTATION":
+                    if is_multi and not SipMerger._impl_belongs_to_module(elem, module_name):
+                        continue
                     for child in elem.iter():
                         if not isinstance(child.tag, str):
                             continue
@@ -1577,6 +1704,13 @@ class SipMerger:
                     short = SipMerger._child_text(elem, "SHORT-NAME")
                     if not short:
                         continue
+                    if is_multi:
+                        dref = SipMerger._child_text(elem, "DEFINITION-REF")
+                        if dref:
+                            if dref.rstrip("/").rsplit("/", 1)[-1] != module_name:
+                                continue
+                        elif not (short == module_name or short.startswith(f"{module_name}_")):
+                            continue
                     ar_path = f"{pkg_path}/{short}" if pkg_path else f"/{short}"
                     if ar_path not in collections:
                         collections[ar_path] = (pkg_path or f"/{module_name}", SipMerger._clone(elem))
@@ -1605,7 +1739,9 @@ class SipMerger:
         return result
 
     @staticmethod
-    def extract_bsw_implementation_metadata(files: List[SipFile]) -> Dict[str, Any]:
+    def extract_bsw_implementation_metadata(
+        files: List[SipFile], module_name: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Extract structured BSW-IMPLEMENTATION metadata (W10) from SIP files.
 
         Returns a dict containing ``ar_path``, ``short_name``, ``sw_version``,
@@ -1630,6 +1766,11 @@ class SipMerger:
             except (etree.XMLSyntaxError, ValueError):
                 continue
 
+            is_multi = False
+            if module_name:
+                def_mods, impl_mods, _ = SipMerger._file_module_sets(root)
+                is_multi = len(def_mods) > 1 or (not def_mods and len(impl_mods) > 1)
+
             for pkg in SipMerger._walk_packages(root):
                 pkg_path = SipMerger._package_path(pkg)
                 elements_el = next(
@@ -1640,6 +1781,8 @@ class SipMerger:
                     continue
                 for elem in elements_el:
                     if not isinstance(elem.tag, str) or SipMerger._local(elem.tag) != "BSW-IMPLEMENTATION":
+                        continue
+                    if is_multi and module_name and not SipMerger._impl_belongs_to_module(elem, module_name):
                         continue
                     sn = SipMerger._child_text(elem, "SHORT-NAME")
                     if sn and "short_name" not in meta:
@@ -1868,6 +2011,17 @@ class SipPackageWriter:
     """Write module package with correct schema."""
 
     @staticmethod
+    def _seed_builtin_davinci_templates(package_dir_name: str, package_dir: Path) -> bool:
+        """Seed built-in ``template_packs/davinci/<package_dir_name>`` into ``templates/``."""
+        pack_dir = Path(__file__).resolve().parents[2] / "template_packs" / "davinci" / package_dir_name
+        if not pack_dir.is_dir():
+            return False
+        if not any(p.is_file() for p in pack_dir.rglob("*")):
+            return False
+        shutil.copytree(pack_dir, package_dir / "templates")
+        return True
+
+    @staticmethod
     def write_package(
         module_name: str,
         definition_content: bytes,
@@ -1879,6 +2033,7 @@ class SipPackageWriter:
         implementation_dir: Optional[str] = None,
         source_kind: str = "davinci",
         package_dir_name: Optional[str] = None,
+        seed_builtin_templates: bool = True,
     ) -> Path:
         """Write a module package with definition, pre, and rec unified under config/.
 
@@ -1894,6 +2049,8 @@ class SipPackageWriter:
             source_kind: Origin tag recorded under manifest ``origin.source``
             package_dir_name: Optional subdirectory name overriding ``module_name`` when
                 multiple variant definitions share a module short name (e.g., ``CanTrcv_Tle9255``)
+            seed_builtin_templates: Copy built-in ``template_packs/davinci/<dir_name>`` when
+                no custom/existing ``templates/`` directory is present on disk
 
         Returns:
             Path to package root
@@ -1918,18 +2075,23 @@ class SipPackageWriter:
             def_path.write_bytes(definition_content)
             files_list.append(f"config/{module_name}.arxml")
 
-        # Write pre/rec to config/ directory and index their AUTOSAR paths for manifest
+        # Write pre/rec to config/ directory and index their AUTOSAR paths for manifest;
+        # prune stale Pre/Rec files when absent on rewrite.
+        pre_path = config_dir / f"{module_name}_Pre.arxml"
         if pre_config:
-            pre_path = config_dir / f"{module_name}_Pre.arxml"
             pre_path.write_bytes(pre_config)
             files_list.append(f"config/{module_name}_Pre.arxml")
             pre_list.extend(SipPackageWriter._extract_collection_paths(pre_config))
+        else:
+            pre_path.unlink(missing_ok=True)
 
+        rec_path = config_dir / f"{module_name}_Rec.arxml"
         if rec_config:
-            rec_path = config_dir / f"{module_name}_Rec.arxml"
             rec_path.write_bytes(rec_config)
             files_list.append(f"config/{module_name}_Rec.arxml")
             rec_list.extend(SipPackageWriter._extract_collection_paths(rec_config))
+        else:
+            rec_path.unlink(missing_ok=True)
 
         # Extract AUTOSAR definition path from definition content
         def_ar_path = SipPackageWriter._extract_definition_path(definition_content, module_name) if definition_content else None
@@ -1939,7 +2101,8 @@ class SipPackageWriter:
 
         if impl_metadata is None and definition_content:
             impl_metadata = SipMerger.extract_bsw_implementation_metadata(
-                [SipFile(path=Path(f"{module_name}.arxml"), module=module_name, content=definition_content)]
+                [SipFile(path=Path(f"{module_name}.arxml"), module=module_name, content=definition_content)],
+                module_name=module_name,
             )
 
         manifest_path = output_dir / "module.json"
@@ -1953,6 +2116,14 @@ class SipPackageWriter:
                         existing_templates = prev_templates
             except (OSError, ValueError, TypeError):
                 pass
+
+        if (
+            seed_builtin_templates
+            and source_kind == "davinci"
+            and existing_templates is None
+            and not (output_dir / "templates").exists()
+        ):
+            SipPackageWriter._seed_builtin_davinci_templates(dir_name, output_dir)
 
         # Write module.json matching load_manifest schema (replaces separate sources.json)
         manifest: Dict[str, Any] = {
@@ -2057,7 +2228,7 @@ class SipPackageWriter:
                     sip_files.append(SipFile(path=arxml, module=pkg_dir.name, content=arxml.read_bytes()))
                 except OSError as exc:
                     logger.debug("Could not read %s for impl metadata: %s", arxml, exc)
-        return SipMerger.extract_bsw_implementation_metadata(sip_files) if sip_files else {}
+        return SipMerger.extract_bsw_implementation_metadata(sip_files, module_name=pkg_dir.name) if sip_files else {}
 
     @staticmethod
     def _extract_definition_path(content: bytes, module_name: str) -> Optional[str]:
@@ -2071,28 +2242,36 @@ class SipPackageWriter:
         except etree.XMLSyntaxError:
             return None
 
-        # Find ECUC-MODULE-DEF element
+        # Prefer the ECUC-MODULE-DEF matching module_name, falling back to the first one.
         def_elem = None
+        def_name = None
+        first_def_elem = None
+        first_def_name = None
         for elem in root.iter():
-            if isinstance(elem.tag, str) and elem.tag.endswith("}ECUC-MODULE-DEF"):
+            if not isinstance(elem.tag, str):
+                continue
+            etag = elem.tag.rsplit("}", 1)[-1]
+            if etag != "ECUC-MODULE-DEF":
+                continue
+            cand_name = None
+            for child in elem:
+                tag = child.tag
+                if isinstance(tag, str):
+                    tag = tag.rsplit("}", 1)[-1]
+                if tag == "SHORT-NAME":
+                    cand_name = (child.text or "").strip()
+                    break
+            if first_def_elem is None:
+                first_def_elem = elem
+                first_def_name = cand_name
+            if module_name and cand_name == module_name:
                 def_elem = elem
-                break
-            elif elem.tag == "ECUC-MODULE-DEF":
-                def_elem = elem
+                def_name = cand_name
                 break
 
         if def_elem is None:
-            return None
-
-        # Extract SHORT-NAME of the definition
-        def_name = None
-        for child in def_elem:
-            tag = child.tag
-            if isinstance(tag, str):
-                tag = tag.rsplit("}", 1)[-1]
-            if tag == "SHORT-NAME":
-                def_name = (child.text or "").strip()
-                break
+            def_elem = first_def_elem
+            def_name = first_def_name
 
         if not def_name:
             return None
@@ -2746,6 +2925,8 @@ class DaVinciProjectImporter:
             exclude_wrapped_mcal = mcal_source_dir is not None or (
                 into_project is not None and has_existing_eb_lib and on_conflict in ("auto", "keep")
             )
+            written_pkg_dirs: Set[str] = set()
+            written_def_paths: Set[str] = set()
             for mod_name in sorted(all_modules):
                 files = all_modules[mod_name]
                 # Exclude Vector-wrapped Components/Mcal_Tha62x when EB MCAL is provided
@@ -2763,7 +2944,6 @@ class DaVinciProjectImporter:
                         and stale_dir.is_dir()
                         and (stale_dir / "module.json").is_file()
                     ):
-                        import shutil
                         shutil.rmtree(stale_dir, ignore_errors=True)
 
                 for pkg_dir_name, pkg_mod_name, group_files in partitions:
@@ -2776,8 +2956,10 @@ class DaVinciProjectImporter:
                     except SipMergeError as exc:
                         report.warnings.append(f"SIP 模块 {pkg_dir_name} 合并冲突，已跳过：{exc}")
                         continue
-                    impl_meta = SipMerger.extract_bsw_implementation_metadata(group_files)
-                    SipPackageWriter.write_package(
+                    impl_meta = SipMerger.extract_bsw_implementation_metadata(
+                        group_files, module_name=pkg_mod_name
+                    )
+                    pkg_out = SipPackageWriter.write_package(
                         module_name=pkg_mod_name,
                         definition_content=def_content or b"",
                         pre_config=value_docs.get("pre"),
@@ -2788,6 +2970,33 @@ class DaVinciProjectImporter:
                         implementation_dir=cls._detect_sip_implementation_dir(group_files),
                         package_dir_name=pkg_dir_name,
                     )
+                    written_pkg_dirs.add(pkg_out.name)
+                    manifest_file = pkg_out / "module.json"
+                    if manifest_file.is_file():
+                        try:
+                            mdata = json.loads(manifest_file.read_text(encoding="utf-8"))
+                            mdef = (mdata.get("definition") or "").rstrip("/")
+                            if mdef:
+                                written_def_paths.add(mdef)
+                        except (OSError, ValueError, TypeError):
+                            pass
+
+            # Prune stale misnamed packages from earlier buggy imports whose definition collides
+            # with a newly written package (e.g. an unoverwritten package pointing to /MICROSAR/Rte).
+            if davinci_import_dir.is_dir() and written_def_paths:
+                for sub in list(davinci_import_dir.iterdir()):
+                    if not sub.is_dir() or sub.name in written_pkg_dirs:
+                        continue
+                    sub_manifest = sub / "module.json"
+                    if not sub_manifest.is_file():
+                        continue
+                    try:
+                        sub_data = json.loads(sub_manifest.read_text(encoding="utf-8"))
+                        sub_def = (sub_data.get("definition") or "").rstrip("/")
+                    except (OSError, ValueError, TypeError):
+                        continue
+                    if sub_def and sub_def in written_def_paths:
+                        shutil.rmtree(sub, ignore_errors=True)
 
             if include_resources:
                 extractor = McalResourceExtractor(dv.sip_root)

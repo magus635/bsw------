@@ -219,7 +219,9 @@ class ModulePackage:
                     sip_files.append(SipFile(path=fpath, module=self.manifest.module, content=fpath.read_bytes()))
                 except OSError:
                     pass
-        return SipMerger.extract_bsw_implementation_metadata(sip_files) if sip_files else {}
+        return SipMerger.extract_bsw_implementation_metadata(
+            sip_files, module_name=self.manifest.module
+        ) if sip_files else {}
 
     def _optional_dir(self, rel: Optional[str]) -> Optional[Path]:
         if not rel:
