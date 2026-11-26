@@ -71,6 +71,9 @@ def _clone_ref(ref: EcucReferenceValue) -> EcucReferenceValue:
         definition_ref=ref.definition_ref,
         value_ref=ref.value_ref,
         dest_type=ref.dest_type,
+        value_ref_dest=ref.value_ref_dest,
+        context_element_refs=list(ref.context_element_refs),
+        is_instance_reference=ref.is_instance_reference,
         index=ref.index,
     )
 

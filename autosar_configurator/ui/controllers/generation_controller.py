@@ -350,7 +350,9 @@ class GenerationController:
             if stats['generated']:
                 summary += f"✅ Generated: {len(stats['generated'])} module(s)\n"
             if stats['skipped']:
-                summary += f"⏩ Skipped (Unchanged): {len(stats['skipped'])} module(s)\n"
+                summary += f"⏩ Skipped (No Templates): {len(stats['skipped'])} module(s)\n"
+                for m in stats['skipped']:
+                    summary += f"  - {m}\n"
             if stats['failed']:
                 summary += f"❌ Failed: {len(stats['failed'])} module(s)\n"
                 for m, err in stats['failed']:

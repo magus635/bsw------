@@ -30,6 +30,10 @@ if not DEBUG_MODE:
             _real_print(*args, **kwargs)
     builtins.print = _silent_print
 
+# 屏蔽 macOS/Qt 下无害的 ICC 色彩配置文件解析警告 (qt.gui.icc: fromIccProfile: Failed to parse description)
+os.environ.setdefault("QT_LOGGING_RULES", "qt.gui.icc.warning=false")
+
+from PySide6.QtCore import QLoggingCategory
 from PySide6.QtWidgets import QApplication
 
 from autosar_configurator.ui.davinci_main_window import DaVinciMainWindow
@@ -39,6 +43,7 @@ from autosar_configurator.ui.davinci_main_window import DaVinciMainWindow
 
 
 def main():
+    QLoggingCategory.setFilterRules("qt.gui.icc.warning=false")
     app = QApplication(sys.argv)
     app.setApplicationName("AUTOSAR DaVinci Configurator")
     app.setOrganizationName("AUTOSAR")

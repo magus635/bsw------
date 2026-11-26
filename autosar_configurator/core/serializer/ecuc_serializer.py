@@ -257,15 +257,7 @@ class EcucValueSerializer:
                 ref_values_elem = etree.SubElement(container_elem, 'REFERENCE-VALUES')
             for ref_name, ref_list in multi_refs.items():
                 for ref_val in sorted(ref_list, key=lambda r: r.index if r.index is not None else 0):
-                    ref_elem = etree.SubElement(ref_values_elem, 'ECUC-REFERENCE-VALUE')
-                    if ref_val.index is not None:
-                        index_elem = etree.SubElement(ref_elem, 'INDEX')
-                        index_elem.text = str(ref_val.index)
-                    multi_ref_dest = getattr(ref_val, 'dest_type', None) or 'ECUC-REFERENCE-DEF'
-                    def_ref = etree.SubElement(ref_elem, 'DEFINITION-REF', DEST=multi_ref_dest)
-                    def_ref.text = ref_val.definition_ref
-                    value_elem = etree.SubElement(ref_elem, 'VALUE-REF', DEST='ECUC-CONTAINER-VALUE')
-                    value_elem.text = ref_val.value_ref
+                    self._serialize_reference(ref_val, ref_values_elem, include_index=True)
 
         # Sub-containers
         sub_containers = self._kept(container.sub_containers)
@@ -323,20 +315,37 @@ class EcucValueSerializer:
         else:
             value_elem.text = str(param.value)
 
-    def _serialize_reference(self, ref: EcucReferenceValue, ref_values_elem: etree._Element):
-        """Serialize reference value
-        
-        Args:
-            ref: Reference value to serialize  
-            ref_values_elem: The REFERENCE-VALUES wrapper element to add to
-        """
-        ref_elem = etree.SubElement(ref_values_elem, 'ECUC-REFERENCE-VALUE')
-        
+    def _serialize_reference(self, ref: EcucReferenceValue, ref_values_elem: etree._Element,
+                             include_index: bool = False):
+        """Serialize reference value (ECUC-REFERENCE-VALUE or ECUC-INSTANCE-REFERENCE-VALUE)."""
+        is_iref = bool(
+            getattr(ref, 'is_instance_reference', False)
+            or getattr(ref, 'dest_type', None) == 'ECUC-INSTANCE-REFERENCE-DEF'
+            or getattr(ref, 'context_element_refs', None)
+        )
+        elem_tag = 'ECUC-INSTANCE-REFERENCE-VALUE' if is_iref else 'ECUC-REFERENCE-VALUE'
+        ref_elem = etree.SubElement(ref_values_elem, elem_tag)
+
+        if include_index and ref.index is not None:
+            index_elem = etree.SubElement(ref_elem, 'INDEX')
+            index_elem.text = str(ref.index)
+
         # Definition reference
-        ref_dest = getattr(ref, 'dest_type', None) or 'ECUC-REFERENCE-DEF'
+        default_def_dest = 'ECUC-INSTANCE-REFERENCE-DEF' if is_iref else 'ECUC-REFERENCE-DEF'
+        ref_dest = getattr(ref, 'dest_type', None) or default_def_dest
         def_ref = etree.SubElement(ref_elem, 'DEFINITION-REF', DEST=ref_dest)
         def_ref.text = ref.definition_ref
 
         # Value (Target reference)
-        value_elem = etree.SubElement(ref_elem, 'VALUE-REF', DEST='ECUC-CONTAINER-VALUE')
-        value_elem.text = ref.value_ref
+        val_dest = getattr(ref, 'value_ref_dest', None) or 'ECUC-CONTAINER-VALUE'
+        if is_iref:
+            iref_elem = etree.SubElement(ref_elem, 'VALUE-IREF')
+            for ctx_dest, ctx_path in getattr(ref, 'context_element_refs', None) or []:
+                attrs = {'DEST': ctx_dest} if ctx_dest else {}
+                ctx_elem = etree.SubElement(iref_elem, 'CONTEXT-ELEMENT-REF', **attrs)
+                ctx_elem.text = ctx_path
+            target_elem = etree.SubElement(iref_elem, 'TARGET-REF', DEST=val_dest)
+            target_elem.text = ref.value_ref
+        else:
+            value_elem = etree.SubElement(ref_elem, 'VALUE-REF', DEST=val_dest)
+            value_elem.text = ref.value_ref

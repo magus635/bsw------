@@ -17,6 +17,7 @@ import logging
 from typing import Dict, Any, List, Tuple, Optional
 from pathlib import Path
 from ..core.model.configuration_model import EcucModuleConfiguration, EcucContainerValue
+from ..core.model.ecuc_paths import strip_ecuc_prefixes
 from ..core.model.definition_model import EcucModuleDef, EcucContainerDef, EcucParameterDef, EcucParameterType, ConfigClass
 from .eb_template_engine import EBTemplateEngine
 from .eb.errors import TemplateExecutionError
@@ -1180,9 +1181,12 @@ class CodeGenerator:
 
     def resolve_ref(self, ref_path: str) -> str:
         """Resolve a full ARXML path to a C identifier"""
-        if not ref_path: return "NULL"
-        parts = [p for p in ref_path.strip('/').split('/') if p != 'Config']
-        if not parts: return "NULL"
+        if not ref_path:
+            return "NULL"
+        stripped = strip_ecuc_prefixes(ref_path)
+        parts = [p for p in stripped.strip('/').split('/') if p]
+        if not parts:
+            return "NULL"
         return "_".join(parts)
 
     def _get_enums(self) -> List[Dict[str, Any]]:

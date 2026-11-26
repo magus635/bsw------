@@ -14,7 +14,8 @@ from PySide6.QtGui import QColor
 from typing import Optional, List, Any, Tuple
 
 from ...core.model.definition_model import EcucContainerDef, EcucParameterDef, EcucParameterType
-from ...core.model.configuration_model import EcucContainerValue, override_layer
+from ...core.model.configuration_model import EcucContainerValue, EcucReferenceValue, override_layer
+from ...core.model.ecuc_paths import strip_ecuc_prefixes
 from ...core.config_manager import ConfigurationManager, PreLockedError
 from ...core.baseline.display import module_note, origin_text, pre_file_names
 from ...core.baseline.origin import Origin
@@ -2108,15 +2109,27 @@ class DaVinciConfigPanel(QWidget):
                         index = i
                         break
             
-            # EB-style reference "/<package>/<module>/<rest>" (e.g. /Os/Os/Task_A, /Arti/Arti/ArtiValues/X)
-            # versus this tool's container path "/<module>/<rest>": drop the package segment and look again.
-            # Only done when the second segment names a loaded module, so a tool-style path that merely points
-            # at a missing target cannot be mistaken for a different container.
+            if index < 0 and ref_val is not None:
+                resolved_target = getattr(ref_val, "target", None)
+                if (
+                    getattr(ref_val, "is_resolved", False)
+                    and resolved_target is not None
+                    and not getattr(resolved_target, "_is_module_root_proxy", False)
+                ):
+                    index = combo.findData(resolved_target.get_path())
+
+            # EB / DaVinci prefixed references (including /ActiveEcuC/... or /ActiveEcuC/ActiveEcuC/...):
+            # normalize to canonical /<module>/<rest> before looking up combo items.
             if index < 0:
-                parts = current_value.split("/")          # ['', package, module, rest...]
                 modules = getattr(getattr(self, 'project', None), 'module_managers', None)
-                if len(parts) >= 4 and (modules is None or parts[2] in modules):
-                    index = combo.findData("/" + "/".join(parts[2:]))
+                known = set(modules.keys()) if modules else None
+                stripped = strip_ecuc_prefixes(current_value, known_modules=known)
+                if stripped and stripped != current_value:
+                    index = combo.findData(stripped)
+                if index < 0:
+                    parts = current_value.split("/")          # ['', package, module, rest...]
+                    if len(parts) >= 4 and (modules is None or parts[2] in modules):
+                        index = combo.findData("/" + "/".join(parts[2:]))
 
             if index >= 0:
                 combo.setCurrentIndex(index)
@@ -2124,12 +2137,22 @@ class DaVinciConfigPanel(QWidget):
             else:
                 if (
                     ref_val is not None
+                    and getattr(ref_val, "is_resolved", False)
+                    and getattr(getattr(ref_val, "target", None), "_is_module_root_proxy", False)
+                ):
+                    label = f"📦 {current_value}"
+                    color = QColor("#1d4ed8")
+                    tooltip = f"模块根配置引用: {current_value}"
+                    is_unresolved = False
+                elif (
+                    ref_val is not None
                     and getattr(ref_val, "is_foreign_reference", False)
                     and not getattr(ref_val, "has_error", False)
                 ):
                     label = f"🌐 {current_value}"
                     color = QColor("#1d4ed8")
                     tooltip = f"外部非 ECUC 引用: {current_value}"
+                    is_unresolved = False
                 else:
                     label = f"⚠️ {current_value} (Missing)"
                     color = QColor("#b91c1c")
@@ -2137,9 +2160,11 @@ class DaVinciConfigPanel(QWidget):
                         f"目标容器不存在: {current_value}\n"
                         "请展开下拉框选择有效目标，或选择 (Not set) 清空"
                     )
+                    is_unresolved = True
                 combo.addItem(label, current_value)
                 missing_idx = combo.count() - 1
-                combo.setItemData(missing_idx, True, self.UNRESOLVED_REF_ROLE)
+                if is_unresolved:
+                    combo.setItemData(missing_idx, True, self.UNRESOLVED_REF_ROLE)
                 combo.setItemData(missing_idx, color, Qt.ForegroundRole)
                 combo.setItemData(missing_idx, tooltip, Qt.ToolTipRole)
                 combo.setToolTip(tooltip)

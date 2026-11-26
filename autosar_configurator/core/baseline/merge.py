@@ -346,8 +346,15 @@ def _clone_param(param: EcucParameterValue) -> EcucParameterValue:
 
 
 def _clone_ref(ref: EcucReferenceValue) -> EcucReferenceValue:
-    return EcucReferenceValue(definition_ref=ref.definition_ref, value_ref=ref.value_ref,
-                              dest_type=ref.dest_type, index=ref.index)
+    return EcucReferenceValue(
+        definition_ref=ref.definition_ref,
+        value_ref=ref.value_ref,
+        dest_type=ref.dest_type,
+        value_ref_dest=ref.value_ref_dest,
+        context_element_refs=list(ref.context_element_refs),
+        is_instance_reference=ref.is_instance_reference,
+        index=ref.index,
+    )
 
 
 def _clone_subtree(src: EcucContainerValue, parent: Optional[EcucContainerValue],
@@ -645,8 +652,16 @@ def _set_value(container: EcucContainerValue, name: str, value: Any,
     # No Base' object for this value (a fragment re-rooted elsewhere): keep the shape
     # Active had, and fall back to a plain parameter.
     if name in container.reference_values or name in container.multi_reference_values:
+        existing = container.reference_values.get(name)
         _clear_other_forms(container, name, keep="reference_values")
-        container.reference_values[name] = EcucReferenceValue(definition_ref="", value_ref=value)
+        container.reference_values[name] = EcucReferenceValue(
+            definition_ref=existing.definition_ref if existing is not None else "",
+            value_ref=value,
+            dest_type=existing.dest_type if existing is not None else None,
+            value_ref_dest=existing.value_ref_dest if existing is not None else None,
+            context_element_refs=list(existing.context_element_refs) if existing is not None else [],
+            is_instance_reference=existing.is_instance_reference if existing is not None else False,
+        )
     else:
         flagged = _clear_other_forms(container, name, keep="parameter_values")
         container.parameter_values[name] = EcucParameterValue(definition_ref="", value=value)

@@ -202,3 +202,50 @@ def test_collect_referenced_keys_scans_variant_overlay(tmp_path):
 
     keys = collect_referenced_keys(project)
     assert keys.get("CanTrcv.Tle9255SpiChannel") == {"CanTrcv"}
+
+
+def test_ecu_has_guarded_key_is_not_reported_missing_or_unused(tmp_path):
+    """Optional ecu:get() keys guarded by ecu:has() in the same file must not trigger missing warnings,
+    nor be flagged as unused when defined."""
+    project = _project_with_xdm(
+        tmp_path,
+        "<x/>",
+        '[!IF "ecu:has(\'Det.Compiler\')"!][!VAR "c" = "ecu:get(\'Det.Compiler\')"!][!ENDIF!]',
+    )
+    report_empty = diagnose(project, {}, log=False)
+    assert report_empty.missing == {}
+    assert not report_empty.has_warnings
+
+    report_defined = diagnose(project, {"Det.Compiler": "GCC"}, log=False)
+    assert report_defined.missing == {}
+    assert report_defined.unused == []
+
+
+def test_ecu_has_guard_is_per_file_and_does_not_hide_unguarded_use(tmp_path):
+    """Guarding ecu:get('Det.Compiler') with ecu:has() in one module/file must not suppress
+    missing warnings for another module/file that accesses it without ecu:has()."""
+    plugin_det = tmp_path / "Def" / "plugins" / "Det_X"
+    (plugin_det / "config").mkdir(parents=True)
+    (plugin_det / "generate_PB").mkdir()
+    det_xdm = plugin_det / "config" / "Det.xdm"
+    det_xdm.write_text("<x/>", encoding="utf-8")
+    (plugin_det / "generate_PB" / "Det_Cfg.h").write_text(
+        '[!IF "ecu:has(\'Det.Compiler\')"!][!"ecu:get(\'Det.Compiler\')"!][!ENDIF!]',
+        encoding="utf-8",
+    )
+
+    plugin_can = tmp_path / "Def" / "plugins" / "Can_X"
+    (plugin_can / "config").mkdir(parents=True)
+    (plugin_can / "generate_PB").mkdir()
+    can_xdm = plugin_can / "config" / "Can.xdm"
+    can_xdm.write_text("<x/>", encoding="utf-8")
+    (plugin_can / "generate_PB" / "Can_Cfg.h").write_text(
+        '[!"ecu:get(\'Det.Compiler\')"!]',
+        encoding="utf-8",
+    )
+
+    project = WorkspaceProject("p", tmp_path / "p.dpa")
+    project.module_defs = {"Det": det_xdm, "Can": can_xdm}
+    report = diagnose(project, {}, log=False)
+    assert report.missing == {"Det.Compiler": ["Can"]}
+

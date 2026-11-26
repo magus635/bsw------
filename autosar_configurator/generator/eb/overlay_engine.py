@@ -314,6 +314,12 @@ class OverlayEngine:
         
         # Register in symbol table
         self.symbol_table.register_module(module_name, root)
+        if (
+            configuration is not None
+            and configuration.short_name
+            and configuration.short_name.lower() != module_name.lower()
+        ):
+            self.symbol_table.register_module_alias(configuration.short_name, root)
         
         return root
     

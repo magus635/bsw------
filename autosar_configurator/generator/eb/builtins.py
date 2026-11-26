@@ -815,11 +815,10 @@ class BuiltinFunctions:
             elif path_or_node.startswith('/'):
                 node = self.symbol_table.get_by_path(path_or_node)
                 if node is None:
-                    return False
-                # Check if it's an empty node
-                if self._is_node_empty(node):
-                    return False
-                return True
+                    node = self.symbol_table.resolve_reference(path_or_node)
+                if node is not None:
+                    return not self._is_node_empty(node)
+                # Fall through to XPath engine for /ActiveEcuC/... or wrapper paths
             
             # Relative path or XPath expression
             current = self.context_stack.current_node()
@@ -2907,6 +2906,8 @@ class BuiltinFunctions:
             # First check if the path itself exists
             if path_or_node.startswith('/'):
                 node = self.symbol_table.get_by_path(path_or_node)
+                if node is None:
+                    node = self.symbol_table.resolve_reference(path_or_node)
             else:
                 # Relative path from current context
                 # Handle ./ prefix and multi-level paths like ./foo/bar

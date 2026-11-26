@@ -10,6 +10,7 @@ from ..validation_engine import ValidationRule, ValidationResult
 from ..model.definition_model import EcucModuleDef
 from ..model.configuration_model import EcucModuleConfiguration, EcucContainerValue
 from ..model.definition_refs import same_definition
+from ..model.ecuc_paths import strip_ecuc_prefixes
 
 
 class CircularDependencyRule(ValidationRule):
@@ -53,15 +54,30 @@ class CircularDependencyRule(ValidationRule):
             Dict mapping container path to list of referenced container paths
         """
         graph = {}
-        
+        known_modules = {configuration.short_name} if configuration.short_name else None
+
+        def resolve_edge(ref_value) -> Optional[str]:
+            if getattr(ref_value, "is_resolved", False) and getattr(ref_value, "target", None) is not None:
+                return ref_value.target.get_path()
+            if ref_value.value_ref:
+                return strip_ecuc_prefixes(ref_value.value_ref, known_modules=known_modules)
+            return None
+
         def add_to_graph(container: EcucContainerValue):
             path = container.get_path()
             graph[path] = []
-            
+
             for ref_value in container.reference_values.values():
-                if ref_value.value_ref:
-                    graph[path].append(ref_value.value_ref)
-            
+                edge = resolve_edge(ref_value)
+                if edge:
+                    graph[path].append(edge)
+
+            for ref_list in container.multi_reference_values.values():
+                for ref_value in ref_list:
+                    edge = resolve_edge(ref_value)
+                    if edge:
+                        graph[path].append(edge)
+
             for sub_container in container.sub_containers:
                 add_to_graph(sub_container)
         

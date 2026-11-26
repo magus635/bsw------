@@ -10,6 +10,8 @@ from dataclasses import dataclass
 import collections
 import logging
 
+from ..model.ecuc_paths import strip_ecuc_prefixes
+
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -404,8 +406,9 @@ class ImpactAnalyzer:
 
     def _normalize_path(self, arxml_path: str) -> str:
         """Convert ARXML path to logical dot-separated path"""
-        # /Config/Mcu/Container -> Mcu.Container
-        parts = [p for p in arxml_path.split('/') if p and p != 'Config']
+        # /ActiveEcuC/Mcu/Container or /Config/Mcu/Container -> Mcu.Container
+        stripped = strip_ecuc_prefixes(arxml_path)
+        parts = [p for p in stripped.split('/') if p]
         if len(parts) >= 2:
             return '.'.join(parts)
         elif len(parts) == 1:

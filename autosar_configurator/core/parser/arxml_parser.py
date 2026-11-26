@@ -2,7 +2,7 @@
 ARXML Parser for AUTOSAR configuration files
 """
 from lxml import etree
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Tuple
 from pathlib import Path
 import re
 from ..model.container import Container, Parameter
@@ -661,7 +661,7 @@ class ArxmlParser:
         return value
 
     def _parse_ecuc_reference_value(self, element: etree._Element, container: EcucContainerValue):
-        """Parse reference value and add to container"""
+        """Parse reference value (ECUC-REFERENCE-VALUE or ECUC-INSTANCE-REFERENCE-VALUE) and add to container"""
         # Get definition reference
         definition_ref = self._get_text_value(element, 'DEFINITION-REF') or ""
         if not definition_ref:
@@ -675,30 +675,55 @@ class ArxmlParser:
         # Check for INDEX (multi-valued references)
         index_text = self._get_text_value(element, 'INDEX')
 
-        # Get target reference
-        # Standard: VALUE-REF
-        target_ref = self._get_text_value(element, 'VALUE-REF')
+        local_tag = element.tag.rsplit('}', 1)[-1] if isinstance(element.tag, str) else ''
+        is_instance_ref = local_tag == 'ECUC-INSTANCE-REFERENCE-VALUE'
+        has_variation_point = self._find_child(element, 'VARIATION-POINT') is not None
 
-        # Instance Reference: TARGET-REF inside VALUE-IREF or directly
-        if target_ref is None:
-            target_ref = self._get_text_value(element, 'TARGET-REF')
+        value_ref_dest: Optional[str] = None
+        context_element_refs: List[Tuple[str, str]] = []
+        target_ref: Optional[str] = None
 
-        if target_ref is None:
-            # Try finding descendant TARGET-REF (for IREF structure)
-            iref_target = self._find_descendant(element, 'TARGET-REF')
-            if iref_target is not None:
-                target_ref = iref_target.text
+        value_iref_elem = self._find_child(element, 'VALUE-IREF')
+        if value_iref_elem is None and is_instance_ref and not has_variation_point:
+            value_iref_elem = self._find_descendant(element, 'VALUE-IREF')
 
-        if target_ref is None:
-            target_ref = ""
-        
-        # Ensure target_ref is stripped of whitespace properly.
-        # This handles cases where target_ref might be None and then set to ""
-        # or if it was found but has leading/trailing whitespace.
-        target_ref = target_ref.strip()
+        if value_iref_elem is not None:
+            is_instance_ref = True
+            for ctx_elem in self._findall_children(value_iref_elem, 'CONTEXT-ELEMENT-REF'):
+                ctx_text = (ctx_elem.text or '').strip()
+                if ctx_text:
+                    context_element_refs.append((ctx_elem.get('DEST') or '', ctx_text))
+            target_elem = self._find_child(value_iref_elem, 'TARGET-REF')
+            if target_elem is None:
+                target_elem = self._find_descendant(value_iref_elem, 'TARGET-REF')
+            if target_elem is not None:
+                target_ref = target_elem.text
+                value_ref_dest = target_elem.get('DEST')
+        else:
+            val_elem = self._find_child(element, 'VALUE-REF')
+            if val_elem is None and not has_variation_point:
+                val_elem = self._find_descendant(element, 'VALUE-REF')
+            if val_elem is not None:
+                target_ref = val_elem.text
+                value_ref_dest = val_elem.get('DEST')
+            else:
+                target_elem = self._find_child(element, 'TARGET-REF')
+                if target_elem is None and not has_variation_point:
+                    target_elem = self._find_descendant(element, 'TARGET-REF')
+                if target_elem is not None:
+                    target_ref = target_elem.text
+                    value_ref_dest = target_elem.get('DEST')
+
+        target_ref = (target_ref or '').strip()
+
+        ref_kwargs = {
+            'dest_type': dest_type,
+            'value_ref_dest': value_ref_dest,
+            'context_element_refs': context_element_refs,
+            'is_instance_reference': is_instance_ref,
+        }
 
         # Route to multi-valued or single-valued storage
-        has_variation_point = self._find_child(element, 'VARIATION-POINT') is not None
         if index_text is None and has_variation_point and ref_name in container.reference_values:
             return
         if index_text is not None:
@@ -713,10 +738,7 @@ class ArxmlParser:
                 first = container.reference_values.pop(ref_name)
                 first.index = 0
                 container.multi_reference_values[ref_name] = [first]
-            container.add_multi_reference_value(ref_name, target_ref, definition_ref, index_val)
-            # Set dest_type on the newly added ref
-            if dest_type and ref_name in container.multi_reference_values:
-                container.multi_reference_values[ref_name][-1].dest_type = dest_type
+            container.add_multi_reference_value(ref_name, target_ref, definition_ref, index_val, **ref_kwargs)
         else:
             # EB Tresos compatibility: If a reference with the same name already exists,
             # it should be treated as a multi-reference even if INDEX is missing.
@@ -727,22 +749,27 @@ class ArxmlParser:
                 if ref_name not in container.multi_reference_values:
                     container.multi_reference_values[ref_name] = []
                 container.multi_reference_values[ref_name].append(existing_ref)
-                
+
                 # Add the new one as a multi-ref
-                container.add_multi_reference_value(ref_name, target_ref, definition_ref, len(container.multi_reference_values[ref_name]))
-                if dest_type:
-                    container.multi_reference_values[ref_name][-1].dest_type = dest_type
+                container.add_multi_reference_value(
+                    ref_name,
+                    target_ref,
+                    definition_ref,
+                    len(container.multi_reference_values[ref_name]),
+                    **ref_kwargs,
+                )
             elif ref_name in container.multi_reference_values:
                 # Already in multi-refs, just append
-                container.add_multi_reference_value(ref_name, target_ref, definition_ref, len(container.multi_reference_values[ref_name]))
-                if dest_type:
-                    container.multi_reference_values[ref_name][-1].dest_type = dest_type
+                container.add_multi_reference_value(
+                    ref_name,
+                    target_ref,
+                    definition_ref,
+                    len(container.multi_reference_values[ref_name]),
+                    **ref_kwargs,
+                )
             else:
                 # First time seeing this ref name, treat as single
-                container.set_reference_value(ref_name, target_ref, definition_ref)
-                # Set dest_type on the reference
-                if dest_type and ref_name in container.reference_values:
-                    container.reference_values[ref_name].dest_type = dest_type
+                container.set_reference_value(ref_name, target_ref, definition_ref, **ref_kwargs)
 
     # Helper methods for Permissive Parsing
 

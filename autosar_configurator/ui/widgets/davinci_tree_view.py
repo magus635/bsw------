@@ -11,6 +11,7 @@ from typing import Optional, Dict
 
 from ...core.model.definition_model import EcucModuleDef, EcucContainerDef
 from ...core.model.configuration_model import EcucContainerValue
+from ...core.model.ecuc_paths import strip_ecuc_prefixes
 from ...core.model.definition_refs import same_definition, matches_container_def
 from ...core.config_manager import ConfigurationManager, ValidationError
 from ...core.workspace_manager import WorkspaceProject
@@ -723,7 +724,13 @@ class DaVinciTreeView(QTreeWidget):
         # Actually, since we have the full path, we can check if any instance path
         # is a prefix of the target path.
         
-        target_path = "/" + path
+        known_modules = (
+            set(self.project.module_managers.keys())
+            if getattr(self, "project", None) is not None and getattr(self.project, "module_managers", None)
+            else None
+        )
+        stripped_path = strip_ecuc_prefixes(path, known_modules=known_modules)
+        target_path = stripped_path if stripped_path else ("/" + path.strip('/'))
         
         # We'll use a stack for traversal
         stack = []
@@ -814,7 +821,28 @@ class DaVinciTreeView(QTreeWidget):
                 return
     
     def _select_instance(self, instance: EcucContainerValue):
-        """Find and select a specific instance in the tree"""
+        """Find and select a specific instance (or module-root proxy) in the tree."""
+        if getattr(instance, "_is_module_root_proxy", False):
+            target_cfg = getattr(instance, "module_config", None)
+            target_mod = getattr(instance, "module_name", None)
+            for i in range(self.topLevelItemCount()):
+                item = self.topLevelItem(i)
+                data = item.data(0, Qt.UserRole)
+                if not data or data.get("type") != "MODULE":
+                    continue
+                mod_def = data.get("def")
+                mgr = data.get("manager")
+                if (
+                    (target_cfg is not None and getattr(mgr, "configuration", None) is target_cfg)
+                    or (target_mod and getattr(mod_def, "short_name", None) == target_mod)
+                ):
+                    self.setCurrentItem(item)
+                    self.scrollToItem(item)
+                    item.setExpanded(True)
+                    self._on_item_clicked(item, 0)
+                    return True
+            return False
+
         def traverse(item):
             data = item.data(0, Qt.UserRole)
             if data and data.get("type") == "VALUE":
@@ -838,9 +866,9 @@ class DaVinciTreeView(QTreeWidget):
                 return True
         return False
     
-    def select_container(self, container: EcucContainerValue):
+    def select_container(self, container: EcucContainerValue) -> bool:
         """Public API: Select and navigate to a container in the tree"""
-        self._select_instance(container)
+        return self._select_instance(container)
 
     def select_definition(self, definition_ref: str):
         """Find and select a specific definition in the tree (recursive)"""

@@ -28,6 +28,7 @@ DYNAMIC_KEYS_NOTE = ("Keys built by string concatenation in templates are not sc
                      "so 'unused' keys may in fact be referenced dynamically.")
 
 _ECU_REF = re.compile(r"""ecu:(?:get|list)\s*\(\s*['"]([^'"]+)['"]\s*\)""")
+_ECU_HAS = re.compile(r"""ecu:has\s*\(\s*['"]([^'"]+)['"]\s*\)""")
 _MAX_SCAN_BYTES = 2 * 1024 * 1024
 _CORE_FORM = re.compile(r"^CORE\d+$")
 _OS_CORE_ID_FORM = re.compile(r"^OS_CORE_ID_(\d+)$")
@@ -104,9 +105,16 @@ def _module_sources(project, module: str, def_path: Path) -> List[Path]:
     return files
 
 
-def _collect(sources: Iterable[Tuple[str, List[Path]]]) -> Dict[str, Set[str]]:
-    """Literal ``ecu:get/ecu:list`` keys of ``(module, files)`` pairs -> referencing modules."""
+def _collect_split(
+    sources: Iterable[Tuple[str, List[Path]]],
+) -> Tuple[Dict[str, Set[str]], Dict[str, Set[str]]]:
+    """Scan ``(module, files)`` pairs for literal ``ecu:get/ecu:list`` keys.
+
+    Returns ``(referenced, unguarded)`` where ``unguarded`` excludes keys whose
+    access in the same file is guarded by ``ecu:has('<key>')``.
+    """
     referenced: Dict[str, Set[str]] = {}
+    unguarded: Dict[str, Set[str]] = {}
     seen: Set[Tuple[str, Path]] = set()
     for module, files in sources:
         for f in files:
@@ -114,18 +122,31 @@ def _collect(sources: Iterable[Tuple[str, List[Path]]]) -> Dict[str, Set[str]]:
             if (module, resolved) in seen:
                 continue
             seen.add((module, resolved))
-            for key in _ECU_REF.findall(_read_text(f)):
+            text = _read_text(f)
+            guarded = {k.lower() for k in _ECU_HAS.findall(text)}
+            for key in _ECU_REF.findall(text):
                 referenced.setdefault(key, set()).add(module)
-    return referenced
+                if key.lower() not in guarded:
+                    unguarded.setdefault(key, set()).add(module)
+    return referenced, unguarded
+
+
+def _collect(sources: Iterable[Tuple[str, List[Path]]]) -> Dict[str, Set[str]]:
+    """Literal ``ecu:get/ecu:list`` keys of ``(module, files)`` pairs -> referencing modules."""
+    return _collect_split(sources)[0]
+
+
+def _project_sources(project) -> List[Tuple[str, List[Path]]]:
+    return [
+        (module, _module_sources(project, module, def_path))
+        for module, def_path in sorted(getattr(project, "module_defs", {}).items())
+        if def_path
+    ]
 
 
 def collect_referenced_keys(project) -> Dict[str, Set[str]]:
     """Map every literal ``ecu:get/ecu:list`` key to the modules referencing it."""
-    return _collect(
-        (module, _module_sources(project, module, def_path))
-        for module, def_path in sorted(getattr(project, "module_defs", {}).items())
-        if def_path
-    )
+    return _collect(_project_sources(project))
 
 
 def collect_referenced_keys_in_dirs(directories: Iterable[Path]) -> Dict[str, Set[str]]:
@@ -234,13 +255,13 @@ def diagnose(project, resources: Optional[Dict[str, Any]] = None,
     if resources is None:
         resources = getattr(project, "ecu_resources", {}) or {}
 
-    referenced = collect_referenced_keys(project)
+    referenced, unguarded = _collect_split(_project_sources(project))
     have = {k.lower() for k in resources}          # ecu:get() matches case-insensitively
     wanted = {k.lower() for k in referenced}
 
     report = EcuResourceReport()
     other_chip_keys = other_chip_keys or {}
-    for key, modules in referenced.items():
+    for key, modules in unguarded.items():
         if key.lower() in have:
             continue
         if key.lower() in other_chip_keys:

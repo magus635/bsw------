@@ -14,6 +14,32 @@ from ..model.configuration_model import (
     EcucContainerValue,
     EcucReferenceValue
 )
+from ..model.ecuc_paths import (
+    ecuc_ref_matches_container,
+    normalize_ecuc_path,
+    strip_ecuc_prefixes,
+)
+
+
+def _reference_target_exists(
+    ref_value: EcucReferenceValue,
+    all_paths: Set[str],
+    module_name: Optional[str],
+) -> bool:
+    """Check whether ``ref_value`` resolves to a known container in ``all_paths``."""
+    if getattr(ref_value, "is_resolved", False) and getattr(ref_value, "target", None) is not None:
+        return True
+    norm = normalize_ecuc_path(ref_value.value_ref)
+    if not norm:
+        return False
+    if norm in all_paths:
+        return True
+    known = {module_name} if module_name else None
+    if strip_ecuc_prefixes(norm, known_modules=known) in all_paths:
+        return True
+    if norm.startswith("/Config/") and module_name and f"/{module_name}/{norm[8:]}" in all_paths:
+        return True
+    return False
 
 
 class ResolutionErrorValidationRule(ValidationRule):
@@ -104,7 +130,9 @@ class ReferenceIntegrityRule(ValidationRule):
         
         # Check all references
         for container in configuration.containers:
-            self._validate_container_references(container, all_paths, result)
+            self._validate_container_references(
+                container, all_paths, result, configuration.short_name
+            )
         
         return result
     
@@ -124,7 +152,8 @@ class ReferenceIntegrityRule(ValidationRule):
     
     def _validate_container_references(self, container: EcucContainerValue,
                                        all_paths: Set[str],
-                                       result: ValidationResult):
+                                       result: ValidationResult,
+                                       module_name: Optional[str] = None):
         """Recursively validate references in container"""
         # Check each reference
         for ref_name, ref_value in container.reference_values.items():
@@ -132,7 +161,7 @@ class ReferenceIntegrityRule(ValidationRule):
                 continue
             target_path = ref_value.value_ref
             
-            if target_path not in all_paths:
+            if not _reference_target_exists(ref_value, all_paths, module_name):
                 result.add_message(self._create_error(
                     f"Reference '{ref_name}' points to non-existent container: {target_path}",
                     container_path=container.get_path(),
@@ -146,7 +175,7 @@ class ReferenceIntegrityRule(ValidationRule):
                 if ref_value.is_foreign_reference:
                     continue
                 target_path = ref_value.value_ref
-                if target_path not in all_paths:
+                if not _reference_target_exists(ref_value, all_paths, module_name):
                     result.add_message(self._create_error(
                         f"Multi-Reference '{ref_name}[{ref_value.index}]' points to non-existent container: {target_path}",
                         container_path=container.get_path(),
@@ -156,7 +185,7 @@ class ReferenceIntegrityRule(ValidationRule):
         
         # Recursively check sub-containers
         for sub_container in container.sub_containers:
-            self._validate_container_references(sub_container, all_paths, result)
+            self._validate_container_references(sub_container, all_paths, result, module_name)
     
     @staticmethod
     def find_references_to(target_container: EcucContainerValue,
@@ -173,17 +202,16 @@ class ReferenceIntegrityRule(ValidationRule):
         Returns:
             List of tuples (source_container, reference_name) that reference the target
         """
-        target_path = target_container.get_path()
         references = []
         
         def search_references(container: EcucContainerValue):
             for ref_name, ref_value in container.reference_values.items():
-                if ref_value.value_ref == target_path:
+                if ecuc_ref_matches_container(ref_value, target_container):
                     references.append((container, ref_name))
             
             for ref_name, ref_list in container.multi_reference_values.items():
                 for ref_value in ref_list:
-                    if ref_value.value_ref == target_path:
+                    if ecuc_ref_matches_container(ref_value, target_container):
                         references.append((container, ref_name))
             
             for sub_container in container.sub_containers:
@@ -218,7 +246,7 @@ class DanglingReferenceRule(ValidationRule):
             self._collect_paths(container, all_paths)
         
         for container in configuration.containers:
-            self._check_dangling(container, all_paths, result)
+            self._check_dangling(container, all_paths, result, configuration.short_name)
         
         return result
     
@@ -228,12 +256,13 @@ class DanglingReferenceRule(ValidationRule):
         for sub_container in container.sub_containers:
             self._collect_paths(sub_container, paths)
     
-    def _check_dangling(self, container: EcucContainerValue, all_paths: Set[str], result: ValidationResult):
+    def _check_dangling(self, container: EcucContainerValue, all_paths: Set[str],
+                        result: ValidationResult, module_name: Optional[str] = None):
         """Check for dangling references"""
         for ref_name, ref_value in container.reference_values.items():
             if ref_value.is_foreign_reference:
                 continue
-            if ref_value.value_ref not in all_paths:
+            if not _reference_target_exists(ref_value, all_paths, module_name):
                 result.add_message(self._create_warning(
                     f"Dangling reference '{ref_name}' detected",
                     container_path=container.get_path(),
@@ -245,7 +274,7 @@ class DanglingReferenceRule(ValidationRule):
             for ref_value in ref_list:
                 if ref_value.is_foreign_reference:
                     continue
-                if ref_value.value_ref not in all_paths:
+                if not _reference_target_exists(ref_value, all_paths, module_name):
                     result.add_message(self._create_warning(
                         f"Dangling multi-reference '{ref_name}[{ref_value.index}]' detected",
                         container_path=container.get_path(),
@@ -254,7 +283,7 @@ class DanglingReferenceRule(ValidationRule):
                     ))
         
         for sub_container in container.sub_containers:
-            self._check_dangling(sub_container, all_paths, result)
+            self._check_dangling(sub_container, all_paths, result, module_name)
 
 
 class RequiredReferenceRule(ValidationRule):

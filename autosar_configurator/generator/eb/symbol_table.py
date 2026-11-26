@@ -150,6 +150,8 @@ class SymbolTable:
     def __init__(self):
         # Module name -> root ConfigurationNode
         self._modules: Dict[str, ConfigurationNode] = {}
+        # Secondary lookup aliases (e.g. configuration.short_name) without polluting _modules
+        self._module_aliases: Dict[str, ConfigurationNode] = {}
         # Absolute path -> ConfigurationNode (cache for fast lookup)
         self._path_index: Dict[str, ConfigurationNode] = {}
         # Modules that have code generation templates (MODULE-DEF in XDM terms)
@@ -160,6 +162,11 @@ class SymbolTable:
         """Register a module's configuration tree"""
         self._modules[module_name.lower()] = root_node
         self._index_node(root_node)
+
+    def register_module_alias(self, alias: str, root_node: ConfigurationNode):
+        """Register a secondary module alias (e.g. configuration.short_name)."""
+        if alias:
+            self._module_aliases[alias.lower()] = root_node
     
     def _index_node(self, node: ConfigurationNode):
         """Recursively index all nodes by their path"""
@@ -186,7 +193,7 @@ class SymbolTable:
             return None
         
         name_lower = module_name.lower()
-        res = self._modules.get(name_lower)
+        res = self._modules.get(name_lower) or self._module_aliases.get(name_lower)
         if res:
             return res
             

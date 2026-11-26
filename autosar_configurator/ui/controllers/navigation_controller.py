@@ -217,8 +217,11 @@ class NavigationController:
             target_container = win.config_manager.configuration.get_instance_by_path(target_path)
 
         if target_container:
-            win.tree_view.select_container(target_container)
-            win.statusbar.showMessage(f"Navigated to: {target_path}", 3000)
+            selected = win.tree_view.select_container(target_container)
+            if selected is False:
+                win.statusbar.showMessage(f"Could not find: {target_path}", 3000)
+            else:
+                win.statusbar.showMessage(f"Navigated to: {target_path}", 3000)
         else:
             win.statusbar.showMessage(f"Could not find: {target_path}", 3000)
 
@@ -290,6 +293,12 @@ class NavigationController:
             for ref_name, stored_ref in container.reference_values.items():
                 if stored_ref is ref_val:
                     return container
+            multi_refs = getattr(container, "multi_reference_values", None)
+            if isinstance(multi_refs, dict):
+                for ref_list in multi_refs.values():
+                    for stored_ref in ref_list:
+                        if stored_ref is ref_val:
+                            return container
             # Recurse
             result = self._search_for_ref_in_containers(ref_val, container.sub_containers)
             if result:

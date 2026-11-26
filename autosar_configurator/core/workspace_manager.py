@@ -12,10 +12,17 @@ from pathlib import Path
 from .config_manager import ConfigurationManager
 from .model import definition_refs as defrefs
 from .model.configuration_model import DEFAULT_VARIANT
+from .model.ecuc_paths import (
+    ecuc_ref_targets_module,
+    is_active_ecuc_path,
+    normalize_ecuc_path,
+    strip_active_ecuc_prefix,
+)
 from .model.definition_model import EcucModuleDef
 from .parser.ecuc_def_parser import EcucDefParser
 from . import project_paths
 from .project_paths import ProjectDirectories
+from .external_model_index import ExternalModelElement, ExternalModelIndex
 from .packages.errors import PackageError
 from .packages.library import LibraryRef, find_package, scan_library
 from .packages.package import ModulePackage
@@ -169,6 +176,9 @@ def _clone_container_for_switch(container):
             value_ref=rval.value_ref,
             index=rval.index,
             dest_type=rval.dest_type,
+            value_ref_dest=rval.value_ref_dest,
+            context_element_refs=list(rval.context_element_refs),
+            is_instance_reference=rval.is_instance_reference,
             is_modified=rval.is_modified,
         )
     for rname, rlist in container.multi_reference_values.items():
@@ -178,6 +188,9 @@ def _clone_container_for_switch(container):
                 value_ref=r.value_ref,
                 index=r.index,
                 dest_type=r.dest_type,
+                value_ref_dest=r.value_ref_dest,
+                context_element_refs=list(r.context_element_refs),
+                is_instance_reference=r.is_instance_reference,
                 is_modified=r.is_modified,
             )
             for r in rlist
@@ -471,6 +484,9 @@ class WorkspaceProject:
         # baseline of its own (format ≤7, or an entry that never loaded).
         self.baselines: Dict[str, ModuleBaseline] = {}
         self._pending_baseline_deletes: Set[str] = set()
+
+        # Lightweight read-only index of non-ECUC AUTOSAR ARXML models under system/
+        self.external_models: ExternalModelIndex = ExternalModelIndex()
 
     def add_module_from_package(self, pkg: "ModulePackage", lib_index: int,
                                 persist: bool = True, confirm=None,
@@ -1413,15 +1429,19 @@ class WorkspaceProject:
 
             def scan(container, owner_name):
                 def handle(ref_value):
-                    if ref_value.is_resolved and ref_value.target is not None \
-                            and id(ref_value.target) in removed_containers:
-                        print(f"  - Warning: reference in module '{owner_name}' "
-                              f"({container.get_path()}) targets removed module "
-                              f"'{module_name}' — clearing dangling pointer "
-                              f"('{ref_value.value_ref}')")
-                        if ref_value in ref_value.target.referenced_by:
-                            ref_value.target.referenced_by.remove(ref_value)
-                        ref_value.target = None
+                    if ref_value.is_resolved and ref_value.target is not None:
+                        is_proxy_for_removed = (
+                            getattr(ref_value.target, "_is_module_root_proxy", False)
+                            and getattr(ref_value.target, "module_name", None) == module_name
+                        )
+                        if id(ref_value.target) in removed_containers or is_proxy_for_removed:
+                            print(f"  - Warning: reference in module '{owner_name}' "
+                                  f"({container.get_path()}) targets removed module "
+                                  f"'{module_name}' — clearing dangling pointer "
+                                  f"('{ref_value.value_ref}')")
+                            if ref_value in ref_value.target.referenced_by:
+                                ref_value.target.referenced_by.remove(ref_value)
+                            ref_value.target = None
                 for ref_value in container.reference_values.values():
                     handle(ref_value)
                 for ref_list in container.multi_reference_values.values():
@@ -2007,24 +2027,22 @@ class WorkspaceProject:
         for container in target_manager.configuration.containers:
             collect_containers(container)
 
+        target_cfg_short_name = getattr(target_manager.configuration, "short_name", None)
+
         def scan_container(container, src_module, path):
             for ref_name, ref_val in container.reference_values.items():
-                is_match = False
-                if ref_val.is_resolved and ref_val.target is not None and id(ref_val.target) in target_containers:
-                    is_match = True
-                elif ref_val.value_ref and (ref_val.value_ref.startswith(f"/{module_name}/") or ref_val.value_ref == f"/{module_name}"):
-                    is_match = True
-                if is_match:
+                if (
+                    (ref_val.is_resolved and ref_val.target is not None and id(ref_val.target) in target_containers)
+                    or ecuc_ref_targets_module(ref_val, module_name, target_cfg_short_name)
+                ):
                     references.append((src_module, path, ref_name))
 
             for ref_name, ref_list in container.multi_reference_values.items():
                 for ref_val in ref_list:
-                    is_match = False
-                    if ref_val.is_resolved and ref_val.target is not None and id(ref_val.target) in target_containers:
-                        is_match = True
-                    elif ref_val.value_ref and (ref_val.value_ref.startswith(f"/{module_name}/") or ref_val.value_ref == f"/{module_name}"):
-                        is_match = True
-                    if is_match:
+                    if (
+                        (ref_val.is_resolved and ref_val.target is not None and id(ref_val.target) in target_containers)
+                        or ecuc_ref_targets_module(ref_val, module_name, target_cfg_short_name)
+                    ):
                         references.append((src_module, f"{path}/{ref_name}[{ref_val.index}]", ref_name))
 
             for sub in container.sub_containers:
@@ -2045,76 +2063,134 @@ class WorkspaceProject:
         return list(self.module_managers.values())
     
     def get_instance_by_path(self, path: str) -> Optional['EcucContainerValue']:
-        """Get container instance by its full path from any module
-        
+        """Get container instance by its full path from any module.
+
         EMF-style global resolver: enables cross-module reference resolution.
         Supports multiple path formats:
         - Module-aware paths: /Adc/AdcConfigSet
+        - DaVinci ECU role paths (single or double prefix): /ActiveEcuC/Os/OsTask_0, /ActiveEcuC/ActiveEcuC/Os/OsTask_0
         - Legacy /Config paths: /Config/AdcConfigSet
         - EB Tresos paths: /Adc_Config/Adc/AdcConfigSet (config file prefix)
         """
         from .model.configuration_model import EcucContainerValue
-        
-        # 1. Try exact match (best for module-aware paths)
-        for manager in self.module_managers.values():
-            config = manager.configuration
-            instance = config.get_instance_by_path(path)
+
+        norm = normalize_ecuc_path(path)
+        if not norm:
+            return None
+
+        def _find_manager(name: str):
+            if not name:
+                return None
+            if name in self.module_managers:
+                return name, self.module_managers[name]
+            for mod_key, mgr in self.module_managers.items():
+                cfg = getattr(mgr, "configuration", None)
+                cfg_sn = getattr(cfg, "short_name", None)
+                if isinstance(cfg_sn, str) and cfg_sn == name:
+                    return mod_key, mgr
+            return None
+
+        def _lookup_in_manager(mgr, candidate_parts: List[str]) -> Optional[EcucContainerValue]:
+            cfg = mgr.configuration
+            cand_path = "/" + "/".join(candidate_parts)
+            instance = cfg.get_instance_by_path(cand_path)
             if instance is not None:
                 return instance
-        
-        # 2. Fallback for legacy /Config/ paths
-        if path.startswith("/Config/"):
-            suffix = path[8:]  # Remove "/Config/"
+            cfg_sn = getattr(cfg, "short_name", None)
+            if isinstance(cfg_sn, str) and cfg_sn and len(candidate_parts) >= 2 and candidate_parts[0] != cfg_sn:
+                alt_path = f"/{cfg_sn}/" + "/".join(candidate_parts[1:])
+                return cfg.get_instance_by_path(alt_path)
+            return None
+
+        # 1. Direct exact / ActiveEcuC match across loaded modules
+        for manager in self.module_managers.values():
+            instance = manager.configuration.get_instance_by_path(norm)
+            if instance is not None:
+                return instance
+
+        stripped = strip_active_ecuc_prefix(norm)
+        sparts = stripped.split('/')  # ['', seg1, ...]
+
+        # 2. Direct module match after stripping /ActiveEcuC (e.g. /ActiveEcuC/Com/ComConfig/...)
+        if len(sparts) >= 3:
+            hit = _find_manager(sparts[1])
+            if hit is not None:
+                instance = _lookup_in_manager(hit[1], sparts[1:])
+                if instance is not None:
+                    return instance
+
+        # 3. Fallback for legacy /Config/ paths
+        if norm.startswith("/Config/"):
+            suffix = norm[8:]  # Remove "/Config/"
             for module_name, manager in self.module_managers.items():
                 alt_path = f"/{module_name}/{suffix}"
                 instance = manager.configuration.get_instance_by_path(alt_path)
                 if instance is not None:
                     return instance
-        
-        # 3. Fallback for EB Tresos paths: /ModuleName_Config/ModuleName/Container...
-        # Pattern: /{prefix}/{module_name}/... where prefix ends with _Config
-        parts = path.split('/')
-        if len(parts) >= 3 and parts[0] == '':
-            prefix = parts[1]  # e.g., "I2c_Config"
-            module_name = parts[2]  # e.g., "I2c"
-            
-            # Check if it matches the EB pattern (prefix_Config/prefix/...)
-            if prefix.endswith('_Config') or prefix.endswith('_Values'):
-                # Try stripping the config file prefix
-                suffix = '/'.join(parts[2:])  # e.g., "I2c/I2cGlobalConfig/I2cChannel_0"
-                for mgr_name, manager in self.module_managers.items():
-                    alt_path = f"/{suffix}"
-                    instance = manager.configuration.get_instance_by_path(alt_path)
+                cfg_sn = getattr(manager.configuration, "short_name", None)
+                if isinstance(cfg_sn, str) and cfg_sn and cfg_sn != module_name:
+                    instance = manager.configuration.get_instance_by_path(f"/{cfg_sn}/{suffix}")
                     if instance is not None:
                         return instance
-            
-            # Also try if module_name matches a loaded module, search with remaining path
-            if module_name in self.module_managers:
-                # Try with just module_name + rest of path
-                rest_path = '/' + '/'.join(parts[2:])  # e.g., "/I2c/I2cGlobalConfig/I2cChannel_0"
-                instance = self.module_managers[module_name].configuration.get_instance_by_path(rest_path)
+                instance = manager.configuration.get_instance_by_path(f"/{suffix}")
                 if instance is not None:
                     return instance
-        
-        # 4. Module configuration root references: /ModuleName/ModuleName
-        # Some references (e.g., /Iom/Iom) point to ECUC-MODULE-CONFIGURATION-VALUES
-        # rather than a container. Create a synthetic container proxy so the
-        # reference resolver can treat the module root as a valid target.
-        if len(parts) == 3 and parts[0] == '':
-            module_key = parts[1]  # e.g., "Iom" or "ActiveEcuC"
-            config_name = parts[2]  # e.g., "Iom" or "Os"
-            target_key = config_name if (module_key == "ActiveEcuC" and config_name in self.module_managers) else module_key
-            if target_key in self.module_managers:
-                config = self.module_managers[target_key].configuration
-                if config.short_name == config_name or target_key == config_name:
+
+        # 4. Fallback for EB Tresos / package-prefixed paths: /<Prefix>/<Module>/<Container>...
+        if len(sparts) >= 4:
+            prefix = sparts[1]
+            module_name = sparts[2]
+
+            if prefix.endswith('_Config') or prefix.endswith('_Values'):
+                suffix_path = '/' + '/'.join(sparts[2:])
+                for manager in self.module_managers.values():
+                    instance = _lookup_in_manager(manager, sparts[2:])
+                    if instance is not None:
+                        return instance
+                    instance = manager.configuration.get_instance_by_path(suffix_path)
+                    if instance is not None:
+                        return instance
+
+            hit = _find_manager(module_name)
+            if hit is not None:
+                instance = _lookup_in_manager(hit[1], sparts[2:])
+                if instance is not None:
+                    return instance
+
+        # 5. Module configuration root references: /ActiveEcuC/<Mod>, /ActiveEcuC/ActiveEcuC/<Mod>, or /<Mod>/<Mod>
+        if is_active_ecuc_path(norm) and len(sparts) == 2:
+            mod_name = sparts[1]
+            hit = _find_manager(mod_name)
+            if hit is not None:
+                target_key, mgr = hit
+                config = mgr.configuration
+                proxy = EcucContainerValue(
+                    short_name=mod_name,
+                    definition_ref=config.definition_ref,
+                )
+                proxy.module_name = target_key
+                proxy.module_config = config
+                proxy._is_module_root_proxy = True
+                return proxy
+
+        if len(sparts) == 3:
+            module_key = sparts[1]
+            config_name = sparts[2]
+            hit = _find_manager(module_key)
+            if hit is not None:
+                target_key, mgr = hit
+                config = mgr.configuration
+                cfg_sn = getattr(config, "short_name", None)
+                if cfg_sn == config_name or target_key == config_name:
                     proxy = EcucContainerValue(
                         short_name=config_name,
                         definition_ref=config.definition_ref,
                     )
                     proxy.module_name = target_key
                     proxy.module_config = config
+                    proxy._is_module_root_proxy = True
                     return proxy
-        
+
         return None
 
     
@@ -2138,6 +2214,33 @@ class WorkspaceProject:
             total_errors += errors
         
         return total_resolved, total_errors
+
+    def load_external_models(self) -> ExternalModelIndex:
+        """Load non-ECUC AUTOSAR ARXML models archived under ``system/`` (read-only)."""
+        if self.path is None:
+            self.external_models = ExternalModelIndex()
+            return self.external_models
+        system_dir = project_paths.resolve(self, "system")
+        if system_dir.is_dir():
+            self.external_models = ExternalModelIndex.load_directory(system_dir)
+        else:
+            self.external_models = ExternalModelIndex()
+        return self.external_models
+
+    def get_external_element(self, path: str) -> Optional[ExternalModelElement]:
+        """Look up a read-only external non-ECUC model element by AUTOSAR path."""
+        return self.external_models.get(path)
+
+    def list_external_elements(self, tag: Optional[str] = None) -> List[ExternalModelElement]:
+        """List read-only external non-ECUC model elements, optionally filtered by tag."""
+        if tag:
+            return self.external_models.find_by_tag(tag)
+        return self.external_models.all_elements()
+
+    def resolve_foreign_reference(self, ref_or_path) -> Optional[ExternalModelElement]:
+        """Resolve an EcucReferenceValue (or AUTOSAR path string) against ``external_models``."""
+        path = ref_or_path.value_ref if hasattr(ref_or_path, "value_ref") else str(ref_or_path or "")
+        return self.external_models.get(path)
     
     def get_all_resolution_errors(self) -> list:
         """Get all resolution errors across all modules
@@ -3004,6 +3107,15 @@ class WorkspaceManager:
             for module_name, path, override, base in project.default_override_conflicts:
                 log.warning("Default override dropped, base value kept: %s %s override=%r base=%r",
                             module_name, path, override, base)
+
+        # Load read-only non-ECUC external models under system/ (before cross-module ref resolution)
+        try:
+            project.load_external_models()
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"External model index load failed during project load: {e}", exc_info=True
+            )
 
         # EMF-style reference resolution: resolve cross-module references
         try:

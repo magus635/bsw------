@@ -523,23 +523,7 @@ class Renderer:
                     # Reset flag
                     self._just_ended_indent = False
 
-                    # Strip outer quotes from the tag content before evaluating
-                    raw_content = tok.content.strip()
-                    was_quoted_output = (raw_content.startswith('"') and raw_content.endswith('"')) or \
-                                        (raw_content.startswith("'") and raw_content.endswith("'"))
-                    expr = self._strip_tag_quotes(raw_content)
-                    value = self._evaluate_expression(expr)
-
-                    # If the original expression was quoted and evaluation returned nothing,
-                    # treat the stripped content as a literal string (e.g. [!"World"!] → "World").
-                    if value is None and was_quoted_output and expr and \
-                            not any(c in expr for c in ':/(.$@['):
-                        value = expr
-
-                    # Ensure value is fully unwrapped (handles nested lists and ConfigurationNodes)
-                    value = self._unwrap_value(value)
-
-                    output_str = self._builtins.to_string(value)
+                    output_str = self._render_output_token(tok)
                     # Apply indentation if at line start
                     output_str = self._apply_indent(output_str)
                     self._output_buffer.append(output_str)
@@ -1787,6 +1771,11 @@ class Renderer:
                 node = self._xpath_engine.evaluate(arg, return_node=True) if self._xpath_engine else None
             elif arg.startswith('/'):
                 node = self.symbol_table.get_by_path(arg)
+                if node is None:
+                    node = self.symbol_table.resolve_reference(arg)
+                if node is None and self._xpath_engine:
+                    evaluated = self._xpath_engine.evaluate(arg, return_node=True)
+                    node = None if (isinstance(evaluated, list) and not evaluated) else evaluated
             else:
                 # Relative path - get from current context without implicit value
                 current = self._context_stack.current_node()
@@ -2403,6 +2392,24 @@ class Renderer:
             self._recursion_depth -= 1
             self._context_stack.pop()
     
+    def _render_output_token(self, tok: Token) -> str:
+        """Render a ``TokenType.OUTPUT`` tag (``[!"..."!]``) to string."""
+        raw_content = tok.content.strip()
+        was_quoted_output = (
+            (raw_content.startswith('"') and raw_content.endswith('"'))
+            or (raw_content.startswith("'") and raw_content.endswith("'"))
+        )
+        expr = self._strip_tag_quotes(raw_content)
+        value = self._evaluate_expression(expr)
+
+        # If the original expression was quoted and evaluation returned nothing,
+        # treat the stripped content as a literal string (e.g. [!"World"!] -> "World").
+        if value is None and was_quoted_output and expr and not any(c in expr for c in ':/(.$@['):
+            value = expr
+
+        value = self._unwrap_value(value)
+        return self._builtins.to_string(value)
+
     def _handle_assert(self, tokens: List[Token], start: int, end: int) -> int:
         """Handle ASSERT/ENDASSERT block.
         
@@ -2439,8 +2446,7 @@ class Renderer:
                 if tok.type == TokenType.TEXT:
                     message_parts.append(tok.content)
                 elif tok.type == TokenType.OUTPUT:
-                    val = self._evaluate_expression(tok.content)
-                    message_parts.append(self._builtins.to_string(val))
+                    message_parts.append(self._render_output_token(tok))
             
             message = "".join(message_parts).strip()
             if self.strict:
@@ -2493,8 +2499,7 @@ class Renderer:
             if tok.type == TokenType.TEXT:
                 message_parts.append(tok.content)
             elif tok.type == TokenType.OUTPUT:
-                val = self._evaluate_expression(tok.content)
-                message_parts.append(self._builtins.to_string(val))
+                message_parts.append(self._render_output_token(tok))
         
         message = "".join(message_parts).strip()
         logger.error(f"ERROR: {message}")

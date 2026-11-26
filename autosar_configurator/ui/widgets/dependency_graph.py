@@ -13,6 +13,8 @@ from PySide6.QtGui import QPen, QBrush, QColor, QPainter, QFont
 from typing import Dict, List, Set, Tuple
 import math
 
+from ...core.model.ecuc_paths import strip_ecuc_prefixes
+
 
 
 class ZoomableGraphicsView(QGraphicsView):
@@ -631,36 +633,27 @@ class DependencyGraphWidget(QWidget):
     def _analyze_container_deps(self, container, deps: Dict, module_name: str, prefix=""):
         """Recursively analyze container dependencies"""
         full_name = f"{prefix}/{container.short_name}" if prefix else container.short_name
-        
-        # Check references
+
+        def record_ref(ref_name: str, ref_value):
+            target_name = None
+            if (
+                getattr(ref_value, "is_resolved", False)
+                and getattr(ref_value, "target", None) is not None
+                and not getattr(ref_value.target, "_is_module_root_proxy", False)
+            ):
+                target_name = ref_value.target.get_path().lstrip("/")
+            elif ref_value.value_ref:
+                target_name = strip_ecuc_prefixes(ref_value.value_ref).lstrip("/")
+            if target_name:
+                deps.setdefault(full_name, []).append((target_name, ref_name))
+
         for ref_name, ref_value in container.reference_values.items():
-            target = ref_value.value_ref
-            if target:
-                # Extract target container name
-                # Expected formats:
-                # - Same module: /Config/Adc/AdcConfigSet/AdcHwUnit_0/AdcChannel_0
-                # - Cross-module: /Config/Mcu/McuModuleConfiguration/McuClockSettingConfig/McuClockReferencePoint_ADC
-                target_parts = target.split('/')
-                
-                # Remove empty parts
-                parts = [p for p in target_parts if p]
-                
-                target_name = None
-                
-                # Skip 'Config' prefix if present
-                if len(parts) > 0 and parts[0] == 'Config':
-                    parts = parts[1:]  # Remove 'Config'
-                
-                # Now parts should be: [ModuleName, ContainerPath...]
-                # We ALWAYS want ModuleName/ContainerPath to support correct nesting and unique IDs
-                if len(parts) > 0:
-                    target_name = '/'.join(parts)
-                
-                if target_name:
-                    if full_name not in deps:
-                        deps[full_name] = []
-                    deps[full_name].append((target_name, ref_name))
-        
+            record_ref(ref_name, ref_value)
+
+        for ref_name, ref_list in getattr(container, "multi_reference_values", {}).items():
+            for ref_value in ref_list:
+                record_ref(ref_name, ref_value)
+
         # Recurse
         for sub in container.sub_containers:
             self._analyze_container_deps(sub, deps, module_name, full_name)

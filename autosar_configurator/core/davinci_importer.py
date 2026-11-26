@@ -110,6 +110,15 @@ class SipFile:
 class DaVinciProject:
     """Parse real DaVinci .dpa XML and extract project metadata."""
 
+    _STANDARD_EXTERNAL_DIRS = (
+        "AUTOSAR",
+        "InternalBehavior",
+        "ServiceComponents",
+        "Developer",
+        "System",
+        "ApplicationComponents",
+    )
+
     def __init__(
         self,
         dpa_path: Path,
@@ -121,6 +130,8 @@ class DaVinciProject:
         main_ecuc_file: Optional[str],
         active_modules: Optional[Set[str]] = None,
         bsw_impl_versions: Optional[Dict[str, str]] = None,
+        external_model_sources: Optional[List[Path]] = None,
+        ecuc_exclude_dir: Optional[Path] = None,
     ):
         self.dpa_path = Path(dpa_path)
         self.derivative_uuid = derivative_uuid
@@ -131,6 +142,8 @@ class DaVinciProject:
         self.main_ecuc_file = main_ecuc_file
         self.active_modules = active_modules or set()
         self.bsw_impl_versions = bsw_impl_versions or {}
+        self.external_model_sources: List[Path] = list(external_model_sources or [])
+        self.ecuc_exclude_dir = ecuc_exclude_dir
 
     @classmethod
     def from_file(cls, dpa_path: Path) -> "DaVinciProject":
@@ -332,6 +345,81 @@ class DaVinciProject:
                             bsw_impl_versions[ar_path] = val
                         break
 
+        # Collect non-ECUC external AUTOSAR model directories/files from .dpa
+        def _resolve_dpa_rel(raw_path: Optional[str]) -> Optional[Path]:
+            if not raw_path:
+                return None
+            norm = raw_path.strip().replace("\\", "/")
+            if not norm:
+                return None
+            if norm.startswith("./"):
+                norm = norm[2:]
+            try:
+                return (dpa_path.parent / norm).resolve()
+            except (OSError, ValueError):
+                return None
+
+        ecuc_exclude_dir: Optional[Path] = None
+        ecuc_folder_elem = root.find(".//Folders/ECUC")
+        if ecuc_folder_elem is not None and ecuc_folder_elem.text:
+            ecuc_exclude_dir = _resolve_dpa_rel(ecuc_folder_elem.text)
+
+        dpa_root_resolved = dpa_path.parent.resolve()
+        config_root_resolved = (dpa_root_resolved / "Config").resolve()
+
+        def _is_ecuc_dir(cand: Path) -> bool:
+            if ecuc_exclude_dir is not None and (cand == ecuc_exclude_dir or ecuc_exclude_dir in cand.parents):
+                return True
+            default_ecuc = (config_root_resolved / "ECUC").resolve()
+            return cand == default_ecuc or default_ecuc in cand.parents
+
+        external_model_sources: List[Path] = []
+        seen_sources: Set[Path] = set()
+
+        def _add_external_source(cand: Optional[Path]) -> None:
+            if cand is None or not cand.exists() or _is_ecuc_dir(cand):
+                return
+            if cand not in seen_sources:
+                seen_sources.add(cand)
+                external_model_sources.append(cand)
+
+        for tag_path in (
+            ".//Folders/AUTOSAR",
+            ".//Folders/BswInternalBehaviour",
+            ".//Folders/ServiceComponents",
+            ".//Folders/System",
+            ".//Folders/ApplicationComponentFolders/ApplicationComponentFolder",
+        ):
+            for elem in root.findall(tag_path):
+                if elem.text:
+                    _add_external_source(_resolve_dpa_rel(elem.text))
+
+        for section in (".//Input/*", ".//References/*"):
+            for elem in root.findall(section):
+                if not elem.text:
+                    continue
+                resolved = _resolve_dpa_rel(elem.text)
+                if resolved is None or not resolved.exists():
+                    continue
+                if resolved.is_file():
+                    if resolved.suffix.lower() == ".arxml":
+                        _add_external_source(resolved)
+                    parent = resolved.parent
+                    if (
+                        parent.is_dir()
+                        and parent != dpa_root_resolved
+                        and parent != config_root_resolved
+                        and not _is_ecuc_dir(parent)
+                    ):
+                        _add_external_source(parent)
+                elif resolved.is_dir():
+                    _add_external_source(resolved)
+
+        for sub_name in cls._STANDARD_EXTERNAL_DIRS:
+            sub_dir = config_root_resolved / sub_name
+            if sub_dir.is_dir():
+                _add_external_source(sub_dir.resolve())
+
         return cls(
             dpa_path=dpa_path,
             derivative_uuid=derivative_uuid,
@@ -342,7 +430,106 @@ class DaVinciProject:
             main_ecuc_file=main_ecuc_file,
             active_modules=active_modules,
             bsw_impl_versions=bsw_impl_versions,
+            external_model_sources=external_model_sources,
+            ecuc_exclude_dir=ecuc_exclude_dir,
         )
+
+    def external_model_files(self) -> List[Tuple[str, Path]]:
+        """Discover non-ECUC ARXML files referenced by the DaVinci project.
+
+        Returns:
+            Sorted list of ``(rel_posix_under_system, abs_source_path)`` pairs,
+            strictly excluding ECUC files.
+        """
+        dpa_root = self.dpa_path.parent.resolve()
+        config_root = (dpa_root / "Config").resolve()
+
+        excluded_dirs: List[Path] = []
+        if self.ecuc_exclude_dir is not None:
+            excluded_dirs.append(self.ecuc_exclude_dir.resolve())
+        default_ecuc = (config_root / "ECUC").resolve()
+        if default_ecuc.is_dir() and default_ecuc not in excluded_dirs:
+            excluded_dirs.append(default_ecuc)
+
+        excluded_files: Set[Path] = set()
+        for rel in ([self.main_ecuc_file] if self.main_ecuc_file else []) + list(self.ecuc_split_map.values()):
+            norm = rel.strip().replace("\\", "/")
+            if norm.startswith("./"):
+                norm = norm[2:]
+            if norm:
+                try:
+                    excluded_files.add((self.dpa_path.parent / norm).resolve())
+                except (OSError, ValueError):
+                    pass
+
+        def _is_excluded(resolved_file: Path) -> bool:
+            if resolved_file in excluded_files:
+                return True
+            for ex_dir in excluded_dirs:
+                if resolved_file == ex_dir or ex_dir in resolved_file.parents:
+                    return True
+            return False
+
+        discovered: List[Path] = []
+        seen_paths: Set[Path] = set()
+        for src in self.external_model_sources:
+            try:
+                src_resolved = Path(src).resolve()
+            except (OSError, ValueError):
+                continue
+            if src_resolved.is_file():
+                candidates = [src_resolved]
+            elif src_resolved.is_dir():
+                candidates = sorted(
+                    (p for p in src_resolved.rglob("*") if p.is_file()),
+                    key=lambda p: p.as_posix(),
+                )
+            else:
+                continue
+
+            for cand in candidates:
+                if cand.suffix.lower() != ".arxml":
+                    continue
+                try:
+                    resolved = cand.resolve()
+                except (OSError, ValueError):
+                    continue
+                if resolved in seen_paths or _is_excluded(resolved):
+                    continue
+                seen_paths.add(resolved)
+                discovered.append(resolved)
+
+        results: List[Tuple[str, Path]] = []
+        used_rels: Set[str] = set()
+        for resolved in discovered:
+            rel_posix: str
+            try:
+                rel_posix = resolved.relative_to(config_root).as_posix()
+            except ValueError:
+                try:
+                    rel_posix = resolved.relative_to(dpa_root).as_posix()
+                except ValueError:
+                    rel_posix = f"External/{resolved.parent.name}/{resolved.name}"
+
+            if rel_posix in used_rels:
+                stem = Path(rel_posix).stem
+                suffix = Path(rel_posix).suffix
+                parent_rel = Path(rel_posix).parent.as_posix()
+                idx = 1
+                while True:
+                    candidate_name = f"{stem}_{idx}{suffix}"
+                    candidate_rel = (
+                        candidate_name if parent_rel in ("", ".") else f"{parent_rel}/{candidate_name}"
+                    )
+                    if candidate_rel not in used_rels:
+                        rel_posix = candidate_rel
+                        break
+                    idx += 1
+            used_rels.add(rel_posix)
+            results.append((rel_posix, resolved))
+
+        results.sort(key=lambda item: item[0])
+        return results
 
     def resolve_ecuc_file(self, module_name: str) -> Optional[Path]:
         """Resolve the DaVinci ECUC ARXML path for ``module_name``, or main ECUC file."""
@@ -2110,6 +2297,10 @@ class DaVinciImportReport:
     pre_inconsistencies: List[Dict[str, Any]] = field(default_factory=list)
     version_mismatches: List[Dict[str, str]] = field(default_factory=list)
     value_diffs: List[Dict[str, Any]] = field(default_factory=list)
+    external_model_files: List[str] = field(default_factory=list)
+    external_model_elements: int = 0
+    resolved_foreign_references: int = 0
+    unresolved_foreign_references: List[Dict[str, str]] = field(default_factory=list)
 
     @property
     def imported_count(self) -> int:
@@ -2245,6 +2436,31 @@ class DaVinciImportReport:
                     f"`{item.get('imported', '')}` |"
                 )
             lines.append("")
+
+        if (
+            self.external_model_files
+            or self.resolved_foreign_references
+            or self.unresolved_foreign_references
+        ):
+            lines.extend([
+                "## 外部非 ECUC 模型归档与外部引用解析",
+                "",
+                f"- **已归档外部 ARXML 文件数**：{len(self.external_model_files)}",
+                f"- **已索引外部模型元素数**：{self.external_model_elements}",
+                f"- **已解析外部引用 (Foreign/Instance Ref)**：{self.resolved_foreign_references}",
+                f"- **未解析外部引用**：{len(self.unresolved_foreign_references)}",
+                "",
+            ])
+            if self.unresolved_foreign_references:
+                for item in self.unresolved_foreign_references[:30]:
+                    lines.append(
+                        f"- `{item.get('module', '')}` / `{item.get('container', '')}`."
+                        f"`{item.get('reference', '')}` -> `{item.get('target', '')}`"
+                    )
+                if len(self.unresolved_foreign_references) > 30:
+                    remaining = len(self.unresolved_foreign_references) - 30
+                    lines.append(f"- ... 其余 {remaining} 条已省略")
+                lines.append("")
 
         return "\n".join(lines)
 
@@ -2488,6 +2704,24 @@ class DaVinciProjectImporter:
             sip_root=dv.sip_root.as_posix() if dv.sip_root else None,
             mcal_source_dir=Path(mcal_source_dir).as_posix() if mcal_source_dir else None,
         )
+
+        # Archive non-ECUC AUTOSAR models (SwAddrMethods, _ib_bswmd, _swc, System, Developer) into system/
+        import shutil
+        system_dir = project_paths.resolve(new_project, "system")
+        for rel_posix, src_file in dv.external_model_files():
+            dst_file = system_dir / rel_posix
+            try:
+                dst_file.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src_file, dst_file)
+                report.external_model_files.append(rel_posix)
+            except OSError as exc:
+                report.warnings.append(f"复制外部模型文件失败 {src_file}: {exc}")
+
+        try:
+            new_project.load_external_models()
+            report.external_model_elements = new_project.external_models.count
+        except Exception as exc:
+            report.warnings.append(f"加载外部模型索引失败：{exc}")
 
         # 1. Obtain or ingest BSW SIP module packages
         if sip_library_dir is not None:
@@ -3058,6 +3292,37 @@ class DaVinciProjectImporter:
                         "target": err.path,
                         "message": err.message,
                     })
+
+            def _collect_foreign_refs(cont, mod_name: str) -> None:
+                for rname, ref in cont.reference_values.items():
+                    if ref.is_foreign_reference and ref.value_ref:
+                        if ref.is_resolved or new_project.get_external_element(ref.value_ref) is not None:
+                            report.resolved_foreign_references += 1
+                        else:
+                            report.unresolved_foreign_references.append({
+                                "module": mod_name,
+                                "container": cont.get_path(),
+                                "reference": rname,
+                                "target": ref.value_ref,
+                            })
+                for rname, ref_list in cont.multi_reference_values.items():
+                    for ref in ref_list:
+                        if ref.is_foreign_reference and ref.value_ref:
+                            if ref.is_resolved or new_project.get_external_element(ref.value_ref) is not None:
+                                report.resolved_foreign_references += 1
+                            else:
+                                report.unresolved_foreign_references.append({
+                                    "module": mod_name,
+                                    "container": cont.get_path(),
+                                    "reference": rname,
+                                    "target": ref.value_ref,
+                                })
+                for sub in cont.sub_containers:
+                    _collect_foreign_refs(sub, mod_name)
+
+            for m_name, mgr in sorted(new_project.module_managers.items()):
+                for root_c in mgr.configuration.containers:
+                    _collect_foreign_refs(root_c, m_name)
 
         # 7. Write a single timestamped Markdown report under .history/reports/ and persist project
         md_text = report.to_markdown()

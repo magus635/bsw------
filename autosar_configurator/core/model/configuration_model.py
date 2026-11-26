@@ -3,11 +3,17 @@ Configuration Model - ECUC Configuration (VALUE) layer
 Represents user-created instances and their configured values
 """
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, Set
+from typing import Dict, List, Optional, Any, Set, Tuple
 from datetime import datetime
 
 from .definition_model import VariantType
 from .definition_refs import same_definition
+from .ecuc_paths import (
+    is_active_ecuc_path,
+    normalize_ecuc_path,
+    strip_active_ecuc_prefix,
+    strip_ecuc_prefixes,
+)
 
 
 @dataclass
@@ -204,6 +210,15 @@ class EcucReferenceValue:
 
     # DEST attribute from DEFINITION-REF (e.g., ECUC-REFERENCE-DEF, ECUC-FOREIGN-REFERENCE-DEF)
     dest_type: Optional[str] = None
+
+    # DEST attribute from VALUE-REF / TARGET-REF (e.g., SW-ADDR-METHOD, I-SIGNAL)
+    value_ref_dest: Optional[str] = None
+
+    # Ordered (DEST, path) pairs from <VALUE-IREF>/<CONTEXT-ELEMENT-REF>
+    context_element_refs: List[Tuple[str, str]] = field(default_factory=list)
+
+    # True when backed by <ECUC-INSTANCE-REFERENCE-VALUE> / <VALUE-IREF>
+    is_instance_reference: bool = False
     
     # EMF-style resolved target object (populated after resolve_references() is called)
     target: Optional['EcucContainerValue'] = None
@@ -371,24 +386,72 @@ class EcucContainerValue:
         """
         return param_name in self.parameter_values or param_name in self.multi_parameter_values
 
-    def set_reference_value(self, ref_name: str, value_ref: str, definition_ref: str):
-        """Set or update a reference value"""
+    def set_reference_value(
+        self,
+        ref_name: str,
+        value_ref: str,
+        definition_ref: str,
+        *,
+        dest_type: Optional[str] = None,
+        value_ref_dest: Optional[str] = None,
+        context_element_refs: Optional[List[Tuple[str, str]]] = None,
+        is_instance_reference: Optional[bool] = None,
+    ):
+        """Set or update a reference value, preserving existing foreign/iref metadata unless specified."""
+        existing = self.reference_values.get(ref_name)
+        inherit = (
+            existing is not None
+            and (not definition_ref or not existing.definition_ref or existing.definition_ref == definition_ref)
+        )
+        resolved_dest_type = dest_type if dest_type is not None else (existing.dest_type if inherit else None)
+        resolved_value_ref_dest = (
+            value_ref_dest if value_ref_dest is not None else (existing.value_ref_dest if inherit else None)
+        )
+        resolved_context_refs = (
+            list(context_element_refs)
+            if context_element_refs is not None
+            else (list(existing.context_element_refs) if inherit else [])
+        )
+        resolved_is_iref = (
+            is_instance_reference
+            if is_instance_reference is not None
+            else (existing.is_instance_reference if inherit else False)
+        )
         self.reference_values[ref_name] = EcucReferenceValue(
-            definition_ref=definition_ref,
+            definition_ref=definition_ref or (existing.definition_ref if inherit else ""),
             value_ref=value_ref,
-            is_modified=True
+            dest_type=resolved_dest_type,
+            value_ref_dest=resolved_value_ref_dest,
+            context_element_refs=resolved_context_refs,
+            is_instance_reference=resolved_is_iref,
+            is_modified=True,
         )
         self.mark_modified()
 
-    def add_multi_reference_value(self, ref_name: str, value_ref: str, definition_ref: str, index: int):
+    def add_multi_reference_value(
+        self,
+        ref_name: str,
+        value_ref: str,
+        definition_ref: str,
+        index: int,
+        *,
+        dest_type: Optional[str] = None,
+        value_ref_dest: Optional[str] = None,
+        context_element_refs: Optional[List[Tuple[str, str]]] = None,
+        is_instance_reference: bool = False,
+    ):
         """Add an indexed reference value for multi-valued references (UPPER-MULTIPLICITY > 1)"""
         if ref_name not in self.multi_reference_values:
             self.multi_reference_values[ref_name] = []
         self.multi_reference_values[ref_name].append(EcucReferenceValue(
             definition_ref=definition_ref,
             value_ref=value_ref,
+            dest_type=dest_type,
+            value_ref_dest=value_ref_dest,
+            context_element_refs=list(context_element_refs) if context_element_refs is not None else [],
+            is_instance_reference=is_instance_reference,
             index=index,
-            is_modified=True
+            is_modified=True,
         ))
         self.mark_modified()
 
@@ -480,6 +543,9 @@ class EcucContainerValue:
                 definition_ref=ref.definition_ref,
                 value_ref=ref.value_ref,
                 dest_type=ref.dest_type,
+                value_ref_dest=ref.value_ref_dest,
+                context_element_refs=list(ref.context_element_refs),
+                is_instance_reference=ref.is_instance_reference,
                 is_modified=True
             )
 
@@ -491,6 +557,9 @@ class EcucContainerValue:
                     value_ref=ref.value_ref,
                     index=ref.index,
                     dest_type=ref.dest_type,
+                    value_ref_dest=ref.value_ref_dest,
+                    context_element_refs=list(ref.context_element_refs),
+                    is_instance_reference=ref.is_instance_reference,
                     is_modified=True
                 ) for ref in ref_list
             ]
@@ -669,8 +738,44 @@ class EcucModuleConfiguration:
             self._unregister_instance(sub_container)
     
     def get_instance_by_path(self, path: str) -> Optional[EcucContainerValue]:
-        """Get a container instance by its full path"""
-        return self._instance_registry.get(path)
+        """Get a container instance by its full path (supports ActiveEcuC/Config/package prefixes)."""
+        norm = normalize_ecuc_path(path)
+        if not norm:
+            return None
+
+        hit = self._instance_registry.get(norm)
+        if hit is not None:
+            return hit
+
+        stripped = strip_active_ecuc_prefix(norm)
+        if stripped != norm:
+            hit = self._instance_registry.get(stripped)
+            if hit is not None:
+                return hit
+
+        def_leaf = (
+            self.definition_ref.rstrip("/").rsplit("/", 1)[-1]
+            if self.definition_ref
+            else ""
+        )
+        known = {n for n in (self.short_name, def_leaf) if n}
+        cand = strip_ecuc_prefixes(norm, known_modules=known)
+        if cand != norm:
+            hit = self._instance_registry.get(cand)
+            if hit is not None:
+                return hit
+
+        if def_leaf and def_leaf != self.short_name and cand.startswith(f"/{def_leaf}/"):
+            hit = self._instance_registry.get(f"/{self.short_name}" + cand[len(def_leaf) + 1 :])
+            if hit is not None:
+                return hit
+
+        if norm.startswith("/Config/") and self.short_name:
+            hit = self._instance_registry.get(f"/{self.short_name}/{norm[8:]}")
+            if hit is not None:
+                return hit
+
+        return None
     
     def get_all_instances_of_def(self, definition_ref: str) -> List[EcucContainerValue]:
         """Get all instances of a specific container definition"""
@@ -739,7 +844,8 @@ class EcucModuleConfiguration:
                 return
 
             path = ref_value.value_ref
-            if not path or not path.startswith('/'):
+            norm = normalize_ecuc_path(path)
+            if not path or not path.strip().startswith('/') or not norm:
                 ref_value.resolution_error = ResolutionError(
                     ResolutionError.INVALID_PATH,
                     path,
@@ -747,29 +853,35 @@ class EcucModuleConfiguration:
                 error_count += 1
                 return
 
-            parts = path.split('/')
             if ref_value.is_foreign_reference:
                 # Foreign/instance refs targeting /ActiveEcuC/... still refer to ECUC modules/containers;
                 # all other targets live outside ECUC (SwAddrMethods, SWC, SystemExtract /PDU/, DataTypes).
-                if len(parts) >= 3 and parts[1] == "ActiveEcuC" and parts[2]:
-                    if len(parts) == 3:
+                if is_active_ecuc_path(norm):
+                    sparts = strip_active_ecuc_prefix(norm).split('/')
+                    mod_hint = sparts[1] if len(sparts) > 1 else ""
+                    if len(sparts) == 2:
                         ref_value.resolution_error = ResolutionError(
                             ResolutionError.MODULE_NOT_LOADED,
                             path,
-                            suggestion=f"检查 '{parts[2]}' 模块是否已启用并加载到当前工程",
+                            suggestion=f"检查 '{mod_hint}' 模块是否已启用并加载到当前工程",
                         )
                     else:
                         ref_value.resolution_error = ResolutionError(
                             ResolutionError.PATH_NOT_FOUND,
                             path,
-                            suggestion=f"检查 '{parts[2]}' 模块是否已加载，或目标容器是否存在",
+                            suggestion=f"检查 '{mod_hint}' 模块是否已加载，或目标容器是否存在",
                         )
                     error_count += 1
                 else:
                     ref_value.resolution_error = None
                 return
 
-            module_hint = parts[2] if len(parts) > 2 else ""
+            if is_active_ecuc_path(norm):
+                sparts = strip_active_ecuc_prefix(norm).split('/')
+                module_hint = sparts[1] if len(sparts) > 1 else ""
+            else:
+                parts = norm.split('/')
+                module_hint = parts[2] if len(parts) > 2 else ""
             ref_value.resolution_error = ResolutionError(
                 ResolutionError.PATH_NOT_FOUND,
                 path,
