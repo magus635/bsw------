@@ -189,3 +189,146 @@ def test_generate_project_code_worker_passes_project_variants_and_override_layer
     assert captured["init_kwargs"]["variant_overrides"] == {"CanGeneral/CanDevErrorDetect": True}
     assert captured["generate_all_kwargs"]["variant"] == "V1"
 
+
+def test_generate_single_module_rte_dispatches_model_driven_generator(tmp_path):
+    from autosar_configurator.core.config_manager import ConfigurationManager
+    from autosar_configurator.core.model.configuration_model import (
+        EcucContainerValue,
+        EcucModuleConfiguration,
+    )
+    from autosar_configurator.core.model.definition_model import EcucModuleDef
+    from autosar_configurator.core.project_paths import ProjectDirectories
+    from autosar_configurator.core.workspace_manager import WorkspaceProject
+    from autosar_configurator.ui.controllers.generation_controller import GenerationController
+
+    project_dir = tmp_path / "proj"
+    project_dir.mkdir()
+    project = WorkspaceProject(name="TestProj", path=project_dir / "TestProj.dpa", format_version=8)
+    project.directories = ProjectDirectories.default_v8()
+
+    rte_def = EcucModuleDef(short_name="Rte", definition_ref="/MICROSAR/Rte")
+    rte_cfg = EcucModuleConfiguration(short_name="Rte", definition_ref="/MICROSAR/Rte")
+    com_inst = EcucContainerValue(
+        short_name="Com",
+        definition_ref="/MICROSAR/Rte/RteBswModuleInstance",
+    )
+    com_inst.set_reference_value(
+        "RteBswModuleConfigurationRef",
+        "/ActiveEcuC/Com",
+        "/MICROSAR/Rte/RteBswModuleInstance/RteBswModuleConfigurationRef",
+    )
+    rte_cfg.add_container(com_inst)
+    com_def = EcucModuleDef(short_name="Com", definition_ref="/MICROSAR/Com")
+    com_cfg = EcucModuleConfiguration(short_name="Com", definition_ref="/MICROSAR/Com")
+
+    rte_mgr = ConfigurationManager(rte_def)
+    rte_mgr.configuration = rte_cfg
+    com_mgr = ConfigurationManager(com_def)
+    com_mgr.configuration = com_cfg
+
+    project.module_managers = {"Rte": rte_mgr, "Com": com_mgr}
+
+    current_module_tree = SimpleNamespace(
+        current_manager=rte_mgr,
+        module_def=rte_def,
+        configuration=rte_cfg,
+    )
+    win = SimpleNamespace(
+        current_project=project,
+        current_project_file=None,
+        config_manager=rte_mgr,
+        module_def=rte_def,
+        module_trees={"Rte": current_module_tree, "Com": SimpleNamespace()},
+        tab_widget=SimpleNamespace(currentWidget=lambda: current_module_tree),
+        statusbar=SimpleNamespace(showMessage=lambda *_a, **_kw: None),
+        project_dir=project_dir,
+    )
+
+    with patch(
+        "autosar_configurator.ui.controllers.generation_controller.QFileDialog.getExistingDirectory",
+        return_value=str(project_dir / "gen"),
+    ), patch("autosar_configurator.ui.controllers.generation_controller.QMessageBox") as mock_msg:
+        GenerationController(win)._generate_single_module_code()
+
+    assert mock_msg.information.called
+    gen_inc = project_dir / "gen" / "Rte" / "include"
+    assert (gen_inc / "Rte.h").exists()
+    assert (gen_inc / "Rte_Cfg.h").exists()
+    assert (gen_inc / "Rte_Main.h").exists()
+    assert (gen_inc / "Rte_Type.h").exists()
+    assert (gen_inc / "Rte_UserTypes.h").exists()
+    assert (gen_inc / "SchM_Com.h").exists()
+    assert (gen_inc / "SchM_Com_Type.h").exists()
+
+
+def test_generate_project_code_rte_overlay_overrides_synthesized_schm_and_cfg(tmp_path):
+    from autosar_configurator.core.config_manager import ConfigurationManager
+    from autosar_configurator.core.model.configuration_model import (
+        EcucContainerValue,
+        EcucModuleConfiguration,
+    )
+    from autosar_configurator.core.model.definition_model import EcucModuleDef
+    from autosar_configurator.core.project_paths import ProjectDirectories
+    from autosar_configurator.core.workspace_manager import WorkspaceProject
+    from autosar_configurator.ui.controllers.generation_controller import GenerationController
+
+    project_dir = tmp_path / "proj_overlay"
+    overlay_inc = project_dir / "templates" / "Rte" / "include"
+    overlay_inc.mkdir(parents=True)
+    (overlay_inc / "SchM_Com.h").write_text("/* custom SchM_Com overlay */\n", encoding="utf-8")
+    (overlay_inc / "Rte_Cfg.h").write_text("/* custom Rte_Cfg overlay */\n", encoding="utf-8")
+    com_inc = project_dir / "templates" / "Com" / "include"
+    com_inc.mkdir(parents=True)
+    (com_inc / "Com_Cfg.h").write_text("/* minimal Com template */\n", encoding="utf-8")
+
+    project = WorkspaceProject(name="TestOverlay", path=project_dir / "TestOverlay.dpa", format_version=8)
+    project.directories = ProjectDirectories.from_dict(
+        {"gen_layout": "flat"},
+        ProjectDirectories.default_v8(),
+    )
+
+    rte_def = EcucModuleDef(short_name="Rte", definition_ref="/MICROSAR/Rte")
+    rte_cfg = EcucModuleConfiguration(short_name="Rte", definition_ref="/MICROSAR/Rte")
+    com_inst = EcucContainerValue(
+        short_name="Com",
+        definition_ref="/MICROSAR/Rte/RteBswModuleInstance",
+    )
+    com_inst.set_reference_value(
+        "RteBswModuleConfigurationRef",
+        "/ActiveEcuC/Com",
+        "/MICROSAR/Rte/RteBswModuleInstance/RteBswModuleConfigurationRef",
+    )
+    rte_cfg.add_container(com_inst)
+    com_def = EcucModuleDef(short_name="Com", definition_ref="/MICROSAR/Com")
+    com_cfg = EcucModuleConfiguration(short_name="Com", definition_ref="/MICROSAR/Com")
+
+    rte_mgr = ConfigurationManager(rte_def)
+    rte_mgr.configuration = rte_cfg
+    com_mgr = ConfigurationManager(com_def)
+    com_mgr.configuration = com_cfg
+
+    project.module_managers = {"Rte": rte_mgr, "Com": com_mgr}
+
+    win = SimpleNamespace(
+        current_project=project,
+        current_project_file=None,
+        thread_pool=SimpleNamespace(start=lambda worker: worker.run()),
+        statusbar=SimpleNamespace(showMessage=lambda *_a, **_kw: None),
+    )
+
+    with patch("PySide6.QtWidgets.QProgressDialog"), \
+         patch("autosar_configurator.ui.controllers.generation_controller.QMessageBox") as mock_msg:
+        GenerationController(win)._generate_project_code()
+
+    gen_inc = project_dir / "gen" / "include"
+    assert (gen_inc / "Rte.h").exists()
+    assert "#ifndef RTE_H" in (gen_inc / "Rte.h").read_text(encoding="utf-8")
+    assert (gen_inc / "Rte_Main.h").exists()
+    assert (gen_inc / "Rte_Type.h").exists()
+    assert (gen_inc / "Rte_UserTypes.h").exists()
+    assert (gen_inc / "Com_Cfg.h").exists()
+    assert (gen_inc / "SchM_Com_Type.h").exists()
+    assert (gen_inc / "SchM_Com.h").read_text(encoding="utf-8") == "/* custom SchM_Com overlay */\n"
+    assert (gen_inc / "Rte_Cfg.h").read_text(encoding="utf-8") == "/* custom Rte_Cfg overlay */\n"
+    assert not mock_msg.critical.called
+

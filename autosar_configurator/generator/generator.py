@@ -50,6 +50,7 @@ class CodeGenerator:
     # Matched files preserve their own filename as output_name (stripping optional .tpl).
     MODULE_EXTRA_PREFIXES: Dict[str, Tuple[str, ...]] = {
         'resource': ('mcall_',),
+        'rte': ('schm_', 'rte.'),
     }
     # Part of the fingerprint: changes when the generator produces different output
     # for the same configuration and templates (2: definition ENABLE conditions,

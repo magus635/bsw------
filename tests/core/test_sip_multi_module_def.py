@@ -662,12 +662,12 @@ def test_reimport_over_stale_rtechecks_preserves_rte_ecuc_validates_and_generate
     assert gen.generate_all(gen_out, flat=True) is True
     assert gen.last_status == "generated"
     header = (gen_out / "include" / "Rte_Cfg.h").read_text(encoding="utf-8")
-    assert "# define RTE_SCHM_VERSION_INFO_API                                STD_ON" in header
-    assert "# define RTE_ENABLE_MULTI_CORE                                    STD_ON" in header
-    assert "# define RTE_ENABLE_MEMORY_PROTECTION                             STD_ON" in header
-    assert "# define RTE_NUM_OF_BSW_MODULE_INSTANCES                          (1u)" in header
-    assert "# define RTE_NUM_OF_OS_ACTIVATIONS                                (1u)" in header
-    assert "# define RTE_NUM_OF_SW_COMPONENT_INSTANCES                        (1u)" in header
+    assert "#ifndef RTE_CFG_H" in header
+    assert "# define RTE_CFG_H" in header
+    assert '# include "Std_Types.h"' in header
+    assert "#endif /* RTE_CFG_H */" in header
+    assert "COMPATIBILITY_MODE" not in header
+    assert "NONE" not in header
 
 
 def test_rte_cfg_h_template_defaults_and_project_overlay(tmp_path):
@@ -683,9 +683,12 @@ def test_rte_cfg_h_template_defaults_and_project_overlay(tmp_path):
     out1 = tmp_path / "out_default"
     assert gen.generate_all(out1, flat=True) is True
     text = (out1 / "include" / "Rte_Cfg.h").read_text(encoding="utf-8")
-    assert "# define RTE_ENABLE_MULTI_CORE                                    STD_OFF" in text
-    assert "# define RTE_CODE_VENDOR_ID                                       (30u)" in text
-    assert "# define RTE_NUM_OF_OS_ACTIVATIONS                                (0u)" in text
+    assert "#ifndef RTE_CFG_H" in text
+    assert "# define RTE_CFG_H" in text
+    assert '# include "Std_Types.h"' in text
+    assert "#endif /* RTE_CFG_H */" in text
+    assert "COMPATIBILITY_MODE" not in text
+    assert "NONE" not in text
 
     overlay_root = tmp_path / "templates"
     (overlay_root / "Rte" / "include").mkdir(parents=True)

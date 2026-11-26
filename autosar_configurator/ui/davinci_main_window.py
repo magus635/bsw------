@@ -393,6 +393,11 @@ class DaVinciMainWindow(QMainWindow):
         self.memmap_action.setStatusTip("扫描段声明、MemMap 头映射和链接文件：在“诊断”页签看问题，在“布局”页签按物理区域或模块看段放在哪里（只读）")
         self.memmap_action.triggered.connect(self._launch_memory_map)
 
+        self.rte_workbench_action = QAction("RTE / SchM 工作台...", self)
+        self.rte_workbench_action.setStatusTip("图形化配置 BSW 实例、SchM 临界区保护、Task 调度映射并预览/生成 RTE 与 SchM 头文件")
+        self.rte_workbench_action.setEnabled(False)
+        self.rte_workbench_action.triggered.connect(self._launch_rte_schm_workbench)
+
         # View actions
         self.toggle_search_action = QAction("Search...", self)
         self.toggle_search_action.setShortcut(QKeySequence.Find)  # Ctrl+F
@@ -469,6 +474,8 @@ class DaVinciMainWindow(QMainWindow):
         # Generate menu
         gen_menu = menubar.addMenu("Generate")
         gen_menu.addAction(self.generate_action)
+        gen_menu.addSeparator()
+        gen_menu.addAction(self.rte_workbench_action)
         
         # Analysis menu (new)
         analysis_menu = menubar.addMenu("Analysis")
@@ -499,6 +506,7 @@ class DaVinciMainWindow(QMainWindow):
         tools_menu.addAction(self.chip_repair_action)
         tools_menu.addAction(self.chip_scan_action)
         tools_menu.addAction(self.memmap_action)
+        tools_menu.addAction(self.rte_workbench_action)
         tools_menu.addAction(self.hardware_mapping_action)
 
         # Help menu
@@ -992,8 +1000,9 @@ class DaVinciMainWindow(QMainWindow):
         self.template_action.setEnabled(has_config)
         self.import_config_action.setEnabled(has_config)
         self.load_rules_action.setEnabled(has_config)
-        # Hardware mapping needs a project
+        # Hardware mapping and RTE/SchM workbench need a project
         self.hardware_mapping_action.setEnabled(is_project_mode)
+        self.rte_workbench_action.setEnabled(is_project_mode)
 
     def _launch_chip_definition_designer(self):
         """Open Chip Definition Designer dialog"""
@@ -1053,6 +1062,32 @@ class DaVinciMainWindow(QMainWindow):
         # the directories and the linker file are saved with the project
         dialog.settings_changed.connect(lambda: self.save_project_action.setEnabled(True))
         dialog.exec()
+
+    def _launch_rte_schm_workbench(self):
+        """Open the 4-tab RTE / SchM configuration and generation workbench."""
+        if not self.current_project:
+            QMessageBox.information(self, "RTE / SchM 工作台", "请先打开一个项目。")
+            return
+        rte_mgr = getattr(self.current_project, "module_managers", {}).get("Rte")
+        if rte_mgr is None or getattr(rte_mgr, "configuration", None) is None:
+            QMessageBox.information(self, "RTE / SchM 工作台", "当前项目未加载 Rte 模块，请先添加或导入 Rte 模块。")
+            return
+        from .dialogs.rte_schm_workbench import RteSchmWorkbench
+        dialog = RteSchmWorkbench(self.current_project, parent=self)
+        dialog.config_changed.connect(self._on_rte_workbench_changed)
+        dialog.exec()
+
+    def _on_rte_workbench_changed(self):
+        """Synchronize dirty state and main configuration views after RTE workbench edits."""
+        self._has_unsaved_changes = True
+        if hasattr(self, "save_project_action"):
+            self.save_project_action.setEnabled(True)
+        if hasattr(self, "_update_window_title"):
+            self._update_window_title()
+        if hasattr(self, "_refresh_config_views"):
+            self._refresh_config_views()
+        if hasattr(self, "statusbar") and self.statusbar is not None:
+            self.statusbar.showMessage("RTE / SchM 配置已更新", 3000)
 
     def _on_designer_chip_saved(self, chip_name: str):
         """Handle new chip saved from designer"""

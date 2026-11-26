@@ -48,6 +48,64 @@ def _template_sources(win, module_name: str):
     return overlay_root, package_dir, project_root
 
 
+def _has_project_overlay_templates(
+    overlay_root: Optional[Path],
+    module_name: str,
+    package_dir_name: Optional[str] = None,
+) -> bool:
+    """Return True when ``overlay_root`` contains a non-empty module/variant overlay dir."""
+    from ...generator.rte import has_project_overlay_templates
+
+    return has_project_overlay_templates(overlay_root, module_name, package_dir_name)
+
+
+def _run_rte_schm_generation(
+    project: Any,
+    output_dir: Path,
+    *,
+    flat: bool,
+    overlay_root: Optional[Path],
+    variant_name: Optional[str],
+    variant_overrides: Optional[Dict[str, Any]],
+    project_variants: Optional[Any],
+    all_configs: Dict[str, Any],
+    selected_chip: Optional[str],
+    ecu_resources: Optional[Dict[str, Any]],
+    project_root: Optional[Path],
+    package_dir_name: Optional[str],
+    module_def: Any,
+    configuration: Any,
+    generate_type_stub: bool = True,
+    force: bool = False,
+    apply_overlay: bool = True,
+):
+    """Run Phase 1 model-driven RTE/SchM generation and apply ``templates/Rte/`` overlays."""
+    from ...generator.rte import run_rte_schm_pipeline
+
+    ok, _report, detail = run_rte_schm_pipeline(
+        project,
+        output_dir,
+        flat=flat,
+        generate_type_stub=generate_type_stub,
+        force=force,
+        apply_overlay=apply_overlay,
+        overlay_root=overlay_root,
+        variant_name=variant_name,
+        variant_overrides=variant_overrides,
+        project_variants=project_variants,
+        all_configs=all_configs,
+        selected_chip=selected_chip,
+        ecu_resources=ecu_resources,
+        project_root=project_root,
+        package_dir_name=package_dir_name,
+        module_def=module_def,
+        configuration=configuration,
+    )
+    if not ok:
+        return False, "failed", detail
+    return True, "generated", detail
+
+
 class GenerationController:
     """C/C++ code generation for a single module or an entire project."""
 
@@ -142,6 +200,49 @@ class GenerationController:
                 if package_template_dir:
                     logger.info(f"Using package template directory: {package_template_dir}")
 
+            all_configs = self._get_all_project_configurations()
+            ecu_resources = self._project_ecu_resources()
+            selected_chip = win.current_project.selected_chip if win.current_project else None
+            mod_name = (
+                win.config_manager.configuration.short_name
+                if getattr(win.config_manager, "configuration", None) is not None
+                else (win.module_def.short_name if getattr(win, "module_def", None) is not None else "")
+            )
+
+            if win.current_project and mod_name == "Rte":
+                ok, gen_status, detail = _run_rte_schm_generation(
+                    win.current_project,
+                    Path(output_dir),
+                    flat=False,
+                    overlay_root=project_template_dir,
+                    variant_name=variant_name,
+                    variant_overrides=variant_overrides,
+                    project_variants=project_variants,
+                    all_configs=all_configs,
+                    selected_chip=selected_chip,
+                    ecu_resources=ecu_resources,
+                    project_root=project_dir,
+                    package_dir_name=package_dir_name,
+                    module_def=win.module_def,
+                    configuration=win.config_manager.configuration,
+                )
+                if not ok:
+                    QMessageBox.critical(
+                        win,
+                        "Code Generation Error",
+                        f"Failed to generate code:\n{detail}",
+                    )
+                    win.statusbar.showMessage("Code generation failed", 3000)
+                    return
+                QMessageBox.information(
+                    win,
+                    "Code Generated",
+                    f"Code generated successfully in:\n{output_dir}"
+                    + (f"\n\nNote: {detail}" if detail else ""),
+                )
+                win.statusbar.showMessage("Code generation completed", 3000)
+                return
+
             generator = CodeGenerator(
                 win.module_def,
                 win.config_manager.configuration,
@@ -150,9 +251,9 @@ class GenerationController:
                 variant_overrides=variant_overrides,
                 variant_name=variant_name,
                 project_variants=project_variants,
-                all_configurations=self._get_all_project_configurations(),
-                selected_chip=win.current_project.selected_chip if win.current_project else None,
-                ecu_resources=self._project_ecu_resources(),
+                all_configurations=all_configs,
+                selected_chip=selected_chip,
+                ecu_resources=ecu_resources,
                 project_root=project_dir,
                 package_dir_name=package_dir_name,
             )
@@ -223,7 +324,7 @@ class GenerationController:
             finished = Signal(str, str, str)  # module_name, status (GEN/SKIP/FAIL), message
 
         class GenWorker(QRunnable):
-            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None, project_variants=None, project_template_dir=None, package_template_dir=None, all_configs=None, selected_chip=None, ecu_resources=None, project_root=None, flat=False, package_dir_name=None):
+            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None, project_variants=None, project_template_dir=None, package_template_dir=None, all_configs=None, selected_chip=None, ecu_resources=None, project_root=None, flat=False, package_dir_name=None, project=None):
                 super().__init__()
                 self.name = name
                 self.manager = manager
@@ -239,6 +340,7 @@ class GenerationController:
                 self.project_root = project_root
                 self.flat = flat
                 self.package_dir_name = package_dir_name
+                self.project = project
                 self.signals = GenSignals()
 
             @Slot()
@@ -247,6 +349,29 @@ class GenerationController:
                     import logging
                     _log = logging.getLogger(__name__)
                     _log.debug(f"Starting generation for: {self.name}")
+
+                    if self.project is not None and self.name == "Rte":
+                        ok, _st, detail = _run_rte_schm_generation(
+                            self.project,
+                            self.out_path,
+                            flat=self.flat,
+                            overlay_root=self.project_template_dir,
+                            variant_name=self.variant_name,
+                            variant_overrides=self.variant_overrides,
+                            project_variants=self.project_variants,
+                            all_configs=self.all_configs,
+                            selected_chip=self.selected_chip,
+                            ecu_resources=self.ecu_resources,
+                            project_root=self.project_root,
+                            package_dir_name=self.package_dir_name,
+                            module_def=self.manager.module_def,
+                            configuration=self.manager.configuration,
+                        )
+                        if ok:
+                            self.signals.finished.emit(self.name, "GEN", detail)
+                        else:
+                            self.signals.finished.emit(self.name, "FAIL", detail or "generation failed (see log)")
+                        return
 
                     # Generate with variant overrides, project templates, and directory structure
                     generator = CodeGenerator(
@@ -425,6 +550,7 @@ class GenerationController:
                 project_root=project_root,
                 flat=is_flat,
                 package_dir_name=pkg_dir_name,
+                project=win.current_project,
             )
             worker.setAutoDelete(False)  # Prevent automatic deletion
             # Use QueuedConnection for cross-thread signal delivery
