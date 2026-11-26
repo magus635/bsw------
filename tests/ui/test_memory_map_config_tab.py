@@ -225,7 +225,11 @@ def test_choosing_a_window_clears_to_be_placed_again(qtbot, tmp_path, chip_regio
     assert "待重新放置" in tab.region_item("PRIVATE_BSS_CORE0").text(2)
     assert "重新选择窗口" in tab.notes_label.text()
     tab.select_region("PRIVATE_BSS_CORE0")
-    tab.window_combo.setCurrentIndex(tab.window_combo.findData(("CPU0ATCM", "CPU0ATCM")))
+    idx = next(
+        i for i in range(tab.window_combo.count())
+        if tab.window_combo.itemData(i) == ("CPU0ATCM", "CPU0ATCM")
+    )
+    tab.window_combo.setCurrentIndex(idx)
     tab.window_button.click()
     region = tab.session.config.region("PRIVATE_BSS_CORE0")
     assert (region.memory, region.window) == ("CPU0ATCM", "CPU0ATCM")

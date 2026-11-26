@@ -148,6 +148,9 @@ class SourcesPage(_Page):
         self.scan_project = QCheckBox("扫描当前项目模块所需、芯片却没有的键")
         self.box.addWidget(self.scan_project)
 
+        self.only_chip_modules = QCheckBox("仅扫描当前芯片已有模块的缺失键（避免向纯 Os 芯片注入无关 MCAL 占位键）")
+        self.box.addWidget(self.only_chip_modules)
+
         self.box.addWidget(QLabel("扫描插件目录所需、芯片却没有的键:"))
         self.dirs = QListWidget()
         self.box.addWidget(self.dirs)
@@ -187,6 +190,8 @@ class SourcesPage(_Page):
         if not has_project:
             self.scan_project.setChecked(False)
             self.scan_project.setToolTip("没有打开项目")
+        if self.session is not None:
+            self.only_chip_modules.setChecked(repair.is_os_only_chip(self.session.base))
 
     def file_paths(self) -> List[Path]:
         return [Path(self.files.item(i).text()) for i in range(self.files.count())]
@@ -195,6 +200,7 @@ class SourcesPage(_Page):
         session = self.session
         session.properties = self.file_paths()
         session.scan_project = self.scan_project.isChecked()
+        session.scope_to_chip_modules = self.only_chip_modules.isChecked()
         session.scan_dirs = [Path(self.dirs.item(i).text()) for i in range(self.dirs.count())]
         try:
             session.load_sources()
@@ -424,10 +430,53 @@ class SavePage(_Page):
         self.author_edit = QLineEdit()
         form.addRow("修改人*:", self.author_edit)
         self.box.addLayout(form)
+        self.save_to_project_check = QCheckBox("仅保存到当前项目副本（chips/<芯片>.yaml），不修改芯片库")
+        self.save_to_project_check.toggled.connect(self._refresh_summary)
+        self.save_to_project_check.hide()
+        self.box.addWidget(self.save_to_project_check)
         self.summary = QLabel()
         self.summary.setWordWrap(True)
         self.box.addWidget(self.summary)
         self.box.addStretch()
+
+    def _is_builtin_library_target(self, session: repair.RepairSession) -> bool:
+        from ...core.hardware.chip_database import default_chips_dir
+
+        if session.chip_file is None:
+            return False
+        try:
+            return session.chip_file.resolve().parent == default_chips_dir().resolve()
+        except OSError:
+            return False
+
+    def _refresh_summary(self, *_):
+        session = self.session
+        if session is None:
+            return
+        use_project = (not self.save_to_project_check.isHidden()) and self.save_to_project_check.isChecked()
+        session.save_to_project = use_project
+        try:
+            chip, _ = session.build()
+        except ValueError as e:
+            self.summary.setText(f"无法生成修复结果：{e}")
+            return
+        if not session.has_changes(chip):
+            self.summary.setText("没有任何改动，无需保存。")
+            return
+        applied = repair.diff_ecu_resources(session.base.ecu_resources, chip.ecu_resources)
+        to_fill_in = session.added_to_fill_in(chip)
+        builtin_warn = (
+            "\n⚠ 目标位于安装包内置芯片库目录，建议优先保存到当前项目副本。"
+            if (not use_project and self._is_builtin_library_target(session))
+            else ""
+        )
+        self.summary.setText(
+            f"{session.base.name}：ECU 资源改动 {len(applied.changes)} 处，确认 {len(session.confirm_notes)} 项，"
+            f"新增标记 {len(session.new_marks)} 项。"
+            + (f"\n⚠ 其中 {len(to_fill_in)} 个条目没有值（待填写），保存后标为待填写，"
+               "请在芯片定义设计器“4. ECU 资源”页填值。" if to_fill_in else "")
+            + builtin_warn
+            + f"\n写入 {session.target_file}")
 
     def initializePage(self):
         session = self.session
@@ -439,22 +488,16 @@ class SavePage(_Page):
         self.version_edit.setText(repair.next_version(session.base.resource_version))
         if not self.author_edit.text():
             self.author_edit.setText(repair.git_author(session.chip_file.parent if session.chip_file else None))
-        try:
-            chip, _ = session.build()
-        except ValueError as e:
-            self.summary.setText(f"无法生成修复结果：{e}")
-            return
-        if not session.has_changes(chip):
-            self.summary.setText("没有任何改动，无需保存。")
-            return
-        applied = repair.diff_ecu_resources(session.base.ecu_resources, chip.ecu_resources)
-        to_fill_in = session.added_to_fill_in(chip)
-        self.summary.setText(
-            f"{session.base.name}：ECU 资源改动 {len(applied.changes)} 处，确认 {len(session.confirm_notes)} 项，"
-            f"新增标记 {len(session.new_marks)} 项。"
-            + (f"\n⚠ 其中 {len(to_fill_in)} 个条目没有值（待填写），保存后标为待填写，"
-               "请在芯片定义设计器“4. ECU 资源”页填值。" if to_fill_in else "")
-            + f"\n写入 {session.chip_file}")
+        store = getattr(self.wizard().project, "chip_store", None) if self.wizard().project is not None else None
+        self.save_to_project_check.blockSignals(True)
+        if store is not None:
+            self.save_to_project_check.show()
+            self.save_to_project_check.setChecked(self._is_builtin_library_target(session))
+        else:
+            self.save_to_project_check.setChecked(False)
+            self.save_to_project_check.hide()
+        self.save_to_project_check.blockSignals(False)
+        self._refresh_summary()
 
     def _confirm_to_fill_in(self) -> bool:
         """Ask before saving entries without a value; True when there are none or the user agrees."""
@@ -483,6 +526,9 @@ class SavePage(_Page):
             return False
         if not self._confirm_to_fill_in():
             return False
+        session.save_to_project = (
+            (not self.save_to_project_check.isHidden()) and self.save_to_project_check.isChecked()
+        )
         record = repair.RepairRecord(source=source, note=self.note_edit.text().strip(), author=author,
                                      version=self.version_edit.text().strip())
         try:

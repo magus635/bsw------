@@ -120,6 +120,7 @@ class GenerationController:
             # Get variant overrides if in project mode with active variant
             variant_overrides = {}
             variant_name = None
+            project_variants = None
             project_template_dir = None
             package_template_dir = None
             project_dir = None
@@ -127,6 +128,7 @@ class GenerationController:
 
             if win.current_project:
                 variant_name = win.current_project.active_variant
+                project_variants = list(getattr(win.current_project, "variants", None) or []) or None
                 layer = override_layer(variant_name)
                 if layer and win.config_manager.configuration:
                     variant_overrides = win.config_manager.configuration.variant_overrides.get(layer, {})
@@ -146,6 +148,8 @@ class GenerationController:
                 project_template_dir=project_template_dir,
                 package_template_dir=package_template_dir,
                 variant_overrides=variant_overrides,
+                variant_name=variant_name,
+                project_variants=project_variants,
                 all_configurations=self._get_all_project_configurations(),
                 selected_chip=win.current_project.selected_chip if win.current_project else None,
                 ecu_resources=self._project_ecu_resources(),
@@ -154,7 +158,8 @@ class GenerationController:
             )
 
             # Pass parent output directory; generator.generate_all() handles the ModuleName/ subdir
-            ok = generator.generate_all(Path(output_dir), variant=variant_name)
+            variant_to_use = variant_name if variant_name else "Default"
+            ok = generator.generate_all(Path(output_dir), variant=variant_to_use)
 
             if not ok and generator.last_status == 'skipped':
                 searched = [str(d) for d in (generator.project_template_dir,
@@ -218,13 +223,14 @@ class GenerationController:
             finished = Signal(str, str, str)  # module_name, status (GEN/SKIP/FAIL), message
 
         class GenWorker(QRunnable):
-            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None, project_template_dir=None, package_template_dir=None, all_configs=None, selected_chip=None, ecu_resources=None, project_root=None, flat=False, package_dir_name=None):
+            def __init__(self, name, manager, out_path, variant_name=None, variant_overrides=None, project_variants=None, project_template_dir=None, package_template_dir=None, all_configs=None, selected_chip=None, ecu_resources=None, project_root=None, flat=False, package_dir_name=None):
                 super().__init__()
                 self.name = name
                 self.manager = manager
                 self.out_path = out_path
                 self.variant_name = variant_name
                 self.variant_overrides = variant_overrides or {}
+                self.project_variants = project_variants
                 self.project_template_dir = project_template_dir
                 self.package_template_dir = package_template_dir
                 self.all_configs = all_configs
@@ -250,6 +256,7 @@ class GenerationController:
                         package_template_dir=self.package_template_dir,
                         variant_overrides=self.variant_overrides,
                         variant_name=self.variant_name,
+                        project_variants=self.project_variants,
                         all_configurations=self.all_configs,
                         selected_chip=self.selected_chip,
                         ecu_resources=self.ecu_resources,
@@ -373,6 +380,9 @@ class GenerationController:
         # --- Start Workers ---
         # Get current variant info
         variant_name = win.current_project.active_variant if win.current_project else None
+        project_variants = (
+            list(getattr(win.current_project, "variants", None) or []) or None
+        ) if win.current_project else None
 
         # Template sources are per module: overlay root templates/<Module>/ (the
         # user's, highest priority) plus the module package's template dir — same
@@ -394,8 +404,9 @@ class GenerationController:
 
             # Get variant overrides for this module
             mod_variant_overrides = {}
-            if override_layer(variant_name) and manager.configuration:
-                mod_variant_overrides = manager.configuration.variant_overrides.get(variant_name, {})
+            layer = override_layer(variant_name)
+            if layer and manager.configuration:
+                mod_variant_overrides = manager.configuration.variant_overrides.get(layer, {})
 
             overlay_root, package_dir, project_root = _template_sources(win, name)
             pkg_dir_name = project_paths.package_dir_name(win.current_project, name)
@@ -405,6 +416,7 @@ class GenerationController:
                 name, manager, mod_out_path,
                 variant_name=variant_name,
                 variant_overrides=mod_variant_overrides,
+                project_variants=project_variants,
                 project_template_dir=overlay_root,
                 package_template_dir=package_dir,
                 all_configs=all_configs,

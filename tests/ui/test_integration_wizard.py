@@ -1276,4 +1276,123 @@ def test_on_integration_complete_updates_title_dep_graph_and_resolves_references
     assert "update_dep_graph" in events
 
 
+def _make_variant_package_with_resource(
+    lib_dir: Path, pkg_dir_name: str, chip_prop_val: str
+) -> Path:
+    pkg_dir = lib_dir / pkg_dir_name
+    (pkg_dir / "config").mkdir(parents=True, exist_ok=True)
+    (pkg_dir / "resource").mkdir(parents=True, exist_ok=True)
+    (pkg_dir / "config" / "CanTrcv.arxml").write_text(
+        f"""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES>
+    <AR-PACKAGE>
+      <SHORT-NAME>MICROSAR</SHORT-NAME>
+      <AR-PACKAGES>
+        <AR-PACKAGE>
+          <SHORT-NAME>{pkg_dir_name}</SHORT-NAME>
+          <ELEMENTS>
+            <ECUC-MODULE-DEF>
+              <SHORT-NAME>CanTrcv</SHORT-NAME>
+            </ECUC-MODULE-DEF>
+          </ELEMENTS>
+        </AR-PACKAGE>
+      </AR-PACKAGES>
+    </AR-PACKAGE>
+  </AR-PACKAGES>
+</AUTOSAR>""",
+        encoding="utf-8",
+    )
+    (pkg_dir / "resource" / f"{pkg_dir_name.lower()}.properties").write_text(
+        f"CanTrcv.VariantChipProp: {chip_prop_val}\n", encoding="utf-8"
+    )
+    (pkg_dir / "module.json").write_text(
+        json.dumps({
+            "schema": 1,
+            "module": "CanTrcv",
+            "definition": f"/MICROSAR/{pkg_dir_name}/CanTrcv",
+            "files": ["config/CanTrcv.arxml"],
+            "pre": [],
+            "rec": [],
+            "resources": "resource",
+        }),
+        encoding="utf-8",
+    )
+    return lib_dir
+
+
+def test_cross_variant_replace_without_old_entry_uses_v8_config_path_and_reloads_ecu_resources(
+    qtbot, tmp_path
+):
+    """Cross-variant integration without pre-existing ModuleEntry uses config/<M>.arxml,
+    handles project.path=None safely, and reloads project.ecu_resources."""
+    from autosar_configurator.core.packages.library import find_package, scan_library
+
+    proj_dir = tmp_path / "wiz_var_proj"
+    lib_dir = _make_variant_package_with_resource(proj_dir / "lib", "CanTrcv_GenericCan", "GENERIC")
+    _make_variant_package_with_resource(lib_dir, "CanTrcv_Tle9255", "TLE9255")
+
+    wm = WorkspaceManager()
+    project = wm.create_project("WizVarProj", proj_dir / "WizVarProj.dpa", format_version=8)
+    lib_ref = LibraryRef(path="lib", kind="package")
+    project.module_libraries = [lib_ref]
+    pkgs = scan_library(lib_ref, proj_dir)
+    _, generic_pkg = find_package([(0, pkgs)], "/MICROSAR/CanTrcv_GenericCan/CanTrcv")
+    project.add_module_from_package(generic_pkg, lib_index=0, persist=True, confirm=lambda *_: True)
+
+    res_before = project.load_ecu_resources()
+    assert res_before.get("CanTrcv.VariantChipProp") == "GENERIC"
+
+    # Simulate missing old_entry during in-place cross-variant replacement
+    project.module_entries.pop("CanTrcv", None)
+
+    wizard = IntegrationWizard(project)
+    qtbot.addWidget(wizard)
+    mod_page = wizard.page(wizard.pageIds()[1])
+    mod_page.initializePage()
+    for i in range(mod_page.tree.topLevelItemCount()):
+        cat = mod_page.tree.topLevelItem(i)
+        for j in range(cat.childCount()):
+            item = cat.child(j)
+            cand = item.data(0, Qt.UserRole)
+            if cand and cand.package.manifest.definition == "/MICROSAR/CanTrcv_Tle9255/CanTrcv":
+                assert cand.is_other_variant is True
+                item.setCheckState(0, Qt.Checked)
+
+    confirm_page = wizard.page(wizard.pageIds()[2])
+    confirm_page.initializePage()
+    confirm_page.merge_strategy_replace.setChecked(True)
+    wizard.accept()
+
+    entry = project.module_entries["CanTrcv"]
+    assert entry.config_path == "config/CanTrcv.arxml"
+    assert project.ecu_resources.get("CanTrcv.VariantChipProp") == "TLE9255"
+
+    # Unsaved project safety: project.path=None + old_entry=None + cross-variant skip
+    project.path = None
+    project.module_libraries = [LibraryRef(path=str(lib_dir), kind="package")]
+    project.module_entries.pop("CanTrcv", None)
+    wizard_unsaved = IntegrationWizard(project)
+    qtbot.addWidget(wizard_unsaved)
+    mod_page_u = wizard_unsaved.page(wizard_unsaved.pageIds()[1])
+    mod_page_u.initializePage()
+    checked_u = False
+    for i in range(mod_page_u.tree.topLevelItemCount()):
+        cat = mod_page_u.tree.topLevelItem(i)
+        for j in range(cat.childCount()):
+            item = cat.child(j)
+            cand = item.data(0, Qt.UserRole)
+            if cand and cand.package.manifest.definition == "/MICROSAR/CanTrcv_GenericCan/CanTrcv":
+                item.setCheckState(0, Qt.Checked)
+                checked_u = True
+    assert checked_u is True
+    confirm_page_u = wizard_unsaved.page(wizard_unsaved.pageIds()[2])
+    confirm_page_u.initializePage()
+    confirm_page_u.merge_strategy_skip.setChecked(True)
+    wizard_unsaved.accept()
+
+    assert project.module_entries["CanTrcv"].config_path == "config/CanTrcv.arxml"
+
+
+
 

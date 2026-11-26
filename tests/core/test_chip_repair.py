@@ -628,3 +628,47 @@ def test_project_warns_about_entries_to_fill_in(tmp_path):
     assert expected[0] in project.ecu_resource_report.warning_lines()
     project.adopt_selected_chip()
     assert project.chip_data_findings() == expected          # the project's copy
+
+
+def test_missing_key_changes_scoped_to_chip_modules_skips_unrelated_mcal_for_os_only_chip():
+    """Os-only chips (e.g. SC300) do not get unrelated MCAL placeholder keys when scoped."""
+    sc300 = ChipDefinition(
+        name="SC300",
+        ecu_resources={"OsResource": {"NumOfCores": 1}, "Os": {"IocPrimitiveDataTypeNum": 23}},
+    )
+    assert repair.is_os_only_chip(sc300) is True
+    mcal_chip = ChipDefinition(name="THA6206", ecu_resources={"Os": {"A": 1}, "Port": {"B": 2}})
+    assert repair.is_os_only_chip(mcal_chip) is False
+
+    diff = repair.missing_key_changes(
+        sc300,
+        ["Os.NewKey", "OsResource.MasterCore", "Adc.MaxControllers", "Port.MaxPin"],
+        scope_to_chip_modules=True,
+    )
+    assert diff.keys() == ["Os.NewKey", "OsResource.MasterCore"]
+
+
+def test_repair_session_save_to_project_writes_project_copy_without_touching_library(tmp_path):
+    """RepairSession(save_to_project=True) saves into <project>/chips/<chip>.yaml and leaves
+    the chip library file untouched."""
+    db = _library(tmp_path, ChipDefinition(name="C", resource_version="1.0.0", ecu_resources={"Port": {"A": 1}}))
+    lib_before = (db.data_dir / "C.yaml").read_text(encoding="utf-8")
+
+    proj_dir = tmp_path / "proj"
+    proj_dir.mkdir()
+    project = WorkspaceProject("p", proj_dir / "p.dpa")
+    project.chip_database = db
+    project.selected_chip = "C"
+
+    session = repair.RepairSession(db, "C", project)
+    session.save_to_project = True
+    session.properties = [_props(tmp_path / "port.properties", "Port.A: 2\n")]
+    session.load_sources()
+    res = session.save(_record())
+
+    assert res.saved is True
+    assert res.path == proj_dir / "chips" / "C.yaml"
+    assert project.chip_store.load("C").ecu_resources["Port"]["A"] == 2
+    assert db.get_chip("C").ecu_resources["Port"]["A"] == 1
+    assert (db.data_dir / "C.yaml").read_text(encoding="utf-8") == lib_before
+

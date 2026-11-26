@@ -4,10 +4,13 @@ ARXML Parser for AUTOSAR configuration files
 from lxml import etree
 from typing import Optional, Dict, List, Any, Tuple
 from pathlib import Path
+import logging
 import re
 from ..model.container import Container, Parameter
 from ..model.base import ArxmlElement
 from ..model.configuration_model import EcucModuleConfiguration, EcucContainerValue, normalize_config_variant
+
+logger = logging.getLogger(__name__)
 
 
 # AUTOSAR element naming convention: uppercase letter followed by uppercase
@@ -563,6 +566,11 @@ class ArxmlParser:
         # Multiple <VARIATION-POINT> alternatives for the same unindexed parameter should not
         # be promoted to multi_parameter_values; keep the first parsed value.
         if index_text is None and has_variation_point and param_name in container.parameter_values:
+            logger.warning(
+                "Ignoring additional <VARIATION-POINT> branch for unindexed parameter '%s' in container '%s'",
+                param_name,
+                container.short_name,
+            )
             return
 
         if index_text is not None:
@@ -674,10 +682,10 @@ class ArxmlParser:
 
         # Check for INDEX (multi-valued references)
         index_text = self._get_text_value(element, 'INDEX')
+        has_variation_point = self._find_child(element, 'VARIATION-POINT') is not None
 
         local_tag = element.tag.rsplit('}', 1)[-1] if isinstance(element.tag, str) else ''
         is_instance_ref = local_tag == 'ECUC-INSTANCE-REFERENCE-VALUE'
-        has_variation_point = self._find_child(element, 'VARIATION-POINT') is not None
 
         value_ref_dest: Optional[str] = None
         context_element_refs: List[Tuple[str, str]] = []
@@ -725,6 +733,11 @@ class ArxmlParser:
 
         # Route to multi-valued or single-valued storage
         if index_text is None and has_variation_point and ref_name in container.reference_values:
+            logger.warning(
+                "Ignoring additional <VARIATION-POINT> branch for unindexed reference '%s' in container '%s'",
+                ref_name,
+                container.short_name,
+            )
             return
         if index_text is not None:
             try:

@@ -66,7 +66,8 @@ class CodeGenerator:
                  selected_chip: Optional[str] = None,
                  ecu_resources: Optional[Dict[str, Any]] = None,
                  project_root: Optional[Path] = None,
-                 package_dir_name: Optional[str] = None):
+                 package_dir_name: Optional[str] = None,
+                 project_variants: Optional[List[str]] = None):
         """Initialize generator
 
         Args:
@@ -89,6 +90,7 @@ class CodeGenerator:
                 searching upwards from project_template_dir (legacy behaviour).
             package_dir_name: Optional Format 8 package directory name (e.g. ``CanTrcv_Tle9255``)
                 for variant-scoped overlay resolution under ``project_template_dir``.
+            project_variants: Optional list of project-defined variant names.
         """
         self.module_def = module_def
         self.project_root = Path(project_root) if project_root is not None else None
@@ -101,6 +103,7 @@ class CodeGenerator:
         self.all_configurations = all_configurations or {}
         self.selected_chip = selected_chip
         self.package_dir_name = package_dir_name
+        self.project_variants: List[str] = [v for v in (project_variants or []) if v]
 
         # Outcome of the last generate_all() call:
         # 'generated' | 'skipped' (no templates) | 'failed' | None (not run yet)
@@ -655,23 +658,41 @@ class CodeGenerator:
             
         return results
 
+    def _effective_variant_overrides(self, variant: Optional[str] = None) -> Dict[str, Any]:
+        """Return merged variant overrides for ``variant`` (or ``self.variant_name``)."""
+        from ..core.model.configuration_model import override_layer
+
+        eff_var = variant if variant is not None else self.variant_name
+        layer = override_layer(eff_var)
+        merged: Dict[str, Any] = {}
+        if layer and self.configuration is not None:
+            cfg_ov = getattr(self.configuration, "variant_overrides", None)
+            if isinstance(cfg_ov, dict) and isinstance(cfg_ov.get(layer), dict):
+                merged.update(cfg_ov[layer])
+        if self.variant_overrides:
+            merged.update(self.variant_overrides)
+        return merged
+
     def _prepare_context(self, variant: Optional[str] = None) -> Dict[str, Any]:
         """Prepare the complete generation context for template engines"""
         module_name = self.configuration.short_name if self.configuration else "Unknown"
-        
+        eff_variant = variant or self.variant_name
+        eff_overrides = self._effective_variant_overrides(eff_variant)
+
         context = {
             'module_def': self.module_def,
             'configuration': self.configuration,
             'containers': self.configuration.containers if self.configuration else [],
             'module_name': module_name,
             'resolve_ref': self.resolve_ref,
-            'active_variant': variant or self.variant_name,
-            'variant_overrides': self.variant_overrides,
+            'active_variant': eff_variant,
+            'variant_overrides': eff_overrides,
+            'project_variants': list(self.project_variants),
             'enums': self._get_enums(),
-            'precompile_params': self._get_params_by_config_class(ConfigClass.PRE_COMPILE) if self.configuration else [],
-            'linktime_params': self._get_params_by_config_class(ConfigClass.LINK_TIME) if self.configuration else [],
-            'postbuild_params': self._get_params_by_config_class(ConfigClass.POST_BUILD) if self.configuration else [],
-            'references': self._get_references() if self.configuration else [],
+            'precompile_params': self._get_params_by_config_class(ConfigClass.PRE_COMPILE, variant=eff_variant) if self.configuration else [],
+            'linktime_params': self._get_params_by_config_class(ConfigClass.LINK_TIME, variant=eff_variant) if self.configuration else [],
+            'postbuild_params': self._get_params_by_config_class(ConfigClass.POST_BUILD, variant=eff_variant) if self.configuration else [],
+            'references': self._get_references(variant=eff_variant) if self.configuration else [],
             'header_guard': f"{module_name.upper()}_CFG_H",
             'all_modules': self.all_configurations,  # Corrected: Include for cross-module access
             'template_module_names': self._get_template_module_names(),  # Modules with templates (MODULE-DEF)
@@ -988,11 +1009,16 @@ class CodeGenerator:
         
         # Add module info
         parts.append(f"Module:{self.configuration.short_name}")
-        
+
+        eff_variant = variant if variant is not None else self.variant_name
+        eff_overrides = self._effective_variant_overrides(eff_variant)
+
         # Add variant info
-        if variant:
-            parts.append(f"Variant:{variant}")
-        
+        if eff_variant:
+            parts.append(f"Variant:{eff_variant}")
+        if self.project_variants:
+            parts.append(f"ProjectVariants:{','.join(self.project_variants)}")
+
         consumed_overrides = set()
 
         # Recursively add containers (sorted for stability)
@@ -1000,34 +1026,42 @@ class CodeGenerator:
             parts.append(f"C:{container.short_name}")
             if getattr(container, 'variant', None):
                 parts.append(f"CV:{container.variant}")
-            
+
             # Parameters
             for name in sorted(container.parameter_values.keys()):
                 val = container.parameter_values[name]
                 # Check for variant override
                 param_path = f"{container.get_path()}.{name}"
-                if param_path in self.variant_overrides:
-                    parts.append(f"P:{name}={self.variant_overrides[param_path]}")
+                short_path = f"{container.short_name}.{name}" if container.parent is None else None
+                if param_path in eff_overrides:
+                    parts.append(f"P:{name}={eff_overrides[param_path]}")
                     consumed_overrides.add(param_path)
+                elif short_path and short_path in eff_overrides:
+                    parts.append(f"P:{name}={eff_overrides[short_path]}")
+                    consumed_overrides.add(short_path)
                 else:
                     parts.append(f"P:{name}={val.value}")
-                
+
             # References
             for name in sorted(container.reference_values.keys()):
                 ref = container.reference_values[name]
                 ref_path = f"{container.get_path()}.ref:{name}"
-                if ref_path in self.variant_overrides:
-                    parts.append(f"R:{name}={self.variant_overrides[ref_path]}")
+                short_ref_path = f"{container.short_name}.ref:{name}" if container.parent is None else None
+                if ref_path in eff_overrides:
+                    parts.append(f"R:{name}={eff_overrides[ref_path]}")
                     consumed_overrides.add(ref_path)
+                elif short_ref_path and short_ref_path in eff_overrides:
+                    parts.append(f"R:{name}={eff_overrides[short_ref_path]}")
+                    consumed_overrides.add(short_ref_path)
                 else:
                     parts.append(f"R:{name}={ref.value_ref}")
-                
+
             # Multi-valued parameters
             for name in sorted(container.multi_parameter_values.keys()):
                 for i, val in enumerate(container.multi_parameter_values[name]):
                     param_path = f"{container.get_path()}.{name}[{i}]"
-                    if param_path in self.variant_overrides:
-                        parts.append(f"MP:{name}[{i}]={self.variant_overrides[param_path]}")
+                    if param_path in eff_overrides:
+                        parts.append(f"MP:{name}[{i}]={eff_overrides[param_path]}")
                         consumed_overrides.add(param_path)
                     else:
                         parts.append(f"MP:{name}[{i}]={val.value}")
@@ -1035,32 +1069,41 @@ class CodeGenerator:
             # Multi-valued references
             for name in sorted(container.multi_reference_values.keys()):
                 for i, ref in enumerate(container.multi_reference_values[name]):
-                    parts.append(f"MR:{name}[{i}]={ref.value_ref}")
-                
+                    ref_path = f"{container.get_path()}.ref:{name}[{i}]"
+                    if ref_path in eff_overrides:
+                        parts.append(f"MR:{name}[{i}]={eff_overrides[ref_path]}")
+                        consumed_overrides.add(ref_path)
+                    else:
+                        parts.append(f"MR:{name}[{i}]={ref.value_ref}")
+
             # Sub-containers
             for sub in container.sub_containers:
                 process_container(sub)
-                
+
         # Top level containers
         for container in self.configuration.containers:
             process_container(container)
 
-        for k in sorted(set(self.variant_overrides.keys()) - consumed_overrides):
-            parts.append(f"VO:{k}={self.variant_overrides[k]}")
-            
+        for k in sorted(set(eff_overrides.keys()) - consumed_overrides):
+            parts.append(f"VO:{k}={eff_overrides[k]}")
+
         # Hash the result
         content = "|".join(parts)
         return hashlib.sha256(content.encode('utf-8')).hexdigest()
-        
-    def _get_params_by_config_class(self, config_class: str) -> List[Dict[str, Any]]:
+
+    def _get_params_by_config_class(self, config_class: str, variant: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get parameters filtered by config_class, applying variant overrides"""
+        from ..core.model.configuration_model import DEFAULT_VARIANT
+
         params = []
+        eff_variant = variant or self.variant_name or DEFAULT_VARIANT
+        eff_overrides = self._effective_variant_overrides(variant if variant is not None else self.variant_name)
 
         def _matches_active_variant(c: EcucContainerValue) -> bool:
             c_var = getattr(c, 'variant', None)
-            if not self.variant_name or not c_var:
+            if not c_var:
                 return True
-            return c_var == self.variant_name
+            return c_var == eff_variant
 
         def collect_from_container(container: EcucContainerValue, container_def: EcucContainerDef, path: str):
             if not _matches_active_variant(container):
@@ -1081,8 +1124,11 @@ class CodeGenerator:
                     continue
                 if param_config_class == config_class:
                     param_path = f"{container.get_path()}.{param_name}"
-                    if param_path in self.variant_overrides:
-                        param_value = self.variant_overrides[param_path]
+                    short_path = f"{container.short_name}.{param_name}" if container.parent is None else None
+                    if param_path in eff_overrides:
+                        param_value = eff_overrides[param_path]
+                    elif short_path and short_path in eff_overrides:
+                        param_value = eff_overrides[short_path]
                     elif param_name in container.parameter_values:
                         param_value = container.parameter_values[param_name].value
                     else:
@@ -1154,21 +1200,26 @@ class CodeGenerator:
         # Default: return string representation
         return str(value)
         
-    def _get_references(self) -> List[tuple]:
+    def _get_references(self, variant: Optional[str] = None) -> List[tuple]:
         """Collect all references from the configuration"""
+        from ..core.model.configuration_model import DEFAULT_VARIANT
+
         refs = []
+        eff_variant = variant or self.variant_name or DEFAULT_VARIANT
+        eff_overrides = self._effective_variant_overrides(variant if variant is not None else self.variant_name)
+
         def collect_from_container(container: EcucContainerValue, path: str):
             c_var = getattr(container, 'variant', None)
-            if self.variant_name and c_var and c_var != self.variant_name:
+            if c_var and c_var != eff_variant:
                 return
             for ref_name in sorted(container.reference_values.keys()):
                 ref_val = container.reference_values[ref_name]
                 ref_path = f"{container.get_path()}.ref:{ref_name}"
-                short_ref_path = f"{container.short_name}.ref:{ref_name}"
-                if ref_path in self.variant_overrides:
-                    target = self.variant_overrides[ref_path]
-                elif short_ref_path in self.variant_overrides:
-                    target = self.variant_overrides[short_ref_path]
+                short_ref_path = f"{container.short_name}.ref:{ref_name}" if container.parent is None else None
+                if ref_path in eff_overrides:
+                    target = eff_overrides[ref_path]
+                elif short_ref_path and short_ref_path in eff_overrides:
+                    target = eff_overrides[short_ref_path]
                 else:
                     target = ref_val.value_ref
                 if target:

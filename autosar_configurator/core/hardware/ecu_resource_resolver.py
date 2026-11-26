@@ -4,17 +4,19 @@ ECU resource resolver
 The single place that builds ``project.ecu_resources`` (the flat dict behind
 ``ecu:get()`` / ``ecu:list()``).  Sources, lowest priority first:
 
-1. ``*.properties`` files found in the project and in the plugin directories of
-   the loaded modules (resource files must match the selected chip).
-2. The ``ecu_resources`` section of the selected chip's YAML definition: the
-   project's own copy (``<project dir>/chips/<chip>.yaml``) if it has one,
-   otherwise the packaged chip library.
+1. Built-in chip library YAML (``SOURCE_LIBRARY``, packaged ``data/chips/<chip>.yaml``)
+   when the project has no local chip copy.
+2. ``*.properties`` files found in the project and in the plugin/package directories
+   of the loaded modules (resource files must match the selected chip).
+3. The project's own chip YAML copy (``SOURCE_PROJECT``,
+   ``<project dir>/chips/<chip>.yaml``), when present.
 
-On a conflicting key the chip YAML wins and the difference is logged.
+Higher-priority ``None`` placeholders never overwrite an existing non-``None``
+value from a lower-priority layer, and all overrides are logged with their source.
 """
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .. import project_paths
 from .chip_database import ChipDatabase, get_default_chip_database
@@ -50,11 +52,22 @@ def _search_dirs(project, project_dir: Path) -> List[Path]:
     add(project_paths.legacy_plugins_dir(project_dir))  # project-local EB plugins
     add(project_paths.legacy_def_dir(project_dir))
     add(project_dir / "Define")
-    # Plugin roots of the loaded modules (handles external plugins such as Os):
-    # typical EB layout is plugin_dir/config/module.xdm
-    for def_path in getattr(project, "module_defs", {}).values():
-        if def_path:
-            add(Path(def_path).parent.parent)
+    # Plugin/package roots of the loaded modules:
+    # - Format 8 package modules stay strictly bounded to pkg.root so flat packages
+    #   (modules/<Variant>/<Mod>.arxml) never escape into modules/ and leak sibling variants.
+    # - Non-package modules step up two levels only when def_path sits inside a config/defs
+    #   subdirectory (typical EB layout: plugin_dir/config/module.xdm).
+    packages = getattr(project, "packages", None) or {}
+    for mod_name, def_path in sorted((getattr(project, "module_defs", None) or {}).items()):
+        pkg = packages.get(mod_name)
+        if pkg is not None and getattr(pkg, "root", None) is not None:
+            add(Path(pkg.root))
+        elif def_path:
+            def_p = Path(def_path)
+            if def_p.parent.name.lower() in ("config", "bswmd", "defs", "definition", "definitions"):
+                add(def_p.parent.parent)
+            else:
+                add(def_p.parent)
     # Resource directories of the module packages (format 8 projects)
     for _, pkg in sorted(getattr(project, "packages", {}).items()):
         resource_dir = pkg.resource_dir()
@@ -272,29 +285,73 @@ class EcuResourceResolver:
                 or getattr(project, "chip_database", None)
                 or get_default_chip_database())
 
-    def chip_resources(self, project) -> Dict[str, Any]:
-        """Flat ``ecu_resources`` of the project's selected chip (empty if none)."""
+    def _chip_resources_with_source(self, project) -> Tuple[str, Dict[str, Any]]:
+        """Return ``(source, flat_resources)`` for the project's selected chip."""
         source, chip = chip_for_project(project, self._database(project))
         if source == SOURCE_NONE:
-            return {}
+            return source, {}
         if chip is None:
             logger.info("Selected chip %s has no chip YAML (project or library); "
                         "only .properties files apply", project.selected_chip)
-            return {}
+            return source, {}
         if source == SOURCE_LIBRARY:
             logger.info("Chip %s is read from the chip library; it is not yet saved in "
                         "the project's chips/ directory", project.selected_chip)
-        return flatten_ecu_resources(chip.ecu_resources)
+        return source, flatten_ecu_resources(chip.ecu_resources)
+
+    def chip_resources(self, project) -> Dict[str, Any]:
+        """Flat ``ecu_resources`` of the project's selected chip (empty if none)."""
+        return self._chip_resources_with_source(project)[1]
+
+    def resolve_with_sources(self, project) -> Tuple[Dict[str, Any], Dict[str, str]]:
+        """Recompute resources from scratch and return ``(resources, key_sources)``.
+
+        Priority (highest wins):
+            ``SOURCE_PROJECT`` > ``SOURCE_PROPERTIES`` > ``SOURCE_LIBRARY``
+        """
+        chip_source, chip_res = self._chip_resources_with_source(project)
+        props = scan_properties(project)
+
+        layers: List[Tuple[str, str, Dict[str, Any]]] = []
+        if chip_source == SOURCE_LIBRARY:
+            layers.append((SOURCE_LIBRARY, "library chip YAML", chip_res))
+            layers.append((SOURCE_PROPERTIES, "properties", props))
+        elif chip_source == SOURCE_PROJECT:
+            layers.append((SOURCE_PROPERTIES, "properties", props))
+            layers.append((SOURCE_PROJECT, "project chip YAML", chip_res))
+        else:
+            layers.append((SOURCE_PROPERTIES, "properties", props))
+
+        source_labels = {
+            SOURCE_LIBRARY: "library chip YAML",
+            SOURCE_PROPERTIES: "properties",
+            SOURCE_PROJECT: "project chip YAML",
+        }
+        merged: Dict[str, Any] = {}
+        sources: Dict[str, str] = {}
+        for source_tag, label, data in layers:
+            for key, value in data.items():
+                if key in merged:
+                    prev_value = merged[key]
+                    prev_label = source_labels.get(sources[key], sources[key])
+                    if value is None and prev_value is not None:
+                        logger.info(
+                            "ECU resource %s: keeping %s value %r (ignoring None placeholder from %s)",
+                            key, prev_label, prev_value, label,
+                        )
+                        continue
+                    if prev_value != value:
+                        logger.info(
+                            "ECU resource %s: %s value %r overrides %s value %r",
+                            key, label, value, prev_label, prev_value,
+                        )
+                merged[key] = value
+                sources[key] = source_tag
+        return merged, sources
 
     def resolve(self, project) -> Dict[str, Any]:
         """Recompute the resources from scratch (never layered on an old result)."""
-        merged = scan_properties(project)
-        for key, value in self.chip_resources(project).items():
-            if key in merged and merged[key] != value:
-                logger.info("ECU resource %s: chip YAML value %r overrides properties value %r",
-                            key, value, merged[key])
-            merged[key] = value
-        return merged
+        return self.resolve_with_sources(project)[0]
 
 
 def library_other_chip_keys(chip_database: ChipDatabase, exclude_chip: Optional[str]) -> Dict[str, List[str]]:

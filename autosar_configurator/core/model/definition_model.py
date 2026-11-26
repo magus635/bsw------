@@ -27,15 +27,6 @@ class ConfigClass:
     POST_BUILD = "POST-BUILD"
 
 
-class VariantType(Enum):
-    """AUTOSAR variant types for parameters"""
-    PRECOMPILE = "VARIANT-PRE-COMPILE"
-    LINKTIME = "VARIANT-LINK-TIME"
-    POSTBUILD = "VARIANT-POST-BUILD"
-    POSTBUILD_LOADABLE = "VARIANT-POST-BUILD-LOADABLE"
-    POSTBUILD_SELECTABLE = "VARIANT-POST-BUILD-SELECTABLE"
-
-
 @dataclass
 class EcucParameterDef:
     """ECUC Parameter Definition (ECUC-*-PARAM-DEF)
@@ -76,9 +67,6 @@ class EcucParameterDef:
     
     # Full path for reference
     definition_ref: str = ""  # Will be set during parsing
-    
-    # Variant support
-    variant_type: Optional[VariantType] = None  # Default to None (all variants)
 
     # Logic Loop attributes (Pre-compile/Link-time/Post-build)
     config_class: Optional[str] = None  # e.g., "PRE-COMPILE"
@@ -319,11 +307,28 @@ class EcucModuleDef:
     # prefix; definition_ref above keeps the /AUTOSAR/EcucDefs form used internally.
     ar_path: str = ""
 
-    # Default variant for this module
-    default_variant: VariantType = VariantType.POSTBUILD
-
     # Supported ECUC IMPLEMENTATION-CONFIG-VARIANT values declared by the module definition
     supported_config_variants: List[str] = field(default_factory=list)
+
+    def default_config_variant(self) -> str:
+        """Derive the initial IMPLEMENTATION-CONFIG-VARIANT for a new configuration."""
+        from .configuration_model import DEFAULT_CONFIG_VARIANT, normalize_config_variant
+
+        supported = [
+            normalize_config_variant(v)
+            for v in (self.supported_config_variants or [])
+            if v
+        ]
+        icv_param = self.parameters.get("IMPLEMENTATION_CONFIG_VARIANT")
+        if icv_param is not None and icv_param.default_value not in (None, ""):
+            cand = normalize_config_variant(icv_param.default_value)
+            if not supported or cand in supported:
+                return cand
+        if supported:
+            if DEFAULT_CONFIG_VARIANT in supported:
+                return DEFAULT_CONFIG_VARIANT
+            return supported[0]
+        return DEFAULT_CONFIG_VARIANT
 
     @property
     def path(self) -> str:

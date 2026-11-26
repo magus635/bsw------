@@ -251,6 +251,8 @@ def adopt_base(manager, base_config: EcucModuleConfiguration) -> None:
     config.containers.clear()
     config._instance_registry.clear()
     config.parameter_values.clear()
+    if getattr(base_config, "implementation_config_variant", None):
+        config.implementation_config_variant = base_config.implementation_config_variant
     for name, param in base_config.parameter_values.items():
         config.parameter_values[name] = EcucParameterValue(
             definition_ref=param.definition_ref, value=param.value,

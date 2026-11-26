@@ -425,7 +425,7 @@ def test_check_project_settings(tmp_path):
     from autosar_configurator.core.workspace_manager import WorkspaceManager
 
     _workspace(tmp_path)
-    gen = tmp_path / "proj" / "generateCode" / "Can" / "src"
+    gen = tmp_path / "proj" / "gen" / "Can" / "src"
     gen.mkdir(parents=True)
     (gen / "Can_Lcfg.c").write_text("#define CAN_START_SEC_CONFIG_DATA_UNSPECIFIED\n"
                                     "#include \"Can_MemMap.h\"\n"
@@ -445,8 +445,25 @@ def test_check_project_settings(tmp_path):
     assert reopened.memmap_header_dirs == ["../CommonFile/Memmap"]
     assert reopened.memmap_linker_file == "../scatter.scat"
     result = check.check_project(reopened)
-    assert result.source_dirs == ["../Mcal", "generateCode"]
-    assert [f.path for f in result.by_category(check.UNMAPPED)] == ["generateCode/Can/src/Can_Lcfg.c"]
+    assert result.source_dirs == ["../Mcal", "gen"]
+    assert [f.path for f in result.by_category(check.UNMAPPED)] == ["gen/Can/src/Can_Lcfg.c"]
+
+    # Legacy (format <= 7) project still scans generateCode/
+    legacy_gen = tmp_path / "legacy_proj" / "generateCode" / "Can" / "src"
+    legacy_gen.mkdir(parents=True)
+    (legacy_gen / "Can_Lcfg.c").write_text("#define CAN_START_SEC_CONFIG_DATA_UNSPECIFIED\n"
+                                           "#include \"Can_MemMap.h\"\n"
+                                           "#define CAN_STOP_SEC_CONFIG_DATA_UNSPECIFIED\n"
+                                           "#include \"Can_MemMap.h\"\n", encoding="utf-8")
+    legacy_mgr = WorkspaceManager()
+    legacy_proj = legacy_mgr.create_project("legacy", tmp_path / "legacy_proj" / "legacy.dpa",
+                                            format_version=7)
+    legacy_proj.memmap_source_dirs = ["../Mcal"]
+    legacy_proj.memmap_header_dirs = ["../CommonFile/Memmap"]
+    legacy_proj.memmap_linker_file = "../scatter.scat"
+    legacy_result = check.check_project(legacy_proj)
+    assert legacy_result.source_dirs == ["../Mcal", "generateCode"]
+    assert [f.path for f in legacy_result.by_category(check.UNMAPPED)] == ["generateCode/Can/src/Can_Lcfg.c"]
 
     data = json.loads((tmp_path / "proj" / "demo.dpa").read_text(encoding="utf-8"))
     for key in ("memmap_source_dirs", "memmap_header_dirs", "memmap_linker_file"):

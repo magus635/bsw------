@@ -808,3 +808,10 @@ def test_no_epc_two_variant_plugins_reported_ambiguous_not_guessed(dio_tree, tmp
     assert "/THA6_AS440_FuSa/Dio" in reasons[0]
     assert "/Vendor/Dio" in reasons[0]
 
+    report_files = list((target / ".history" / "reports").glob("*_import.md"))
+    assert len(report_files) == 1
+    report_md = report_files[0].read_text(encoding="utf-8")
+    assert "- 定义：" not in report_md
+    assert "按新模块用基线初始化" not in report_md
+    assert "- EPC：无" in report_md
+

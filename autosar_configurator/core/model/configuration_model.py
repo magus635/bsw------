@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Set, Tuple
 from datetime import datetime
 
-from .definition_model import VariantType
 from .definition_refs import same_definition
 from .ecuc_paths import (
     is_active_ecuc_path,

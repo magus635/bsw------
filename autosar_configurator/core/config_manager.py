@@ -534,9 +534,13 @@ class ConfigurationManager:
         self.def_missing = def_missing
         
         # Create empty configuration
+        cfg_kwargs = {}
+        if module_def is not None and hasattr(module_def, "default_config_variant"):
+            cfg_kwargs["implementation_config_variant"] = module_def.default_config_variant()
         self.configuration = EcucModuleConfiguration(
             short_name=module_def.short_name,
-            definition_ref=module_def.definition_ref
+            definition_ref=module_def.definition_ref,
+            **cfg_kwargs,
         )
         
         # Instance counters for auto-naming
@@ -1223,9 +1227,26 @@ class ConfigurationManager:
             if not isinstance(value, bool):
                 raise ValidationError(f"{param_def.short_name}: Expected boolean, got {type(value).__name__}")
     
+    def _active_variant_for_multiplicity(self) -> Optional[str]:
+        if self.project_context is None:
+            return None
+        return getattr(self.project_context, "active_variant", None)
+
+    @staticmethod
+    def _container_visible_in_variant(
+        container: EcucContainerValue, active_variant: Optional[str]
+    ) -> bool:
+        if active_variant is None:
+            return True
+        c_var = getattr(container, "variant", None)
+        return c_var in (None, "") or c_var == active_variant
+
     def _check_multiplicity_before_add(self, container_def: EcucContainerDef, parent: EcucContainerValue):
         """Check if adding another instance would violate multiplicity"""
-        current_count = self._count_instances_in_parent(container_def, parent)
+        active_variant = self._active_variant_for_multiplicity()
+        current_count = self._count_instances_in_parent(
+            container_def, parent, active_variant=active_variant
+        )
         
         if container_def.upper_multiplicity != -1:  # -1 means unlimited
             if current_count >= container_def.upper_multiplicity:
@@ -1237,9 +1258,11 @@ class ConfigurationManager:
     def _check_multiplicity_before_add_toplevel(self, container_def: EcucContainerDef):
         """Check multiplicity for top-level containers"""
         mod_name = self.module_def.short_name if self.module_def else None
+        active_variant = self._active_variant_for_multiplicity()
         current_count = sum(
             1 for c in self.configuration.containers
             if defrefs.same_definition(c.definition_ref, container_def.definition_ref, mod_name)
+            and self._container_visible_in_variant(c, active_variant)
         )
         
         if container_def.upper_multiplicity != -1:
@@ -1249,12 +1272,18 @@ class ConfigurationManager:
                     f"instances of {container_def.short_name} allowed"
                 )
     
-    def _count_instances_in_parent(self, container_def: EcucContainerDef, parent: EcucContainerValue) -> int:
+    def _count_instances_in_parent(
+        self,
+        container_def: EcucContainerDef,
+        parent: EcucContainerValue,
+        active_variant: Optional[str] = None,
+    ) -> int:
         """Count existing instances of a container definition in parent"""
         mod_name = self.module_def.short_name if self.module_def else None
         return sum(
             1 for c in parent.sub_containers
             if defrefs.same_definition(c.definition_ref, container_def.definition_ref, mod_name)
+            and self._container_visible_in_variant(c, active_variant)
         )
     
     def _generate_instance_name(self, container_def: EcucContainerDef, parent: Optional[EcucContainerValue] = None) -> str:

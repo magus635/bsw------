@@ -3,16 +3,20 @@ ECUC Value Serializer
 Serializes EcucModuleConfiguration to ARXML format
 """
 from lxml import etree
-from typing import Optional, Set
+from typing import Any, Dict, Optional, Set, Tuple
 from pathlib import Path
 from ..model.configuration_model import (
+    DEFAULT_VARIANT,
     normalize_config_variant,
-    EcucModuleConfiguration, 
-    EcucContainerValue, 
+    override_layer,
+    EcucModuleConfiguration,
+    EcucContainerValue,
     EcucParameterValue,
-    EcucReferenceValue
+    EcucReferenceValue,
 )
 from ..model.definition_model import EcucParameterType
+
+_NO_OVERRIDE = object()
 
 # Parameter definition types whose value is ECUC-TEXTUAL-PARAM-VALUE / -NUMERICAL-
 _TEXTUAL_PARAM_DESTS = frozenset({
@@ -53,6 +57,9 @@ class EcucValueSerializer:
         self.pretty_print = pretty_print
         # id() of configuration objects left out of the current export (export_epc skip)
         self._skip = frozenset()
+        self._emit_container_variant_sdg = True
+        self._export_active_variant: Optional[str] = None
+        self._export_variant_overrides: Dict[str, Any] = {}
 
         if use_namespaces:
             self.nsmap = {
@@ -81,7 +88,7 @@ class EcucValueSerializer:
         )
 
     def export_epc(self, configuration: EcucModuleConfiguration, file_path: Path, encoding: str = 'utf-8',
-                   skip: Optional[Set[int]] = None):
+                   skip: Optional[Set[int]] = None, active_variant: Optional[str] = None):
         """Export configuration as an EB Tresos-compatible .epc value file.
 
         Matches the layout EB Tresos itself produces: the AR-PACKAGE short-name
@@ -92,8 +99,15 @@ class EcucValueSerializer:
         Args:
             skip: id() of containers / parameter values / reference values to leave
                 out, e.g. items whose definition ENABLE condition is false
+            active_variant: when provided, filters containers to those visible in
+                that variant and materializes its parameter/reference overrides
         """
         self._skip = frozenset(skip or ())
+        self._emit_container_variant_sdg = False
+        self._export_active_variant = active_variant
+        layer = override_layer(active_variant) if active_variant is not None else None
+        raw_overrides = (getattr(configuration, 'variant_overrides', None) or {}).get(layer, {}) if layer else {}
+        self._export_variant_overrides = dict(raw_overrides) if isinstance(raw_overrides, dict) else {}
         try:
             root = self._create_arxml_root(
                 configuration,
@@ -102,6 +116,9 @@ class EcucValueSerializer:
             )
         finally:
             self._skip = frozenset()
+            self._emit_container_variant_sdg = True
+            self._export_active_variant = None
+            self._export_variant_overrides = {}
         tree = etree.ElementTree(root)
         tree.write(
             str(file_path),
@@ -170,10 +187,35 @@ class EcucValueSerializer:
         
         # Serialize top-level containers
         # Note: configuration.containers only has top-level containers
-        for container in self._kept(configuration.containers):
+        for container in self._kept_containers(configuration.containers):
             self._serialize_container(container, containers_elem)
             
         return root
+
+    def _container_included_in_export(self, container: EcucContainerValue) -> bool:
+        """Return True when ``container`` belongs to ``_export_active_variant`` (or no variant filter)."""
+        if self._export_active_variant is None:
+            return True
+        eff_active = self._export_active_variant or DEFAULT_VARIANT
+        c_var = getattr(container, 'variant', None)
+        return c_var in (None, "") or c_var == eff_active
+
+    def _kept_containers(self, containers) -> list:
+        """Containers not skipped by ``export_epc(skip=...)`` and matching active variant filter."""
+        return [c for c in self._kept(containers) if self._container_included_in_export(c)]
+
+    def _resolve_export_override(self, container: EcucContainerValue, key_suffix: str) -> Tuple[bool, Any]:
+        """Look up variant override for ``container`` + ``key_suffix`` during active-variant EPC export."""
+        if not self._export_variant_overrides:
+            return False, None
+        full_key = f"{container.get_path()}.{key_suffix}"
+        if full_key in self._export_variant_overrides:
+            return True, self._export_variant_overrides[full_key]
+        if container.parent is None:
+            short_key = f"{container.short_name}.{key_suffix}"
+            if short_key in self._export_variant_overrides:
+                return True, self._export_variant_overrides[short_key]
+        return False, None
 
     def _serialize_container(self, container: EcucContainerValue, parent_elem: etree._Element):
         """Serialize container value"""
@@ -187,8 +229,8 @@ class EcucValueSerializer:
         short_name = etree.SubElement(container_elem, 'SHORT-NAME')
         short_name.text = container.short_name
 
-        # Container-level variant assignment (if set): ADMIN-DATA/SDG
-        if getattr(container, 'variant', None):
+        # Container-level variant assignment (if set and enabled): ADMIN-DATA/SDG
+        if self._emit_container_variant_sdg and getattr(container, 'variant', None):
             from ..parser.arxml_parser import CONTAINER_VARIANT_GID
             admin = etree.SubElement(container_elem, 'ADMIN-DATA')
             sdgs = etree.SubElement(admin, 'SDGS')
@@ -208,11 +250,20 @@ class EcucValueSerializer:
         
         # Parameters - create wrapper once
         param_values_elem = None
-        params = self._kept(container.parameter_values.values())
+        params = [
+            (param_name, param)
+            for param_name, param in container.parameter_values.items()
+            if id(param) not in self._skip
+        ]
         if params:
             param_values_elem = etree.SubElement(container_elem, 'PARAMETER-VALUES')
-            for param in params:
-                self._serialize_parameter(param, param_values_elem)
+            for param_name, param in params:
+                has_ov, ov_val = self._resolve_export_override(container, param_name)
+                self._serialize_parameter(
+                    param,
+                    param_values_elem,
+                    value_override=ov_val if has_ov else _NO_OVERRIDE,
+                )
 
         # Multi-valued parameters (with INDEX)
         multi_params = self._kept_lists(getattr(container, 'multi_parameter_values', None))
@@ -220,7 +271,16 @@ class EcucValueSerializer:
             if param_values_elem is None:
                 param_values_elem = etree.SubElement(container_elem, 'PARAMETER-VALUES')
             for param_name, param_list in multi_params.items():
-                for param_val in sorted(param_list, key=lambda p: p.index if p.index is not None else 0):
+                has_list_ov, list_ov_val = self._resolve_export_override(container, param_name)
+                for idx_pos, param_val in enumerate(sorted(param_list, key=lambda p: p.index if p.index is not None else 0)):
+                    eff_idx = param_val.index if param_val.index is not None else idx_pos
+                    has_idx_ov, idx_ov_val = self._resolve_export_override(container, f"{param_name}[{eff_idx}]")
+                    if has_idx_ov:
+                        effective_val = idx_ov_val
+                    elif has_list_ov and isinstance(list_ov_val, list) and idx_pos < len(list_ov_val):
+                        effective_val = list_ov_val[idx_pos]
+                    else:
+                        effective_val = param_val.value
                     tag_name = _param_value_tag(param_val)
                     param_elem = etree.SubElement(param_values_elem, tag_name)
                     if param_val.index is not None:
@@ -229,13 +289,13 @@ class EcucValueSerializer:
                     multi_param_dest = getattr(param_val, 'dest_type', None) or 'ECUC-PARAMETER-DEF'
                     def_ref = etree.SubElement(param_elem, 'DEFINITION-REF', DEST=multi_param_dest)
                     def_ref.text = param_val.definition_ref
-                    if param_val.value is None:
+                    if effective_val is None:
                         continue                    # no value: no <VALUE> (as EB writes it)
                     value_elem = etree.SubElement(param_elem, 'VALUE')
-                    if isinstance(param_val.value, bool):
-                        value_elem.text = 'true' if param_val.value else 'false'
+                    if isinstance(effective_val, bool):
+                        value_elem.text = 'true' if effective_val else 'false'
                     else:
-                        value_elem.text = str(param_val.value)
+                        value_elem.text = str(effective_val)
                 
         # NOTE: unknown parameters (imported values not in the definition)
         # remain inside parameter_values / multi_parameter_values and are
@@ -244,11 +304,20 @@ class EcucValueSerializer:
 
         # References - create wrapper once
         ref_values_elem = None
-        refs = self._kept(container.reference_values.values())
+        refs = [
+            (ref_name, ref)
+            for ref_name, ref in container.reference_values.items()
+            if id(ref) not in self._skip
+        ]
         if refs:
             ref_values_elem = etree.SubElement(container_elem, 'REFERENCE-VALUES')
-            for ref in refs:
-                self._serialize_reference(ref, ref_values_elem)
+            for ref_name, ref in refs:
+                has_ov, ov_val = self._resolve_export_override(container, f"ref:{ref_name}")
+                self._serialize_reference(
+                    ref,
+                    ref_values_elem,
+                    value_ref_override=ov_val if has_ov else _NO_OVERRIDE,
+                )
 
         # Multi-valued references (with INDEX)
         multi_refs = self._kept_lists(getattr(container, 'multi_reference_values', None))
@@ -260,7 +329,7 @@ class EcucValueSerializer:
                     self._serialize_reference(ref_val, ref_values_elem, include_index=True)
 
         # Sub-containers
-        sub_containers = self._kept(container.sub_containers)
+        sub_containers = self._kept_containers(container.sub_containers)
         if sub_containers:
             sub_containers_elem = etree.SubElement(container_elem, 'SUB-CONTAINERS')
             for sub_container in sub_containers:
@@ -282,14 +351,17 @@ class EcucValueSerializer:
         return out
 
     def _serialize_parameter(self, param: EcucParameterValue, param_values_elem: etree._Element,
-                             include_index: bool = False):
+                             include_index: bool = False, value_override: Any = _NO_OVERRIDE):
         """Serialize parameter value
 
         Args:
             param: Parameter value to serialize
             param_values_elem: The PARAMETER-VALUES wrapper element to add to
             include_index: Write the INDEX element when param.index is set
+            value_override: Optional override value replacing param.value for variant export
         """
+        effective_value = param.value if value_override is _NO_OVERRIDE else value_override
+
         # Determine specific element type
         tag_name = _param_value_tag(param)
 
@@ -304,20 +376,30 @@ class EcucValueSerializer:
         def_ref = etree.SubElement(param_elem, 'DEFINITION-REF', DEST=param_dest)
         def_ref.text = param.definition_ref
 
-        if param.value is None:
+        if effective_value is None:
             return                              # no value: no <VALUE> (as EB writes it), not "None"
 
         # Value
         value_elem = etree.SubElement(param_elem, 'VALUE')
         
-        if isinstance(param.value, bool):
-            value_elem.text = 'true' if param.value else 'false'
+        if isinstance(effective_value, bool):
+            value_elem.text = 'true' if effective_value else 'false'
         else:
-            value_elem.text = str(param.value)
+            value_elem.text = str(effective_value)
 
     def _serialize_reference(self, ref: EcucReferenceValue, ref_values_elem: etree._Element,
-                             include_index: bool = False):
-        """Serialize reference value (ECUC-REFERENCE-VALUE or ECUC-INSTANCE-REFERENCE-VALUE)."""
+                             include_index: bool = False,
+                             value_ref_override: Any = _NO_OVERRIDE):
+        """Serialize reference value (ECUC-REFERENCE-VALUE or ECUC-INSTANCE-REFERENCE-VALUE).
+
+        Args:
+            ref: Reference value to serialize
+            ref_values_elem: The REFERENCE-VALUES wrapper element to add to
+            include_index: Write the INDEX element when ref.index is set
+            value_ref_override: Optional override target path for variant export
+        """
+        effective_ref = ref.value_ref if value_ref_override is _NO_OVERRIDE else value_ref_override
+        effective_ref_text = "" if effective_ref is None else str(effective_ref)
         is_iref = bool(
             getattr(ref, 'is_instance_reference', False)
             or getattr(ref, 'dest_type', None) == 'ECUC-INSTANCE-REFERENCE-DEF'
@@ -345,7 +427,7 @@ class EcucValueSerializer:
                 ctx_elem = etree.SubElement(iref_elem, 'CONTEXT-ELEMENT-REF', **attrs)
                 ctx_elem.text = ctx_path
             target_elem = etree.SubElement(iref_elem, 'TARGET-REF', DEST=val_dest)
-            target_elem.text = ref.value_ref
+            target_elem.text = effective_ref_text
         else:
             value_elem = etree.SubElement(ref_elem, 'VALUE-REF', DEST=val_dest)
-            value_elem.text = ref.value_ref
+            value_elem.text = effective_ref_text

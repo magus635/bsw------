@@ -872,3 +872,64 @@ def test_add_custom_module_from_file_readd_and_inplace_source(tmp_path):
     reloaded, failed = WorkspaceManager().load_project(dpa_path)
     assert failed == []
     assert reloaded.module_managers["ReAddMod"].configuration.containers[0].parameter_values["UserNote"].value == "keep_me"
+
+
+def test_add_custom_module_multiple_variants_do_not_overwrite_each_other(tmp_path):
+    """Adding two custom definitions with the same SHORT-NAME but different AR package paths
+    must place them in separate directories under modules/custom/ so both remain switchable."""
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    def_a = src_dir / "CustomMod_VendorA.arxml"
+    def_a.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>VendorA</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-DEF>
+      <SHORT-NAME>CustomMod</SHORT-NAME>
+      <CONTAINERS>
+        <ECUC-PARAM-CONF-CONTAINER-DEF>
+          <SHORT-NAME>General</SHORT-NAME>
+          <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          <PARAMETERS><ECUC-INTEGER-PARAM-DEF><SHORT-NAME>ParamA</SHORT-NAME></ECUC-INTEGER-PARAM-DEF></PARAMETERS>
+        </ECUC-PARAM-CONF-CONTAINER-DEF>
+      </CONTAINERS>
+    </ECUC-MODULE-DEF>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    def_b = src_dir / "CustomMod_VendorB.arxml"
+    def_b.write_text("""<?xml version="1.0" encoding="UTF-8"?>
+<AUTOSAR xmlns="http://autosar.org/schema/r4.0">
+  <AR-PACKAGES><AR-PACKAGE><SHORT-NAME>VendorB</SHORT-NAME><ELEMENTS>
+    <ECUC-MODULE-DEF>
+      <SHORT-NAME>CustomMod</SHORT-NAME>
+      <CONTAINERS>
+        <ECUC-PARAM-CONF-CONTAINER-DEF>
+          <SHORT-NAME>General</SHORT-NAME>
+          <LOWER-MULTIPLICITY>1</LOWER-MULTIPLICITY><UPPER-MULTIPLICITY>1</UPPER-MULTIPLICITY>
+          <PARAMETERS><ECUC-INTEGER-PARAM-DEF><SHORT-NAME>ParamB</SHORT-NAME></ECUC-INTEGER-PARAM-DEF></PARAMETERS>
+        </ECUC-PARAM-CONF-CONTAINER-DEF>
+      </CONTAINERS>
+    </ECUC-MODULE-DEF>
+  </ELEMENTS></AR-PACKAGE></AR-PACKAGES>
+</AUTOSAR>""", encoding="utf-8")
+
+    wm = WorkspaceManager()
+    proj_dir = tmp_path / "CustomVariants"
+    project = wm.create_project("CustomVariants", proj_dir / "CustomVariants.dpa", format_version=8)
+    wm.save_project()
+
+    project.add_custom_module_from_file(def_a)
+    wm.save_project()
+    project.remove_module("CustomMod")
+
+    project.add_custom_module_from_file(def_b)
+    wm.save_project()
+
+    variants = project.list_module_variant_packages("CustomMod")
+    defs = {pkg.manifest.definition for _idx, pkg in variants}
+    assert defs == {"/VendorA/CustomMod", "/VendorB/CustomMod"}
+    idx_a, pkg_a = next((i, p) for i, p in variants if p.manifest.definition == "/VendorA/CustomMod")
+    sw = project.switch_module_variant("CustomMod", pkg_a, target_lib_index=idx_a, preview_only=False, confirm=lambda *_: True)
+    assert sw.applied is True
+    assert project.module_entries["CustomMod"].definition == "/VendorA/CustomMod"
+
