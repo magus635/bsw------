@@ -1064,7 +1064,7 @@ class DaVinciMainWindow(QMainWindow):
         dialog.settings_changed.connect(lambda: self.save_project_action.setEnabled(True))
         dialog.exec()
 
-    def _launch_rte_schm_workbench(self):
+    def _launch_rte_schm_workbench(self, _checked: bool = False, *, initial_tab: Optional[int] = None):
         """Open the 4-tab RTE / SchM configuration and generation workbench."""
         if not self.current_project:
             QMessageBox.information(self, "RTE / SchM 工作台", "请先打开一个项目。")
@@ -1077,6 +1077,17 @@ class DaVinciMainWindow(QMainWindow):
         from .dialogs.rte_schm_workbench import RteSchmWorkbench
 
         dialog = RteSchmWorkbench(self.current_project, parent=self)
+        if initial_tab is not None and hasattr(dialog, "select_tab"):
+            dialog.select_tab(initial_tab)
+        if hasattr(dialog, "memmap_settings_changed"):
+            def _on_memmap_changed():
+                self._has_unsaved_changes = True
+                if hasattr(self, "save_project_action"):
+                    self.save_project_action.setEnabled(True)
+                if hasattr(self, "_update_window_title"):
+                    self._update_window_title()
+
+            dialog.memmap_settings_changed.connect(_on_memmap_changed)
         if dialog.exec() == QDialog.Accepted and getattr(dialog, "has_edits", False):
             after_snapshot = dialog.service.capture_snapshot()
             initial_snapshot = getattr(dialog, "initial_snapshot", None)

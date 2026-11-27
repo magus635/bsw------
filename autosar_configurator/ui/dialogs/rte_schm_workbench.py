@@ -68,6 +68,17 @@ _PREVIEW_STATUS_LABELS = {
     "overlay": ("工程覆盖层", QColor("#6a1b9a")),
 }
 
+_STAGE3_DIAG_CODES = frozenset({
+    "MIXED_TASK_PERIOD",
+    "EXTENDED_TASK_MISSING_EVENT",
+    "DANGLING_OS_EVENT",
+    "ACTIVATION_MISSING_SOURCE",
+    "DANGLING_OS_ACTIVATION",
+    "ACTIVATION_PERIOD_MISMATCH",
+    "TASK_MISSING_ACTIVATION",
+    "MISSING_OS_TASK",
+})
+
 _FALLBACK_GUIDE_MD = """# RTE / SchM 配置与生成工作台使用指南
 
 1. **页签 1（BSW 实例与同步）**：检查活跃、未加载与未注册 BSW 模块，勾选需要项后点击 **一键同步**。
@@ -374,6 +385,7 @@ class GeneratePreviewTab(QWidget):
 
     config_changed = Signal()
     generation_completed = Signal(object)
+    memmap_settings_changed = Signal()
 
     def __init__(self, service: RteWorkbenchService, parent=None) -> None:
         super().__init__(parent)
@@ -480,6 +492,11 @@ class GeneratePreviewTab(QWidget):
         self.open_dir_btn = QPushButton("打开输出目录")
         self.open_dir_btn.clicked.connect(self._on_open_dir)
         gen_bar.addWidget(self.open_dir_btn)
+
+        self.check_memmap_btn = QPushButton("在内存映射工作台中校验")
+        self.check_memmap_btn.setToolTip("打开内存映射工作台扫描生成的 SchM_*.h 与 MemMap.h 段定义")
+        self.check_memmap_btn.clicked.connect(self._on_check_memmap)
+        gen_bar.addWidget(self.check_memmap_btn)
         outer.addLayout(gen_bar)
 
         # Preview splitter
@@ -644,7 +661,16 @@ class GeneratePreviewTab(QWidget):
             item = QListWidgetItem(f"[告警] {warn}")
             item.setForeground(_WARN_COLOR)
             self.diag_list.addItem(item)
-        if not report.errors and not report.warnings:
+        stage3_warnings = [
+            d.message
+            for d in self.service.collect_diagnostics()
+            if d.workbench_tab == 2 and d.code in _STAGE3_DIAG_CODES
+        ]
+        for s3_warn in stage3_warnings:
+            item = QListWidgetItem(f"[阶段3调度告警] {s3_warn}")
+            item.setForeground(_WARN_COLOR)
+            self.diag_list.addItem(item)
+        if not report.errors and not report.warnings and not stage3_warnings:
             item = QListWidgetItem("校验通过：无错误或告警")
             item.setForeground(_OK_COLOR)
             self.diag_list.addItem(item)
@@ -726,12 +752,32 @@ class GeneratePreviewTab(QWidget):
             return
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(target)))
 
+    def _on_check_memmap(self) -> None:
+        out_root = self._effective_output_root()
+        if not out_root.is_dir():
+            QMessageBox.information(
+                self,
+                "内存映射校验",
+                f"目标输出目录尚未生成：\n{out_root}\n\n请先点击「立即生成 RTE / SchM」产出头文件后再校验。",
+            )
+            return
+        from .memory_map_workbench import MemoryMapWorkbench
+
+        dlg = MemoryMapWorkbench(self.service.project, parent=self, auto_scan=True)
+        if self._custom_output_dir is not None:
+            default_dir, _, _, _ = self.service.default_output_layout()
+            if self._custom_output_dir.resolve() != default_dir.resolve():
+                dlg.source_dirs.add(str(self._custom_output_dir))
+        dlg.settings_changed.connect(self.memmap_settings_changed.emit)
+        dlg.exec()
+
 
 class RteSchmWorkbench(QDialog):
     """4-tab graphical RTE / SchM configuration and standalone generation workbench."""
 
     config_changed = Signal()
     generation_completed = Signal(object)
+    memmap_settings_changed = Signal()
 
     def __init__(self, project, parent=None) -> None:
         super().__init__(parent)
@@ -851,8 +897,13 @@ class RteSchmWorkbench(QDialog):
         self.task_tab.config_changed.connect(lambda: self._on_tab_config_changed(self.task_tab))
         self.generate_tab.config_changed.connect(lambda: self._on_tab_config_changed(self.generate_tab))
         self.generate_tab.generation_completed.connect(self.generation_completed.emit)
+        self.generate_tab.memmap_settings_changed.connect(self.memmap_settings_changed.emit)
 
         self._update_header_summary()
+
+    def select_tab(self, index: int) -> None:
+        if 0 <= index < self.tabs.count():
+            self.tabs.setCurrentIndex(index)
 
     def reload_all(self, *, rescan_ib: bool = False) -> None:
         if rescan_ib:

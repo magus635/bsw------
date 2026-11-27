@@ -28,6 +28,7 @@ from ...core.config_manager import PreLockedError
 from ...generator.rte.workbench_service import (
     EA_MECHANISMS,
     ExclusiveAreaRow,
+    OsActivationInfo,
     RteWorkbenchService,
     TaskEventMappingRow,
     format_period_label,
@@ -494,6 +495,8 @@ class TaskMappingTab(QWidget):
         self._unmapped: List[TaskEventMappingRow] = []
         self._recommended_task: Optional[str] = None
         self._task_base_labels: Dict[str, str] = {}
+        self._activations: List[OsActivationInfo] = []
+        self._os_loaded: bool = False
 
         outer = QVBoxLayout(self)
 
@@ -613,6 +616,8 @@ class TaskMappingTab(QWidget):
         try:
             include_swc = self.include_swc_check.isChecked()
             self._tasks = self.service.list_os_tasks()
+            self._activations = self.service.list_os_activations()
+            self._os_loaded = self.service.has_os_module()
             self._mapped_by_task, self._unmapped = self.service.list_task_mappings(
                 include_swc=include_swc
             )
@@ -655,6 +660,11 @@ class TaskMappingTab(QWidget):
         self.mapped_tree.clear()
         total_mapped = 0
         item_to_select: Optional[QTreeWidgetItem] = None
+        acts_by_task: Dict[str, List[OsActivationInfo]] = {}
+        for act in getattr(self, "_activations", []):
+            if act.task_name and (act.alarm_name or act.schedule_table_name):
+                acts_by_task.setdefault(act.task_name, []).append(act)
+
         for task_info in self._tasks:
             task_rows = self._mapped_by_task.get(task_info.name, [])
             total_mapped += len(task_rows)
@@ -696,13 +706,42 @@ class TaskMappingTab(QWidget):
             else:
                 task_period_text = ""
 
+            task_acts = acts_by_task.get(task_info.name, [])
+            periodic_bsw = [
+                r
+                for r in task_rows
+                if (not r.is_swc) and r.period_sec is not None and r.period_sec > 0
+            ]
+            task_source_text = ""
+            task_source_tooltip = ""
+            if task_acts:
+                has_alarm = any(a.alarm_name for a in task_acts)
+                has_schtbl = any(a.schedule_table_name for a in task_acts)
+                if has_alarm and has_schtbl:
+                    task_source_text = "Alarm+SchTbl"
+                elif has_schtbl:
+                    task_source_text = "SchTbl"
+                else:
+                    task_source_text = "Alarm"
+                act_details = [
+                    f"{a.name}: {a.schedule_table_name or a.alarm_name}" for a in task_acts
+                ]
+                task_source_tooltip = "RteOsInteraction 激活源：\n" + "\n".join(act_details)
+            elif getattr(self, "_os_loaded", False) and (not task_info.missing_in_os) and periodic_bsw:
+                if not all(r.used_os_alarm or r.used_os_schtbl_ep for r in periodic_bsw):
+                    task_source_text = "⚠️ 缺激活源"
+                    task_source_tooltip = (
+                        "该周期任务未在 RteOsInteraction/RteUsedOsActivation 中关联 "
+                        "OsAlarm 或 OsScheduleTable（面向阶段 3）"
+                    )
+
             parent_item = QTreeWidgetItem([
                 task_info.name,
                 "",
                 ", ".join(desc_parts),
                 "",
                 task_period_text,
-                "",
+                task_source_text,
             ])
             parent_item.setData(0, Qt.UserRole, ("task", task_info.name))
             if task_info.missing_in_os:
@@ -713,20 +752,38 @@ class TaskMappingTab(QWidget):
                     4,
                     "该 OsTask 下同时挂载了不同周期的 BSW 定时事件，请确认调度分频或拆分到独立 Task",
                 )
+            if task_source_text == "⚠️ 缺激活源":
+                parent_item.setForeground(5, _WARN_COLOR)
+            if task_source_tooltip:
+                parent_item.setToolTip(5, task_source_tooltip)
 
             for r in matching_children if query else task_rows:
+                if r.is_swc:
+                    src_col = "SWC (只读)"
+                    src_tip = ""
+                elif task_info.task_type == "EXTENDED" and not r.used_os_event:
+                    src_col = "BSW ⚠️缺OsEvent"
+                    src_tip = "目标任务为 EXTENDED 类型，缺少 RteBswUsedOsEventRef"
+                else:
+                    src_col = "BSW"
+                    src_tip = f"OsEvent: {r.used_os_event}" if r.used_os_event else ""
+
                 child = QTreeWidgetItem([
                     r.event_name,
                     r.module_name,
                     r.entity_name or "-",
                     "-" if r.position is None else str(r.position),
                     _format_period(r.period_sec),
-                    "SWC (只读)" if r.is_swc else "BSW",
+                    src_col,
                 ])
                 child.setData(0, Qt.UserRole, ("mapping", r))
                 if r.is_swc:
                     for col in range(6):
                         child.setForeground(col, _MUTED_COLOR)
+                elif src_col == "BSW ⚠️缺OsEvent":
+                    child.setForeground(5, _WARN_COLOR)
+                if src_tip:
+                    child.setToolTip(5, src_tip)
                 parent_item.addChild(child)
                 if selected_key is not None and (not r.is_swc) and (r.instance_name, r.mapping_name) == selected_key:
                     item_to_select = child

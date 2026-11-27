@@ -693,3 +693,129 @@ def test_p1_batch_map_events_period_recommendation_and_preview_diff(tmp_path):
     assert "+++ generated/SchM_Com.h" in diff_upd
     assert "GetResource(OsResource_Can)" in diff_upd
     assert schm_upd.target_path.read_text(encoding="utf-8") == disk_before
+
+
+def test_p2_collect_diagnostics_stage3_os_interaction_and_validation_rule(tmp_path):
+    from autosar_configurator.core.rules import RteSchmValidationRule
+    from autosar_configurator.core.validation_engine import ValidationEngine, ValidationSeverity
+
+    project, _, rte_cfg = _build_synthetic_project(tmp_path)
+    svc = RteWorkbenchService(project)
+
+    base_diags = svc.collect_diagnostics()
+    base_codes = {d.code for d in base_diags}
+    assert {"UNLOADED_INSTANCE", "EA_UNCONFIGURED", "UNMAPPED_EVENT"}.issubset(base_codes)
+    assert any(d.workbench_tab == 0 for d in base_diags if d.code == "UNLOADED_INSTANCE")
+    assert any(d.workbench_tab == 1 for d in base_diags if d.code == "EA_UNCONFIGURED")
+    assert any(d.workbench_tab == 2 for d in base_diags if d.code == "UNMAPPED_EVENT")
+
+    # Add EXTENDED task, register Dcm, map Dcm event without OsEventRef, and mix Com periods on OsTask_10ms
+    os_cfg = project.module_managers["Os"].configuration
+    ext_task = EcucContainerValue(short_name="OsTask_Ext", definition_ref="/MICROSAR/Os/OsTask")
+    ext_task.set_parameter_value("OsTaskPriority", 30, "/MICROSAR/Os/OsTask/OsTaskPriority")
+    ext_task.set_parameter_value("OsTaskType", "EXTENDED", "/MICROSAR/Os/OsTask/OsTaskType")
+    os_cfg.add_container(ext_task)
+
+    svc.add_bsw_instance("Dcm", populate_exclusive_areas=True)
+    _, unmapped = svc.list_task_mappings(include_swc=False)
+    for ev in unmapped:
+        if ev.module_name == "Dcm":
+            svc.map_event_to_task(
+                ev.instance_name,
+                ev.event_name,
+                "OsTask_Ext",
+                event_ref=ev.event_ref,
+                event_kind=ev.event_kind,
+            )
+        elif ev.module_name == "Com":
+            svc.map_event_to_task(
+                ev.instance_name,
+                ev.event_name,
+                "OsTask_10ms",
+                event_ref=ev.event_ref,
+                event_kind=ev.event_kind,
+            )
+
+    # Add RteOsInteraction with missing source and dangling/mismatched tick activation
+    os_inter = EcucContainerValue(short_name="RteOsInteraction", definition_ref="/MICROSAR/Rte/RteOsInteraction")
+    act_missing = EcucContainerValue(
+        short_name="Act_NoSource",
+        definition_ref="/MICROSAR/Rte/RteOsInteraction/RteUsedOsActivation",
+    )
+    act_missing.set_reference_value(
+        "RteActivationOsTaskRef",
+        "/ActiveEcuC/Os/OsTask_20ms",
+        "/MICROSAR/Rte/RteOsInteraction/RteUsedOsActivation/RteActivationOsTaskRef",
+    )
+    os_inter.add_sub_container(act_missing)
+
+    act_bad = EcucContainerValue(
+        short_name="Act_BadTickAndAlarm",
+        definition_ref="/MICROSAR/Rte/RteOsInteraction/RteUsedOsActivation",
+    )
+    act_bad.set_reference_value(
+        "RteActivationOsTaskRef",
+        "/ActiveEcuC/Os/OsTask_10ms",
+        "/MICROSAR/Rte/RteOsInteraction/RteUsedOsActivation/RteActivationOsTaskRef",
+    )
+    act_bad.set_reference_value(
+        "RteActivationOsAlarmRef",
+        "/ActiveEcuC/Os/NonExistentAlarm",
+        "/MICROSAR/Rte/RteOsInteraction/RteUsedOsActivation/RteActivationOsAlarmRef",
+    )
+    act_bad.set_parameter_value(
+        "RteExpectedTickDuration",
+        0.03,
+        "/MICROSAR/Rte/RteOsInteraction/RteUsedOsActivation/RteExpectedTickDuration",
+    )
+    os_inter.add_sub_container(act_bad)
+    rte_cfg.add_container(os_inter)
+
+    # Create EA error (OS_RESOURCE without resource ref)
+    svc.update_exclusive_area("Com", "COM_EXCLUSIVE_AREA_RX", mechanism="OS_RESOURCE")
+
+    diags = svc.collect_diagnostics()
+    codes = {d.code for d in diags}
+    assert {
+        "UNLOADED_INSTANCE",
+        "EA_INVALID_CONFIG",
+        "EA_UNCONFIGURED",
+        "MIXED_TASK_PERIOD",
+        "EXTENDED_TASK_MISSING_EVENT",
+        "TASK_MISSING_ACTIVATION",
+        "ACTIVATION_MISSING_SOURCE",
+        "DANGLING_OS_ACTIVATION",
+        "ACTIVATION_PERIOD_MISMATCH",
+    }.issubset(codes)
+
+    # Registered in ValidationEngine.register_default_rules() for Rte only
+    rte_mgr = project.module_managers["Rte"]
+    engine = ValidationEngine(rte_mgr.module_def, rte_mgr.configuration, project_context=project)
+    engine.register_default_rules()
+    val_res = engine.validate()
+    rte_msgs = [m for m in val_res.messages if m.rule_name == "RteSchmRule"]
+    assert rte_msgs
+    assert any(m.severity == ValidationSeverity.ERROR for m in rte_msgs)
+    assert all("workbench_tab=" in (m.details or "") and m.suggested_fix for m in rte_msgs)
+
+    # Single-module mode (no project_context) and non-Rte module produce 0 RteSchmRule messages
+    rule = RteSchmValidationRule()
+    assert rule.validate(rte_mgr.module_def, rte_mgr.configuration, project_context=None).messages == []
+    com_mgr = project.module_managers["Com"]
+    assert rule.validate(com_mgr.module_def, com_mgr.configuration, project_context=project).messages == []
+
+
+@pytest.mark.skipif(not REAL_START_APP.is_dir(), reason="StartApplication1 fixture absent")
+def test_p2_real_startapplication_validation_rule():
+    from autosar_configurator.core.rules import RteSchmValidationRule
+
+    ws = WorkspaceManager()
+    project, _ = ws.load_project(REAL_START_APP / "StartApplication1.dpa")
+    rte_mgr = project.module_managers["Rte"]
+    res = RteSchmValidationRule().validate(rte_mgr.module_def, rte_mgr.configuration, project_context=project)
+    assert res.error_count == 0
+    diags = RteWorkbenchService(project).collect_diagnostics()
+    assert not any(
+        d.code == "TASK_MISSING_ACTIVATION" and "OsTask_10ms_Core0" in d.message
+        for d in diags
+    )

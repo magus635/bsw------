@@ -252,6 +252,7 @@ class ImpactProblemsController:
         from ..widgets.problems_view import ProblemsView
         win.problems_view = ProblemsView()
         win.problems_view.item_requested.connect(self._on_problems_item_requested)
+        win.problems_view.problem_activated.connect(self._on_problem_activated)
         win.problems_dock.setWidget(win.problems_view)
 
         win.addDockWidget(Qt.BottomDockWidgetArea, win.problems_dock)
@@ -281,3 +282,17 @@ class ImpactProblemsController:
         if parameter_name:
             # Note: We rely on the selection triggering the load
             pass
+
+    def _on_problem_activated(self, msg):
+        """Route ``RteSchmRule`` findings straight into the matching workbench tab."""
+        if getattr(msg, "rule_name", None) != "RteSchmRule":
+            return
+        import re
+
+        tab_idx = 0
+        details = getattr(msg, "details", "") or ""
+        m = re.search(r"workbench_tab=(\d+)", details)
+        if m:
+            tab_idx = int(m.group(1))
+        if hasattr(self.win, "_launch_rte_schm_workbench"):
+            self.win._launch_rte_schm_workbench(initial_tab=tab_idx)

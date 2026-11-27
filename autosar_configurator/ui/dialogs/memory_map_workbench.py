@@ -12,7 +12,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 
-from PySide6.QtCore import QObject, Qt, QThread, Signal
+from PySide6.QtCore import QObject, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -559,7 +559,7 @@ class MemoryMapWorkbench(QDialog):
 
     settings_changed = Signal()
 
-    def __init__(self, project, parent=None):
+    def __init__(self, project, parent=None, *, auto_scan: bool = False):
         super().__init__(parent)
         self.project = project
         self.result: Optional[CheckResult] = None
@@ -573,6 +573,8 @@ class MemoryMapWorkbench(QDialog):
         self.setWindowTitle("内存映射")
         self.resize(1200, 820)
         self._build()
+        if auto_scan:
+            QTimer.singleShot(0, self.start_scan)
 
     # --- layout ----------------------------------------------------------------
 

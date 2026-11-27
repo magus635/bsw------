@@ -100,6 +100,35 @@ class TaskEventMappingRow:
     immediate_restart: bool
     is_swc: bool = False
     has_ecuc_container: bool = True
+    used_os_event: Optional[str] = None
+    used_os_alarm: Optional[str] = None
+    used_os_schtbl_ep: Optional[str] = None
+
+
+@dataclass
+class OsActivationInfo:
+    """Stage-3 ``RteOsInteraction/RteUsedOsActivation`` summary row."""
+
+    name: str
+    container_path: str
+    task_name: Optional[str] = None
+    alarm_name: Optional[str] = None
+    schedule_table_name: Optional[str] = None
+    expected_tick_duration: Optional[float] = None
+    expected_offset: Optional[float] = None
+
+
+@dataclass
+class RteSchmDiagnostic:
+    """Structured diagnostic emitted by :meth:`RteWorkbenchService.collect_diagnostics`."""
+
+    severity: str  # "error" | "warning" | "info"
+    code: str
+    message: str
+    container_path: str
+    parameter_name: Optional[str] = None
+    workbench_tab: int = 0
+    suggested_fix: Optional[str] = None
 
 
 @dataclass
@@ -1130,6 +1159,9 @@ class RteWorkbenchService:
                         pos = None
                 imm_p = sub.parameter_values.get("RteBswImmediateRestart")
                 imm = _as_bool(imm_p.value if imm_p else None, False)
+                used_ev_v = sub.reference_values.get("RteBswUsedOsEventRef")
+                used_al_v = sub.reference_values.get("RteBswUsedOsAlarmRef")
+                used_ep_v = sub.reference_values.get("RteBswUsedOsSchTblExpiryPointRef")
 
                 row = TaskEventMappingRow(
                     instance_name=container.short_name,
@@ -1146,6 +1178,9 @@ class RteWorkbenchService:
                     immediate_restart=imm,
                     is_swc=False,
                     has_ecuc_container=True,
+                    used_os_event=_ar_leaf(used_ev_v.value_ref) if used_ev_v and used_ev_v.value_ref else None,
+                    used_os_alarm=_ar_leaf(used_al_v.value_ref) if used_al_v and used_al_v.value_ref else None,
+                    used_os_schtbl_ep=_ar_leaf(used_ep_v.value_ref) if used_ep_v and used_ep_v.value_ref else None,
                 )
                 if task_name:
                     mapped_by_task.setdefault(task_name, []).append(row)
@@ -1518,6 +1553,342 @@ class RteWorkbenchService:
             )[0]
             return best.name, f"智能推荐：所选事件无固定周期，匹配 BSW 任务 {best.name}"
         return None, "所选事件无固定周期，请按触发类型手动选择目标 OsTask"
+
+    # ------------------------------------------------------------------
+    # Stage-3 OS Activation & Cross-Subsystem Diagnostics
+    # ------------------------------------------------------------------
+
+    def has_os_module(self) -> bool:
+        os_mgr = self._managers().get("Os")
+        return os_mgr is not None and getattr(os_mgr, "configuration", None) is not None
+
+    def list_os_events(self) -> List[str]:
+        return self._list_os_names("OsEvent")
+
+    def list_os_alarms(self) -> List[str]:
+        return self._list_os_names("OsAlarm")
+
+    def list_os_schedule_tables(self) -> List[str]:
+        return self._list_os_names("OsScheduleTable")
+
+    def list_os_activations(self) -> List[OsActivationInfo]:
+        """Collect ``RteOsInteraction/RteUsedOsActivation`` entries from ``Rte`` configuration."""
+        rte_cfg = self._rte_cfg()
+        if rte_cfg is None:
+            return []
+
+        activations: List[OsActivationInfo] = []
+        for top in getattr(rte_cfg, "containers", []) or []:
+            if _ar_leaf(getattr(top, "definition_ref", None)) != "RteOsInteraction":
+                continue
+            for sub in getattr(top, "sub_containers", []) or []:
+                if _ar_leaf(getattr(sub, "definition_ref", None)) != "RteUsedOsActivation":
+                    continue
+                task_v = sub.reference_values.get("RteActivationOsTaskRef")
+                alarm_v = sub.reference_values.get("RteActivationOsAlarmRef")
+                schtbl_v = (
+                    sub.reference_values.get("RteActivationOsSchTblRef")
+                    or sub.reference_values.get("RteActivationOsScheduleTableRef")
+                )
+
+                def _float_p(name: str) -> Optional[float]:
+                    pv = sub.parameter_values.get(name)
+                    if pv is None or pv.value is None or str(pv.value).strip() == "":
+                        return None
+                    try:
+                        return float(pv.value)
+                    except (ValueError, TypeError):
+                        return None
+
+                c_path = (
+                    sub.get_path()
+                    if hasattr(sub, "get_path") and callable(sub.get_path)
+                    else f"/Rte/{top.short_name}/{sub.short_name}"
+                )
+                activations.append(
+                    OsActivationInfo(
+                        name=sub.short_name,
+                        container_path=c_path,
+                        task_name=_ar_leaf(task_v.value_ref) if task_v and task_v.value_ref else None,
+                        alarm_name=_ar_leaf(alarm_v.value_ref) if alarm_v and alarm_v.value_ref else None,
+                        schedule_table_name=(
+                            _ar_leaf(schtbl_v.value_ref) if schtbl_v and schtbl_v.value_ref else None
+                        ),
+                        expected_tick_duration=_float_p("RteExpectedTickDuration"),
+                        expected_offset=_float_p("RteExpectedActivationOffset"),
+                    )
+                )
+        return activations
+
+    def collect_diagnostics(self) -> List[RteSchmDiagnostic]:
+        """Collect all RTE/SchM readiness and Stage-3 OS-interaction diagnostics."""
+        if not self.has_rte_module():
+            return []
+
+        diags: List[RteSchmDiagnostic] = []
+
+        # Tab 1: BSW instances
+        for row in self.list_bsw_instance_rows():
+            if row.status == "unloaded":
+                diags.append(
+                    RteSchmDiagnostic(
+                        severity="warning",
+                        code="UNLOADED_INSTANCE",
+                        message=f"Rte 中登记了未加载模块 '{row.module_name}'，生成时将跳过",
+                        container_path=f"/Rte/{row.instance_name}",
+                        parameter_name="RteBswModuleConfigurationRef",
+                        workbench_tab=0,
+                        suggested_fix="在 RTE / SchM 工作台页签 1 中移除未加载实例或在工程中加载对应模块",
+                    )
+                )
+
+        # Tab 2: ExclusiveAreas
+        for row in self.list_exclusive_area_rows():
+            if row.validation_error:
+                if row.mechanism == "OS_RESOURCE":
+                    p_name = "RteBswExclusiveAreaOsResourceRef"
+                elif row.mechanism == "OS_SPINLOCK":
+                    p_name = "RteBswExclusiveAreaOsSpinlockRef"
+                else:
+                    p_name = "RteExclusiveAreaImplMechanism"
+                diags.append(
+                    RteSchmDiagnostic(
+                        severity="error",
+                        code="EA_INVALID_CONFIG",
+                        message=f"{row.module_name}.{row.ea_name}：{row.validation_error}",
+                        container_path=f"/Rte/{row.instance_name}/{row.ea_name}",
+                        parameter_name=p_name,
+                        workbench_tab=1,
+                        suggested_fix="在 RTE / SchM 工作台页签 2 中修正临界区保护机制或补选目标 OsResource / OsSpinlock",
+                    )
+                )
+            elif not row.configured:
+                diags.append(
+                    RteSchmDiagnostic(
+                        severity="warning",
+                        code="EA_UNCONFIGURED",
+                        message=f"{row.module_name}.{row.ea_name} 仅在 IB 中声明，尚未同步到 Rte ECUC",
+                        container_path=f"/Rte/{row.instance_name}",
+                        parameter_name=None,
+                        workbench_tab=1,
+                        suggested_fix="在 RTE / SchM 工作台页签 2 点击「同步缺失临界区」",
+                    )
+                )
+
+        # Tab 3: Task mappings & Stage-3 RteOsInteraction checks
+        tasks = self.list_os_tasks()
+        task_map = {t.name: t for t in tasks}
+        mapped_by_task, unmapped = self.list_task_mappings(include_swc=False)
+        os_loaded = self.has_os_module()
+
+        for ev in unmapped:
+            c_path = (
+                f"/Rte/{ev.instance_name}/{ev.mapping_name}"
+                if ev.has_ecuc_container
+                else f"/Rte/{ev.instance_name}"
+            )
+            diags.append(
+                RteSchmDiagnostic(
+                    severity="warning",
+                    code="UNMAPPED_EVENT",
+                    message=f"BSW 调度事件 {ev.module_name}.{ev.event_name} 尚未映射到 OsTask",
+                    container_path=c_path,
+                    parameter_name="RteBswMappedToTaskRef" if ev.has_ecuc_container else None,
+                    workbench_tab=2,
+                    suggested_fix="在 RTE / SchM 工作台页签 3 将该事件分配到目标 OsTask",
+                )
+            )
+
+        os_events = set(self.list_os_events()) if os_loaded else set()
+        os_alarms = set(self.list_os_alarms()) if os_loaded else set()
+        os_schtbls = set(self.list_os_schedule_tables()) if os_loaded else set()
+
+        for task_name, rows in mapped_by_task.items():
+            bsw_rows = [r for r in rows if not r.is_swc]
+            if not bsw_rows:
+                continue
+            task_info = task_map.get(task_name)
+
+            if os_loaded and task_info is not None and task_info.missing_in_os:
+                for r in bsw_rows:
+                    diags.append(
+                        RteSchmDiagnostic(
+                            severity="warning",
+                            code="MISSING_OS_TASK",
+                            message=f"BSW 事件 {r.module_name}.{r.event_name} 引用的 OsTask '{task_name}' 在 Os 模块中未定义",
+                            container_path=f"/Rte/{r.instance_name}/{r.mapping_name}",
+                            parameter_name="RteBswMappedToTaskRef",
+                            workbench_tab=2,
+                            suggested_fix="在 RTE / SchM 工作台页签 3 改派至已存在的 OsTask 或在 Os 中创建该任务",
+                        )
+                    )
+
+            distinct_periods = sorted({
+                round(float(r.period_sec), 9)
+                for r in bsw_rows
+                if r.period_sec is not None and r.period_sec > 0
+            })
+            if len(distinct_periods) > 1:
+                labels = [format_period_label(p) for p in distinct_periods]
+                diags.append(
+                    RteSchmDiagnostic(
+                        severity="warning",
+                        code="MIXED_TASK_PERIOD",
+                        message=f"OsTask '{task_name}' 同时挂载了不同周期的 BSW 定时事件（{' / '.join(labels)}）",
+                        container_path=f"/Rte/{bsw_rows[0].instance_name}/{bsw_rows[0].mapping_name}",
+                        parameter_name="RteBswMappedToTaskRef",
+                        workbench_tab=2,
+                        suggested_fix="建议按周期拆分到独立 OsTask 或确认调度分频逻辑",
+                    )
+                )
+
+            is_extended = bool(task_info is not None and task_info.task_type == "EXTENDED")
+            for r in bsw_rows:
+                m_path = f"/Rte/{r.instance_name}/{r.mapping_name}"
+                if r.used_os_event:
+                    if os_loaded and r.used_os_event not in os_events:
+                        diags.append(
+                            RteSchmDiagnostic(
+                                severity="warning",
+                                code="DANGLING_OS_EVENT",
+                                message=f"BSW 事件 {r.module_name}.{r.event_name} 引用的 OsEvent '{r.used_os_event}' 在 Os 模块中未定义",
+                                container_path=m_path,
+                                parameter_name="RteBswUsedOsEventRef",
+                                workbench_tab=2,
+                                suggested_fix="在 Os 模块补充对应 OsEvent 或修正 RteBswUsedOsEventRef",
+                            )
+                        )
+                elif is_extended:
+                    diags.append(
+                        RteSchmDiagnostic(
+                            severity="warning",
+                            code="EXTENDED_TASK_MISSING_EVENT",
+                            message=f"BSW 事件 {r.module_name}.{r.event_name} 映射到 EXTENDED 任务 '{task_name}'，但缺少 RteBswUsedOsEventRef",
+                            container_path=m_path,
+                            parameter_name="RteBswUsedOsEventRef",
+                            workbench_tab=2,
+                            suggested_fix="为该 RteBswEventToTaskMapping 绑定 OsEvent（面向阶段 3 WaitEvent 调度生成）",
+                        )
+                    )
+
+        activations = self.list_os_activations()
+        activated_tasks: Set[str] = set()
+        for act in activations:
+            if act.task_name and (act.alarm_name or act.schedule_table_name):
+                activated_tasks.add(act.task_name)
+
+            if not act.alarm_name and not act.schedule_table_name:
+                diags.append(
+                    RteSchmDiagnostic(
+                        severity="warning",
+                        code="ACTIVATION_MISSING_SOURCE",
+                        message=f"RteUsedOsActivation '{act.name}' 未关联 RteActivationOsAlarmRef 或 RteActivationOsSchTblRef",
+                        container_path=act.container_path,
+                        parameter_name="RteActivationOsAlarmRef",
+                        workbench_tab=2,
+                        suggested_fix="在 RteOsInteraction 中补充关联 OsAlarm 或 OsScheduleTable",
+                    )
+                )
+
+            if os_loaded:
+                if act.task_name and (act.task_name not in task_map or task_map[act.task_name].missing_in_os):
+                    diags.append(
+                        RteSchmDiagnostic(
+                            severity="warning",
+                            code="DANGLING_OS_ACTIVATION",
+                            message=f"RteUsedOsActivation '{act.name}' 引用的 OsTask '{act.task_name}' 在 Os 模块中未定义",
+                            container_path=act.container_path,
+                            parameter_name="RteActivationOsTaskRef",
+                            workbench_tab=2,
+                            suggested_fix="核对 Os 模块中的 OsTask 名称并更新 RteActivationOsTaskRef",
+                        )
+                    )
+                if act.alarm_name and act.alarm_name not in os_alarms:
+                    diags.append(
+                        RteSchmDiagnostic(
+                            severity="warning",
+                            code="DANGLING_OS_ACTIVATION",
+                            message=f"RteUsedOsActivation '{act.name}' 引用的 OsAlarm '{act.alarm_name}' 在 Os 模块中未定义",
+                            container_path=act.container_path,
+                            parameter_name="RteActivationOsAlarmRef",
+                            workbench_tab=2,
+                            suggested_fix="核对 Os 模块中的 OsAlarm 名称并更新 RteActivationOsAlarmRef",
+                        )
+                    )
+                if act.schedule_table_name and act.schedule_table_name not in os_schtbls:
+                    diags.append(
+                        RteSchmDiagnostic(
+                            severity="warning",
+                            code="DANGLING_OS_ACTIVATION",
+                            message=f"RteUsedOsActivation '{act.name}' 引用的 OsScheduleTable '{act.schedule_table_name}' 在 Os 模块中未定义",
+                            container_path=act.container_path,
+                            parameter_name="RteActivationOsSchTblRef",
+                            workbench_tab=2,
+                            suggested_fix="核对 Os 模块中的 OsScheduleTable 名称并更新 RteActivationOsSchTblRef",
+                        )
+                    )
+
+            if act.task_name and act.expected_tick_duration is not None and act.expected_tick_duration > 0:
+                task_bsw = [r for r in mapped_by_task.get(act.task_name, []) if not r.is_swc]
+                tick_periods = sorted({
+                    round(float(r.period_sec), 9)
+                    for r in task_bsw
+                    if r.period_sec is not None and r.period_sec > 0
+                })
+                for p in tick_periods:
+                    ratio = p / act.expected_tick_duration
+                    if p < act.expected_tick_duration - 1e-6 or abs(ratio - round(ratio)) > 1e-3:
+                        diags.append(
+                            RteSchmDiagnostic(
+                                severity="warning",
+                                code="ACTIVATION_PERIOD_MISMATCH",
+                                message=(
+                                    f"RteUsedOsActivation '{act.name}' 的期望周期 "
+                                    f"{format_period_label(act.expected_tick_duration)} 与任务 '{act.task_name}' "
+                                    f"下事件周期 {format_period_label(p)} 不成整数倍关系"
+                                ),
+                                container_path=act.container_path,
+                                parameter_name="RteExpectedTickDuration",
+                                workbench_tab=2,
+                                suggested_fix="调整 RteExpectedTickDuration 或将不匹配周期的事件迁移至对应 Task",
+                            )
+                        )
+
+        if os_loaded:
+            for task_name, rows in mapped_by_task.items():
+                task_info = task_map.get(task_name)
+                if task_info is None or task_info.missing_in_os:
+                    continue
+                periodic_bsw = [
+                    r
+                    for r in rows
+                    if (not r.is_swc) and r.period_sec is not None and r.period_sec > 0
+                ]
+                if not periodic_bsw:
+                    continue
+                covered = (task_name in activated_tasks) or all(
+                    r.used_os_alarm or r.used_os_schtbl_ep for r in periodic_bsw
+                )
+                if not covered:
+                    periods_str = ", ".join(
+                        sorted({format_period_label(r.period_sec) for r in periodic_bsw})
+                    )
+                    diags.append(
+                        RteSchmDiagnostic(
+                            severity="warning",
+                            code="TASK_MISSING_ACTIVATION",
+                            message=(
+                                f"周期任务 '{task_name}' 挂载了定时 BSW 事件（{periods_str}），"
+                                "但未在 RteOsInteraction/RteUsedOsActivation 中配置 OsAlarm 或 OsScheduleTable 激活源"
+                            ),
+                            container_path=f"/Rte/{periodic_bsw[0].instance_name}/{periodic_bsw[0].mapping_name}",
+                            parameter_name=None,
+                            workbench_tab=2,
+                            suggested_fix="在 RteOsInteraction/RteUsedOsActivation 中为该任务关联 OsAlarm 或 OsScheduleTable（面向阶段 3 调度生成）",
+                        )
+                    )
+
+        return diags
 
     # ------------------------------------------------------------------
     # Tab 4: Global RteGeneration Settings, Live Preview & Generation

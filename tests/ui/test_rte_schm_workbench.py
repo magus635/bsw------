@@ -508,3 +508,115 @@ def test_p1_tree_rte_context_menu_and_f1_manual(qtbot, tmp_path, monkeypatch):
     manual_text = manual.browser.toPlainText()
     assert "RTE / SchM" in manual_text
     assert "使用说明 (?)" in manual_text
+
+
+def test_p2_problems_view_jump_stage3_ui_and_memmap_closed_loop(qtbot, tmp_path, monkeypatch):
+    from PySide6.QtWidgets import QDialog, QMessageBox
+    from autosar_configurator.core.model.configuration_model import EcucContainerValue
+    from autosar_configurator.ui.controllers.project_controller import ProjectController
+    from autosar_configurator.ui.controllers.validation_controller import ValidationController
+    from autosar_configurator.ui.davinci_main_window import DaVinciMainWindow
+
+    project, proj_dir, _ = _build_synthetic_project(tmp_path)
+    os_cfg = project.module_managers["Os"].configuration
+    ext_task = EcucContainerValue(short_name="OsTask_Ext", definition_ref="/MICROSAR/Os/OsTask")
+    ext_task.set_parameter_value("OsTaskPriority", 30, "/MICROSAR/Os/OsTask/OsTaskPriority")
+    ext_task.set_parameter_value("OsTaskType", "EXTENDED", "/MICROSAR/Os/OsTask/OsTaskType")
+    os_cfg.add_container(ext_task)
+
+    # Map both Com events (10ms + 20ms) onto EXTENDED task without RteOsInteraction or UsedOsEventRef
+    svc = RteSchmWorkbench(project).service
+    _, unmapped = svc.list_task_mappings(include_swc=False)
+    for ev in unmapped:
+        if ev.module_name == "Com":
+            svc.map_event_to_task(
+                ev.instance_name,
+                ev.event_name,
+                "OsTask_Ext",
+                event_ref=ev.event_ref,
+                event_kind=ev.event_kind,
+            )
+
+    monkeypatch.setattr(ProjectController, "_auto_load_last_project", lambda self: None)
+    monkeypatch.setattr(ProjectController, "_load_last_session", lambda self: None)
+    monkeypatch.setattr(QMessageBox, "question", lambda *_a, **_kw: QMessageBox.Discard)
+
+    win = DaVinciMainWindow()
+    qtbot.addWidget(win)
+    win.current_project = project
+    win._update_mode_actions()
+
+    ValidationController(win).validate_configuration()
+    rte_msgs = [m for m in win.problems_view.messages if m.rule_name == "RteSchmRule"]
+    assert rte_msgs
+    tab2_msg = next(m for m in rte_msgs if "workbench_tab=2" in (m.details or ""))
+
+    # Activating/double-clicking an RteSchmRule item launches RteSchmWorkbench directly on that tab
+    opened_tabs = []
+
+    def _capture_exec(self_dlg):
+        opened_tabs.append(self_dlg.tabs.currentIndex())
+        return QDialog.Rejected
+
+    with patch("autosar_configurator.ui.dialogs.rte_schm_workbench.RteSchmWorkbench.exec", _capture_exec):
+        win.problems_view.problem_activated.emit(tab2_msg)
+    assert opened_tabs == [2]
+
+    # Tab 3 UI displays Stage-3 activation warning and missing UsedOsEventRef badge
+    wb = RteSchmWorkbench(project)
+    qtbot.addWidget(wb)
+    ext_item = next(
+        wb.task_tab.mapped_tree.topLevelItem(i)
+        for i in range(wb.task_tab.mapped_tree.topLevelItemCount())
+        if wb.task_tab.mapped_tree.topLevelItem(i).text(0) == "OsTask_Ext"
+    )
+    assert "混合: 10 ms/20 ms" in ext_item.text(4)
+    assert "缺激活源" in ext_item.text(5)
+    assert "缺OsEvent" in ext_item.child(0).text(5)
+
+    # Tab 4 surfaces [阶段3调度告警] without blocking Phase-1 generation
+    diag_texts = [wb.generate_tab.diag_list.item(i).text() for i in range(wb.generate_tab.diag_list.count())]
+    assert any("[阶段3调度告警]" in txt for txt in diag_texts)
+    assert wb.generate_tab.generate_btn.isEnabled() is True
+
+    # Clicking MemMap check before generating headers shows info dialog without opening MemoryMapWorkbench
+    with patch("autosar_configurator.ui.dialogs.rte_schm_workbench.QMessageBox.information") as info_mock, \
+         patch("autosar_configurator.ui.dialogs.memory_map_workbench.MemoryMapWorkbench") as mm_cls:
+        wb.generate_tab.check_memmap_btn.click()
+    assert info_mock.called
+    assert not mm_cls.called
+
+    # Generate headers into custom output dir, then verify MemMap check launches MemoryMapWorkbench(auto_scan=True)
+    custom_out = tmp_path / "custom_gen"
+    wb.generate_tab._custom_output_dir = custom_out
+    with patch("autosar_configurator.ui.dialogs.rte_schm_workbench.QMessageBox"):
+        wb.generate_tab.generate_btn.click()
+
+    memmap_dirty = []
+    created_dlgs = []
+    wb.memmap_settings_changed.connect(lambda: memmap_dirty.append(True))
+
+    def _fake_memmap_ctor(proj, parent=None, *, auto_scan=False):
+        dlg = MagicMock()
+        dlg._auto_scan = auto_scan
+        dlg.source_dirs = MagicMock()
+        dlg.settings_changed = MagicMock()
+
+        def _connect(slot):
+            dlg._slot = slot
+
+        dlg.settings_changed.connect.side_effect = _connect
+        dlg.exec.side_effect = lambda: dlg._slot()
+        created_dlgs.append(dlg)
+        return dlg
+
+    with patch(
+        "autosar_configurator.ui.dialogs.memory_map_workbench.MemoryMapWorkbench",
+        side_effect=_fake_memmap_ctor,
+    ) as mm_factory:
+        wb.generate_tab.check_memmap_btn.click()
+
+    assert mm_factory.called
+    assert mm_factory.call_args.kwargs.get("auto_scan") is True
+    created_dlgs[0].source_dirs.add.assert_called_once_with(str(custom_out))
+    assert memmap_dirty == [True]

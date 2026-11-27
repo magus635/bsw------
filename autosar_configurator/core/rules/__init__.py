@@ -30,6 +30,10 @@ from .dependency_rules import (
     DependencyRule
 )
 
+from .rte_schm_rules import (
+    RteSchmValidationRule,
+)
+
 __all__ = [
     'TypeValidationRule',
     'RangeValidationRule',
@@ -41,5 +45,6 @@ __all__ = [
     'RequiredReferenceRule',
     'CircularDependencyRule',
     'DependencyRule',
+    'RteSchmValidationRule',
 ]
 

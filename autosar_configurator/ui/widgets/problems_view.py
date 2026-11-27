@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTreeWidget, 
     QTreeWidgetItem, QLabel, QHeaderView, QToolButton,
-    QFrame
+    QFrame, QMenu
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QIcon, QColor
@@ -15,6 +15,7 @@ class ProblemsView(QWidget):
     """
     
     item_requested = Signal(str, str)  # container_path, parameter_name
+    problem_activated = Signal(object)  # ValidationMessage
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -64,6 +65,8 @@ class ProblemsView(QWidget):
         self.tree.header().setStretchLastSection(True)
         self.tree.setAlternatingRowColors(True)
         self.tree.setRootIsDecorated(False)
+        self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.tree.customContextMenuRequested.connect(self._show_context_menu)
         self.tree.itemDoubleClicked.connect(self._on_item_double_clicked)
         
         layout.addWidget(self.tree)
@@ -116,11 +119,26 @@ class ProblemsView(QWidget):
             
             item.setForeground(0, color)
             item.setData(0, Qt.UserRole, (msg.container_path, msg.parameter_name))
+            item.setData(0, Qt.UserRole + 1, msg)
+            if msg.suggested_fix:
+                item.setToolTip(0, f"建议：{msg.suggested_fix}")
             
             self.tree.addTopLevelItem(item)
             
         self.tree.resizeColumnToContents(1)
         self.tree.resizeColumnToContents(2)
+
+    def _show_context_menu(self, pos):
+        """Show context menu for rule-specific jump actions."""
+        item = self.tree.itemAt(pos)
+        if item is None:
+            return
+        msg = item.data(0, Qt.UserRole + 1)
+        if msg is not None and getattr(msg, "rule_name", None) == "RteSchmRule":
+            menu = QMenu(self)
+            act = menu.addAction("⚡ 在 RTE / SchM 工作台对应页签中打开...")
+            act.triggered.connect(lambda: self.problem_activated.emit(msg))
+            menu.exec(self.tree.viewport().mapToGlobal(pos))
 
     def _on_item_double_clicked(self, item, column):
         """Handle item double click for navigation"""
@@ -128,3 +146,6 @@ class ProblemsView(QWidget):
         if data:
             path, param = data
             self.item_requested.emit(path or "", param or "")
+        msg = item.data(0, Qt.UserRole + 1)
+        if msg is not None:
+            self.problem_activated.emit(msg)

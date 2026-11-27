@@ -114,3 +114,23 @@ The workbench and main window SHALL provide actionable health-check navigation, 
 - **WHEN** the user toggles `仅看差异 (Diff)` on Tab 4
 - **THEN** the preview pane computes and highlights a non-mutating unified diff against disk for `new` and `updated` files
 - **AND** clicking `使用说明 (?)` opens `RteSchmGuideDialog` rendering the workbench guide, right-clicking `Rte` in `DaVinciTreeView` offers `⚡ 打开 RTE / SchM 工作台...`, and `UserManualDialog` documents the workbench features
+
+### Requirement: ValidationEngine Integration, Stage-3 Scheduling Checks, and MemoryMapWorkbench Closed Loop
+
+The subsystem SHALL register `RteSchmValidationRule` into `ValidationEngine` for `ProblemsView` integration with direct workbench-tab navigation, diagnose Stage-3 `RteOsInteraction` / `EXTENDED` task / mixed-period issues, and launch `MemoryMapWorkbench` from Tab 4 for generated MemMap verification.
+
+#### Scenario: Ctrl+Shift+V validation surfaces RteSchmRule findings and jumps to workbench tabs
+
+- **WHEN** `ValidationEngine` validates an `Rte` configuration within a `WorkspaceProject` context
+- **THEN** `RteSchmValidationRule` (`RteSchmRule`) converts `RteWorkbenchService.collect_diagnostics()` findings into `ValidationMessage` entries with target `workbench_tab` metadata
+- **AND** activating an `RteSchmRule` entry in `ProblemsView` opens `RteSchmWorkbench` directly at that `workbench_tab`
+
+#### Scenario: Stage-3 scheduling and RteOsInteraction diagnostics surface cleanly without blocking Phase 1 headers
+
+- **WHEN** a mapped BSW timing event targets an `EXTENDED` `OsTask` without `RteBswUsedOsEventRef`, mixes multiple BSW periods on one task, or uses a periodic `OsTask` without valid `RteOsInteraction/RteUsedOsActivation` coverage
+- **THEN** `collect_diagnostics()` emits structured Stage-3 warnings rendered in Tab 3 status cells and Tab 4 diagnostics without disabling Phase 1 header generation
+
+#### Scenario: Tab 4 closes the loop with MemoryMapWorkbench auto-scan
+
+- **WHEN** the user clicks `在内存映射工作台中校验` on Tab 4 after generating headers into the output root
+- **THEN** `MemoryMapWorkbench` opens with `auto_scan=True` (and adds custom non-default output directories to `source_dirs`), forwarding `settings_changed` to mark project dirty state

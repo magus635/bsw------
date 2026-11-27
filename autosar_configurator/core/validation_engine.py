@@ -216,6 +216,9 @@ class ValidationEngine:
         from .rules.reference_rules import (
             ResolutionErrorValidationRule,
         )
+        from .rules.rte_schm_rules import (
+            RteSchmValidationRule,
+        )
         
         # Register basic rules
         self.register_rules([
@@ -225,6 +228,7 @@ class ValidationEngine:
             RequiredParameterRule(),
             MultiplicityValidationRule(),
             ResolutionErrorValidationRule(),
+            RteSchmValidationRule(),
         ])
         
     def load_custom_rules(self, file_path: str):
