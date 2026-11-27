@@ -6,13 +6,13 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QSplitter, QMenuBar, QMenu, QToolBar, QStatusBar,
     QFileDialog, QMessageBox, QStyle, QLabel, QInputDialog, QLineEdit,
-    QPushButton, QToolButton, QDialog
+    QPushButton, QToolButton, QDialog, QStackedWidget
 )
 from PySide6.QtCore import Qt, Signal, QSettings, QRunnable, QThreadPool, QObject, Slot, QTimer
 from PySide6.QtGui import QAction, QKeySequence, QUndoStack, QIcon
 from PySide6.QtWidgets import QDockWidget
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 import logging
 
 logger = logging.getLogger(__name__)
@@ -32,6 +32,8 @@ from .widgets.davinci_tree_view import DaVinciTreeView
 from .widgets.davinci_config_panel import DaVinciConfigPanel
 from .widgets.smart_search import SmartSearchWidget
 from .widgets.dependency_graph import DependencyGraphWidget
+from .widgets.navigation_bar import LeftNavigationBar
+from .widgets.home_dashboard import HomeDashboardWidget
 from ..core.chip_constraint_service import ChipConstraintService
 from ..generator.generator import CodeGenerator
 from .async_workers import AIWorkerSignals
@@ -147,11 +149,16 @@ class DaVinciMainWindow(QMainWindow):
         # Project I/O, session, recent files (P2-6 phase 8).
         self.project_controller = ProjectController(self)
 
+        # Navigation & Home dashboard tracking
+        self._nav_last_project: Optional[WorkspaceProject] = None
+        self._validation_counts: Optional[Tuple[int, int]] = None
+
         self._setup_ui()
         self._create_actions()
         self._create_menus()
         self._create_toolbars()
         self._create_statusbar()
+        self._update_mode_actions()
         
         # Auto-load last project after a short delay to allow UI to show
         QTimer.singleShot(100, self.project_controller._auto_load_last_project)
@@ -164,12 +171,46 @@ class DaVinciMainWindow(QMainWindow):
     
     def _setup_ui(self):
         """Setup the UI layout"""
-        # Central widget
+        # Central widget: left functional navigation rail + workspace stack (Home / Basic Editor)
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
-        
-        # Main layout
-        layout = QVBoxLayout(central_widget)
+
+        central_layout = QHBoxLayout(central_widget)
+        central_layout.setContentsMargins(0, 0, 0, 0)
+        central_layout.setSpacing(0)
+
+        self.nav_bar = LeftNavigationBar(self)
+        self.nav_bar.page_selected.connect(self._on_nav_page_selected)
+        self.nav_bar.action_triggered.connect(self._on_nav_action_triggered)
+        central_layout.addWidget(self.nav_bar)
+
+        self.workspace_stack = QStackedWidget(self)
+        central_layout.addWidget(self.workspace_stack, 1)
+
+        # Page 0: Home dashboard
+        self.home_dashboard = HomeDashboardWidget(self)
+        self.home_dashboard.new_project_requested.connect(self.project_controller.new_project)
+        self.home_dashboard.open_project_requested.connect(self.project_controller.open_project)
+        self.home_dashboard.import_davinci_requested.connect(self.project_controller.import_davinci_project)
+        self.home_dashboard.import_eb_requested.connect(self.project_controller.import_eb_project)
+        self.home_dashboard.recent_file_requested.connect(self.project_controller._open_recent_file)
+        self.home_dashboard.open_basic_editor_requested.connect(self.show_basic_editor)
+        self.home_dashboard.module_open_requested.connect(self._open_module_from_home)
+        self.home_dashboard.add_or_integrate_module_requested.connect(self._add_or_integrate_from_home)
+        self.home_dashboard.communication_workbench_requested.connect(self._launch_communication_workbench)
+        self.home_dashboard.rte_workbench_requested.connect(self._launch_rte_schm_workbench)
+        self.home_dashboard.memmap_requested.connect(self._launch_memory_map)
+        self.home_dashboard.hw_mapping_requested.connect(self.wizard_controller.launch_hardware_mapping_wizard)
+        self.home_dashboard.chip_designer_requested.connect(self._launch_chip_definition_designer)
+        self.home_dashboard.validate_requested.connect(self.validation_controller.validate_configuration)
+        self.home_dashboard.dep_graph_requested.connect(self.dep_graph_controller.show_dependency_graph)
+        self.home_dashboard.generate_requested.connect(self.generation_controller.generate_code)
+        self.home_dashboard.project_properties_requested.connect(self.project_controller.show_project_properties)
+        self.workspace_stack.addWidget(self.home_dashboard)
+
+        # Page 1: Basic Editor (SmartSearch + Module Tree / Config Panel splitter)
+        self.basic_editor_page = QWidget(self)
+        layout = QVBoxLayout(self.basic_editor_page)
         layout.setContentsMargins(0, 0, 0, 0)
         
         # Add search widget at top
@@ -197,6 +238,7 @@ class DaVinciMainWindow(QMainWindow):
         self.tree_view.rename_instance_requested.connect(self.edit_controller.handle_rename_container)
         self.tree_view.view_references_requested.connect(self.nav_controller._show_reverse_references)
         self.tree_view.change_module_config_variant_requested.connect(self._on_tree_module_config_variant_requested)
+        self.tree_view.open_communication_workbench_requested.connect(self._launch_communication_workbench)
         self.tree_view.open_rte_workbench_requested.connect(self._launch_rte_schm_workbench)
         splitter.addWidget(self.tree_view)
         
@@ -215,6 +257,11 @@ class DaVinciMainWindow(QMainWindow):
         splitter.setStretchFactor(1, 2)
         
         layout.addWidget(splitter)
+        self.workspace_stack.addWidget(self.basic_editor_page)
+
+        # Default to Home on startup until a project is opened/created
+        self.workspace_stack.setCurrentWidget(self.home_dashboard)
+        self.nav_bar.set_active_page("home")
         
         # Dependency graph widget (in separate window)
         
@@ -394,12 +441,25 @@ class DaVinciMainWindow(QMainWindow):
         self.memmap_action.setStatusTip("扫描段声明、MemMap 头映射和链接文件：在“诊断”页签看问题，在“布局”页签按物理区域或模块看段放在哪里（只读）")
         self.memmap_action.triggered.connect(self._launch_memory_map)
 
+        self.communication_workbench_action = QAction("通信配置工作台...", self)
+        self.communication_workbench_action.setStatusTip(
+            "统一查看与编辑 CAN 通道、报文、信号位域、PduR 路由及从 DBC 一键派生通信栈"
+        )
+        self.communication_workbench_action.setEnabled(False)
+        self.communication_workbench_action.triggered.connect(self._launch_communication_workbench)
+
         self.rte_workbench_action = QAction("RTE / SchM 工作台...", self)
         self.rte_workbench_action.setStatusTip("图形化配置 BSW 实例、SchM 临界区保护、Task 调度映射并预览/生成 RTE 与 SchM 头文件")
         self.rte_workbench_action.setEnabled(False)
         self.rte_workbench_action.triggered.connect(self._launch_rte_schm_workbench)
 
         # View actions
+        self.toggle_nav_bar_action = QAction("Navigation Bar", self)
+        self.toggle_nav_bar_action.setCheckable(True)
+        self.toggle_nav_bar_action.setChecked(True)
+        self.toggle_nav_bar_action.setStatusTip("Show/hide left functional navigation bar")
+        self.toggle_nav_bar_action.toggled.connect(lambda visible: self.nav_bar.setVisible(visible))
+
         self.toggle_search_action = QAction("Search...", self)
         self.toggle_search_action.setShortcut(QKeySequence.Find)  # Ctrl+F
         self.toggle_search_action.setStatusTip("Show/hide search panel (Ctrl+F)")
@@ -467,6 +527,8 @@ class DaVinciMainWindow(QMainWindow):
         
         # View menu
         view_menu = menubar.addMenu("View")
+        view_menu.addAction(self.toggle_nav_bar_action)
+        view_menu.addSeparator()
         view_menu.addAction(self.toggle_search_action)
         view_menu.addAction(self.show_dep_graph_action)
         view_menu.addSeparator()
@@ -507,6 +569,7 @@ class DaVinciMainWindow(QMainWindow):
         tools_menu.addAction(self.chip_repair_action)
         tools_menu.addAction(self.chip_scan_action)
         tools_menu.addAction(self.memmap_action)
+        tools_menu.addAction(self.communication_workbench_action)
         tools_menu.addAction(self.rte_workbench_action)
         tools_menu.addAction(self.hardware_mapping_action)
 
@@ -730,6 +793,7 @@ class DaVinciMainWindow(QMainWindow):
     
     def _on_instance_selected(self, instance: EcucContainerValue, container_def: EcucContainerDef, manager=None):
         """Handle instance selection in tree"""
+        self.show_basic_editor()
         # Update active context if manager provided (Project Mode)
         if manager:
             self._update_active_context(manager)
@@ -740,6 +804,7 @@ class DaVinciMainWindow(QMainWindow):
     
     def _on_def_selected(self, container_def: EcucContainerDef, manager=None):
         """Handle definition node selection in tree"""
+        self.show_basic_editor()
         # Update active context if manager provided (Project Mode)
         if manager:
             self._update_active_context(manager)
@@ -748,6 +813,7 @@ class DaVinciMainWindow(QMainWindow):
         
     def _on_module_selected(self, module_def: EcucModuleDef, manager=None):
         """Handle module node selection in tree"""
+        self.show_basic_editor()
         if manager:
             self.config_manager = manager
             self.module_def = module_def
@@ -765,6 +831,7 @@ class DaVinciMainWindow(QMainWindow):
             self.load_recommended_action.setEnabled(True)
             self.import_value_action.setEnabled(True)
             self.export_epc_action.setEnabled(True)
+            self._sync_nav_bar_states()
 
             self.value_file_label.setText(f"Config: {manager.configuration.short_name}")
         
@@ -793,6 +860,7 @@ class DaVinciMainWindow(QMainWindow):
             self.show_dep_graph_action.setEnabled(True)
             self.import_value_action.setEnabled(True)
             self.export_epc_action.setEnabled(True)
+            self._sync_nav_bar_states()
 
     def _on_parameter_changed(self, instance: EcucContainerValue, param_name: str, value: Any):
         """Handle parameter value change"""
@@ -833,6 +901,7 @@ class DaVinciMainWindow(QMainWindow):
                 self.config_manager,
                 self.current_project
             )
+        self.refresh_home_dashboard()
 
     
     def _update_window_title(self):
@@ -1001,9 +1070,129 @@ class DaVinciMainWindow(QMainWindow):
         self.template_action.setEnabled(has_config)
         self.import_config_action.setEnabled(has_config)
         self.load_rules_action.setEnabled(has_config)
-        # Hardware mapping and RTE/SchM workbench need a project
+        # Hardware mapping, Communication and RTE/SchM workbenches need a project
         self.hardware_mapping_action.setEnabled(is_project_mode)
+        self.communication_workbench_action.setEnabled(is_project_mode)
         self.rte_workbench_action.setEnabled(is_project_mode)
+
+        self._sync_nav_bar_states()
+
+        # A1 transition: Home by default when idle; Basic Editor on newly loaded/created project
+        last_proj = getattr(self, "_nav_last_project", None)
+        if self.current_project is not last_proj:
+            self._nav_last_project = self.current_project
+            self._validation_counts = None
+            if hasattr(self, "nav_bar") and self.nav_bar is not None:
+                self.nav_bar.set_item_badge("validate", "")
+            if self.current_project is not None:
+                self.show_basic_editor()
+            elif self.config_manager is None and last_proj is not None:
+                self.show_home()
+
+        self.refresh_home_dashboard()
+
+    def _sync_nav_bar_states(self):
+        """Synchronize left navigation bar button enabled states with main actions."""
+        if not hasattr(self, "nav_bar") or self.nav_bar is None:
+            return
+        is_project_mode = self.current_project is not None
+        has_config = is_project_mode or (self.config_manager is not None)
+        self.nav_bar.set_item_enabled("communication", is_project_mode)
+        self.nav_bar.set_item_enabled("rte_workbench", is_project_mode)
+        self.nav_bar.set_item_enabled("memmap", is_project_mode)
+        self.nav_bar.set_item_enabled("hw_mapping", is_project_mode)
+        self.nav_bar.set_item_enabled("settings", is_project_mode)
+        self.nav_bar.set_item_enabled("validate", has_config or self.validate_action.isEnabled())
+        self.nav_bar.set_item_enabled(
+            "dep_graph", is_project_mode or has_config or self.show_dep_graph_action.isEnabled()
+        )
+        self.nav_bar.set_item_enabled("generate", has_config or self.generate_action.isEnabled())
+
+    def show_home(self):
+        """Switch central workspace stack to the Home dashboard."""
+        if not hasattr(self, "workspace_stack") or not hasattr(self, "home_dashboard"):
+            return
+        self.workspace_stack.setCurrentWidget(self.home_dashboard)
+        if hasattr(self, "nav_bar") and self.nav_bar is not None:
+            self.nav_bar.set_active_page("home")
+        self.refresh_home_dashboard()
+
+    def show_basic_editor(self):
+        """Switch central workspace stack to Basic Editor (tree + config panel)."""
+        if not hasattr(self, "workspace_stack") or not hasattr(self, "basic_editor_page"):
+            return
+        self.workspace_stack.setCurrentWidget(self.basic_editor_page)
+        if hasattr(self, "nav_bar") and self.nav_bar is not None:
+            self.nav_bar.set_active_page("basic_editor")
+
+    def _on_nav_page_selected(self, page_id: str):
+        if page_id == "home":
+            self.show_home()
+        elif page_id == "basic_editor":
+            self.show_basic_editor()
+
+    def _on_nav_action_triggered(self, action_id: str):
+        dispatch = {
+            "communication": self._launch_communication_workbench,
+            "rte_workbench": self._launch_rte_schm_workbench,
+            "memmap": self._launch_memory_map,
+            "hw_mapping": self.wizard_controller.launch_hardware_mapping_wizard,
+            "validate": self.validation_controller.validate_configuration,
+            "dep_graph": self.dep_graph_controller.show_dependency_graph,
+            "generate": self.generation_controller.generate_code,
+            "settings": self.project_controller.show_project_properties,
+            "help": self._show_user_manual,
+        }
+        handler = dispatch.get(action_id)
+        if handler is not None:
+            handler()
+
+    def _open_module_from_home(self, module_name: str):
+        self.show_basic_editor()
+        if hasattr(self, "tree_view") and self.tree_view is not None:
+            self.tree_view.select_module(module_name)
+
+    def _add_or_integrate_from_home(self):
+        if (
+            self.current_project is not None
+            and getattr(self.current_project, "format_version", 0) >= 8
+            and hasattr(self, "integrate_modules_action")
+            and self.integrate_modules_action.isEnabled()
+        ):
+            self.project_controller.integrate_modules()
+        else:
+            self.project_controller.add_module_to_project()
+
+    def refresh_home_dashboard(self):
+        """Refresh the Home dashboard using in-memory project state and cached recent files."""
+        if not hasattr(self, "home_dashboard") or self.home_dashboard is None:
+            return
+        raw_recent = self.settings.value("recent_files", []) if hasattr(self, "settings") else []
+        if isinstance(raw_recent, str):
+            raw_recent = [raw_recent] if raw_recent else []
+        existing_recent = [p for p in (raw_recent or []) if Path(p).exists()]
+        chip_name = None
+        if hasattr(self, "chip_constraint_service") and self.chip_constraint_service:
+            chip_name = self.chip_constraint_service.current_chip
+        self.home_dashboard.refresh(
+            self.current_project,
+            recent_files=existing_recent,
+            chip_name=chip_name,
+            validation_summary=getattr(self, "_validation_counts", None),
+            has_unsaved=bool(getattr(self, "_has_unsaved_changes", False)),
+        )
+
+    def update_validation_badge(self, error_count: int, warning_count: int):
+        """Update validation badge on the navigation rail and Home summary."""
+        self._validation_counts = (error_count, warning_count)
+        if hasattr(self, "nav_bar") and self.nav_bar is not None:
+            if error_count > 0:
+                self.nav_bar.set_item_badge("validate", str(error_count), color="#b00020")
+            elif warning_count > 0:
+                self.nav_bar.set_item_badge("validate", f"{warning_count}W", color="#a65e00")
+            else:
+                self.nav_bar.set_item_badge("validate", "")
+        self.refresh_home_dashboard()
 
     def _launch_chip_definition_designer(self):
         """Open Chip Definition Designer dialog"""
@@ -1064,6 +1253,88 @@ class DaVinciMainWindow(QMainWindow):
         dialog.settings_changed.connect(lambda: self.save_project_action.setEnabled(True))
         dialog.exec()
 
+    def _launch_communication_workbench(self, _checked: bool = False, *, initial_tab: Optional[int] = None):
+        """Open the 5-tab Communication Configuration & DBC Derivation workbench."""
+        if not self.current_project:
+            QMessageBox.information(self, "通信配置工作台", "请先打开一个项目。")
+            return
+
+        from ..core.communication import CommunicationWorkbenchService
+        from .commands import ReplaceMultipleModulesCommand
+        from .dialogs.communication_workbench import CommunicationWorkbench
+
+        svc = CommunicationWorkbenchService(self.current_project)
+        if not svc.has_comm_modules():
+            msg = QMessageBox(self)
+            msg.setWindowTitle("未检测到通信栈模块")
+            msg.setIcon(QMessageBox.Question)
+            msg.setText(
+                "当前项目尚未加载 CAN 通信栈模块（Can / CanTrcv / CanIf / CanSM / ComM / PduR / Com / CanTp / EcuC）。"
+            )
+            msg.setInformativeText("您可以先集成或添加通信栈模块，也可以直接打开空白工作台查看。")
+            btn_add = msg.addButton("添加 / 集成模块...", QMessageBox.AcceptRole)
+            btn_open = msg.addButton("直接打开工作台", QMessageBox.ActionRole)
+            btn_cancel = msg.addButton("取消", QMessageBox.RejectRole)
+            msg.exec()
+            clicked = msg.clickedButton()
+            if clicked is btn_cancel or clicked is None:
+                return
+            if clicked is btn_add:
+                self._add_or_integrate_from_home()
+                if not CommunicationWorkbenchService(self.current_project).has_comm_modules():
+                    return
+            elif clicked is not btn_open:
+                return
+
+        dialog = CommunicationWorkbench(self.current_project, parent=self)
+        if initial_tab is not None and hasattr(dialog, "select_tab"):
+            dialog.select_tab(initial_tab)
+        if hasattr(dialog, "navigate_to_path_requested") and hasattr(self, "nav_controller"):
+            dialog.navigate_to_path_requested.connect(self.nav_controller._on_reference_jump_requested)
+
+        if dialog.exec() == QDialog.Accepted and getattr(dialog, "has_edits", False):
+            after_snapshots = dialog.service.capture_snapshots()
+            initial_snapshots = getattr(dialog, "initial_snapshots", None)
+            if initial_snapshots is not None and after_snapshots is not None:
+                cmd = ReplaceMultipleModulesCommand(
+                    self.current_project,
+                    initial_snapshots,
+                    after_snapshots,
+                    text="编辑通信配置",
+                    on_applied=self._on_communication_workbench_changed,
+                )
+                if hasattr(self, "undo_stack") and self.undo_stack is not None:
+                    self.undo_stack.push(cmd)
+                else:
+                    cmd.redo()
+            else:
+                self._on_communication_workbench_changed()
+
+    def _on_communication_workbench_changed(self):
+        """Synchronize dirty state, reference indexes, and views after Communication workbench edits."""
+        from ..core.communication import COMM_MODULES
+
+        self._has_unsaved_changes = True
+        if hasattr(self, "save_project_action"):
+            self.save_project_action.setEnabled(True)
+        if hasattr(self, "current_project") and self.current_project is not None:
+            resolve_fn = getattr(self.current_project, "resolve_all_references", None)
+            if callable(resolve_fn):
+                resolve_fn(force=True)
+            build_fn = getattr(self.current_project, "build_reverse_reference_index", None)
+            if callable(build_fn):
+                build_fn()
+        panel = getattr(self, "config_panel", None)
+        cur_inst = getattr(panel, "current_instance", None) if panel is not None else None
+        if cur_inst is not None and getattr(cur_inst, "module_name", None) in set(COMM_MODULES) and hasattr(panel, "clear"):
+            panel.clear()
+        if hasattr(self, "_update_window_title"):
+            self._update_window_title()
+        if hasattr(self, "_refresh_config_views"):
+            self._refresh_config_views()
+        if hasattr(self, "statusbar") and self.statusbar is not None:
+            self.statusbar.showMessage("通信配置已更新", 3000)
+
     def _launch_rte_schm_workbench(self, _checked: bool = False, *, initial_tab: Optional[int] = None):
         """Open the 4-tab RTE / SchM configuration and generation workbench."""
         if not self.current_project:
@@ -1071,8 +1342,11 @@ class DaVinciMainWindow(QMainWindow):
             return
         rte_mgr = getattr(self.current_project, "module_managers", {}).get("Rte")
         if rte_mgr is None or getattr(rte_mgr, "configuration", None) is None:
-            QMessageBox.information(self, "RTE / SchM 工作台", "当前项目未加载 Rte 模块，请先添加或导入 Rte 模块。")
-            return
+            if not self._prompt_and_setup_missing_rte():
+                return
+            rte_mgr = getattr(self.current_project, "module_managers", {}).get("Rte")
+            if rte_mgr is None or getattr(rte_mgr, "configuration", None) is None:
+                return
         from .commands import ReplaceModuleContainersCommand
         from .dialogs.rte_schm_workbench import RteSchmWorkbench
 
@@ -1129,6 +1403,192 @@ class DaVinciMainWindow(QMainWindow):
             self._refresh_config_views()
         if hasattr(self, "statusbar") and self.statusbar is not None:
             self.statusbar.showMessage("RTE / SchM 配置已更新", 3000)
+
+    def _prompt_and_setup_missing_rte(self) -> bool:
+        """Guide the user to activate, restore, initialize, or import ``Rte`` when missing."""
+        project = self.current_project
+        if project is None:
+            return False
+
+        from ..generator.rte import bootstrap_rte_module, discover_rte_sources
+
+        sources = discover_rte_sources(project)
+
+        box = QMessageBox(self)
+        box.setWindowTitle("未加载 Rte 模块")
+        box.setIcon(QMessageBox.Icon.Question)
+
+        if sources.library_packages:
+            first_pkg = sources.library_packages[0][1]
+            lines = [
+                f"当前项目尚未加载 Rte 模块，但在模块库中发现了 {len(sources.library_packages)} 个可用的 Rte 定义包：",
+                f"  • {first_pkg.manifest.definition}",
+                "",
+                "可直接从模块库激活 Rte 并打开 RTE / SchM 工作台。",
+            ]
+        else:
+            lines = [
+                "当前项目未加载 Rte 模块（常见于仅包含 MCAL 插件的 EB Tresos 工程或新建工程）。",
+                "",
+                "可点击「初始化内置 Rte 并打开工作台」一键添加内置标准 AUTOSAR Rte 模块，或手动导入 Rte 定义文件（.arxml / .xdm）。",
+            ]
+        if sources.has_failed_entry:
+            lines.append("\n注：工程记录中存在未能加载的 Rte 模块条目（可能因原定义包缺失）。")
+        if sources.deleted_archives:
+            lines.append("\n注：检测到 .history/deleted/ 下存在已删除的 Rte 配置归档，也可直接恢复。")
+        box.setText("\n".join(lines))
+
+        activate_btn = None
+        builtin_btn = None
+        restore_btn = None
+        if sources.library_packages:
+            activate_btn = box.addButton("从模块库激活 Rte 并打开", QMessageBox.ButtonRole.AcceptRole)
+            box.setDefaultButton(activate_btn)
+        else:
+            builtin_btn = box.addButton("初始化内置 Rte 并打开工作台", QMessageBox.ButtonRole.AcceptRole)
+            box.setDefaultButton(builtin_btn)
+        if sources.deleted_archives:
+            restore_btn = box.addButton("恢复已删除的 Rte", QMessageBox.ButtonRole.ActionRole)
+        import_btn = box.addButton("手动导入 Rte 定义/模块...", QMessageBox.ButtonRole.ActionRole)
+        cancel_btn = box.addButton("取消", QMessageBox.ButtonRole.RejectRole)
+
+        box.exec()
+        clicked = box.clickedButton()
+        if clicked is None or clicked is cancel_btn:
+            return False
+
+        confirm_fn = getattr(getattr(self, "project_controller", None), "_confirm_merge", None)
+
+        if clicked is activate_btn:
+            chosen_pkg = sources.library_packages[0]
+            if len(sources.library_packages) > 1:
+                labels = [
+                    f"{pkg.manifest.definition} ({pkg.root.name})"
+                    for _idx, pkg in sources.library_packages
+                ]
+                selected, ok = QInputDialog.getItem(
+                    self,
+                    "选择 Rte 模块包变体",
+                    "模块库中存在多个 Rte 定义，请选择要激活的一个：",
+                    labels,
+                    0,
+                    False,
+                )
+                if not ok or not selected:
+                    return False
+                chosen_pkg = sources.library_packages[labels.index(selected)]
+            try:
+                _mgr, source = bootstrap_rte_module(
+                    project,
+                    library_package=chosen_pkg,
+                    confirm=confirm_fn,
+                )
+            except Exception as exc:
+                QMessageBox.critical(self, "初始化 Rte 失败", f"无法添加 Rte 模块：\n{exc}")
+                return False
+            self._finalize_added_rte_module(source)
+            return True
+
+        if clicked is builtin_btn:
+            try:
+                _mgr, source = bootstrap_rte_module(project, confirm=confirm_fn)
+            except Exception as exc:
+                QMessageBox.critical(self, "初始化 Rte 失败", f"无法添加 Rte 模块：\n{exc}")
+                return False
+            self._finalize_added_rte_module(source)
+            return True
+
+        if clicked is restore_btn:
+            chosen_archive = sources.deleted_archives[0]
+            if len(sources.deleted_archives) > 1:
+                labels = [p.name for p in sources.deleted_archives]
+                selected, ok = QInputDialog.getItem(
+                    self,
+                    "恢复已删除的 Rte 模块",
+                    "选择要恢复的 Rte 配置归档：",
+                    labels,
+                    0,
+                    False,
+                )
+                if not ok or not selected:
+                    return False
+                chosen_archive = sources.deleted_archives[labels.index(selected)]
+            try:
+                _mgr, source = bootstrap_rte_module(
+                    project,
+                    restore_archive=chosen_archive,
+                    confirm=confirm_fn,
+                )
+            except Exception as exc:
+                QMessageBox.critical(self, "初始化 Rte 失败", f"无法添加 Rte 模块：\n{exc}")
+                return False
+            self._finalize_added_rte_module(source)
+            return True
+
+        if clicked is import_btn:
+            self.project_controller.add_module_to_project()
+            rte_mgr = getattr(self.current_project, "module_managers", {}).get("Rte")
+            if rte_mgr is not None and getattr(rte_mgr, "configuration", None) is not None:
+                if hasattr(self, "refresh_home_dashboard"):
+                    self.refresh_home_dashboard()
+                return True
+            return False
+
+        return False
+
+    def _finalize_added_rte_module(self, source: str) -> None:
+        """Sync UI, references, chip selectors, and dirty state after adding ``Rte``."""
+        project = self.current_project
+        if project is None:
+            return
+        self._has_unsaved_changes = True
+        if hasattr(project, "is_modified"):
+            project.is_modified = True
+        if hasattr(self, "save_project_action"):
+            self.save_project_action.setEnabled(True)
+
+        load_res = getattr(project, "load_ecu_resources", None)
+        if callable(load_res):
+            try:
+                load_res()
+            except Exception as exc:
+                logger.warning("ECU resources reload after Rte bootstrap failed: %s", exc)
+        apply_sel = getattr(project, "apply_chip_selectors", None)
+        if callable(apply_sel):
+            try:
+                apply_sel(modules=["Rte"])
+            except Exception as exc:
+                logger.warning("Apply chip selectors after Rte bootstrap failed: %s", exc)
+        resolve_fn = getattr(project, "resolve_all_references", None)
+        if callable(resolve_fn):
+            try:
+                resolve_fn(force=True)
+            except Exception as exc:
+                logger.warning("Reference resolution after Rte bootstrap failed: %s", exc)
+        build_fn = getattr(project, "build_reverse_reference_index", None)
+        if callable(build_fn):
+            try:
+                build_fn()
+            except Exception as exc:
+                logger.warning("Reverse reference index rebuild after Rte bootstrap failed: %s", exc)
+
+        if hasattr(self, "tree_view") and self.tree_view is not None:
+            self.tree_view.set_project(project)
+        if hasattr(self, "_update_window_title"):
+            self._update_window_title()
+        if hasattr(self, "refresh_home_dashboard"):
+            self.refresh_home_dashboard()
+        dep_ctrl = getattr(self, "dep_graph_controller", None)
+        if dep_ctrl is not None and hasattr(dep_ctrl, "_update_dependency_graph_if_open"):
+            dep_ctrl._update_dependency_graph_if_open()
+
+        msg_map = {
+            "builtin": "已初始化内置 Rte 模块（可在工作台页签 1 点击「一键同步」注册 BSW/MCAL 模块）",
+            "library": "已从模块库激活 Rte 模块",
+            "restored": "已从归档恢复 Rte 模块",
+        }
+        if hasattr(self, "statusbar") and self.statusbar is not None:
+            self.statusbar.showMessage(msg_map.get(source, "已加载 Rte 模块"), 5000)
 
     def _on_designer_chip_saved(self, chip_name: str):
         """Handle new chip saved from designer"""

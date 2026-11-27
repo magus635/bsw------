@@ -36,6 +36,7 @@ class DaVinciTreeView(QTreeWidget):
     rename_instance_requested = Signal(EcucContainerValue, str)  # instance, new_name
     view_references_requested = Signal(EcucContainerValue)  # instance - show who references this container
     open_rte_workbench_requested = Signal()  # open 4-tab RTE / SchM Workbench for Rte module
+    open_communication_workbench_requested = Signal()  # open 5-tab Communication Workbench for COMM modules
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -820,6 +821,21 @@ class DaVinciTreeView(QTreeWidget):
                 self.setCurrentItem(item)
                 self._on_item_clicked(item, 0) # Manually trigger click handler
                 return
+
+    def select_module(self, module_name: str) -> bool:
+        """Find, expand, and select a top-level module node by short_name."""
+        for i in range(self.topLevelItemCount()):
+            item = self.topLevelItem(i)
+            data = item.data(0, Qt.UserRole)
+            if data and data.get("type") == "MODULE":
+                mod_def = data.get("def")
+                if mod_def is not None and mod_def.short_name == module_name:
+                    self.setCurrentItem(item)
+                    self.scrollToItem(item)
+                    item.setExpanded(True)
+                    self._on_item_clicked(item, 0)
+                    return True
+        return False
     
     def _select_instance(self, instance: EcucContainerValue):
         """Find and select a specific instance (or module-root proxy) in the tree."""
@@ -1018,6 +1034,13 @@ class DaVinciTreeView(QTreeWidget):
         if module_name == "Rte" and self.project is not None:
             rte_wb_action = menu.addAction("⚡ 打开 RTE / SchM 工作台...")
             rte_wb_action.triggered.connect(lambda: self.open_rte_workbench_requested.emit())
+            menu.addSeparator()
+        elif (
+            module_name in {"Can", "CanTrcv", "CanIf", "CanSM", "CanTp", "PduR", "Com", "ComM"}
+            and self.project is not None
+        ):
+            comm_wb_action = menu.addAction("📡 打开通信配置工作台...")
+            comm_wb_action.triggered.connect(lambda: self.open_communication_workbench_requested.emit())
             menu.addSeparator()
 
         mgr = None

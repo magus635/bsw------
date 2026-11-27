@@ -275,6 +275,10 @@ class ImpactProblemsController:
         if not container_path:
             return
 
+        show_editor = getattr(win, "show_basic_editor", None)
+        if callable(show_editor):
+            show_editor()
+
         # 1. Expand/select in tree
         win.tree_view.select_item_by_path(container_path)
 
@@ -284,8 +288,9 @@ class ImpactProblemsController:
             pass
 
     def _on_problem_activated(self, msg):
-        """Route ``RteSchmRule`` findings straight into the matching workbench tab."""
-        if getattr(msg, "rule_name", None) != "RteSchmRule":
+        """Route ``RteSchmRule`` and ``CommunicationRule`` findings straight into the matching workbench tab."""
+        rule_name = getattr(msg, "rule_name", None)
+        if rule_name not in ("RteSchmRule", "CommunicationRule"):
             return
         import re
 
@@ -294,5 +299,7 @@ class ImpactProblemsController:
         m = re.search(r"workbench_tab=(\d+)", details)
         if m:
             tab_idx = int(m.group(1))
-        if hasattr(self.win, "_launch_rte_schm_workbench"):
+        if rule_name == "RteSchmRule" and hasattr(self.win, "_launch_rte_schm_workbench"):
             self.win._launch_rte_schm_workbench(initial_tab=tab_idx)
+        elif rule_name == "CommunicationRule" and hasattr(self.win, "_launch_communication_workbench"):
+            self.win._launch_communication_workbench(initial_tab=tab_idx)

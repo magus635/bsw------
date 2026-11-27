@@ -1,5 +1,11 @@
 """Model-driven Phase 1 RTE and BSW Scheduler (SchM) header generator."""
 
+from .bootstrap import (
+    RteBootstrapSources,
+    bootstrap_rte_module,
+    builtin_rte_bswmd_path,
+    discover_rte_sources,
+)
 from .extractor import RteModelExtractor
 from .generator import (
     RteSchMGenerator,
@@ -50,6 +56,7 @@ __all__ = [
     "OPTIMIZATION_MODES",
     "OsActivationInfo",
     "OsTaskInfo",
+    "RteBootstrapSources",
     "RteConfigSnapshot",
     "RteGenerationReport",
     "RteGenerationSettings",
@@ -63,7 +70,10 @@ __all__ = [
     "SchedulableEntityModel",
     "SyncSummary",
     "TaskEventMappingRow",
+    "bootstrap_rte_module",
+    "builtin_rte_bswmd_path",
     "compute_preview_diff",
+    "discover_rte_sources",
     "format_period_label",
     "has_project_overlay_templates",
     "restore_rte_config",

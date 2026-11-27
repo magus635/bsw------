@@ -620,3 +620,148 @@ def test_p2_problems_view_jump_stage3_ui_and_memmap_closed_loop(qtbot, tmp_path,
     assert mm_factory.call_args.kwargs.get("auto_scan") is True
     created_dlgs[0].source_dirs.add.assert_called_once_with(str(custom_out))
     assert memmap_dirty == [True]
+
+
+def _build_project_without_rte(tmp_path, *, with_davinci_rte_pkg: bool = False):
+    from autosar_configurator.core.davinci_importer import SipPackageWriter
+    from autosar_configurator.core.packages.library import LibraryRef
+    from autosar_configurator.core.workspace_manager import WorkspaceManager
+    from tests.generator.test_rte_bootstrap import _minimal_module_def_arxml
+
+    proj_dir = tmp_path / "ui_no_rte_proj"
+    proj_dir.mkdir(parents=True, exist_ok=True)
+    dpa_path = proj_dir / "NoRte.dpa"
+
+    wm = WorkspaceManager()
+    project = wm.create_project("NoRte", dpa_path, format_version=8)
+    com_def = tmp_path / "Com_bswmd.arxml"
+    com_def.write_bytes(_minimal_module_def_arxml("Com"))
+    project.add_custom_module_from_file(com_def)
+
+    if with_davinci_rte_pkg:
+        lib_root = proj_dir / "modules" / "davinci"
+        SipPackageWriter.write_package(
+            module_name="Rte",
+            definition_content=_minimal_module_def_arxml("Rte", pkg_prefix="MICROSAR"),
+            output_dir=lib_root,
+            seed_builtin_templates=False,
+        )
+        project.module_libraries.append(LibraryRef(path="modules/davinci", kind="package", exclude=[]))
+
+    wm.save_project()
+    project.ecu_resources = None
+    return project, proj_dir, dpa_path
+
+
+def test_launch_rte_workbench_missing_rte_initializes_builtin_and_opens(qtbot, tmp_path, monkeypatch):
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QApplication, QMessageBox
+    from autosar_configurator.ui.controllers.project_controller import ProjectController
+    from autosar_configurator.ui.davinci_main_window import DaVinciMainWindow
+
+    monkeypatch.setattr(ProjectController, "_auto_load_last_project", lambda self: None)
+    monkeypatch.setattr(ProjectController, "_load_last_session", lambda self: None)
+    monkeypatch.setattr(QMessageBox, "question", lambda *_a, **_kw: QMessageBox.Discard)
+
+    win = DaVinciMainWindow()
+    qtbot.addWidget(win)
+    project, proj_dir, _ = _build_project_without_rte(tmp_path)
+    win.current_project = project
+    win.tree_view.set_project(project)
+    win._update_mode_actions()
+
+    assert win.home_dashboard.wf_rte_btn.isEnabled() is True
+    assert win.home_dashboard.tool_rte_btn.isEnabled() is True
+    assert "初始化" in win.home_dashboard.tool_rte_btn.text()
+
+    def _click_builtin():
+        modal = QApplication.activeModalWidget()
+        if isinstance(modal, QMessageBox):
+            for btn in modal.buttons():
+                if "初始化内置 Rte" in btn.text():
+                    btn.click()
+                    return
+
+    QTimer.singleShot(0, _click_builtin)
+    with patch("autosar_configurator.ui.dialogs.rte_schm_workbench.RteSchmWorkbench") as mock_cls:
+        mock_cls.return_value.exec.return_value = 0
+        win.nav_bar.buttons["rte_workbench"].click()
+
+    assert mock_cls.called
+    assert "Rte" in project.module_managers
+    assert (proj_dir / "modules" / "custom" / "Rte" / "module.json").is_file()
+    assert win._has_unsaved_changes is True
+    assert win.home_dashboard.tool_rte_btn.text() == "⚡ RTE / SchM 工作台"
+
+
+def test_launch_rte_workbench_missing_rte_cancel_is_noop(qtbot, tmp_path, monkeypatch):
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QApplication, QMessageBox
+    from autosar_configurator.ui.controllers.project_controller import ProjectController
+    from autosar_configurator.ui.davinci_main_window import DaVinciMainWindow
+
+    monkeypatch.setattr(ProjectController, "_auto_load_last_project", lambda self: None)
+    monkeypatch.setattr(ProjectController, "_load_last_session", lambda self: None)
+    monkeypatch.setattr(QMessageBox, "question", lambda *_a, **_kw: QMessageBox.Discard)
+
+    win = DaVinciMainWindow()
+    qtbot.addWidget(win)
+    project, _, _ = _build_project_without_rte(tmp_path)
+    win.current_project = project
+    win.tree_view.set_project(project)
+    win._update_mode_actions()
+
+    def _click_cancel():
+        modal = QApplication.activeModalWidget()
+        if isinstance(modal, QMessageBox):
+            for btn in modal.buttons():
+                if btn.text() == "取消":
+                    btn.click()
+                    return
+
+    QTimer.singleShot(0, _click_cancel)
+    with patch("autosar_configurator.ui.dialogs.rte_schm_workbench.RteSchmWorkbench") as mock_cls:
+        win.nav_bar.buttons["rte_workbench"].click()
+
+    assert not mock_cls.called
+    assert "Rte" not in project.module_managers
+
+
+def test_launch_rte_workbench_missing_rte_activates_library_package(qtbot, tmp_path, monkeypatch):
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QApplication, QMessageBox
+    from autosar_configurator.ui.controllers.project_controller import ProjectController
+    from autosar_configurator.ui.davinci_main_window import DaVinciMainWindow
+
+    monkeypatch.setattr(ProjectController, "_auto_load_last_project", lambda self: None)
+    monkeypatch.setattr(ProjectController, "_load_last_session", lambda self: None)
+    monkeypatch.setattr(QMessageBox, "question", lambda *_a, **_kw: QMessageBox.Discard)
+
+    win = DaVinciMainWindow()
+    qtbot.addWidget(win)
+    project, proj_dir, _ = _build_project_without_rte(tmp_path, with_davinci_rte_pkg=True)
+    win.current_project = project
+    win.tree_view.set_project(project)
+    win._update_mode_actions()
+
+    seen_buttons = []
+
+    def _click_activate():
+        modal = QApplication.activeModalWidget()
+        if isinstance(modal, QMessageBox):
+            seen_buttons.extend(b.text() for b in modal.buttons())
+            for btn in modal.buttons():
+                if "从模块库激活 Rte" in btn.text():
+                    btn.click()
+                    return
+
+    QTimer.singleShot(0, _click_activate)
+    with patch("autosar_configurator.ui.dialogs.rte_schm_workbench.RteSchmWorkbench") as mock_cls:
+        mock_cls.return_value.exec.return_value = 0
+        win.nav_bar.buttons["rte_workbench"].click()
+
+    assert any("从模块库激活 Rte" in txt for txt in seen_buttons)
+    assert mock_cls.called
+    assert "Rte" in project.module_managers
+    assert project.module_managers["Rte"].module_def.ar_path == "/MICROSAR/Rte"
+    assert not (proj_dir / "modules" / "custom" / "Rte").exists()

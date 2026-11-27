@@ -658,3 +658,48 @@ class ReplaceModuleContainersCommand(QUndoCommand):
 
     def undo(self):
         self._apply(self.before_snapshot)
+
+
+class ReplaceMultipleModulesCommand(QUndoCommand):
+    """Replace multiple modules' container trees from snapshot maps (undo/redo)."""
+
+    def __init__(
+        self,
+        project,
+        before_snapshots,
+        after_snapshots,
+        text: str = "编辑通信配置",
+        on_applied=None,
+    ):
+        super().__init__()
+        self.project = project
+        self.before_snapshots = before_snapshots or {}
+        self.after_snapshots = after_snapshots or {}
+        self.on_applied = on_applied
+        self.setText(text)
+
+    def _apply(self, snapshots) -> None:
+        from ..generator.rte.workbench_service import restore_rte_config
+
+        managers = getattr(self.project, "module_managers", {}) or {}
+        for mod_name, snap in (snapshots or {}).items():
+            mgr = managers.get(mod_name)
+            cfg = getattr(mgr, "configuration", None) if mgr is not None else None
+            if cfg is not None and snap is not None:
+                restore_rte_config(cfg, snap, project=None)
+
+        if self.project is not None:
+            resolve_fn = getattr(self.project, "resolve_all_references", None)
+            if callable(resolve_fn):
+                resolve_fn(force=True)
+            build_fn = getattr(self.project, "build_reverse_reference_index", None)
+            if callable(build_fn):
+                build_fn()
+        if callable(self.on_applied):
+            self.on_applied()
+
+    def redo(self):
+        self._apply(self.after_snapshots)
+
+    def undo(self):
+        self._apply(self.before_snapshots)

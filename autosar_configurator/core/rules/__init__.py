@@ -34,6 +34,10 @@ from .rte_schm_rules import (
     RteSchmValidationRule,
 )
 
+from .communication_rules import (
+    CommunicationValidationRule,
+)
+
 __all__ = [
     'TypeValidationRule',
     'RangeValidationRule',
@@ -46,5 +50,6 @@ __all__ = [
     'CircularDependencyRule',
     'DependencyRule',
     'RteSchmValidationRule',
+    'CommunicationValidationRule',
 ]
 

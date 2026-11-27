@@ -24,6 +24,9 @@ class NavigationController:
         """Toggle search widget visibility."""
         win = self.win
         if checked:
+            show_editor = getattr(win, "show_basic_editor", None)
+            if callable(show_editor):
+                show_editor()
             win.search_widget.show()
             win.search_widget.focus_search()
 
@@ -44,6 +47,9 @@ class NavigationController:
     def _on_search_result_selected(self, result_type: str, path: str):
         """Handle search result selection."""
         win = self.win
+        show_editor = getattr(win, "show_basic_editor", None)
+        if callable(show_editor):
+            show_editor()
         try:
             win.statusbar.showMessage(f"🔍 Navigating to: {path}", 3000)
 
@@ -206,6 +212,9 @@ class NavigationController:
         win = self.win
         if not target_path:
             return
+        show_editor = getattr(win, "show_basic_editor", None)
+        if callable(show_editor):
+            show_editor()
 
         # Try to find the container in the tree.
         target_container = None
@@ -308,4 +317,7 @@ class NavigationController:
     def _navigate_to_path(self, path: str):
         """Navigate to a container by path."""
         if path:
+            show_editor = getattr(self.win, "show_basic_editor", None)
+            if callable(show_editor):
+                show_editor()
             self.win.tree_view.select_item_by_path(path)

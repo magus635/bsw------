@@ -918,6 +918,8 @@ class ProjectController:
                 QMessageBox.information(self.win, "EB Project Imported", summary)
             
             self.win.tree_view.set_project(self.win.current_project)
+            if hasattr(self.win, "refresh_home_dashboard"):
+                self.win.refresh_home_dashboard()
             
             # Set project type on loaded project (preserve existing type when merging into current)
             if not merge_into_current:
@@ -1218,6 +1220,8 @@ class ProjectController:
             except Exception as exc:
                 logger.warning("Reference resolution after add_module failed: %s", exc)
             self.win.tree_view.set_project(self.win.current_project)
+            if hasattr(self.win, "refresh_home_dashboard"):
+                self.win.refresh_home_dashboard()
             config_panel = getattr(self.win, "config_panel", None)
             refresh_refs = getattr(config_panel, "_refresh_reference_status", None)
             if callable(refresh_refs):
@@ -1557,6 +1561,8 @@ class ProjectController:
 
             # Set up UI
             self.win.tree_view.set_project(self.win.current_project)
+            if hasattr(self.win, "refresh_home_dashboard"):
+                self.win.refresh_home_dashboard()
 
             # Chip takes effect (ECU resources, UI constraints); the imported
             # configuration is kept as it is and only checked
@@ -1989,6 +1995,9 @@ class ProjectController:
             no_files_action = QAction("(No recent files)", self.win)
             no_files_action.setEnabled(False)
             self.win.recent_files_menu.addAction(no_files_action)
+            refresh_home = getattr(self.win, "refresh_home_dashboard", None)
+            if callable(refresh_home):
+                refresh_home()
             return
 
         # Add recent files to menu (limit to max_recent_files)
@@ -2004,6 +2013,10 @@ class ProjectController:
             clear_action = QAction("Clear Recent Files", self.win)
             clear_action.triggered.connect(self._clear_recent_files)
             self.win.recent_files_menu.addAction(clear_action)
+
+        refresh_home = getattr(self.win, "refresh_home_dashboard", None)
+        if callable(refresh_home):
+            refresh_home()
 
     def _open_recent_file(self, file_path: str):
         """Open a file from recent files menu"""
@@ -2201,6 +2214,8 @@ class ProjectController:
                 if callable(clear_panel):
                     clear_panel()
             self.win.tree_view.set_project(self.win.current_project)
+            if hasattr(self.win, "refresh_home_dashboard"):
+                self.win.refresh_home_dashboard()
             update_title = getattr(self.win, "_update_window_title", None)
             if callable(update_title):
                 update_title()
@@ -2278,6 +2293,8 @@ class ProjectController:
             mgr = project.restore_deleted_module(archive_path, confirm=self._confirm_merge)
             self.win._has_unsaved_changes = True
             self.win.tree_view.set_project(project)
+            if hasattr(self.win, "refresh_home_dashboard"):
+                self.win.refresh_home_dashboard()
             self.win.statusbar.showMessage(
                 f"Restored module: {mgr.module_def.short_name}", 4000
             )

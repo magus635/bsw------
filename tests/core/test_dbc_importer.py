@@ -7,7 +7,7 @@ from pathlib import Path
 from textwrap import dedent
 
 from autosar_configurator.core.importers.dbc_importer import (
-    DbcParser, DbcImporter, DbcMessage, DbcSignal,
+    DbcParser, DbcImporter, DbcDatabase, DbcMessage, DbcSignal,
 )
 
 
@@ -361,3 +361,92 @@ class TestDbcImporter:
         messages = importer.get_messages(path)
         assert len(messages) == 2
         assert all(isinstance(m, DbcMessage) for m in messages)
+
+
+class TestDbcDatabaseMetadata:
+    def test_parse_database_metadata_enums_and_gb18030(self, tmp_path):
+        dbc_text = dedent("""\
+            VERSION ""
+            NS_ :
+            BS_:
+            BU_: Tester VCU MCU
+
+            BO_ 548 VCU_Cmd: 8 VCU
+             SG_ VCU_En : 0|1@0+ (1,0) [0|1] "" MCU
+
+            BO_ 551 MCU_Status: 8 MCU
+             SG_ MCU_Temp : 7|8@0+ (1,-40) [-40|215] "℃" VCU
+
+            BO_ 2015 DiagFunc: 8 Tester
+             SG_ DiagData : 7|64@0+ (1,0) [0|0] "" MCU
+
+            CM_ BO_ 551 "Inverter status frame";
+            CM_ SG_ 551 MCU_Temp "Inverter temp";
+            BA_DEF_ "BusType" STRING ;
+            BA_DEF_ "DBName" STRING ;
+            BA_DEF_ BO_ "GenMsgCycleTime" INT 0 60000;
+            BA_DEF_ BO_ "GenMsgSendType" ENUM "Cyclic","Event";
+            BA_DEF_ BO_ "VFrameFormat" ENUM "StandardCAN","StandardCAN_FD";
+            BA_DEF_ BO_ "DiagRequest" INT 0 1;
+            BA_DEF_ SG_ "GenSigStartValue" FLOAT 0 1000;
+            BA_DEF_ SG_ "GenSigSendType" ENUM "Cyclic","OnChange";
+            BA_DEF_DEF_ "BusType" "CAN";
+            BA_DEF_DEF_ "GenMsgCycleTime" 0;
+            BA_DEF_DEF_ "GenMsgSendType" "Cyclic";
+            BA_DEF_DEF_ "VFrameFormat" "StandardCAN";
+            BA_DEF_DEF_ "GenSigStartValue" 0;
+            BA_DEF_DEF_ "GenSigSendType" "Cyclic";
+            BA_ "BusType" "CAN FD";
+            BA_ "DBName" "Powertrain";
+            BA_ "GenMsgCycleTime" BO_ 551 10;
+            BA_ "GenMsgSendType" BO_ 551 0;
+            BA_ "VFrameFormat" BO_ 551 1;
+            BA_ "DiagRequest" BO_ 2015 1;
+            BA_ "GenSigStartValue" SG_ 551 MCU_Temp 40;
+            BA_ "GenSigSendType" SG_ 551 MCU_Temp 1;
+        """)
+        path = tmp_path / "powertrain_gb18030.dbc"
+        path.write_bytes(dbc_text.encode("gb18030"))
+
+        parser = DbcParser()
+        db = parser.parse_database(path)
+        assert isinstance(db, DbcDatabase)
+        assert db.ecu_nodes == ["Tester", "VCU", "MCU"]
+        assert db.bus_type == "CAN FD"
+        assert db.db_name == "Powertrain"
+
+        by_name = {m.name: m for m in db.messages}
+        assert by_name["VCU_Cmd"].is_fd is False
+        mcu = by_name["MCU_Status"]
+        assert mcu.is_fd is True
+        assert mcu.cycle_time_ms == 10.0
+        assert mcu.send_type == "Cyclic"
+        assert mcu.comment == "Inverter status frame"
+        sig = mcu.signals[0]
+        assert sig.unit == "℃"
+        assert sig.init_value == 40.0
+        assert sig.send_type == "OnChange"
+        assert sig.comment == "Inverter temp"
+
+        diag = by_name["DiagFunc"]
+        assert diag.is_diag is True
+        assert diag.diag_role == "request"
+
+        # Backwards-compatible parse() keeps returning List[DbcMessage]
+        msgs_only = parser.parse(path)
+        assert len(msgs_only) == 3
+        assert all(isinstance(m, DbcMessage) for m in msgs_only)
+
+    def test_parse_real_startapplication_mcu_dbc_readonly(self):
+        real_dbc = Path(
+            "/Users/qlwang/Desktop/未命名文件夹/mcuapp/Applications/SipAddon/StartApplication/DemoDatabase/MCU.dbc"
+        )
+        if not real_dbc.is_file():
+            pytest.skip("External StartApplication MCU.dbc fixture not available")
+        db = DbcParser().parse_database(real_dbc)
+        assert "MCU" in db.ecu_nodes
+        assert len(db.messages) >= 5
+        assert any(m.cycle_time_ms and m.cycle_time_ms > 0 for m in db.messages)
+        assert any(m.is_diag for m in db.messages)
+        # Verify at least one signal with °C/℃ temperature unit decoded cleanly
+        assert any("℃" in (s.unit or "") or "°C" in (s.unit or "") for m in db.messages for s in m.signals)

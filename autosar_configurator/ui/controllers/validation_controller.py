@@ -45,6 +45,9 @@ class ValidationController:
                 )
                 win.validation_status_label.setText(f"❌ {all_results.error_count} Errors")
                 win.validation_status_label.setStyleSheet("QLabel { color: red; padding: 2px 10px; }")
+            update_badge = getattr(win, "update_validation_badge", None)
+            if callable(update_badge):
+                update_badge(all_results.error_count, all_results.warning_count)
             return
 
         # 0. Re-resolve cross-module references so added/removed modules and edited
@@ -88,6 +91,10 @@ class ValidationController:
             win.statusBar().showMessage(f"❌ Validation complete: Found {all_results.error_count} errors, {all_results.warning_count} warnings.", 5000)
             win.validation_status_label.setText(f"❌ {all_results.error_count} Errors")
             win.validation_status_label.setStyleSheet("QLabel { color: red; padding: 2px 10px; }")
+
+        update_badge = getattr(win, "update_validation_badge", None)
+        if callable(update_badge):
+            update_badge(all_results.error_count, all_results.warning_count)
 
     def load_custom_rules(self):
         """Load custom validation rules from file."""
