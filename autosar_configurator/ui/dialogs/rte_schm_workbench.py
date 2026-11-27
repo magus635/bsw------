@@ -44,6 +44,7 @@ from ...generator.rte.workbench_service import (
     RteWorkbenchService,
     compute_preview_diff,
 )
+from .rte_schm_phase23_tabs import DataMappingTab, ServiceMappingTab
 from .rte_schm_tabs import (
     ExclusiveAreasTab,
     TaskMappingTab,
@@ -83,9 +84,11 @@ _FALLBACK_GUIDE_MD = """# RTE / SchM 配置与生成工作台使用指南
 
 1. **页签 1（BSW 实例与同步）**：检查活跃、未加载与未注册 BSW 模块，勾选需要项后点击 **一键同步**。
 2. **页签 2（临界区矩阵）**：为各 ExclusiveArea 选择保护机制（初学者建议保持 `ALL_INTERRUPT_BLOCKING`），若选 `OS_RESOURCE` / `OS_SPINLOCK` 需同时选择目标 OS 对象。
-3. **页签 3（Task 调度映射）**：支持 `Ctrl`/`Shift` 多选未映射 BSW 事件并查看智能周期推荐，点击 **映射到选中 Task**，在左侧调整同 Task 内调度顺序。
-4. **页签 4（全局开关与生成预览）**：区分 **阶段 1 生效开关** 与 **ECUC 预留参数**，支持源码高亮与 **仅看差异 (Diff)** 预览，确认无红错后点击 **立即生成 RTE / SchM**。
-5. **保存与撤销**：点击 **确定** 会推入主窗口撤销栈（`Ctrl+Z` / `Cmd+Z`），点击 **取消** 或 **恢复打开前状态** 会一键回滚。
+3. **页签 3（Task 调度映射）**：支持 `Ctrl`/`Shift` 多选未映射 BSW 事件并查看智能周期推荐，点击 **映射到选中 Task**；勾选 **编辑 SWC 事件映射** 后也可调整 SWC Runnable 在各 Task 中的顺序。
+4. **页签 4（数据映射 SWC↔Com）**：查看与编辑 SWC Sender/Receiver 端口与 `ComSignal` 的绑定关系，支持一键按信号名/方向自动匹配（写入 `.dpa` 覆盖层，不修改只读 System ARXML）。
+5. **页签 5（服务与端口连接）**：连接 ServiceComponent（`ComM`/`EcuM`/`BswM`/`Det` 等）与 Client-Server / Mode / SWC 核间端口，查看双核 `OsApplication` 分区总览。
+6. **页签 6（全局开关与生成预览）**：配置 `RteGeneration` 开关，预览阶段 1 头文件与阶段 2/3 SWC 契约头（`Components/Rte_*.h`）及多核 `Rte.c` / `Rte_<OsApp>.c` 源码，确认无误后点击 **立即生成 RTE / SchM**。
+7. **保存与撤销**：点击 **确定** 会推入主窗口撤销栈（`Ctrl+Z` / `Cmd+Z`），点击 **取消** 或 **恢复打开前状态** 会一键回滚（含数据映射与服务连接覆盖层）。
 """
 
 
@@ -472,6 +475,12 @@ class GeneratePreviewTab(QWidget):
         self.chk_type_stub.stateChanged.connect(lambda: self.refresh_preview())
         gen_bar.addWidget(self.chk_type_stub)
 
+        self.chk_phase2_3 = QCheckBox("生成阶段 2/3 SWC 契约与 Rte.c")
+        self.chk_phase2_3.setChecked(True)
+        self.chk_phase2_3.setToolTip("同时生成 Components/Rte_<Swc>.h、Rte_Type.h 完整定义、Rte.c 与按核划分的 Rte_<OsApp>.c")
+        self.chk_phase2_3.stateChanged.connect(lambda: self.refresh_preview())
+        gen_bar.addWidget(self.chk_phase2_3)
+
         self.chk_apply_overlay = QCheckBox("应用 templates/Rte/ 覆盖层")
         self.chk_apply_overlay.setChecked(True)
         self.chk_apply_overlay.stateChanged.connect(lambda: self.refresh_preview())
@@ -632,6 +641,7 @@ class GeneratePreviewTab(QWidget):
             output_dir=out_root,
             flat=is_flat,
             generate_type_stub=self.chk_type_stub.isChecked(),
+            include_phase2_3=self.chk_phase2_3.isChecked(),
             apply_overlay=self.chk_apply_overlay.isChecked(),
         )
         self._preview_files = files
@@ -723,6 +733,7 @@ class GeneratePreviewTab(QWidget):
         ok, report, detail = self.service.run_generation(
             output_dir=out_root,
             generate_type_stub=self.chk_type_stub.isChecked(),
+            include_phase2_3=self.chk_phase2_3.isChecked(),
             force=self.chk_force.isChecked(),
             apply_overlay=self.chk_apply_overlay.isChecked(),
         )
@@ -854,6 +865,20 @@ class RteSchmWorkbench(QDialog):
         self.btn_assign_unmapped.clicked.connect(self._jump_to_unmapped_events)
         hb_layout.addWidget(self.btn_assign_unmapped)
 
+        self.btn_fix_data_map = QPushButton()
+        self.btn_fix_data_map.setStyleSheet(
+            "QPushButton { color: #b00020; background: #ffebee; border: 1px solid #f5c2c7; border-radius: 3px; padding: 2px 8px; }"
+        )
+        self.btn_fix_data_map.clicked.connect(self._jump_to_data_mapping)
+        hb_layout.addWidget(self.btn_fix_data_map)
+
+        self.btn_fix_service_map = QPushButton()
+        self.btn_fix_service_map.setStyleSheet(
+            "QPushButton { color: #8a4b00; background: #fff4e5; border: 1px solid #f5d09c; border-radius: 3px; padding: 2px 8px; }"
+        )
+        self.btn_fix_service_map.clicked.connect(self._jump_to_service_mapping)
+        hb_layout.addWidget(self.btn_fix_service_map)
+
         hb_layout.addStretch()
         self.btn_goto_generate = QPushButton("前往生成预览 →")
         self.btn_goto_generate.clicked.connect(lambda: self.tabs.setCurrentWidget(self.generate_tab))
@@ -864,12 +889,16 @@ class RteSchmWorkbench(QDialog):
         self.modules_tab = BswInstancesTab(self.service, self)
         self.ea_tab = ExclusiveAreasTab(self.service, self)
         self.task_tab = TaskMappingTab(self.service, self)
+        self.data_mapping_tab = DataMappingTab(self.service, self)
+        self.service_mapping_tab = ServiceMappingTab(self.service, self)
         self.generate_tab = GeneratePreviewTab(self.service, self)
 
         self.tabs.addTab(self.modules_tab, "1. BSW 实例与同步")
         self.tabs.addTab(self.ea_tab, "2. 临界区矩阵 (SchM)")
         self.tabs.addTab(self.task_tab, "3. Task 调度映射")
-        self.tabs.addTab(self.generate_tab, "4. 全局开关与生成预览")
+        self.tabs.addTab(self.data_mapping_tab, "4. 数据映射 (SWC↔Com)")
+        self.tabs.addTab(self.service_mapping_tab, "5. 服务与端口连接")
+        self.tabs.addTab(self.generate_tab, "6. 全局开关与生成预览")
         self.tabs.currentChanged.connect(self._on_current_tab_changed)
         root.addWidget(self.tabs, 1)
 
@@ -895,6 +924,8 @@ class RteSchmWorkbench(QDialog):
         self.modules_tab.config_changed.connect(lambda: self._on_tab_config_changed(self.modules_tab))
         self.ea_tab.config_changed.connect(lambda: self._on_tab_config_changed(self.ea_tab))
         self.task_tab.config_changed.connect(lambda: self._on_tab_config_changed(self.task_tab))
+        self.data_mapping_tab.config_changed.connect(lambda: self._on_tab_config_changed(self.data_mapping_tab))
+        self.service_mapping_tab.config_changed.connect(lambda: self._on_tab_config_changed(self.service_mapping_tab))
         self.generate_tab.config_changed.connect(lambda: self._on_tab_config_changed(self.generate_tab))
         self.generate_tab.generation_completed.connect(self.generation_completed.emit)
         self.generate_tab.memmap_settings_changed.connect(self.memmap_settings_changed.emit)
@@ -908,10 +939,13 @@ class RteSchmWorkbench(QDialog):
     def reload_all(self, *, rescan_ib: bool = False) -> None:
         if rescan_ib:
             self.service.reload_ib_index()
+            self.service.reload_swc_index()
         self._dirty_tabs.clear()
         self.modules_tab.reload()
         self.ea_tab.reload()
         self.task_tab.reload()
+        self.data_mapping_tab.reload()
+        self.service_mapping_tab.reload()
         self.generate_tab.reload()
         self._update_header_summary()
 
@@ -940,6 +974,13 @@ class RteSchmWorkbench(QDialog):
             self.generate_tab.refresh_preview()
         elif source is self.task_tab:
             self.modules_tab.reload()
+            self._dirty_tabs.add(self.service_mapping_tab)
+            self._dirty_tabs.add(self.generate_tab)
+        elif source is self.data_mapping_tab:
+            self._dirty_tabs.add(self.service_mapping_tab)
+            self._dirty_tabs.add(self.generate_tab)
+        elif source is self.service_mapping_tab:
+            self._dirty_tabs.add(self.data_mapping_tab)
             self._dirty_tabs.add(self.generate_tab)
         elif source is self.generate_tab:
             pass
@@ -986,6 +1027,16 @@ class RteSchmWorkbench(QDialog):
         if self.task_tab.unmapped_table.rowCount() > 0:
             self.task_tab.unmapped_table.selectRow(0)
 
+    def _jump_to_data_mapping(self) -> None:
+        self.tabs.setCurrentWidget(self.data_mapping_tab)
+        idx = self.data_mapping_tab.status_combo.findData("errors")
+        if idx >= 0:
+            self.data_mapping_tab.status_combo.setCurrentIndex(idx)
+
+    def _jump_to_service_mapping(self) -> None:
+        self.tabs.setCurrentWidget(self.service_mapping_tab)
+        self.service_mapping_tab.only_issues_check.setChecked(True)
+
     def _update_header_summary(self) -> None:
         proj_name = getattr(self.project, "name", "Project")
         rows = self.modules_tab._rows
@@ -998,7 +1049,12 @@ class RteSchmWorkbench(QDialog):
             _, unmapped_rows = self.service.list_task_mappings(include_swc=False)
             unmapped_cnt = len(unmapped_rows)
         else:
-            unmapped_cnt = len(self.task_tab._unmapped)
+            unmapped_cnt = sum(1 for r in self.task_tab._unmapped if not r.is_swc)
+
+        dm_rows = self.service.list_data_mapping_rows() if self.data_mapping_tab in self._dirty_tabs else self.data_mapping_tab._all_rows
+        dm_err = sum(1 for r in dm_rows if r.status in ("broken_com", "direction_mismatch"))
+        sp_rows = self.service.list_service_port_rows() if self.service_mapping_tab in self._dirty_tabs else self.service_mapping_tab._all_ports
+        sp_issues = sum(1 for r in sp_rows if r.status == "broken" or (r.status == "unconnected" and (r.is_service or r.interface_kind in ("CS", "MODE"))))
 
         self.header_summary_label.setText(
             f"工程：{proj_name}  |  活跃 BSW 实例：{active}  |  未加载：{unloaded}  |  临界区：{len(ea_rows)}（错误 {ea_err}）"
@@ -1016,6 +1072,19 @@ class RteSchmWorkbench(QDialog):
         self.btn_assign_unmapped.setText(f"ℹ️ {unmapped_cnt} 个未映射事件 [去分配]")
         self.btn_assign_unmapped.setVisible(unmapped_cnt > 0)
 
-        all_healthy = (ea_err == 0 and unloaded == 0 and ea_unconf == 0 and unmapped_cnt == 0)
+        self.btn_fix_data_map.setText(f"❌ {dm_err} 个数据映射冲突 [去绑定]")
+        self.btn_fix_data_map.setVisible(dm_err > 0)
+
+        self.btn_fix_service_map.setText(f"⚠️ {sp_issues} 个未连/异常服务端口 [去连接]")
+        self.btn_fix_service_map.setVisible(sp_issues > 0)
+
+        all_healthy = (
+            ea_err == 0
+            and unloaded == 0
+            and ea_unconf == 0
+            and unmapped_cnt == 0
+            and dm_err == 0
+            and sp_issues == 0
+        )
         self.health_ok_label.setVisible(all_healthy)
         self.btn_goto_generate.setVisible(ea_err == 0)

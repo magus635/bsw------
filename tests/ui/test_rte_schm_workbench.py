@@ -13,7 +13,7 @@ def test_workbench_four_tabs_populate_and_tab1_syncs(qtbot, tmp_path, monkeypatc
     wb = RteSchmWorkbench(project)
     qtbot.addWidget(wb)
 
-    assert wb.tabs.count() == 4
+    assert wb.tabs.count() == 6
     # Tab 1 shows Com (active), CanNm (unloaded), Dcm (unregistered)
     mods = {wb.modules_tab.table.item(r, 0).text(): r for r in range(wb.modules_tab.table.rowCount())}
     assert {"Com", "CanNm", "Dcm"}.issubset(mods)

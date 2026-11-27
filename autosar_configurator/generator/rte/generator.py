@@ -17,6 +17,15 @@ from .renderers import (
     render_schm_h,
     render_schm_type_h,
 )
+from .renderers_phase23 import (
+    _merge_swc_models,
+    render_rte_c,
+    render_rte_data_handle_type_h,
+    render_rte_osapp_c,
+    render_rte_type_h_full,
+    render_swc_h,
+    render_swc_type_h,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +59,7 @@ def run_rte_schm_pipeline(
     *,
     flat: bool,
     generate_type_stub: bool = True,
+    include_phase2_3: bool = True,
     force: bool = False,
     apply_overlay: bool = True,
     overlay_root: Optional[Path] = None,
@@ -64,12 +74,17 @@ def run_rte_schm_pipeline(
     module_def: Any = None,
     configuration: Any = None,
     ib_index: Optional[Any] = None,
+    swc_index: Optional[Any] = None,
 ) -> Tuple[bool, RteGenerationReport, str]:
-    """Run Phase 1 model-driven RTE/SchM generation and optional ``templates/Rte/`` overlays."""
+    """Run Phase 1-3 model-driven RTE/SchM generation and optional ``templates/Rte/`` overlays."""
     from ..generator import CodeGenerator
 
-    report = RteSchMGenerator(project, generate_type_stub=generate_type_stub).generate(
-        Path(output_dir), flat=flat, force=force, ib_index=ib_index
+    report = RteSchMGenerator(
+        project,
+        generate_type_stub=generate_type_stub,
+        include_phase2_3=include_phase2_3,
+    ).generate(
+        Path(output_dir), flat=flat, force=force, ib_index=ib_index, swc_index=swc_index
     )
     for w in report.warnings:
         logger.warning("[RteSchMGen] %s", w)
@@ -116,11 +131,18 @@ def run_rte_schm_pipeline(
 
 
 class RteSchMGenerator:
-    """Synthesizes Phase 1 RTE core and per-BSW SchM headers from a project's models."""
+    """Synthesizes Phase 1 RTE/SchM headers and Phase 2/3 SWC contracts + multi-core C sources."""
 
-    def __init__(self, project: Any, *, generate_type_stub: bool = True) -> None:
+    def __init__(
+        self,
+        project: Any,
+        *,
+        generate_type_stub: bool = True,
+        include_phase2_3: bool = True,
+    ) -> None:
         self.project = project
         self.generate_type_stub = generate_type_stub
+        self.include_phase2_3 = include_phase2_3
 
     def generate(
         self,
@@ -129,37 +151,44 @@ class RteSchMGenerator:
         flat: bool = False,
         force: bool = False,
         ib_index: Optional[Any] = None,
+        swc_index: Optional[Any] = None,
     ) -> RteGenerationReport:
-        """Extract models and emit Phase 1 headers into ``output_dir``.
-
-        Args:
-            output_dir: Module output root (`gen/` in both layouts).
-            flat: When ``True``, emit directly under ``output_dir/include/``;
-                when ``False`` (`per-module`), emit under ``output_dir/Rte/include/``.
-            force: Rewrite identical files on disk instead of skipping unchanged content.
-            ib_index: Optional pre-loaded :class:`BswIbIndex` to avoid rescanning ``system/``.
-        """
-        model, report = RteModelExtractor.extract(self.project, ib_index=ib_index)
+        """Extract models and emit Phase 1-3 files into ``output_dir``."""
+        model, report = RteModelExtractor.extract(
+            self.project, ib_index=ib_index, swc_index=swc_index
+        )
         if model is None or not report.ok:
             return report
 
         base_out = Path(output_dir)
         include_dir = base_out / ("include" if flat else "Rte/include")
+        src_dir = base_out / ("src" if flat else "Rte/src")
         include_dir.mkdir(parents=True, exist_ok=True)
 
-        outputs = self._build_outputs(model)
+        outputs = self._build_outputs(model, include_phase2_3=self.include_phase2_3)
         for rel_name, content in sorted(outputs.items()):
             dst = include_dir / rel_name
+            dst.parent.mkdir(parents=True, exist_ok=True)
             self._write_if_changed(dst, content, report, force=force)
 
-        stubs = self._build_stubs()
-        for rel_name, content in sorted(stubs.items()):
+        stubs = self._build_stubs(model, include_phase2_3=self.include_phase2_3)
+        for rel_name, (content, _src_kind) in sorted(stubs.items()):
             dst = include_dir / rel_name
+            dst.parent.mkdir(parents=True, exist_ok=True)
             if dst.exists():
                 report.preserved_files.append(dst)
             else:
                 dst.write_text(content, encoding="utf-8")
                 report.generated_files.append(dst)
+
+        if self.include_phase2_3:
+            c_sources = self._build_c_sources(model)
+            if c_sources:
+                src_dir.mkdir(parents=True, exist_ok=True)
+                for rel_name, content in sorted(c_sources.items()):
+                    dst = src_dir / rel_name
+                    dst.parent.mkdir(parents=True, exist_ok=True)
+                    self._write_if_changed(dst, content, report, force=force)
 
         return report
 
@@ -171,9 +200,12 @@ class RteSchMGenerator:
         overlay_root: Optional[Path] = None,
         package_dir_name: Optional[str] = None,
         ib_index: Optional[Any] = None,
+        swc_index: Optional[Any] = None,
     ) -> Tuple[List[RtePreviewFile], RteGenerationReport]:
-        """Compute non-mutating Phase 1 file previews and diagnostics against ``output_dir``."""
-        model, report = RteModelExtractor.extract(self.project, ib_index=ib_index)
+        """Compute non-mutating Phase 1-3 file previews and diagnostics against ``output_dir``."""
+        model, report = RteModelExtractor.extract(
+            self.project, ib_index=ib_index, swc_index=swc_index
+        )
         if model is None:
             return [], report
 
@@ -182,7 +214,9 @@ class RteSchMGenerator:
         src_dir = base_out / ("src" if flat else "Rte/src")
 
         preview_map: Dict[str, RtePreviewFile] = {}
-        for rel_name, content in sorted(self._build_outputs(model).items()):
+        for rel_name, content in sorted(
+            self._build_outputs(model, include_phase2_3=self.include_phase2_3).items()
+        ):
             dst = include_dir / rel_name
             status = "new"
             if dst.is_file():
@@ -198,7 +232,9 @@ class RteSchMGenerator:
                 source="model",
             )
 
-        for rel_name, content in sorted(self._build_stubs().items()):
+        for rel_name, (content, src_kind) in sorted(
+            self._build_stubs(model, include_phase2_3=self.include_phase2_3).items()
+        ):
             dst = include_dir / rel_name
             if dst.is_file():
                 try:
@@ -210,7 +246,7 @@ class RteSchMGenerator:
                     target_path=dst,
                     content=existing_text,
                     status="preserved",
-                    source="stub",
+                    source=src_kind,
                 )
             else:
                 preview_map[rel_name] = RtePreviewFile(
@@ -218,7 +254,24 @@ class RteSchMGenerator:
                     target_path=dst,
                     content=content,
                     status="new",
-                    source="stub",
+                    source=src_kind,
+                )
+
+        if self.include_phase2_3:
+            for rel_name, content in sorted(self._build_c_sources(model).items()):
+                dst = src_dir / rel_name
+                status = "new"
+                if dst.is_file():
+                    try:
+                        status = "unchanged" if dst.read_text(encoding="utf-8") == content else "updated"
+                    except OSError:
+                        status = "updated"
+                preview_map[rel_name] = RtePreviewFile(
+                    filename=rel_name,
+                    target_path=dst,
+                    content=content,
+                    status=status,
+                    source="model",
                 )
 
         if overlay_root is not None:
@@ -237,7 +290,11 @@ class RteSchMGenerator:
         return files, report
 
     @staticmethod
-    def _build_outputs(model: RteProjectModel) -> Dict[str, str]:
+    def _build_outputs(
+        model: RteProjectModel,
+        *,
+        include_phase2_3: bool = True,
+    ) -> Dict[str, str]:
         outputs: Dict[str, str] = {
             "Rte.h": render_rte_h(model),
             "Rte_Main.h": render_rte_main_h(model),
@@ -247,13 +304,48 @@ class RteSchMGenerator:
         for bsw_mod in model.bsw_modules:
             outputs[f"SchM_{bsw_mod.api_name}.h"] = render_schm_h(bsw_mod)
             outputs[f"SchM_{bsw_mod.api_name}_Type.h"] = render_schm_type_h(bsw_mod)
+
+        if include_phase2_3 and (model.swc_components or model.rte_type_defs):
+            outputs["Rte_DataHandleType.h"] = render_rte_data_handle_type_h(model)
+            by_type: Dict[str, List[Any]] = {}
+            for swc in model.swc_components:
+                by_type.setdefault(swc.swc_type_name, []).append(swc)
+            for swc_type_name, group in sorted(by_type.items()):
+                merged = _merge_swc_models(group)
+                outputs[f"Components/Rte_{swc_type_name}_Type.h"] = render_swc_type_h(merged)
+                outputs[f"Components/Rte_{swc_type_name}.h"] = render_swc_h(merged)
+
         return outputs
 
-    def _build_stubs(self) -> Dict[str, str]:
-        stubs: Dict[str, str] = {"Rte_UserTypes.h": render_rte_user_types_h()}
+    def _build_stubs(
+        self,
+        model: Optional[RteProjectModel] = None,
+        *,
+        include_phase2_3: bool = True,
+    ) -> Dict[str, Tuple[str, str]]:
+        stubs: Dict[str, Tuple[str, str]] = {"Rte_UserTypes.h": (render_rte_user_types_h(), "stub")}
         if self.generate_type_stub:
-            stubs["Rte_Type.h"] = render_rte_type_h_stub()
+            if include_phase2_3 and model is not None and (model.rte_type_defs or model.swc_components):
+                stubs["Rte_Type.h"] = (render_rte_type_h_full(model), "model")
+            else:
+                stubs["Rte_Type.h"] = (render_rte_type_h_stub(), "stub")
         return stubs
+
+    @staticmethod
+    def _build_c_sources(model: RteProjectModel) -> Dict[str, str]:
+        if not model.swc_components and not model.task_schedules:
+            return {}
+        sources: Dict[str, str] = {"Rte.c": render_rte_c(model)}
+        apps = sorted(
+            {t.os_application for t in model.task_schedules if t.os_application}
+            | {s.os_application for s in model.swc_components if s.os_application}
+            | set(model.os_applications)
+        )
+        if not apps:
+            apps = ["SystemApplication_OsCore0"]
+        for app_name in apps:
+            sources[f"Rte_{app_name}.c"] = render_rte_osapp_c(model, app_name)
+        return sources
 
     @staticmethod
     def _collect_overlay_previews(
@@ -334,11 +426,14 @@ class RteSchMGenerator:
         flat: Optional[bool] = None,
         force: bool = False,
         generate_type_stub: bool = True,
+        include_phase2_3: bool = True,
     ) -> RteGenerationReport:
         """Convenience entry point resolving layout and default output root from ``project``."""
         if flat is None:
             flat = project_paths.dirs(project).gen_layout == project_paths.GEN_LAYOUT_FLAT
         target = Path(output_dir) if output_dir is not None else project_paths.resolve(project, "gen")
-        return cls(project, generate_type_stub=generate_type_stub).generate(
-            target, flat=flat, force=force
-        )
+        return cls(
+            project,
+            generate_type_stub=generate_type_stub,
+            include_phase2_3=include_phase2_3,
+        ).generate(target, flat=flat, force=force)

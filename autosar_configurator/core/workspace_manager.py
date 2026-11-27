@@ -435,6 +435,10 @@ class WorkspaceProject:
         self.memmap_header_dirs: List[str] = []
         self.memmap_linker_file: Optional[str] = None
 
+        # RTE Phase 2/3 overlays persisted cleanly alongside read-only system/ ARXMLs
+        self.rte_data_mappings: List[Dict[str, Any]] = []
+        self.rte_service_connectors: List[Dict[str, Any]] = []
+
         # EB project import: original source root (kept read-only, separate from save location)
         self.eb_source_root: Optional[Path] = None
 
@@ -2600,6 +2604,8 @@ class WorkspaceManager:
             "memmap_source_dirs": list(self.current_project.memmap_source_dirs),
             "memmap_header_dirs": list(self.current_project.memmap_header_dirs),
             "memmap_linker_file": self.current_project.memmap_linker_file,
+            "rte_data_mappings": [dict(x) for x in getattr(self.current_project, "rte_data_mappings", [])],
+            "rte_service_connectors": [dict(x) for x in getattr(self.current_project, "rte_service_connectors", [])],
             "modules": []
         }
 
@@ -2664,6 +2670,8 @@ class WorkspaceManager:
             "memmap_source_dirs": list(self.current_project.memmap_source_dirs),
             "memmap_header_dirs": list(self.current_project.memmap_header_dirs),
             "memmap_linker_file": self.current_project.memmap_linker_file,
+            "rte_data_mappings": [dict(x) for x in getattr(self.current_project, "rte_data_mappings", [])],
+            "rte_service_connectors": [dict(x) for x in getattr(self.current_project, "rte_service_connectors", [])],
             # Format 8 fields
             "directories": self.current_project.directories.to_dict(),
             "module_libraries": [lib.to_dict() for lib in self.current_project.module_libraries],
@@ -3067,6 +3075,8 @@ class WorkspaceManager:
         project.memmap_source_dirs = list(data.get("memmap_source_dirs") or [])
         project.memmap_header_dirs = list(data.get("memmap_header_dirs") or [])
         project.memmap_linker_file = data.get("memmap_linker_file") or None
+        project.rte_data_mappings = [dict(x) for x in (data.get("rte_data_mappings") or []) if isinstance(x, dict)]
+        project.rte_service_connectors = [dict(x) for x in (data.get("rte_service_connectors") or []) if isinstance(x, dict)]
 
         # Load EB source root (for imported EB projects).
         # Saved relative to the project root when inside it (v7); older

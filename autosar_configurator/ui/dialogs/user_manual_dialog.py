@@ -42,7 +42,7 @@ USER_MANUAL_MD = """
 |------|---------------|-------|----------|
 | 代码生成 | Ctrl+G | Cmd+G | `Generate -> Generate Code` |
 | 通信配置工作台 | - | - | `Tools -> 通信配置工作台...` / 左侧导航 `📡 通信配置` / 树右键通信模块 |
-| RTE / SchM 工作台 | - | - | `Generate -> RTE / SchM 工作台...` / `Tools -> RTE / SchM 工作台...` / 树右键 `Rte` |
+| RTE / SchM 工作台 | - | - | `Generate -> RTE / SchM 工作台...` / `Tools -> RTE / SchM 工作台...` / 树右键 `Rte`（含 SchM、SWC 数据映射、服务端口与 `Rte.c` 多核生成） |
 | 跨模块依赖分析 | - | - | `Analysis -> 🔍 分析跨模块依赖...` |
 | 跨模块依赖验证 | - | - | `Analysis -> ✅ 验证跨模块依赖...` |
 | 依赖关系图 | Ctrl+D | Cmd+D | `View -> Dependency Graph` / `Analysis` |

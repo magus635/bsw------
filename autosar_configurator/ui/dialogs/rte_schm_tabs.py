@@ -511,6 +511,12 @@ class TaskMappingTab(QWidget):
         self.include_swc_check.stateChanged.connect(lambda: self.reload())
         top.addWidget(self.include_swc_check)
 
+        self.edit_swc_check = QCheckBox("编辑 SWC 事件映射")
+        self.edit_swc_check.setChecked(False)
+        self.edit_swc_check.setToolTip("勾选后可在左侧 Task 树和右侧待映射表中对 SWC 事件执行映射、排序和取消映射")
+        self.edit_swc_check.stateChanged.connect(self._on_edit_swc_toggled)
+        top.addWidget(self.edit_swc_check)
+
         self.summary_label = QLabel("")
         self.summary_label.setStyleSheet("color: gray;")
         top.addWidget(self.summary_label)
@@ -618,8 +624,10 @@ class TaskMappingTab(QWidget):
             self._tasks = self.service.list_os_tasks()
             self._activations = self.service.list_os_activations()
             self._os_loaded = self.service.has_os_module()
+            include_unmapped_swc = bool(getattr(self, "edit_swc_check", None) and self.edit_swc_check.isChecked())
             self._mapped_by_task, self._unmapped = self.service.list_task_mappings(
-                include_swc=include_swc
+                include_swc=include_swc or include_unmapped_swc,
+                include_unmapped_swc=include_unmapped_swc,
             )
 
             prev_task = self.target_task_combo.currentData()
@@ -758,9 +766,10 @@ class TaskMappingTab(QWidget):
                 parent_item.setToolTip(5, task_source_tooltip)
 
             for r in matching_children if query else task_rows:
+                edit_swc = bool(getattr(self, "edit_swc_check", None) and self.edit_swc_check.isChecked())
                 if r.is_swc:
-                    src_col = "SWC (只读)"
-                    src_tip = ""
+                    src_col = "SWC (可编辑)" if edit_swc else "SWC (只读)"
+                    src_tip = r.event_kind or ""
                 elif task_info.task_type == "EXTENDED" and not r.used_os_event:
                     src_col = "BSW ⚠️缺OsEvent"
                     src_tip = "目标任务为 EXTENDED 类型，缺少 RteBswUsedOsEventRef"
@@ -777,7 +786,7 @@ class TaskMappingTab(QWidget):
                     src_col,
                 ])
                 child.setData(0, Qt.UserRole, ("mapping", r))
-                if r.is_swc:
+                if r.is_swc and not edit_swc:
                     for col in range(6):
                         child.setForeground(col, _MUTED_COLOR)
                 elif src_col == "BSW ⚠️缺OsEvent":
@@ -785,7 +794,7 @@ class TaskMappingTab(QWidget):
                 if src_tip:
                     child.setToolTip(5, src_tip)
                 parent_item.addChild(child)
-                if selected_key is not None and (not r.is_swc) and (r.instance_name, r.mapping_name) == selected_key:
+                if selected_key is not None and (not r.is_swc or edit_swc) and (r.instance_name, r.mapping_name) == selected_key:
                     item_to_select = child
 
             self.mapped_tree.addTopLevelItem(parent_item)
@@ -821,6 +830,13 @@ class TaskMappingTab(QWidget):
             f"OsTask {len(self._tasks)} 个 | 已映射事件 {total_mapped} | 未映射 BSW 事件 {len(self._unmapped)}"
         )
 
+    def _on_edit_swc_toggled(self) -> None:
+        if self.edit_swc_check.isChecked() and not self.include_swc_check.isChecked():
+            self.include_swc_check.blockSignals(True)
+            self.include_swc_check.setChecked(True)
+            self.include_swc_check.blockSignals(False)
+        self.reload()
+
     def _selected_mapping_key(self) -> Optional[Tuple[str, str]]:
         item = self.mapped_tree.currentItem()
         if item is None:
@@ -829,7 +845,8 @@ class TaskMappingTab(QWidget):
         if not payload or payload[0] != "mapping":
             return None
         row: TaskEventMappingRow = payload[1]
-        if row.is_swc:
+        edit_swc = bool(getattr(self, "edit_swc_check", None) and self.edit_swc_check.isChecked())
+        if row.is_swc and not edit_swc:
             return None
         return (row.instance_name, row.mapping_name)
 
@@ -841,7 +858,8 @@ class TaskMappingTab(QWidget):
         if not payload or payload[0] != "mapping":
             return None
         row: TaskEventMappingRow = payload[1]
-        return None if row.is_swc else row
+        edit_swc = bool(getattr(self, "edit_swc_check", None) and self.edit_swc_check.isChecked())
+        return None if (row.is_swc and not edit_swc) else row
 
     def _on_tree_selection_changed(self, current: Optional[QTreeWidgetItem], _prev) -> None:
         if current is not None:
@@ -929,7 +947,26 @@ class TaskMappingTab(QWidget):
         task_name = self.target_task_combo.currentData()
         if not selected or not task_name:
             return
-        mapped_cnt, skipped_locked = self.service.batch_map_events_to_task(selected, task_name)
+        bsw_rows = [r for r in selected if not r.is_swc]
+        swc_rows = [r for r in selected if r.is_swc]
+        mapped_cnt = 0
+        skipped_locked: List[str] = []
+        if bsw_rows:
+            c, skipped = self.service.batch_map_events_to_task(bsw_rows, task_name)
+            mapped_cnt += c
+            skipped_locked.extend(skipped)
+        for swc_r in swc_rows:
+            try:
+                self.service.map_swc_event_to_task(
+                    swc_r.instance_name,
+                    swc_r.event_name,
+                    task_name,
+                    event_ref=swc_r.event_ref,
+                    event_kind=swc_r.event_kind,
+                )
+                mapped_cnt += 1
+            except PreLockedError as exc:
+                skipped_locked.append(str(exc))
         if mapped_cnt > 0 or skipped_locked:
             self.reload()
         if mapped_cnt > 0:
@@ -946,9 +983,14 @@ class TaskMappingTab(QWidget):
         if row is None or not row.task_name:
             return
         try:
-            moved = self.service.move_event_in_task(
-                row.task_name, row.instance_name, row.mapping_name, delta
-            )
+            if row.is_swc:
+                moved = self.service.move_swc_event_in_task(
+                    row.task_name, row.instance_name, row.mapping_name, delta
+                )
+            else:
+                moved = self.service.move_event_in_task(
+                    row.task_name, row.instance_name, row.mapping_name, delta
+                )
         except PreLockedError as exc:
             QMessageBox.warning(self, "受基线 Pre 锁保护", f"无法调整调度顺序：\n{exc}")
             self.reload()
@@ -965,7 +1007,7 @@ class TaskMappingTab(QWidget):
         new_pos, ok = QInputDialog.getInt(
             self,
             "设置调度序号",
-            f"为 {row.module_name}.{row.event_name} 设置 RteBswPositionInTask：",
+            f"为 {row.module_name}.{row.event_name} 设置调度序号：",
             cur_pos,
             0,
             99999,
@@ -973,7 +1015,18 @@ class TaskMappingTab(QWidget):
         if not ok:
             return
         try:
-            changed = self.service.set_event_position(row.instance_name, row.mapping_name, new_pos)
+            if row.is_swc and row.task_name:
+                self.service.map_swc_event_to_task(
+                    row.instance_name,
+                    row.mapping_name,
+                    row.task_name,
+                    event_ref=row.event_ref,
+                    event_kind=row.event_kind,
+                    position=new_pos,
+                )
+                changed = True
+            else:
+                changed = self.service.set_event_position(row.instance_name, row.mapping_name, new_pos)
         except PreLockedError as exc:
             QMessageBox.warning(self, "受基线 Pre 锁保护", f"无法修改调度序号：\n{exc}")
             self.reload()
@@ -987,7 +1040,10 @@ class TaskMappingTab(QWidget):
         if row is None:
             return
         try:
-            changed = self.service.unmap_event(row.instance_name, row.mapping_name)
+            if row.is_swc:
+                changed = self.service.unmap_swc_event(row.instance_name, row.mapping_name)
+            else:
+                changed = self.service.unmap_event(row.instance_name, row.mapping_name)
         except PreLockedError as exc:
             QMessageBox.warning(self, "受基线 Pre 锁保护", f"无法取消映射：\n{exc}")
             self.reload()

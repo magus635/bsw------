@@ -23,6 +23,7 @@ from .generator import (
 )
 from .ib_parser import BswIbEventData, BswIbImplData, BswIbIndex, BswIbModuleData
 from .model import RteGenerationReport, RtePreviewFile
+from .swc_parser import SwcSystemIndex, SwcTypeData
 
 EA_MECHANISMS: Tuple[str, ...] = (
     "ALL_INTERRUPT_BLOCKING",
@@ -148,10 +149,12 @@ class RteGenerationSettings:
 
 @dataclass
 class RteConfigSnapshot:
-    """Deep-cloned snapshot of ``Rte`` top-level containers and dirty flag."""
+    """Deep-cloned snapshot of ``Rte`` top-level containers, dirty flag, and Phase 2/3 overlays."""
 
     containers: List[EcucContainerValue]
     is_modified: bool
+    data_mappings: List[Dict[str, Any]] = field(default_factory=list)
+    service_connectors: List[Dict[str, Any]] = field(default_factory=list)
 
 
 def _clone_param_value(param: EcucParameterValue) -> EcucParameterValue:
@@ -206,11 +209,15 @@ def _clone_container_tree(src: EcucContainerValue) -> EcucContainerValue:
     return cloned
 
 
-def snapshot_rte_config(rte_cfg: Any) -> RteConfigSnapshot:
-    """Capture an isolated snapshot of ``rte_cfg`` containers and ``is_modified`` state."""
+def snapshot_rte_config(rte_cfg: Any, *, project: Any = None) -> RteConfigSnapshot:
+    """Capture an isolated snapshot of ``rte_cfg`` containers, dirty flag, and Phase 2/3 overlays."""
+    mappings = [copy.deepcopy(x) for x in (getattr(project, "rte_data_mappings", []) or [])] if project is not None else []
+    connectors = [copy.deepcopy(x) for x in (getattr(project, "rte_service_connectors", []) or [])] if project is not None else []
     return RteConfigSnapshot(
         containers=[_clone_container_tree(c) for c in getattr(rte_cfg, "containers", []) or []],
         is_modified=bool(getattr(rte_cfg, "is_modified", False)),
+        data_mappings=mappings,
+        service_connectors=connectors,
     )
 
 
@@ -220,7 +227,7 @@ def restore_rte_config(
     *,
     project: Any = None,
 ) -> None:
-    """Restore ``rte_cfg`` containers/registry to ``snapshot`` and refresh project references."""
+    """Restore ``rte_cfg`` containers/registry and Phase 2/3 overlays to ``snapshot``."""
     if project is not None and hasattr(project, "unregister_container_references"):
         for existing in list(getattr(rte_cfg, "containers", []) or []):
             project.unregister_container_references(existing)
@@ -231,6 +238,10 @@ def restore_rte_config(
         rte_cfg.add_container(_clone_container_tree(snap_c))
     rte_cfg.is_modified = snapshot.is_modified
     if project is not None:
+        if hasattr(project, "rte_data_mappings"):
+            project.rte_data_mappings = [copy.deepcopy(x) for x in (getattr(snapshot, "data_mappings", []) or [])]
+        if hasattr(project, "rte_service_connectors"):
+            project.rte_service_connectors = [copy.deepcopy(x) for x in (getattr(snapshot, "service_connectors", []) or [])]
         resolve_fn = getattr(project, "resolve_all_references", None)
         if callable(resolve_fn):
             resolve_fn(force=True)
@@ -247,6 +258,56 @@ class SyncSummary:
     added_exclusive_areas: int = 0
     removed_instances: int = 0
     skipped_locked: List[str] = field(default_factory=list)
+
+
+@dataclass
+class DataMappingRow:
+    """Tab 4 row mapping an SWC SR P/R port to a ComSignal or inter-SWC connector."""
+
+    component_name: str
+    swc_type_name: str
+    port_name: str
+    data_element_name: str
+    direction: str  # "TX" | "RX"
+    c_type: str
+    system_signal_name: str = ""
+    system_signal_ref: str = ""
+    com_signal_name: str = ""
+    com_signal_direction: str = ""
+    status: str = "unmapped"  # "mapped" | "inter_swc" | "unmapped" | "broken_com" | "direction_mismatch"
+    source: str = "none"  # "arxml" | "overlay" | "none"
+
+
+@dataclass
+class ServicePortRow:
+    """Tab 5 row describing an SWC Client/Mode/Service R-Port and its connected provider."""
+
+    requester_component: str
+    requester_swc_type: str
+    requester_port: str
+    interface_name: str
+    interface_kind: str  # "CS" | "MODE" | "SR"
+    is_service: bool
+    provider_component: str = ""
+    provider_port: str = ""
+    server_symbol: str = ""
+    status: str = "unconnected"  # "connected" | "unconnected" | "broken"
+    source: str = "none"  # "arxml" | "overlay" | "none"
+
+
+@dataclass
+class SwcInstanceSummaryRow:
+    """Tab 5 bottom summary of SWC instances, OsApplication core partitioning, and mappings."""
+
+    instance_name: str
+    swc_type_name: str
+    is_service: bool
+    os_application: str
+    core_id: int
+    port_count: int
+    runnable_count: int
+    mapped_events: int
+    unmapped_events: int
 
 
 def format_period_label(period_sec: Optional[float]) -> str:
@@ -301,6 +362,7 @@ class RteWorkbenchService:
     def __init__(self, project: Any) -> None:
         self.project = project
         self._ib_cache: Optional[BswIbIndex] = None
+        self._swc_cache: Optional[SwcSystemIndex] = None
 
     # ------------------------------------------------------------------
     # Internal lookups & ARXML write-back helpers
@@ -327,6 +389,15 @@ class RteWorkbenchService:
         if self._ib_cache is None:
             return self.reload_ib_index()
         return self._ib_cache
+
+    def reload_swc_index(self) -> SwcSystemIndex:
+        self._swc_cache = RteModelExtractor._load_swc_index(self.project)
+        return self._swc_cache
+
+    def _swc_index(self) -> SwcSystemIndex:
+        if self._swc_cache is None:
+            return self.reload_swc_index()
+        return self._swc_cache
 
     def _base_def(self) -> str:
         rte_cfg = self._rte_cfg()
@@ -357,7 +428,7 @@ class RteWorkbenchService:
         rte_cfg = self._rte_cfg()
         if rte_cfg is None:
             return None
-        return snapshot_rte_config(rte_cfg)
+        return snapshot_rte_config(rte_cfg, project=self.project)
 
     def restore_snapshot(self, snapshot: Optional[RteConfigSnapshot]) -> None:
         rte_cfg = self._rte_cfg()
@@ -1108,8 +1179,9 @@ class RteWorkbenchService:
         self,
         *,
         include_swc: bool = True,
+        include_unmapped_swc: bool = False,
     ) -> Tuple[Dict[str, List[TaskEventMappingRow]], List[TaskEventMappingRow]]:
-        """Return ``(mapped_by_task, unmapped_bsw_events)`` across ``Rte`` and IB models."""
+        """Return ``(mapped_by_task, unmapped_events)`` across ``Rte``, IB, and SWC models."""
         if not self.has_rte_module():
             return {}, []
 
@@ -1211,18 +1283,28 @@ class RteWorkbenchService:
                     )
 
         if include_swc:
+            swc_index = self._swc_index()
             for swc_inst in self._swc_instance_containers():
-                swc_name = swc_inst.short_name
+                inst_ref_v = swc_inst.reference_values.get("RteSoftwareComponentInstanceRef")
+                inst_ref = inst_ref_v.value_ref.strip().rstrip("/") if inst_ref_v and inst_ref_v.value_ref else ""
+                proto_name = _ar_leaf(inst_ref) or swc_inst.short_name
+                swc_type = swc_index.resolve_swc_type_for_instance(inst_ref, proto_name)
+                seen_swc_ev_refs: Set[str] = set()
+                seen_swc_map_names: Set[str] = set()
                 for sub in getattr(swc_inst, "sub_containers", []) or []:
                     if _ar_leaf(getattr(sub, "definition_ref", None)) != "RteEventToTaskMapping":
-                        continue
-                    task_ref_v = sub.reference_values.get("RteMappedToTaskRef")
-                    task_name = _ar_leaf(task_ref_v.value_ref) if task_ref_v and task_ref_v.value_ref else None
-                    if not task_name:
                         continue
                     ev_ref_v = sub.reference_values.get("RteEventRef")
                     ev_ref = ev_ref_v.value_ref.strip().rstrip("/") if ev_ref_v and ev_ref_v.value_ref else None
                     ev_name = _ar_leaf(ev_ref) or sub.short_name
+                    if ev_ref:
+                        seen_swc_ev_refs.add(ev_ref)
+                    seen_swc_map_names.add(sub.short_name)
+                    seen_swc_map_names.add(ev_name)
+                    swc_ev = swc_index.event_by_path.get(ev_ref) if ev_ref else None
+
+                    task_ref_v = sub.reference_values.get("RteMappedToTaskRef")
+                    task_name = _ar_leaf(task_ref_v.value_ref) if task_ref_v and task_ref_v.value_ref else None
                     pos_p = sub.parameter_values.get("RtePositionInTask")
                     pos = None
                     if pos_p and pos_p.value is not None:
@@ -1232,24 +1314,55 @@ class RteWorkbenchService:
                             pos = None
                     imm_p = sub.parameter_values.get("RteImmediateRestart")
                     imm = _as_bool(imm_p.value if imm_p else None, False)
-                    mapped_by_task.setdefault(task_name, []).append(
-                        TaskEventMappingRow(
-                            instance_name=swc_name,
-                            module_name=swc_name,
-                            api_name=swc_name,
-                            mapping_name=sub.short_name,
-                            event_name=ev_name,
-                            event_ref=ev_ref,
-                            event_kind=(ev_ref_v.value_ref_dest if ev_ref_v and ev_ref_v.value_ref_dest else "SWC-EVENT"),
-                            entity_name=None,
-                            period_sec=None,
-                            task_name=task_name,
-                            position=pos,
-                            immediate_restart=imm,
-                            is_swc=True,
-                            has_ecuc_container=True,
-                        )
+                    row = TaskEventMappingRow(
+                        instance_name=swc_inst.short_name,
+                        module_name=proto_name,
+                        api_name=swc_type.short_name if swc_type else proto_name,
+                        mapping_name=sub.short_name,
+                        event_name=ev_name,
+                        event_ref=ev_ref,
+                        event_kind=(
+                            swc_ev.event_kind
+                            if swc_ev is not None
+                            else (ev_ref_v.value_ref_dest if ev_ref_v and ev_ref_v.value_ref_dest else "SWC-EVENT")
+                        ),
+                        entity_name=swc_ev.runnable_symbol if swc_ev is not None else None,
+                        period_sec=swc_ev.period_sec if swc_ev is not None else None,
+                        task_name=task_name,
+                        position=pos,
+                        immediate_restart=imm,
+                        is_swc=True,
+                        has_ecuc_container=True,
                     )
+                    if task_name:
+                        mapped_by_task.setdefault(task_name, []).append(row)
+                    elif include_unmapped_swc:
+                        unmapped_events.append(row)
+
+                if include_unmapped_swc and swc_type is not None:
+                    for swc_ev in swc_type.events:
+                        if swc_ev.event_kind == "OPERATION-INVOKED-EVENT":
+                            continue
+                        if swc_ev.ar_path in seen_swc_ev_refs or swc_ev.short_name in seen_swc_map_names:
+                            continue
+                        unmapped_events.append(
+                            TaskEventMappingRow(
+                                instance_name=swc_inst.short_name,
+                                module_name=proto_name,
+                                api_name=swc_type.short_name,
+                                mapping_name=swc_ev.short_name,
+                                event_name=swc_ev.short_name,
+                                event_ref=swc_ev.ar_path,
+                                event_kind=swc_ev.event_kind,
+                                entity_name=swc_ev.runnable_symbol,
+                                period_sec=swc_ev.period_sec,
+                                task_name=None,
+                                position=None,
+                                immediate_restart=False,
+                                is_swc=True,
+                                has_ecuc_container=False,
+                            )
+                        )
 
         for task_name, task_rows in mapped_by_task.items():
             task_rows.sort(
@@ -1380,6 +1493,659 @@ class RteWorkbenchService:
             return False
         self._set_param(sub, "RteBswPositionInTask", int(position), "ECUC-INTEGER-PARAM-DEF")
         return True
+
+    def _find_swc_instance(self, instance_or_proto: str) -> Optional[EcucContainerValue]:
+        for inst in self._swc_instance_containers():
+            if inst.short_name == instance_or_proto:
+                return inst
+            ref_v = inst.reference_values.get("RteSoftwareComponentInstanceRef")
+            if ref_v and _ar_leaf(ref_v.value_ref) == instance_or_proto:
+                return inst
+        return None
+
+    @staticmethod
+    def _find_swc_mapping_sub(inst: EcucContainerValue, mapping_or_event: str) -> Optional[EcucContainerValue]:
+        for sub in getattr(inst, "sub_containers", []) or []:
+            if _ar_leaf(getattr(sub, "definition_ref", None)) != "RteEventToTaskMapping":
+                continue
+            ev_ref_v = sub.reference_values.get("RteEventRef")
+            ev_leaf = _ar_leaf(ev_ref_v.value_ref if ev_ref_v else None)
+            if sub.short_name == mapping_or_event or ev_leaf == mapping_or_event:
+                return sub
+        return None
+
+    def map_swc_event_to_task(
+        self,
+        instance_name: str,
+        event_name: str,
+        task_name: str,
+        *,
+        event_ref: Optional[str] = None,
+        event_kind: Optional[str] = None,
+        position: Optional[int] = None,
+    ) -> EcucContainerValue:
+        """Assign an SWC runnable event to ``task_name`` inside ``RteSwComponentInstance``."""
+        inst = self._find_swc_instance(instance_name)
+        if inst is None:
+            raise ValueError(f"未找到 SWC 实例 '{instance_name}'")
+        if not task_name:
+            raise ValueError("必须指定目标 OsTask")
+
+        if position is None:
+            mapped_by_task, _ = self.list_task_mappings(include_swc=True)
+            existing_pos = [
+                r.position
+                for r in mapped_by_task.get(task_name, [])
+                if r.position is not None
+            ]
+            position = (max(existing_pos) + 1) if existing_pos else 0
+
+        sub = self._find_swc_mapping_sub(inst, event_name)
+        created_new = sub is None
+        if sub is None:
+            self._check_editable(inst, None)
+            sub = EcucContainerValue(
+                short_name=event_name,
+                definition_ref=f"{inst.definition_ref.rstrip('/')}/RteEventToTaskMapping",
+                def_dest_type="ECUC-PARAM-CONF-CONTAINER-DEF",
+            )
+            inst.add_sub_container(sub)
+
+        try:
+            if created_new:
+                self._set_param(sub, "RteImmediateRestart", False, "ECUC-BOOLEAN-PARAM-DEF")
+                if event_ref:
+                    self._set_ref(
+                        sub,
+                        "RteEventRef",
+                        event_ref,
+                        dest_type="ECUC-FOREIGN-REFERENCE-DEF",
+                        value_ref_dest=event_kind or "TIMING-EVENT",
+                    )
+            elif event_ref and "RteEventRef" not in sub.reference_values:
+                self._set_ref(
+                    sub,
+                    "RteEventRef",
+                    event_ref,
+                    dest_type="ECUC-FOREIGN-REFERENCE-DEF",
+                    value_ref_dest=event_kind or "TIMING-EVENT",
+                )
+            self._set_ref(
+                sub,
+                "RteMappedToTaskRef",
+                self._module_ref_prefix("Os", task_name),
+                dest_type="ECUC-REFERENCE-DEF",
+                value_ref_dest="ECUC-CONTAINER-VALUE",
+            )
+            self._set_param(sub, "RtePositionInTask", int(position), "ECUC-INTEGER-PARAM-DEF")
+        except PreLockedError:
+            if created_new:
+                inst.remove_sub_container(sub)
+                rte_cfg = self._rte_cfg()
+                if rte_cfg is not None:
+                    rte_cfg._unregister_instance(sub)
+            raise
+        return sub
+
+    def unmap_swc_event(self, instance_name: str, mapping_name: str) -> bool:
+        """Clear SWC task mapping reference and position on ``RteEventToTaskMapping``."""
+        inst = self._find_swc_instance(instance_name)
+        if inst is None:
+            return False
+        sub = self._find_swc_mapping_sub(inst, mapping_name)
+        if sub is None:
+            return False
+        if "RteMappedToTaskRef" in sub.reference_values:
+            self._check_editable(sub, "RteMappedToTaskRef")
+        if "RtePositionInTask" in sub.parameter_values:
+            self._check_editable(sub, "RtePositionInTask")
+        changed = self._remove_ref(sub, "RteMappedToTaskRef")
+        if sub.remove_parameter_value("RtePositionInTask"):
+            changed = True
+            self._mark_rte_modified()
+        return changed
+
+    def move_swc_event_in_task(
+        self,
+        task_name: str,
+        instance_name: str,
+        mapping_name: str,
+        delta: int,
+    ) -> bool:
+        """Move an SWC event earlier (``delta < 0``) or later (``delta > 0``) among SWC siblings in ``task_name``."""
+        if delta == 0:
+            return False
+        mapped_by_task, _ = self.list_task_mappings(include_swc=True)
+        swc_rows = [r for r in mapped_by_task.get(task_name, []) if r.is_swc]
+        idx = next(
+            (i for i, r in enumerate(swc_rows) if r.instance_name == instance_name and r.mapping_name == mapping_name),
+            -1,
+        )
+        if idx < 0:
+            return False
+        target_idx = idx + (-1 if delta < 0 else 1)
+        if target_idx < 0 or target_idx >= len(swc_rows):
+            return False
+
+        row_a = swc_rows[idx]
+        row_b = swc_rows[target_idx]
+        inst_a = self._find_swc_instance(row_a.instance_name)
+        inst_b = self._find_swc_instance(row_b.instance_name)
+        if inst_a is None or inst_b is None:
+            return False
+        sub_a = self._find_swc_mapping_sub(inst_a, row_a.mapping_name)
+        sub_b = self._find_swc_mapping_sub(inst_b, row_b.mapping_name)
+        if sub_a is None or sub_b is None:
+            return False
+
+        positions: List[int] = [r.position if r.position is not None else i for i, r in enumerate(swc_rows)]
+        for i in range(1, len(positions)):
+            if positions[i] <= positions[i - 1]:
+                positions[i] = positions[i - 1] + 1
+        positions[idx], positions[target_idx] = positions[target_idx], positions[idx]
+        self._set_param(sub_a, "RtePositionInTask", int(positions[idx]), "ECUC-INTEGER-PARAM-DEF")
+        self._set_param(sub_b, "RtePositionInTask", int(positions[target_idx]), "ECUC-INTEGER-PARAM-DEF")
+        return True
+
+    # ------------------------------------------------------------------
+    # Tab 4 & Tab 5: SWC Data Mapping (ComSignal) & Service Port Connections
+    # ------------------------------------------------------------------
+
+    def _resolve_swc_entries(self) -> List[Tuple[str, Optional[EcucContainerValue], Optional[SwcTypeData], List[str]]]:
+        """Collect active SWC prototypes + their Ecuc container, SwcTypeData, and mapped tasks."""
+        swc_index = self._swc_index()
+        entries: List[Tuple[str, Optional[EcucContainerValue], Optional[SwcTypeData], List[str]]] = []
+        seen_protos: Set[str] = set()
+        for inst in self._swc_instance_containers():
+            ref_v = inst.reference_values.get("RteSoftwareComponentInstanceRef")
+            ref_p = ref_v.value_ref.strip().rstrip("/") if ref_v and ref_v.value_ref else ""
+            proto_name = _ar_leaf(ref_p) or inst.short_name
+            swc_type = swc_index.resolve_swc_type_for_instance(ref_p, proto_name)
+            mapped_tasks: List[str] = []
+            for sub in getattr(inst, "sub_containers", []) or []:
+                if _ar_leaf(getattr(sub, "definition_ref", None)) == "RteEventToTaskMapping":
+                    tv = sub.reference_values.get("RteMappedToTaskRef")
+                    if tv and tv.value_ref:
+                        tname = _ar_leaf(tv.value_ref)
+                        if tname:
+                            mapped_tasks.append(tname)
+            entries.append((proto_name, inst, swc_type, mapped_tasks))
+            seen_protos.add(proto_name)
+
+        if not entries and swc_index.prototypes_by_name:
+            for pname in sorted(swc_index.prototypes_by_name):
+                if pname in seen_protos:
+                    continue
+                stype = swc_index.resolve_swc_type_for_instance(swc_index.prototypes_by_name[pname].ar_path, pname)
+                entries.append((pname, None, stype, []))
+        return entries
+
+    def list_available_com_signals(self, direction: Optional[str] = None) -> List[Tuple[str, str, str]]:
+        """Return sorted ``[(com_signal_name, direction, system_signal_leaf)]`` tuples."""
+        swc_index = self._swc_index()
+        by_name, _, _ = RteModelExtractor.collect_com_signal_catalog(self._managers().get("Com"), swc_index)
+        items: List[Tuple[str, str, str]] = []
+        for sig_name in sorted(by_name):
+            info = by_name[sig_name]
+            sdir = info["direction"]
+            if direction and sdir and sdir != direction:
+                continue
+            sys_leaf = _ar_leaf(info["resolved_sys"]) or _ar_leaf(info["raw_sys_ref"])
+            items.append((sig_name, sdir, sys_leaf))
+        return items
+
+    def list_data_mapping_rows(self) -> List[DataMappingRow]:
+        """List all SWC Sender-Receiver ports joined against ComSignals & inter-SWC connectors."""
+        swc_index = self._swc_index()
+        entries = self._resolve_swc_entries()
+        inst_to_type = {p: st.short_name for p, _c, st, _t in entries if st is not None}
+        eff_maps = RteModelExtractor.resolve_effective_data_mappings(self.project, swc_index, inst_to_type)
+        eff_conns = RteModelExtractor.resolve_effective_connectors(self.project, swc_index)
+        inter_ports: Set[Tuple[str, str]] = set()
+        for ac in eff_conns:
+            if ac.provider_comp_name and ac.provider_port_name:
+                inter_ports.add((ac.provider_comp_name, ac.provider_port_name))
+            if ac.requester_comp_name and ac.requester_port_name:
+                inter_ports.add((ac.requester_comp_name, ac.requester_port_name))
+
+        com_by_name, com_by_sys_path, com_by_sys_leaf = RteModelExtractor.collect_com_signal_catalog(
+            self._managers().get("Com"), swc_index
+        )
+
+        rows: List[DataMappingRow] = []
+        for proto_name, _ecuc, swc_type, _tasks in entries:
+            if swc_type is None:
+                continue
+            for port in sorted(swc_type.ports.values(), key=lambda p: p.short_name):
+                iface = swc_index.interfaces_by_path.get(port.interface_ref.strip().rstrip("/")) if port.interface_ref else None
+                if iface is None or iface.kind != "SR":
+                    continue
+                direction = "TX" if port.direction == "P" else "RX"
+                for de_name, de in sorted(iface.data_elements.items()):
+                    c_type = swc_index.resolve_c_type_name(de.type_ref, "uint8")
+                    rec = eff_maps.get((proto_name, port.short_name)) or eff_maps.get((swc_type.short_name, port.short_name))
+                    if rec is None:
+                        status = "inter_swc" if (proto_name, port.short_name) in inter_ports else "unmapped"
+                        rows.append(
+                            DataMappingRow(
+                                component_name=proto_name,
+                                swc_type_name=swc_type.short_name,
+                                port_name=port.short_name,
+                                data_element_name=de_name,
+                                direction=direction,
+                                c_type=c_type,
+                                status=status,
+                                source="none",
+                            )
+                        )
+                        continue
+
+                    sys_ref = rec.get("system_signal_ref", "")
+                    sys_name = rec.get("system_signal_name", "")
+                    src = rec.get("source", "arxml")
+                    explicit_com = rec.get("com_signal", "")
+                    com_entry: Optional[Dict[str, str]] = None
+                    status = "mapped"
+                    com_sig_name = explicit_com
+                    com_dir = ""
+
+                    if explicit_com:
+                        com_entry = com_by_name.get(explicit_com)
+                        if com_entry is None:
+                            status = "broken_com"
+                        else:
+                            com_dir = com_entry["direction"]
+                            if com_dir and com_dir != direction:
+                                status = "direction_mismatch"
+                            sys_name = sys_name or _ar_leaf(com_entry["resolved_sys"])
+                            sys_ref = sys_ref or com_entry["resolved_sys"]
+                    else:
+                        cands = com_by_sys_path.get(sys_ref) or com_by_sys_leaf.get(sys_name) or []
+                        dir_matches = [c for c in cands if (not c["direction"] or c["direction"] == direction)]
+                        if dir_matches:
+                            com_entry = dir_matches[0]
+                            com_sig_name = com_entry["name"]
+                            com_dir = com_entry["direction"]
+                        elif cands:
+                            com_entry = cands[0]
+                            com_sig_name = com_entry["name"]
+                            com_dir = com_entry["direction"]
+                            status = "direction_mismatch"
+                        else:
+                            status = "broken_com"
+
+                    rows.append(
+                        DataMappingRow(
+                            component_name=proto_name,
+                            swc_type_name=swc_type.short_name,
+                            port_name=port.short_name,
+                            data_element_name=de_name,
+                            direction=direction,
+                            c_type=c_type,
+                            system_signal_name=sys_name,
+                            system_signal_ref=sys_ref,
+                            com_signal_name=com_sig_name,
+                            com_signal_direction=com_dir,
+                            status=status,
+                            source=src,
+                        )
+                    )
+        rows.sort(key=lambda r: (r.component_name, r.direction, r.port_name, r.data_element_name))
+        return rows
+
+    def set_data_mapping(
+        self,
+        component_name: str,
+        port_name: str,
+        com_signal: str,
+        *,
+        data_element: str = "",
+        direction: str = "",
+        system_signal_ref: str = "",
+    ) -> None:
+        """Persist a Data Mapping binding in ``project.rte_data_mappings``."""
+        if not hasattr(self.project, "rte_data_mappings"):
+            self.project.rte_data_mappings = []
+        entries = self._resolve_swc_entries()
+        inst_to_type = {p: st.short_name for p, _c, st, _t in entries if st is not None}
+        aliases = {component_name}
+        if component_name in inst_to_type:
+            aliases.add(inst_to_type[component_name])
+
+        self.project.rte_data_mappings = [
+            x
+            for x in self.project.rte_data_mappings
+            if not (x.get("component") in aliases and x.get("port") == port_name)
+        ]
+        self.project.rte_data_mappings.append(
+            {
+                "component": component_name,
+                "port": port_name,
+                "data_element": data_element,
+                "direction": direction,
+                "com_signal": com_signal,
+                "system_signal_ref": system_signal_ref,
+                "action": "map",
+            }
+        )
+        self._mark_rte_modified()
+
+    def clear_data_mapping(self, component_name: str, port_name: str) -> bool:
+        """Unbind an SWC port's Data Mapping (overriding ARXML mapping if inherited)."""
+        if not hasattr(self.project, "rte_data_mappings"):
+            self.project.rte_data_mappings = []
+        swc_index = self._swc_index()
+        entries = self._resolve_swc_entries()
+        inst_to_type = {p: st.short_name for p, _c, st, _t in entries if st is not None}
+        aliases = {component_name}
+        if component_name in inst_to_type:
+            aliases.add(inst_to_type[component_name])
+
+        prev_len = len(self.project.rte_data_mappings)
+        self.project.rte_data_mappings = [
+            x
+            for x in self.project.rte_data_mappings
+            if not (x.get("component") in aliases and x.get("port") == port_name)
+        ]
+        has_arxml = any((a, port_name) in swc_index.sr_mapping_by_comp_port for a in aliases)
+        if has_arxml:
+            self.project.rte_data_mappings.append(
+                {"component": component_name, "port": port_name, "action": "unmap"}
+            )
+            self._mark_rte_modified()
+            return True
+        if len(self.project.rte_data_mappings) != prev_len:
+            self._mark_rte_modified()
+            return True
+        return False
+
+    def auto_match_data_mappings(self) -> int:
+        """Match unmapped or broken SR ports to ``ComSignal``s by signal name/direction."""
+        rows = self.list_data_mapping_rows()
+        avail = self.list_available_com_signals()
+        if not avail:
+            return 0
+
+        def _norm_tok(text: str) -> str:
+            t = re.sub(r"^(?:SigPP|SigRP|PpSignal|RpSignal|Pp|Rp|DeSignal|Sig_VarDataProto)_(?:Proto_)?", "", text or "")
+            t = re.sub(r"_(?:Tx|Rx)$", "", t)
+            t = re.sub(r"_o[^_]+(?:_[0-9a-fA-F]{6,12})?$", "", t)
+            return re.sub(r"[^A-Za-z0-9]", "", t).lower()
+
+        matched = 0
+        for r in rows:
+            if r.status not in ("unmapped", "broken_com"):
+                continue
+            cand_tokens = [
+                _norm_tok(r.system_signal_name),
+                _norm_tok(r.port_name),
+                _norm_tok(r.data_element_name),
+            ]
+            cand_tokens = [t for t in cand_tokens if t]
+            chosen: Optional[str] = None
+            for sig_name, sig_dir, sys_leaf in avail:
+                if sig_dir and sig_dir != r.direction:
+                    continue
+                sig_toks = {_norm_tok(sig_name), _norm_tok(sys_leaf)}
+                if any(ct in sig_toks for ct in cand_tokens):
+                    chosen = sig_name
+                    break
+            if chosen:
+                self.set_data_mapping(
+                    r.component_name,
+                    r.port_name,
+                    chosen,
+                    data_element=r.data_element_name,
+                    direction=r.direction,
+                )
+                matched += 1
+        return matched
+
+    def list_swc_instance_rows(self) -> List[SwcInstanceSummaryRow]:
+        """List SWC / ServiceComponent instances, OsApplication core assignment, and event counts."""
+        swc_index = self._swc_index()
+        entries = self._resolve_swc_entries()
+        os_apps: List[str] = []
+        os_mgr = self._managers().get("Os")
+        if os_mgr and getattr(os_mgr, "configuration", None):
+            for c in getattr(os_mgr.configuration, "containers", []) or []:
+                if _ar_leaf(getattr(c, "definition_ref", None)) == "OsApplication":
+                    os_apps.append(c.short_name)
+        _, task_to_app, app_to_core, _, _, default_app = RteModelExtractor._collect_os_partition_info(os_mgr, os_apps)
+
+        rows: List[SwcInstanceSummaryRow] = []
+        for proto_name, ecuc_inst, swc_type, mapped_tasks in entries:
+            chosen_app = next((task_to_app[t] for t in mapped_tasks if t in task_to_app), None)
+            if not chosen_app:
+                guess_c = RteModelExtractor._core_num(proto_name, 0)
+                chosen_app = next((a for a, cid in app_to_core.items() if cid == guess_c), default_app)
+            cid = app_to_core.get(chosen_app, RteModelExtractor._core_num(chosen_app, 0))
+            mapped_cnt = len(mapped_tasks)
+            total_sched = 0
+            if swc_type is not None:
+                total_sched = sum(1 for e in swc_type.events if e.event_kind != "OPERATION-INVOKED-EVENT")
+            rows.append(
+                SwcInstanceSummaryRow(
+                    instance_name=proto_name,
+                    swc_type_name=swc_type.short_name if swc_type else proto_name,
+                    is_service=bool(swc_type.is_service) if swc_type else False,
+                    os_application=chosen_app,
+                    core_id=cid,
+                    port_count=len(swc_type.ports) if swc_type else 0,
+                    runnable_count=len(swc_type.runnables) if swc_type else 0,
+                    mapped_events=mapped_cnt,
+                    unmapped_events=max(0, total_sched - mapped_cnt),
+                )
+            )
+        rows.sort(key=lambda r: (r.is_service, r.core_id, r.instance_name))
+        return rows
+
+    def list_service_port_rows(self) -> List[ServicePortRow]:
+        """List R-Ports across SWCs (Client-Server, Mode, and inter-SWC SR) with connected provider status."""
+        swc_index = self._swc_index()
+        entries = self._resolve_swc_entries()
+        eff_conns = RteModelExtractor.resolve_effective_connectors(self.project, swc_index)
+        eff_data_maps = RteModelExtractor.resolve_effective_data_mappings(
+            self.project,
+            swc_index,
+            {p: st.short_name for p, _c, st, _t in entries if st is not None},
+        )
+        swc_by_inst: Dict[str, SwcTypeData] = {p: st for p, _c, st, _t in entries if st is not None}
+
+        overlay_keys = {
+            (str(x.get("requester_component", "")).strip(), str(x.get("requester_port", "")).strip())
+            for x in (getattr(self.project, "rte_service_connectors", []) or [])
+            if isinstance(x, dict) and x.get("action", "map") == "map"
+        }
+
+        conn_by_req = {
+            (ac.requester_comp_name, ac.requester_port_name): ac
+            for ac in eff_conns
+            if ac.requester_comp_name and ac.requester_port_name
+        }
+
+        rows: List[ServicePortRow] = []
+        for proto_name, _ecuc, swc_type, _tasks in entries:
+            if swc_type is None:
+                continue
+            for port in sorted(swc_type.ports.values(), key=lambda p: p.short_name):
+                if port.direction != "R":
+                    continue
+                iface = swc_index.interfaces_by_path.get(port.interface_ref.strip().rstrip("/")) if port.interface_ref else None
+                if iface is None:
+                    continue
+                # Skip SR ports mapped cleanly to a ComSignal
+                if iface.kind == "SR" and (
+                    (proto_name, port.short_name) in eff_data_maps
+                    or (swc_type.short_name, port.short_name) in eff_data_maps
+                ):
+                    continue
+
+                ac = conn_by_req.get((proto_name, port.short_name))
+                src = "overlay" if (proto_name, port.short_name) in overlay_keys else ("arxml" if ac else "none")
+                prov_c = ac.provider_comp_name if ac else ""
+                prov_p = ac.provider_port_name if ac else ""
+                prov_swc = swc_by_inst.get(prov_c) or swc_index.swc_types_by_name.get(prov_c) if prov_c else None
+
+                status = "unconnected"
+                server_sym = ""
+                if ac is not None:
+                    if prov_swc is None or prov_p not in prov_swc.ports:
+                        status = "broken"
+                    else:
+                        p_port = prov_swc.ports[prov_p]
+                        if p_port.interface_kind and iface.kind and p_port.interface_kind != iface.kind:
+                            status = "broken"
+                        else:
+                            status = "connected"
+                            if iface.kind == "CS":
+                                syms = [
+                                    ev.runnable_symbol
+                                    for ev in prov_swc.events
+                                    if ev.event_kind == "OPERATION-INVOKED-EVENT" and _ar_leaf(ev.port_ref) == prov_p
+                                ]
+                                server_sym = ", ".join(sorted({s for s in syms if s})) or ", ".join(sorted(iface.operations.keys()))
+
+                rows.append(
+                    ServicePortRow(
+                        requester_component=proto_name,
+                        requester_swc_type=swc_type.short_name,
+                        requester_port=port.short_name,
+                        interface_name=iface.short_name,
+                        interface_kind=iface.kind,
+                        is_service=bool(iface.is_service or (prov_swc.is_service if prov_swc else False)),
+                        provider_component=prov_c,
+                        provider_port=prov_p,
+                        server_symbol=server_sym,
+                        status=status,
+                        source=src,
+                    )
+                )
+        rows.sort(key=lambda r: (not r.is_service, r.interface_kind, r.requester_component, r.requester_port))
+        return rows
+
+    def list_compatible_provider_ports(
+        self, requester_component: str, requester_port: str
+    ) -> List[Tuple[str, str, str]]:
+        """Return compatible provider P-ports ``[(provider_comp, provider_port, interface_name)]``."""
+        swc_index = self._swc_index()
+        entries = self._resolve_swc_entries()
+        swc_by_inst: Dict[str, SwcTypeData] = {p: st for p, _c, st, _t in entries if st is not None}
+        req_swc = swc_by_inst.get(requester_component)
+        if req_swc is None or requester_port not in req_swc.ports:
+            return []
+        req_port = req_swc.ports[requester_port]
+        req_iface = swc_index.interfaces_by_path.get(req_port.interface_ref.strip().rstrip("/")) if req_port.interface_ref else None
+        req_kind = req_iface.kind if req_iface else req_port.interface_kind
+        req_iface_name = req_iface.short_name if req_iface else _ar_leaf(req_port.interface_ref)
+        req_ops = set(req_iface.operations.keys()) if req_iface else set()
+
+        cands: List[Tuple[int, str, str, str]] = []
+        for proto_name, _ecuc, swc_type, _tasks in entries:
+            if swc_type is None:
+                continue
+            for p_name, port in sorted(swc_type.ports.items()):
+                if port.direction != "P":
+                    continue
+                if proto_name == requester_component and p_name == requester_port:
+                    continue
+                p_iface = swc_index.interfaces_by_path.get(port.interface_ref.strip().rstrip("/")) if port.interface_ref else None
+                p_kind = p_iface.kind if p_iface else port.interface_kind
+                if req_kind and p_kind and req_kind != p_kind:
+                    continue
+                p_iface_name = p_iface.short_name if p_iface else _ar_leaf(port.interface_ref)
+                p_ops = set(p_iface.operations.keys()) if p_iface else set()
+                # Score exact interface ref match > exact op set match > same kind
+                score = 2
+                if p_iface_name == req_iface_name:
+                    score = 0
+                elif req_ops and req_ops.issubset(p_ops):
+                    score = 1
+                cands.append((score, proto_name, p_name, p_iface_name))
+        cands.sort(key=lambda x: (x[0], x[1], x[2]))
+        return [(c, p, ifn) for _, c, p, ifn in cands]
+
+    def connect_ports(
+        self,
+        requester_component: str,
+        requester_port: str,
+        provider_component: str,
+        provider_port: str,
+    ) -> None:
+        """Persist an assembly/service port connection in ``project.rte_service_connectors``."""
+        if not hasattr(self.project, "rte_service_connectors"):
+            self.project.rte_service_connectors = []
+        self.project.rte_service_connectors = [
+            x
+            for x in self.project.rte_service_connectors
+            if not (x.get("requester_component") == requester_component and x.get("requester_port") == requester_port)
+        ]
+        self.project.rte_service_connectors.append(
+            {
+                "requester_component": requester_component,
+                "requester_port": requester_port,
+                "provider_component": provider_component,
+                "provider_port": provider_port,
+                "action": "map",
+            }
+        )
+        self._mark_rte_modified()
+
+    def disconnect_port(self, requester_component: str, requester_port: str) -> bool:
+        """Disconnect an assembly/service R-Port via ``project.rte_service_connectors``."""
+        if not hasattr(self.project, "rte_service_connectors"):
+            self.project.rte_service_connectors = []
+        swc_index = self._swc_index()
+        prev_len = len(self.project.rte_service_connectors)
+        self.project.rte_service_connectors = [
+            x
+            for x in self.project.rte_service_connectors
+            if not (x.get("requester_component") == requester_component and x.get("requester_port") == requester_port)
+        ]
+        has_arxml = any(
+            ac.requester_comp_name == requester_component and ac.requester_port_name == requester_port
+            for ac in swc_index.assembly_connectors
+        )
+        if has_arxml:
+            self.project.rte_service_connectors.append(
+                {
+                    "requester_component": requester_component,
+                    "requester_port": requester_port,
+                    "action": "unmap",
+                }
+            )
+            self._mark_rte_modified()
+            return True
+        if len(self.project.rte_service_connectors) != prev_len:
+            self._mark_rte_modified()
+            return True
+        return False
+
+    def auto_connect_service_ports(self) -> int:
+        """Connect unconnected R-ports when a clear compatible Service or single provider port exists."""
+        rows = self.list_service_port_rows()
+        connected = 0
+        for r in rows:
+            if r.status not in ("unconnected", "broken"):
+                continue
+            cands = self.list_compatible_provider_ports(r.requester_component, r.requester_port)
+            if not cands:
+                continue
+            # Prefer exact interface/port name match or unique compatible provider
+            chosen: Optional[Tuple[str, str]] = None
+            exact_iface = [c for c in cands if c[2] == r.interface_name or c[1] == r.requester_port]
+            if len(exact_iface) == 1:
+                chosen = (exact_iface[0][0], exact_iface[0][1])
+            elif r.requester_port.startswith("UR_"):
+                srv_hits = [c for c in cands if c[0] == "ComM"]
+                if len(srv_hits) == 1:
+                    chosen = (srv_hits[0][0], srv_hits[0][1])
+            elif len(cands) == 1:
+                chosen = (cands[0][0], cands[0][1])
+            if chosen is not None:
+                self.connect_ports(r.requester_component, r.requester_port, chosen[0], chosen[1])
+                connected += 1
+        return connected
 
     def move_event_in_task(
         self,
@@ -1888,6 +2654,75 @@ class RteWorkbenchService:
                         )
                     )
 
+        # Tab 4 & Tab 5: SWC Data Mapping & Service Port diagnostics (only when SWCs or overlays exist)
+        has_swc_ctx = bool(self._swc_index()) or bool(getattr(self.project, "rte_data_mappings", None)) or bool(
+            getattr(self.project, "rte_service_connectors", None)
+        )
+        if has_swc_ctx:
+            for dm in self.list_data_mapping_rows():
+                if dm.status == "broken_com":
+                    diags.append(
+                        RteSchmDiagnostic(
+                            severity="error",
+                            code="DATA_MAPPING_BROKEN_COM_SIGNAL",
+                            message=f"SWC 数据端口 {dm.component_name}.{dm.port_name} 引用的 ComSignal '{dm.com_signal_name or dm.system_signal_name}' 不存在或未绑定",
+                            container_path=f"/Rte/{dm.component_name}",
+                            parameter_name=None,
+                            workbench_tab=3,
+                            suggested_fix="在 RTE 工作台页签 4「数据映射」重新选择有效的 ComSignal 或点击自动匹配",
+                        )
+                    )
+                elif dm.status == "direction_mismatch":
+                    diags.append(
+                        RteSchmDiagnostic(
+                            severity="error",
+                            code="DATA_MAPPING_DIRECTION_MISMATCH",
+                            message=f"SWC 端口 {dm.component_name}.{dm.port_name} ({dm.direction}) 与 ComSignal '{dm.com_signal_name}' ({dm.com_signal_direction}) 收发方向不一致",
+                            container_path=f"/Rte/{dm.component_name}",
+                            parameter_name=None,
+                            workbench_tab=3,
+                            suggested_fix="在 RTE 工作台页签 4「数据映射」重新绑定方向匹配的 ComSignal",
+                        )
+                    )
+                elif dm.status == "unmapped":
+                    diags.append(
+                        RteSchmDiagnostic(
+                            severity="info",
+                            code="SWC_PORT_UNMAPPED_COM",
+                            message=f"SWC SR 端口 {dm.component_name}.{dm.port_name} ({dm.direction}) 尚未映射到 ComSignal 或 SWC 连接",
+                            container_path=f"/Rte/{dm.component_name}",
+                            parameter_name=None,
+                            workbench_tab=3,
+                            suggested_fix="若需经 CAN 发送/接收，请在页签 4 绑定 ComSignal；若为核内/核间通信，请在页签 5 连接端口",
+                        )
+                    )
+
+            for sp in self.list_service_port_rows():
+                if sp.status == "broken":
+                    diags.append(
+                        RteSchmDiagnostic(
+                            severity="error",
+                            code="SERVICE_CONNECTOR_BROKEN",
+                            message=f"端口连接 {sp.requester_component}.{sp.requester_port} -> {sp.provider_component}.{sp.provider_port} 无效或接口类型不匹配",
+                            container_path=f"/Rte/{sp.requester_component}",
+                            parameter_name=None,
+                            workbench_tab=4,
+                            suggested_fix="在 RTE 工作台页签 5「服务与端口连接」重新选择兼容的提供方端口",
+                        )
+                    )
+                elif sp.status == "unconnected" and (sp.is_service or sp.interface_kind in ("CS", "MODE")):
+                    diags.append(
+                        RteSchmDiagnostic(
+                            severity="warning",
+                            code="SERVICE_PORT_UNCONNECTED",
+                            message=f"{'服务' if sp.is_service else ''}请求端口 {sp.requester_component}.{sp.requester_port} ({sp.interface_name}) 尚未连接到提供方端口",
+                            container_path=f"/Rte/{sp.requester_component}",
+                            parameter_name=None,
+                            workbench_tab=4,
+                            suggested_fix="在 RTE 工作台页签 5 连接兼容的服务端口或点击「自动连接服务端口」",
+                        )
+                    )
+
         return diags
 
     # ------------------------------------------------------------------
@@ -1999,19 +2834,25 @@ class RteWorkbenchService:
         output_dir: Optional[Path] = None,
         flat: Optional[bool] = None,
         generate_type_stub: bool = True,
+        include_phase2_3: bool = True,
         apply_overlay: bool = True,
     ) -> Tuple[List[RtePreviewFile], RteGenerationReport]:
-        """Compute non-mutating Phase 1 file previews and extraction diagnostics."""
+        """Compute non-mutating Phase 1-3 file previews and extraction diagnostics."""
         default_dir, default_flat, overlay_root, pkg_dir_name = self.default_output_layout()
         target_dir = Path(output_dir) if output_dir is not None else default_dir
         is_flat = default_flat if flat is None else flat
-        gen = RteSchMGenerator(self.project, generate_type_stub=generate_type_stub)
+        gen = RteSchMGenerator(
+            self.project,
+            generate_type_stub=generate_type_stub,
+            include_phase2_3=include_phase2_3,
+        )
         return gen.preview(
             target_dir,
             flat=is_flat,
             overlay_root=overlay_root if apply_overlay else None,
             package_dir_name=pkg_dir_name,
             ib_index=self._ib_index(),
+            swc_index=self._swc_index(),
         )
 
     def run_generation(
@@ -2020,10 +2861,11 @@ class RteWorkbenchService:
         output_dir: Optional[Path] = None,
         flat: Optional[bool] = None,
         generate_type_stub: bool = True,
+        include_phase2_3: bool = True,
         force: bool = False,
         apply_overlay: bool = True,
     ) -> Tuple[bool, RteGenerationReport, str]:
-        """Execute Phase 1 RTE/SchM generation (with optional overlay override pass)."""
+        """Execute Phase 1-3 RTE/SchM generation (with optional overlay override pass)."""
         default_dir, default_flat, overlay_root, pkg_dir_name = self.default_output_layout()
         target_dir = Path(output_dir) if output_dir is not None else default_dir
         is_flat = default_flat if flat is None else flat
@@ -2062,6 +2904,7 @@ class RteWorkbenchService:
             target_dir,
             flat=is_flat,
             generate_type_stub=generate_type_stub,
+            include_phase2_3=include_phase2_3,
             force=force,
             apply_overlay=apply_overlay,
             overlay_root=overlay_root if (apply_overlay and has_project_overlay_templates(overlay_root, "Rte", pkg_dir_name)) else None,
@@ -2076,5 +2919,6 @@ class RteWorkbenchService:
             module_def=getattr(rte_mgr, "module_def", None) if rte_mgr else None,
             configuration=getattr(rte_mgr, "configuration", None) if rte_mgr else None,
             ib_index=self._ib_index(),
+            swc_index=self._swc_index(),
         )
         return ok, report, detail
