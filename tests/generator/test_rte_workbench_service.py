@@ -505,3 +505,95 @@ def test_workbench_service_real_startapplication_readonly(tmp_path):
     preview_files, _ = svc.preview_generation(output_dir=tmp_path / "gen_out", flat=False)
     names = {f.filename for f in preview_files}
     assert {"Rte.h", "Rte_Cfg.h", "SchM_Com.h", "SchM_CanTrcv_30_Tle9255.h"}.issubset(names)
+
+
+def test_ib_index_caching_reused_across_operations(tmp_path, monkeypatch):
+    project, proj_dir, _ = _build_synthetic_project(tmp_path)
+    load_calls = 0
+    orig_load = BswIbIndex.load_directory
+
+    def _counting_load(system_dir: Path):
+        nonlocal load_calls
+        load_calls += 1
+        return orig_load(system_dir)
+
+    monkeypatch.setattr(BswIbIndex, "load_directory", staticmethod(_counting_load))
+    svc = RteWorkbenchService(project)
+
+    svc.list_bsw_instance_rows()
+    svc.update_exclusive_area("Com", "COM_EXCLUSIVE_AREA_TX", mechanism="NONE")
+    svc.list_bsw_instance_rows()
+    svc.preview_generation(output_dir=proj_dir / "gen", flat=False)
+    assert load_calls == 1
+
+    svc.reload_ib_index()
+    svc.list_bsw_instance_rows()
+    assert load_calls == 2
+
+
+def test_pre_lock_enforced_and_reported(tmp_path):
+    from autosar_configurator.core.config_manager import PreLockedError
+
+    project, _, rte_cfg = _build_synthetic_project(tmp_path)
+
+    def _guard(instance, name=None):
+        sn = getattr(instance, "short_name", "")
+        if sn in ("COM_EXCLUSIVE_AREA_RX", "CanNm"):
+            raise PreLockedError(f"P:/Rte/Rte/{sn}/{name or ''}")
+
+    project.module_managers["Rte"].check_editable = _guard
+    svc = RteWorkbenchService(project)
+
+    with pytest.raises(PreLockedError):
+        svc.update_exclusive_area("Com", "COM_EXCLUSIVE_AREA_RX", mechanism="NONE")
+    ea_rx = next(r for r in svc.list_exclusive_area_rows() if r.ea_name == "COM_EXCLUSIVE_AREA_RX")
+    assert ea_rx.mechanism == "ALL_INTERRUPT_BLOCKING"
+
+    with pytest.raises(PreLockedError):
+        svc.remove_bsw_instance("CanNm")
+    assert svc._find_bsw_instance("CanNm") is not None
+
+    summary = svc.sync_bsw_instances(
+        add_missing_modules=False,
+        sync_exclusive_areas=True,
+        remove_unloaded=True,
+    )
+    assert summary.removed_instances == 0
+    assert summary.added_exclusive_areas == 1  # COM_EXCLUSIVE_AREA_TX still created
+    assert len(summary.skipped_locked) == 1
+    assert rte_cfg.is_modified is True
+
+
+def test_eb_tresos_prefix_and_snapshot_roundtrip_fidelity(tmp_path):
+    from autosar_configurator.core.config_manager import ProjectType
+    from autosar_configurator.core.model.configuration_model import EcucParameterValue
+
+    project, _, rte_cfg = _build_synthetic_project(tmp_path)
+    project.project_type = ProjectType.EB_TRESOS
+    com_inst = next(c for c in rte_cfg.containers if c.short_name == "Com")
+    com_inst.uuid = "keep-uuid-1234"
+    com_inst.unknown_parameters["LegacyFlag"] = EcucParameterValue("/MICROSAR/Rte/LegacyFlag", "X")
+    rte_cfg.is_modified = False
+
+    resolve_calls = []
+    reverse_calls = []
+    project.resolve_all_references = lambda force=False: resolve_calls.append(force) or (0, 0)
+    project.build_reverse_reference_index = lambda: reverse_calls.append(True) or 0
+
+    svc = RteWorkbenchService(project)
+    snap = svc.capture_snapshot()
+
+    dcm_inst = svc.add_bsw_instance("Dcm")
+    assert dcm_inst.reference_values["RteBswModuleConfigurationRef"].value_ref == "/Dcm/Dcm"
+    svc.remove_bsw_instance("CanNm")
+    assert rte_cfg.is_modified is True
+
+    svc.restore_snapshot(snap)
+    assert rte_cfg.is_modified is False
+    assert svc._find_bsw_instance("Dcm") is None
+    assert svc._find_bsw_instance("CanNm") is not None
+    restored_com = svc._find_bsw_instance("Com")
+    assert restored_com.uuid == "keep-uuid-1234"
+    assert restored_com.unknown_parameters["LegacyFlag"].value == "X"
+    assert resolve_calls == [True]
+    assert reverse_calls == [True]

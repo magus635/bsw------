@@ -63,15 +63,32 @@ Tab 3 (`TaskMappingTab`) SHALL group mapped events by `OsTask` in execution orde
 
 ### Requirement: Global Generation Settings, Live Preview, and MainWindow Workbench Entry
 
-Tab 4 (`GeneratePreviewTab`) SHALL edit `RteGeneration` / `RteBswGeneral` parameters, preview generated headers and diagnostics live, execute standalone Phase 1 RTE/SchM generation, and integrate into `DaVinciMainWindow`.
+Tab 4 (`GeneratePreviewTab`) SHALL clearly separate Phase 1 active generation switches from ECUC-only reservation parameters, preview generated headers and diagnostics live, execute standalone Phase 1 RTE/SchM generation, and integrate into `DaVinciMainWindow`.
 
 #### Scenario: Toggling RteGeneration flag updates live header preview
 
-- **WHEN** the user toggles `RteEnableMultiCore` or `RteDevErrorDetect` in Tab 4
-- **THEN** `RteGeneration` ECUC parameters are updated immediately and the live `Rte.h` / `Rte_Main.h` preview reflects the new setting without writing to disk
+- **WHEN** the user toggles `RteEnableMultiCore` or `RteDisableRteInitMemory` in Tab 4's Phase 1 active group
+- **THEN** `RteGeneration` ECUC parameters are updated immediately and the live `Rte_Main.h` preview reflects the new setting without writing to disk
 
-#### Scenario: MainWindow launches workbench and tracks project changes
+#### Scenario: MainWindow launches workbench and integrates Undo and Reference Refresh
 
-- **WHEN** a project containing `Rte` is open and the user invokes `RTE / SchM 工作台...` from the `Generate` or `Tools` menu
+- **WHEN** a project containing `Rte` is open and the user invokes `RTE / SchM 工作台...` from the `Generate` or `Tools` menu (including right after `New Project...`)
 - **THEN** `RteSchmWorkbench` opens with all four tabs populated
-- **AND** any ECUC edit made inside the workbench emits `config_changed`, enables project saving, and refreshes main configuration views
+- **WHEN** the user confirms workbench edits with `确定`
+- **THEN** the edit batch is pushed to `undo_stack` via `ReplaceModuleContainersCommand` (supporting `Ctrl+Z` undo), refreshes cross-module reference resolution and reverse-reference indices, enables project saving, and refreshes main configuration views
+- **WHEN** the user clicks `取消` or `恢复打开前状态`
+- **THEN** all changes made during the workbench session are rolled back cleanly to the opening snapshot
+
+### Requirement: Baseline Pre-Lock Enforcement and Cached IB Performance
+
+`RteWorkbenchService` and the workbench tabs SHALL enforce `ConfigurationManager.check_editable()` (`PreLockedError`), cache `BswIbIndex` across edits with explicit reload support, and avoid destructive table rebuilds during single-row ExclusiveArea edits.
+
+#### Scenario: Pre-locked Rte parameters refuse modification cleanly
+
+- **WHEN** an `Rte` parameter or container is locked by the Format 8 Pre baseline and the user attempts to edit it via `RteWorkbenchService` or the UI
+- **THEN** `PreLockedError` prevents the mutation (skipping locked entries cleanly during batch/sync while reporting skipped counts) and the UI reverts the widget to the locked value with a warning
+
+#### Scenario: Single-row ExclusiveArea edit and CUSTOM mechanism sync in place
+
+- **WHEN** the user changes an ExclusiveArea row's mechanism in Tab 2
+- **THEN** the `BswIbIndex` cache is reused without re-scanning `system/` XML files, existing row widgets are updated in place without rebuilding the full table, and selecting `CUSTOM` automatically checks and locks `生成函数` matching `render_schm_h()`'s function-declaration output

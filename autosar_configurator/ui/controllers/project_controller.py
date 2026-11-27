@@ -699,6 +699,8 @@ class ProjectController:
 
         # Update variant selector
         self.win._update_variant_selector()
+        if hasattr(self.win, "_update_mode_actions"):
+            self.win._update_mode_actions()
 
         # Update mode label
         self.win.mode_label.setText(f"Project: {project_type.value}")

@@ -1072,16 +1072,45 @@ class DaVinciMainWindow(QMainWindow):
         if rte_mgr is None or getattr(rte_mgr, "configuration", None) is None:
             QMessageBox.information(self, "RTE / SchM 工作台", "当前项目未加载 Rte 模块，请先添加或导入 Rte 模块。")
             return
+        from .commands import ReplaceModuleContainersCommand
         from .dialogs.rte_schm_workbench import RteSchmWorkbench
+
         dialog = RteSchmWorkbench(self.current_project, parent=self)
-        dialog.config_changed.connect(self._on_rte_workbench_changed)
-        dialog.exec()
+        if dialog.exec() == QDialog.Accepted and getattr(dialog, "has_edits", False):
+            after_snapshot = dialog.service.capture_snapshot()
+            initial_snapshot = getattr(dialog, "initial_snapshot", None)
+            if initial_snapshot is not None and after_snapshot is not None:
+                cmd = ReplaceModuleContainersCommand(
+                    self.current_project,
+                    rte_mgr.configuration,
+                    initial_snapshot,
+                    after_snapshot,
+                    text="编辑 RTE / SchM 配置",
+                    on_applied=self._on_rte_workbench_changed,
+                )
+                if hasattr(self, "undo_stack") and self.undo_stack is not None:
+                    self.undo_stack.push(cmd)
+                else:
+                    cmd.redo()
+            else:
+                self._on_rte_workbench_changed()
 
     def _on_rte_workbench_changed(self):
-        """Synchronize dirty state and main configuration views after RTE workbench edits."""
+        """Synchronize dirty state, reference indexes, and views after RTE workbench edits."""
         self._has_unsaved_changes = True
         if hasattr(self, "save_project_action"):
             self.save_project_action.setEnabled(True)
+        if hasattr(self, "current_project") and self.current_project is not None:
+            resolve_fn = getattr(self.current_project, "resolve_all_references", None)
+            if callable(resolve_fn):
+                resolve_fn(force=True)
+            build_fn = getattr(self.current_project, "build_reverse_reference_index", None)
+            if callable(build_fn):
+                build_fn()
+        panel = getattr(self, "config_panel", None)
+        cur_inst = getattr(panel, "current_instance", None) if panel is not None else None
+        if cur_inst is not None and getattr(cur_inst, "module_name", None) == "Rte" and hasattr(panel, "clear"):
+            panel.clear()
         if hasattr(self, "_update_window_title"):
             self._update_window_title()
         if hasattr(self, "_refresh_config_views"):

@@ -6,3 +6,4 @@
 - [x] 1.4 Wire `RTE / SchM 工作台...` into `DaVinciMainWindow` (`Generate` and `Tools` menus, mode gating, main window sync) and add optional stub/force/overlay flags to `GenerationController._run_rte_schm_generation()`
 - [x] 1.5 Add unit tests (`tests/generator/test_rte_workbench_service.py`) and Qt UI tests (`tests/ui/test_rte_schm_workbench.py`) including real-project read-only verification
 - [x] 1.6 Validate OpenSpec change strictly and verify all pytest suites pass
+- [x] 1.7 Implement P0 improvements: `ib_index` caching, `PreLockedError` checks, EB ref prefix support, `RteConfigSnapshot` Cancel/Revert/`ReplaceModuleContainersCommand` Undo, `resolve_all_references` + `new_project()` action enablement, `CUSTOM` checkbox lock, Tab 2 in-place update, Tab 4 Phase-1 vs ECUC grouping, doc sync, and P0 tests

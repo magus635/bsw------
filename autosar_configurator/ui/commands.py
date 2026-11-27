@@ -624,3 +624,37 @@ class DeleteModuleCommand(QUndoCommand):
                 self.project.resolve_all_references(force=True)
             if hasattr(self.project, "build_reverse_reference_index"):
                 self.project.build_reverse_reference_index()
+
+
+class ReplaceModuleContainersCommand(QUndoCommand):
+    """Replace an EcucModuleConfiguration's container tree from snapshots (undo/redo)."""
+
+    def __init__(
+        self,
+        project,
+        configuration: EcucModuleConfiguration,
+        before_snapshot,
+        after_snapshot,
+        text: str = "Edit RTE / SchM Configuration",
+        on_applied=None,
+    ):
+        super().__init__()
+        self.project = project
+        self.configuration = configuration
+        self.before_snapshot = before_snapshot
+        self.after_snapshot = after_snapshot
+        self.on_applied = on_applied
+        self.setText(text)
+
+    def _apply(self, snapshot) -> None:
+        from ..generator.rte.workbench_service import restore_rte_config
+
+        restore_rte_config(self.configuration, snapshot, project=self.project)
+        if callable(self.on_applied):
+            self.on_applied()
+
+    def redo(self):
+        self._apply(self.after_snapshot)
+
+    def undo(self):
+        self._apply(self.before_snapshot)

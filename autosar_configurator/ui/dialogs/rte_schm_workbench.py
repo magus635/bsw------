@@ -30,6 +30,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ...core.config_manager import PreLockedError
 from ...generator.rte.model import RtePreviewFile
 from ...generator.rte.workbench_service import (
     BswInstanceRow,
@@ -179,7 +180,11 @@ class BswInstancesTab(QWidget):
         row = self._selected_row()
         if row is None or row.status != "unregistered":
             return
-        self.service.add_bsw_instance(row.module_name, populate_exclusive_areas=True)
+        try:
+            self.service.add_bsw_instance(row.module_name, populate_exclusive_areas=True)
+        except PreLockedError as exc:
+            QMessageBox.warning(self, "受基线 Pre 锁保护", f"无法添加实例 '{row.module_name}'：\n{exc}")
+            return
         self.reload()
         self.config_changed.emit()
 
@@ -187,7 +192,12 @@ class BswInstancesTab(QWidget):
         row = self._selected_row()
         if row is None or row.status not in ("active", "unloaded"):
             return
-        if self.service.remove_bsw_instance(row.instance_name):
+        try:
+            removed = self.service.remove_bsw_instance(row.instance_name)
+        except PreLockedError as exc:
+            QMessageBox.warning(self, "受基线 Pre 锁保护", f"无法移除实例 '{row.instance_name}'：\n{exc}")
+            return
+        if removed:
             self.reload()
             self.config_changed.emit()
 
@@ -203,11 +213,14 @@ class BswInstancesTab(QWidget):
         )
         if changed:
             self.config_changed.emit()
-        QMessageBox.information(
-            self,
-            "BSW 实例同步",
-            f"新增实例 {summary.added_instances} 个，补齐临界区 {summary.added_exclusive_areas} 项，清理未加载实例 {summary.removed_instances} 个。",
+        msg = (
+            f"新增实例 {summary.added_instances} 个，"
+            f"补齐临界区 {summary.added_exclusive_areas} 项，"
+            f"清理未加载实例 {summary.removed_instances} 个。"
         )
+        if summary.skipped_locked:
+            msg += f"\n\n跳过受 Pre 锁保护项：{len(summary.skipped_locked)} 处。"
+        QMessageBox.information(self, "BSW 实例同步", msg)
 
 
 class GeneratePreviewTab(QWidget):
@@ -225,15 +238,22 @@ class GeneratePreviewTab(QWidget):
 
         outer = QVBoxLayout(self)
 
-        # Global settings group
-        settings_box = QGroupBox("RteGeneration / RteBswGeneral 全局配置")
-        grid = QGridLayout(settings_box)
-
+        # Global settings split into Phase-1 active vs ECUC-only groups
+        phase1_box = QGroupBox("阶段 1 生效开关（实时影响 Rte_Main.h 生成结果）")
+        phase1_row = QHBoxLayout(phase1_box)
         self.chk_multi_core = QCheckBox("RteEnableMultiCore (多核支持)")
+        self.chk_disable_init_mem = QCheckBox("RteDisableRteInitMemory (禁用 Rte_InitMemory)")
+        phase1_row.addWidget(self.chk_multi_core)
+        phase1_row.addWidget(self.chk_disable_init_mem)
+        phase1_row.addStretch()
+        outer.addWidget(phase1_box)
+
+        ecuc_box = QGroupBox("ECUC 预留参数（写入 Rte.arxml，供后续阶段 2/3 或外部生成器使用，不改变阶段 1 预览）")
+        grid = QGridLayout(ecuc_box)
+
         self.chk_mem_prot = QCheckBox("RteEnableMemoryProtection (内存保护)")
         self.chk_det = QCheckBox("RteDevErrorDetect (DET 开发错误检测)")
         self.chk_det_uninit = QCheckBox("RteDevErrorDetectUninit (未初始化检测)")
-        self.chk_disable_init_mem = QCheckBox("RteDisableRteInitMemory (禁用 Rte_InitMemory)")
         self.chk_vfb_trace = QCheckBox("RteVfbTraceEnabled (VFB 跟踪)")
         self.chk_schm_version_info = QCheckBox("RteSchMVersionInfoApi (SchM 版本查询 API)")
 
@@ -245,38 +265,40 @@ class GeneratePreviewTab(QWidget):
         for mode in OPTIMIZATION_MODES:
             self.combo_opt_mode.addItem(mode, mode)
 
-        grid.addWidget(self.chk_multi_core, 0, 0)
-        grid.addWidget(self.chk_mem_prot, 0, 1)
-        grid.addWidget(self.chk_det, 0, 2)
-        grid.addWidget(self.chk_det_uninit, 1, 0)
-        grid.addWidget(self.chk_disable_init_mem, 1, 1)
-        grid.addWidget(self.chk_vfb_trace, 1, 2)
-        grid.addWidget(self.chk_schm_version_info, 2, 0)
+        grid.addWidget(self.chk_mem_prot, 0, 0)
+        grid.addWidget(self.chk_det, 0, 1)
+        grid.addWidget(self.chk_det_uninit, 0, 2)
+        grid.addWidget(self.chk_vfb_trace, 1, 0)
+        grid.addWidget(self.chk_schm_version_info, 1, 1)
 
         mode_row = QHBoxLayout()
         mode_row.addWidget(QLabel("RteGenerationMode："))
         mode_row.addWidget(self.combo_gen_mode)
-        grid.addLayout(mode_row, 2, 1)
+        grid.addLayout(mode_row, 2, 0)
 
         opt_row = QHBoxLayout()
         opt_row.addWidget(QLabel("RteOptimizationMode："))
         opt_row.addWidget(self.combo_opt_mode)
-        grid.addLayout(opt_row, 2, 2)
+        grid.addLayout(opt_row, 2, 1)
 
+        for chk in (self.chk_multi_core, self.chk_disable_init_mem):
+            chk.stateChanged.connect(lambda _s=None: self._on_setting_edited(affect_phase1=True))
         for chk in (
-            self.chk_multi_core,
             self.chk_mem_prot,
             self.chk_det,
             self.chk_det_uninit,
-            self.chk_disable_init_mem,
             self.chk_vfb_trace,
             self.chk_schm_version_info,
         ):
-            chk.stateChanged.connect(self._on_setting_edited)
-        self.combo_gen_mode.currentIndexChanged.connect(self._on_setting_edited)
-        self.combo_opt_mode.currentIndexChanged.connect(self._on_setting_edited)
+            chk.stateChanged.connect(lambda _s=None: self._on_setting_edited(affect_phase1=False))
+        self.combo_gen_mode.currentIndexChanged.connect(
+            lambda _i=None: self._on_setting_edited(affect_phase1=False)
+        )
+        self.combo_opt_mode.currentIndexChanged.connect(
+            lambda _i=None: self._on_setting_edited(affect_phase1=False)
+        )
 
-        outer.addWidget(settings_box)
+        outer.addWidget(ecuc_box)
 
         # Output options & action bar
         gen_bar = QHBoxLayout()
@@ -401,11 +423,21 @@ class GeneratePreviewTab(QWidget):
             optimization_mode=self.combo_opt_mode.currentData() or self.combo_opt_mode.currentText(),
         )
 
-    def _on_setting_edited(self) -> None:
+    def _on_setting_edited(self, *, affect_phase1: bool = True) -> None:
         if self._reloading:
             return
-        self.service.update_rte_generation_settings(self._collect_settings())
-        self.refresh_preview()
+        try:
+            self.service.update_rte_generation_settings(self._collect_settings())
+        except PreLockedError as exc:
+            QMessageBox.warning(
+                self,
+                "受基线 Pre 锁保护",
+                f"无法修改全局配置参数：\n{exc}\n\n请先在主界面属性面板中解锁对应 Pre 项。",
+            )
+            self._load_settings()
+            return
+        if affect_phase1:
+            self.refresh_preview()
         self.config_changed.emit()
 
     def _effective_output_root(self) -> Path:
@@ -539,6 +571,9 @@ class RteSchmWorkbench(QDialog):
         super().__init__(parent)
         self.project = project
         self.service = RteWorkbenchService(project)
+        self.initial_snapshot = self.service.capture_snapshot()
+        self.has_edits = False
+        self._dirty_tabs = set()
 
         self.setWindowTitle("RTE / SchM 配置与生成工作台")
         self.resize(1180, 760)
@@ -549,6 +584,19 @@ class RteSchmWorkbench(QDialog):
         proj_name = getattr(project, "name", "Project")
         self.header_summary_label = QLabel(f"工程：{proj_name}")
         header.addWidget(self.header_summary_label, 1)
+
+        active_var = getattr(project, "active_variant", None)
+        self.variant_notice_label = QLabel()
+        self.variant_notice_label.setStyleSheet("color: #a65e00; font-weight: bold;")
+        if active_var and active_var != "Default":
+            self.variant_notice_label.setText(f"当前变体：{active_var}（工作台修改作用于基础层）")
+        else:
+            self.variant_notice_label.hide()
+        header.addWidget(self.variant_notice_label)
+
+        self.reload_ib_btn = QPushButton("重新扫描 IB")
+        self.reload_ib_btn.clicked.connect(lambda: self.reload_all(rescan_ib=True))
+        header.addWidget(self.reload_ib_btn)
         root.addLayout(header)
 
         self.tabs = QTabWidget()
@@ -561,13 +609,23 @@ class RteSchmWorkbench(QDialog):
         self.tabs.addTab(self.ea_tab, "2. 临界区矩阵 (SchM)")
         self.tabs.addTab(self.task_tab, "3. Task 调度映射")
         self.tabs.addTab(self.generate_tab, "4. 全局开关与生成预览")
+        self.tabs.currentChanged.connect(self._on_current_tab_changed)
         root.addWidget(self.tabs, 1)
 
         bottom = QHBoxLayout()
+        self.revert_btn = QPushButton("恢复打开前状态")
+        self.revert_btn.setEnabled(False)
+        self.revert_btn.clicked.connect(self._on_revert)
+        bottom.addWidget(self.revert_btn)
         bottom.addStretch()
-        self.close_btn = QPushButton("关闭")
-        self.close_btn.clicked.connect(self.accept)
-        bottom.addWidget(self.close_btn)
+        self.cancel_btn = QPushButton("取消")
+        self.cancel_btn.clicked.connect(self.reject)
+        bottom.addWidget(self.cancel_btn)
+        self.ok_btn = QPushButton("确定")
+        self.ok_btn.setDefault(True)
+        self.ok_btn.clicked.connect(self.accept)
+        bottom.addWidget(self.ok_btn)
+        self.close_btn = self.ok_btn
         root.addLayout(bottom)
 
         self.modules_tab.config_changed.connect(lambda: self._on_tab_config_changed(self.modules_tab))
@@ -578,17 +636,60 @@ class RteSchmWorkbench(QDialog):
 
         self._update_header_summary()
 
+    def reload_all(self, *, rescan_ib: bool = False) -> None:
+        if rescan_ib:
+            self.service.reload_ib_index()
+        self._dirty_tabs.clear()
+        self.modules_tab.reload()
+        self.ea_tab.reload()
+        self.task_tab.reload()
+        self.generate_tab.reload()
+        self._update_header_summary()
+
+    def _on_current_tab_changed(self, _index: int) -> None:
+        cur = self.tabs.currentWidget()
+        if cur in self._dirty_tabs:
+            self._dirty_tabs.discard(cur)
+            if cur is self.generate_tab:
+                cur.refresh_preview()
+            elif hasattr(cur, "reload"):
+                cur.reload()
+
     def _on_tab_config_changed(self, source: QWidget) -> None:
-        if source is not self.modules_tab:
-            self.modules_tab.reload()
-        if source is not self.ea_tab:
+        self.has_edits = True
+        self.revert_btn.setEnabled(True)
+
+        if source is self.modules_tab:
             self.ea_tab.reload()
-        if source is not self.task_tab:
-            self.task_tab.reload()
-        if source is not self.generate_tab:
-            self.generate_tab.reload()
+            if self.tabs.currentWidget() is self.task_tab:
+                self.task_tab.reload()
+            else:
+                self._dirty_tabs.add(self.task_tab)
+            self.generate_tab.refresh_preview()
+        elif source is self.ea_tab:
+            self.modules_tab.reload()
+            self.generate_tab.refresh_preview()
+        elif source is self.task_tab:
+            self.modules_tab.reload()
+            self._dirty_tabs.add(self.generate_tab)
+        elif source is self.generate_tab:
+            pass
+
         self._update_header_summary()
         self.config_changed.emit()
+
+    def _on_revert(self) -> None:
+        if self.initial_snapshot is not None:
+            self.service.restore_snapshot(self.initial_snapshot)
+        self.has_edits = False
+        self.revert_btn.setEnabled(False)
+        self.reload_all(rescan_ib=False)
+
+    def reject(self) -> None:
+        if self.has_edits and self.initial_snapshot is not None:
+            self.service.restore_snapshot(self.initial_snapshot)
+            self.has_edits = False
+        super().reject()
 
     def _update_header_summary(self) -> None:
         proj_name = getattr(self.project, "name", "Project")

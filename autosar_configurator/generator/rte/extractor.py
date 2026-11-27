@@ -79,7 +79,12 @@ class RteModelExtractor:
     """Synthesizes Phase 1 RTE/SchM generation IR from a :class:`WorkspaceProject`."""
 
     @classmethod
-    def extract(cls, project: Any) -> Tuple[Optional[RteProjectModel], RteGenerationReport]:
+    def extract(
+        cls,
+        project: Any,
+        *,
+        ib_index: Optional[BswIbIndex] = None,
+    ) -> Tuple[Optional[RteProjectModel], RteGenerationReport]:
         """Extract :class:`RteProjectModel` and diagnostics from ``project``."""
         report = RteGenerationReport()
         if project is None:
@@ -94,7 +99,7 @@ class RteModelExtractor:
 
         meta = cls._extract_rte_meta(project, rte_mgr.configuration)
         os_cores, os_apps = cls._extract_os_entities(managers.get("Os"))
-        ib_index = cls._load_ib_index(project)
+        resolved_ib = ib_index if ib_index is not None else cls._load_ib_index(project)
         memmap_mods = cls._collect_memmap_modules(managers.get("MemMap"))
 
         bsw_modules: List[BswModuleSchmModel] = []
@@ -120,7 +125,7 @@ class RteModelExtractor:
                 project=project,
                 container=container,
                 target_mod=target_mod,
-                ib_index=ib_index,
+                ib_index=resolved_ib,
                 memmap_mods=memmap_mods,
                 report=report,
             )

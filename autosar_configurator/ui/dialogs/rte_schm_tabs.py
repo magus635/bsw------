@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ...core.config_manager import PreLockedError
 from ...generator.rte.workbench_service import (
     EA_MECHANISMS,
     ExclusiveAreaRow,
@@ -142,6 +143,9 @@ class ExclusiveAreasTab(QWidget):
         self._reloading = True
         try:
             self._rows = self.service.list_exclusive_area_rows()
+            self._row_by_key: Dict[Tuple[str, str], ExclusiveAreaRow] = {
+                (r.instance_name, r.ea_name): r for r in self._rows
+            }
             os_resources = self.service.list_os_resources()
             os_spinlocks = self.service.list_os_spinlocks()
             self._os_resources = os_resources
@@ -202,16 +206,74 @@ class ExclusiveAreasTab(QWidget):
             filtered.append(row)
         return filtered
 
-    def _populate_table(self) -> None:
-        scroll_val = self.table.verticalScrollBar().value()
-        filtered = self._filtered_rows()
-        self.table.setRowCount(len(filtered))
-
+    def _refresh_summary_label(self) -> None:
         err_count = sum(1 for r in self._rows if r.validation_error)
         unconf_count = sum(1 for r in self._rows if not r.configured)
         self.summary_label.setText(
             f"共 {len(self._rows)} 项 | 未同步 {unconf_count} | 错误 {err_count}"
         )
+
+    @staticmethod
+    def _apply_gen_checkbox_rule(gen_chk: QCheckBox, mechanism: str, generate_function: bool) -> None:
+        if mechanism == "CUSTOM":
+            gen_chk.setChecked(True)
+            gen_chk.setEnabled(False)
+            gen_chk.setToolTip("CUSTOM 机制始终生成函数声明")
+        else:
+            gen_chk.setEnabled(True)
+            gen_chk.setToolTip("")
+            gen_chk.setChecked(bool(generate_function))
+
+    def _find_table_row_by_key(self, inst_name: str, ea_name: str) -> Optional[int]:
+        for r in range(self.table.rowCount()):
+            item = self.table.item(r, 0)
+            if item is not None:
+                data = item.data(Qt.UserRole)
+                if data and (data[0], data[1]) == (inst_name, ea_name):
+                    return r
+        return None
+
+    def _apply_row_visuals(
+        self,
+        r_idx: int,
+        row: ExclusiveAreaRow,
+        mech_combo: QComboBox,
+        target_combo: QComboBox,
+        gen_chk: QCheckBox,
+        *,
+        rebuild_target: bool = True,
+    ) -> None:
+        src_item = QTableWidgetItem("ECUC" if row.configured else "仅 IB (待同步)")
+        if not row.configured:
+            src_item.setForeground(_WARN_COLOR)
+        self.table.setItem(r_idx, 3, src_item)
+
+        if mech_combo.findData(row.mechanism) < 0:
+            mech_combo.addItem(row.mechanism, row.mechanism)
+        mech_combo.setCurrentIndex(mech_combo.findData(row.mechanism))
+
+        if rebuild_target:
+            self._configure_target_combo(target_combo, row.mechanism, row.os_resource, row.os_spinlock)
+
+        self._apply_gen_checkbox_rule(gen_chk, row.mechanism, row.generate_function)
+
+        if row.validation_error:
+            st_item = QTableWidgetItem(row.validation_error)
+            st_item.setForeground(_ERROR_COLOR)
+        elif not row.configured:
+            st_item = QTableWidgetItem("将按 IB 默认生成")
+            st_item.setForeground(_WARN_COLOR)
+        else:
+            st_item = QTableWidgetItem("正常")
+            st_item.setForeground(_OK_COLOR)
+        self.table.setItem(r_idx, 7, st_item)
+
+    def _populate_table(self) -> None:
+        scroll_val = self.table.verticalScrollBar().value()
+        filtered = self._filtered_rows()
+        self.table.setRowCount(len(filtered))
+
+        self._refresh_summary_label()
 
         for r_idx, row in enumerate(filtered):
             mod_item = QTableWidgetItem(row.module_name)
@@ -220,36 +282,18 @@ class ExclusiveAreasTab(QWidget):
             self.table.setItem(r_idx, 1, QTableWidgetItem(row.api_name))
             self.table.setItem(r_idx, 2, QTableWidgetItem(row.ea_name))
 
-            src_item = QTableWidgetItem("ECUC" if row.configured else "仅 IB (待同步)")
-            if not row.configured:
-                src_item.setForeground(_WARN_COLOR)
-            self.table.setItem(r_idx, 3, src_item)
-
             mech_combo = QComboBox()
             for mech in EA_MECHANISMS:
                 mech_combo.addItem(mech, mech)
-            if row.mechanism not in EA_MECHANISMS:
-                mech_combo.addItem(row.mechanism, row.mechanism)
-            mech_combo.setCurrentIndex(mech_combo.findData(row.mechanism))
             self.table.setCellWidget(r_idx, 4, mech_combo)
 
             target_combo = QComboBox()
-            self._configure_target_combo(target_combo, row.mechanism, row.os_resource, row.os_spinlock)
             self.table.setCellWidget(r_idx, 5, target_combo)
 
             chk_wrapper, gen_chk = _centered_checkbox(row.generate_function)
             self.table.setCellWidget(r_idx, 6, chk_wrapper)
 
-            if row.validation_error:
-                st_item = QTableWidgetItem(row.validation_error)
-                st_item.setForeground(_ERROR_COLOR)
-            elif not row.configured:
-                st_item = QTableWidgetItem("将按 IB 默认生成")
-                st_item.setForeground(_WARN_COLOR)
-            else:
-                st_item = QTableWidgetItem("正常")
-                st_item.setForeground(_OK_COLOR)
-            self.table.setItem(r_idx, 7, st_item)
+            self._apply_row_visuals(r_idx, row, mech_combo, target_combo, gen_chk, rebuild_target=True)
 
             inst_name = row.instance_name
             ea_name = row.ea_name
@@ -258,22 +302,62 @@ class ExclusiveAreasTab(QWidget):
             def _commit(_val=None, i=inst_name, e=ea_name, ref=ea_ref, mc=mech_combo, tc=target_combo, gc=gen_chk):
                 if self._reloading:
                     return
+                prev_row = getattr(self, "_row_by_key", {}).get((i, e))
                 mech_val = mc.currentData() or mc.currentText()
                 tgt_val = tc.currentData() or ""
                 os_res = tgt_val if (mech_val == "OS_RESOURCE" and tgt_val) else None
                 os_spin = tgt_val if (mech_val == "OS_SPINLOCK" and tgt_val) else None
-                # When switching from non-OS mechanism into OS_RESOURCE/OS_SPINLOCK, pre-row target combo
-                # currently held "-"; preserve only if matching type, otherwise leave None until selected.
-                self.service.update_exclusive_area(
-                    i,
-                    e,
-                    mechanism=mech_val,
-                    os_resource=os_res,
-                    os_spinlock=os_spin,
-                    generate_function=gc.isChecked(),
-                    ea_ref=ref,
-                )
-                self.reload()
+                gen_fn_val = True if mech_val == "CUSTOM" else gc.isChecked()
+                try:
+                    self.service.update_exclusive_area(
+                        i,
+                        e,
+                        mechanism=mech_val,
+                        os_resource=os_res,
+                        os_spinlock=os_spin,
+                        generate_function=gen_fn_val,
+                        ea_ref=ref,
+                    )
+                except PreLockedError as exc:
+                    QMessageBox.warning(
+                        self,
+                        "受基线 Pre 锁保护",
+                        f"无法修改临界区 '{e}'：\n{exc}\n\n请先在主界面属性面板中解锁对应 Pre 项。",
+                    )
+                    if prev_row is not None:
+                        r_pos = self._find_table_row_by_key(i, e)
+                        if r_pos is not None:
+                            self._reloading = True
+                            try:
+                                self._apply_row_visuals(r_pos, prev_row, mc, tc, gc, rebuild_target=True)
+                            finally:
+                                self._reloading = False
+                    return
+
+                # Refresh backing row cache cleanly in-place without rebuilding whole table
+                self._rows = self.service.list_exclusive_area_rows()
+                self._row_by_key = {(r.instance_name, r.ea_name): r for r in self._rows}
+                new_row = self._row_by_key.get((i, e))
+                r_pos = self._find_table_row_by_key(i, e)
+                if new_row is not None and r_pos is not None:
+                    self._reloading = True
+                    try:
+                        same_target_domain = (
+                            prev_row is not None
+                            and (prev_row.mechanism in ("OS_RESOURCE", "OS_SPINLOCK") or new_row.mechanism in ("OS_RESOURCE", "OS_SPINLOCK"))
+                            and prev_row.mechanism == new_row.mechanism
+                        )
+                        self._apply_row_visuals(
+                            r_pos,
+                            new_row,
+                            mc,
+                            tc,
+                            gc,
+                            rebuild_target=not same_target_domain,
+                        )
+                        self._refresh_summary_label()
+                    finally:
+                        self._reloading = False
                 self.config_changed.emit()
 
             mech_combo.currentIndexChanged.connect(_commit)
@@ -315,15 +399,19 @@ class ExclusiveAreasTab(QWidget):
             combo.addItem("-", "")
 
     def _on_sync_missing(self) -> None:
-        count = self.service.sync_missing_exclusive_areas()
+        count, locked = self.service._sync_missing_exclusive_areas_detailed()
         self.reload()
         if count > 0:
             self.config_changed.emit()
-        QMessageBox.information(
-            self,
-            "同步临界区",
-            f"已创建 {count} 条缺失的 RteBswExclusiveAreaImpl 配置。" if count else "所有 IB 临界区均已同步到 Rte ECUC。",
-        )
+        if count:
+            msg = f"已创建 {count} 条缺失的 RteBswExclusiveAreaImpl 配置。"
+        elif locked:
+            msg = "未创建新配置（部分项受基线 Pre 锁保护已跳过）。"
+        else:
+            msg = "所有 IB 临界区均已同步到 Rte ECUC。"
+        if locked and count:
+            msg += f"\n跳过受 Pre 锁保护的项：{len(locked)} 处。"
+        QMessageBox.information(self, "同步临界区", msg)
 
     def _on_batch_apply(self) -> None:
         selected_rows = sorted({idx.row() for idx in self.table.selectedIndexes()})
@@ -341,14 +429,21 @@ class ExclusiveAreasTab(QWidget):
             return
         mech = self.batch_mech_combo.currentData() or self.batch_mech_combo.currentText()
         tgt = self.batch_target_combo.currentData() or None
-        self.service.batch_set_mechanism(
+        updated = self.service.batch_set_mechanism(
             targets,
             mech,
             os_resource=tgt if mech == "OS_RESOURCE" else None,
             os_spinlock=tgt if mech == "OS_SPINLOCK" else None,
         )
         self.reload()
-        self.config_changed.emit()
+        if updated > 0:
+            self.config_changed.emit()
+        if updated < len(targets):
+            QMessageBox.warning(
+                self,
+                "部分项受 Pre 锁保护",
+                f"已更新 {updated}/{len(targets)} 项；其余项受基线 Pre 锁保护未修改。",
+            )
 
 
 class TaskMappingTab(QWidget):
@@ -655,13 +750,18 @@ class TaskMappingTab(QWidget):
         if item is None:
             return
         ev_row: TaskEventMappingRow = item.data(Qt.UserRole)
-        self.service.map_event_to_task(
-            ev_row.instance_name,
-            ev_row.event_name,
-            task_name,
-            event_ref=ev_row.event_ref,
-            event_kind=ev_row.event_kind,
-        )
+        try:
+            self.service.map_event_to_task(
+                ev_row.instance_name,
+                ev_row.event_name,
+                task_name,
+                event_ref=ev_row.event_ref,
+                event_kind=ev_row.event_kind,
+            )
+        except PreLockedError as exc:
+            QMessageBox.warning(self, "受基线 Pre 锁保护", f"无法映射到 Task：\n{exc}")
+            self.reload()
+            return
         self.reload()
         self.config_changed.emit()
 
@@ -669,7 +769,15 @@ class TaskMappingTab(QWidget):
         row = self._selected_bsw_mapping()
         if row is None or not row.task_name:
             return
-        if self.service.move_event_in_task(row.task_name, row.instance_name, row.mapping_name, delta):
+        try:
+            moved = self.service.move_event_in_task(
+                row.task_name, row.instance_name, row.mapping_name, delta
+            )
+        except PreLockedError as exc:
+            QMessageBox.warning(self, "受基线 Pre 锁保护", f"无法调整调度顺序：\n{exc}")
+            self.reload()
+            return
+        if moved:
             self.reload()
             self.config_changed.emit()
 
@@ -688,14 +796,26 @@ class TaskMappingTab(QWidget):
         )
         if not ok:
             return
-        self.service.set_event_position(row.instance_name, row.mapping_name, new_pos)
-        self.reload()
-        self.config_changed.emit()
+        try:
+            changed = self.service.set_event_position(row.instance_name, row.mapping_name, new_pos)
+        except PreLockedError as exc:
+            QMessageBox.warning(self, "受基线 Pre 锁保护", f"无法修改调度序号：\n{exc}")
+            self.reload()
+            return
+        if changed:
+            self.reload()
+            self.config_changed.emit()
 
     def _on_unmap(self) -> None:
         row = self._selected_bsw_mapping()
         if row is None:
             return
-        if self.service.unmap_event(row.instance_name, row.mapping_name):
+        try:
+            changed = self.service.unmap_event(row.instance_name, row.mapping_name)
+        except PreLockedError as exc:
+            QMessageBox.warning(self, "受基线 Pre 锁保护", f"无法取消映射：\n{exc}")
+            self.reload()
+            return
+        if changed:
             self.reload()
             self.config_changed.emit()

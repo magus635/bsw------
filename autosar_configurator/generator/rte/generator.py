@@ -63,12 +63,13 @@ def run_rte_schm_pipeline(
     package_dir_name: Optional[str] = None,
     module_def: Any = None,
     configuration: Any = None,
+    ib_index: Optional[Any] = None,
 ) -> Tuple[bool, RteGenerationReport, str]:
     """Run Phase 1 model-driven RTE/SchM generation and optional ``templates/Rte/`` overlays."""
     from ..generator import CodeGenerator
 
     report = RteSchMGenerator(project, generate_type_stub=generate_type_stub).generate(
-        Path(output_dir), flat=flat, force=force
+        Path(output_dir), flat=flat, force=force, ib_index=ib_index
     )
     for w in report.warnings:
         logger.warning("[RteSchMGen] %s", w)
@@ -127,6 +128,7 @@ class RteSchMGenerator:
         *,
         flat: bool = False,
         force: bool = False,
+        ib_index: Optional[Any] = None,
     ) -> RteGenerationReport:
         """Extract models and emit Phase 1 headers into ``output_dir``.
 
@@ -135,8 +137,9 @@ class RteSchMGenerator:
             flat: When ``True``, emit directly under ``output_dir/include/``;
                 when ``False`` (`per-module`), emit under ``output_dir/Rte/include/``.
             force: Rewrite identical files on disk instead of skipping unchanged content.
+            ib_index: Optional pre-loaded :class:`BswIbIndex` to avoid rescanning ``system/``.
         """
-        model, report = RteModelExtractor.extract(self.project)
+        model, report = RteModelExtractor.extract(self.project, ib_index=ib_index)
         if model is None or not report.ok:
             return report
 
@@ -167,9 +170,10 @@ class RteSchMGenerator:
         flat: bool = False,
         overlay_root: Optional[Path] = None,
         package_dir_name: Optional[str] = None,
+        ib_index: Optional[Any] = None,
     ) -> Tuple[List[RtePreviewFile], RteGenerationReport]:
         """Compute non-mutating Phase 1 file previews and diagnostics against ``output_dir``."""
-        model, report = RteModelExtractor.extract(self.project)
+        model, report = RteModelExtractor.extract(self.project, ib_index=ib_index)
         if model is None:
             return [], report
 

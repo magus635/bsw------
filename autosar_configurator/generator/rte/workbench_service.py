@@ -1,11 +1,17 @@
 """Pure-Python domain service backing the 4-tab RTE / SchM Configuration Workbench."""
 
-from dataclasses import dataclass
+import copy
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from ...core import project_paths
-from ...core.model.configuration_model import EcucContainerValue
+from ...core.config_manager import PreLockedError
+from ...core.model.configuration_model import (
+    EcucContainerValue,
+    EcucParameterValue,
+    EcucReferenceValue,
+)
 from ...core.model.ecuc_paths import strip_ecuc_prefixes
 from .extractor import RteModelExtractor, _ar_leaf, _as_bool, _parse_int
 from .generator import (
@@ -110,12 +116,106 @@ class RteGenerationSettings:
 
 
 @dataclass
+class RteConfigSnapshot:
+    """Deep-cloned snapshot of ``Rte`` top-level containers and dirty flag."""
+
+    containers: List[EcucContainerValue]
+    is_modified: bool
+
+
+def _clone_param_value(param: EcucParameterValue) -> EcucParameterValue:
+    return EcucParameterValue(
+        definition_ref=param.definition_ref,
+        value=param.value[:] if isinstance(param.value, list) else param.value,
+        index=param.index,
+        dest_type=param.dest_type,
+        is_modified=param.is_modified,
+        last_modified=param.last_modified,
+    )
+
+
+def _clone_ref_value(ref: EcucReferenceValue) -> EcucReferenceValue:
+    return EcucReferenceValue(
+        definition_ref=ref.definition_ref,
+        value_ref=ref.value_ref,
+        dest_type=ref.dest_type,
+        value_ref_dest=ref.value_ref_dest,
+        context_element_refs=list(ref.context_element_refs),
+        is_instance_reference=ref.is_instance_reference,
+        index=ref.index,
+        is_modified=ref.is_modified,
+    )
+
+
+def _clone_container_tree(src: EcucContainerValue) -> EcucContainerValue:
+    """Clone an ``EcucContainerValue`` tree preserving ARXML metadata without runtime pointers."""
+    cloned = EcucContainerValue(
+        short_name=src.short_name,
+        definition_ref=src.definition_ref,
+        def_dest_type=src.def_dest_type,
+        index=src.index,
+        variant=src.variant,
+        uuid=src.uuid,
+        is_modified=src.is_modified,
+        last_modified=src.last_modified,
+        unknown_parameters=copy.deepcopy(src.unknown_parameters),
+    )
+    for pname, pval in src.parameter_values.items():
+        cloned.parameter_values[pname] = _clone_param_value(pval)
+    for pname, plist in src.multi_parameter_values.items():
+        cloned.multi_parameter_values[pname] = [_clone_param_value(p) for p in plist]
+    for rname, rval in src.reference_values.items():
+        cloned.reference_values[rname] = _clone_ref_value(rval)
+    for rname, rlist in src.multi_reference_values.items():
+        cloned.multi_reference_values[rname] = [_clone_ref_value(r) for r in rlist]
+    for sub in getattr(src, "sub_containers", []) or []:
+        cloned.add_sub_container(_clone_container_tree(sub))
+    cloned.is_modified = src.is_modified
+    cloned.last_modified = src.last_modified
+    return cloned
+
+
+def snapshot_rte_config(rte_cfg: Any) -> RteConfigSnapshot:
+    """Capture an isolated snapshot of ``rte_cfg`` containers and ``is_modified`` state."""
+    return RteConfigSnapshot(
+        containers=[_clone_container_tree(c) for c in getattr(rte_cfg, "containers", []) or []],
+        is_modified=bool(getattr(rte_cfg, "is_modified", False)),
+    )
+
+
+def restore_rte_config(
+    rte_cfg: Any,
+    snapshot: RteConfigSnapshot,
+    *,
+    project: Any = None,
+) -> None:
+    """Restore ``rte_cfg`` containers/registry to ``snapshot`` and refresh project references."""
+    if project is not None and hasattr(project, "unregister_container_references"):
+        for existing in list(getattr(rte_cfg, "containers", []) or []):
+            project.unregister_container_references(existing)
+    rte_cfg.containers.clear()
+    if hasattr(rte_cfg, "_instance_registry"):
+        rte_cfg._instance_registry.clear()
+    for snap_c in snapshot.containers:
+        rte_cfg.add_container(_clone_container_tree(snap_c))
+    rte_cfg.is_modified = snapshot.is_modified
+    if project is not None:
+        resolve_fn = getattr(project, "resolve_all_references", None)
+        if callable(resolve_fn):
+            resolve_fn(force=True)
+        build_fn = getattr(project, "build_reverse_reference_index", None)
+        if callable(build_fn):
+            build_fn()
+
+
+@dataclass
 class SyncSummary:
     """Result counts returned by :meth:`RteWorkbenchService.sync_bsw_instances`."""
 
     added_instances: int = 0
     added_exclusive_areas: int = 0
     removed_instances: int = 0
+    skipped_locked: List[str] = field(default_factory=list)
 
 
 class RteWorkbenchService:
@@ -163,6 +263,31 @@ class RteWorkbenchService:
         if self.project is not None and hasattr(self.project, "is_modified"):
             self.project.is_modified = True
 
+    def _check_editable(self, instance: Any, name: Optional[str] = None) -> None:
+        rte_mgr = self._rte_manager()
+        checker = getattr(rte_mgr, "check_editable", None) if rte_mgr is not None else None
+        if callable(checker):
+            checker(instance, name)
+
+    def _module_ref_prefix(self, module_name: str, container_name: Optional[str] = None) -> str:
+        proj_type = getattr(self.project, "project_type", None)
+        type_name = getattr(proj_type, "name", "")
+        if type_name == "EB_TRESOS":
+            return f"/{module_name}/{container_name}" if container_name else f"/{module_name}/{module_name}"
+        return f"/ActiveEcuC/{module_name}/{container_name}" if container_name else f"/ActiveEcuC/{module_name}"
+
+    def capture_snapshot(self) -> Optional[RteConfigSnapshot]:
+        rte_cfg = self._rte_cfg()
+        if rte_cfg is None:
+            return None
+        return snapshot_rte_config(rte_cfg)
+
+    def restore_snapshot(self, snapshot: Optional[RteConfigSnapshot]) -> None:
+        rte_cfg = self._rte_cfg()
+        if rte_cfg is None or snapshot is None:
+            return
+        restore_rte_config(rte_cfg, snapshot, project=self.project)
+
     def _set_param(
         self,
         container: EcucContainerValue,
@@ -170,6 +295,7 @@ class RteWorkbenchService:
         value: Any,
         dest_type: str,
     ) -> None:
+        self._check_editable(container, name)
         base = (container.definition_ref or self._base_def()).rstrip("/")
         container.set_parameter_value(name, value, f"{base}/{name}")
         pval = container.parameter_values[name]
@@ -185,6 +311,7 @@ class RteWorkbenchService:
         dest_type: str,
         value_ref_dest: str,
     ) -> None:
+        self._check_editable(container, name)
         base = (container.definition_ref or self._base_def()).rstrip("/")
         container.set_reference_value(
             name,
@@ -197,6 +324,7 @@ class RteWorkbenchService:
 
     def _remove_ref(self, container: EcucContainerValue, name: str) -> bool:
         if name in container.reference_values:
+            self._check_editable(container, name)
             del container.reference_values[name]
             container.mark_modified()
             self._mark_rte_modified()
@@ -247,6 +375,7 @@ class RteWorkbenchService:
             definition_ref=f"{self._base_def()}/{def_leaf}",
             def_dest_type="ECUC-PARAM-CONF-CONTAINER-DEF",
         )
+        self._check_editable(rte_cfg, None)
         rte_cfg.add_container(inst)
         self._mark_rte_modified()
         return inst
@@ -317,7 +446,7 @@ class RteWorkbenchService:
         if not self.has_rte_module():
             return []
         managers = self._managers()
-        ib_index = self.reload_ib_index()
+        ib_index = self._ib_index()
         memmap_mods = RteModelExtractor._collect_memmap_modules(managers.get("MemMap"))
 
         rows: List[BswInstanceRow] = []
@@ -446,30 +575,33 @@ class RteWorkbenchService:
             definition_ref=f"{self._base_def()}/RteBswModuleInstance",
             def_dest_type="ECUC-PARAM-CONF-CONTAINER-DEF",
         )
-        self._set_ref(
-            inst,
-            "RteBswModuleConfigurationRef",
-            f"/ActiveEcuC/{module_name}",
-            dest_type="ECUC-FOREIGN-REFERENCE-DEF",
-            value_ref_dest="ECUC-MODULE-CONFIGURATION-VALUES",
-        )
-        if impl_ref:
+        self._check_editable(rte_cfg, None)
+        rte_cfg.add_container(inst)
+        try:
             self._set_ref(
                 inst,
-                "RteBswImplementationRef",
-                str(impl_ref).strip(),
+                "RteBswModuleConfigurationRef",
+                self._module_ref_prefix(module_name),
                 dest_type="ECUC-FOREIGN-REFERENCE-DEF",
-                value_ref_dest="BSW-IMPLEMENTATION",
+                value_ref_dest="ECUC-MODULE-CONFIGURATION-VALUES",
             )
+            if impl_ref:
+                self._set_ref(
+                    inst,
+                    "RteBswImplementationRef",
+                    str(impl_ref).strip(),
+                    dest_type="ECUC-FOREIGN-REFERENCE-DEF",
+                    value_ref_dest="BSW-IMPLEMENTATION",
+                )
+            if populate_exclusive_areas and ib_data is not None:
+                path_by_ea = {ea_sn: ea_path for ea_path, ea_sn in ib_data.exclusive_area_paths.items()}
+                for ea_name in ib_data.exclusive_areas:
+                    self._create_exclusive_area_sub(inst, ea_name, ea_ref=path_by_ea.get(ea_name))
+        except PreLockedError:
+            rte_cfg.remove_container(inst)
+            raise
 
-        rte_cfg.add_container(inst)
         self._mark_rte_modified()
-
-        if populate_exclusive_areas and ib_data is not None:
-            path_by_ea = {ea_sn: ea_path for ea_path, ea_sn in ib_data.exclusive_area_paths.items()}
-            for ea_name in ib_data.exclusive_areas:
-                self._create_exclusive_area_sub(inst, ea_name, ea_ref=path_by_ea.get(ea_name))
-
         return inst
 
     def remove_bsw_instance(self, instance_name: str) -> bool:
@@ -480,6 +612,7 @@ class RteWorkbenchService:
         inst = self._find_bsw_instance(instance_name)
         if inst is None:
             return False
+        self._check_editable(inst, None)
         rte_cfg.remove_container(inst)
         rte_mgr = self._rte_manager()
         if rte_mgr is not None and getattr(rte_mgr, "project_context", None) is not None:
@@ -500,17 +633,28 @@ class RteWorkbenchService:
 
         if remove_unloaded:
             for row in rows:
-                if row.status == "unloaded" and self.remove_bsw_instance(row.instance_name):
-                    summary.removed_instances += 1
+                if row.status != "unloaded":
+                    continue
+                try:
+                    if self.remove_bsw_instance(row.instance_name):
+                        summary.removed_instances += 1
+                except PreLockedError as exc:
+                    summary.skipped_locked.append(str(exc))
 
         if add_missing_modules:
             for row in rows:
-                if row.status == "unregistered":
+                if row.status != "unregistered":
+                    continue
+                try:
                     self.add_bsw_instance(row.module_name, populate_exclusive_areas=False)
                     summary.added_instances += 1
+                except PreLockedError as exc:
+                    summary.skipped_locked.append(str(exc))
 
         if sync_exclusive_areas:
-            summary.added_exclusive_areas = self.sync_missing_exclusive_areas()
+            added_ea, locked_ea = self._sync_missing_exclusive_areas_detailed()
+            summary.added_exclusive_areas = added_ea
+            summary.skipped_locked.extend(locked_ea)
 
         return summary
 
@@ -555,27 +699,35 @@ class RteWorkbenchService:
         os_spinlock: Optional[str] = None,
         generate_function: bool = False,
     ) -> EcucContainerValue:
+        self._check_editable(inst, None)
         sub = EcucContainerValue(
             short_name=ea_name,
             definition_ref=f"{inst.definition_ref.rstrip('/')}/RteBswExclusiveAreaImpl",
             def_dest_type="ECUC-PARAM-CONF-CONTAINER-DEF",
         )
         inst.add_sub_container(sub)
-        if ea_ref:
-            self._set_ref(
+        try:
+            if ea_ref:
+                self._set_ref(
+                    sub,
+                    "RteBswExclusiveAreaRef",
+                    ea_ref,
+                    dest_type="ECUC-FOREIGN-REFERENCE-DEF",
+                    value_ref_dest="EXCLUSIVE-AREA",
+                )
+            self._apply_ea_fields(
                 sub,
-                "RteBswExclusiveAreaRef",
-                ea_ref,
-                dest_type="ECUC-FOREIGN-REFERENCE-DEF",
-                value_ref_dest="EXCLUSIVE-AREA",
+                mechanism=mechanism,
+                os_resource=os_resource,
+                os_spinlock=os_spinlock,
+                generate_function=generate_function,
             )
-        self._apply_ea_fields(
-            sub,
-            mechanism=mechanism,
-            os_resource=os_resource,
-            os_spinlock=os_spinlock,
-            generate_function=generate_function,
-        )
+        except PreLockedError:
+            inst.remove_sub_container(sub)
+            rte_cfg = self._rte_cfg()
+            if rte_cfg is not None:
+                rte_cfg._unregister_instance(sub)
+            raise
         return sub
 
     def _apply_ea_fields(
@@ -590,11 +742,12 @@ class RteWorkbenchService:
         mech = mechanism.strip()
         if mech not in EA_MECHANISMS:
             raise ValueError(f"不支持的临界区保护机制: {mech}")
+        effective_gen_fn = True if mech == "CUSTOM" else bool(generate_function)
         self._set_param(sub, "RteExclusiveAreaImplMechanism", mech, "ECUC-ENUMERATION-PARAM-DEF")
         self._set_param(
             sub,
             "RteExclusiveAreaGenerateFunction",
-            bool(generate_function),
+            effective_gen_fn,
             "ECUC-BOOLEAN-PARAM-DEF",
         )
         if mech == "OS_RESOURCE":
@@ -603,7 +756,7 @@ class RteWorkbenchService:
                 self._set_ref(
                     sub,
                     "RteBswExclusiveAreaOsResourceRef",
-                    f"/ActiveEcuC/Os/{os_resource}",
+                    self._module_ref_prefix("Os", os_resource),
                     dest_type="ECUC-REFERENCE-DEF",
                     value_ref_dest="ECUC-CONTAINER-VALUE",
                 )
@@ -615,7 +768,7 @@ class RteWorkbenchService:
                 self._set_ref(
                     sub,
                     "RteBswExclusiveAreaOsSpinlockRef",
-                    f"/ActiveEcuC/Os/{os_spinlock}",
+                    self._module_ref_prefix("Os", os_spinlock),
                     dest_type="ECUC-REFERENCE-DEF",
                     value_ref_dest="ECUC-CONTAINER-VALUE",
                 )
@@ -781,20 +934,28 @@ class RteWorkbenchService:
         )
         return target_sub
 
-    def sync_missing_exclusive_areas(self) -> int:
-        """Create default ``RteBswExclusiveAreaImpl`` entries for IB-only ExclusiveAreas."""
+    def _sync_missing_exclusive_areas_detailed(self) -> Tuple[int, List[str]]:
         created = 0
+        locked: List[str] = []
         for row in self.list_exclusive_area_rows():
             if row.configured:
                 continue
-            self.update_exclusive_area(
-                row.instance_name,
-                row.ea_name,
-                mechanism="ALL_INTERRUPT_BLOCKING",
-                generate_function=False,
-                ea_ref=row.ea_ref,
-            )
-            created += 1
+            try:
+                self.update_exclusive_area(
+                    row.instance_name,
+                    row.ea_name,
+                    mechanism="ALL_INTERRUPT_BLOCKING",
+                    generate_function=False,
+                    ea_ref=row.ea_ref,
+                )
+                created += 1
+            except PreLockedError as exc:
+                locked.append(str(exc))
+        return created, locked
+
+    def sync_missing_exclusive_areas(self) -> int:
+        """Create default ``RteBswExclusiveAreaImpl`` entries for IB-only ExclusiveAreas."""
+        created, _ = self._sync_missing_exclusive_areas_detailed()
         return created
 
     def batch_set_mechanism(
@@ -814,16 +975,19 @@ class RteWorkbenchService:
         for instance_name, ea_name in targets:
             prev = existing_map.get((instance_name, ea_name))
             gen_fn = prev.generate_function if (generate_function is None and prev is not None) else bool(generate_function)
-            self.update_exclusive_area(
-                instance_name,
-                ea_name,
-                mechanism=mechanism,
-                os_resource=os_resource if mechanism == "OS_RESOURCE" else None,
-                os_spinlock=os_spinlock if mechanism == "OS_SPINLOCK" else None,
-                generate_function=gen_fn,
-                ea_ref=prev.ea_ref if prev is not None else None,
-            )
-            updated += 1
+            try:
+                self.update_exclusive_area(
+                    instance_name,
+                    ea_name,
+                    mechanism=mechanism,
+                    os_resource=os_resource if mechanism == "OS_RESOURCE" else None,
+                    os_spinlock=os_spinlock if mechanism == "OS_SPINLOCK" else None,
+                    generate_function=gen_fn,
+                    ea_ref=prev.ea_ref if prev is not None else None,
+                )
+                updated += 1
+            except PreLockedError:
+                continue
         return updated
 
     # ------------------------------------------------------------------
@@ -1058,15 +1222,28 @@ class RteWorkbenchService:
             position = (max(existing_pos) + 1) if existing_pos else 0
 
         sub = self._find_mapping_sub(inst, event_name)
+        created_new = sub is None
         if sub is None:
+            self._check_editable(inst, None)
             sub = EcucContainerValue(
                 short_name=event_name,
                 definition_ref=f"{inst.definition_ref.rstrip('/')}/RteBswEventToTaskMapping",
                 def_dest_type="ECUC-PARAM-CONF-CONTAINER-DEF",
             )
             inst.add_sub_container(sub)
-            self._set_param(sub, "RteBswImmediateRestart", False, "ECUC-BOOLEAN-PARAM-DEF")
-            if event_ref:
+
+        try:
+            if created_new:
+                self._set_param(sub, "RteBswImmediateRestart", False, "ECUC-BOOLEAN-PARAM-DEF")
+                if event_ref:
+                    self._set_ref(
+                        sub,
+                        "RteBswEventRef",
+                        event_ref,
+                        dest_type="ECUC-FOREIGN-REFERENCE-DEF",
+                        value_ref_dest=event_kind or "BSW-TIMING-EVENT",
+                    )
+            elif event_ref and "RteBswEventRef" not in sub.reference_values:
                 self._set_ref(
                     sub,
                     "RteBswEventRef",
@@ -1074,23 +1251,22 @@ class RteWorkbenchService:
                     dest_type="ECUC-FOREIGN-REFERENCE-DEF",
                     value_ref_dest=event_kind or "BSW-TIMING-EVENT",
                 )
-        elif event_ref and "RteBswEventRef" not in sub.reference_values:
+
             self._set_ref(
                 sub,
-                "RteBswEventRef",
-                event_ref,
-                dest_type="ECUC-FOREIGN-REFERENCE-DEF",
-                value_ref_dest=event_kind or "BSW-TIMING-EVENT",
+                "RteBswMappedToTaskRef",
+                self._module_ref_prefix("Os", task_name),
+                dest_type="ECUC-REFERENCE-DEF",
+                value_ref_dest="ECUC-CONTAINER-VALUE",
             )
-
-        self._set_ref(
-            sub,
-            "RteBswMappedToTaskRef",
-            f"/ActiveEcuC/Os/{task_name}",
-            dest_type="ECUC-REFERENCE-DEF",
-            value_ref_dest="ECUC-CONTAINER-VALUE",
-        )
-        self._set_param(sub, "RteBswPositionInTask", int(position), "ECUC-INTEGER-PARAM-DEF")
+            self._set_param(sub, "RteBswPositionInTask", int(position), "ECUC-INTEGER-PARAM-DEF")
+        except PreLockedError:
+            if created_new:
+                inst.remove_sub_container(sub)
+                rte_cfg = self._rte_cfg()
+                if rte_cfg is not None:
+                    rte_cfg._unregister_instance(sub)
+            raise
         return sub
 
     def unmap_event(self, instance_name: str, mapping_name: str) -> bool:
@@ -1101,6 +1277,10 @@ class RteWorkbenchService:
         sub = self._find_mapping_sub(inst, mapping_name)
         if sub is None:
             return False
+        if "RteBswMappedToTaskRef" in sub.reference_values:
+            self._check_editable(sub, "RteBswMappedToTaskRef")
+        if "RteBswPositionInTask" in sub.parameter_values:
+            self._check_editable(sub, "RteBswPositionInTask")
         changed = self._remove_ref(sub, "RteBswMappedToTaskRef")
         if sub.remove_parameter_value("RteBswPositionInTask"):
             changed = True
@@ -1277,6 +1457,7 @@ class RteWorkbenchService:
             flat=is_flat,
             overlay_root=overlay_root if apply_overlay else None,
             package_dir_name=pkg_dir_name,
+            ib_index=self._ib_index(),
         )
 
     def run_generation(
@@ -1340,5 +1521,6 @@ class RteWorkbenchService:
             package_dir_name=pkg_dir_name,
             module_def=getattr(rte_mgr, "module_def", None) if rte_mgr else None,
             configuration=getattr(rte_mgr, "configuration", None) if rte_mgr else None,
+            ib_index=self._ib_index(),
         )
         return ok, report, detail

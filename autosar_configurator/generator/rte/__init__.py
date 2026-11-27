@@ -23,10 +23,13 @@ from .workbench_service import (
     GENERATION_MODES,
     OPTIMIZATION_MODES,
     OsTaskInfo,
+    RteConfigSnapshot,
     RteGenerationSettings,
     RteWorkbenchService,
     SyncSummary,
     TaskEventMappingRow,
+    restore_rte_config,
+    snapshot_rte_config,
 )
 
 __all__ = [
@@ -42,6 +45,7 @@ __all__ = [
     "GENERATION_MODES",
     "OPTIMIZATION_MODES",
     "OsTaskInfo",
+    "RteConfigSnapshot",
     "RteGenerationReport",
     "RteGenerationSettings",
     "RteMeta",
@@ -54,5 +58,7 @@ __all__ = [
     "SyncSummary",
     "TaskEventMappingRow",
     "has_project_overlay_templates",
+    "restore_rte_config",
     "run_rte_schm_pipeline",
+    "snapshot_rte_config",
 ]
