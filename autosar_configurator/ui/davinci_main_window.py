@@ -197,6 +197,7 @@ class DaVinciMainWindow(QMainWindow):
         self.tree_view.rename_instance_requested.connect(self.edit_controller.handle_rename_container)
         self.tree_view.view_references_requested.connect(self.nav_controller._show_reverse_references)
         self.tree_view.change_module_config_variant_requested.connect(self._on_tree_module_config_variant_requested)
+        self.tree_view.open_rte_workbench_requested.connect(self._launch_rte_schm_workbench)
         splitter.addWidget(self.tree_view)
         
         # Right: Config panel

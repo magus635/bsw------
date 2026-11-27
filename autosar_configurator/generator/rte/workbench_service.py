@@ -1,6 +1,8 @@
 """Pure-Python domain service backing the 4-tab RTE / SchM Configuration Workbench."""
 
 import copy
+import difflib
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
@@ -216,6 +218,52 @@ class SyncSummary:
     added_exclusive_areas: int = 0
     removed_instances: int = 0
     skipped_locked: List[str] = field(default_factory=list)
+
+
+def format_period_label(period_sec: Optional[float]) -> str:
+    """Format a timing period in seconds into a human-friendly ``ms`` / ``s`` label."""
+    if period_sec is None:
+        return "-"
+    if period_sec == 0:
+        return "0 s"
+    if period_sec < 1.0:
+        return f"{period_sec * 1000:g} ms"
+    return f"{period_sec:g} s"
+
+
+def compute_preview_diff(preview_file: RtePreviewFile) -> str:
+    """Compute a non-mutating unified diff against the existing file on disk."""
+    if preview_file.status == "unchanged":
+        return "/* 与磁盘现有文件完全一致，无差异 */\n"
+    if preview_file.status == "preserved":
+        return "/* 磁盘已存在既有桩文件，生成时将保留原文件不覆盖 */\n"
+
+    new_lines = preview_file.content.splitlines()
+    if preview_file.status == "new" or not preview_file.target_path.is_file():
+        diff_lines = list(
+            difflib.unified_diff(
+                [],
+                new_lines,
+                fromfile="/dev/null",
+                tofile=f"generated/{preview_file.filename}",
+                lineterm="",
+            )
+        )
+    else:
+        old_lines = preview_file.target_path.read_text(encoding="utf-8", errors="replace").splitlines()
+        diff_lines = list(
+            difflib.unified_diff(
+                old_lines,
+                new_lines,
+                fromfile=f"disk/{preview_file.filename}",
+                tofile=f"generated/{preview_file.filename}",
+                lineterm="",
+            )
+        )
+        if not diff_lines:
+            return "/* 与磁盘现有文件完全一致，无差异 */\n"
+
+    return ("\n".join(diff_lines) + "\n") if diff_lines else ""
 
 
 class RteWorkbenchService:
@@ -1335,6 +1383,141 @@ class RteWorkbenchService:
         for row, new_pos in zip(bsw_rows, positions):
             self.set_event_position(row.instance_name, row.mapping_name, new_pos)
         return True
+
+    def batch_map_events_to_task(
+        self,
+        events: List[TaskEventMappingRow],
+        task_name: str,
+    ) -> Tuple[int, List[str]]:
+        """Map multiple unmapped BSW events sequentially to ``task_name``, skipping Pre-locked items."""
+        mapped_count = 0
+        skipped_locked: List[str] = []
+        for ev in events:
+            try:
+                self.map_event_to_task(
+                    ev.instance_name,
+                    ev.event_name,
+                    task_name,
+                    event_ref=ev.event_ref,
+                    event_kind=ev.event_kind,
+                )
+                mapped_count += 1
+            except PreLockedError as exc:
+                skipped_locked.append(str(exc))
+        return mapped_count, skipped_locked
+
+    @staticmethod
+    def _period_task_patterns(period_sec: float) -> List[re.Pattern]:
+        def _tokens(val: float) -> List[str]:
+            rounded = round(val, 6)
+            base = (
+                f"{int(round(rounded))}"
+                if abs(rounded - round(rounded)) < 1e-6
+                else f"{rounded:g}"
+            )
+            toks = [base]
+            if "." in base:
+                toks.append(base.replace(".", "_"))
+            return [re.escape(t) for t in toks]
+
+        patterns: List[re.Pattern] = []
+        ms_tokens = _tokens(period_sec * 1000.0)
+        if period_sec < 1.0:
+            patterns.append(
+                re.compile(rf"(?<![0-9])(?:{'|'.join(ms_tokens)})\s*ms(?![a-z0-9])", re.IGNORECASE)
+            )
+        else:
+            s_tokens = _tokens(period_sec)
+            patterns.append(
+                re.compile(rf"(?<![0-9])(?:{'|'.join(s_tokens)})\s*s(?![a-z0-9])", re.IGNORECASE)
+            )
+            patterns.append(
+                re.compile(rf"(?<![0-9])(?:{'|'.join(ms_tokens)})\s*ms(?![a-z0-9])", re.IGNORECASE)
+            )
+        return patterns
+
+    def recommend_task_for_events(
+        self,
+        events: List[TaskEventMappingRow],
+        tasks: Optional[List[OsTaskInfo]] = None,
+        mapped_by_task: Optional[Dict[str, List[TaskEventMappingRow]]] = None,
+    ) -> Tuple[Optional[str], str]:
+        """Recommend a target ``OsTask`` for ``events`` based on period consistency and naming."""
+        if not events:
+            return None, "请选择一个或多个未映射 BSW 事件，再点击映射到目标 OsTask（支持 Ctrl/Shift 多选）"
+
+        if tasks is None:
+            tasks = self.list_os_tasks()
+        if mapped_by_task is None:
+            mapped_by_task, _ = self.list_task_mappings(include_swc=False)
+
+        valid_tasks = [t for t in tasks if not t.missing_in_os] or list(tasks)
+
+        distinct_periods: List[float] = []
+        seen_periods: Set[float] = set()
+        for ev in events:
+            if ev.period_sec is None:
+                continue
+            rounded = round(float(ev.period_sec), 9)
+            if rounded not in seen_periods:
+                seen_periods.add(rounded)
+                distinct_periods.append(rounded)
+        distinct_periods.sort()
+
+        if len(distinct_periods) > 1:
+            labels = [format_period_label(p) for p in distinct_periods]
+            return (
+                None,
+                f"提示：所选事件包含多种周期（{' / '.join(labels)}），建议按相同周期分批映射到对应 OsTask",
+            )
+
+        if len(distinct_periods) == 1:
+            p = distinct_periods[0]
+            p_label = format_period_label(p)
+            patterns = self._period_task_patterns(p)
+            name_matches = [
+                t for t in valid_tasks if any(pat.search(t.name) for pat in patterns)
+            ]
+            if name_matches:
+                best = sorted(
+                    name_matches,
+                    key=lambda t: (0 if ("bsw" in t.name.lower() or "schm" in t.name.lower()) else 1, t.name),
+                )[0]
+                return best.name, f"智能推荐：所选事件周期为 {p_label}，匹配任务名 {best.name}"
+
+            mapped_candidates: List[Tuple[int, int, str]] = []
+            for t in valid_tasks:
+                bsw_rows = [r for r in mapped_by_task.get(t.name, []) if not r.is_swc]
+                same_cnt = sum(
+                    1
+                    for r in bsw_rows
+                    if r.period_sec is not None and abs(round(float(r.period_sec), 9) - p) <= 1e-9
+                )
+                if same_cnt <= 0:
+                    continue
+                conflict_cnt = sum(
+                    1
+                    for r in bsw_rows
+                    if r.period_sec is not None and abs(round(float(r.period_sec), 9) - p) > 1e-9
+                )
+                mapped_candidates.append((0 if conflict_cnt == 0 else 1, -same_cnt, t.name))
+            if mapped_candidates:
+                best_task = sorted(mapped_candidates)[0][2]
+                return best_task, f"智能推荐：与同周期 ({p_label}) 已映射 BSW 事件同属 {best_task}"
+
+            return None, f"所选事件周期：{p_label}（未匹配到同名周期 Task，请手动选择目标 OsTask）"
+
+        bsw_tasks = [t for t in valid_tasks if "bsw" in t.name.lower()]
+        if bsw_tasks:
+            best = sorted(
+                bsw_tasks,
+                key=lambda t: (
+                    0 if any(k in t.name.lower() for k in ("init", "event", "async")) else 1,
+                    t.name,
+                ),
+            )[0]
+            return best.name, f"智能推荐：所选事件无固定周期，匹配 BSW 任务 {best.name}"
+        return None, "所选事件无固定周期，请按触发类型手动选择目标 OsTask"
 
     # ------------------------------------------------------------------
     # Tab 4: Global RteGeneration Settings, Live Preview & Generation

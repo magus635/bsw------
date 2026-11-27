@@ -35,6 +35,7 @@ class DaVinciTreeView(QTreeWidget):
     move_instance_requested = Signal(EcucContainerValue, object, int)  # instance, new_parent, new_index
     rename_instance_requested = Signal(EcucContainerValue, str)  # instance, new_name
     view_references_requested = Signal(EcucContainerValue)  # instance - show who references this container
+    open_rte_workbench_requested = Signal()  # open 4-tab RTE / SchM Workbench for Rte module
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1013,6 +1014,11 @@ class DaVinciTreeView(QTreeWidget):
             STANDARD_CONFIG_VARIANTS,
             normalize_config_variant,
         )
+
+        if module_name == "Rte" and self.project is not None:
+            rte_wb_action = menu.addAction("⚡ 打开 RTE / SchM 工作台...")
+            rte_wb_action.triggered.connect(lambda: self.open_rte_workbench_requested.emit())
+            menu.addSeparator()
 
         mgr = None
         if self.project and hasattr(self.project, "module_managers"):

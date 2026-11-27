@@ -597,3 +597,99 @@ def test_eb_tresos_prefix_and_snapshot_roundtrip_fidelity(tmp_path):
     assert restored_com.unknown_parameters["LegacyFlag"].value == "X"
     assert resolve_calls == [True]
     assert reverse_calls == [True]
+
+
+def test_p1_batch_map_events_period_recommendation_and_preview_diff(tmp_path):
+    from autosar_configurator.core.config_manager import PreLockedError
+    from autosar_configurator.core.model.configuration_model import EcucContainerValue
+    from autosar_configurator.generator.rte import OsTaskInfo, compute_preview_diff
+
+    project, proj_dir, _ = _build_synthetic_project(tmp_path)
+    svc = RteWorkbenchService(project)
+
+    _, unmapped = svc.list_task_mappings(include_swc=False)
+    com_rx = next(r for r in unmapped if r.module_name == "Com" and r.period_sec == pytest.approx(0.01))
+    com_tx = next(r for r in unmapped if r.module_name == "Com" and r.period_sec == pytest.approx(0.02))
+
+    # Empty selection & single-period recommendations
+    assert svc.recommend_task_for_events([])[0] is None
+    rec_10, msg_10 = svc.recommend_task_for_events([com_rx])
+    assert rec_10 == "OsTask_10ms"
+    assert "10 ms" in msg_10
+
+    rec_20, msg_20 = svc.recommend_task_for_events([com_tx])
+    assert rec_20 == "OsTask_20ms"
+    assert "20 ms" in msg_20
+
+    # Mixed periods warn user instead of recommending a single task
+    rec_mix, msg_mix = svc.recommend_task_for_events([com_rx, com_tx])
+    assert rec_mix is None
+    assert "多种周期" in msg_mix
+
+    # Fallback recommendation via existing same-period mapping when task name has no period token
+    custom_tasks = [OsTaskInfo(name="OsTask_Fast"), OsTaskInfo(name="OsTask_Slow")]
+    fallback_rec, fallback_msg = svc.recommend_task_for_events(
+        [com_rx],
+        tasks=custom_tasks,
+        mapped_by_task={"OsTask_Fast": [com_rx]},
+    )
+    assert fallback_rec == "OsTask_Fast"
+    assert "同周期" in fallback_msg
+
+    # Batch mapping respects PreLockedError and skips locked entries cleanly
+    def _lock_tx(instance, name=None):
+        if getattr(instance, "short_name", "") == "Com_MainFunctionTxTimingEvent0":
+            raise PreLockedError("P:/Rte/Rte/Com/Com_MainFunctionTxTimingEvent0")
+
+    project.module_managers["Rte"].check_editable = _lock_tx
+    mapped_cnt, skipped = svc.batch_map_events_to_task([com_rx, com_tx], "OsTask_10ms")
+    assert mapped_cnt == 1
+    assert len(skipped) == 1
+
+    # Restore editable check and batch-map remaining event cleanly
+    project.module_managers["Rte"].check_editable = lambda *_a, **_kw: None
+    svc2 = RteWorkbenchService(project)
+    _, unmapped2 = svc2.list_task_mappings(include_swc=False)
+    com_tx_rem = next(r for r in unmapped2 if r.event_name == "Com_MainFunctionTxTimingEvent0")
+    mapped_cnt2, skipped2 = svc2.batch_map_events_to_task([com_tx_rem], "OsTask_20ms")
+    assert mapped_cnt2 == 1
+    assert skipped2 == []
+
+    # Preview diff for new -> unchanged / preserved -> updated without touching disk on preview
+    gen_out = proj_dir / "gen"
+    previews_new, _ = svc2.preview_generation(output_dir=gen_out, flat=False)
+    schm_new = next(p for p in previews_new if p.filename == "SchM_Com.h")
+    assert schm_new.status == "new"
+    diff_new = compute_preview_diff(schm_new)
+    assert "--- /dev/null" in diff_new
+    assert "+++ generated/SchM_Com.h" in diff_new
+    assert "+#ifndef SCHM_COM_H" in diff_new
+    assert not schm_new.target_path.exists()
+
+    ok, _, _ = svc2.run_generation(output_dir=gen_out, flat=False)
+    assert ok is True
+
+    previews_clean, _ = svc2.preview_generation(output_dir=gen_out, flat=False)
+    schm_unchanged = next(p for p in previews_clean if p.filename == "SchM_Com.h")
+    assert schm_unchanged.status == "unchanged"
+    assert "无差异" in compute_preview_diff(schm_unchanged)
+    rte_type_stub = next(p for p in previews_clean if p.filename == "Rte_Type.h")
+    assert rte_type_stub.status == "preserved"
+    assert "保留原文件" in compute_preview_diff(rte_type_stub)
+
+    # Update RX EA mechanism and verify unified diff reflects the exact line change
+    svc2.update_exclusive_area(
+        "Com",
+        "COM_EXCLUSIVE_AREA_RX",
+        mechanism="OS_RESOURCE",
+        os_resource="OsResource_Can",
+    )
+    previews_upd, _ = svc2.preview_generation(output_dir=gen_out, flat=False)
+    schm_upd = next(p for p in previews_upd if p.filename == "SchM_Com.h")
+    assert schm_upd.status == "updated"
+    disk_before = schm_upd.target_path.read_text(encoding="utf-8")
+    diff_upd = compute_preview_diff(schm_upd)
+    assert "--- disk/SchM_Com.h" in diff_upd
+    assert "+++ generated/SchM_Com.h" in diff_upd
+    assert "GetResource(OsResource_Can)" in diff_upd
+    assert schm_upd.target_path.read_text(encoding="utf-8") == disk_before

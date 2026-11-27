@@ -41,6 +41,7 @@ USER_MANUAL_MD = """
 | 功能 | Windows/Linux | macOS | 菜单路径 |
 |------|---------------|-------|----------|
 | 代码生成 | Ctrl+G | Cmd+G | `Generate -> Generate Code` |
+| RTE / SchM 工作台 | - | - | `Generate -> RTE / SchM 工作台...` / `Tools -> RTE / SchM 工作台...` / 树右键 `Rte` |
 | 跨模块依赖分析 | - | - | `Analysis -> 🔍 分析跨模块依赖...` |
 | 跨模块依赖验证 | - | - | `Analysis -> ✅ 验证跨模块依赖...` |
 | 依赖关系图 | Ctrl+D | Cmd+D | `View -> Dependency Graph` / `Analysis` |
@@ -143,6 +144,15 @@ USER_MANUAL_MD = """
 *   **安全原则**: 生成器**不使用内置默认模板**。仅当项目模板目录 (`templates/<ModuleName>/`) 或用户配置的模板目录中存在对应模板时才执行代码生成。
 *   没有模板的模块会被安全跳过 (Skipped)，避免生成与目标硬件芯片不兼容的错误代码。
 *   全面支持 EB Tresos 模板引擎语法（`[!IF]`、`[!LOOP]`、`[!SELECT]`、`[!MACRO]` 等）及常用内置 XPath 函数（`node:value()`、`node:ref()`、`ecu:get()`、`num:inttohex()` 等）。
+
+### 6.3 RTE / SchM 图形化配置与生成工作台
+当工程已加载 `Rte` 模块时，可通过 `Generate -> RTE / SchM 工作台...`、`Tools -> RTE / SchM 工作台...` 或在左侧模块树右键 `Rte` 选择 **`⚡ 打开 RTE / SchM 工作台...`** 启动专用 4 页签工作台：
+*   **顶部健康检查快捷跳转条**：实时汇总未加载实例、未同步临界区、校验报错与未映射事件，支持一键跳转定位或直接补齐同步。
+*   **1. BSW 实例与同步**：对照 `RteBswModuleInstance`、已加载模块与 `system/*_ib_bswmd.arxml`，支持一键补齐与清理残留。
+*   **2. 临界区矩阵 (SchM)**：提供中英双语标签与悬停说明，支持就地与批量设置保护机制、`OsResource` / `OsSpinlock` 绑定及 `CUSTOM` 函数声明锁定。
+*   **3. Task 调度映射**：左侧展示含 `SWC (只读)` 上下文的 `OsTask` 执行顺序与周期汇总（混合周期标橙预警），右侧支持 `Ctrl`/`Shift` 多选批量映射与按周期智能推荐 `OsTask`。
+*   **4. 全局开关与生成预览**：明确区分“阶段 1 生效开关”与“ECUC 预留参数”，支持 C / Diff 语法高亮、`仅看差异 (Diff)` 对比，以及不重跑其余 BSW 的单独生成。
+*   **安全修改机制**：内置 **`使用说明 (?)`** 完整指南；修改前校验 Format 8 `PreLockedError` 基线锁，支持随时 **`恢复打开前状态`** / **`取消`** 回滚，点击 **`确定`** 后推入主窗口撤销栈（可用 `Ctrl+Z` / `Cmd+Z` 整批撤销）。
 
 ---
 

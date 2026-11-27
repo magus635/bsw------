@@ -30,6 +30,7 @@ from ...generator.rte.workbench_service import (
     ExclusiveAreaRow,
     RteWorkbenchService,
     TaskEventMappingRow,
+    format_period_label,
 )
 
 _ALL_MODULES = "全部模块"
@@ -37,6 +38,46 @@ _ERROR_COLOR = QColor("#b00020")
 _WARN_COLOR = QColor("#a65e00")
 _OK_COLOR = QColor("#1b7f37")
 _MUTED_COLOR = QColor("#666666")
+
+EA_MECHANISM_DISPLAY: Dict[str, Tuple[str, str]] = {
+    "ALL_INTERRUPT_BLOCKING": (
+        "ALL_INTERRUPT_BLOCKING（关全部中断·默认）",
+        "SuspendAllInterrupts / ResumeAllInterrupts：关闭全部中断（含 Cat1/Cat2），单核默认最安全",
+    ),
+    "OS_INTERRUPT_BLOCKING": (
+        "OS_INTERRUPT_BLOCKING（关 OS 中断）",
+        "SuspendOSInterrupts / ResumeOSInterrupts：仅关闭 Cat2 OS 中断，不阻塞高频 Cat1 中断",
+    ),
+    "OS_RESOURCE": (
+        "OS_RESOURCE（OS 资源锁）",
+        "GetResource / ReleaseResource：基于优先级天花板保护任务间并发，需选择 OsResource",
+    ),
+    "OS_SPINLOCK": (
+        "OS_SPINLOCK（多核自旋锁）",
+        "GetSpinlock / ReleaseSpinlock：用于多核间共享数据互斥，需选择 OsSpinlock",
+    ),
+    "COOPERATIVE_RUNNABLE_PLACEMENT": (
+        "COOPERATIVE_RUNNABLE_PLACEMENT（协作式无锁）",
+        "依赖协作式调度保证不并发，生成空宏 ((void)0)",
+    ),
+    "NONE": (
+        "NONE（无保护）",
+        "不加任何保护 ((void)0)，仅用于确认无并发访问的场景",
+    ),
+    "CUSTOM": (
+        "CUSTOM（自定义函数）",
+        "始终生成 SchM_Enter_*/Exit_* 函数声明，由集成工程师在外部 C 文件中手写锁实现",
+    ),
+}
+
+
+def _populate_mechanism_combo(combo: QComboBox) -> None:
+    for mech in EA_MECHANISMS:
+        label, tooltip = EA_MECHANISM_DISPLAY.get(mech, (mech, ""))
+        idx = combo.count()
+        combo.addItem(label, mech)
+        if tooltip:
+            combo.setItemData(idx, tooltip, Qt.ToolTipRole)
 
 
 def _centered_checkbox(checked: bool) -> Tuple[QWidget, QCheckBox]:
@@ -50,14 +91,7 @@ def _centered_checkbox(checked: bool) -> Tuple[QWidget, QCheckBox]:
     return container, checkbox
 
 
-def _format_period(period_sec: Optional[float]) -> str:
-    if period_sec is None:
-        return "-"
-    if period_sec == 0:
-        return "0 s"
-    if period_sec < 1.0:
-        return f"{period_sec * 1000:g} ms"
-    return f"{period_sec:g} s"
+_format_period = format_period_label
 
 
 class ExclusiveAreasTab(QWidget):
@@ -98,8 +132,8 @@ class ExclusiveAreasTab(QWidget):
         batch_bar = QHBoxLayout()
         batch_bar.addWidget(QLabel("选中行批量设置保护机制："))
         self.batch_mech_combo = QComboBox()
-        for mech in EA_MECHANISMS:
-            self.batch_mech_combo.addItem(mech, mech)
+        self.batch_mech_combo.setMinimumWidth(265)
+        _populate_mechanism_combo(self.batch_mech_combo)
         self.batch_mech_combo.currentIndexChanged.connect(self._sync_batch_target_combo)
         batch_bar.addWidget(self.batch_mech_combo)
 
@@ -133,7 +167,7 @@ class ExclusiveAreasTab(QWidget):
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.Interactive)
-        for col, width in enumerate((95, 145, 220, 95, 220, 175, 75, 190)):
+        for col, width in enumerate((95, 145, 220, 95, 275, 175, 75, 190)):
             self.table.setColumnWidth(col, width)
         outer.addWidget(self.table, 1)
 
@@ -167,6 +201,7 @@ class ExclusiveAreasTab(QWidget):
 
     def _sync_batch_target_combo(self) -> None:
         mech = self.batch_mech_combo.currentData() or self.batch_mech_combo.currentText()
+        self.batch_mech_combo.setToolTip(EA_MECHANISM_DISPLAY.get(mech, (mech, ""))[1])
         self.batch_target_combo.clear()
         if mech == "OS_RESOURCE":
             self.batch_target_combo.setEnabled(True)
@@ -251,6 +286,7 @@ class ExclusiveAreasTab(QWidget):
         if mech_combo.findData(row.mechanism) < 0:
             mech_combo.addItem(row.mechanism, row.mechanism)
         mech_combo.setCurrentIndex(mech_combo.findData(row.mechanism))
+        mech_combo.setToolTip(EA_MECHANISM_DISPLAY.get(row.mechanism, (row.mechanism, ""))[1])
 
         if rebuild_target:
             self._configure_target_combo(target_combo, row.mechanism, row.os_resource, row.os_spinlock)
@@ -283,8 +319,7 @@ class ExclusiveAreasTab(QWidget):
             self.table.setItem(r_idx, 2, QTableWidgetItem(row.ea_name))
 
             mech_combo = QComboBox()
-            for mech in EA_MECHANISMS:
-                mech_combo.addItem(mech, mech)
+            _populate_mechanism_combo(mech_combo)
             self.table.setCellWidget(r_idx, 4, mech_combo)
 
             target_combo = QComboBox()
@@ -457,6 +492,8 @@ class TaskMappingTab(QWidget):
         self._reloading = False
         self._mapped_by_task: Dict[str, List[TaskEventMappingRow]] = {}
         self._unmapped: List[TaskEventMappingRow] = []
+        self._recommended_task: Optional[str] = None
+        self._task_base_labels: Dict[str, str] = {}
 
         outer = QVBoxLayout(self)
 
@@ -534,7 +571,7 @@ class TaskMappingTab(QWidget):
         ])
         self.unmapped_table.verticalHeader().setVisible(False)
         self.unmapped_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.unmapped_table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.unmapped_table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.unmapped_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         u_header = self.unmapped_table.horizontalHeader()
         u_header.setSectionResizeMode(QHeaderView.Interactive)
@@ -555,6 +592,16 @@ class TaskMappingTab(QWidget):
         assign_bar.addWidget(self.map_btn)
         right_layout.addLayout(assign_bar)
 
+        rec_bar = QHBoxLayout()
+        self.period_hint_label = QLabel("请选择一个或多个未映射 BSW 事件（支持 Ctrl/Shift 多选）")
+        self.period_hint_label.setStyleSheet("color: gray;")
+        rec_bar.addWidget(self.period_hint_label, 1)
+        self.apply_rec_task_btn = QPushButton("切换到推荐 Task")
+        self.apply_rec_task_btn.hide()
+        self.apply_rec_task_btn.clicked.connect(self._on_apply_recommended_task)
+        rec_bar.addWidget(self.apply_rec_task_btn)
+        right_layout.addLayout(rec_bar)
+
         splitter.addWidget(right)
         splitter.setSizes([660, 480])
         outer.addWidget(splitter, 1)
@@ -572,10 +619,12 @@ class TaskMappingTab(QWidget):
 
             prev_task = self.target_task_combo.currentData()
             self.target_task_combo.clear()
+            self._task_base_labels.clear()
             for t in self._tasks:
                 label = f"{t.name} (prio={t.priority})" if t.priority is not None else t.name
                 if t.missing_in_os:
                     label = f"{t.name} [Os中未定义]"
+                self._task_base_labels[t.name] = label
                 self.target_task_combo.addItem(label, t.name)
             if prev_task:
                 idx = self.target_task_combo.findData(prev_task)
@@ -630,17 +679,40 @@ class TaskMappingTab(QWidget):
                 desc_parts.append("Os未定义")
             desc_parts.append(f"{len(task_rows)} 项")
 
+            bsw_periods: List[float] = []
+            seen_p: set = set()
+            for r in task_rows:
+                if r.is_swc or r.period_sec is None:
+                    continue
+                rp = round(float(r.period_sec), 9)
+                if rp not in seen_p:
+                    seen_p.add(rp)
+                    bsw_periods.append(rp)
+            bsw_periods.sort()
+            if len(bsw_periods) == 1:
+                task_period_text = _format_period(bsw_periods[0])
+            elif len(bsw_periods) > 1:
+                task_period_text = "混合: " + "/".join(_format_period(p) for p in bsw_periods)
+            else:
+                task_period_text = ""
+
             parent_item = QTreeWidgetItem([
                 task_info.name,
                 "",
                 ", ".join(desc_parts),
                 "",
-                "",
+                task_period_text,
                 "",
             ])
             parent_item.setData(0, Qt.UserRole, ("task", task_info.name))
             if task_info.missing_in_os:
                 parent_item.setForeground(0, _WARN_COLOR)
+            if len(bsw_periods) > 1:
+                parent_item.setForeground(4, _WARN_COLOR)
+                parent_item.setToolTip(
+                    4,
+                    "该 OsTask 下同时挂载了不同周期的 BSW 定时事件，请确认调度分频或拆分到独立 Task",
+                )
 
             for r in matching_children if query else task_rows:
                 child = QTreeWidgetItem([
@@ -736,34 +808,81 @@ class TaskMappingTab(QWidget):
         self.set_pos_btn.setEnabled(is_bsw)
         self.unmap_btn.setEnabled(is_bsw)
 
+    def _selected_unmapped_rows(self) -> List[TaskEventMappingRow]:
+        selected_rows = sorted({idx.row() for idx in self.unmapped_table.selectedIndexes()})
+        rows: List[TaskEventMappingRow] = []
+        for r_idx in selected_rows:
+            item = self.unmapped_table.item(r_idx, 0)
+            if item is not None:
+                ev_row = item.data(Qt.UserRole)
+                if ev_row is not None:
+                    rows.append(ev_row)
+        return rows
+
     def _update_map_button_state(self) -> None:
-        has_unmapped = self.unmapped_table.currentRow() >= 0
-        has_task = bool(self.target_task_combo.currentData())
-        self.map_btn.setEnabled(has_unmapped and has_task)
+        if self._reloading:
+            return
+        selected = self._selected_unmapped_rows()
+        cur_task = self.target_task_combo.currentData()
+        self.map_btn.setEnabled(bool(selected) and bool(cur_task))
+        self.map_btn.setText(
+            f"批量映射到选中 Task ({len(selected)} 项)"
+            if len(selected) > 1
+            else "映射到选中 Task"
+        )
+
+        rec_task, reason = self.service.recommend_task_for_events(
+            selected,
+            getattr(self, "_tasks", []),
+            self._mapped_by_task,
+        )
+        self._recommended_task = rec_task
+
+        for i in range(self.target_task_combo.count()):
+            name = self.target_task_combo.itemData(i)
+            base = self._task_base_labels.get(name, name or "")
+            self.target_task_combo.setItemText(
+                i, f"{base} ★ 推荐" if (rec_task and name == rec_task) else base
+            )
+
+        if rec_task and cur_task and rec_task != cur_task:
+            self.apply_rec_task_btn.setText(f"切换到推荐: {rec_task}")
+            self.apply_rec_task_btn.show()
+            self.period_hint_label.setStyleSheet("color: #a65e00;")
+            self.period_hint_label.setText(f"{reason}（当前目标：{cur_task}）")
+        else:
+            self.apply_rec_task_btn.hide()
+            if rec_task and rec_task == cur_task:
+                self.period_hint_label.setStyleSheet("color: #1b7f37;")
+            elif "多种周期" in reason or "未匹配" in reason:
+                self.period_hint_label.setStyleSheet("color: #a65e00;")
+            else:
+                self.period_hint_label.setStyleSheet("color: gray;")
+            self.period_hint_label.setText(reason)
+
+    def _on_apply_recommended_task(self) -> None:
+        if not self._recommended_task:
+            return
+        idx = self.target_task_combo.findData(self._recommended_task)
+        if idx >= 0:
+            self.target_task_combo.setCurrentIndex(idx)
 
     def _on_map_selected(self) -> None:
-        row_idx = self.unmapped_table.currentRow()
+        selected = self._selected_unmapped_rows()
         task_name = self.target_task_combo.currentData()
-        if row_idx < 0 or not task_name:
+        if not selected or not task_name:
             return
-        item = self.unmapped_table.item(row_idx, 0)
-        if item is None:
-            return
-        ev_row: TaskEventMappingRow = item.data(Qt.UserRole)
-        try:
-            self.service.map_event_to_task(
-                ev_row.instance_name,
-                ev_row.event_name,
-                task_name,
-                event_ref=ev_row.event_ref,
-                event_kind=ev_row.event_kind,
-            )
-        except PreLockedError as exc:
-            QMessageBox.warning(self, "受基线 Pre 锁保护", f"无法映射到 Task：\n{exc}")
+        mapped_cnt, skipped_locked = self.service.batch_map_events_to_task(selected, task_name)
+        if mapped_cnt > 0 or skipped_locked:
             self.reload()
-            return
-        self.reload()
-        self.config_changed.emit()
+        if mapped_cnt > 0:
+            self.config_changed.emit()
+        if skipped_locked:
+            QMessageBox.warning(
+                self,
+                "受基线 Pre 锁保护",
+                f"已映射 {mapped_cnt}/{len(selected)} 项；其余 {len(skipped_locked)} 项受基线 Pre 锁保护未修改。",
+            )
 
     def _on_move(self, delta: int) -> None:
         row = self._selected_bsw_mapping()

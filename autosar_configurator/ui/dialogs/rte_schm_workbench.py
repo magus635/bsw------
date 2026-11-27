@@ -1,17 +1,20 @@
 """4-tab RTE / SchM Configuration & Generation Workbench."""
 
 import logging
+import re
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from PySide6.QtCore import Qt, QUrl, Signal
-from PySide6.QtGui import QColor, QDesktopServices, QFont
+from PySide6.QtGui import QColor, QDesktopServices, QFont, QSyntaxHighlighter, QTextCharFormat
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCheckBox,
     QComboBox,
     QDialog,
+    QDialogButtonBox,
     QFileDialog,
+    QFrame,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -26,6 +29,7 @@ from PySide6.QtWidgets import (
     QTabWidget,
     QTableWidget,
     QTableWidgetItem,
+    QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
@@ -38,6 +42,7 @@ from ...generator.rte.workbench_service import (
     OPTIMIZATION_MODES,
     RteGenerationSettings,
     RteWorkbenchService,
+    compute_preview_diff,
 )
 from .rte_schm_tabs import (
     ExclusiveAreasTab,
@@ -62,6 +67,147 @@ _PREVIEW_STATUS_LABELS = {
     "preserved": ("保留桩文件", QColor("#7a5c00")),
     "overlay": ("工程覆盖层", QColor("#6a1b9a")),
 }
+
+_FALLBACK_GUIDE_MD = """# RTE / SchM 配置与生成工作台使用指南
+
+1. **页签 1（BSW 实例与同步）**：检查活跃、未加载与未注册 BSW 模块，勾选需要项后点击 **一键同步**。
+2. **页签 2（临界区矩阵）**：为各 ExclusiveArea 选择保护机制（初学者建议保持 `ALL_INTERRUPT_BLOCKING`），若选 `OS_RESOURCE` / `OS_SPINLOCK` 需同时选择目标 OS 对象。
+3. **页签 3（Task 调度映射）**：支持 `Ctrl`/`Shift` 多选未映射 BSW 事件并查看智能周期推荐，点击 **映射到选中 Task**，在左侧调整同 Task 内调度顺序。
+4. **页签 4（全局开关与生成预览）**：区分 **阶段 1 生效开关** 与 **ECUC 预留参数**，支持源码高亮与 **仅看差异 (Diff)** 预览，确认无红错后点击 **立即生成 RTE / SchM**。
+5. **保存与撤销**：点击 **确定** 会推入主窗口撤销栈（`Ctrl+Z` / `Cmd+Z`），点击 **取消** 或 **恢复打开前状态** 会一键回滚。
+"""
+
+
+class CAndDiffHighlighter(QSyntaxHighlighter):
+    """Lightweight C/AUTOSAR syntax highlighter with optional unified-diff highlighting mode."""
+
+    def __init__(self, document) -> None:
+        super().__init__(document)
+        self._diff_mode = False
+
+        self._diff_header_fmt = QTextCharFormat()
+        self._diff_header_fmt.setForeground(QColor("#555555"))
+        self._diff_header_fmt.setFontWeight(QFont.Bold)
+
+        self._diff_hunk_fmt = QTextCharFormat()
+        self._diff_hunk_fmt.setForeground(QColor("#6a1b9a"))
+        self._diff_hunk_fmt.setFontWeight(QFont.Bold)
+
+        self._diff_add_fmt = QTextCharFormat()
+        self._diff_add_fmt.setForeground(QColor("#1b7f37"))
+        self._diff_add_fmt.setBackground(QColor("#e8f5e9"))
+
+        self._diff_del_fmt = QTextCharFormat()
+        self._diff_del_fmt.setForeground(QColor("#b00020"))
+        self._diff_del_fmt.setBackground(QColor("#ffebee"))
+
+        pp_fmt = QTextCharFormat()
+        pp_fmt.setForeground(QColor("#7b1fa2"))
+        pp_fmt.setFontWeight(QFont.Bold)
+
+        kw_fmt = QTextCharFormat()
+        kw_fmt.setForeground(QColor("#1565c0"))
+        kw_fmt.setFontWeight(QFont.Bold)
+
+        str_fmt = QTextCharFormat()
+        str_fmt.setForeground(QColor("#a31515"))
+
+        num_fmt = QTextCharFormat()
+        num_fmt.setForeground(QColor("#098658"))
+
+        self._comment_fmt = QTextCharFormat()
+        self._comment_fmt.setForeground(QColor("#5c7a5c"))
+        self._comment_fmt.setFontItalic(True)
+
+        self._c_rules: List[Tuple[re.Pattern, QTextCharFormat]] = [
+            (
+                re.compile(
+                    r"^\s*#\s*(?:include|define|undef|ifdef|ifndef|if|elif|else|endif|error|pragma)\b"
+                ),
+                pp_fmt,
+            ),
+            (
+                re.compile(
+                    r"\b(?:void|const|extern|static|typedef|struct|enum|union|unsigned|signed|"
+                    r"int|char|short|long|return|if|else|while|for|FUNC|P2VAR|P2CONST|VAR|CONST|STATIC|INLINE)\b"
+                ),
+                kw_fmt,
+            ),
+            (re.compile(r'"[^"\n]*"'), str_fmt),
+            (re.compile(r"(?<=#include)\s*<[^>\n]+>"), str_fmt),
+            (re.compile(r"\b(?:0x[0-9A-Fa-f]+|[0-9]+[uUlL]*)\b"), num_fmt),
+            (re.compile(r"//[^\n]*"), self._comment_fmt),
+        ]
+        self._block_comment_start = re.compile(r"/\*")
+        self._block_comment_end = re.compile(r"\*/")
+
+    def set_diff_mode(self, enabled: bool) -> None:
+        if self._diff_mode != enabled:
+            self._diff_mode = enabled
+            self.rehighlight()
+
+    def highlightBlock(self, text: str) -> None:
+        if self._diff_mode:
+            self.setCurrentBlockState(0)
+            if text.startswith("+++") or text.startswith("---"):
+                self.setFormat(0, len(text), self._diff_header_fmt)
+            elif text.startswith("@@"):
+                self.setFormat(0, len(text), self._diff_hunk_fmt)
+            elif text.startswith("+"):
+                self.setFormat(0, len(text), self._diff_add_fmt)
+            elif text.startswith("-"):
+                self.setFormat(0, len(text), self._diff_del_fmt)
+            return
+
+        for pattern, fmt in self._c_rules:
+            for match in pattern.finditer(text):
+                self.setFormat(match.start(), match.end() - match.start(), fmt)
+
+        self.setCurrentBlockState(0)
+        start_idx = 0
+        if self.previousBlockState() != 1:
+            m = self._block_comment_start.search(text)
+            start_idx = m.start() if m else -1
+        while start_idx >= 0:
+            end_m = self._block_comment_end.search(text, start_idx + 2)
+            if end_m is not None:
+                comment_len = end_m.end() - start_idx
+                self.setFormat(start_idx, comment_len, self._comment_fmt)
+                next_m = self._block_comment_start.search(text, end_m.end())
+                start_idx = next_m.start() if next_m else -1
+            else:
+                self.setCurrentBlockState(1)
+                self.setFormat(start_idx, len(text) - start_idx, self._comment_fmt)
+                break
+
+
+class RteSchmGuideDialog(QDialog):
+    """Built-in documentation dialog rendering ``docs/RTE_SCHM_WORKBENCH_GUIDE.md``."""
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("RTE / SchM 工作台使用指南")
+        self.setMinimumSize(860, 640)
+
+        layout = QVBoxLayout(self)
+        self.browser = QTextBrowser()
+        self.browser.setOpenExternalLinks(True)
+        self.browser.setMarkdown(self._load_guide_markdown())
+        layout.addWidget(self.browser, 1)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Close)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+
+    @staticmethod
+    def _load_guide_markdown() -> str:
+        guide_path = Path(__file__).resolve().parents[3] / "docs" / "RTE_SCHM_WORKBENCH_GUIDE.md"
+        if guide_path.is_file():
+            try:
+                return guide_path.read_text(encoding="utf-8")
+            except OSError:
+                pass
+        return _FALLBACK_GUIDE_MD
 
 
 class BswInstancesTab(QWidget):
@@ -366,9 +512,15 @@ class GeneratePreviewTab(QWidget):
         right = QWidget()
         right_layout = QVBoxLayout(right)
         right_layout.setContentsMargins(0, 0, 0, 0)
+        preview_header = QHBoxLayout()
         self.preview_path_label = QLabel("请选择左侧文件预览生成内容")
         self.preview_path_label.setStyleSheet("color: gray;")
-        right_layout.addWidget(self.preview_path_label)
+        preview_header.addWidget(self.preview_path_label, 1)
+        self.chk_diff_mode = QCheckBox("仅看差异 (Diff)")
+        self.chk_diff_mode.setChecked(False)
+        self.chk_diff_mode.stateChanged.connect(self._on_diff_mode_toggled)
+        preview_header.addWidget(self.chk_diff_mode)
+        right_layout.addLayout(preview_header)
 
         self.preview_edit = QPlainTextEdit()
         self.preview_edit.setReadOnly(True)
@@ -376,6 +528,7 @@ class GeneratePreviewTab(QWidget):
         mono.setStyleHint(QFont.Monospace)
         mono.setPointSize(11)
         self.preview_edit.setFont(mono)
+        self.preview_highlighter = CAndDiffHighlighter(self.preview_edit.document())
         right_layout.addWidget(self.preview_edit, 1)
         splitter.addWidget(right)
 
@@ -509,12 +662,25 @@ class GeneratePreviewTab(QWidget):
         if r_idx >= 0:
             self._show_preview_row(r_idx)
 
+    def _on_diff_mode_toggled(self, _state=None) -> None:
+        r_idx = self.files_table.currentRow()
+        if 0 <= r_idx < len(self._preview_files):
+            self._show_preview_row(r_idx)
+        else:
+            self.preview_highlighter.set_diff_mode(self.chk_diff_mode.isChecked())
+
     def _show_preview_row(self, row_idx: int) -> None:
         if not (0 <= row_idx < len(self._preview_files)):
             return
         pf = self._preview_files[row_idx]
-        self.preview_path_label.setText(f"{pf.target_path} ({pf.status} / {pf.source})")
-        self.preview_edit.setPlainText(pf.content)
+        diff_mode = self.chk_diff_mode.isChecked()
+        self.preview_highlighter.set_diff_mode(diff_mode)
+        if diff_mode:
+            self.preview_path_label.setText(f"[Diff] {pf.target_path} ({pf.status} / {pf.source})")
+            self.preview_edit.setPlainText(compute_preview_diff(pf))
+        else:
+            self.preview_path_label.setText(f"{pf.target_path} ({pf.status} / {pf.source})")
+            self.preview_edit.setPlainText(pf.content)
 
     def _on_browse_dir(self) -> None:
         chosen = QFileDialog.getExistingDirectory(
@@ -599,6 +765,55 @@ class RteSchmWorkbench(QDialog):
         header.addWidget(self.reload_ib_btn)
         root.addLayout(header)
 
+        self.health_bar = QFrame()
+        self.health_bar.setStyleSheet(
+            "QFrame { background-color: #f6f8fa; border: 1px solid #d0d7de; border-radius: 4px; }"
+        )
+        hb_layout = QHBoxLayout(self.health_bar)
+        hb_layout.setContentsMargins(8, 4, 8, 4)
+        hb_layout.setSpacing(6)
+        hb_title = QLabel("健康检查：")
+        hb_title.setStyleSheet("font-weight: bold; border: none;")
+        hb_layout.addWidget(hb_title)
+
+        self.health_ok_label = QLabel("✅ 当前配置健康，可直接预览并生成头文件")
+        self.health_ok_label.setStyleSheet("color: #1b7f37; border: none;")
+        hb_layout.addWidget(self.health_ok_label)
+
+        self.btn_fix_ea_errors = QPushButton()
+        self.btn_fix_ea_errors.setStyleSheet(
+            "QPushButton { color: #b00020; background: #ffebee; border: 1px solid #f5c2c7; border-radius: 3px; padding: 2px 8px; }"
+        )
+        self.btn_fix_ea_errors.clicked.connect(self._jump_to_ea_issues)
+        hb_layout.addWidget(self.btn_fix_ea_errors)
+
+        self.btn_clean_unloaded = QPushButton()
+        self.btn_clean_unloaded.setStyleSheet(
+            "QPushButton { color: #8a4b00; background: #fff4e5; border: 1px solid #f5d09c; border-radius: 3px; padding: 2px 8px; }"
+        )
+        self.btn_clean_unloaded.clicked.connect(self._jump_to_unloaded_instances)
+        hb_layout.addWidget(self.btn_clean_unloaded)
+
+        self.btn_sync_missing_ea = QPushButton()
+        self.btn_sync_missing_ea.setStyleSheet(
+            "QPushButton { color: #8a4b00; background: #fff4e5; border: 1px solid #f5d09c; border-radius: 3px; padding: 2px 8px; }"
+        )
+        self.btn_sync_missing_ea.clicked.connect(self._quick_sync_missing_eas)
+        hb_layout.addWidget(self.btn_sync_missing_ea)
+
+        self.btn_assign_unmapped = QPushButton()
+        self.btn_assign_unmapped.setStyleSheet(
+            "QPushButton { color: #1f5fbf; background: #eef4ff; border: 1px solid #b6d0ff; border-radius: 3px; padding: 2px 8px; }"
+        )
+        self.btn_assign_unmapped.clicked.connect(self._jump_to_unmapped_events)
+        hb_layout.addWidget(self.btn_assign_unmapped)
+
+        hb_layout.addStretch()
+        self.btn_goto_generate = QPushButton("前往生成预览 →")
+        self.btn_goto_generate.clicked.connect(lambda: self.tabs.setCurrentWidget(self.generate_tab))
+        hb_layout.addWidget(self.btn_goto_generate)
+        root.addWidget(self.health_bar)
+
         self.tabs = QTabWidget()
         self.modules_tab = BswInstancesTab(self.service, self)
         self.ea_tab = ExclusiveAreasTab(self.service, self)
@@ -617,6 +832,9 @@ class RteSchmWorkbench(QDialog):
         self.revert_btn.setEnabled(False)
         self.revert_btn.clicked.connect(self._on_revert)
         bottom.addWidget(self.revert_btn)
+        self.help_btn = QPushButton("使用说明 (?)")
+        self.help_btn.clicked.connect(self._on_open_help)
+        bottom.addWidget(self.help_btn)
         bottom.addStretch()
         self.cancel_btn = QPushButton("取消")
         self.cancel_btn.clicked.connect(self.reject)
@@ -691,6 +909,32 @@ class RteSchmWorkbench(QDialog):
             self.has_edits = False
         super().reject()
 
+    def _on_open_help(self) -> None:
+        RteSchmGuideDialog(self).exec()
+
+    def _jump_to_ea_issues(self) -> None:
+        self.tabs.setCurrentWidget(self.ea_tab)
+        self.ea_tab.module_filter.setCurrentIndex(0)
+        self.ea_tab.search_edit.clear()
+        self.ea_tab.only_issues_check.setChecked(True)
+
+    def _jump_to_unloaded_instances(self) -> None:
+        self.tabs.setCurrentWidget(self.modules_tab)
+        for r_idx, row in enumerate(self.modules_tab._rows):
+            if row.status == "unloaded":
+                self.modules_tab.table.selectRow(r_idx)
+                break
+
+    def _quick_sync_missing_eas(self) -> None:
+        self.tabs.setCurrentWidget(self.ea_tab)
+        self.ea_tab._on_sync_missing()
+
+    def _jump_to_unmapped_events(self) -> None:
+        self.tabs.setCurrentWidget(self.task_tab)
+        self.task_tab.filter_edit.clear()
+        if self.task_tab.unmapped_table.rowCount() > 0:
+            self.task_tab.unmapped_table.selectRow(0)
+
     def _update_header_summary(self) -> None:
         proj_name = getattr(self.project, "name", "Project")
         rows = self.modules_tab._rows
@@ -698,6 +942,29 @@ class RteSchmWorkbench(QDialog):
         unloaded = sum(1 for r in rows if r.status == "unloaded")
         ea_rows = self.ea_tab._rows
         ea_err = sum(1 for r in ea_rows if r.validation_error)
+        ea_unconf = sum(1 for r in ea_rows if not r.configured)
+        if self.task_tab in self._dirty_tabs:
+            _, unmapped_rows = self.service.list_task_mappings(include_swc=False)
+            unmapped_cnt = len(unmapped_rows)
+        else:
+            unmapped_cnt = len(self.task_tab._unmapped)
+
         self.header_summary_label.setText(
             f"工程：{proj_name}  |  活跃 BSW 实例：{active}  |  未加载：{unloaded}  |  临界区：{len(ea_rows)}（错误 {ea_err}）"
         )
+
+        self.btn_fix_ea_errors.setText(f"❌ {ea_err} 个临界区报错 [去修复]")
+        self.btn_fix_ea_errors.setVisible(ea_err > 0)
+
+        self.btn_clean_unloaded.setText(f"⚠️ {unloaded} 个未加载实例 [去清理]")
+        self.btn_clean_unloaded.setVisible(unloaded > 0)
+
+        self.btn_sync_missing_ea.setText(f"⚠️ {ea_unconf} 个未同步临界区 [一键同步]")
+        self.btn_sync_missing_ea.setVisible(ea_unconf > 0)
+
+        self.btn_assign_unmapped.setText(f"ℹ️ {unmapped_cnt} 个未映射事件 [去分配]")
+        self.btn_assign_unmapped.setVisible(unmapped_cnt > 0)
+
+        all_healthy = (ea_err == 0 and unloaded == 0 and ea_unconf == 0 and unmapped_cnt == 0)
+        self.health_ok_label.setVisible(all_healthy)
+        self.btn_goto_generate.setVisible(ea_err == 0)

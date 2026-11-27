@@ -92,3 +92,25 @@ Tab 4 (`GeneratePreviewTab`) SHALL clearly separate Phase 1 active generation sw
 
 - **WHEN** the user changes an ExclusiveArea row's mechanism in Tab 2
 - **THEN** the `BswIbIndex` cache is reused without re-scanning `system/` XML files, existing row widgets are updated in place without rebuilding the full table, and selecting `CUSTOM` automatically checks and locks `生成函数` matching `render_schm_h()`'s function-declaration output
+
+### Requirement: Beginner Ergonomics, Diff Preview, Health-Check Navigation, and Main-Window Discovery
+
+The workbench and main window SHALL provide actionable health-check navigation, bilingual mechanism labels, multi-select task batch mapping with period-aware Task recommendations, unified diff preview with syntax highlighting, an in-app user guide dialog, and main-tree / F1 manual discovery entry points.
+
+#### Scenario: Top health-check bar navigates to actionable tabs
+
+- **WHEN** `Rte` has unloaded instances, unconfigured InternalBehavior ExclusiveAreas, ExclusiveArea validation errors, or unmapped BSW events
+- **THEN** the top health-check bar displays corresponding issue counts as action buttons that navigate directly to the relevant workbench tab and focus/filter or synchronize those items
+
+#### Scenario: Bilingual ExclusiveArea labels and multi-select period-aware task mapping
+
+- **WHEN** Tab 2 displays protection mechanism dropdowns
+- **THEN** each entry renders Chinese-English guidance labels and tooltips while storing canonical `RteExclusiveAreaImplMechanism` enum values in ECUC
+- **WHEN** the user selects multiple unmapped BSW events in Tab 3
+- **THEN** `recommend_task_for_events()` annotates matching `OsTask` items (`★ 推荐`) without silently changing the user's selected Task (offering an explicit switch button instead) and warns when mixed periods are selected or mapped to the same `OsTask`, and `batch_map_events_to_task()` assigns all unlocked events sequentially
+
+#### Scenario: Tab 4 Diff preview, built-in help guide, tree context menu, and F1 manual
+
+- **WHEN** the user toggles `仅看差异 (Diff)` on Tab 4
+- **THEN** the preview pane computes and highlights a non-mutating unified diff against disk for `new` and `updated` files
+- **AND** clicking `使用说明 (?)` opens `RteSchmGuideDialog` rendering the workbench guide, right-clicking `Rte` in `DaVinciTreeView` offers `⚡ 打开 RTE / SchM 工作台...`, and `UserManualDialog` documents the workbench features

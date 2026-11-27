@@ -28,6 +28,8 @@ from .workbench_service import (
     RteWorkbenchService,
     SyncSummary,
     TaskEventMappingRow,
+    compute_preview_diff,
+    format_period_label,
     restore_rte_config,
     snapshot_rte_config,
 )
@@ -57,6 +59,8 @@ __all__ = [
     "SchedulableEntityModel",
     "SyncSummary",
     "TaskEventMappingRow",
+    "compute_preview_diff",
+    "format_period_label",
     "has_project_overlay_templates",
     "restore_rte_config",
     "run_rte_schm_pipeline",

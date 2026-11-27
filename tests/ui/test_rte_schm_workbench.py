@@ -319,3 +319,192 @@ def test_workbench_cancel_revert_and_mainwindow_undo_redo_and_new_project(qtbot,
         }
         ProjectController(win2).new_project()
     assert win2.rte_workbench_action.isEnabled() is True
+
+
+def test_p1_health_bar_bilingual_mechanisms_batch_mapping_diff_and_help(qtbot, tmp_path):
+    from PySide6.QtCore import QItemSelectionModel
+    from PySide6.QtWidgets import QDialog
+    from autosar_configurator.ui.dialogs.rte_schm_workbench import RteSchmGuideDialog
+
+    project, _, _ = _build_synthetic_project(tmp_path)
+    wb = RteSchmWorkbench(project)
+    qtbot.addWidget(wb)
+
+    # 1. Top health bar exposes actionable issues initially
+    assert not wb.btn_clean_unloaded.isHidden()
+    assert not wb.btn_sync_missing_ea.isHidden()
+    assert not wb.btn_assign_unmapped.isHidden()
+    assert wb.btn_fix_ea_errors.isHidden()
+    assert wb.health_ok_label.isHidden()
+
+    # Click unloaded jump -> switches to Tab 1 and selects CanNm -> remove it
+    wb.btn_clean_unloaded.click()
+    assert wb.tabs.currentWidget() is wb.modules_tab
+    sel_mod = wb.modules_tab.table.item(wb.modules_tab.table.currentRow(), 0).text()
+    assert sel_mod == "CanNm"
+    wb.modules_tab.remove_btn.click()
+    assert wb.btn_clean_unloaded.isHidden()
+
+    # Click sync missing EAs -> syncs COM_EXCLUSIVE_AREA_TX and hides sync button
+    with patch("autosar_configurator.ui.dialogs.rte_schm_tabs.QMessageBox.information"):
+        wb.btn_sync_missing_ea.click()
+    assert wb.tabs.currentWidget() is wb.ea_tab
+    assert wb.btn_sync_missing_ea.isHidden()
+
+    # 2. Tab 2 bilingual labels preserve canonical enum in userData + health error jump
+    rx_row = next(
+        r
+        for r in range(wb.ea_tab.table.rowCount())
+        if wb.ea_tab.table.item(r, 2).text() == "COM_EXCLUSIVE_AREA_RX"
+    )
+    mech_combo = wb.ea_tab.table.cellWidget(rx_row, 4)
+    assert "关全部中断" in mech_combo.currentText()
+    assert mech_combo.currentData() == "ALL_INTERRUPT_BLOCKING"
+
+    mech_combo.setCurrentIndex(mech_combo.findData("OS_RESOURCE"))
+    assert not wb.btn_fix_ea_errors.isHidden()
+    assert wb.btn_goto_generate.isHidden()
+
+    wb.tabs.setCurrentWidget(wb.modules_tab)
+    wb.btn_fix_ea_errors.click()
+    assert wb.tabs.currentWidget() is wb.ea_tab
+    assert wb.ea_tab.only_issues_check.isChecked() is True
+    assert wb.ea_tab.table.rowCount() == 1
+    res_combo = wb.ea_tab.table.cellWidget(0, 5)
+    res_combo.setCurrentIndex(res_combo.findData("OsResource_Can"))
+    assert wb.btn_fix_ea_errors.isHidden()
+    assert not wb.btn_goto_generate.isHidden()
+    wb.ea_tab.only_issues_check.setChecked(False)
+
+    # 3. Tab 3 unmapped jump, period recommendation switch button, and multi-select batch mapping
+    wb.btn_assign_unmapped.click()
+    assert wb.tabs.currentWidget() is wb.task_tab
+    assert wb.task_tab.unmapped_table.rowCount() == 2
+
+    tx_row_idx = next(
+        r
+        for r in range(wb.task_tab.unmapped_table.rowCount())
+        if wb.task_tab.unmapped_table.item(r, 1).text() == "Com_MainFunctionTxTimingEvent0"
+    )
+    wb.task_tab.target_task_combo.setCurrentIndex(
+        wb.task_tab.target_task_combo.findData("OsTask_10ms")
+    )
+    wb.task_tab.unmapped_table.selectRow(tx_row_idx)
+    assert not wb.task_tab.apply_rec_task_btn.isHidden()
+    assert "OsTask_20ms" in wb.task_tab.apply_rec_task_btn.text()
+    wb.task_tab.apply_rec_task_btn.click()
+    assert wb.task_tab.target_task_combo.currentData() == "OsTask_20ms"
+
+    # Switch back to OsTask_10ms and select BOTH unmapped events to test batch mapping + mixed-period badge
+    wb.task_tab.target_task_combo.setCurrentIndex(
+        wb.task_tab.target_task_combo.findData("OsTask_10ms")
+    )
+    wb.task_tab.unmapped_table.selectAll()
+    assert "批量映射到选中 Task (2 项)" == wb.task_tab.map_btn.text()
+    wb.task_tab.map_btn.click()
+
+    assert wb.task_tab.unmapped_table.rowCount() == 0
+    assert wb.btn_assign_unmapped.isHidden()
+    assert not wb.health_ok_label.isHidden()
+
+    task_10_item = next(
+        wb.task_tab.mapped_tree.topLevelItem(i)
+        for i in range(wb.task_tab.mapped_tree.topLevelItemCount())
+        if wb.task_tab.mapped_tree.topLevelItem(i).text(0) == "OsTask_10ms"
+    )
+    assert "混合: 10 ms/20 ms" in task_10_item.text(4)
+
+    # 4. Tab 4 Diff toggle (new + updated) and C/Diff highlighter state
+    wb.btn_goto_generate.click()
+    assert wb.tabs.currentWidget() is wb.generate_tab
+    schm_row = next(
+        r
+        for r in range(wb.generate_tab.files_table.rowCount())
+        if wb.generate_tab.files_table.item(r, 0).text() == "SchM_Com.h"
+    )
+    wb.generate_tab.files_table.selectRow(schm_row)
+    wb.generate_tab.chk_diff_mode.setChecked(True)
+    assert wb.generate_tab.preview_highlighter._diff_mode is True
+    assert "--- /dev/null" in wb.generate_tab.preview_edit.toPlainText()
+
+    with patch("autosar_configurator.ui.dialogs.rte_schm_workbench.QMessageBox"):
+        wb.generate_tab.generate_btn.click()
+
+    # Edit EA in Tab 2 so SchM_Com.h becomes 'updated' and check unified diff against disk
+    wb.tabs.setCurrentWidget(wb.ea_tab)
+    tx_ea_row = next(
+        r
+        for r in range(wb.ea_tab.table.rowCount())
+        if wb.ea_tab.table.item(r, 2).text() == "COM_EXCLUSIVE_AREA_TX"
+    )
+    tx_combo = wb.ea_tab.table.cellWidget(tx_ea_row, 4)
+    tx_combo.setCurrentIndex(tx_combo.findData("NONE"))
+
+    wb.tabs.setCurrentWidget(wb.generate_tab)
+    schm_row2 = next(
+        r
+        for r in range(wb.generate_tab.files_table.rowCount())
+        if wb.generate_tab.files_table.item(r, 0).text() == "SchM_Com.h"
+    )
+    wb.generate_tab.files_table.selectRow(schm_row2)
+    diff_text = wb.generate_tab.preview_edit.toPlainText()
+    assert "--- disk/SchM_Com.h" in diff_text
+    assert "+++ generated/SchM_Com.h" in diff_text
+
+    # 5. Built-in guide dialog & help button
+    guide = RteSchmGuideDialog(wb)
+    qtbot.addWidget(guide)
+    assert "RTE / SchM" in guide.browser.toPlainText()
+    assert "健康检查" in guide.browser.toPlainText()
+    with patch("autosar_configurator.ui.dialogs.rte_schm_workbench.RteSchmGuideDialog.exec", return_value=QDialog.Accepted) as help_exec:
+        wb.help_btn.click()
+    assert help_exec.called
+
+
+def test_p1_tree_rte_context_menu_and_f1_manual(qtbot, tmp_path, monkeypatch):
+    from PySide6.QtWidgets import QMenu, QMessageBox
+    from autosar_configurator.ui.controllers.project_controller import ProjectController
+    from autosar_configurator.ui.davinci_main_window import DaVinciMainWindow
+    from autosar_configurator.ui.dialogs.user_manual_dialog import UserManualDialog
+    from autosar_configurator.ui.widgets.davinci_tree_view import DaVinciTreeView
+
+    project, _, _ = _build_synthetic_project(tmp_path)
+    tree = DaVinciTreeView()
+    qtbot.addWidget(tree)
+    tree.project = project
+
+    hits = []
+    tree.open_rte_workbench_requested.connect(lambda: hits.append(True))
+
+    menu_rte = QMenu()
+    tree._populate_module_menu(menu_rte, "Rte")
+    rte_actions = [a for a in menu_rte.actions() if "RTE / SchM 工作台" in a.text()]
+    assert len(rte_actions) == 1
+    rte_actions[0].trigger()
+    assert hits == [True]
+
+    menu_com = QMenu()
+    tree._populate_module_menu(menu_com, "Com")
+    com_actions = [a for a in menu_com.actions() if "RTE / SchM 工作台" in a.text()]
+    assert com_actions == []
+
+    monkeypatch.setattr(ProjectController, "_auto_load_last_project", lambda self: None)
+    monkeypatch.setattr(ProjectController, "_load_last_session", lambda self: None)
+    monkeypatch.setattr(QMessageBox, "question", lambda *_a, **_kw: QMessageBox.Discard)
+
+    win = DaVinciMainWindow()
+    qtbot.addWidget(win)
+    win.current_project = project
+    win._update_mode_actions()
+
+    with patch("autosar_configurator.ui.dialogs.rte_schm_workbench.RteSchmWorkbench") as mock_cls:
+        dlg = mock_cls.return_value
+        dlg.exec.return_value = 0
+        win.tree_view.open_rte_workbench_requested.emit()
+    assert mock_cls.called
+
+    manual = UserManualDialog()
+    qtbot.addWidget(manual)
+    manual_text = manual.browser.toPlainText()
+    assert "RTE / SchM" in manual_text
+    assert "使用说明 (?)" in manual_text
