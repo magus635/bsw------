@@ -288,9 +288,9 @@ class ImpactProblemsController:
             pass
 
     def _on_problem_activated(self, msg):
-        """Route ``RteSchmRule`` and ``CommunicationRule`` findings straight into the matching workbench tab."""
+        """Route workbench validation findings straight into the matching workbench tab."""
         rule_name = getattr(msg, "rule_name", None)
-        if rule_name not in ("RteSchmRule", "CommunicationRule"):
+        if rule_name not in ("RteSchmRule", "CommunicationRule", "SystemServicesRule"):
             return
         import re
 
@@ -303,3 +303,5 @@ class ImpactProblemsController:
             self.win._launch_rte_schm_workbench(initial_tab=tab_idx)
         elif rule_name == "CommunicationRule" and hasattr(self.win, "_launch_communication_workbench"):
             self.win._launch_communication_workbench(initial_tab=tab_idx)
+        elif rule_name == "SystemServicesRule" and hasattr(self.win, "_launch_system_services_workbench"):
+            self.win._launch_system_services_workbench(initial_tab=tab_idx)

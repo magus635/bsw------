@@ -199,6 +199,7 @@ class DaVinciMainWindow(QMainWindow):
         self.home_dashboard.add_or_integrate_module_requested.connect(self._add_or_integrate_from_home)
         self.home_dashboard.communication_workbench_requested.connect(self._launch_communication_workbench)
         self.home_dashboard.rte_workbench_requested.connect(self._launch_rte_schm_workbench)
+        self.home_dashboard.system_services_workbench_requested.connect(self._launch_system_services_workbench)
         self.home_dashboard.memmap_requested.connect(self._launch_memory_map)
         self.home_dashboard.hw_mapping_requested.connect(self.wizard_controller.launch_hardware_mapping_wizard)
         self.home_dashboard.chip_designer_requested.connect(self._launch_chip_definition_designer)
@@ -240,6 +241,7 @@ class DaVinciMainWindow(QMainWindow):
         self.tree_view.change_module_config_variant_requested.connect(self._on_tree_module_config_variant_requested)
         self.tree_view.open_communication_workbench_requested.connect(self._launch_communication_workbench)
         self.tree_view.open_rte_workbench_requested.connect(self._launch_rte_schm_workbench)
+        self.tree_view.open_system_services_workbench_requested.connect(self._launch_system_services_workbench)
         splitter.addWidget(self.tree_view)
         
         # Right: Config panel
@@ -453,6 +455,13 @@ class DaVinciMainWindow(QMainWindow):
         self.rte_workbench_action.setEnabled(False)
         self.rte_workbench_action.triggered.connect(self._launch_rte_schm_workbench)
 
+        self.system_services_workbench_action = QAction("系统服务与诊断工作台...", self)
+        self.system_services_workbench_action.setStatusTip(
+            "统一查看与配置 EcuM、BswM、Os、Dcm/CanTp 诊断链及 Det/CDD 扩展模块"
+        )
+        self.system_services_workbench_action.setEnabled(False)
+        self.system_services_workbench_action.triggered.connect(self._launch_system_services_workbench)
+
         # View actions
         self.toggle_nav_bar_action = QAction("Navigation Bar", self)
         self.toggle_nav_bar_action.setCheckable(True)
@@ -571,6 +580,7 @@ class DaVinciMainWindow(QMainWindow):
         tools_menu.addAction(self.memmap_action)
         tools_menu.addAction(self.communication_workbench_action)
         tools_menu.addAction(self.rte_workbench_action)
+        tools_menu.addAction(self.system_services_workbench_action)
         tools_menu.addAction(self.hardware_mapping_action)
 
         # Help menu
@@ -1070,10 +1080,11 @@ class DaVinciMainWindow(QMainWindow):
         self.template_action.setEnabled(has_config)
         self.import_config_action.setEnabled(has_config)
         self.load_rules_action.setEnabled(has_config)
-        # Hardware mapping, Communication and RTE/SchM workbenches need a project
+        # Hardware mapping, Communication, RTE/SchM and System Services workbenches need a project
         self.hardware_mapping_action.setEnabled(is_project_mode)
         self.communication_workbench_action.setEnabled(is_project_mode)
         self.rte_workbench_action.setEnabled(is_project_mode)
+        self.system_services_workbench_action.setEnabled(is_project_mode)
 
         self._sync_nav_bar_states()
 
@@ -1099,6 +1110,7 @@ class DaVinciMainWindow(QMainWindow):
         has_config = is_project_mode or (self.config_manager is not None)
         self.nav_bar.set_item_enabled("communication", is_project_mode)
         self.nav_bar.set_item_enabled("rte_workbench", is_project_mode)
+        self.nav_bar.set_item_enabled("system_services", is_project_mode)
         self.nav_bar.set_item_enabled("memmap", is_project_mode)
         self.nav_bar.set_item_enabled("hw_mapping", is_project_mode)
         self.nav_bar.set_item_enabled("settings", is_project_mode)
@@ -1135,6 +1147,7 @@ class DaVinciMainWindow(QMainWindow):
         dispatch = {
             "communication": self._launch_communication_workbench,
             "rte_workbench": self._launch_rte_schm_workbench,
+            "system_services": self._launch_system_services_workbench,
             "memmap": self._launch_memory_map,
             "hw_mapping": self.wizard_controller.launch_hardware_mapping_wizard,
             "validate": self.validation_controller.validate_configuration,
@@ -1334,6 +1347,88 @@ class DaVinciMainWindow(QMainWindow):
             self._refresh_config_views()
         if hasattr(self, "statusbar") and self.statusbar is not None:
             self.statusbar.showMessage("通信配置已更新", 3000)
+
+    def _launch_system_services_workbench(self, _checked: bool = False, *, initial_tab: Optional[int] = None):
+        """Open the 5-tab System Services & Diagnostics Workbench."""
+        if not self.current_project:
+            QMessageBox.information(self, "系统服务与诊断工作台", "请先打开一个项目。")
+            return
+
+        from ..core.services import SystemServicesWorkbenchService
+        from .commands import ReplaceMultipleModulesCommand
+        from .dialogs.system_services_workbench import SystemServicesWorkbench
+
+        svc = SystemServicesWorkbenchService(self.current_project)
+        if not svc.has_service_modules():
+            msg = QMessageBox(self)
+            msg.setWindowTitle("未检测到系统服务或诊断模块")
+            msg.setIcon(QMessageBox.Question)
+            msg.setText(
+                "当前项目尚未加载主要系统服务与诊断模块（EcuM / BswM / Os / Dcm / CanTp / Det）。"
+            )
+            msg.setInformativeText("您可以先集成或添加模块，也可以直接打开工作台查看已加载的扩展/平台模块。")
+            btn_add = msg.addButton("添加 / 集成模块...", QMessageBox.AcceptRole)
+            btn_open = msg.addButton("直接打开工作台", QMessageBox.ActionRole)
+            btn_cancel = msg.addButton("取消", QMessageBox.RejectRole)
+            msg.exec()
+            clicked = msg.clickedButton()
+            if clicked is btn_cancel or clicked is None:
+                return
+            if clicked is btn_add:
+                self._add_or_integrate_from_home()
+                if not SystemServicesWorkbenchService(self.current_project).loaded_service_modules():
+                    return
+            elif clicked is not btn_open:
+                return
+
+        dialog = SystemServicesWorkbench(self.current_project, parent=self)
+        if initial_tab is not None and hasattr(dialog, "select_tab"):
+            dialog.select_tab(initial_tab)
+        if hasattr(dialog, "navigate_to_path_requested") and hasattr(self, "nav_controller"):
+            dialog.navigate_to_path_requested.connect(self.nav_controller._on_reference_jump_requested)
+
+        if dialog.exec() == QDialog.Accepted and getattr(dialog, "has_edits", False):
+            after_snapshots = dialog.service.capture_snapshots()
+            initial_snapshots = getattr(dialog, "initial_snapshots", None)
+            if initial_snapshots is not None and after_snapshots is not None:
+                cmd = ReplaceMultipleModulesCommand(
+                    self.current_project,
+                    initial_snapshots,
+                    after_snapshots,
+                    text="编辑系统服务与诊断配置",
+                    on_applied=self._on_system_services_workbench_changed,
+                )
+                if hasattr(self, "undo_stack") and self.undo_stack is not None:
+                    self.undo_stack.push(cmd)
+                else:
+                    cmd.redo()
+            else:
+                self._on_system_services_workbench_changed()
+
+    def _on_system_services_workbench_changed(self):
+        """Synchronize dirty state, reference indexes, and views after System Services edits."""
+        from ..core.services import SYSTEM_SERVICE_MODULES
+
+        self._has_unsaved_changes = True
+        if hasattr(self, "save_project_action"):
+            self.save_project_action.setEnabled(True)
+        if hasattr(self, "current_project") and self.current_project is not None:
+            resolve_fn = getattr(self.current_project, "resolve_all_references", None)
+            if callable(resolve_fn):
+                resolve_fn(force=True)
+            build_fn = getattr(self.current_project, "build_reverse_reference_index", None)
+            if callable(build_fn):
+                build_fn()
+        panel = getattr(self, "config_panel", None)
+        cur_inst = getattr(panel, "current_instance", None) if panel is not None else None
+        if cur_inst is not None and getattr(cur_inst, "module_name", None) in set(SYSTEM_SERVICE_MODULES) and hasattr(panel, "clear"):
+            panel.clear()
+        if hasattr(self, "_update_window_title"):
+            self._update_window_title()
+        if hasattr(self, "_refresh_config_views"):
+            self._refresh_config_views()
+        if hasattr(self, "statusbar") and self.statusbar is not None:
+            self.statusbar.showMessage("系统服务与诊断配置已更新", 3000)
 
     def _launch_rte_schm_workbench(self, _checked: bool = False, *, initial_tab: Optional[int] = None):
         """Open the 4-tab RTE / SchM configuration and generation workbench."""

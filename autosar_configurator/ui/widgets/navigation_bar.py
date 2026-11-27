@@ -44,7 +44,7 @@ class NavRailButton(QToolButton):
 
         self.setObjectName(f"NavRailButton_{item_id}")
         self.setCheckable(checkable)
-        self.setFixedSize(84, 50)
+        self.setFixedSize(84, 46)
         self.setCursor(Qt.PointingHandCursor)
         if tooltip:
             self.setToolTip(tooltip)
@@ -167,6 +167,7 @@ class LeftNavigationBar(QFrame):
     WORKBENCH_ITEMS: Tuple[Tuple[str, str, str, str], ...] = (
         ("communication", "📡", "通信配置", "打开 5 页签 CAN 通信矩阵、PduR 路由与 DBC 一键派生工作台"),
         ("rte_workbench", "⚡", "RTE/SchM", "打开 6 页签 RTE / SchM / 数据映射 / 服务连接与代码生成工作台"),
+        ("system_services", "🛠️", "服务与诊断", "打开 5 页签 EcuM / BswM / Os / Dcm+CanTp / Det 与 CDD 系统服务工作台"),
         ("memmap", "🧭", "内存映射", "打开内存映射检查、布局与链接脚本工作台"),
         ("hw_mapping", "📌", "硬件映射", "打开硬件引脚/外设资源映射向导 (Ctrl+Shift+H)"),
     )

@@ -134,9 +134,16 @@ class ProblemsView(QWidget):
         if item is None:
             return
         msg = item.data(0, Qt.UserRole + 1)
-        if msg is not None and getattr(msg, "rule_name", None) == "RteSchmRule":
+        rule_name = getattr(msg, "rule_name", None) if msg is not None else None
+        action_labels = {
+            "RteSchmRule": "⚡ 在 RTE / SchM 工作台对应页签中打开...",
+            "CommunicationRule": "📡 在通信配置工作台对应页签中打开...",
+            "SystemServicesRule": "🛠️ 在系统服务与诊断工作台对应页签中打开...",
+        }
+        label = action_labels.get(rule_name)
+        if label:
             menu = QMenu(self)
-            act = menu.addAction("⚡ 在 RTE / SchM 工作台对应页签中打开...")
+            act = menu.addAction(label)
             act.triggered.connect(lambda: self.problem_activated.emit(msg))
             menu.exec(self.tree.viewport().mapToGlobal(pos))
 

@@ -43,6 +43,7 @@ USER_MANUAL_MD = """
 | 代码生成 | Ctrl+G | Cmd+G | `Generate -> Generate Code` |
 | 通信配置工作台 | - | - | `Tools -> 通信配置工作台...` / 左侧导航 `📡 通信配置` / 树右键通信模块 |
 | RTE / SchM 工作台 | - | - | `Generate -> RTE / SchM 工作台...` / `Tools -> RTE / SchM 工作台...` / 树右键 `Rte`（含 SchM、SWC 数据映射、服务端口与 `Rte.c` 多核生成） |
+| 系统服务与诊断工作台 | - | - | `Tools -> 系统服务与诊断工作台...` / 左侧导航 `🛠️ 服务与诊断` / 树右键 `EcuM`/`BswM`/`Os`/`Dcm`/`CanTp`/`Det`/CDD |
 | 跨模块依赖分析 | - | - | `Analysis -> 🔍 分析跨模块依赖...` |
 | 跨模块依赖验证 | - | - | `Analysis -> ✅ 验证跨模块依赖...` |
 | 依赖关系图 | Ctrl+D | Cmd+D | `View -> Dependency Graph` / `Analysis` |
@@ -155,6 +156,15 @@ USER_MANUAL_MD = """
 *   **3. Task 调度映射**：左侧展示含 `SWC (只读)` 上下文的 `OsTask` 执行顺序与周期汇总（混合周期标橙预警），右侧支持 `Ctrl`/`Shift` 多选批量映射与按周期智能推荐 `OsTask`。
 *   **4. 全局开关与生成预览**：明确区分“阶段 1 生效开关”与“ECUC 预留参数”，支持 C / Diff 语法高亮、`仅看差异 (Diff)` 对比、不重跑其余 BSW 的单独生成，以及一键跳转 **`在内存映射工作台中校验`** 形成 MemMap 校验闭环。
 *   **安全修改与全局验证**：内置 **`使用说明 (?)`** 完整指南；修改前校验 Format 8 `PreLockedError` 基线锁，支持随时 **`恢复打开前状态`** / **`取消`** 回滚，点击 **`确定`** 后推入主窗口撤销栈（可用 `Ctrl+Z` / `Cmd+Z` 整批撤销）；执行 **`Ctrl+Shift+V` 全局验证**时，`RteSchmRule` 会在 **Problems** 面板列出就绪度与阶段 3 调度告警并支持双击直达工作台对应页签。
+
+### 6.4 系统服务与诊断工作台 (EcuM / BswM / Os / Dcm+CanTp / Det+CDD)
+通过 `Tools -> 系统服务与诊断工作台...`、左侧导航栏 **`🛠️ 服务与诊断`** 或在模块树右键 `EcuM`/`BswM`/`Os`/`Dcm`/`CanTp`/`Det`/CDD 模块打开 5 页签专用工作台：
+*   **1. EcuM 启动与休眠**：维护 `EcuMDriverInitListZero..Three` 初始化顺序（上移/下移/新增/删除与模块加载状态检查）、唤醒源 (`EcuMWakeupSource`)、复位模式与关闭原因。
+*   **2. BswM 规则与模式**：管理 `BswMGeneral` 使能开关，递归解码 `BswMRule -> BswMLogicalExpression -> BswMModeCondition` 逻辑表达式树（带循环引用检测），并排序编辑 `BswMActionList` 与 `ModeRequestPort`。
+*   **3. Os 多核与调度资源**：展示 `OsOS` 全局开关与每核系统应用/分区/总栈预算，支持在子页签直接调整 `OsTask`、`OsIsr`、`OsScheduleTable` 及查看 `Counter/Alarm/Resource/Spinlock/IOC`。
+*   **4. Dcm 与 CanTp 诊断**：串联展示 `CanIf CAN ID ↔ CanTp NSdu/FC ↔ PduR TP ↔ Dcm Protocol` 诊断全链路，支持调整 `CanTp BS/STmin/Padding`、`DcmDslBufferSize`，并管理 `UDS 服务表 (DcmDsdService)` 与诊断会话。
+*   **5. Det / CDD 与平台服务**：集中批量切换工程全部模块的 `*DevErrorDetect` 开关，并汇总 CDD 与 `vBRS` / `vBaseEnv` / `vSet` / `VX1000` / `Crc` 扩展模块，一键注册到 `EcuMDriverInitListOne`。
+*   **撤销与全局验证**：支持 `恢复打开前状态`/`取消` 多模块回滚与 `ReplaceMultipleModulesCommand` 整批撤销；`SystemServicesRule` 在 `Ctrl+Shift+V` 验证后支持从 Problems 面板直达对应页签。
 
 ---
 

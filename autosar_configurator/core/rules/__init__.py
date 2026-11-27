@@ -38,6 +38,10 @@ from .communication_rules import (
     CommunicationValidationRule,
 )
 
+from .system_services_rules import (
+    SystemServicesValidationRule,
+)
+
 __all__ = [
     'TypeValidationRule',
     'RangeValidationRule',
@@ -51,5 +55,6 @@ __all__ = [
     'DependencyRule',
     'RteSchmValidationRule',
     'CommunicationValidationRule',
+    'SystemServicesValidationRule',
 ]
 

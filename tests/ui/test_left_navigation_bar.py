@@ -36,7 +36,17 @@ def test_startup_defaults_to_home_and_recent_files_render(qtbot, tmp_path, monke
         # Project-scoped rail buttons disabled initially; Home / Basic Editor / Help enabled
         for pid in ("home", "basic_editor", "help"):
             assert win.nav_bar.buttons[pid].isEnabled() is True
-        for aid in ("communication", "rte_workbench", "memmap", "hw_mapping", "settings", "validate", "dep_graph", "generate"):
+        for aid in (
+            "communication",
+            "rte_workbench",
+            "system_services",
+            "memmap",
+            "hw_mapping",
+            "settings",
+            "validate",
+            "dep_graph",
+            "generate",
+        ):
             assert win.nav_bar.buttons[aid].isEnabled() is False
 
         # View -> Navigation Bar toggles rail visibility cleanly
@@ -77,7 +87,17 @@ def test_loading_project_switches_to_basic_editor_and_home_cards_navigate(qtbot,
     # A1: opening a project switches automatically to Basic Editor and enables rail tools
     assert win.workspace_stack.currentWidget() is win.basic_editor_page
     assert win.nav_bar.active_page() == "basic_editor"
-    for aid in ("communication", "rte_workbench", "memmap", "hw_mapping", "validate", "dep_graph", "generate", "settings"):
+    for aid in (
+        "communication",
+        "rte_workbench",
+        "system_services",
+        "memmap",
+        "hw_mapping",
+        "validate",
+        "dep_graph",
+        "generate",
+        "settings",
+    ):
         assert win.nav_bar.buttons[aid].isEnabled() is True
 
     # Switching manually to Home stays on Home across repeated _update_mode_actions calls on same project
@@ -117,6 +137,10 @@ def test_nav_bar_actions_validation_badge_and_search_problem_switch(qtbot, tmp_p
     with patch.object(win, "_launch_rte_schm_workbench") as rte_launch:
         win.nav_bar.buttons["rte_workbench"].click()
         assert rte_launch.called
+
+    with patch.object(win, "_launch_system_services_workbench") as sys_launch:
+        win.nav_bar.buttons["system_services"].click()
+        assert sys_launch.called
 
     with patch.object(win, "_launch_memory_map") as mem_launch:
         win.nav_bar.buttons["memmap"].click()

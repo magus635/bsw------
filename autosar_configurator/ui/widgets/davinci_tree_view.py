@@ -35,8 +35,9 @@ class DaVinciTreeView(QTreeWidget):
     move_instance_requested = Signal(EcucContainerValue, object, int)  # instance, new_parent, new_index
     rename_instance_requested = Signal(EcucContainerValue, str)  # instance, new_name
     view_references_requested = Signal(EcucContainerValue)  # instance - show who references this container
-    open_rte_workbench_requested = Signal()  # open 4-tab RTE / SchM Workbench for Rte module
+    open_rte_workbench_requested = Signal()  # open 6-tab RTE / SchM Workbench for Rte module
     open_communication_workbench_requested = Signal()  # open 5-tab Communication Workbench for COMM modules
+    open_system_services_workbench_requested = Signal()  # open 5-tab System Services & Diagnostics Workbench
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1041,6 +1042,16 @@ class DaVinciTreeView(QTreeWidget):
         ):
             comm_wb_action = menu.addAction("📡 打开通信配置工作台...")
             comm_wb_action.triggered.connect(lambda: self.open_communication_workbench_requested.emit())
+            if module_name == "CanTp":
+                sys_wb_action = menu.addAction("🛠️ 打开系统服务与诊断工作台...")
+                sys_wb_action.triggered.connect(lambda: self.open_system_services_workbench_requested.emit())
+            menu.addSeparator()
+        elif (
+            module_name in {"EcuM", "BswM", "Os", "Dcm", "Det", "Crc", "VX1000", "vBRS", "vBaseEnv", "vSet"}
+            or module_name.lower().startswith("cdd")
+        ) and self.project is not None:
+            sys_wb_action = menu.addAction("🛠️ 打开系统服务与诊断工作台...")
+            sys_wb_action.triggered.connect(lambda: self.open_system_services_workbench_requested.emit())
             menu.addSeparator()
 
         mgr = None

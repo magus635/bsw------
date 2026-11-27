@@ -51,6 +51,7 @@ class HomeDashboardWidget(QScrollArea):
     add_or_integrate_module_requested = Signal()
     communication_workbench_requested = Signal()
     rte_workbench_requested = Signal()
+    system_services_workbench_requested = Signal()
     memmap_requested = Signal()
     hw_mapping_requested = Signal()
     chip_designer_requested = Signal()
@@ -249,6 +250,7 @@ class HomeDashboardWidget(QScrollArea):
         tools_row.setSpacing(10)
         self.tool_comm_btn = QPushButton("📡 通信配置工作台")
         self.tool_rte_btn = QPushButton("⚡ RTE / SchM 工作台")
+        self.tool_sys_btn = QPushButton("🛠️ 服务与诊断工作台")
         self.tool_memmap_btn = QPushButton("🧭 内存映射工作台")
         self.tool_hw_btn = QPushButton("📌 硬件映射向导")
         self.tool_chip_btn = QPushButton("🔧 芯片定义设计器")
@@ -256,6 +258,7 @@ class HomeDashboardWidget(QScrollArea):
         for btn in (
             self.tool_comm_btn,
             self.tool_rte_btn,
+            self.tool_sys_btn,
             self.tool_memmap_btn,
             self.tool_hw_btn,
             self.tool_chip_btn,
@@ -268,6 +271,7 @@ class HomeDashboardWidget(QScrollArea):
 
         self.tool_comm_btn.clicked.connect(self.communication_workbench_requested.emit)
         self.tool_rte_btn.clicked.connect(self.rte_workbench_requested.emit)
+        self.tool_sys_btn.clicked.connect(self.system_services_workbench_requested.emit)
         self.tool_memmap_btn.clicked.connect(self.memmap_requested.emit)
         self.tool_hw_btn.clicked.connect(self.hw_mapping_requested.emit)
         self.tool_chip_btn.clicked.connect(self.chip_designer_requested.emit)
