@@ -741,3 +741,107 @@ def render_rte_osapp_c(model: RteProjectModel, os_app: str) -> str:
         lines.extend(_render_task_function(task))
 
     return "\n".join(lines)
+
+
+def render_rte_compiler_cfg_h(model: RteProjectModel) -> str:
+    """Render ``Rte_Compiler_Cfg.h`` with standard RTE and per-SWC memory class macros."""
+    lines: List[str] = [
+        "#ifndef RTE_COMPILER_CFG_H",
+        "# define RTE_COMPILER_CFG_H",
+        "",
+        "/* Global RTE memory classes */",
+        "# define RTE_CODE",
+        "# define RTE_VAR_NOINIT",
+        "# define RTE_VAR_ZERO_INIT",
+        "# define RTE_VAR_INIT",
+        "# define RTE_CONST",
+        "# define RTE_APPL_DATA",
+        "# define RTE_APPL_VAR",
+        "# define RTE_APPL_CODE",
+        "# define RTE_INSTANCECONSTP2CONST CONSTP2CONST",
+        "# define RTE_VAR_NOINIT_NOCACHE",
+        "# define RTE_VAR_ZERO_INIT_NOCACHE",
+        "# define RTE_VAR_INIT_NOCACHE",
+        "",
+    ]
+    seen_types: List[str] = []
+    for swc in model.swc_components:
+        if swc.swc_type_name not in seen_types:
+            seen_types.append(swc.swc_type_name)
+    for swc_name in sorted(seen_types):
+        upper = _guard_ident(swc_name).upper()
+        lines.extend([
+            f"/* Memory classes for {swc_name} */",
+            f"# define RTE_{upper}_APPL_VAR",
+            f"# define RTE_{upper}_APPL_DATA",
+            f"# define RTE_{upper}_APPL_CODE",
+            f"# define RTE_{upper}_APPL_CONST",
+            f"# define {swc_name}_CODE",
+            f"# define {swc_name}_CONST",
+            f"# define {swc_name}_VAR_NOINIT",
+            f"# define {swc_name}_VAR_INIT",
+            f"# define {swc_name}_VAR_ZERO_INIT",
+            "",
+        ])
+    lines.extend(["#endif /* RTE_COMPILER_CFG_H */", ""])
+    return "\n".join(lines)
+
+
+def render_rte_hook_h(model: RteProjectModel) -> str:
+    """Render ``Rte_Hook.h`` VFB tracing hook header."""
+    _ = model
+    lines = [
+        "#ifndef RTE_HOOK_H",
+        "# define RTE_HOOK_H",
+        "",
+        '# include "Os.h"',
+        '# include "Rte_Type.h"',
+        '# include "Rte_Cfg.h"',
+        "",
+        "# ifndef RTE_VFB_TRACE",
+        "#  define RTE_VFB_TRACE (0)",
+        "# endif",
+        "",
+        "#endif /* RTE_HOOK_H */",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def render_swc_memmap_h(swc: SwcComponentModel) -> str:
+    """Render ``Components/<Swc>_MemMap.h`` forwarding SWC sections to ``MemMap.h``."""
+    prefix = swc.swc_type_name
+    app = (swc.os_application or "").strip()
+    var_noinit = f"OS_START_SEC_{app}_VAR_NOINIT_UNSPECIFIED" if app else "START_SEC_VAR_NOINIT_UNSPECIFIED"
+    var_noinit_stop = f"OS_STOP_SEC_{app}_VAR_NOINIT_UNSPECIFIED" if app else "STOP_SEC_VAR_NOINIT_UNSPECIFIED"
+    var_init = f"OS_START_SEC_{app}_VAR_UNSPECIFIED" if app else "START_SEC_VAR_INIT_UNSPECIFIED"
+    var_init_stop = f"OS_STOP_SEC_{app}_VAR_UNSPECIFIED" if app else "STOP_SEC_VAR_INIT_UNSPECIFIED"
+    var_zero = f"OS_START_SEC_{app}_VAR_ZERO_INIT_UNSPECIFIED" if app else "START_SEC_VAR_ZERO_INIT_UNSPECIFIED"
+    var_zero_stop = f"OS_STOP_SEC_{app}_VAR_ZERO_INIT_UNSPECIFIED" if app else "STOP_SEC_VAR_ZERO_INIT_UNSPECIFIED"
+
+    sections = [
+        (f"{prefix}_START_SEC_CODE", "START_SEC_CODE"),
+        (f"{prefix}_STOP_SEC_CODE", "STOP_SEC_CODE"),
+        (f"{prefix}_START_SEC_CONST_UNSPECIFIED", "START_SEC_CONST_UNSPECIFIED"),
+        (f"{prefix}_STOP_SEC_CONST_UNSPECIFIED", "STOP_SEC_CONST_UNSPECIFIED"),
+        (f"{prefix}_START_SEC_VAR_NOINIT_UNSPECIFIED", var_noinit),
+        (f"{prefix}_STOP_SEC_VAR_NOINIT_UNSPECIFIED", var_noinit_stop),
+        (f"{prefix}_START_SEC_VAR_INIT_UNSPECIFIED", var_init),
+        (f"{prefix}_STOP_SEC_VAR_INIT_UNSPECIFIED", var_init_stop),
+        (f"{prefix}_START_SEC_VAR_ZERO_INIT_UNSPECIFIED", var_zero),
+        (f"{prefix}_STOP_SEC_VAR_ZERO_INIT_UNSPECIFIED", var_zero_stop),
+    ]
+    lines: List[str] = [
+        f"/* Memory Mapping header file for SW-C <{prefix}> */",
+        "",
+    ]
+    for swc_macro, target_macro in sections:
+        lines.extend([
+            f"#ifdef {swc_macro}",
+            f"# undef {swc_macro}",
+            f"# define {target_macro}",
+            '# include "MemMap.h"',
+            "#endif",
+            "",
+        ])
+    return "\n".join(lines)

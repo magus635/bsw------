@@ -20,10 +20,13 @@ from .renderers import (
 from .renderers_phase23 import (
     _merge_swc_models,
     render_rte_c,
+    render_rte_compiler_cfg_h,
     render_rte_data_handle_type_h,
+    render_rte_hook_h,
     render_rte_osapp_c,
     render_rte_type_h_full,
     render_swc_h,
+    render_swc_memmap_h,
     render_swc_type_h,
 )
 
@@ -305,6 +308,10 @@ class RteSchMGenerator:
             outputs[f"SchM_{bsw_mod.api_name}.h"] = render_schm_h(bsw_mod)
             outputs[f"SchM_{bsw_mod.api_name}_Type.h"] = render_schm_type_h(bsw_mod)
 
+        if include_phase2_3:
+            outputs["Rte_Compiler_Cfg.h"] = render_rte_compiler_cfg_h(model)
+            outputs["Rte_Hook.h"] = render_rte_hook_h(model)
+
         if include_phase2_3 and (model.swc_components or model.rte_type_defs):
             outputs["Rte_DataHandleType.h"] = render_rte_data_handle_type_h(model)
             by_type: Dict[str, List[Any]] = {}
@@ -314,6 +321,7 @@ class RteSchMGenerator:
                 merged = _merge_swc_models(group)
                 outputs[f"Components/Rte_{swc_type_name}_Type.h"] = render_swc_type_h(merged)
                 outputs[f"Components/Rte_{swc_type_name}.h"] = render_swc_h(merged)
+                outputs[f"Components/{swc_type_name}_MemMap.h"] = render_swc_memmap_h(merged)
 
         return outputs
 

@@ -34,10 +34,13 @@ from .model import (
 )
 from .renderers_phase23 import (
     render_rte_c,
+    render_rte_compiler_cfg_h,
     render_rte_data_handle_type_h,
+    render_rte_hook_h,
     render_rte_osapp_c,
     render_rte_type_h_full,
     render_swc_h,
+    render_swc_memmap_h,
     render_swc_type_h,
 )
 from .swc_parser import (
@@ -133,10 +136,13 @@ __all__ = [
     "format_period_label",
     "has_project_overlay_templates",
     "render_rte_c",
+    "render_rte_compiler_cfg_h",
     "render_rte_data_handle_type_h",
+    "render_rte_hook_h",
     "render_rte_osapp_c",
     "render_rte_type_h_full",
     "render_swc_h",
+    "render_swc_memmap_h",
     "render_swc_type_h",
     "restore_rte_config",
     "run_rte_schm_pipeline",

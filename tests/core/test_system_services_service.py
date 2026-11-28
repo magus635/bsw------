@@ -9,15 +9,25 @@ from autosar_configurator.core.model.configuration_model import (
     EcucContainerValue,
     EcucModuleConfiguration,
 )
-from autosar_configurator.core.model.definition_model import (
-    EcucModuleDef,
-    EcucParameterDef,
-    EcucParameterType,
-)
+from autosar_configurator.core.model.definition_model import EcucModuleDef
 from autosar_configurator.core.rules.system_services_rules import SystemServicesValidationRule
 from autosar_configurator.core.services import SystemServicesWorkbenchService
 from autosar_configurator.core.validation_engine import ValidationEngine, ValidationSeverity
 from autosar_configurator.core.workspace_manager import WorkspaceManager
+
+
+def _walk_all(cfg):
+    out = []
+
+    def _w(c):
+        out.append(c)
+        for s in c.sub_containers:
+            _w(s)
+
+    for top in cfg.containers:
+        _w(top)
+    return out
+
 
 
 def _c(parent, short_name: str, def_ref: str) -> EcucContainerValue:
@@ -450,7 +460,7 @@ def build_synthetic_services_project(tmp_path: Path):
     return project, mods
 
 
-def test_ecum_summary_init_order_crud_wakeup_and_prelock(tmp_path):
+def test_ecum_summary_init_order_crud_wakeup_and_prelock(tmp_path, monkeypatch):
     project, mods = build_synthetic_services_project(tmp_path)
     svc = SystemServicesWorkbenchService(project)
 
@@ -480,18 +490,14 @@ def test_ecum_summary_init_order_crud_wakeup_and_prelock(tmp_path):
     assert ws0.validation_timeout == pytest.approx(0.25)
     assert len(svc.list_ecum_reset_and_causes()) == 2
 
-    # Pre-compile baseline lock blocks updates
-    ecum_mgr = project.module_managers["EcuM"]
-    ecum_gen = next(c for c in mods["EcuM"].containers if c.short_name == "EcuMGeneral")
-    ecum_mgr.lock_baseline_containers(ecum_cfg=mods["EcuM"]) if hasattr(ecum_mgr, "lock_baseline_containers") else None
-    project.ecu_locked_paths = set()
-    # Mark container PreLocked via baseline_locked_paths if supported or config_variant
-    mods["EcuM"].implementation_config_variant = "VARIANT-PRE-COMPILE"
-    ecum_gen.is_baseline_locked = True
-    pdef = EcucParameterDef("EcuMDevErrorDetect", param_type=EcucParameterType.BOOLEAN)
-    ecum_mgr.baseline_locked_params.add(f"{ecum_gen.get_path()}.EcuMDevErrorDetect") if hasattr(ecum_mgr, "baseline_locked_params") else None
-    if hasattr(ecum_mgr, "_locked_container_paths"):
-        ecum_mgr._locked_container_paths.add(ecum_gen.get_path())
+    # Pre-compile baseline lock blocks updates (PreLockedError propagates, nothing is written)
+    def _locked(*_a, **_k):
+        raise PreLockedError("EcuM locked")
+
+    monkeypatch.setattr(project.module_managers["EcuM"], "check_editable", _locked)
+    with pytest.raises(PreLockedError):
+        svc.update_ecum_general(dev_error_detect=False)
+    assert svc.get_ecum_summary().dev_error_detect is True
 
 
 def test_bswm_rule_expression_decode_cycle_guard_and_action_order(tmp_path):
@@ -650,11 +656,11 @@ def test_diagnostics_all_codes_empty_stub_safety_and_validation_rule_anchor(tmp_
     _r(bad_alm, "OsAlarmCounterRef", "/ActiveEcuC/Os/MissingCounter")
 
     # Dcm/CanTp: broken dcm ref, invalid buffer, duplicate SID, broken tp chain
-    prow = next(c for c in mods["Dcm"].containers[0].sub_containers[2].sub_containers[0].sub_containers if c.short_name == "DcmDslProtocolRow_UDS")
+    prow = next(c for c in _walk_all(mods["Dcm"]) if c.short_name == "DcmDslProtocolRow_UDS")
     _r(prow, "DcmDslProtocolSIDTable", "/ActiveEcuC/Dcm/MissingTbl")
     svc.update_dcm_buffer("DcmDslBuffer", 0)
     svc.add_dcm_service("DcmDsdServiceTable", "Dup_0x10", 0x10)
-    rx_nsdu = mods["CanTp"].containers[1].sub_containers[0].sub_containers[0]
+    rx_nsdu = next(c for c in _walk_all(mods["CanTp"]) if c.short_name == "CanTpRxNSdu_Phys")
     _r(rx_nsdu, "CanTpRxNSduRef", "/ActiveEcuC/EcuC/EcucPduCollection/UnlinkedPdu")
 
     # Det: disabled while others enabled
